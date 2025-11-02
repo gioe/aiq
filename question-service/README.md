@@ -36,7 +36,14 @@ This service employs multiple Large Language Models to generate diverse question
 
 ## Tech Stack
 
-(To be determined)
+- **Language**: Python 3.10+
+- **Database**: PostgreSQL 14+ (shared with backend)
+- **ORM**: SQLAlchemy
+- **LLM Providers**:
+  - OpenAI (GPT-4, GPT-4-turbo)
+  - Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
+  - Google (Gemini Pro)
+- **Execution**: Scheduled job (cron/cloud scheduler)
 
 ## Process Flow
 
@@ -49,7 +56,42 @@ This service employs multiple Large Language Models to generate diverse question
 
 ## Setup
 
-(To be added once tech stack is chosen)
+### Prerequisites
+
+- Python 3.10 or higher
+- PostgreSQL 14 or higher (shared with backend)
+- API keys for LLM providers (OpenAI, Anthropic, Google)
+
+### 1. Database Setup
+
+This service uses the same PostgreSQL database as the backend. Follow the database setup instructions in the [backend README](../backend/README.md#1-database-setup).
+
+### 2. Environment Configuration
+
+Copy the example environment file and configure it:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and update the following values:
+- `DATABASE_URL`: Same as backend (points to `iq_tracker_dev`)
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `ANTHROPIC_API_KEY`: Your Anthropic API key
+- `GOOGLE_API_KEY`: Your Google API key
+- Configure generation settings as needed
+
+### 3. Python Environment
+
+(To be added in Phase 1 - P1-008)
+
+### 4. Arbiter Configuration
+
+(To be added in Phase 6 - P6-004)
+
+### 5. Run Question Generation
+
+(To be added in Phase 6)
 
 ## Configuration
 
