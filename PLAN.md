@@ -954,16 +954,19 @@ When new tasks are identified:
   - Create from latest `main`
 
 **Workflow:**
-1. Start work on a task (e.g., P2-003)
-2. Create feature branch: `git checkout -b feature/P2-003-jwt-auth`
-3. Make multiple commits as needed (atomic, logical commits)
-4. Push branch to GitHub
-5. Create Pull Request
-6. PR gets reviewed on GitHub (async)
-7. Address feedback if needed
-8. Merge to `main` after approval
-9. Update PLAN.md to check off task: `- [x] P2-003`
-10. Delete feature branch
+1. **ALWAYS start by pulling latest main:** `git checkout main && git pull origin main`
+2. Start work on a task (e.g., P2-003)
+3. Create feature branch from updated main: `git checkout -b feature/P2-003-jwt-auth`
+4. Make multiple commits as needed (atomic, logical commits)
+5. Push branch to GitHub
+6. Create Pull Request
+7. PR gets reviewed on GitHub (async)
+8. Address feedback if needed
+9. Merge to `main` after approval
+10. Update PLAN.md to check off task: `- [x] P2-003`
+11. Delete feature branch
+
+**IMPORTANT:** Always ensure you've pulled the latest changes from main before creating a new feature branch. This prevents merge conflicts from working on outdated code.
 
 **Multiple commits per task:** Encouraged! Break work into logical, atomic commits within a feature branch.
 
