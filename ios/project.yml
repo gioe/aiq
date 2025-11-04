@@ -1,0 +1,29 @@
+name: IQTracker
+options:
+  bundleIdPrefix: com.iqtracker
+  deploymentTarget:
+    iOS: 16.0
+  developmentLanguage: en
+
+settings:
+  SWIFT_VERSION: 5.9
+  IPHONEOS_DEPLOYMENT_TARGET: 16.0
+  TARGETED_DEVICE_FAMILY: 1  # iPhone only
+  ENABLE_PREVIEWS: YES
+
+targets:
+  IQTracker:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - IQTracker
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.iqtracker.app
+      INFOPLIST_FILE: IQTracker/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      SWIFT_EMIT_LOC_STRINGS: YES
+      ENABLE_PREVIEWS: YES
+    dependencies:
+      - sdk: SwiftUI.framework
