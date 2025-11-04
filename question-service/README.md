@@ -83,7 +83,31 @@ Edit `.env` and update the following values:
 
 ### 3. Python Environment
 
-(To be added in Phase 1 - P1-008)
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+# Navigate to question-service directory
+cd question-service
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# macOS/Linux:
+source venv/bin/activate
+# Windows:
+# venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Verify installation:**
+```bash
+python -c "import openai; import anthropic; import sqlalchemy; print('Dependencies installed successfully')"
+```
+
+**Note**: You'll need valid API keys in your `.env` file to actually use the LLM providers.
 
 ### 4. Arbiter Configuration
 
@@ -93,9 +117,49 @@ Edit `.env` and update the following values:
 
 (To be added in Phase 6)
 
+## Development
+
+### Code Quality
+
+This project uses automated code quality tools:
+- **black**: Code formatting
+- **flake8**: Linting
+- **mypy**: Static type checking
+
+Run all checks:
+```bash
+black . --check
+flake8 .
+mypy .
+```
+
+Auto-format code:
+```bash
+black .
+```
+
+### Testing
+
+```bash
+# Make sure venv is activated
+pytest
+```
+
+### Project Structure
+
+```
+question-service/
+├── venv/                 # Python virtual environment (gitignored)
+├── requirements.txt      # Python dependencies
+├── .env                 # Local environment variables (gitignored)
+└── .env.example         # Example environment file
+```
+
+**Note**: The actual question generation implementation will be added in Phase 6.
+
 ## Configuration
 
-(To be added)
+(To be added in Phase 6)
 
 ## Monitoring
 

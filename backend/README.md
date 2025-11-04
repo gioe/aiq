@@ -116,19 +116,150 @@ TEST_DATABASE_URL=postgresql://yourusername@localhost:5432/iq_tracker_test
 
 ### 3. Python Environment
 
-(To be added in Phase 1 - P1-006)
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# macOS/Linux:
+source venv/bin/activate
+# Windows:
+# venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Verify installation:**
+```bash
+python -c "import fastapi; import sqlalchemy; print('Dependencies installed successfully')"
+```
 
 ### 4. Run Migrations
 
-(To be added in Phase 1 - P1-005)
+Apply database migrations to create the schema:
+
+```bash
+# Make sure you're in the backend directory with venv activated
+alembic upgrade head
+```
+
+**Verify migrations:**
+```bash
+psql -U <your-username> -d iq_tracker_dev -c "\dt"
+```
+
+You should see the following tables:
+- users
+- questions
+- test_sessions
+- responses
+- test_results
+- user_questions
+- alembic_version
+
+**Create a new migration (when needed):**
+```bash
+alembic revision --autogenerate -m "Description of changes"
+```
 
 ### 5. Start Development Server
 
-(To be added in Phase 1 - P1-007)
+Run the FastAPI development server with auto-reload:
+
+```bash
+# Make sure you're in the backend directory with venv activated
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API will be available at:
+- **API Root**: http://localhost:8000/
+- **API Docs (Swagger)**: http://localhost:8000/v1/docs
+- **API Docs (ReDoc)**: http://localhost:8000/v1/redoc
+- **OpenAPI Schema**: http://localhost:8000/v1/openapi.json
+
+**Test the server:**
+```bash
+curl http://localhost:8000/
+```
+
+You should see:
+```json
+{
+  "message": "Welcome to IQ Tracker API",
+  "version": "0.1.0",
+  "docs": "/v1/docs"
+}
+```
 
 ## Development
 
-(To be added)
+### Running Tests
+
+```bash
+# Make sure venv is activated
+pytest
+```
+
+### Code Quality
+
+This project uses automated code quality tools:
+- **black**: Code formatting
+- **flake8**: Linting
+- **mypy**: Static type checking
+
+Run all checks:
+```bash
+black . --check
+flake8 .
+mypy app/
+```
+
+Auto-format code:
+```bash
+black .
+```
+
+### Common Development Tasks
+
+**Check database connection:**
+```bash
+python -c "from app.core.database import engine; print('Database connected:', engine.url)"
+```
+
+**Reset database (caution - deletes all data):**
+```bash
+alembic downgrade base
+alembic upgrade head
+```
+
+**View migration history:**
+```bash
+alembic history
+alembic current
+```
+
+### Project Structure
+
+```
+backend/
+├── app/
+│   ├── main.py           # FastAPI application entry point
+│   ├── api/              # API routes and endpoints
+│   ├── core/             # Core configuration and settings
+│   └── models/           # SQLAlchemy database models
+├── alembic/              # Database migrations
+│   └── versions/         # Migration scripts
+├── requirements.txt      # Python dependencies
+├── alembic.ini          # Alembic configuration
+├── .env                 # Local environment variables (gitignored)
+└── .env.example         # Example environment file
+```
 
 ## Deployment
 
