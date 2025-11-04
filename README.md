@@ -39,14 +39,27 @@ iq-tracker/
 
 ## Getting Started
 
-See individual component READMEs for setup instructions:
-- [iOS App Setup](ios/README.md)
-- [Backend Setup](backend/README.md)
-- [Question Service Setup](question-service/README.md)
+### Quick Start
+
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for a complete development environment setup guide.
+
+### Component-Specific Documentation
+
+For detailed component information, see individual READMEs:
+- [Backend API](backend/README.md) - FastAPI server, database, and migrations
+- [Question Service](question-service/README.md) - AI question generation service
+- [iOS App](ios/README.md) - SwiftUI iOS application
 
 ## Development
 
-(Development guidelines to be added)
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for:
+- Prerequisites and installation
+- Development workflow and git practices
+- Code quality standards
+- Testing procedures
+- Troubleshooting guide
+
+For project planning and task tracking, see **[PLAN.md](PLAN.md)**
 
 ## Deployment
 
