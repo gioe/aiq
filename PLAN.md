@@ -566,8 +566,8 @@ arbiters:
 **Goal:** Build essential backend API with authentication and question serving
 
 **Tasks:**
-- [ ] **P2-001**: Implement database models (SQLAlchemy ORM)
-- [ ] **P2-002**: Set up Alembic for database migrations
+- [x] **P2-001**: Implement database models (SQLAlchemy ORM)
+- [x] **P2-002**: Set up Alembic for database migrations
 - [ ] **P2-003**: Implement user authentication (JWT + Bcrypt)
 - [ ] **P2-004**: Build auth endpoints (register, login, refresh, logout)
 - [ ] **P2-005**: Implement user profile endpoints (GET, PUT)
