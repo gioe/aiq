@@ -1,0 +1,51 @@
+name: iOS CI
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+
+jobs:
+  lint-and-build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Install SwiftFormat
+        run: brew install swiftformat
+
+      - name: Run SwiftLint
+        run: |
+          cd ios
+          swiftlint lint --config .swiftlint.yml --strict
+
+      - name: Run SwiftFormat (lint mode)
+        run: |
+          cd ios
+          swiftformat --config .swiftformat --lint IQTracker/
+
+      - name: Build iOS project
+        run: |
+          cd ios
+          xcodebuild -project IQTracker.xcodeproj \
+            -scheme IQTracker \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            clean build \
+            CODE_SIGNING_ALLOWED=NO

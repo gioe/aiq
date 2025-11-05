@@ -1,0 +1,53 @@
+name: Question Service CI
+
+on:
+  pull_request:
+    paths:
+      - 'question-service/**'
+      - '.github/workflows/question-service-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'question-service/**'
+      - '.github/workflows/question-service-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: question-service/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd question-service
+          pip install -r requirements.txt
+
+      - name: Run Black formatting check
+        run: |
+          cd question-service
+          black . --check
+
+      - name: Run Flake8 linting
+        run: |
+          cd question-service
+          flake8 .
+
+      - name: Run MyPy type checking
+        run: |
+          cd question-service
+          mypy .
+
+      - name: Run tests
+        run: |
+          cd question-service
+          pytest -v
