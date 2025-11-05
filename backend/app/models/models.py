@@ -26,6 +26,7 @@ from .base import Base
 
 class QuestionType(str, enum.Enum):
     """Question type enumeration."""
+
     PATTERN = "pattern"
     LOGIC = "logic"
     SPATIAL = "spatial"
@@ -36,6 +37,7 @@ class QuestionType(str, enum.Enum):
 
 class DifficultyLevel(str, enum.Enum):
     """Difficulty level enumeration."""
+
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
@@ -43,6 +45,7 @@ class DifficultyLevel(str, enum.Enum):
 
 class TestStatus(str, enum.Enum):
     """Test session status enumeration."""
+
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     ABANDONED = "abandoned"
@@ -50,6 +53,7 @@ class TestStatus(str, enum.Enum):
 
 class User(Base):
     """User model for authentication and profile."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -63,14 +67,23 @@ class User(Base):
     apns_device_token = Column(String(255))
 
     # Relationships
-    test_sessions = relationship("TestSession", back_populates="user", cascade="all, delete-orphan")
-    responses = relationship("Response", back_populates="user", cascade="all, delete-orphan")
-    test_results = relationship("TestResult", back_populates="user", cascade="all, delete-orphan")
-    user_questions = relationship("UserQuestion", back_populates="user", cascade="all, delete-orphan")
+    test_sessions = relationship(
+        "TestSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    responses = relationship(
+        "Response", back_populates="user", cascade="all, delete-orphan"
+    )
+    test_results = relationship(
+        "TestResult", back_populates="user", cascade="all, delete-orphan"
+    )
+    user_questions = relationship(
+        "UserQuestion", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Question(Base):
     """Question model for IQ test questions."""
+
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -91,18 +104,21 @@ class Question(Base):
     user_questions = relationship("UserQuestion", back_populates="question")
 
     # Indexes
-    __table_args__ = (
-        Index("ix_questions_type", "question_type"),
-    )
+    __table_args__ = (Index("ix_questions_type", "question_type"),)
 
 
 class UserQuestion(Base):
     """Junction table tracking which questions each user has seen."""
+
     __tablename__ = "user_questions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    question_id = Column(
+        Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
+    )
     seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -118,28 +134,45 @@ class UserQuestion(Base):
 
 class TestSession(Base):
     """Test session model for tracking individual test attempts."""
+
     __tablename__ = "test_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime)
     status = Column(Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="test_sessions")
-    responses = relationship("Response", back_populates="test_session", cascade="all, delete-orphan")
-    test_result = relationship("TestResult", back_populates="test_session", uselist=False, cascade="all, delete-orphan")
+    responses = relationship(
+        "Response", back_populates="test_session", cascade="all, delete-orphan"
+    )
+    test_result = relationship(
+        "TestResult",
+        back_populates="test_session",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class Response(Base):
     """Response model for individual question answers."""
+
     __tablename__ = "responses"
 
     id = Column(Integer, primary_key=True, index=True)
-    test_session_id = Column(Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
+    test_session_id = Column(
+        Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    question_id = Column(
+        Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
+    )
     user_answer = Column(String(500), nullable=False)
     is_correct = Column(Boolean, nullable=False)
     answered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -152,11 +185,19 @@ class Response(Base):
 
 class TestResult(Base):
     """Test result model for aggregated test scores."""
+
     __tablename__ = "test_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    test_session_id = Column(Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), unique=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    test_session_id = Column(
+        Integer,
+        ForeignKey("test_sessions.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     iq_score = Column(Integer, nullable=False)
     total_questions = Column(Integer, nullable=False)
     correct_answers = Column(Integer, nullable=False)
