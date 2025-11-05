@@ -554,7 +554,7 @@ arbiters:
 - [x] **P1-010**: Configure development environment documentation
 - [x] **P1-011**: Set up pre-commit hooks for backend (black, flake8, mypy)
 - [x] **P1-012**: Set up pre-commit hooks for iOS (SwiftLint, SwiftFormat)
-- [ ] **P1-013**: Set up pre-commit hooks for question-service (black, flake8, mypy)
+- [x] **P1-013**: Set up pre-commit hooks for question-service (black, flake8, mypy)
 - [ ] **P1-014**: Set up GitHub Actions CI/CD (run tests on PRs)
 
 **Dependencies:** None (starting point)

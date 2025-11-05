@@ -125,8 +125,40 @@ This project uses automated code quality tools:
 - **black**: Code formatting
 - **flake8**: Linting
 - **mypy**: Static type checking
+- **pre-commit**: Automated git hooks
 
-Run all checks:
+#### Configuration Files
+
+- **`pyproject.toml`** - Black, MyPy, and Pytest configuration
+- **`.flake8`** - Flake8 linting rules
+- **`.pre-commit-config.yaml`** - Pre-commit hooks configuration
+
+#### Pre-Commit Hooks (Recommended)
+
+Pre-commit hooks automatically run code quality checks before each commit:
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install git hooks
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+```
+
+Once installed, the following will run automatically on `git commit`:
+- Trailing whitespace fixes
+- End-of-file fixes
+- YAML/JSON validation
+- Black code formatting
+- Flake8 linting
+- MyPy type checking
+
+#### Manual Code Quality Checks
+
+Run all checks manually:
 ```bash
 black . --check
 flake8 .
