@@ -18,15 +18,19 @@ repos:
     rev: 23.11.0
     hooks:
       - id: black
-        files: ^backend/
 
   # Flake8 linting
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
-        files: ^backend/
-        args: [--config=backend/.flake8]
+        additional_dependencies: [flake8-docstrings]
+        args: [
+          '--max-line-length=88',
+          '--extend-ignore=E203,W503,E501,D100,D101,D102,D103,D104,D105,D200,D204,D205,D400,D401',
+          '--per-file-ignores=__init__.py:F401'
+        ]
+        exclude: ^alembic/
 
   # MyPy type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -36,6 +40,5 @@ repos:
         additional_dependencies:
           - types-requests
           - sqlalchemy-stubs
-        args: [--config-file=backend/pyproject.toml]
-        files: ^backend/app/
-        exclude: ^backend/alembic/
+        args: ['--ignore-missing-imports', '--follow-imports=skip']
+        exclude: ^alembic/

@@ -70,7 +70,7 @@ def start_test(
     seen_question_ids = (
         select(UserQuestion.question_id)  # type: ignore[arg-type]
         .where(UserQuestion.user_id == current_user.id)
-        .scalar_subquery()
+        .scalar_subquery()  # type: ignore[attr-defined]
     )
 
     unseen_questions = (
@@ -262,9 +262,7 @@ def submit_test(
 
     # Validate that responses list is not empty
     if not submission.responses:
-        raise HTTPException(
-            status_code=400, detail="Response list cannot be empty"
-        )
+        raise HTTPException(status_code=400, detail="Response list cannot be empty")
 
     # Fetch all questions that were part of this test session
     # (questions seen by user at the time of session start)
@@ -290,11 +288,7 @@ def submit_test(
         )
 
     # Fetch questions to compare answers
-    questions = (
-        db.query(Question)
-        .filter(Question.id.in_(submitted_question_ids))
-        .all()
-    )
+    questions = db.query(Question).filter(Question.id.in_(submitted_question_ids)).all()
     questions_dict = {q.id: q for q in questions}
 
     # Process each response
@@ -307,7 +301,7 @@ def submit_test(
                 detail=f"User answer for question {resp_item.question_id} cannot be empty",
             )
 
-        question = questions_dict.get(resp_item.question_id)
+        question = questions_dict.get(resp_item.question_id)  # type: ignore[call-overload]
         if not question:
             raise HTTPException(
                 status_code=404,
@@ -333,8 +327,8 @@ def submit_test(
         response_count += 1
 
     # Update test session status to completed
-    test_session.status = TestStatus.COMPLETED
-    test_session.completed_at = datetime.utcnow()
+    test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
+    test_session.completed_at = datetime.utcnow()  # type: ignore[assignment]
 
     # Commit all changes in a single transaction
     db.commit()

@@ -30,7 +30,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -92,7 +94,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
@@ -128,9 +132,7 @@ class TestSubmitTest:
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
         db_questions = (
-            db_session.query(Question)
-            .filter(Question.id.in_(question_ids))
-            .all()
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
         )
         questions_dict = {q.id: q for q in db_questions}
 
@@ -140,16 +142,22 @@ class TestSubmitTest:
             "responses": [
                 {
                     "question_id": questions[0]["id"],
-                    "user_answer": questions_dict[questions[0]["id"]].correct_answer.upper(),
+                    "user_answer": questions_dict[
+                        questions[0]["id"]
+                    ].correct_answer.upper(),
                 },
                 {
                     "question_id": questions[1]["id"],
-                    "user_answer": questions_dict[questions[1]["id"]].correct_answer.title(),
+                    "user_answer": questions_dict[
+                        questions[1]["id"]
+                    ].correct_answer.title(),
                 },
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
@@ -171,7 +179,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 404
         assert "Test session not found" in response.json()["detail"]
@@ -212,7 +222,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 403
         assert "Not authorized" in response.json()["detail"]
@@ -248,7 +260,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "already completed" in response.json()["detail"]
@@ -267,7 +281,9 @@ class TestSubmitTest:
             "responses": [],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
@@ -299,7 +315,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "Invalid question IDs" in response.json()["detail"]
@@ -322,7 +340,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
@@ -346,7 +366,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
@@ -384,7 +406,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
@@ -419,7 +443,9 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data, headers=auth_headers)
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
         assert response.status_code == 200
 
         # Verify responses exist
