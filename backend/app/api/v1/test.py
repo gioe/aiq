@@ -388,3 +388,112 @@ def submit_test(
         responses_count=response_count,
         message=f"Test completed! IQ Score: {score_result.iq_score}",
     )
+
+
+@router.get("/results/{result_id}", response_model=TestResultResponse)
+def get_test_result(
+    result_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a specific test result by ID.
+
+    Args:
+        result_id: Test result ID
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Test result details with IQ score
+
+    Raises:
+        HTTPException: If result not found or doesn't belong to user
+    """
+    from app.models.models import TestResult
+
+    # Fetch the test result
+    test_result = db.query(TestResult).filter(TestResult.id == result_id).first()
+
+    if not test_result:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    # Verify result belongs to current user
+    if test_result.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this test result"
+        )
+
+    # Calculate accuracy percentage
+    accuracy_percentage: float = (
+        (float(test_result.correct_answers) / float(test_result.total_questions))
+        * 100.0
+        if test_result.total_questions > 0
+        else 0.0
+    )
+
+    return TestResultResponse(
+        id=test_result.id,  # type: ignore[arg-type]
+        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
+        user_id=test_result.user_id,  # type: ignore[arg-type]
+        iq_score=test_result.iq_score,  # type: ignore[arg-type]
+        total_questions=test_result.total_questions,  # type: ignore[arg-type]
+        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
+        accuracy_percentage=accuracy_percentage,
+        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
+        completed_at=test_result.completed_at,  # type: ignore[arg-type]
+    )
+
+
+@router.get("/history", response_model=list[TestResultResponse])
+def get_test_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all historical test results for the current user.
+
+    Results are returned in reverse chronological order (most recent first).
+
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        List of test results ordered by completion date (newest first)
+    """
+    from app.models.models import TestResult
+
+    # Fetch all test results for the user, ordered by completion date
+    test_results = (
+        db.query(TestResult)
+        .filter(TestResult.user_id == current_user.id)
+        .order_by(TestResult.completed_at.desc())
+        .all()
+    )
+
+    # Convert to response format
+    results_response = []
+    for test_result in test_results:
+        accuracy_percentage: float = (
+            (float(test_result.correct_answers) / float(test_result.total_questions))
+            * 100.0
+            if test_result.total_questions > 0
+            else 0.0
+        )
+
+        results_response.append(
+            TestResultResponse(
+                id=test_result.id,  # type: ignore[arg-type]
+                test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
+                user_id=test_result.user_id,  # type: ignore[arg-type]
+                iq_score=test_result.iq_score,  # type: ignore[arg-type]
+                total_questions=test_result.total_questions,  # type: ignore[arg-type]
+                correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
+                accuracy_percentage=accuracy_percentage,
+                completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
+                completed_at=test_result.completed_at,  # type: ignore[arg-type]
+            )
+        )
+
+    return results_response
