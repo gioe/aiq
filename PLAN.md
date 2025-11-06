@@ -569,7 +569,7 @@ arbiters:
 - [x] **P2-001**: Implement database models (SQLAlchemy ORM)
 - [x] **P2-002**: Set up Alembic for database migrations
 - [x] **P2-003**: Implement user authentication (JWT + Bcrypt)
-- [ ] **P2-004**: Build auth endpoints (register, login, refresh, logout)
+- [x] **P2-004**: Build auth endpoints (register, login, refresh, logout)
 - [ ] **P2-005**: Implement user profile endpoints (GET, PUT)
 - [ ] **P2-006**: Build question serving logic (filter unseen questions)
 - [ ] **P2-007**: Implement test session management
