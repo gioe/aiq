@@ -13,6 +13,11 @@ from .questions import (
     QuestionResponse,
     UnseenQuestionsResponse,
 )
+from .test_sessions import (
+    TestSessionResponse,
+    StartTestResponse,
+    TestSessionStatusResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -23,4 +28,7 @@ __all__ = [
     "UserProfileUpdate",
     "QuestionResponse",
     "UnseenQuestionsResponse",
+    "TestSessionResponse",
+    "StartTestResponse",
+    "TestSessionStatusResponse",
 ]

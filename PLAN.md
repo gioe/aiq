@@ -572,7 +572,7 @@ arbiters:
 - [x] **P2-004**: Build auth endpoints (register, login, refresh, logout)
 - [x] **P2-005**: Implement user profile endpoints (GET, PUT)
 - [x] **P2-006**: Build question serving logic (filter unseen questions)
-- [ ] **P2-007**: Implement test session management
+- [x] **P2-007**: Implement test session management
 - [ ] **P2-008**: Build response submission endpoint
 - [ ] **P2-009**: Implement IQ score calculation algorithm
 - [ ] **P2-010**: Build test results storage and retrieval endpoints
