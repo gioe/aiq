@@ -9,6 +9,10 @@ from .auth import (
     UserResponse,
     UserProfileUpdate,
 )
+from .questions import (
+    QuestionResponse,
+    UnseenQuestionsResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -17,4 +21,6 @@ __all__ = [
     "TokenRefresh",
     "UserResponse",
     "UserProfileUpdate",
+    "QuestionResponse",
+    "UnseenQuestionsResponse",
 ]
