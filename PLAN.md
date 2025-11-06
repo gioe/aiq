@@ -577,7 +577,7 @@ arbiters:
 - [x] **P2-009**: Implement IQ score calculation algorithm
 - [x] **P2-010**: Build test results storage and retrieval endpoints
 - [x] **P2-011**: Add API documentation (Swagger/OpenAPI via FastAPI)
-- [ ] **P2-012**: Write unit tests for core backend logic
+- [x] **P2-012**: Write unit tests for core backend logic
 - [ ] **P2-013**: Add API rate limiting
 - [ ] **P2-014**: Implement input validation and security measures
 
