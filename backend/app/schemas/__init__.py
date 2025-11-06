@@ -21,6 +21,7 @@ from .test_sessions import (
 from .responses import (
     ResponseItem,
     ResponseSubmission,
+    TestResultResponse,
     SubmitTestResponse,
 )
 
@@ -38,5 +39,6 @@ __all__ = [
     "TestSessionStatusResponse",
     "ResponseItem",
     "ResponseSubmission",
+    "TestResultResponse",
     "SubmitTestResponse",
 ]

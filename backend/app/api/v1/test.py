@@ -15,8 +15,13 @@ from app.schemas.test_sessions import (
     TestSessionStatusResponse,
 )
 from app.schemas.questions import QuestionResponse
-from app.schemas.responses import ResponseSubmission, SubmitTestResponse
+from app.schemas.responses import (
+    ResponseSubmission,
+    SubmitTestResponse,
+    TestResultResponse,
+)
 from app.core.auth import get_current_user
+from app.core.scoring import calculate_iq_score
 
 router = APIRouter()
 
@@ -291,8 +296,10 @@ def submit_test(
     questions = db.query(Question).filter(Question.id.in_(submitted_question_ids)).all()
     questions_dict = {q.id: q for q in questions}
 
-    # Process each response
+    # Process each response and track correct answers
     response_count = 0
+    correct_count = 0
+
     for resp_item in submission.responses:
         # Validate user_answer is not empty
         if not resp_item.user_answer or not resp_item.user_answer.strip():
@@ -314,6 +321,9 @@ def submit_test(
             == question.correct_answer.strip().lower()
         )
 
+        if is_correct:
+            correct_count += 1
+
         # Create Response record
         response = Response(
             test_session_id=test_session.id,
@@ -327,15 +337,54 @@ def submit_test(
         response_count += 1
 
     # Update test session status to completed
+    completion_time = datetime.utcnow()
     test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
-    test_session.completed_at = datetime.utcnow()  # type: ignore[assignment]
+    test_session.completed_at = completion_time  # type: ignore[assignment]
+
+    # Calculate completion time in seconds
+    time_delta = completion_time - test_session.started_at
+    completion_time_seconds = int(time_delta.total_seconds())
+
+    # Calculate IQ score using scoring module
+    score_result = calculate_iq_score(
+        correct_answers=correct_count, total_questions=response_count
+    )
+
+    # Create TestResult record
+    from app.models.models import TestResult
+
+    test_result = TestResult(
+        test_session_id=test_session.id,
+        user_id=current_user.id,
+        iq_score=score_result.iq_score,
+        total_questions=score_result.total_questions,
+        correct_answers=score_result.correct_answers,
+        completion_time_seconds=completion_time_seconds,
+        completed_at=completion_time,
+    )
+    db.add(test_result)
 
     # Commit all changes in a single transaction
     db.commit()
     db.refresh(test_session)
+    db.refresh(test_result)
+
+    # Build response with test result
+    result_response = TestResultResponse(
+        id=test_result.id,
+        test_session_id=test_result.test_session_id,
+        user_id=test_result.user_id,
+        iq_score=test_result.iq_score,
+        total_questions=test_result.total_questions,
+        correct_answers=test_result.correct_answers,
+        accuracy_percentage=score_result.accuracy_percentage,
+        completion_time_seconds=test_result.completion_time_seconds,
+        completed_at=test_result.completed_at,
+    )
 
     return SubmitTestResponse(
         session=TestSessionResponse.model_validate(test_session),
+        result=result_response,
         responses_count=response_count,
-        message=f"Successfully submitted {response_count} responses",
+        message=f"Test completed! IQ Score: {score_result.iq_score}",
     )

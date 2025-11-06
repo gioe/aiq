@@ -10,7 +10,7 @@ class TestSubmitTest:
         self, client, auth_headers, test_questions, db_session
     ):
         """Test successfully submitting responses with all correct answers."""
-        from app.models.models import Response, TestSession, TestStatus
+        from app.models.models import Response, TestSession, TestStatus, TestResult
 
         # Start a test first
         start_response = client.post(
@@ -39,6 +39,7 @@ class TestSubmitTest:
 
         # Verify response structure
         assert "session" in data
+        assert "result" in data
         assert "responses_count" in data
         assert "message" in data
 
@@ -47,9 +48,19 @@ class TestSubmitTest:
         assert data["session"]["status"] == "completed"
         assert data["session"]["completed_at"] is not None
 
+        # Verify test result
+        result = data["result"]
+        assert result["test_session_id"] == session_id
+        assert result["iq_score"] == 115  # 100% correct = IQ 115
+        assert result["total_questions"] == 3
+        assert result["correct_answers"] == 3
+        assert result["accuracy_percentage"] == 100.0
+        assert result["completion_time_seconds"] is not None
+        assert result["completed_at"] is not None
+
         # Verify response count
         assert data["responses_count"] == 3
-        assert "Successfully submitted 3 responses" in data["message"]
+        assert "IQ Score: 115" in data["message"]
 
         # Verify responses in database
         responses = (
@@ -71,11 +82,23 @@ class TestSubmitTest:
         assert session.status == TestStatus.COMPLETED
         assert session.completed_at is not None
 
+        # Verify TestResult created in database
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert test_result.iq_score == 115
+        assert test_result.correct_answers == 3
+        assert test_result.total_questions == 3
+        assert test_result.completion_time_seconds is not None
+
     def test_submit_test_success_mixed_answers(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test submitting responses with mixed correct and incorrect answers."""
-        from app.models.models import Response
+        from app.models.models import Response, TestResult
 
         # Start a test
         start_response = client.post(
@@ -99,6 +122,14 @@ class TestSubmitTest:
         )
 
         assert response.status_code == 200
+        data = response.json()
+
+        # Verify test result (1/3 = 33.33% correct)
+        # Formula: 100 + ((0.3333 - 0.5) * 30) = 100 - 5 = 95
+        result = data["result"]
+        assert result["iq_score"] == 95
+        assert result["correct_answers"] == 1
+        assert result["total_questions"] == 3
 
         # Verify responses in database
         responses = (
@@ -114,6 +145,15 @@ class TestSubmitTest:
 
         assert correct_count == 1
         assert incorrect_count == 2
+
+        # Verify TestResult in database
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result.iq_score == 95
+        assert test_result.correct_answers == 1
 
     def test_submit_test_case_insensitive(
         self, client, auth_headers, test_questions, db_session
