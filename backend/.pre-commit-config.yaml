@@ -40,5 +40,5 @@ repos:
         additional_dependencies:
           - types-requests
           - sqlalchemy-stubs
-        args: ['--ignore-missing-imports', '--follow-imports=skip']
+        args: ['--ignore-missing-imports', '--follow-imports=silent']
         exclude: ^alembic/

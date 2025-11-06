@@ -261,7 +261,7 @@ def submit_test(
     if test_session.status != TestStatus.IN_PROGRESS:
         raise HTTPException(
             status_code=400,
-            detail=f"Test session is already {test_session.status.value}. "
+            detail=f"Test session is already {test_session.status.value}. "  # type: ignore[attr-defined]
             "Cannot submit responses for a completed or abandoned session.",
         )
 
@@ -371,15 +371,15 @@ def submit_test(
 
     # Build response with test result
     result_response = TestResultResponse(
-        id=test_result.id,
-        test_session_id=test_result.test_session_id,
-        user_id=test_result.user_id,
-        iq_score=test_result.iq_score,
-        total_questions=test_result.total_questions,
-        correct_answers=test_result.correct_answers,
+        id=test_result.id,  # type: ignore[arg-type]
+        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
+        user_id=test_result.user_id,  # type: ignore[arg-type]
+        iq_score=test_result.iq_score,  # type: ignore[arg-type]
+        total_questions=test_result.total_questions,  # type: ignore[arg-type]
+        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
         accuracy_percentage=score_result.accuracy_percentage,
-        completion_time_seconds=test_result.completion_time_seconds,
-        completed_at=test_result.completed_at,
+        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
+        completed_at=test_result.completed_at,  # type: ignore[arg-type]
     )
 
     return SubmitTestResponse(
