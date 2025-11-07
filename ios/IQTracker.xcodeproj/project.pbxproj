@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393F8818483E0E7701A1A328 /* MockAPIClient.swift */; };
+		21A658E2072F82F9451E2D51 /* RegistrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7144DFDCC0350CF613E06B /* RegistrationViewModel.swift */; };
 		243E6FADFA76EE5B97002024 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6521BFC6112CCF91F2B0CB52 /* User.swift */; };
 		26CF5D1A1AA7C5B77A244EE6 /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */; };
 		2C95FEDE80C248AF74AFA03D /* NetworkLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2663855F834DC8669ED571A /* NetworkLogger.swift */; };
@@ -29,6 +30,7 @@
 		95C81A1F6CCE0B3C5FB3D25E /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565BB90693929F5317496786 /* ViewModelProtocol.swift */; };
 		96C201B39BD49675D938708E /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EFDBB8E31CBDCB816DDF108 /* Question.swift */; };
 		9ECF18887ECC57B03496959F /* View+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5261BFE90E4BE297C8F4D661 /* View+Extensions.swift */; };
+		9F6B77E6B495AAFC6439CD43 /* RegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41D1590ED26BCAF95CA3650 /* RegistrationView.swift */; };
 		A456DCF6620AFC49DC1594E7 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511F20E653108CE007281485 /* WelcomeView.swift */; };
 		AE2042EC9205E1ABCDEA4990 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CED6BD6ED806B6CE39A12D8 /* SwiftUI.framework */; };
 		AE62AA3C08E95DB228CACE7F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A0B3336ACC1395A6017781A /* Assets.xcassets */; };
@@ -77,11 +79,13 @@
 		B5417B4CD26041562A41E46B /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		B67FA448BFAB112EAB0F5C41 /* IQTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQTrackerApp.swift; sourceTree = "<group>"; };
 		C3AD4E8BA8243FCABD9E4FB4 /* SecureStorageProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStorageProtocol.swift; sourceTree = "<group>"; };
+		C41D1590ED26BCAF95CA3650 /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 		C64FE278A925F2286ADD61B2 /* TokenRefreshInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshInterceptor.swift; sourceTree = "<group>"; };
 		C8406052CBAD0F63C70A944A /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
 		D588304008C2CFF98967110F /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D5F42C32E420524BE19718FA /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		E2663855F834DC8669ED571A /* NetworkLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLogger.swift; sourceTree = "<group>"; };
+		FA7144DFDCC0350CF613E06B /* RegistrationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +144,7 @@
 			children = (
 				5797E5D16A75977F1346CB94 /* BaseViewModel.swift */,
 				9D44EA52AA38A090775DF762 /* LoginViewModel.swift */,
+				FA7144DFDCC0350CF613E06B /* RegistrationViewModel.swift */,
 				565BB90693929F5317496786 /* ViewModelProtocol.swift */,
 			);
 			path = ViewModels;
@@ -148,6 +153,7 @@
 		331B82549E5F951AE4F21997 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				C41D1590ED26BCAF95CA3650 /* RegistrationView.swift */,
 				511F20E653108CE007281485 /* WelcomeView.swift */,
 			);
 			path = Auth;
@@ -346,6 +352,8 @@
 				89481B3B3B6250D18FB1CBCF /* NetworkMonitor.swift in Sources */,
 				BFF4359E4728C06CE24F7D38 /* PrimaryButton.swift in Sources */,
 				96C201B39BD49675D938708E /* Question.swift in Sources */,
+				9F6B77E6B495AAFC6439CD43 /* RegistrationView.swift in Sources */,
+				21A658E2072F82F9451E2D51 /* RegistrationViewModel.swift in Sources */,
 				941A5FDD13415534E0F0FA1F /* RequestInterceptor.swift in Sources */,
 				322E3DEED30F9ADC78C2DA5C /* RetryPolicy.swift in Sources */,
 				EECD2F2DDE32F01356802851 /* SecureStorageProtocol.swift in Sources */,

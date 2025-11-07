@@ -97,9 +97,7 @@ struct WelcomeView: View {
                 .padding(.horizontal, 24)
             }
             .navigationDestination(isPresented: $viewModel.showRegistration) {
-                // Placeholder for RegistrationView (P3-005)
-                Text("Registration Screen")
-                    .navigationTitle("Register")
+                RegistrationView()
             }
         }
     }
