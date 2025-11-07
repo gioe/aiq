@@ -4,7 +4,7 @@ import SwiftUI
 struct IQTrackerApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }
