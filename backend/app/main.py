@@ -16,6 +16,7 @@ from app.ratelimit import (
     FixedWindowStrategy,
     InMemoryStorage,
 )
+from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
 
 # OpenAPI tags metadata
 tags_metadata = [
@@ -83,6 +84,21 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Configure Security Headers
+    # HSTS is enabled only in production to avoid issues with local development
+    hsts_enabled = settings.ENV == "production"
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        hsts_enabled=hsts_enabled,
+        hsts_max_age=31536000,  # 1 year
+        csp_enabled=True,
+    )
+
+    # Configure Request Size Limits
+    # 1MB default, can be configured via environment variable
+    max_body_size = 1024 * 1024  # 1MB
+    app.add_middleware(RequestSizeLimitMiddleware, max_body_size=max_body_size)
 
     # Configure Rate Limiting
     if settings.RATE_LIMIT_ENABLED:
