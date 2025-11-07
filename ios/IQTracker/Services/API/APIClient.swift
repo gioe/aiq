@@ -8,6 +8,8 @@ protocol APIClientProtocol {
         body: Encodable?,
         requiresAuth: Bool
     ) async throws -> T
+
+    func setAuthToken(_ token: String?)
 }
 
 /// HTTP methods supported by the API

@@ -592,10 +592,10 @@ arbiters:
 **Tasks:**
 - [x] **P3-001**: Set up MVVM architecture structure
 - [x] **P3-002**: Create networking layer (API client)
-- [ ] **P3-003**: Implement authentication service
+- [x] **P3-003**: Implement authentication service
 - [ ] **P3-004**: Build Welcome/Login screen
 - [ ] **P3-005**: Build Registration screen
-- [ ] **P3-006**: Implement secure token storage (Keychain)
+- [x] **P3-006**: Implement secure token storage (Keychain)
 - [ ] **P3-007**: Create main navigation structure
 - [ ] **P3-008**: Build Dashboard/Home view (placeholder)
 - [ ] **P3-009**: Implement logout functionality
