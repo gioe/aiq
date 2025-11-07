@@ -596,8 +596,8 @@ arbiters:
 - [x] **P3-004**: Build Welcome/Login screen
 - [x] **P3-005**: Build Registration screen
 - [x] **P3-006**: Implement secure token storage (Keychain)
-- [ ] **P3-007**: Create main navigation structure
-- [ ] **P3-008**: Build Dashboard/Home view (placeholder)
+- [x] **P3-007**: Create main navigation structure
+- [x] **P3-008**: Build Dashboard/Home view (placeholder)
 - [ ] **P3-009**: Implement logout functionality
 - [ ] **P3-010**: Add error handling and user feedback
 - [ ] **P3-011**: Write unit tests for ViewModels
