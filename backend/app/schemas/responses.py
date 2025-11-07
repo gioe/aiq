@@ -1,11 +1,12 @@
 """
 Pydantic schemas for response submission endpoints.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
 from app.schemas.test_sessions import TestSessionResponse
+from app.core.validators import StringSanitizer, validate_no_sql_injection
 
 
 class ResponseItem(BaseModel):
@@ -13,6 +14,20 @@ class ResponseItem(BaseModel):
 
     question_id: int = Field(..., description="Question ID being answered")
     user_answer: str = Field(..., description="User's answer to the question")
+
+    @field_validator("user_answer")
+    @classmethod
+    def sanitize_answer(cls, v: str) -> str:
+        """Sanitize user answer to prevent XSS and injection attacks."""
+        # Sanitize the answer
+        sanitized = StringSanitizer.sanitize_answer(v)
+
+        # Allow empty strings - endpoint will handle validation with better error messages
+        # Just check for SQL injection patterns if non-empty
+        if sanitized and not validate_no_sql_injection(sanitized):
+            raise ValueError("Answer contains invalid characters")
+
+        return sanitized
 
 
 class ResponseSubmission(BaseModel):

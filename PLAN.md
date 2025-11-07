@@ -579,7 +579,7 @@ arbiters:
 - [x] **P2-011**: Add API documentation (Swagger/OpenAPI via FastAPI)
 - [x] **P2-012**: Write unit tests for core backend logic
 - [x] **P2-013**: Add API rate limiting
-- [ ] **P2-014**: Implement input validation and security measures
+- [x] **P2-014**: Implement input validation and security measures
 
 **Dependencies:** Phase 1 complete
 
@@ -741,13 +741,27 @@ arbiters:
   - Pre-commit hooks for all components (P1-011, P1-012, P1-013)
   - GitHub Actions CI/CD (P1-014)
 
+- ✅ **Phase 2: Backend API - Core Functionality** (14/14 tasks - 100%)
+  - Database models and migrations (P2-001, P2-002)
+  - User authentication system with JWT (P2-003, P2-004)
+  - User profile management (P2-005)
+  - Question serving with filtering (P2-006)
+  - Test session management (P2-007)
+  - Response submission and storage (P2-008)
+  - IQ score calculation (P2-009)
+  - Test results retrieval (P2-010)
+  - API documentation (P2-011)
+  - Unit tests (P2-012)
+  - Rate limiting (P2-013)
+  - Input validation and security measures (P2-014)
+
 **In Progress:**
-- None - Phase 1 complete!
+- None - Phases 1 and 2 complete!
 
 **Next Steps:**
-- Begin Phase 2 (Backend API - Core Functionality)
 - Begin Phase 3 (iOS App - Core UI & Authentication)
-- Phases 2 and 3 can be worked in parallel
+- Begin Phase 4 (iOS App - Test Taking Experience)
+- Begin Phase 6 (Question Generation Service - MVP)
 
 ---
 

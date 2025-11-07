@@ -395,14 +395,14 @@ class TestUserProfileIntegration:
         # Update user1's profile
         client.put(
             "/v1/user/profile",
-            json={"first_name": "UpdatedUser1"},
+            json={"first_name": "UpdatedUserOne"},
             headers=headers1,
         )
 
         # Update user2's profile
         client.put(
             "/v1/user/profile",
-            json={"first_name": "UpdatedUser2"},
+            json={"first_name": "UpdatedUserTwo"},
             headers=headers2,
         )
 
@@ -411,8 +411,8 @@ class TestUserProfileIntegration:
         profile2 = client.get("/v1/user/profile", headers=headers2)
 
         # Verify isolation
-        assert profile1.json()["first_name"] == "UpdatedUser1"
+        assert profile1.json()["first_name"] == "UpdatedUserOne"
         assert profile1.json()["email"] == "test@example.com"
 
-        assert profile2.json()["first_name"] == "UpdatedUser2"
+        assert profile2.json()["first_name"] == "UpdatedUserTwo"
         assert profile2.json()["email"] == "user2@example.com"
