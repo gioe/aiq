@@ -46,7 +46,7 @@ jobs:
           cd ios
           xcodebuild -project IQTracker.xcodeproj \
             -scheme IQTracker \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -destination 'generic/platform=iOS Simulator' \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
