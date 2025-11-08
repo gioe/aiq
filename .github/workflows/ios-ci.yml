@@ -49,7 +49,8 @@ jobs:
           cd ios
           xcodebuild -project IQTracker.xcodeproj \
             -scheme IQTracker \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
