@@ -7,12 +7,12 @@ enum TestStatus: String, Codable {
 }
 
 struct TestSession: Codable, Identifiable {
-    let id: String
-    let userId: String
+    let id: Int
+    let userId: Int
     let startedAt: Date
     let completedAt: Date?
     let status: TestStatus
-    let questions: [Question]
+    let questions: [Question]?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -24,12 +24,24 @@ struct TestSession: Codable, Identifiable {
     }
 }
 
+struct StartTestResponse: Codable {
+    let session: TestSession
+    let questions: [Question]
+    let totalQuestions: Int
+
+    enum CodingKeys: String, CodingKey {
+        case session
+        case questions
+        case totalQuestions = "total_questions"
+    }
+}
+
 struct TestSubmission: Codable {
-    let testSessionId: String
+    let sessionId: Int
     let responses: [QuestionResponse]
 
     enum CodingKeys: String, CodingKey {
-        case testSessionId = "test_session_id"
+        case sessionId = "session_id"
         case responses
     }
 }
