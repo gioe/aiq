@@ -4,6 +4,7 @@ import SwiftUI
 struct AnswerInputView: View {
     let question: Question
     @Binding var userAnswer: String
+    @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -38,15 +39,112 @@ struct AnswerInputView: View {
     }
 
     private var textInputField: some View {
-        TextField("Type your answer here", text: $userAnswer)
-            .font(.body)
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(userAnswer.isEmpty ? Color.clear : Color.accentColor, lineWidth: 2)
-            )
+        VStack(alignment: .leading, spacing: 8) {
+            TextField(placeholderText, text: $userAnswer)
+                .font(.body)
+                .keyboardType(keyboardType)
+                .autocorrectionDisabled(shouldDisableAutocorrection)
+                .textInputAutocapitalization(capitalizationType)
+                .focused($isTextFieldFocused)
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(userAnswer.isEmpty ? Color.clear : Color.accentColor, lineWidth: 2)
+                )
+                .accessibilityLabel("Answer input field")
+                .accessibilityHint(accessibilityHint)
+
+            // Input hint based on question type
+            if !inputHint.isEmpty {
+                Text(inputHint)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .onAppear {
+            // Auto-focus text field for better UX
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isTextFieldFocused = true
+            }
+        }
+    }
+
+    // MARK: - Input Configuration
+
+    private var keyboardType: UIKeyboardType {
+        switch question.questionType {
+        case .math:
+            // Use decimal pad for math questions to allow numbers and decimals
+            .decimalPad
+        case .pattern where question.questionText.lowercased().contains("number"):
+            // Pattern questions about numbers should use number pad
+            .numberPad
+        default:
+            // Default to regular keyboard for text-based answers
+            .default
+        }
+    }
+
+    private var shouldDisableAutocorrection: Bool {
+        // Disable autocorrection for math, pattern, and spatial questions
+        switch question.questionType {
+        case .math, .pattern, .spatial:
+            true
+        default:
+            false
+        }
+    }
+
+    private var capitalizationType: TextInputAutocapitalization {
+        // Use sentence capitalization for verbal questions, none for others
+        switch question.questionType {
+        case .verbal:
+            .sentences
+        default:
+            .never
+        }
+    }
+
+    private var placeholderText: String {
+        switch question.questionType {
+        case .math:
+            "Enter number (e.g., 42 or 3.14)"
+        case .pattern:
+            if question.questionText.lowercased().contains("number") {
+                "Enter number"
+            } else if question.questionText.lowercased().contains("letter") {
+                "Enter letter (e.g., A)"
+            } else {
+                "Type your answer"
+            }
+        case .verbal:
+            "Type your answer"
+        case .spatial:
+            "Type your answer"
+        case .logic:
+            "Type your answer"
+        case .memory:
+            "Type your answer"
+        }
+    }
+
+    private var inputHint: String {
+        switch question.questionType {
+        case .math:
+            "Enter numbers only. Use decimal point if needed."
+        case .pattern where question.questionText.lowercased().contains("letter"):
+            "Enter a single letter or word."
+        case .pattern where question.questionText.lowercased().contains("number"):
+            "Enter numbers only."
+        default:
+            ""
+        }
+    }
+
+    private var accessibilityHint: String {
+        "Enter your answer to the question. \(inputHint)"
     }
 }
 
@@ -64,6 +162,7 @@ private struct OptionButton: View {
                     .font(.body)
                     .foregroundColor(isSelected ? .white : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
@@ -79,39 +178,85 @@ private struct OptionButton: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(option)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityHint(isSelected ? "Currently selected" : "Double tap to select this answer")
     }
 }
 
 // MARK: - Preview
 
-#Preview {
-    VStack(spacing: 30) {
-        // Multiple choice example
-        AnswerInputView(
-            question: Question(
-                id: 1,
-                questionText: "Which word doesn't belong?",
-                questionType: .logic,
-                difficultyLevel: .easy,
-                answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
-                explanation: nil
-            ),
-            userAnswer: .constant("Carrot")
-        )
-        .padding()
+#Preview("Multiple Choice") {
+    AnswerInputView(
+        question: Question(
+            id: 1,
+            questionText: "Which word doesn't belong?",
+            questionType: .logic,
+            difficultyLevel: .easy,
+            answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
+            explanation: nil
+        ),
+        userAnswer: .constant("Carrot")
+    )
+    .padding()
+}
 
-        // Text input example
-        AnswerInputView(
-            question: Question(
-                id: 2,
-                questionText: "What number comes next?",
-                questionType: .pattern,
-                difficultyLevel: .medium,
-                answerOptions: nil,
-                explanation: nil
-            ),
-            userAnswer: .constant("32")
-        )
-        .padding()
-    }
+#Preview("Math Question") {
+    AnswerInputView(
+        question: Question(
+            id: 2,
+            questionText: "What is 15% of 200?",
+            questionType: .math,
+            difficultyLevel: .easy,
+            answerOptions: nil,
+            explanation: nil
+        ),
+        userAnswer: .constant("")
+    )
+    .padding()
+}
+
+#Preview("Pattern Question - Number") {
+    AnswerInputView(
+        question: Question(
+            id: 3,
+            questionText: "What number comes next in the sequence: 2, 4, 8, 16, ?",
+            questionType: .pattern,
+            difficultyLevel: .medium,
+            answerOptions: nil,
+            explanation: nil
+        ),
+        userAnswer: .constant("")
+    )
+    .padding()
+}
+
+#Preview("Pattern Question - Letter") {
+    AnswerInputView(
+        question: Question(
+            id: 4,
+            questionText: "What letter comes next: A, C, F, J, ?",
+            questionType: .pattern,
+            difficultyLevel: .medium,
+            answerOptions: nil,
+            explanation: nil
+        ),
+        userAnswer: .constant("")
+    )
+    .padding()
+}
+
+#Preview("Verbal Question") {
+    AnswerInputView(
+        question: Question(
+            id: 5,
+            questionText: "Complete the analogy: Dog is to puppy as cat is to ___",
+            questionType: .verbal,
+            difficultyLevel: .easy,
+            answerOptions: nil,
+            explanation: nil
+        ),
+        userAnswer: .constant("")
+    )
+    .padding()
 }
