@@ -1,0 +1,25 @@
+import Combine
+import Foundation
+
+/// Protocol defining the public interface of AuthManager
+@MainActor
+protocol AuthManagerProtocol: AnyObject {
+    var isAuthenticated: Bool { get }
+    var currentUser: User? { get }
+    var isLoading: Bool { get }
+    var authError: Error? { get }
+
+    var isLoadingPublisher: Published<Bool>.Publisher { get }
+    var authErrorPublisher: Published<Error?>.Publisher { get }
+
+    func register(
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String
+    ) async throws
+
+    func login(email: String, password: String) async throws
+    func logout() async
+    func clearError()
+}

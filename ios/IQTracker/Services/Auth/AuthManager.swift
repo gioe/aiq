@@ -3,13 +3,16 @@ import Foundation
 
 /// Manages authentication state for the entire app
 @MainActor
-class AuthManager: ObservableObject {
+class AuthManager: ObservableObject, AuthManagerProtocol {
     static let shared = AuthManager()
 
     @Published private(set) var isAuthenticated: Bool = false
     @Published private(set) var currentUser: User?
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var authError: Error?
+
+    var isLoadingPublisher: Published<Bool>.Publisher { $isLoading }
+    var authErrorPublisher: Published<Error?>.Publisher { $authError }
 
     private let authService: AuthServiceProtocol
     private let tokenRefreshInterceptor: TokenRefreshInterceptor

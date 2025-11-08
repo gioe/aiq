@@ -14,9 +14,12 @@
 		26CF5D1A1AA7C5B77A244EE6 /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */; };
 		2C95FEDE80C248AF74AFA03D /* NetworkLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2663855F834DC8669ED571A /* NetworkLogger.swift */; };
 		322E3DEED30F9ADC78C2DA5C /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8406052CBAD0F63C70A944A /* RetryPolicy.swift */; };
+		348117B474C84837E6D632E6 /* MockAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6501168D09365431562DE84B /* MockAuthManager.swift */; };
 		351F95043E2BEBB36F24E35F /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ACE99643E658A7B23DA53C3 /* LoadingView.swift */; };
+		354A07CEC538B8C1138FF155 /* RegistrationViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54F75CF7CCF4C117C790432 /* RegistrationViewModelTests.swift */; };
 		463B6496D534272DE2DB6125 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 032F8945603646E89A4C0F12 /* ContentView.swift */; };
 		4B51F0984F8C3838F4E8EFA5 /* CustomTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3B19EAE46533063BDD9DAF /* CustomTextField.swift */; };
+		4BF3606C1AA521EF723F09E3 /* BaseViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3EBC6D9606506F04F52D555 /* BaseViewModelTests.swift */; };
 		4E5C0B35D5517B8C1796DBAC /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E54FA66E4F699B5F09EC5DA /* DashboardView.swift */; };
 		4F161655DD9EDF1D39132FE6 /* AuthServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7BCB4CC05FA692DC3EE511 /* AuthServiceProtocol.swift */; };
 		530531E24E0ACE60A41AC0CC /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D44EA52AA38A090775DF762 /* LoginViewModel.swift */; };
@@ -51,8 +54,20 @@
 		D04137C13259CE5C9D267435 /* BaseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5797E5D16A75977F1346CB94 /* BaseViewModel.swift */; };
 		D4F6AC949335597F012013FC /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBEE4A6F5EB368890F6507C8 /* RootView.swift */; };
 		D88029805B3118E461FA3658 /* TestResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0056CC6BC1A9215EF25A11B0 /* TestResult.swift */; };
+		E1461CEF734E470485969D85 /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676A5A2950F1BD7859D35DC3 /* AuthManagerProtocol.swift */; };
 		EECD2F2DDE32F01356802851 /* SecureStorageProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3AD4E8BA8243FCABD9E4FB4 /* SecureStorageProtocol.swift */; };
+		F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FB8E748FA7DE2B1BF12F9BBE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 583F9FE9CB7C10A5D27386BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23A0A6B356F16A47EDFDB64C;
+			remoteInfo = IQTracker;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0056CC6BC1A9215EF25A11B0 /* TestResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResult.swift; sourceTree = "<group>"; };
@@ -62,6 +77,7 @@
 		2A1A0D7C2A77C6D1B6AFAC46 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		2A92FBC0678B2E896CA141C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2CEC069BFB05B84DA04D4F18 /* IQTracker.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = IQTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModelTests.swift; sourceTree = "<group>"; };
 		36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		37BB50D991A32B416A57E171 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		393F8818483E0E7701A1A328 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
@@ -72,8 +88,10 @@
 		5261BFE90E4BE297C8F4D661 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
 		565BB90693929F5317496786 /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		5797E5D16A75977F1346CB94 /* BaseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewModel.swift; sourceTree = "<group>"; };
+		6501168D09365431562DE84B /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
 		6521BFC6112CCF91F2B0CB52 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		65C37CC31D01E82510D06904 /* Auth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Auth.swift; sourceTree = "<group>"; };
+		676A5A2950F1BD7859D35DC3 /* AuthManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManagerProtocol.swift; sourceTree = "<group>"; };
 		67CEB2DCF7782567F9CBF677 /* ErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBanner.swift; sourceTree = "<group>"; };
 		6C93C10094A1EA5A4B6124EE /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		6EFDBB8E31CBDCB816DDF108 /* Question.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Question.swift; sourceTree = "<group>"; };
@@ -87,6 +105,7 @@
 		86E43C061ABEE2ECA98EAFF1 /* TestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSession.swift; sourceTree = "<group>"; };
 		89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
 		8E7BCB4CC05FA692DC3EE511 /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
+		9991BD48AC67777078326042 /* IQTrackerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = IQTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9AA15DF43B47008B21D0BCF9 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		9D44EA52AA38A090775DF762 /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
 		A46174E2D8FEE08DEBCAAE9C /* NetworkStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkStatusBanner.swift; sourceTree = "<group>"; };
@@ -97,6 +116,8 @@
 		C41D1590ED26BCAF95CA3650 /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 		C64FE278A925F2286ADD61B2 /* TokenRefreshInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshInterceptor.swift; sourceTree = "<group>"; };
 		C8406052CBAD0F63C70A944A /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
+		D3EBC6D9606506F04F52D555 /* BaseViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewModelTests.swift; sourceTree = "<group>"; };
+		D54F75CF7CCF4C117C790432 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
 		D588304008C2CFF98967110F /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D5F42C32E420524BE19718FA /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		E2663855F834DC8669ED571A /* NetworkLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLogger.swift; sourceTree = "<group>"; };
@@ -116,6 +137,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		055F17F3D066294DB72A2006 /* Mocks */ = {
+			isa = PBXGroup;
+			children = (
+				6501168D09365431562DE84B /* MockAuthManager.swift */,
+			);
+			path = Mocks;
+			sourceTree = "<group>";
+		};
+		0CF338C0D0FFA2CB33019FFF /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D3EBC6D9606506F04F52D555 /* BaseViewModelTests.swift */,
+				3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */,
+				D54F75CF7CCF4C117C790432 /* RegistrationViewModelTests.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
 		11589E4F7E2ED80A00CBAF38 /* History */ = {
 			isa = PBXGroup;
 			children = (
@@ -198,8 +237,18 @@
 			isa = PBXGroup;
 			children = (
 				2CEC069BFB05B84DA04D4F18 /* IQTracker.app */,
+				9991BD48AC67777078326042 /* IQTrackerTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		63ED0BA88638364748F7C3FC /* IQTrackerTests */ = {
+			isa = PBXGroup;
+			children = (
+				055F17F3D066294DB72A2006 /* Mocks */,
+				0CF338C0D0FFA2CB33019FFF /* ViewModels */,
+			);
+			path = IQTrackerTests;
 			sourceTree = "<group>";
 		};
 		6AFE36D6770B9381AF55D5A0 /* Services */ = {
@@ -216,6 +265,7 @@
 			isa = PBXGroup;
 			children = (
 				970DDFA52A2533A088D083E6 /* IQTracker */,
+				63ED0BA88638364748F7C3FC /* IQTrackerTests */,
 				209A206DB60F9D5CE07F8436 /* Frameworks */,
 				3C23018FF6613F589AA02CEB /* Products */,
 			);
@@ -276,6 +326,7 @@
 			isa = PBXGroup;
 			children = (
 				6C93C10094A1EA5A4B6124EE /* AuthManager.swift */,
+				676A5A2950F1BD7859D35DC3 /* AuthManagerProtocol.swift */,
 				80193C5570A9CD7D1AFA9386 /* AuthService.swift */,
 				8E7BCB4CC05FA692DC3EE511 /* AuthServiceProtocol.swift */,
 				C64FE278A925F2286ADD61B2 /* TokenRefreshInterceptor.swift */,
@@ -335,6 +386,24 @@
 			productReference = 2CEC069BFB05B84DA04D4F18 /* IQTracker.app */;
 			productType = "com.apple.product-type.application";
 		};
+		ABAF8BDEB1015C8CB0388D78 /* IQTrackerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "IQTrackerTests" */;
+			buildPhases = (
+				1DC782FCABCF56C1F5C91D36 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				521E2046C6D323A890193A34 /* PBXTargetDependency */,
+			);
+			name = IQTrackerTests;
+			packageProductDependencies = (
+			);
+			productName = IQTrackerTests;
+			productReference = 9991BD48AC67777078326042 /* IQTrackerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -359,6 +428,7 @@
 			projectRoot = "";
 			targets = (
 				23A0A6B356F16A47EDFDB64C /* IQTracker */,
+				ABAF8BDEB1015C8CB0388D78 /* IQTrackerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -375,6 +445,17 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1DC782FCABCF56C1F5C91D36 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4BF3606C1AA521EF723F09E3 /* BaseViewModelTests.swift in Sources */,
+				F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */,
+				348117B474C84837E6D632E6 /* MockAuthManager.swift in Sources */,
+				354A07CEC538B8C1138FF155 /* RegistrationViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		668A1E918948E33A2B048EFE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -384,6 +465,7 @@
 				B21BA9DD4167BDF1852D1EC8 /* AppConfig.swift in Sources */,
 				C724BDDCDE04C6024C537E6A /* Auth.swift in Sources */,
 				CF07968ED73AAC85C285FBDD /* AuthManager.swift in Sources */,
+				E1461CEF734E470485969D85 /* AuthManagerProtocol.swift in Sources */,
 				8F162E02A7B1DF68E089D685 /* AuthService.swift in Sources */,
 				4F161655DD9EDF1D39132FE6 /* AuthServiceProtocol.swift in Sources */,
 				D04137C13259CE5C9D267435 /* BaseViewModel.swift in Sources */,
@@ -426,6 +508,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		521E2046C6D323A890193A34 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23A0A6B356F16A47EDFDB64C /* IQTracker */;
+			targetProxy = FB8E748FA7DE2B1BF12F9BBE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		04A3C87A3E00BB4B8E99E145 /* Release */ = {
@@ -571,6 +661,44 @@
 			};
 			name = Release;
 		};
+		11389CDBD13381CB93869173 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iqtracker.tests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IQTracker.app/IQTracker";
+			};
+			name = Debug;
+		};
+		7CEC760AB12B7B46B8520860 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iqtracker.tests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IQTracker.app/IQTracker";
+			};
+			name = Release;
+		};
 		883D4CB7669D67E15CA50344 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -594,6 +722,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "IQTrackerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11389CDBD13381CB93869173 /* Debug */,
+				7CEC760AB12B7B46B8520860 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		35EF6E15FB653F3D13ADAFEC /* Build configuration list for PBXProject "IQTracker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
