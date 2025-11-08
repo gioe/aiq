@@ -140,7 +140,6 @@ struct ScaleButtonStyle: ButtonStyle {
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
-
 // MARK: - Preview
 
 #Preview {
