@@ -3,14 +3,14 @@ name: iOS CI
 on:
   pull_request:
     paths:
-      - 'ios/**'
-      - '.github/workflows/ios-ci.yml'
+      - "ios/**"
+      - ".github/workflows/ios-ci.yml"
   push:
     branches:
       - main
     paths:
-      - 'ios/**'
-      - '.github/workflows/ios-ci.yml'
+      - "ios/**"
+      - ".github/workflows/ios-ci.yml"
 
 jobs:
   lint-and-build:
@@ -23,7 +23,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "18.6"
 
       - name: Install SwiftLint
         run: brew install swiftlint
