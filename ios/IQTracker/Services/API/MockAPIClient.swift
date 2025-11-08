@@ -69,8 +69,8 @@ class MockAPIClient: APIClientProtocol {
             ) as! T
         } else if T.self == TestSession.self {
             return TestSession(
-                id: "mock_session_id",
-                userId: "mock_user_id",
+                id: 1,
+                userId: 1,
                 startedAt: Date(),
                 completedAt: nil,
                 status: .inProgress,

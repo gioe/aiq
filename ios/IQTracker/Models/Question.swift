@@ -16,7 +16,7 @@ enum DifficultyLevel: String, Codable {
 }
 
 struct Question: Codable, Identifiable {
-    let id: String
+    let id: Int
     let questionText: String
     let questionType: QuestionType
     let difficultyLevel: DifficultyLevel
@@ -31,10 +31,19 @@ struct Question: Codable, Identifiable {
         case answerOptions = "answer_options"
         case explanation
     }
+
+    // Helper computed properties
+    var isMultipleChoice: Bool {
+        answerOptions != nil && !(answerOptions?.isEmpty ?? true)
+    }
+
+    var hasOptions: Bool {
+        isMultipleChoice
+    }
 }
 
 struct QuestionResponse: Codable {
-    let questionId: String
+    let questionId: Int
     let userAnswer: String
 
     enum CodingKeys: String, CodingKey {
