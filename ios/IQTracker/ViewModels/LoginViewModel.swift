@@ -12,19 +12,19 @@ class LoginViewModel: BaseViewModel {
 
     // MARK: - Private Properties
 
-    private let authManager: AuthManager
+    private let authManager: any AuthManagerProtocol
 
     // MARK: - Initialization
 
-    init(authManager: AuthManager = .shared) {
+    init(authManager: any AuthManagerProtocol = AuthManager.shared) {
         self.authManager = authManager
         super.init()
 
         // Observe auth manager state
-        authManager.$isLoading
+        authManager.isLoadingPublisher
             .assign(to: &$isLoading)
 
-        authManager.$authError
+        authManager.authErrorPublisher
             .assign(to: &$error)
     }
 
