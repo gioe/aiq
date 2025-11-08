@@ -31,6 +31,7 @@ struct TestProgressView: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(completionPercentage == 100 ? .green : .accentColor)
+                        .animation(.easeInOut(duration: 0.3), value: completionPercentage)
                 }
 
                 progressBar
@@ -99,6 +100,7 @@ struct TestProgressView: View {
                         height: 10
                     )
                     .animation(.spring(response: 0.5, dampingFraction: 0.8), value: answeredCount)
+                    .animation(.easeInOut(duration: 0.4), value: completionPercentage)
 
                 // Current position indicator
                 Circle()

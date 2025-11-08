@@ -13,9 +13,10 @@ struct TestTakingView: View {
                 testContentView
             }
 
-            // Loading overlay
+            // Loading overlay with transition
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .navigationTitle("IQ Test")
@@ -167,27 +168,44 @@ struct TestTakingView: View {
 
     // MARK: - Test Completed
 
+    @State private var showCompletionAnimation = false
+
     private var testCompletedView: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            // Success icon
+            // Success icon with celebratory animation
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
                 .foregroundColor(.green)
+                .scaleEffect(showCompletionAnimation ? 1.0 : 0.5)
+                .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                .rotationEffect(.degrees(showCompletionAnimation ? 0 : -180))
 
             VStack(spacing: 12) {
                 Text("Test Completed!")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
 
                 Text("Your answers have been submitted")
                     .font(.body)
                     .foregroundColor(.secondary)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
 
                 Text("You answered \(viewModel.answeredCount) out of \(viewModel.questions.count) questions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
+            }
+            .onAppear {
+                // Staggered animations for text elements
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                    showCompletionAnimation = true
+                }
             }
 
             Spacer()
