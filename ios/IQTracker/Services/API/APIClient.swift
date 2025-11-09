@@ -67,9 +67,11 @@ class APIClient: APIClientProtocol {
     private let baseURL: URL
     private let session: URLSession
     private var authToken: String?
-    private var interceptors: [RequestInterceptor]
+    private var requestInterceptors: [RequestInterceptor]
+    private var responseInterceptors: [ResponseInterceptor]
     private let retryExecutor: RetryExecutor
     private let requestTimeout: TimeInterval
+    private let tokenRefreshInterceptor: TokenRefreshInterceptor
 
     init(
         baseURL: String,
@@ -85,10 +87,19 @@ class APIClient: APIClientProtocol {
         self.requestTimeout = requestTimeout
         retryExecutor = RetryExecutor(policy: retryPolicy)
 
-        // Set up default interceptors
-        interceptors = [
+        // Initialize token refresh interceptor
+        // Note: AuthService will be set later to avoid circular dependency
+        tokenRefreshInterceptor = TokenRefreshInterceptor()
+
+        // Set up default request interceptors
+        requestInterceptors = [
             ConnectivityInterceptor(),
             LoggingInterceptor()
+        ]
+
+        // Set up default response interceptors
+        responseInterceptors = [
+            tokenRefreshInterceptor
         ]
     }
 
@@ -96,8 +107,16 @@ class APIClient: APIClientProtocol {
         authToken = token
     }
 
-    func addInterceptor(_ interceptor: RequestInterceptor) {
-        interceptors.append(interceptor)
+    func setAuthService(_ authService: AuthServiceProtocol) {
+        tokenRefreshInterceptor.setAuthService(authService)
+    }
+
+    func addRequestInterceptor(_ interceptor: RequestInterceptor) {
+        requestInterceptors.append(interceptor)
+    }
+
+    func addResponseInterceptor(_ interceptor: ResponseInterceptor) {
+        responseInterceptors.append(interceptor)
     }
 
     func request<T: Decodable>(
@@ -130,8 +149,8 @@ class APIClient: APIClientProtocol {
             requiresAuth: requiresAuth
         )
 
-        // Apply interceptors
-        for interceptor in interceptors {
+        // Apply request interceptors
+        for interceptor in requestInterceptors {
             urlRequest = try await interceptor.intercept(urlRequest)
         }
 
@@ -145,8 +164,32 @@ class APIClient: APIClientProtocol {
         // Log response
         NetworkLogger.shared.logResponse(httpResponse, data: data)
 
+        var responseData = data
+
+        // Apply response interceptors
+        for interceptor in responseInterceptors {
+            do {
+                responseData = try await interceptor.intercept(response: httpResponse, data: responseData)
+            } catch {
+                // If a response interceptor handles the error (e.g., token refresh),
+                // retry the original request
+                if let tokenRefreshError = error as? TokenRefreshError,
+                   case .shouldRetryRequest = tokenRefreshError
+                {
+                    // Retry the request with the new token
+                    return try await performRequest(
+                        endpoint: endpoint,
+                        method: method,
+                        body: body,
+                        requiresAuth: requiresAuth
+                    )
+                }
+                throw error
+            }
+        }
+
         // Handle response
-        let result: T = try handleResponse(data: data, statusCode: httpResponse.statusCode)
+        let result: T = try handleResponse(data: responseData, statusCode: httpResponse.statusCode)
         return (result, httpResponse)
     }
 
@@ -185,16 +228,30 @@ class APIClient: APIClientProtocol {
         case 200 ... 299:
             return try decodeResponse(data: data)
         case 401:
-            throw APIError.unauthorized
+            let message = parseErrorMessage(from: data)
+            throw APIError.unauthorized(message: message)
         case 403:
-            throw APIError.forbidden
+            let message = parseErrorMessage(from: data)
+            throw APIError.forbidden(message: message)
         case 404:
-            throw APIError.notFound
+            let message = parseErrorMessage(from: data)
+            throw APIError.notFound(message: message)
+        case 408:
+            throw APIError.timeout
         case 500 ... 599:
-            throw APIError.serverError(statusCode: statusCode)
+            let message = parseErrorMessage(from: data)
+            throw APIError.serverError(statusCode: statusCode, message: message)
         default:
-            throw APIError.unknown
+            let message = parseErrorMessage(from: data)
+            throw APIError.unknown(message: message)
         }
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        guard let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) else {
+            return nil
+        }
+        return errorResponse.detail
     }
 
     private func decodeResponse<T: Decodable>(data: Data) throws -> T {

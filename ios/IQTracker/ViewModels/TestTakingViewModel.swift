@@ -116,7 +116,14 @@ class TestTakingViewModel: BaseViewModel {
 
             setLoading(false)
         } catch {
-            handleError(error)
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .unknown(),
+                operation: .fetchQuestions
+            )
+            handleError(contextualError, retryOperation: { [weak self] in
+                await self?.startTest(questionCount: questionCount)
+            })
+
             // Fall back to mock questions in development/testing
             #if DEBUG
                 print("Failed to load questions from API, falling back to mock data: \(error)")
@@ -128,27 +135,25 @@ class TestTakingViewModel: BaseViewModel {
 
     func submitTest() async {
         guard let session = testSession else {
-            handleError(
-                NSError(
-                    domain: "TestTakingViewModel",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "No active test session"]
-                )
+            let error = NSError(
+                domain: "TestTakingViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No active test session. Please start a new test."]
             )
+            handleError(error)
             return
         }
 
         guard allQuestionsAnswered else {
-            handleError(
-                NSError(
-                    domain: "TestTakingViewModel",
-                    code: -1,
-                    userInfo: [
-                        NSLocalizedDescriptionKey:
-                            "Please answer all questions before submitting"
-                    ]
-                )
+            let error = NSError(
+                domain: "TestTakingViewModel",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Please answer all questions before submitting your test."
+                ]
             )
+            handleError(error)
             return
         }
 
@@ -193,7 +198,15 @@ class TestTakingViewModel: BaseViewModel {
 
     private func handleSubmissionFailure(_ error: Error) {
         isSubmitting = false
-        handleError(error)
+
+        let contextualError = ContextualError(
+            error: error as? APIError ?? .unknown(),
+            operation: .submitTest
+        )
+
+        handleError(contextualError, retryOperation: { [weak self] in
+            await self?.submitTest()
+        })
 
         #if DEBUG
             print("❌ Failed to submit test: \(error)")
