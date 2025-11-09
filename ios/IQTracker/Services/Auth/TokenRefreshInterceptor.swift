@@ -1,17 +1,54 @@
 import Foundation
 
+/// Error type for token refresh operations
+enum TokenRefreshError: Error {
+    /// Indicates the original request should be retried with the new token
+    case shouldRetryRequest
+    /// Token refresh failed with an underlying error
+    case refreshFailed(Error)
+}
+
 /// Response interceptor that automatically refreshes tokens on 401 errors
-class TokenRefreshInterceptor {
-    private let authService: AuthServiceProtocol
+class TokenRefreshInterceptor: ResponseInterceptor {
+    private weak var authService: AuthServiceProtocol?
     private var isRefreshing = false
     private var refreshTask: Task<AuthResponse, Error>?
 
-    init(authService: AuthServiceProtocol = AuthService.shared) {
+    init(authService: AuthServiceProtocol? = nil) {
         self.authService = authService
     }
 
+    /// Set the authentication service for token refresh operations
+    /// - Parameter authService: The authentication service to use for refreshing tokens
+    func setAuthService(_ authService: AuthServiceProtocol) {
+        self.authService = authService
+    }
+
+    /// Intercept HTTP responses and handle 401 unauthorized errors by refreshing the token
+    /// - Parameters:
+    ///   - response: The HTTP response to intercept
+    ///   - data: The response data
+    /// - Returns: The response data, or throws an error if token refresh is needed
+    /// - Throws: `TokenRefreshError.shouldRetryRequest` to signal the request should be retried
+    func intercept(response: HTTPURLResponse, data: Data) async throws -> Data {
+        // Only intercept 401 errors
+        guard response.statusCode == 401 else {
+            return data
+        }
+
+        // Refresh the token
+        try await refreshToken()
+
+        // Signal that the request should be retried
+        throw TokenRefreshError.shouldRetryRequest
+    }
+
     /// Handle 401 unauthorized responses by refreshing the token
-    func handleUnauthorized() async throws {
+    private func refreshToken() async throws {
+        guard let authService else {
+            throw APIError.unauthorized(message: "Authentication service not available")
+        }
+
         // If already refreshing, wait for that task
         if let existingTask = refreshTask {
             _ = try await existingTask.value
@@ -27,7 +64,7 @@ class TokenRefreshInterceptor {
             } catch {
                 // Token refresh failed - clear auth state
                 try? await authService.logout()
-                throw error
+                throw TokenRefreshError.refreshFailed(error)
             }
         }
 
@@ -39,18 +76,5 @@ class TokenRefreshInterceptor {
         }
 
         _ = try await task.value
-    }
-
-    /// Check if we should attempt token refresh for an error
-    func shouldRefreshToken(for error: Error) -> Bool {
-        if let apiError = error as? APIError {
-            switch apiError {
-            case .unauthorized:
-                return true
-            default:
-                return false
-            }
-        }
-        return false
     }
 }

@@ -16,7 +16,7 @@ class LoginViewModel: BaseViewModel {
 
     // MARK: - Initialization
 
-    init(authManager: any AuthManagerProtocol = AuthManager.shared) {
+    init(authManager: any AuthManagerProtocol) {
         self.authManager = authManager
         super.init()
 

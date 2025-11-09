@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Welcome/Login screen
 struct WelcomeView: View {
-    @StateObject private var viewModel = LoginViewModel()
+    @StateObject private var viewModel = LoginViewModel(authManager: AuthManager.shared)
 
     var body: some View {
         NavigationStack {

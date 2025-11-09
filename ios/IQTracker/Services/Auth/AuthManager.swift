@@ -21,6 +21,12 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         self.authService = authService
         tokenRefreshInterceptor = TokenRefreshInterceptor(authService: authService)
 
+        // Set up token refresh interceptor in APIClient
+        if let apiClient = authService as? AuthService {
+            // Access the shared APIClient and set the auth service
+            APIClient.shared.setAuthService(authService)
+        }
+
         // Initialize state from existing session
         isAuthenticated = authService.isAuthenticated
         currentUser = authService.currentUser
@@ -49,9 +55,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             currentUser = response.user
             isLoading = false
         } catch {
-            authError = error
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .unknown(),
+                operation: .register
+            )
+            authError = contextualError
             isLoading = false
-            throw error
+            throw contextualError
         }
     }
 
@@ -66,9 +76,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             currentUser = response.user
             isLoading = false
         } catch {
-            authError = error
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .unknown(),
+                operation: .login
+            )
+            authError = contextualError
             isLoading = false
-            throw error
+            throw contextualError
         }
     }
 

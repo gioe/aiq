@@ -1,7 +1,7 @@
 import Foundation
 
 /// Protocol defining authentication service interface
-protocol AuthServiceProtocol {
+protocol AuthServiceProtocol: AnyObject {
     /// Register a new user
     func register(email: String, password: String, firstName: String, lastName: String) async throws -> AuthResponse
 

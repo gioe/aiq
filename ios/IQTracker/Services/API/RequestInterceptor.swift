@@ -43,13 +43,7 @@ struct AuthTokenInterceptor: RequestInterceptor {
 struct ConnectivityInterceptor: RequestInterceptor {
     func intercept(_ request: URLRequest) async throws -> URLRequest {
         guard NetworkMonitor.shared.isConnected else {
-            throw APIError.networkError(
-                NSError(
-                    domain: "NetworkError",
-                    code: -1009,
-                    userInfo: [NSLocalizedDescriptionKey: "No internet connection"]
-                )
-            )
+            throw APIError.noInternetConnection
         }
         return request
     }
