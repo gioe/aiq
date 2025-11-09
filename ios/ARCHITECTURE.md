@@ -2,57 +2,7 @@
 
 ## Overview
 
-The IQ Tracker iOS app follows the **MVVM (Model-View-ViewModel)** architecture pattern with a clear separation of concerns. This document outlines the structure and conventions used throughout the app.
-
-## Directory Structure
-
-```
-IQTracker/
-├── Models/                    # Data models and entities
-│   ├── User.swift
-│   ├── Question.swift
-│   ├── TestSession.swift
-│   ├── TestResult.swift
-│   ├── Auth.swift
-│   └── APIError.swift
-│
-├── ViewModels/                # ViewModels (business logic)
-│   ├── ViewModelProtocol.swift
-│   └── BaseViewModel.swift
-│
-├── Views/                     # SwiftUI views organized by feature
-│   ├── Auth/                  # Authentication screens
-│   ├── Dashboard/             # Home/Dashboard screens
-│   ├── Test/                  # Test-taking screens
-│   ├── History/               # Test history screens
-│   ├── Settings/              # Settings screens
-│   └── Common/                # Reusable view components
-│       ├── LoadingView.swift
-│       ├── ErrorView.swift
-│       ├── PrimaryButton.swift
-│       └── CustomTextField.swift
-│
-├── Services/                  # Business logic and API layer
-│   ├── API/
-│   │   └── APIClient.swift   # Network layer
-│   ├── Auth/
-│   │   └── AuthServiceProtocol.swift
-│   └── Storage/
-│       └── SecureStorageProtocol.swift
-│
-├── Utilities/                 # Helper utilities and extensions
-│   ├── Extensions/
-│   │   ├── View+Extensions.swift
-│   │   ├── Date+Extensions.swift
-│   │   └── String+Extensions.swift
-│   └── Helpers/
-│       ├── AppConfig.swift
-│       └── Validators.swift
-│
-├── Assets.xcassets/          # Images, colors, and assets
-├── Info.plist
-└── IQTrackerApp.swift        # App entry point
-```
+The IQ Tracker iOS app follows **MVVM (Model-View-ViewModel)** architecture with a clear separation of concerns.
 
 ## Architecture Components
 
