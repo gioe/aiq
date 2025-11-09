@@ -12,6 +12,7 @@ class TestTakingViewModel: BaseViewModel {
     @Published var userAnswers: [Int: String] = [:] // questionId -> answer
     @Published var isSubmitting: Bool = false
     @Published var testCompleted: Bool = false
+    @Published var testResult: SubmittedTestResult?
 
     // MARK: - Private Properties
 
@@ -152,32 +153,58 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         isSubmitting = true
+        clearError()
 
-        // swiftlint:disable:next todo
-        // TODO: Implement actual API call to submit test
-        // Convert userAnswers to QuestionResponse array
+        let submission = buildTestSubmission(for: session)
+
+        do {
+            let response: TestSubmitResponse = try await apiClient.request(
+                endpoint: .testSubmit,
+                method: .post,
+                body: submission,
+                requiresAuth: true
+            )
+
+            handleSubmissionSuccess(response)
+        } catch {
+            handleSubmissionFailure(error)
+        }
+    }
+
+    private func buildTestSubmission(for session: TestSession) -> TestSubmission {
         let responses = questions.compactMap { question -> QuestionResponse? in
             guard let answer = userAnswers[question.id], !answer.isEmpty else { return nil }
             return QuestionResponse(questionId: question.id, userAnswer: answer)
         }
+        return TestSubmission(sessionId: session.id, responses: responses)
+    }
 
-        let submission = TestSubmission(sessionId: session.id, responses: responses)
-
-        // Simulate network delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-
-        // Clear saved progress after successful submission
+    private func handleSubmissionSuccess(_ response: TestSubmitResponse) {
+        testResult = response.result
+        testSession = response.session
         clearSavedProgress()
-
-        // For now, just mark as completed
         testCompleted = true
         isSubmitting = false
+
+        #if DEBUG
+            print("✅ Test submitted successfully! IQ Score: \(response.result.iqScore)")
+        #endif
+    }
+
+    private func handleSubmissionFailure(_ error: Error) {
+        isSubmitting = false
+        handleError(error)
+
+        #if DEBUG
+            print("❌ Failed to submit test: \(error)")
+        #endif
     }
 
     func resetTest() {
         currentQuestionIndex = 0
         userAnswers.removeAll()
         testCompleted = false
+        testResult = nil
         error = nil
     }
 
