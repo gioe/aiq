@@ -91,6 +91,6 @@ struct RetryExecutor {
         }
 
         // If we get here, we exhausted all retries
-        throw lastError ?? APIError.unknown
+        throw lastError ?? (APIError.unknown() as Error)
     }
 }
