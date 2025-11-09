@@ -27,6 +27,7 @@
 --enable isEmpty
 --enable sortImports
 --enable blankLinesBetweenScopes
+--enable blankLinesAroundMark
 --enable consecutiveSpaces
 
 # Disabled rules
