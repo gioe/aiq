@@ -600,7 +600,7 @@ arbiters:
 - [x] **P3-008**: Build Dashboard/Home view (placeholder)
 - [x] **P3-009**: Implement logout functionality
 - [x] **P3-010**: Add error handling and user feedback
-- [ ] **P3-011**: Write unit tests for ViewModels
+- [x] **P3-011**: Write unit tests for ViewModels
 
 **Dependencies:** Phase 2 (auth endpoints) complete
 
@@ -621,7 +621,8 @@ arbiters:
 - [x] **P4-008**: Create results screen (immediate feedback)
 - [x] **P4-009**: Add error handling for network issues
 - [x] **P4-010**: Implement test abandonment handling
-- [ ] **P4-011**: User testing and UX refinement
+- [x] **P4-011**: User testing and UX refinement (comprehensive review completed - see Phase 10)
+
 
 **Dependencies:** Phase 2 (question/test endpoints) complete
 
@@ -725,6 +726,76 @@ arbiters:
 - [ ] **P9-011**: Launch!
 
 **Dependencies:** Phase 8 complete
+
+---
+
+### Phase 10: UX Improvements & Polish
+
+**Goal:** Enhance user experience based on comprehensive app review and user testing
+
+**Priority 1: Critical Fixes (Blocking MVP)**
+- [ ] **P10-001**: Add "Start Test" functionality to Dashboard
+- [ ] **P10-002**: Implement History data fetching from API
+- [ ] **P10-003**: Create HistoryViewModel for state management
+- [ ] **P10-004**: Design and implement History list item component
+- [ ] **P10-005**: Add loading states to Dashboard and History views
+- [ ] **P10-006**: Enhance empty states to be more actionable and encouraging
+- [ ] **P10-007**: Implement pull-to-refresh for History view
+
+**Priority 2: Core UX Enhancements**
+- [ ] **P10-008**: Create detailed test breakdown view (question-by-question review)
+- [ ] **P10-009**: Add share functionality for test results (share sheet)
+- [ ] **P10-010**: Implement haptic feedback for important actions
+- [ ] **P10-011**: Add VoiceOver optimization and accessibility labels throughout app
+- [ ] **P10-012**: Implement Dynamic Type support verification
+- [ ] **P10-013**: Add accessibility identifiers for UI testing
+- [ ] **P10-014**: Verify color contrast for accessibility compliance
+- [ ] **P10-015**: Add time tracking display during test-taking
+- [ ] **P10-016**: Implement score comparison with previous tests
+- [ ] **P10-017**: Add percentile ranking display
+
+**Priority 3: Visual Polish & Animations**
+- [ ] **P10-018**: Add entrance animations to Dashboard and History views
+- [ ] **P10-019**: Implement skeleton screens for loading states
+- [ ] **P10-020**: Add celebration animation/confetti for high scores (>130 IQ)
+- [ ] **P10-021**: Create shimmer effect for loading skeletons
+- [ ] **P10-022**: Add smooth chart animations for score history
+- [ ] **P10-023**: Enhance empty state visuals with illustrations
+- [ ] **P10-024**: Implement custom tab bar design
+
+**Priority 4: Additional Features**
+- [ ] **P10-025**: Build onboarding flow for first-time users
+- [ ] **P10-026**: Add Dark/Light mode toggle in Settings
+- [ ] **P10-027**: Implement test preferences (question count, difficulty)
+- [ ] **P10-028**: Add privacy settings and data export
+- [ ] **P10-029**: Create account deletion functionality
+- [ ] **P10-030**: Add notification preferences in Settings
+- [ ] **P10-031**: Implement sound and haptic preferences
+- [ ] **P10-032**: Add offline mode for viewing past results
+- [ ] **P10-033**: Create sync indicator when returning online
+- [ ] **P10-034**: Add "Review Answers" screen before test submission
+
+**Priority 5: Gamification & Engagement**
+- [ ] **P10-035**: Design and implement achievement system
+- [ ] **P10-036**: Add streak tracking for consistent testing
+- [ ] **P10-037**: Create score milestone badges
+- [ ] **P10-038**: Implement daily goals system
+- [ ] **P10-039**: Add motivational messages based on performance
+
+**Priority 6: Form & Validation Improvements**
+- [ ] **P10-040**: Add validation checkmarks for valid form fields
+- [ ] **P10-041**: Implement password strength meter
+- [ ] **P10-042**: Add email typo suggestions (e.g., gmial.com → gmail.com)
+- [ ] **P10-043**: Implement progressive disclosure of form requirements
+
+**Priority 7: Testing & Quality**
+- [ ] **P10-044**: Add UI tests for critical user paths
+- [ ] **P10-045**: Implement snapshot tests for visual regression
+- [ ] **P10-046**: Integrate analytics for user behavior tracking
+- [ ] **P10-047**: Add crash reporting integration
+- [ ] **P10-048**: Conduct performance profiling and optimization
+
+**Dependencies:** Phase 4 complete; Phase 5 recommended
 
 ---
 
