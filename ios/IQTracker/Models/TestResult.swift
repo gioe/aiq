@@ -1,24 +1,25 @@
 import Foundation
 
 struct TestResult: Codable, Identifiable {
-    let id: String
-    let testSessionId: String
-    let userId: String
+    let id: Int
+    let testSessionId: Int
+    let userId: Int
     let iqScore: Int
     let totalQuestions: Int
     let correctAnswers: Int
-    let completionTimeSeconds: Int
+    let accuracyPercentage: Double
+    let completionTimeSeconds: Int?
     let completedAt: Date
 
     var accuracy: Double {
-        guard totalQuestions > 0 else { return 0 }
-        return Double(correctAnswers) / Double(totalQuestions)
+        accuracyPercentage / 100.0
     }
 
     var completionTimeFormatted: String {
-        let minutes = completionTimeSeconds / 60
-        let seconds = completionTimeSeconds % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        guard let seconds = completionTimeSeconds else { return "N/A" }
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -28,6 +29,7 @@ struct TestResult: Codable, Identifiable {
         case iqScore = "iq_score"
         case totalQuestions = "total_questions"
         case correctAnswers = "correct_answers"
+        case accuracyPercentage = "accuracy_percentage"
         case completionTimeSeconds = "completion_time_seconds"
         case completedAt = "completed_at"
     }

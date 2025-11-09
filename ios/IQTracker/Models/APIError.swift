@@ -16,6 +16,8 @@ enum NetworkOperation {
     case fetchProfile
     /// Updating user profile
     case updateProfile
+    /// Fetching test history
+    case fetchHistory
     /// User logout operation
     case logout
     /// Generic network operation
@@ -38,6 +40,8 @@ enum NetworkOperation {
             "loading profile"
         case .updateProfile:
             "updating profile"
+        case .fetchHistory:
+            "loading history"
         case .logout:
             "signing out"
         case .generic:

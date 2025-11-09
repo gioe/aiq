@@ -80,7 +80,7 @@ struct SubmittedTestResult: Codable {
     let totalQuestions: Int
     let correctAnswers: Int
     let accuracyPercentage: Double
-    let completionTimeSeconds: Int
+    let completionTimeSeconds: Int?
     let completedAt: Date
 
     var accuracy: Double {
@@ -88,9 +88,10 @@ struct SubmittedTestResult: Codable {
     }
 
     var completionTimeFormatted: String {
-        let minutes = completionTimeSeconds / 60
-        let seconds = completionTimeSeconds % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        guard let seconds = completionTimeSeconds else { return "N/A" }
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 
     enum CodingKeys: String, CodingKey {
