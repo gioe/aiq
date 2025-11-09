@@ -4,6 +4,9 @@ import SwiftUI
 struct TestTakingView: View {
     @StateObject private var viewModel = TestTakingViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var showResumeAlert = false
+    @State private var showExitConfirmation = false
+    @State private var savedProgress: SavedTestProgress?
 
     var body: some View {
         ZStack {
@@ -13,9 +16,10 @@ struct TestTakingView: View {
                 testContentView
             }
 
-            // Loading overlay
+            // Loading overlay with transition
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .navigationTitle("IQ Test")
@@ -23,12 +27,52 @@ struct TestTakingView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Exit") {
-                    dismiss()
+                    handleExit()
                 }
             }
         }
         .task {
+            await checkForSavedProgress()
+        }
+        .alert("Resume Test?", isPresented: $showResumeAlert) {
+            Button("Resume") {
+                if let progress = savedProgress {
+                    viewModel.restoreProgress(progress)
+                }
+            }
+            Button("Start New") {
+                viewModel.clearSavedProgress()
+                Task {
+                    await viewModel.startTest()
+                }
+            }
+        } message: {
+            Text("You have an incomplete test. Would you like to resume where you left off?")
+        }
+        .alert("Exit Test?", isPresented: $showExitConfirmation) {
+            Button("Exit", role: .destructive) {
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You have \(viewModel.answeredCount) unsaved answers. Are you sure you want to exit?")
+        }
+    }
+
+    private func checkForSavedProgress() async {
+        if let progress = viewModel.loadSavedProgress() {
+            savedProgress = progress
+            showResumeAlert = true
+        } else {
             await viewModel.startTest()
+        }
+    }
+
+    private func handleExit() {
+        if viewModel.answeredCount > 0 && !viewModel.testCompleted {
+            showExitConfirmation = true
+        } else {
+            dismiss()
         }
     }
 
@@ -167,27 +211,44 @@ struct TestTakingView: View {
 
     // MARK: - Test Completed
 
+    @State private var showCompletionAnimation = false
+
     private var testCompletedView: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            // Success icon
+            // Success icon with celebratory animation
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
                 .foregroundColor(.green)
+                .scaleEffect(showCompletionAnimation ? 1.0 : 0.5)
+                .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                .rotationEffect(.degrees(showCompletionAnimation ? 0 : -180))
 
             VStack(spacing: 12) {
                 Text("Test Completed!")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
 
                 Text("Your answers have been submitted")
                     .font(.body)
                     .foregroundColor(.secondary)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
 
                 Text("You answered \(viewModel.answeredCount) out of \(viewModel.questions.count) questions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
+                    .offset(y: showCompletionAnimation ? 0 : 20)
+            }
+            .onAppear {
+                // Staggered animations for text elements
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                    showCompletionAnimation = true
+                }
             }
 
             Spacer()

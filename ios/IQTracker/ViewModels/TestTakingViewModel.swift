@@ -16,12 +16,19 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Private Properties
 
     private let apiClient: APIClientProtocol
+    private let answerStorage: LocalAnswerStorageProtocol
+    private var saveWorkItem: DispatchWorkItem?
 
     // MARK: - Initialization
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(
+        apiClient: APIClientProtocol = APIClient.shared,
+        answerStorage: LocalAnswerStorageProtocol = LocalAnswerStorage.shared
+    ) {
         self.apiClient = apiClient
+        self.answerStorage = answerStorage
         super.init()
+        setupAutoSave()
     }
 
     // MARK: - Computed Properties
@@ -159,6 +166,9 @@ class TestTakingViewModel: BaseViewModel {
         // Simulate network delay
         try? await Task.sleep(nanoseconds: 1_000_000_000)
 
+        // Clear saved progress after successful submission
+        clearSavedProgress()
+
         // For now, just mark as completed
         testCompleted = true
         isSubmitting = false
@@ -169,6 +179,73 @@ class TestTakingViewModel: BaseViewModel {
         userAnswers.removeAll()
         testCompleted = false
         error = nil
+    }
+
+    // MARK: - Local Storage
+
+    private func setupAutoSave() {
+        // Watch for changes to userAnswers and currentQuestionIndex
+        Publishers.CombineLatest($userAnswers, $currentQuestionIndex)
+            .dropFirst() // Skip initial value
+            .sink { [weak self] _, _ in
+                self?.scheduleAutoSave()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func scheduleAutoSave() {
+        // Cancel previous save if it hasn't executed yet
+        saveWorkItem?.cancel()
+
+        // Create new work item with 1 second delay (throttle)
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.saveProgress()
+        }
+        saveWorkItem = workItem
+
+        // Schedule save after 1 second
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+    }
+
+    private func saveProgress() {
+        guard let session = testSession, !questions.isEmpty else { return }
+
+        let progress = SavedTestProgress(
+            sessionId: session.id,
+            userId: session.userId,
+            questionIds: questions.map(\.id),
+            userAnswers: userAnswers,
+            currentQuestionIndex: currentQuestionIndex,
+            savedAt: Date()
+        )
+
+        do {
+            try answerStorage.saveProgress(progress)
+            #if DEBUG
+                print("✅ Auto-saved test progress: \(userAnswers.count) answers")
+            #endif
+        } catch {
+            #if DEBUG
+                print("❌ Failed to save progress: \(error)")
+            #endif
+        }
+    }
+
+    func loadSavedProgress() -> SavedTestProgress? {
+        answerStorage.loadProgress()
+    }
+
+    func restoreProgress(_ progress: SavedTestProgress) {
+        userAnswers = progress.userAnswers
+        currentQuestionIndex = progress.currentQuestionIndex
+    }
+
+    func clearSavedProgress() {
+        answerStorage.clearProgress()
+    }
+
+    var hasSavedProgress: Bool {
+        answerStorage.hasProgress()
     }
 
     // MARK: - Mock Data

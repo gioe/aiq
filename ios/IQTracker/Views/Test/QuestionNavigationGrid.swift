@@ -89,7 +89,7 @@ struct QuestionNavigationGrid: View {
             .frame(height: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel("Question \(index + 1)")
         .accessibilityHint(
             isCurrent ? "Current question" :
@@ -126,6 +126,18 @@ struct QuestionNavigationGrid: View {
             Text(label)
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+// MARK: - Button Style
+
+/// Button style that scales down on press for tactile feedback
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
