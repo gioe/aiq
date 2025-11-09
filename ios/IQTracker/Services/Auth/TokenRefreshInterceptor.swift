@@ -2,7 +2,9 @@ import Foundation
 
 /// Error type for token refresh operations
 enum TokenRefreshError: Error {
+    /// Indicates the original request should be retried with the new token
     case shouldRetryRequest
+    /// Token refresh failed with an underlying error
     case refreshFailed(Error)
 }
 
@@ -16,10 +18,18 @@ class TokenRefreshInterceptor: ResponseInterceptor {
         self.authService = authService
     }
 
+    /// Set the authentication service for token refresh operations
+    /// - Parameter authService: The authentication service to use for refreshing tokens
     func setAuthService(_ authService: AuthServiceProtocol) {
         self.authService = authService
     }
 
+    /// Intercept HTTP responses and handle 401 unauthorized errors by refreshing the token
+    /// - Parameters:
+    ///   - response: The HTTP response to intercept
+    ///   - data: The response data
+    /// - Returns: The response data, or throws an error if token refresh is needed
+    /// - Throws: `TokenRefreshError.shouldRetryRequest` to signal the request should be retried
     func intercept(response: HTTPURLResponse, data: Data) async throws -> Data {
         // Only intercept 401 errors
         guard response.statusCode == 401 else {

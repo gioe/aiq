@@ -5,6 +5,7 @@ import Foundation
 class BaseViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var error: Error?
+    /// Indicates whether the last failed operation can be retried
     @Published var canRetry: Bool = false
 
     var cancellables = Set<AnyCancellable>()

@@ -105,7 +105,9 @@ enum APIError: Error, LocalizedError {
 
 /// Wrapper for API errors with operation context
 struct ContextualError: Error, LocalizedError {
+    /// The underlying API error
     let error: APIError
+    /// The network operation that failed
     let operation: NetworkOperation
 
     var errorDescription: String? {
@@ -115,10 +117,12 @@ struct ContextualError: Error, LocalizedError {
         return "Error while \(operation.userFacingName): \(baseError)"
     }
 
+    /// The underlying API error for detailed handling
     var underlyingError: APIError {
         error
     }
 
+    /// Whether this error can be retried
     var isRetryable: Bool {
         error.isRetryable
     }
