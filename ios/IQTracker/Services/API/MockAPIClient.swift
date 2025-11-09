@@ -5,7 +5,7 @@ class MockAPIClient: APIClientProtocol {
     var authToken: String?
     var mockDelay: TimeInterval = 0.5
     var shouldFail: Bool = false
-    var mockError: Error = APIError.unknown
+    var mockError: Error = APIError.unknown()
 
     // Mock responses
     var mockResponses: [String: Any] = [:]
@@ -97,7 +97,7 @@ class MockAPIClient: APIClientProtocol {
     func resetMocks() {
         mockResponses.removeAll()
         shouldFail = false
-        mockError = APIError.unknown
+        mockError = APIError.unknown()
         mockDelay = 0.5
     }
 }

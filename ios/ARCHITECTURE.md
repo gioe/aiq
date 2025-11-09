@@ -118,7 +118,7 @@ Reusable UI components are in `Views/Common/`:
 **Example:**
 ```swift
 struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel()
+    @StateObject private var viewModel = LoginViewModel(authManager: AuthManager.shared)
 
     var body: some View {
         // UI implementation...

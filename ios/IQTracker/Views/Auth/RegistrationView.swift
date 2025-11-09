@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Registration screen
 struct RegistrationView: View {
-    @StateObject private var viewModel = RegistrationViewModel()
+    @StateObject private var viewModel = RegistrationViewModel(authManager: AuthManager.shared)
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
