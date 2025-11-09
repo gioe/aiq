@@ -203,8 +203,7 @@ class APIClient: APIClientProtocol {
                 // If a response interceptor handles the error (e.g., token refresh),
                 // retry the original request
                 if let tokenRefreshError = error as? TokenRefreshError,
-                   case .shouldRetryRequest = tokenRefreshError
-                {
+                   case .shouldRetryRequest = tokenRefreshError {
                     // Retry the request with the new token
                     return try await performRequest(
                         endpoint: endpoint,
