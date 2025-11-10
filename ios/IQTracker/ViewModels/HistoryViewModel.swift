@@ -60,12 +60,28 @@ class HistoryViewModel: BaseViewModel {
 
     // MARK: - Public Methods
 
-    /// Fetch test history from API
-    func fetchHistory() async {
+    /// Fetch test history from API (with caching)
+    func fetchHistory(forceRefresh: Bool = false) async {
         setLoading(true)
         clearError()
 
         do {
+            // Try to get from cache first if not forcing refresh
+            if !forceRefresh,
+               let cachedHistory: [TestResult] = await DataCache.shared.get(
+                   forKey: DataCache.Key.testHistory
+               ) {
+                allTestHistory = cachedHistory
+                applyFiltersAndSort()
+                setLoading(false)
+
+                #if DEBUG
+                    print("✅ Loaded \(cachedHistory.count) test results from cache")
+                #endif
+                return
+            }
+
+            // Fetch from API
             let history: [TestResult] = try await apiClient.request(
                 endpoint: .testHistory,
                 method: .get,
@@ -73,12 +89,15 @@ class HistoryViewModel: BaseViewModel {
                 requiresAuth: true
             )
 
+            // Cache the results (5 minute expiration)
+            await DataCache.shared.set(history, forKey: DataCache.Key.testHistory)
+
             allTestHistory = history
             applyFiltersAndSort()
             setLoading(false)
 
             #if DEBUG
-                print("✅ Fetched \(history.count) test results")
+                print("✅ Fetched \(history.count) test results from API")
             #endif
         } catch {
             let contextualError = ContextualError(
@@ -86,7 +105,7 @@ class HistoryViewModel: BaseViewModel {
                 operation: .fetchHistory
             )
             handleError(contextualError, retryOperation: { [weak self] in
-                await self?.fetchHistory()
+                await self?.fetchHistory(forceRefresh: forceRefresh)
             })
         }
     }
@@ -126,7 +145,9 @@ class HistoryViewModel: BaseViewModel {
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
         isRefreshing = true
-        await fetchHistory()
+        // Clear cache and force refresh
+        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await fetchHistory(forceRefresh: true)
         isRefreshing = false
     }
 

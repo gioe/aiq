@@ -384,6 +384,7 @@
 			isa = PBXGroup;
 			children = (
 				3E09B407D867D4141B0DAB81 /* KeychainStorage.swift */,
+				04A77BFDADC24F5A8E50E2EA /* DataCache.swift */,
 				02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */,
 				C3AD4E8BA8243FCABD9E4FB4 /* SecureStorageProtocol.swift */,
 			);
@@ -551,6 +552,7 @@
 				1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */,
 				351F95043E2BEBB36F24E35F /* LoadingView.swift in Sources */,
 				015349D76C6748A7E2A41E1F /* LocalAnswerStorage.swift in Sources */,
+				58BE0F8076914CA497021CA9 /* DataCache.swift in Sources */,
 				530531E24E0ACE60A41AC0CC /* LoginViewModel.swift in Sources */,
 				53B2C01514AAE02D8B84AE2F /* MainTabView.swift in Sources */,
 				12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */,

@@ -24,19 +24,39 @@ class DashboardViewModel: BaseViewModel {
 
     // MARK: - Public Methods
 
-    /// Fetch dashboard data from API
-    func fetchDashboardData() async {
+    /// Fetch dashboard data from API (with caching)
+    func fetchDashboardData(forceRefresh: Bool = false) async {
         setLoading(true)
         clearError()
 
         do {
-            // Fetch test history
-            let history: [TestResult] = try await apiClient.request(
-                endpoint: .testHistory,
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true
-            )
+            // Try to get from cache first if not forcing refresh
+            var history: [TestResult]
+
+            if !forceRefresh,
+               let cachedHistory: [TestResult] = await DataCache.shared.get(
+                   forKey: DataCache.Key.testHistory
+               ) {
+                history = cachedHistory
+                #if DEBUG
+                    print("✅ Dashboard loaded \(cachedHistory.count) test results from cache")
+                #endif
+            } else {
+                // Fetch from API
+                history = try await apiClient.request(
+                    endpoint: .testHistory,
+                    method: .get,
+                    body: nil as String?,
+                    requiresAuth: true
+                )
+
+                // Cache the results
+                await DataCache.shared.set(history, forKey: DataCache.Key.testHistory)
+
+                #if DEBUG
+                    print("✅ Dashboard fetched \(history.count) test results from API")
+                #endif
+            }
 
             // Update dashboard data
             if !history.isEmpty {
@@ -59,7 +79,7 @@ class DashboardViewModel: BaseViewModel {
 
         } catch {
             handleError(error) {
-                await self.fetchDashboardData()
+                await self.fetchDashboardData(forceRefresh: forceRefresh)
             }
         }
     }
@@ -67,7 +87,9 @@ class DashboardViewModel: BaseViewModel {
     /// Refresh dashboard data (pull-to-refresh)
     func refreshDashboard() async {
         isRefreshing = true
-        await fetchDashboardData()
+        // Clear cache and force refresh
+        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await fetchDashboardData(forceRefresh: true)
         isRefreshing = false
     }
 
