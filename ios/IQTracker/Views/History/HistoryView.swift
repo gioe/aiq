@@ -69,8 +69,16 @@ struct HistoryView: View {
 
                 // Test History List
                 ForEach(viewModel.testHistory) { result in
-                    TestHistoryListItem(testResult: result)
-                        .padding(.horizontal)
+                    NavigationLink {
+                        TestDetailView(
+                            testResult: result,
+                            userAverage: viewModel.averageIQScore
+                        )
+                    } label: {
+                        TestHistoryListItem(testResult: result)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
                 }
             }
             .padding(.vertical)
