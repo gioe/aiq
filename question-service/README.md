@@ -47,15 +47,27 @@ mypy .
 
 ## Configuration
 
-Arbiter model mappings will be configurable via YAML/JSON (to be added in Phase 6 - P6-004).
+Arbiter model mappings are configured via YAML in `config/arbiters.yaml`.
 
-Example structure:
-```yaml
-arbiters:
-  mathematical:
-    model: "gpt-4"
-    provider: "openai"
-  logical_reasoning:
-    model: "claude-3-5-sonnet"
-    provider: "anthropic"
+**Configuration System**: ✅ Implemented (P6-004)
+- Type-safe configuration with Pydantic validation
+- Maps question types to arbiter models
+- Configurable evaluation criteria weights
+- Supports model enable/disable flags
+- Comprehensive test coverage
+
+See [config/README.md](config/README.md) for complete documentation.
+
+Example usage:
+```python
+from app import initialize_arbiter_config, get_arbiter_config
+
+# Initialize configuration
+initialize_arbiter_config("./config/arbiters.yaml")
+
+# Get arbiter for question type
+config = get_arbiter_config()
+arbiter = config.get_arbiter_for_question_type("mathematical")
 ```
+
+For a complete working example, see `examples/arbiter_config_example.py`.

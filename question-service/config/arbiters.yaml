@@ -1,0 +1,76 @@
+# Arbiter Model Configuration
+# Maps question types to specific arbiter models for quality evaluation
+#
+# Each question type can be evaluated by a different model based on
+# benchmark performance and domain expertise.
+#
+# Configuration Structure:
+#   question_type:
+#     model: Model identifier (e.g., "gpt-4", "claude-3-5-sonnet-20241022")
+#     provider: Provider name ("openai", "anthropic", "google")
+#     rationale: Explanation of why this model was chosen
+#     enabled: Whether this arbiter is active (default: true)
+
+version: "1.0"
+
+arbiters:
+  mathematical:
+    model: "gpt-4-turbo"
+    provider: "openai"
+    rationale: "Strong performance on MATH and GSM8K benchmarks"
+    enabled: true
+
+  logical_reasoning:
+    model: "claude-3-5-sonnet-20241022"
+    provider: "anthropic"
+    rationale: "Excellent reasoning capabilities on ARC and logical benchmarks"
+    enabled: true
+
+  pattern_recognition:
+    model: "gpt-4-turbo"
+    provider: "openai"
+    rationale: "Strong visual-spatial reasoning from multimodal training"
+    enabled: true
+
+  spatial_reasoning:
+    model: "claude-3-5-sonnet-20241022"
+    provider: "anthropic"
+    rationale: "Excellent spatial and 3D reasoning capabilities"
+    enabled: true
+
+  verbal_reasoning:
+    model: "claude-3-5-sonnet-20241022"
+    provider: "anthropic"
+    rationale: "Superior natural language understanding and reasoning"
+    enabled: true
+
+  memory:
+    model: "gpt-4-turbo"
+    provider: "openai"
+    rationale: "Balanced performance across cognitive evaluation tasks"
+    enabled: true
+
+# Default arbiter (fallback for unknown question types)
+default_arbiter:
+  model: "gpt-4-turbo"
+  provider: "openai"
+  rationale: "General-purpose fallback arbiter"
+  enabled: true
+
+# Evaluation criteria weights (0.0 to 1.0)
+# These determine how heavily each factor is weighted in the arbiter score
+evaluation_criteria:
+  clarity: 0.25              # Question is clear and unambiguous
+  difficulty: 0.20           # Appropriate difficulty for IQ testing
+  validity: 0.30             # Valid as an IQ test question
+  formatting: 0.15           # Properly formatted with correct answer
+  creativity: 0.10           # Novel and interesting question
+
+# Minimum score threshold for question approval (0.0 to 1.0)
+min_arbiter_score: 0.7
+
+# Notes:
+# - Model identifiers should match the exact model names used by provider SDKs
+# - Provider names must match: "openai", "anthropic", or "google"
+# - Enabled flag can be used to temporarily disable specific arbiters
+# - Evaluation criteria weights should sum to 1.0

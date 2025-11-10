@@ -654,7 +654,7 @@ arbiters:
 - [x] **P6-001**: Set up LLM provider integrations (OpenAI SDK)
 - [x] **P6-002**: Set up LLM provider integrations (Anthropic SDK)
 - [x] **P6-003**: Set up LLM provider integrations (Google SDK)
-- [ ] **P6-004**: Create configurable arbiter mapping system (YAML/JSON config)
+- [x] **P6-004**: Create configurable arbiter mapping system (YAML/JSON config)
 - [ ] **P6-005**: Implement question generation pipeline (generator phase)
 - [ ] **P6-006**: Build arbiter evaluation logic
 - [ ] **P6-007**: Implement deduplication checking
