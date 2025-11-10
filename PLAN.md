@@ -651,7 +651,7 @@ arbiters:
 **Goal:** Build automated question generation pipeline
 
 **Tasks:**
-- [ ] **P6-001**: Set up LLM provider integrations (OpenAI SDK)
+- [x] **P6-001**: Set up LLM provider integrations (OpenAI SDK)
 - [ ] **P6-002**: Set up LLM provider integrations (Anthropic SDK)
 - [ ] **P6-003**: Set up LLM provider integrations (Google SDK)
 - [ ] **P6-004**: Create configurable arbiter mapping system (YAML/JSON config)
