@@ -196,6 +196,33 @@ Optional longer explanation if needed.
 
 **Important**: The checkbox update in PLAN.md should be the final commit in the PR so that the main branch always accurately reflects completed work.
 
+## Commit Strategy
+
+**Atomic Commits Required**: Create a git commit after each logical unit of work is completed, even without explicit user request.
+
+**What constitutes a logical unit**:
+- Implementing a single function or feature component
+- Fixing one specific bug
+- Refactoring a single component or module
+- Adding tests for one feature
+- Making configuration changes
+
+**Commit workflow**:
+1. Complete a discrete piece of work
+2. Create a commit immediately with descriptive message
+3. Continue to next logical unit
+4. Final commit updates PLAN.md checkbox
+
+**Exception**: Only batch multiple small changes into one commit if they're too granular to separate (e.g., fixing multiple typos in comments, updating multiple imports after a rename).
+
+**Commit message format**: Follow existing format `[P#-###] Brief description of this specific change`
+
+**Examples of good atomic commits**:
+- `[P5-005] Add ChartView component for score visualization`
+- `[P5-005] Implement HistoryViewModel data fetching logic`
+- `[P5-005] Add unit tests for ChartView`
+- `[P5-005] Update PLAN.md - mark P5-005 complete`
+
 ## Database Schema
 
 **Core Tables**:
