@@ -42,7 +42,6 @@
 		899C55ED04C9CB82D0982A14 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741695D7A49F00677C7CADBD /* APIError.swift */; };
 		8F162E02A7B1DF68E089D685 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80193C5570A9CD7D1AFA9386 /* AuthService.swift */; };
 		91429C7C16E238E0C072F0E3 /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E09B407D867D4141B0DAB81 /* KeychainStorage.swift */; };
-		93926F40293EF6C3EB82C487 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55207FA77DDD4393AE91F8BE /* EmptyStateView.swift */; };
 		941A5FDD13415534E0F0FA1F /* RequestInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60BF6153CD6BF7A06AAD263 /* RequestInterceptor.swift */; };
 		9469FACC6CB7EE0D538EEFED /* QuestionNavigationGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E764D56ADDDFB5126C75B29F /* QuestionNavigationGrid.swift */; };
 		95C81A1F6CCE0B3C5FB3D25E /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565BB90693929F5317496786 /* ViewModelProtocol.swift */; };
@@ -58,6 +57,7 @@
 		B23A55ED0D362D1647AFD2AA /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838E36535E4A65E426992EAE /* TestProgressView.swift */; };
 		B9ED84EC51137DEBAAED6983 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA15DF43B47008B21D0BCF9 /* ErrorView.swift */; };
 		BB0A35ADCC8900F61FF3AA69 /* IQTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67FA448BFAB112EAB0F5C41 /* IQTrackerApp.swift */; };
+		BB1EA06EB59FF8AB6C982F0C /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1279A67479E8C9C9AE0CCA02 /* EmptyStateView.swift */; };
 		BDD8082177D8D3108C6F2543 /* AnswerInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7033CFEF53C70F37F31A02 /* AnswerInputView.swift */; };
 		BFF4359E4728C06CE24F7D38 /* PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */; };
 		C4D5E6F7A8B9C0D1E2F3A4B5 /* IQTrendChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F7A8B9C0D1E2F3A4B5C6 /* IQTrendChart.swift */; };
@@ -93,6 +93,7 @@
 		02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAnswerStorage.swift; sourceTree = "<group>"; };
 		032F8945603646E89A4C0F12 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0C3B19EAE46533063BDD9DAF /* CustomTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextField.swift; sourceTree = "<group>"; };
+		1279A67479E8C9C9AE0CCA02 /* EmptyStateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		1CED6BD6ED806B6CE39A12D8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		2A1A0D7C2A77C6D1B6AFAC46 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		2A92FBC0678B2E896CA141C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -108,7 +109,6 @@
 		48800FF67D75A5E99360F823 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		511F20E653108CE007281485 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		5261BFE90E4BE297C8F4D661 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
-		55207FA77DDD4393AE91F8BE /* EmptyStateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EmptyStateView.swift; path = IQTracker/Views/Common/EmptyStateView.swift; sourceTree = "<group>"; };
 		565BB90693929F5317496786 /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		5797E5D16A75977F1346CB94 /* BaseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewModel.swift; sourceTree = "<group>"; };
 		6501168D09365431562DE84B /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
@@ -347,7 +347,7 @@
 				A46174E2D8FEE08DEBCAAE9C /* NetworkStatusBanner.swift */,
 				36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */,
 				FBEE4A6F5EB368890F6507C8 /* RootView.swift */,
-				55207FA77DDD4393AE91F8BE /* EmptyStateView.swift */,
+				1279A67479E8C9C9AE0CCA02 /* EmptyStateView.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -584,7 +584,7 @@
 				9ECF18887ECC57B03496959F /* View+Extensions.swift in Sources */,
 				95C81A1F6CCE0B3C5FB3D25E /* ViewModelProtocol.swift in Sources */,
 				A456DCF6620AFC49DC1594E7 /* WelcomeView.swift in Sources */,
-				93926F40293EF6C3EB82C487 /* EmptyStateView.swift in Sources */,
+				BB1EA06EB59FF8AB6C982F0C /* EmptyStateView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
