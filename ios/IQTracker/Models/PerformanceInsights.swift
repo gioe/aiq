@@ -1,11 +1,11 @@
 import Foundation
 
 /// Represents analytical insights derived from test history
-struct PerformanceInsights {
+struct PerformanceInsights: Equatable {
     // MARK: - Trend Analysis
 
     /// Overall performance trend direction
-    enum TrendDirection {
+    enum TrendDirection: Equatable {
         case improving
         case declining
         case stable

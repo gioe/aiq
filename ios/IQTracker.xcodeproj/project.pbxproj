@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+				58BE0F8076914CA497021CA9 /* DataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04A77BFDADC24F5A8E50E2EA /* DataCache.swift */; };
 		015349D76C6748A7E2A41E1F /* LocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */; };
 		12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393F8818483E0E7701A1A328 /* MockAPIClient.swift */; };
 		1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71784E51191C7B135F175A35 /* LoadingOverlay.swift */; };
@@ -91,6 +92,7 @@
 
 /* Begin PBXFileReference section */
 		0056CC6BC1A9215EF25A11B0 /* TestResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResult.swift; sourceTree = "<group>"; };
+				04A77BFDADC24F5A8E50E2EA /* DataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataCache.swift; sourceTree = "<group>"; };
 		02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAnswerStorage.swift; sourceTree = "<group>"; };
 		032F8945603646E89A4C0F12 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0C3B19EAE46533063BDD9DAF /* CustomTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextField.swift; sourceTree = "<group>"; };
@@ -383,8 +385,9 @@
 		AD8782CBF18F682217D10EA2 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				04A77BFDADC24F5A8E50E2EA /* DataCache.swift */,
 				3E09B407D867D4141B0DAB81 /* KeychainStorage.swift */,
-				02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */,
+						02E335C117D5FF872728F5B0 /* LocalAnswerStorage.swift */,
 				C3AD4E8BA8243FCABD9E4FB4 /* SecureStorageProtocol.swift */,
 			);
 			path = Storage;
@@ -550,6 +553,7 @@
 				91429C7C16E238E0C072F0E3 /* KeychainStorage.swift in Sources */,
 				1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */,
 				351F95043E2BEBB36F24E35F /* LoadingView.swift in Sources */,
+								58BE0F8076914CA497021CA9 /* DataCache.swift in Sources */,
 				015349D76C6748A7E2A41E1F /* LocalAnswerStorage.swift in Sources */,
 				530531E24E0ACE60A41AC0CC /* LoginViewModel.swift in Sources */,
 				53B2C01514AAE02D8B84AE2F /* MainTabView.swift in Sources */,

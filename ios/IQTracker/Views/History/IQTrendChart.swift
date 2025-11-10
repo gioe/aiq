@@ -5,6 +5,9 @@ import SwiftUI
 struct IQTrendChart: View {
     let testHistory: [TestResult]
 
+    // Maximum number of data points to render for performance
+    private let maxDataPoints = 50
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("IQ Score Trend")
@@ -13,7 +16,7 @@ struct IQTrendChart: View {
 
             if testHistory.count >= 2 {
                 Chart {
-                    ForEach(testHistory) { result in
+                    ForEach(sampledData) { result in
                         LineMark(
                             x: .value("Date", result.completedAt),
                             y: .value("IQ Score", result.iqScore)
@@ -73,6 +76,32 @@ struct IQTrendChart: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+
+    /// Sampled data for rendering (improves performance with large datasets)
+    private var sampledData: [TestResult] {
+        guard testHistory.count > maxDataPoints else {
+            return testHistory
+        }
+
+        // Always include first and last test
+        var sampled: [TestResult] = []
+        let sortedHistory = testHistory.sorted { $0.completedAt < $1.completedAt }
+
+        // Calculate sampling interval
+        let interval = Double(sortedHistory.count) / Double(maxDataPoints)
+
+        for sampleIndex in 0 ..< maxDataPoints {
+            let index = min(Int(Double(sampleIndex) * interval), sortedHistory.count - 1)
+            sampled.append(sortedHistory[index])
+        }
+
+        // Ensure we include the last test if not already included
+        if let last = sortedHistory.last, sampled.last?.id != last.id {
+            sampled.append(last)
+        }
+
+        return sampled
     }
 
     /// Calculate appropriate Y-axis domain based on score range
