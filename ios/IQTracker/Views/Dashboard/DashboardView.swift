@@ -3,6 +3,7 @@ import SwiftUI
 /// Dashboard/Home view showing user stats and test availability
 struct DashboardView: View {
     @StateObject private var authManager = AuthManager.shared
+    @State private var navigateToTest = false
 
     var body: some View {
         ScrollView {
@@ -26,31 +27,29 @@ struct DashboardView: View {
                 }
                 .padding(.top, 20)
 
-                // Placeholder for test availability
-                VStack(spacing: 16) {
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 60))
-                        .foregroundColor(.accentColor)
-
-                    Text("Test-taking coming soon!")
-                        .font(.headline)
-
-                    Text("IQ testing functionality will be available once the test service is integrated.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.vertical, 40)
-                .frame(maxWidth: .infinity)
-                .background(Color(.systemGray6))
-                .cornerRadius(16)
+                // Empty state for new users
+                EmptyStateView(
+                    icon: "brain.head.profile",
+                    title: "Ready to Begin?",
+                    message: """
+                    Take your first IQ test to establish your baseline score. \
+                    Track your progress and discover insights about your cognitive performance.
+                    """,
+                    actionTitle: "Start Your First Test",
+                    action: {
+                        navigateToTest = true
+                    }
+                )
+                .padding(.vertical, 20)
 
                 Spacer()
             }
             .padding()
         }
         .navigationTitle("Dashboard")
+        .navigationDestination(isPresented: $navigateToTest) {
+            TestTakingView()
+        }
     }
 }
 
