@@ -24,8 +24,41 @@ struct HistoryView: View {
             }
         }
         .navigationTitle("History")
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if viewModel.hasHistory {
+                    // Date Filter Menu
+                    Menu {
+                        Picker("Filter", selection: $viewModel.dateFilter) {
+                            ForEach(TestHistoryDateFilter.allCases) { filter in
+                                Text(filter.rawValue).tag(filter)
+                            }
+                        }
+                    } label: {
+                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
+
+                    // Sort Order Menu
+                    Menu {
+                        Picker("Sort", selection: $viewModel.sortOrder) {
+                            ForEach(TestHistorySortOrder.allCases) { order in
+                                Text(order.rawValue).tag(order)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down.circle")
+                    }
+                }
+            }
+        }
         .task {
             await viewModel.fetchHistory()
+        }
+        .onChange(of: viewModel.sortOrder) { _ in
+            viewModel.applyFiltersAndSort()
+        }
+        .onChange(of: viewModel.dateFilter) { _ in
+            viewModel.applyFiltersAndSort()
         }
     }
 
@@ -66,6 +99,37 @@ struct HistoryView: View {
 
                 Divider()
                     .padding(.horizontal)
+
+                // Filter Status (if filtered)
+                if viewModel.dateFilter != .all || viewModel.sortOrder != .newestFirst {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.accentColor)
+                            .imageScale(.small)
+
+                        if viewModel.dateFilter != .all {
+                            Text("Showing \(viewModel.filteredResultsCount) of \(viewModel.totalTestsTaken) tests")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            viewModel.dateFilter = .all
+                            viewModel.sortOrder = .newestFirst
+                        } label: {
+                            Text("Clear Filters")
+                                .font(.caption)
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
 
                 // Test History List
                 ForEach(viewModel.testHistory) { result in
