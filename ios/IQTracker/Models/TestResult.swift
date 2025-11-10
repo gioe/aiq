@@ -1,6 +1,6 @@
 import Foundation
 
-struct TestResult: Codable, Identifiable {
+struct TestResult: Codable, Identifiable, Equatable {
     let id: Int
     let testSessionId: Int
     let userId: Int
