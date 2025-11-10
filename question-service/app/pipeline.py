@@ -1,0 +1,300 @@
+"""Question generation pipeline orchestrator.
+
+This module provides the main pipeline for generating questions,
+coordinating the generator, arbiter, and other components.
+"""
+
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from .config import settings
+from .generator import QuestionGenerator
+from .models import (
+    DifficultyLevel,
+    GenerationBatch,
+    QuestionType,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class QuestionGenerationPipeline:
+    """Orchestrates the complete question generation pipeline.
+
+    This class coordinates question generation across multiple LLM providers
+    and prepares questions for evaluation by the arbiter.
+    """
+
+    def __init__(
+        self,
+        openai_api_key: Optional[str] = None,
+        anthropic_api_key: Optional[str] = None,
+        google_api_key: Optional[str] = None,
+    ):
+        """Initialize the question generation pipeline.
+
+        Args:
+            openai_api_key: OpenAI API key (uses settings if not provided)
+            anthropic_api_key: Anthropic API key (uses settings if not provided)
+            google_api_key: Google API key (uses settings if not provided)
+        """
+        # Use provided keys or fall back to settings
+        self.openai_key = openai_api_key or settings.openai_api_key
+        self.anthropic_key = anthropic_api_key or settings.anthropic_api_key
+        self.google_key = google_api_key or settings.google_api_key
+
+        # Initialize generator
+        self.generator = QuestionGenerator(
+            openai_api_key=self.openai_key,
+            anthropic_api_key=self.anthropic_key,
+            google_api_key=self.google_key,
+        )
+
+        logger.info("Question generation pipeline initialized")
+
+    def generate_questions(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        count: int = 10,
+        distribute_providers: bool = True,
+    ) -> GenerationBatch:
+        """Generate a batch of questions for a specific type and difficulty.
+
+        Args:
+            question_type: Type of questions to generate
+            difficulty: Difficulty level
+            count: Number of questions to generate
+            distribute_providers: Whether to distribute across providers
+
+        Returns:
+            Batch of generated questions
+
+        Raises:
+            Exception: If generation fails
+        """
+        logger.info(
+            f"Pipeline: Generating {count} {question_type.value} questions "
+            f"at {difficulty.value} difficulty"
+        )
+
+        batch = self.generator.generate_batch(
+            question_type=question_type,
+            difficulty=difficulty,
+            count=count,
+            distribute_across_providers=distribute_providers,
+        )
+
+        logger.info(
+            f"Pipeline: Generated {len(batch.questions)}/{count} questions successfully"
+        )
+
+        return batch
+
+    def generate_full_question_set(
+        self, questions_per_type: int = 10
+    ) -> Dict[QuestionType, List[GenerationBatch]]:
+        """Generate a complete set of questions across all types and difficulties.
+
+        Args:
+            questions_per_type: Number of questions to generate per type/difficulty combo
+
+        Returns:
+            Dictionary mapping question types to their generation batches
+
+        Raises:
+            Exception: If generation fails
+        """
+        logger.info(
+            f"Pipeline: Generating full question set "
+            f"({questions_per_type} questions per type/difficulty)"
+        )
+
+        results: Dict[QuestionType, List[GenerationBatch]] = {}
+
+        for question_type in QuestionType:
+            batches = []
+
+            for difficulty in DifficultyLevel:
+                logger.info(f"Generating {question_type.value} - {difficulty.value}")
+
+                try:
+                    batch = self.generate_questions(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=questions_per_type,
+                        distribute_providers=True,
+                    )
+                    batches.append(batch)
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to generate {question_type.value} - "
+                        f"{difficulty.value}: {str(e)}"
+                    )
+                    # Continue with other types/difficulties
+                    continue
+
+            results[question_type] = batches
+
+        # Calculate statistics
+        total_questions = sum(
+            len(batch.questions) for batches in results.values() for batch in batches
+        )
+        total_expected = len(QuestionType) * len(DifficultyLevel) * questions_per_type
+
+        logger.info(
+            f"Pipeline: Full question set generation complete. "
+            f"Generated {total_questions}/{total_expected} questions "
+            f"({total_questions/total_expected*100:.1f}% success rate)"
+        )
+
+        return results
+
+    def run_generation_job(
+        self,
+        questions_per_run: Optional[int] = None,
+        question_types: Optional[List[QuestionType]] = None,
+        difficulty_distribution: Optional[Dict[DifficultyLevel, float]] = None,
+    ) -> Dict[str, Any]:
+        """Run a complete question generation job.
+
+        This is the main entry point for scheduled question generation runs.
+
+        Args:
+            questions_per_run: Total questions to generate (uses settings if None)
+            question_types: Specific types to generate (None = all types)
+            difficulty_distribution: Distribution of difficulties (None = equal)
+
+        Returns:
+            Dictionary with job statistics and results
+
+        Raises:
+            Exception: If job fails
+        """
+        start_time = datetime.now(timezone.utc)
+        questions_per_run = questions_per_run or settings.questions_per_run
+
+        logger.info(f"Starting question generation job: {questions_per_run} questions")
+
+        # Determine which types to generate
+        types_to_generate = question_types or list(QuestionType)
+
+        # Default difficulty distribution
+        if difficulty_distribution is None:
+            difficulty_distribution = {
+                DifficultyLevel.EASY: 0.30,
+                DifficultyLevel.MEDIUM: 0.45,
+                DifficultyLevel.HARD: 0.25,
+            }
+
+        # Calculate questions per type
+        questions_per_type = questions_per_run // len(types_to_generate)
+
+        all_batches = []
+        all_questions = []
+
+        # Generate questions for each type
+        for question_type in types_to_generate:
+            logger.info(f"Job: Generating questions for {question_type.value}")
+
+            for difficulty, proportion in difficulty_distribution.items():
+                count = max(1, int(questions_per_type * proportion))
+
+                try:
+                    batch = self.generate_questions(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=count,
+                        distribute_providers=True,
+                    )
+                    all_batches.append(batch)
+                    all_questions.extend(batch.questions)
+
+                except Exception as e:
+                    logger.error(
+                        f"Job: Failed to generate {question_type.value} - "
+                        f"{difficulty.value}: {str(e)}"
+                    )
+                    continue
+
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+
+        # Compile statistics
+        stats = {
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "target_questions": questions_per_run,
+            "questions_generated": len(all_questions),
+            "batches_created": len(all_batches),
+            "success_rate": len(all_questions) / questions_per_run,
+            "providers_used": list(set(q.source_llm for q in all_questions)),
+            "questions_by_type": {
+                qt.value: len([q for q in all_questions if q.question_type == qt])
+                for qt in QuestionType
+            },
+            "questions_by_difficulty": {
+                diff.value: len(
+                    [q for q in all_questions if q.difficulty_level == diff]
+                )
+                for diff in DifficultyLevel
+            },
+        }
+
+        logger.info(
+            f"Job complete: Generated {len(all_questions)}/{questions_per_run} "
+            f"questions in {duration:.1f}s"
+        )
+
+        return {
+            "statistics": stats,
+            "batches": all_batches,
+            "questions": all_questions,
+        }
+
+    def get_pipeline_info(self) -> Dict[str, Any]:
+        """Get information about the pipeline configuration.
+
+        Returns:
+            Dictionary with pipeline configuration details
+        """
+        return {
+            "generator_providers": self.generator.get_available_providers(),
+            "provider_stats": self.generator.get_provider_stats(),
+            "settings": {
+                "questions_per_run": settings.questions_per_run,
+                "min_arbiter_score": settings.min_arbiter_score,
+                "arbiter_config_path": settings.arbiter_config_path,
+            },
+        }
+
+
+def create_pipeline(
+    openai_key: Optional[str] = None,
+    anthropic_key: Optional[str] = None,
+    google_key: Optional[str] = None,
+) -> QuestionGenerationPipeline:
+    """Factory function to create a configured pipeline instance.
+
+    Args:
+        openai_key: OpenAI API key (optional)
+        anthropic_key: Anthropic API key (optional)
+        google_key: Google API key (optional)
+
+    Returns:
+        Configured QuestionGenerationPipeline instance
+
+    Raises:
+        ValueError: If no API keys are provided
+    """
+    pipeline = QuestionGenerationPipeline(
+        openai_api_key=openai_key,
+        anthropic_api_key=anthropic_key,
+        google_api_key=google_key,
+    )
+
+    logger.info("Pipeline created successfully")
+    return pipeline
