@@ -2,18 +2,33 @@
 
 AI-powered service for generating novel IQ test questions using multiple LLMs.
 
-**Status**: To be implemented in Phase 6
+**Status**: ✅ Implemented (Phase 6)
 
-## Setup
+## Quick Links
 
-**For complete setup instructions**, see [DEVELOPMENT.md](../DEVELOPMENT.md) in the repository root.
+- **[OPERATIONS.md](OPERATIONS.md)** - Complete operations guide (setup, configuration, running, monitoring)
+- **[docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md)** - Arbiter model selection guide
+- **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling guide (cron, systemd, cloud schedulers)
+- **[config/README.md](config/README.md)** - Arbiter configuration reference
 
-Quick start:
+## Quick Start
+
 ```bash
 cd question-service
 source venv/bin/activate
-# (Service implementation pending Phase 6)
+
+# Copy environment template
+cp .env.example .env
+# Edit .env and add your API keys
+
+# Test setup
+python run_generation.py --dry-run --count 5 --verbose
+
+# Generate questions
+python run_generation.py --count 10
 ```
+
+For complete setup and operational procedures, see **[OPERATIONS.md](OPERATIONS.md)**.
 
 ## Architecture
 
