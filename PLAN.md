@@ -662,7 +662,7 @@ arbiters:
 - [x] **P6-009**: Add logging and monitoring
 - [x] **P6-010**: Research public benchmarks and create initial arbiter configuration
 - [ ] **P6-011**: Test question generation with manual review
-- [ ] **P6-012**: Create scheduling mechanism (cron/cloud scheduler)
+- [x] **P6-012**: Create scheduling mechanism (cron/cloud scheduler)
 - [ ] **P6-013**: Document configuration and operation
 
 **Dependencies:** Phase 1 (database) complete
