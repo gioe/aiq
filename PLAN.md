@@ -657,7 +657,7 @@ arbiters:
 - [x] **P6-004**: Create configurable arbiter mapping system (YAML/JSON config)
 - [x] **P6-005**: Implement question generation pipeline (generator phase)
 - [x] **P6-006**: Build arbiter evaluation logic
-- [ ] **P6-007**: Implement deduplication checking
+- [x] **P6-007**: Implement deduplication checking
 - [ ] **P6-008**: Create database insertion logic for approved questions
 - [ ] **P6-009**: Add logging and monitoring
 - [ ] **P6-010**: Research public benchmarks and create initial arbiter configuration
