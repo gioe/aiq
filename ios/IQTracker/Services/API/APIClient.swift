@@ -55,6 +55,10 @@ enum APIEndpoint {
     case testResults(String)
     /// Get test history endpoint
     case testHistory
+    /// Register device for push notifications
+    case notificationRegisterDevice
+    /// Update notification preferences
+    case notificationPreferences
 
     /// The URL path for this endpoint
     var path: String {
@@ -79,6 +83,10 @@ enum APIEndpoint {
             "/v1/test/results/\(testId)"
         case .testHistory:
             "/v1/test/history"
+        case .notificationRegisterDevice:
+            "/v1/notifications/register-device"
+        case .notificationPreferences:
+            "/v1/notifications/preferences"
         }
     }
 }
