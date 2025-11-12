@@ -680,7 +680,7 @@ arbiters:
 - [x] **P7-004**: Implement APNs integration in backend
 - [x] **P7-005**: Add notification handling in iOS app
 - [x] **P7-006**: Build notification preferences UI
-- [ ] **P7-007**: Test notification delivery end-to-end
+- [x] **P7-007**: Test notification delivery end-to-end
 - [x] **P7-008**: Handle notification permissions and edge cases
 
 **Dependencies:** Phase 3 (iOS auth) complete
