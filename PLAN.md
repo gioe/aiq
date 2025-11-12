@@ -679,7 +679,7 @@ arbiters:
 - [x] **P7-003**: Build notification scheduling logic (6-month cadence)
 - [x] **P7-004**: Implement APNs integration in backend
 - [x] **P7-005**: Add notification handling in iOS app
-- [ ] **P7-006**: Build notification preferences UI
+- [x] **P7-006**: Build notification preferences UI
 - [ ] **P7-007**: Test notification delivery end-to-end
 - [ ] **P7-008**: Handle notification permissions and edge cases
 
