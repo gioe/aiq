@@ -3,7 +3,7 @@ Notification scheduling service for determining which users should receive
 test reminder notifications based on the 6-month testing cadence.
 """
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -228,3 +228,70 @@ class NotificationScheduler:
 
         # Check if the next test date has passed
         return datetime.utcnow() >= next_test_date
+
+    async def send_notifications_to_users(
+        self,
+        include_never_tested: bool = False,
+        notification_window_start: Optional[datetime] = None,
+        notification_window_end: Optional[datetime] = None,
+    ) -> Dict[str, int]:
+        """
+        Send test reminder notifications to all users who are due.
+
+        This method:
+        1. Identifies users who should receive notifications
+        2. Sends push notifications to their devices via APNs
+        3. Returns a summary of the results
+
+        Args:
+            include_never_tested: Whether to include users who have never taken a test
+            notification_window_start: Start of notification window
+            notification_window_end: End of notification window
+
+        Returns:
+            Dictionary with counts: {"total": X, "success": Y, "failed": Z}
+        """
+        from app.services.apns_service import APNsService
+
+        # Get users who should receive notifications
+        users_to_notify = self.get_users_to_notify(
+            include_never_tested=include_never_tested,
+            notification_window_start=notification_window_start,
+            notification_window_end=notification_window_end,
+        )
+
+        if not users_to_notify:
+            return {"total": 0, "success": 0, "failed": 0}
+
+        # Build notification payloads
+        notifications = []
+        for user in users_to_notify:
+            if not user.apns_device_token:
+                continue
+
+            title = "Time for Your IQ Test!"
+            body = f"Hi {user.first_name}, it's been 6 months! Ready to track your cognitive progress?"
+
+            notifications.append(
+                {
+                    "device_token": user.apns_device_token,
+                    "title": title,
+                    "body": body,
+                    "badge": 1,
+                    "data": {"type": "test_reminder", "user_id": str(user.id)},
+                }
+            )
+
+        # Send notifications via APNs
+        apns_service = APNsService()
+        try:
+            await apns_service.connect()
+            results = await apns_service.send_batch_notifications(notifications)
+
+            return {
+                "total": len(notifications),
+                "success": results["success"],
+                "failed": results["failed"],
+            }
+        finally:
+            await apns_service.disconnect()

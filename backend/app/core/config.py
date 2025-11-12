@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
 
+    # Apple Push Notification Service (APNs)
+    APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
+    APNS_TEAM_ID: str = ""  # Apple Developer Team ID (10 characters)
+    APNS_BUNDLE_ID: str = ""  # iOS app bundle identifier
+    APNS_KEY_PATH: str = ""  # Path to .p8 key file
+    APNS_USE_SANDBOX: bool = True  # Use sandbox APNs server for development
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
