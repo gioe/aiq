@@ -323,6 +323,17 @@ def main() -> int:
             logger.info("PHASE 3: Deduplication")
             logger.info("=" * 80)
 
+            # Fetch existing questions from database for deduplication
+            try:
+                assert db is not None
+                existing_questions = db.get_all_questions()
+                logger.info(
+                    f"Loaded {len(existing_questions)} existing questions for deduplication"
+                )
+            except Exception as e:
+                logger.error(f"Failed to load existing questions: {e}")
+                existing_questions = []
+
             unique_questions = []
             duplicate_count = 0
 
@@ -330,18 +341,21 @@ def main() -> int:
                 try:
                     # Type assertion: deduplicator is guaranteed to be initialized here
                     assert deduplicator is not None
-                    is_duplicate = deduplicator.is_duplicate(question)
+                    result = deduplicator.check_duplicate(question, existing_questions)
 
-                    if not is_duplicate:
+                    if not result.is_duplicate:
                         unique_questions.append(question)
                         logger.debug(f"✓ Unique: {question.question_text[:60]}...")
                     else:
                         duplicate_count += 1
-                        logger.info(f"✗ Duplicate: {question.question_text[:60]}...")
+                        logger.info(
+                            f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
+                            f"{question.question_text[:60]}..."
+                        )
 
                     metrics.record_duplicate_check(
-                        is_duplicate=is_duplicate,
-                        duplicate_type=None,  # Type can be "exact" or "semantic" if available
+                        is_duplicate=result.is_duplicate,
+                        duplicate_type=result.duplicate_type,
                     )
 
                 except Exception as e:
