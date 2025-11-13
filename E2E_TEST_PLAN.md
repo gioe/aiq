@@ -594,10 +594,10 @@ XAI_API_KEY=xai-...
 - [x] E2E-2.4: Blocking second test within 6-month window - ✅ Implemented 6-month cadence enforcement. Users blocked from taking tests within 180 days of last completed test. Abandoned tests don't count toward cadence.
 
 **History & Analytics**
-- [ ] E2E-3.1: Viewing test history list
-- [ ] E2E-3.2: IQ score trend chart visualization
-- [ ] E2E-3.3: Viewing individual test details and responses
-- [ ] E2E-3.4: Empty state for new user with no history
+- [x] E2E-3.1: Viewing test history list - ✅ `GET /v1/test/history` returns all test results sorted by date (newest first). Verified with test_get_test_history_success.
+- [x] E2E-3.2: IQ score trend chart visualization - ✅ Data structure validated: TestResultResponse includes iq_score, completed_at, accuracy_percentage - perfect for charting.
+- [x] E2E-3.3: Viewing individual test details and responses - ✅ `GET /v1/test/results/{id}` returns detailed result. Verified with test_get_test_result_success.
+- [x] E2E-3.4: Empty state for new user with no history - ✅ Empty array returned when no tests exist. Verified with test_get_test_history_empty.
 
 **Push Notifications**
 - [ ] E2E-4.1: Notification permission request on first launch
