@@ -227,7 +227,13 @@ def main() -> int:
                 db = QuestionDatabase(settings.database_url)
                 logger.info("✓ Database connected")
 
-                deduplicator = QuestionDeduplicator(db)
+                if not settings.openai_api_key:
+                    logger.error("OpenAI API key required for deduplication")
+                    return EXIT_CONFIG_ERROR
+
+                deduplicator = QuestionDeduplicator(
+                    openai_api_key=settings.openai_api_key
+                )
                 logger.info("✓ Deduplicator initialized")
             except Exception as e:
                 logger.error(f"Failed to connect to database: {e}")
