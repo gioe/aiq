@@ -589,8 +589,8 @@ XAI_API_KEY=xai-...
 
 **Test Taking Flow**
 - [x] E2E-2.1: Starting a new test session (first test) - 🐛 FIXED: Pydantic schema expected List but DB had Dict for answer_options, changed schema to Dict[str, str]
-- [ ] E2E-2.2: Answering questions and local storage
-- [ ] E2E-2.3: Submitting completed test and score calculation
+- [ ] E2E-2.2: Answering questions and local storage (requires iOS app)
+- [x] E2E-2.3: Submitting completed test and score calculation (15/20 correct = 75%, IQ score: 108, all records saved correctly)
 - [ ] E2E-2.4: Blocking second test within 6-month window
 
 **History & Analytics**
