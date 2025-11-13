@@ -2,7 +2,7 @@
 Pydantic schemas for question endpoints.
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 class QuestionResponse(BaseModel):
@@ -16,14 +16,17 @@ class QuestionResponse(BaseModel):
     difficulty_level: str = Field(
         ..., description="Difficulty level (easy, medium, hard)"
     )
-    answer_options: Optional[List[str]] = Field(
-        None, description="Answer options for multiple choice (null for open-ended)"
+    answer_options: Optional[Dict[str, str]] = Field(
+        None,
+        description="Answer options for multiple choice as dict (e.g., {'A': 'answer1', 'B': 'answer2'})",
     )
     explanation: Optional[str] = Field(
         None, description="Explanation for the correct answer (if available)"
     )
 
     class Config:
+        """Pydantic configuration."""
+
         from_attributes = True  # Allows conversion from ORM models
 
 

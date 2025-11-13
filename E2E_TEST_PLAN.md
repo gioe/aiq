@@ -588,7 +588,7 @@ XAI_API_KEY=xai-...
 - [x] E2E-1.4: Logout and session cleanup (stateless JWT behavior correct)
 
 **Test Taking Flow**
-- [ ] E2E-2.1: Starting a new test session (first test)
+- [x] E2E-2.1: Starting a new test session (first test) - 🐛 FIXED: Pydantic schema expected List but DB had Dict for answer_options, changed schema to Dict[str, str]
 - [ ] E2E-2.2: Answering questions and local storage
 - [ ] E2E-2.3: Submitting completed test and score calculation
 - [ ] E2E-2.4: Blocking second test within 6-month window
@@ -626,7 +626,7 @@ XAI_API_KEY=xai-...
 
 | Bug ID | Test Case | Severity | Description | Status | Fixed In |
 |--------|-----------|----------|-------------|--------|----------|
-| - | - | - | - | - | - |
+| BUG-001 | E2E-2.1 | 🔴 Critical | Pydantic schema mismatch: `QuestionResponse.answer_options` expected `List[str]` but database stores `Dict[str, str]` as JSON. Caused 500 error on `POST /v1/test/start` | ✅ Fixed | `backend/app/schemas/questions.py` |
 
 **Severity Levels:**
 - 🔴 Critical - Blocks user flow, data loss, security issue
