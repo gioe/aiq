@@ -195,8 +195,14 @@ class APIClient: APIClientProtocol {
             urlRequest = try await interceptor.intercept(urlRequest)
         }
 
+        // Track request start time for performance monitoring
+        let startTime = Date()
+
         // Perform request
         let (data, response) = try await session.data(for: urlRequest)
+
+        // Calculate request duration
+        let duration = Date().timeIntervalSince(startTime)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -228,9 +234,43 @@ class APIClient: APIClientProtocol {
             }
         }
 
-        // Handle response
-        let result: T = try handleResponse(data: responseData, statusCode: httpResponse.statusCode)
-        return (result, httpResponse)
+        // Handle response and track analytics
+        return try handleResponseWithAnalytics(
+            data: responseData,
+            response: httpResponse,
+            endpoint: endpoint,
+            duration: duration
+        )
+    }
+
+    private func handleResponseWithAnalytics<T: Decodable>(
+        data: Data,
+        response: HTTPURLResponse,
+        endpoint: APIEndpoint,
+        duration: TimeInterval
+    ) throws -> (T, HTTPURLResponse) {
+        do {
+            let result: T = try handleResponse(data: data, statusCode: response.statusCode)
+
+            // Track slow requests (> 2 seconds)
+            if duration > 2.0 {
+                AnalyticsService.shared.trackSlowRequest(
+                    endpoint: endpoint.path,
+                    durationSeconds: duration,
+                    statusCode: response.statusCode
+                )
+            }
+
+            return (result, response)
+        } catch {
+            // Track API errors
+            AnalyticsService.shared.trackAPIError(
+                endpoint: endpoint.path,
+                error: error,
+                statusCode: response.statusCode
+            )
+            throw error
+        }
     }
 
     private func buildRequest(

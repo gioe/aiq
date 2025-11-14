@@ -131,6 +131,12 @@ class TestTakingViewModel: BaseViewModel {
             userAnswers.removeAll()
             testCompleted = false
 
+            // Track analytics
+            AnalyticsService.shared.trackTestStarted(
+                sessionId: response.session.id,
+                questionCount: response.questions.count
+            )
+
             setLoading(false)
         } catch {
             let contextualError = ContextualError(
@@ -208,6 +214,15 @@ class TestTakingViewModel: BaseViewModel {
         testCompleted = true
         isSubmitting = false
 
+        // Track analytics
+        let durationSeconds = response.result.completionTimeSeconds ?? 0
+        AnalyticsService.shared.trackTestCompleted(
+            sessionId: response.session.id,
+            iqScore: response.result.iqScore,
+            durationSeconds: durationSeconds,
+            accuracy: response.result.accuracyPercentage
+        )
+
         #if DEBUG
             print("✅ Test submitted successfully! IQ Score: \(response.result.iqScore)")
         #endif
@@ -254,6 +269,12 @@ class TestTakingViewModel: BaseViewModel {
 
             // Clear locally saved progress
             clearSavedProgress()
+
+            // Track analytics
+            AnalyticsService.shared.trackTestAbandoned(
+                sessionId: session.id,
+                answeredCount: response.responsesSaved
+            )
 
             setLoading(false)
 

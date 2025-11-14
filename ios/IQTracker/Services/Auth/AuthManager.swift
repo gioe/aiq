@@ -54,6 +54,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isAuthenticated = true
             currentUser = response.user
             isLoading = false
+
+            // Track analytics
+            AnalyticsService.shared.trackUserRegistered(email: email)
         } catch {
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(),
@@ -75,6 +78,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isAuthenticated = true
             currentUser = response.user
             isLoading = false
+
+            // Track analytics
+            AnalyticsService.shared.trackUserLogin(email: email)
         } catch {
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(),
@@ -82,6 +88,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
             authError = contextualError
             isLoading = false
+
+            // Track failed authentication
+            AnalyticsService.shared.trackAuthFailed(reason: error.localizedDescription)
             throw contextualError
         }
     }
@@ -103,6 +112,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         currentUser = nil
         isLoading = false
         authError = nil
+
+        // Track analytics
+        AnalyticsService.shared.trackUserLogout()
     }
 
     func refreshToken() async throws {
