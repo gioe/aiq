@@ -53,6 +53,7 @@ struct IQTrendChart: View {
                     AxisMarks(position: .leading)
                 }
                 .frame(height: 200)
+                .drawingGroup() // Rasterize chart for better rendering performance
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")

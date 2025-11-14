@@ -105,7 +105,7 @@ struct TestTakingView: View {
                 QuestionNavigationGrid(
                     totalQuestions: viewModel.questions.count,
                     currentQuestionIndex: viewModel.currentQuestionIndex,
-                    answeredQuestionIndices: answeredQuestionIndices,
+                    answeredQuestionIndices: viewModel.answeredQuestionIndices,
                     onQuestionTap: { index in
                         withAnimation(.spring(response: 0.3)) {
                             viewModel.goToQuestion(at: index)
@@ -154,17 +154,7 @@ struct TestTakingView: View {
         .background(Color(.systemGroupedBackground))
     }
 
-    // MARK: - Computed Properties
-
-    private var answeredQuestionIndices: Set<Int> {
-        var indices = Set<Int>()
-        for (index, question) in viewModel.questions.enumerated() {
-            if let answer = viewModel.userAnswers[question.id], !answer.isEmpty {
-                indices.insert(index)
-            }
-        }
-        return indices
-    }
+    // MARK: - Navigation Controls
 
     private var navigationControls: some View {
         HStack(spacing: 12) {

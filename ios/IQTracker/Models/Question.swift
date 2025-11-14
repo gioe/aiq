@@ -1,6 +1,6 @@
 import Foundation
 
-enum QuestionType: String, Codable {
+enum QuestionType: String, Codable, Equatable {
     case pattern
     case logic
     case spatial
@@ -9,13 +9,13 @@ enum QuestionType: String, Codable {
     case memory
 }
 
-enum DifficultyLevel: String, Codable {
+enum DifficultyLevel: String, Codable, Equatable {
     case easy
     case medium
     case hard
 }
 
-struct Question: Codable, Identifiable {
+struct Question: Codable, Identifiable, Equatable {
     let id: Int
     let questionText: String
     let questionType: QuestionType
@@ -42,7 +42,7 @@ struct Question: Codable, Identifiable {
     }
 }
 
-struct QuestionResponse: Codable {
+struct QuestionResponse: Codable, Equatable {
     let questionId: Int
     let userAnswer: String
 

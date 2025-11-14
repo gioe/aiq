@@ -47,6 +47,8 @@ class TestTakingViewModel: BaseViewModel {
         set {
             guard let question = currentQuestion else { return }
             userAnswers[question.id] = newValue
+            // Update cached indices when answer changes
+            updateAnsweredIndices()
         }
     }
 
@@ -73,6 +75,21 @@ class TestTakingViewModel: BaseViewModel {
     var progress: Double {
         guard !questions.isEmpty else { return 0 }
         return Double(currentQuestionIndex + 1) / Double(questions.count)
+    }
+
+    /// Cached set of answered question indices for performance
+    /// Recalculated when userAnswers changes
+    @Published private(set) var answeredQuestionIndices: Set<Int> = []
+
+    /// Update the cached answered indices set
+    private func updateAnsweredIndices() {
+        var indices = Set<Int>()
+        for (index, question) in questions.enumerated() {
+            if let answer = userAnswers[question.id], !answer.isEmpty {
+                indices.insert(index)
+            }
+        }
+        answeredQuestionIndices = indices
     }
 
     // MARK: - Navigation

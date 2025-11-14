@@ -1,12 +1,12 @@
 import Foundation
 
-enum TestStatus: String, Codable {
+enum TestStatus: String, Codable, Equatable {
     case inProgress = "in_progress"
     case completed
     case abandoned
 }
 
-struct TestSession: Codable, Identifiable {
+struct TestSession: Codable, Identifiable, Equatable {
     let id: Int
     let userId: Int
     let startedAt: Date
@@ -24,7 +24,7 @@ struct TestSession: Codable, Identifiable {
     }
 }
 
-struct StartTestResponse: Codable {
+struct StartTestResponse: Codable, Equatable {
     let session: TestSession
     let questions: [Question]
     let totalQuestions: Int
@@ -36,7 +36,7 @@ struct StartTestResponse: Codable {
     }
 }
 
-struct TestSubmission: Codable {
+struct TestSubmission: Codable, Equatable {
     let sessionId: Int
     let responses: [QuestionResponse]
 
@@ -46,7 +46,7 @@ struct TestSubmission: Codable {
     }
 }
 
-struct TestSubmitResponse: Codable {
+struct TestSubmitResponse: Codable, Equatable {
     let session: TestSession
     let result: SubmittedTestResult
     let responsesCount: Int
@@ -60,7 +60,7 @@ struct TestSubmitResponse: Codable {
     }
 }
 
-struct TestAbandonResponse: Codable {
+struct TestAbandonResponse: Codable, Equatable {
     let session: TestSession
     let message: String
     let responsesSaved: Int
@@ -72,7 +72,7 @@ struct TestAbandonResponse: Codable {
     }
 }
 
-struct SubmittedTestResult: Codable {
+struct SubmittedTestResult: Codable, Equatable {
     let id: Int
     let testSessionId: Int
     let userId: Int
