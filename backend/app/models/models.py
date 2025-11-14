@@ -139,11 +139,13 @@ class TestSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    completed_at = Column(DateTime)
-    status = Column(Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False)
+    completed_at = Column(DateTime, index=True)
+    status = Column(
+        Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False, index=True
+    )
 
     # Relationships
     user = relationship("User", back_populates="test_sessions")
@@ -157,6 +159,12 @@ class TestSession(Base):
         cascade="all, delete-orphan",
     )
 
+    # Performance indexes for common query patterns
+    __table_args__ = (
+        Index("ix_test_sessions_user_status", "user_id", "status"),
+        Index("ix_test_sessions_user_completed", "user_id", "completed_at"),
+    )
+
 
 class Response(Base):
     """Response model for individual question answers."""
@@ -165,7 +173,10 @@ class Response(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     test_session_id = Column(
-        Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("test_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
