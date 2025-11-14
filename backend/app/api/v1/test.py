@@ -24,6 +24,7 @@ from app.schemas.responses import (
 from app.core.auth import get_current_user
 from app.core.scoring import calculate_iq_score
 from app.core.config import settings
+from app.core.cache import invalidate_user_cache
 
 router = APIRouter()
 
@@ -464,6 +465,9 @@ def submit_test(
     db.commit()
     db.refresh(test_session)
     db.refresh(test_result)
+
+    # Invalidate user's cached data after test submission
+    invalidate_user_cache(int(current_user.id))  # type: ignore[arg-type]
 
     # Build response with test result
     result_response = TestResultResponse(

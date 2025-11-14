@@ -16,7 +16,11 @@ from app.ratelimit import (
     FixedWindowStrategy,
     InMemoryStorage,
 )
-from app.middleware import SecurityHeadersMiddleware, RequestSizeLimitMiddleware
+from app.middleware import (
+    SecurityHeadersMiddleware,
+    RequestSizeLimitMiddleware,
+    PerformanceMonitoringMiddleware,
+)
 
 # OpenAPI tags metadata
 tags_metadata = [
@@ -83,6 +87,13 @@ def create_application() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    # Configure Performance Monitoring
+    # Add before other middleware to measure total request time
+    app.add_middleware(
+        PerformanceMonitoringMiddleware,
+        slow_request_threshold=1.0,  # Log requests taking > 1 second
     )
 
     # Configure Security Headers
