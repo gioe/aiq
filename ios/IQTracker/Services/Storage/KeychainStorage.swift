@@ -20,12 +20,16 @@ class KeychainStorage: SecureStorageProtocol {
         try? delete(forKey: key)
 
         // Create query dictionary
+        // Using kSecAttrAccessibleWhenUnlockedThisDeviceOnly for maximum security
+        // - Data only accessible when device is unlocked
+        // - Data not included in backups or migrations
+        // - Data tied to this device only
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
 
         // Add item to keychain

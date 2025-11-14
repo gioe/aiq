@@ -1,6 +1,7 @@
 """
 Application configuration settings.
 """
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
@@ -29,14 +30,16 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Security
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
-    JWT_SECRET_KEY: str = "your-jwt-secret-key-here-change-in-production"
+    # IMPORTANT: These MUST be set in .env file - no defaults for security
+    SECRET_KEY: str = Field(..., description="Application secret key (required)")
+    JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key (required)")
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Rate Limiting
-    RATE_LIMIT_ENABLED: bool = False  # Set to True in production
+    # IMPORTANT: Set to True in production via .env file
+    RATE_LIMIT_ENABLED: bool = False
     RATE_LIMIT_STRATEGY: str = (
         "token_bucket"  # token_bucket, sliding_window, fixed_window
     )
@@ -63,4 +66,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]  # Pydantic loads from .env
