@@ -233,17 +233,33 @@ def create_application() -> FastAPI:
         # Track validation errors
         user_id = getattr(request.state, "user_id", None)
 
+        # Convert errors to serializable format
+        errors = []
+        for error in exc.errors():
+            error_dict = {
+                "loc": list(error.get("loc", [])),
+                "msg": str(error.get("msg", "")),
+                "type": str(error.get("type", "")),
+            }
+            # Include input if it's serializable
+            if "input" in error:
+                try:
+                    error_dict["input"] = error["input"]
+                except (TypeError, ValueError):
+                    pass
+            errors.append(error_dict)
+
         AnalyticsTracker.track_api_error(
             method=request.method,
             path=str(request.url.path),
             error_type="ValidationError",
-            error_message=str(exc.errors()),
+            error_message=str(errors),
             user_id=user_id,
         )
 
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"detail": exc.errors()},
+            content={"detail": errors},
         )
 
     @app.exception_handler(Exception)
