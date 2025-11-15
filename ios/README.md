@@ -13,6 +13,15 @@ open IQTracker.xcodeproj
 # Select your development team in Xcode, then ⌘+R to build and run
 ```
 
+## Features
+
+- **MVVM Architecture**: Clean separation of concerns with BaseViewModel foundation
+- **Design System**: Unified color palette, typography, and component styles
+- **Accessibility**: Full VoiceOver support, Dynamic Type, semantic colors
+- **Analytics**: Built-in analytics service for user behavior tracking
+- **Push Notifications**: APNs integration for test reminders
+- **Offline Support**: Local answer storage during tests
+
 ## Architecture
 
 **For detailed architecture documentation**, see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -21,7 +30,7 @@ The app follows MVVM architecture with:
 - **Models**: Data structures (User, Question, TestResult, etc.)
 - **ViewModels**: Business logic inheriting from BaseViewModel
 - **Views**: SwiftUI views organized by feature
-- **Services**: API client, authentication, storage
+- **Services**: API client, authentication, storage, analytics
 
 ## Development Commands
 
@@ -62,11 +71,14 @@ IQTracker/
 │   ├── Test/           # Test-taking UI
 │   ├── Dashboard/      # Home view
 │   ├── History/        # Test history and charts
-│   ├── Settings/       # Settings
+│   ├── Settings/       # Settings and notifications
 │   └── Common/         # Reusable components
 ├── Services/            # Business logic layer
-│   ├── API/            # Network client
-│   ├── Auth/           # AuthManager
+│   ├── API/            # Network client with retry and token refresh
+│   ├── Auth/           # AuthManager and token management
 │   └── Storage/        # Keychain and local storage
-└── Utilities/           # Extensions and helpers
+└── Utilities/           # Extensions, helpers, and design system
+    ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
+    ├── Extensions/     # Swift extensions (Date, String, View)
+    └── Helpers/        # Helper utilities (AppConfig, Validators)
 ```

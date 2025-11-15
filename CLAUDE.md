@@ -104,7 +104,10 @@ ios/IQTracker/
 │   ├── API/            # Network client (APIClient, interceptors, retry)
 │   ├── Auth/           # AuthManager, token management
 │   └── Storage/        # Keychain and local storage
-└── Utilities/           # Extensions and helpers
+└── Utilities/           # Extensions, helpers, and design system
+    ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
+    ├── Extensions/     # Swift extensions (Date, String, View)
+    └── Helpers/        # Helper utilities (AppConfig, Validators)
 ```
 
 **Key Architectural Patterns**:
@@ -322,10 +325,12 @@ open IQTracker.xcodeproj  # Select your development team in project settings
 - ✅ Phase 2: Backend API - Core Functionality (complete)
 - ✅ Phase 3: iOS App - Core UI & Authentication (complete)
 - ✅ Phase 4: iOS App - Test Taking Experience (complete)
-- 🚧 Phase 5: iOS App - History & Analytics (in progress)
-- 📋 Phase 6: Question Generation Service (planned)
-- 📋 Phase 7: Push Notifications (planned)
-- 📋 Phase 8-10: Integration, Deployment, UX Polish (planned)
+- ✅ Phase 5: iOS App - History & Analytics (complete)
+- ✅ Phase 6: Question Generation Service (complete)
+- ✅ Phase 7: Push Notifications (complete)
+- 🚧 Phase 8: Integration, Testing & Polish (in progress - P8-010, P8-011 remaining)
+- 📋 Phase 9: Deployment & Launch (planned)
+- 📋 Phase 10: UX Improvements & Polish (planned)
 
 ## Important Context for Development
 

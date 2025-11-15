@@ -19,17 +19,22 @@ iq-tracker/
 ## Components
 
 ### iOS App (`ios/`)
-- Native iOS application built with SwiftUI
-- Gamified IQ test experience
+- Native iOS application built with SwiftUI (iOS 16+)
+- Gamified IQ test experience with intuitive UI
 - Historical score tracking and trend visualization
 - Push notification support for periodic test reminders
+- Comprehensive design system with unified styling
+- Full accessibility support (VoiceOver, Dynamic Type)
+- Built-in analytics and performance monitoring
 
 ### Backend (`backend/`)
-- REST API server
-- User authentication and management
+- FastAPI REST API server with async support
+- JWT-based authentication and user management
 - Question serving and response storage
-- Results calculation and analytics
-- Push notification scheduling
+- IQ score calculation and analytics
+- Push notification scheduling (APNs integration)
+- Rate limiting and security features
+- Comprehensive logging and monitoring
 
 ### Question Service (`question-service/`)
 - Autonomous service for generating novel IQ test questions
