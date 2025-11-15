@@ -15,6 +15,7 @@ struct ErrorView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
+                .accessibilityHidden(true) // Decorative icon
 
             Text("Something went wrong")
                 .font(.headline)
@@ -30,9 +31,13 @@ struct ErrorView: View {
                     Label("Try Again", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityLabel("Try Again")
+                .accessibilityHint("Retry the failed operation")
             }
         }
         .padding()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Error: \(error.localizedDescription)")
     }
 }
 

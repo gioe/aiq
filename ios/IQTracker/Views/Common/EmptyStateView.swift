@@ -29,6 +29,7 @@ struct EmptyStateView: View {
             Image(systemName: icon)
                 .font(.system(size: 64))
                 .foregroundColor(.accentColor.opacity(0.6))
+                .accessibilityHidden(true) // Decorative icon
 
             VStack(spacing: 12) {
                 Text(title)
@@ -42,6 +43,8 @@ struct EmptyStateView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(title). \(message)")
 
             if let actionTitle, let action {
                 Button(action: action) {
@@ -55,6 +58,8 @@ struct EmptyStateView: View {
                 }
                 .padding(.horizontal, 40)
                 .padding(.top, 8)
+                .accessibilityLabel(actionTitle)
+                .accessibilityHint("Activate to \(actionTitle.lowercased())")
             }
 
             Spacer()
