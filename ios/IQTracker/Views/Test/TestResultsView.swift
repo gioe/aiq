@@ -32,6 +32,8 @@ struct TestResultsView: View {
                     Button("Done") {
                         onDismiss()
                     }
+                    .accessibilityLabel("Done")
+                    .accessibilityHint("Return to dashboard")
                 }
             }
             .onAppear {
@@ -58,12 +60,14 @@ struct TestResultsView: View {
                 )
                 .scaleEffect(showAnimation ? 1.0 : 0.5)
                 .opacity(showAnimation ? 1.0 : 0.0)
+                .accessibilityHidden(true) // Decorative icon
 
             // IQ Score
             VStack(spacing: 4) {
                 Text("Your IQ Score")
                     .font(.headline)
                     .foregroundColor(.secondary)
+                    .accessibilityHidden(true) // Redundant with full label below
 
                 Text("\(result.iqScore)")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
@@ -76,6 +80,8 @@ struct TestResultsView: View {
                     )
                     .scaleEffect(showAnimation ? 1.0 : 0.8)
                     .opacity(showAnimation ? 1.0 : 0.0)
+                    .accessibilityLabel("Your IQ Score is \(result.iqScore)")
+                    .accessibilityHint(iqRangeDescription)
             }
 
             // IQ Range context
@@ -85,11 +91,13 @@ struct TestResultsView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
                 .opacity(showAnimation ? 1.0 : 0.0)
+                .accessibilityHidden(true) // Already included in hint above
         }
         .padding(24)
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Metrics Grid
@@ -137,15 +145,18 @@ struct TestResultsView: View {
             Image(systemName: icon)
                 .font(.system(size: 24))
                 .foregroundColor(color)
+                .accessibilityHidden(true) // Decorative icon
 
             VStack(spacing: 4) {
                 Text(value)
                     .font(.title3)
                     .fontWeight(.semibold)
+                    .accessibilityHidden(true)
 
                 Text(title)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity)
@@ -153,6 +164,8 @@ struct TestResultsView: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
     }
 
     // MARK: - Performance Message
@@ -196,6 +209,8 @@ struct TestResultsView: View {
                 .fontWeight(.semibold)
             }
             .buttonStyle(.bordered)
+            .accessibilityLabel("View Detailed Breakdown")
+            .accessibilityHint("See question-by-question analysis of your test performance")
 
             Button {
                 onDismiss()
@@ -204,6 +219,8 @@ struct TestResultsView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .accessibilityLabel("Return to Dashboard")
+            .accessibilityHint("Go back to the main dashboard")
         }
         .opacity(showAnimation ? 1.0 : 0.0)
         .offset(y: showAnimation ? 0 : 20)

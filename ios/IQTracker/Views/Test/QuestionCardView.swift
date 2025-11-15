@@ -26,6 +26,19 @@ struct QuestionCardView: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityQuestionLabel)
+    }
+
+    // MARK: - Accessibility
+
+    private var accessibilityQuestionLabel: String {
+        """
+        Question \(questionNumber) of \(totalQuestions). \
+        \(question.questionType.rawValue.capitalized) question. \
+        Difficulty: \(question.difficultyLevel.rawValue.capitalized). \
+        \(question.questionText)
+        """
     }
 
     private var questionHeader: some View {
