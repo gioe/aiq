@@ -165,6 +165,9 @@ struct DashboardView: View {
                 .background(Color.accentColor)
                 .cornerRadius(12)
         }
+        .accessibilityLabel("Take Another Test")
+        .accessibilityHint("Start a new IQ test")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Empty State
@@ -211,19 +214,24 @@ private struct StatCard: View {
             Image(systemName: icon)
                 .font(.title)
                 .foregroundColor(color)
+                .accessibilityHidden(true) // Decorative icon
 
             Text(value)
                 .font(.title.weight(.bold))
                 .foregroundColor(.primary)
+                .accessibilityHidden(true)
 
             Text(label)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
