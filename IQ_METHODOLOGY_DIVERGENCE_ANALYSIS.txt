@@ -1,0 +1,1538 @@
+================================================================================
+IQ TRACKER: DIVERGENCE ANALYSIS
+Comparing Current Implementation vs. Research-Based Ideal System
+================================================================================
+
+Date: 2025-11-15
+Reference Documents:
+- IQ_TEST_RESEARCH_FINDINGS.txt (research findings)
+- PLAN.md (project architecture)
+- backend/app/core/scoring.py (current scoring implementation)
+
+Purpose: Identify all points where our current implementation diverges from
+the scientifically validated IQ testing methodologies documented in the
+research findings.
+
+================================================================================
+EXECUTIVE SUMMARY
+================================================================================
+
+CRITICAL DIVERGENCES (Must Address):
+1. Scoring formula does not match standard deviation IQ method
+2. No norming sample or population data for score normalization
+3. Questions not calibrated with empirical difficulty data
+4. No psychometric validation (reliability, validity testing)
+
+IMPORTANT DIVERGENCES (Should Address):
+5. Questions not weighted by difficulty/discrimination
+6. No Item Response Theory (IRT) implementation
+7. No confidence intervals or standard error of measurement
+8. Test structure not balanced across cognitive domains
+
+MINOR DIVERGENCES (Nice to Have):
+9. No percentile rankings provided
+10. No age-based norms
+11. Artificially restricted score range (50-150 vs theoretical full range)
+12. No pilot testing of questions with real users
+
+================================================================================
+PART 1: SCORING METHODOLOGY
+================================================================================
+
+DIVERGENCE #1: SCORING FORMULA (CRITICAL)
+------------------------------------------
+
+CURRENT IMPLEMENTATION:
+File: backend/app/core/scoring.py (lines 88-151)
+
+Formula: iq_score = 100 + ((accuracy - 0.5) * 30)
+
+Performance Mapping:
+- 0% correct   → IQ 85  (hardcoded)
+- 50% correct  → IQ 100
+- 100% correct → IQ 115 (hardcoded)
+
+Characteristics:
+- Linear transformation
+- Limited range: effectively 85-115 for normal performance
+- Clamped to 50-150 as safety bounds
+- No population normalization
+- No z-score calculation
+
+IDEAL IMPLEMENTATION (from research):
+Standard Deviation IQ Method (Universal Standard)
+
+Formula: IQ = 100 + (15 × z)
+
+Where: z = (X - μ) / σ
+- X = individual's raw score
+- μ = population mean raw score
+- σ = population standard deviation
+
+Characteristics:
+- Requires norming sample (2,000+ participants)
+- Raw scores transformed to normal distribution
+- Mean = 100, Standard Deviation = 15
+- Full range theoretically unbounded
+- Percentile mapping:
+  * IQ 145 = 99.9th percentile (3 SD above mean)
+  * IQ 130 = 98th percentile (2 SD above mean)
+  * IQ 115 = 84th percentile (1 SD above mean)
+  * IQ 100 = 50th percentile (mean)
+  * IQ 85  = 16th percentile (1 SD below mean)
+  * IQ 70  = 2nd percentile (2 SD below mean)
+
+IMPACT:
+- Current scoring is mathematically incorrect for IQ measurement
+- Scores not comparable to standardized IQ tests
+- Cannot claim to measure actual IQ, only relative performance
+- Severely limits score range (can't measure very high or low performers)
+
+REMEDIATION REQUIRED:
+1. Collect norming sample data (user responses on same questions)
+2. Calculate population mean (μ) and std dev (σ) for raw scores
+3. Implement proper z-score calculation
+4. Apply deviation IQ formula: IQ = 100 + (15 × z)
+5. Store norming statistics in database for ongoing calibration
+
+IMPLEMENTATION COMPLEXITY: High
+- Requires data collection phase
+- Needs statistical analysis pipeline
+- May require periodic recalibration
+- Could implement hybrid: use current method until sufficient data collected
+
+================================================================================
+
+DIVERGENCE #2: NORMING AND STANDARDIZATION (CRITICAL)
+------------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+- No norming sample
+- No population data collection
+- No demographic tracking for norms
+- Scores calculated independently per user
+
+Database Schema Analysis (backend/app/models/models.py):
+- Users table: basic demographics (name, email) but no age, education, etc.
+- Test_results table: stores raw IQ score only
+- No tables for norming data or population statistics
+
+IDEAL IMPLEMENTATION (from research):
+
+Norming Requirements:
+1. Sample Size: 2,000+ participants minimum
+2. Representative Demographics:
+   - Age distribution (if age-based norms desired)
+   - Gender balance
+   - Educational background
+   - Geographic diversity
+   - Socioeconomic status
+3. Data Collection:
+   - Same questions administered to norming sample
+   - Raw scores recorded
+   - Calculate population mean and standard deviation
+4. Norm Tables:
+   - Overall population norms
+   - Age-stratified norms (optional for our use case)
+   - Percentile conversion tables
+5. Recalibration:
+   - Periodic renorming (every 10-15 years for major tests)
+   - Continuous norming as user base grows
+
+Standardization Process:
+1. Administer test to norming sample
+2. Calculate raw score distribution
+3. Transform to normal distribution (mean=100, SD=15)
+4. Create lookup tables for raw → IQ conversion
+5. Update conversion tables as more data collected
+
+IMPACT:
+- Cannot claim scientifically valid IQ scores
+- Scores lack normative interpretation
+- No comparison to general population possible
+- Limited credibility as IQ assessment tool
+
+REMEDIATION REQUIRED:
+1. Add demographic fields to Users table (age, education level)
+2. Create norming_data table to track population statistics
+3. Implement data collection phase to build initial norms
+4. Create statistical pipeline to calculate and update norms
+5. Store population mean/stddev in configuration
+6. Implement percentile calculation from norms
+
+IMPLEMENTATION COMPLEXITY: Very High
+- Requires significant user base to establish norms
+- Ongoing maintenance and recalibration needed
+- Statistical expertise required
+
+INTERIM SOLUTION:
+- Continue with current simplified method
+- Clearly label as "cognitive performance score" not "IQ score"
+- Collect data for future norming
+- Implement proper IQ scoring when sufficient data available (500-1000+ users)
+
+================================================================================
+
+DIVERGENCE #3: QUESTION DIFFICULTY CALIBRATION (CRITICAL)
+----------------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+Question Difficulty Levels (backend/app/models/models.py):
+- Questions tagged as: EASY, MEDIUM, HARD
+- Difficulty assigned by LLM arbiter during generation
+- No empirical validation of difficulty ratings
+- No measurement of actual user performance per question
+
+Question Generation (question-service/app/prompts.py):
+- Arbiter evaluates "difficulty_score" (0.0-1.0)
+- Based on LLM judgment, not actual data
+- Target percentages mentioned in prompts:
+  * EASY: 70-80% should answer correctly
+  * MEDIUM: 40-60% should answer correctly
+  * HARD: 10-30% should answer correctly
+
+Current Scoring (backend/app/core/scoring.py):
+- All questions weighted equally (1 point each)
+- No adjustment for difficulty in score calculation
+- Total correct / total questions = raw accuracy
+
+IDEAL IMPLEMENTATION (from research):
+
+Item Response Theory (IRT) - Modern Standard:
+
+Question Parameters:
+1. Difficulty (b): Ability level for 50% probability of correct response
+   - Empirically determined from pilot testing
+   - Measured on same scale as ability
+   - Example: b = -1.5 (easy), b = 0.0 (medium), b = +1.5 (hard)
+
+2. Discrimination (a): How well item differentiates ability levels
+   - Higher discrimination = better quality question
+   - Measured as slope of item characteristic curve
+   - Example: a = 1.5 (good discrimination), a = 0.5 (poor discrimination)
+
+3. Guessing (c): Probability of random correct response
+   - Relevant for multiple choice questions
+   - Typically 0.20-0.25 for 4-5 option questions
+   - Reduces ceiling effect
+
+Calibration Process:
+1. Pilot Testing:
+   - Administer questions to representative sample (200+ participants)
+   - Collect response data (correct/incorrect per person per item)
+
+2. IRT Analysis:
+   - Use IRT software to estimate item parameters (a, b, c)
+   - Evaluate item fit statistics
+   - Identify poorly performing items
+
+3. Item Selection:
+   - Retain items with good psychometric properties
+   - Remove or revise poor items
+   - Build item bank with known parameters
+
+4. Scoring:
+   - Use IRT scoring algorithms (not simple sum of correct)
+   - Account for difficulty when calculating ability estimate
+   - Example: answering 5 hard questions correctly ≠ 5 easy questions
+
+Classical Test Theory (CTT) - Simpler Alternative:
+
+Question Statistics:
+1. Item Difficulty (p-value):
+   - Proportion of test-takers answering correctly
+   - p = 0.85 (easy), p = 0.50 (medium), p = 0.15 (hard)
+
+2. Item Discrimination (point-biserial correlation):
+   - Correlation between item score and total test score
+   - r > 0.3 acceptable, r > 0.4 good
+
+3. Distractor Analysis:
+   - For multiple choice, check if wrong answers attract low-performers
+   - Ensure all options plausible
+
+Validation:
+- Minimum 100 responses per question for stable estimates
+- Ongoing refinement as more data collected
+
+IMPACT:
+- Question difficulty labels are untested assumptions
+- Can't ensure appropriate difficulty distribution
+- May inadvertently include very easy or very hard questions
+- Scoring doesn't account for difficulty (answering hard questions worth same as easy)
+- Lower measurement precision
+
+REMEDIATION REQUIRED:
+
+SHORT TERM (MVP):
+1. Track question statistics in database:
+   - Add response_rate column to Questions table
+   - Calculate p-value: correct_count / total_attempts
+   - Calculate discrimination: correlation with total score
+
+2. Update Questions table schema:
+   - difficulty_empirical (float) - measured p-value
+   - discrimination (float) - measured correlation
+   - response_count (int) - number of times question shown
+
+3. Create analytics endpoint:
+   - Dashboard to review question performance
+   - Flag questions that deviate from intended difficulty
+   - Review and revise problematic questions
+
+4. Simple validation:
+   - After 100+ responses per question, validate difficulty
+   - Compare empirical difficulty to LLM-assigned difficulty
+   - Adjust difficulty labels as needed
+
+LONG TERM (Post-MVP):
+1. Implement IRT analysis:
+   - Use Python libraries (py-irt, mirt)
+   - Estimate item parameters from user response data
+   - Store a, b, c parameters in database
+
+2. IRT-based scoring:
+   - Replace simple sum scoring with IRT ability estimation
+   - Use maximum likelihood or Bayesian estimation
+   - Accounts for question difficulty in score
+
+3. Computer Adaptive Testing (CAT):
+   - Select next question based on current ability estimate
+   - Optimize measurement precision
+   - Reduce test length while maintaining accuracy
+
+IMPLEMENTATION COMPLEXITY: Medium (CTT), Very High (IRT)
+
+INTERIM SOLUTION:
+- Keep current LLM-assigned difficulty labels
+- Begin tracking empirical performance metrics immediately
+- Use data for future calibration
+- Flag for manual review any questions with p-value far from target
+- Equal weighting acceptable for MVP with caveat in documentation
+
+================================================================================
+
+DIVERGENCE #4: PSYCHOMETRIC VALIDATION (CRITICAL)
+--------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+- No reliability testing
+- No validity studies
+- No test-retest correlation data
+- No internal consistency measurement
+- No correlation with established IQ tests
+
+PLAN.md Open Question Q3 (lines 865-869):
+"How do we ensure our tests are scientifically valid?
+- Should we consult with psychologists or IQ testing experts?
+- Do we need to validate against existing standardized tests?
+- What's our threshold for 'good enough' for MVP vs future rigor?
+- Priority: Important for credibility, can refine post-MVP"
+
+IDEAL IMPLEMENTATION (from research):
+
+RELIABILITY STANDARDS:
+
+1. Internal Consistency:
+   - Measure: Cronbach's Alpha (α)
+   - Minimum acceptable: α ≥ 0.60
+   - Good: α ≥ 0.70
+   - Excellent: α ≥ 0.90
+   - Top IQ tests achieve: α = 0.93-0.95
+
+   Calculation: Correlation between items measuring same construct
+   Interpretation: How consistently test measures cognitive ability
+
+2. Test-Retest Reliability:
+   - Measure: Pearson correlation coefficient (r) or ICC
+   - Minimum acceptable: r > 0.3 or ICC > 0.4
+   - Good: r > 0.7
+   - Excellent: r > 0.9
+
+   Process: Same individuals take test 2+ times
+   Time gap: 2-4 weeks typical (balance practice effects vs stability)
+   Interpretation: Score stability over time
+
+3. Standard Error of Measurement (SEM):
+   - Best modern tests: SEM ≈ 3 points
+   - Confidence interval: typically ±10 points at 95% CI
+   - Example: IQ 115 with SEM=3 → 95% CI = [109, 121]
+
+VALIDITY STANDARDS:
+
+1. Content Validity:
+   - Expert review of items
+   - Alignment with theoretical framework (g-factor, CHC theory)
+   - Adequate coverage of cognitive domains
+   - No construct-irrelevant variance
+
+2. Construct Validity:
+   - Factor analysis confirms theoretical structure
+   - Questions cluster into expected domains
+   - Convergent validity with related constructs
+   - Discriminant validity from unrelated constructs
+
+3. Criterion Validity:
+   - Concurrent: Correlation with established IQ tests (r > 0.70 ideal)
+   - Top tests show r = 0.76-0.86 with gold-standard cognitive tests
+   - Predictive: Correlation with outcomes (school grades r ≈ 0.55)
+
+VALIDATION PROCESS:
+
+Phase 1: Pilot Study (N = 100-200)
+- Administer test to sample
+- Calculate internal consistency (Cronbach's α)
+- Perform item analysis
+- Identify problematic items
+
+Phase 2: Test-Retest (N = 50-100)
+- Same participants take test twice (2-4 weeks apart)
+- Calculate correlation
+- Assess score stability
+
+Phase 3: Concurrent Validation (N = 50-100, if feasible)
+- Participants take both our test and established IQ test
+- Calculate correlation
+- Expensive due to need for professional IQ test administration
+
+Phase 4: Ongoing Monitoring
+- Track reliability metrics as user base grows
+- Monitor for score inflation/deflation
+- Periodic recalibration
+
+IMPACT:
+- Cannot make scientific claims about measurement quality
+- Unknown reliability of scores
+- Unknown relationship to actual intelligence
+- Limited credibility for research or clinical use
+- Appropriate for casual/entertainment use only
+
+REMEDIATION REQUIRED:
+
+SHORT TERM (MVP):
+1. Collect data for future validation:
+   - Store all user responses with timestamps
+   - Track test-retest when users retake tests
+   - Build dataset for analysis
+
+2. Calculate basic metrics:
+   - Internal consistency (Cronbach's α) once sufficient data
+   - Item-total correlations
+   - Test-retest correlation for repeat test-takers
+
+3. Disclaimer/Positioning:
+   - Clear messaging: "cognitive performance tracking" not "IQ test"
+   - "For entertainment and personal insight only"
+   - "Not validated for clinical or educational decisions"
+
+LONG TERM (Post-MVP):
+1. Conduct formal validation study:
+   - Recruit participants for test-retest study
+   - Calculate reliability coefficients
+   - Publish psychometric properties
+
+2. Seek expert consultation:
+   - Psychometrician review
+   - Statistical validation
+   - Peer review if pursuing academic credibility
+
+3. Concurrent validation (stretch goal):
+   - Partner with institution
+   - Administer alongside established test
+   - Costly but provides strongest validation
+
+IMPLEMENTATION COMPLEXITY: High
+- Requires statistical expertise
+- Needs dedicated research participants
+- Time-consuming (months to years for full validation)
+
+INTERIM SOLUTION:
+- Position as "cognitive assessment" tool
+- Focus on tracking individual progress over time
+- Don't claim equivalence to standardized IQ tests
+- Build validation roadmap for future
+
+================================================================================
+
+DIVERGENCE #5: QUESTION WEIGHTING (IMPORTANT)
+----------------------------------------------
+
+CURRENT IMPLEMENTATION:
+File: backend/app/core/scoring.py (lines 134-136)
+
+Weighting: All questions weighted equally (1 point each)
+Formula: accuracy = correct_answers / total_questions
+
+Question Selection (from PLAN.md lines 340-348):
+- Random selection from unseen questions pool
+- Filtered by: is_active=true, not in user_questions
+- No balancing by difficulty or type
+
+IDEAL IMPLEMENTATION (from research):
+
+Question Weighting Strategies:
+
+1. Difficulty-Based Weighting:
+   - Harder questions worth more points
+   - Example: Easy=1 point, Medium=2 points, Hard=3 points
+   - Rewards solving challenging problems
+   - More common in educational testing than IQ
+
+2. IRT-Based Scoring:
+   - Use item parameters (a, b, c) in scoring formula
+   - Maximum likelihood estimation of ability
+   - Bayesian methods (EAP, MAP)
+   - Accounts for difficulty, discrimination, and guessing
+   - Standard in modern adaptive testing
+
+3. Weighted by Discrimination:
+   - Questions that better differentiate ability get higher weight
+   - Based on item discrimination parameter
+   - Improves measurement precision
+
+Test Composition Standards:
+
+1. Balanced Difficulty Distribution:
+   - Typical: 30% easy, 40% medium, 30% hard
+   - Ensures range of ability levels measured
+   - Prevents ceiling/floor effects
+
+2. Balanced Domain Coverage:
+   - Equal representation across cognitive areas
+   - Example for 6 domains: ~17% each (3-4 questions per domain in 20q test)
+   - Ensures comprehensive assessment
+
+3. Question Selection Algorithm:
+   - Not purely random
+   - Stratified sampling by type and difficulty
+   - Example: For 20-question test:
+     * 6-7 easy (distributed across domains)
+     * 8 medium (distributed across domains)
+     * 5-6 hard (distributed across domains)
+
+IMPACT:
+- Equal weighting is defensible for MVP but suboptimal
+- Random selection may create unbalanced tests
+- Some users may get easier/harder tests by chance
+- Lower measurement precision
+- Doesn't optimize information value of each question
+
+REMEDIATION REQUIRED:
+
+SHORT TERM (MVP - Simple Fix):
+1. Implement stratified question selection:
+   - Query questions with distribution constraints
+   - Example SQL (pseudocode):
+     ```sql
+     (SELECT * FROM questions WHERE difficulty='easy' ... LIMIT 7)
+     UNION ALL
+     (SELECT * FROM questions WHERE difficulty='medium' ... LIMIT 7)
+     UNION ALL
+     (SELECT * FROM questions WHERE difficulty='hard' ... LIMIT 6)
+     ```
+
+2. Ensure domain balance:
+   - Add type distribution to selection logic
+   - Aim for ~3 questions per domain type
+   - Randomize within constraints
+
+3. Document test composition:
+   - Store test difficulty/domain distribution in TestSession metadata
+   - Enable analysis of test composition effects
+
+MEDIUM TERM:
+1. Add discrimination weighting:
+   - Once empirical discrimination data available
+   - Weight by discrimination parameter
+   - weighted_score = Σ(correct_i × discrimination_i) / Σ(discrimination_i)
+
+2. Implement difficulty weighting (optional):
+   - Consider whether to weight hard questions more
+   - May reduce score comparability over time
+   - Research community divided on this approach for IQ tests
+
+LONG TERM (Post-MVP):
+1. IRT-based ability estimation:
+   - Replace simple sum with IRT scoring
+   - More complex but more accurate
+   - Industry standard for serious assessments
+
+IMPLEMENTATION COMPLEXITY: Low (stratified selection), High (IRT scoring)
+
+INTERIM SOLUTION:
+- Implement stratified selection immediately (low effort, high value)
+- Keep equal weighting (defensible for MVP)
+- Document as enhancement opportunity
+
+================================================================================
+
+DIVERGENCE #6: ITEM RESPONSE THEORY (IRT) (IMPORTANT)
+------------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+- No IRT implementation
+- Classical Test Theory (CTT) approach (simple sum scoring)
+- No item parameter estimation
+- No ability estimation algorithms
+
+IDEAL IMPLEMENTATION (from research):
+
+IRT Overview:
+- Modern standard for test development and scoring
+- Models probabilistic relationship between ability and item responses
+- Provides item parameter invariance and person parameter invariance
+
+IRT Models:
+
+1. 1-Parameter (Rasch) Model:
+   - Only difficulty parameter (b)
+   - Assumes equal discrimination across items
+   - Simplest IRT model
+
+2. 2-Parameter Logistic (2PL) Model:
+   - Difficulty (b) and discrimination (a)
+   - More flexible than Rasch
+   - Common in educational testing
+
+3. 3-Parameter Logistic (3PL) Model:
+   - Difficulty (b), discrimination (a), guessing (c)
+   - Most comprehensive
+   - Standard for multiple-choice testing
+
+Item Parameters:
+- b (difficulty): -3 to +3 typical range (logit scale)
+- a (discrimination): 0.5 to 2.5 typical range
+- c (guessing): 0.0 to 0.35 typical range (0.20-0.25 for 4-5 options)
+
+Ability Estimation Methods:
+- Maximum Likelihood Estimation (MLE)
+- Expected A Posteriori (EAP)
+- Maximum A Posteriori (MAP)
+
+Benefits of IRT:
+- Person parameters independent of specific items used
+- Item parameters independent of specific sample
+- Enables item banking
+- Supports Computer Adaptive Testing (CAT)
+- Variable precision (SEM) across ability range
+- Better measurement at ability extremes
+
+IMPACT:
+- Using CTT (simple sum) is acceptable for MVP but limits:
+  * Measurement precision
+  * Adaptive testing capabilities
+  * Item bank management
+  * Cross-test comparability
+
+REMEDIATION REQUIRED:
+
+Database Schema Additions:
+```sql
+ALTER TABLE questions ADD COLUMN irt_difficulty FLOAT;  -- b parameter
+ALTER TABLE questions ADD COLUMN irt_discrimination FLOAT;  -- a parameter
+ALTER TABLE questions ADD COLUMN irt_guessing FLOAT;  -- c parameter
+ALTER TABLE questions ADD COLUMN irt_calibrated BOOLEAN DEFAULT FALSE;
+```
+
+Implementation Steps:
+
+1. Data Collection (Prerequisite):
+   - Need response data from 200+ users per question
+   - Larger sample = more stable parameter estimates
+
+2. IRT Calibration:
+   - Use Python IRT libraries:
+     * py-irt (simple, pure Python)
+     * mirt (R package, callable from Python via rpy2)
+     * pyirt (Bayesian IRT)
+   - Estimate item parameters from response matrix
+   - Store parameters in database
+
+3. IRT Scoring:
+   - Replace simple sum with ability estimation
+   - Implement MLE or EAP estimation
+   - Convert ability estimate (theta) to IQ scale: IQ = 100 + (15 × theta)
+
+4. Ongoing Calibration:
+   - Recalibrate items as more data collected
+   - Update parameters quarterly/annually
+
+Example Code Structure:
+```python
+# Simplified conceptual example
+def calculate_irt_ability(responses, item_params):
+    """
+    Estimate ability using IRT.
+
+    responses: list of 0/1 for incorrect/correct
+    item_params: list of (a, b, c) tuples
+    """
+    # Use IRT library
+    ability_estimate = irt.estimate_ability(responses, item_params)
+    iq_score = 100 + (15 * ability_estimate)
+    return iq_score
+```
+
+IMPLEMENTATION COMPLEXITY: Very High
+- Requires IRT expertise
+- Complex mathematics
+- Significant development effort
+- Needs large dataset for calibration
+
+INTERIM SOLUTION:
+- Continue with CTT (simple sum) for MVP
+- Collect response data in format suitable for future IRT analysis
+- Add IRT as major post-MVP enhancement
+- Consider consulting IRT expert for implementation
+
+PRIORITY: Medium-Low for MVP, High for production-ready system
+
+================================================================================
+
+DIVERGENCE #7: CONFIDENCE INTERVALS & MEASUREMENT ERROR (IMPORTANT)
+--------------------------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+File: backend/app/core/scoring.py
+
+Output: Single point estimate (IQ score)
+No confidence interval
+No standard error of measurement
+No indication of measurement precision
+
+Database Schema (backend/app/models/models.py):
+TestResults table stores only:
+- iq_score (single integer)
+- No SEM or confidence interval fields
+
+IDEAL IMPLEMENTATION (from research):
+
+Standard Error of Measurement (SEM):
+- Quantifies measurement precision
+- Best modern tests: SEM ≈ 3 points
+- Varies by ability level in IRT
+
+Confidence Intervals:
+- Standard practice to report score range, not point estimate
+- Typical: 95% confidence interval
+- Formula (CTT): CI = IQ ± (1.96 × SEM)
+- Example: IQ 115 with SEM=3 → 95% CI = [109, 121]
+
+Interpretation:
+- "We are 95% confident true IQ is between 109 and 121"
+- Acknowledges measurement imperfection
+- Prevents over-interpretation of small score differences
+
+Reporting Best Practices:
+- Always report with confidence interval
+- Example: "Your IQ score is 115 (95% CI: 109-121)"
+- Helps users understand uncertainty
+
+IRT Advantages:
+- SEM varies by ability level (theta)
+- More precise at medium abilities, less at extremes
+- Can compute person-specific SEM
+- Test Information Function shows precision across ability range
+
+IMPACT:
+- Single point estimate misleading
+- Users may over-interpret small differences
+- No indication of measurement quality
+- Less professional/scientific presentation
+
+REMEDIATION REQUIRED:
+
+Database Schema Update:
+```sql
+ALTER TABLE test_results ADD COLUMN standard_error FLOAT;
+ALTER TABLE test_results ADD COLUMN ci_lower INT;
+ALTER TABLE test_results ADD COLUMN ci_upper INT;
+```
+
+SHORT TERM (MVP - CTT-based):
+
+1. Estimate SEM from Cronbach's Alpha:
+   Formula: SEM = SD × √(1 - α)
+   - Need standard deviation of test scores
+   - Need Cronbach's alpha
+   - Both calculable once sufficient user data
+
+2. Calculate and store confidence intervals:
+   ```python
+   def calculate_ci(iq_score, sem, confidence=0.95):
+       z_score = 1.96  # for 95% CI
+       margin = z_score * sem
+       return (iq_score - margin, iq_score + margin)
+   ```
+
+3. Update API responses to include CI:
+   ```json
+   {
+     "iq_score": 115,
+     "confidence_interval": {
+       "lower": 109,
+       "upper": 121,
+       "confidence_level": 0.95
+     },
+     "standard_error": 3.1
+   }
+   ```
+
+4. Update iOS UI to display range:
+   - Instead of "Your IQ: 115"
+   - Show "Your IQ: 115 (range: 109-121)"
+   - Tooltip explaining confidence interval
+
+MEDIUM TERM (IRT-based):
+
+1. Person-specific SEM:
+   - Calculate SEM for each individual ability estimate
+   - More accurate than fixed SEM
+
+2. Test Information Function:
+   - Display precision across ability range
+   - Show where test is most/least precise
+
+IMPLEMENTATION COMPLEXITY: Low (CTT), Medium (IRT)
+
+INTERIM SOLUTION:
+- Use fixed conservative SEM (e.g., 10 points) until empirical data
+- Report score ranges in UI: "105-115" instead of "110"
+- Add disclaimer about measurement imprecision
+- Implement proper SEM calculation once data available (100+ users)
+
+PRIORITY: Medium (improves user understanding and scientific credibility)
+
+================================================================================
+
+DIVERGENCE #8: TEST STRUCTURE AND COMPOSITION (IMPORTANT)
+----------------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+
+From PLAN.md (Open Question Q2, lines 860-863):
+"How many questions per test?
+- Standard IQ tests vary (20-60+ questions)
+- Need to balance: test validity vs user engagement/time
+- Consideration: 20-30 questions for ~15-20 minute test?
+- Priority: Must answer before Phase 2 (P2-006)"
+
+Current Question Selection (inferred from schema):
+- Random selection from unseen questions
+- No specified distribution requirements
+- Filtered only by: is_active=true, not previously seen
+
+Question Types (backend/app/models/models.py):
+Enum: PATTERN, LOGIC, SPATIAL, MATH, VERBAL, MEMORY
+
+Difficulty Levels (backend/app/models/models.py):
+Enum: EASY, MEDIUM, HARD
+
+IDEAL IMPLEMENTATION (from research):
+
+Test Length Standards:
+
+Major IQ Tests:
+- WAIS-IV: 10 core subtests, 60-90 minutes
+- Stanford-Binet: ~90 minutes full battery
+- Raven's Progressive Matrices: 60 questions, 40 minutes
+- Shorter tests: 20-30 questions, 15-20 minutes typical
+
+Recommendations:
+- 20-25 questions reasonable for app-based test
+- Shorter = lower reliability but better completion rates
+- Can compensate with more frequent testing (we test every 6 months)
+
+Domain Balance Requirements:
+
+Six Cognitive Domains:
+1. Pattern Recognition
+2. Logical Reasoning
+3. Spatial Reasoning
+4. Mathematical Reasoning
+5. Verbal Reasoning
+6. Working Memory
+
+Recommended Distribution (20 questions):
+- 3-4 questions per domain
+- Ensures comprehensive cognitive assessment
+- Prevents domain-specific bias
+
+Example Test Composition (20 questions):
+```
+Pattern Recognition:  3 questions (1 easy, 1 medium, 1 hard)
+Logical Reasoning:    3 questions (1 easy, 1 medium, 1 hard)
+Spatial Reasoning:    3 questions (1 easy, 1 medium, 1 hard)
+Mathematical:         4 questions (1 easy, 2 medium, 1 hard)
+Verbal Reasoning:     4 questions (1 easy, 2 medium, 1 hard)
+Memory:               3 questions (1 easy, 1 medium, 1 hard)
+-----------------
+Total:               20 questions
+
+Difficulty Distribution:
+Easy:   6 questions (30%)
+Medium: 8 questions (40%)
+Hard:   6 questions (30%)
+```
+
+Difficulty Distribution Standards:
+- Bell curve distribution common: 30% easy, 40% medium, 30% hard
+- Ensures measurement across ability range
+- Prevents floor effects (too hard) or ceiling effects (too easy)
+
+Question Order Considerations:
+- Easy to hard progression (builds confidence)
+- Alternate domains (prevents fatigue in one area)
+- Randomize within constraints (prevents memorization of sequence)
+
+IMPACT:
+- Random selection may produce unbalanced tests
+- User A might get 10 math, 2 verbal by chance
+- User B might get 15 easy, 5 hard
+- Score comparability affected
+- Domain-specific strengths/weaknesses not assessed
+- Some tests may be easier/harder overall
+
+REMEDIATION REQUIRED:
+
+SHORT TERM (MVP):
+
+1. Define test composition constants:
+```python
+# config.py
+TEST_COMPOSITION = {
+    "total_questions": 20,
+    "difficulty_distribution": {
+        "easy": 6,
+        "medium": 8,
+        "hard": 6
+    },
+    "domain_distribution": {
+        "pattern": 3,
+        "logic": 3,
+        "spatial": 3,
+        "math": 4,
+        "verbal": 4,
+        "memory": 3
+    }
+}
+```
+
+2. Implement stratified question selection:
+```python
+def select_test_questions(user_id, test_config):
+    """Select questions with balanced distribution."""
+    questions = []
+
+    for domain, count in test_config["domain_distribution"].items():
+        # Get proportional difficulty split for this domain
+        easy_count = round(count * 0.30)
+        medium_count = round(count * 0.40)
+        hard_count = count - easy_count - medium_count
+
+        # Select questions for each difficulty
+        questions.extend(
+            get_unseen_questions(
+                user_id,
+                domain=domain,
+                difficulty="easy",
+                limit=easy_count
+            )
+        )
+        # ... repeat for medium and hard
+
+    return random.shuffle(questions)  # Randomize order
+```
+
+3. Store test composition metadata:
+```sql
+ALTER TABLE test_sessions ADD COLUMN test_composition JSON;
+
+-- Example stored data:
+{
+  "total_questions": 20,
+  "composition": {
+    "pattern": {"easy": 1, "medium": 1, "hard": 1},
+    "logic": {"easy": 1, "medium": 1, "hard": 1},
+    ...
+  }
+}
+```
+
+4. Validation checks:
+- Before starting test, verify sufficient questions available
+- If insufficient questions in any category, alert or adjust distribution
+- Prevent tests with unbalanced composition
+
+5. Analytics:
+- Track test composition variance
+- Ensure users get similar difficulty levels over time
+- Identify questions pools running low
+
+MEDIUM TERM:
+
+1. Configurable test profiles:
+- Allow different test compositions (quick 10q test, full 30q test)
+- Store profiles in configuration
+
+2. Adaptive composition:
+- Adjust difficulty distribution based on user's past performance
+- Still maintain domain balance
+
+3. Question pool management:
+- Monitor questions available per domain/difficulty
+- Alert when pools depleted
+- Trigger question generation for underrepresented categories
+
+IMPLEMENTATION COMPLEXITY: Medium
+- Requires refactoring question selection logic
+- Needs handling of edge cases (insufficient questions)
+- Should implement before launch for score consistency
+
+INTERIM SOLUTION:
+- Decide on test length (recommend 20 questions)
+- Implement basic stratified selection
+- Document test composition
+- Can refine distribution post-launch based on data
+
+PRIORITY: High (affects score validity and user experience)
+
+================================================================================
+
+DIVERGENCE #9: PERCENTILE RANKINGS (MINOR)
+-------------------------------------------
+
+CURRENT IMPLEMENTATION:
+- IQ score only
+- No percentile rank provided
+- No comparison to population distribution
+
+IDEAL IMPLEMENTATION (from research):
+
+Percentile Rankings:
+- Standard practice to report both IQ and percentile
+- Helps interpret score relative to population
+- More intuitive than standard deviations
+
+IQ to Percentile Conversion (SD=15):
+```
+IQ Score | Percentile | Description
+---------|------------|------------------
+145      | 99.9%      | 1 in 1,000 (3 SD above mean)
+130      | 98.0%      | 1 in 50 (2 SD above mean) - "Gifted"
+115      | 84.0%      | 1 in 6 (1 SD above mean) - "Above Average"
+100      | 50.0%      | Median - "Average"
+85       | 16.0%      | 1 in 6 (1 SD below mean) - "Below Average"
+70       | 2.0%       | 1 in 50 (2 SD below mean) - "Borderline"
+55       | 0.1%       | 1 in 1,000 (3 SD below mean)
+```
+
+Reporting Example:
+"Your IQ score is 115, which is higher than 84% of the population."
+
+IMPACT:
+- Minor impact on user understanding
+- Percentiles more intuitive than IQ scores for many users
+- Professional IQ reports always include percentiles
+
+REMEDIATION REQUIRED:
+
+SHORT TERM:
+
+1. Create conversion function:
+```python
+from scipy.stats import norm
+
+def iq_to_percentile(iq_score, mean=100, sd=15):
+    """Convert IQ score to percentile rank."""
+    z_score = (iq_score - mean) / sd
+    percentile = norm.cdf(z_score) * 100
+    return round(percentile, 1)
+```
+
+2. Add to database:
+```sql
+ALTER TABLE test_results ADD COLUMN percentile_rank FLOAT;
+```
+
+3. Update API response:
+```json
+{
+  "iq_score": 115,
+  "percentile_rank": 84.1,
+  "interpretation": "Above average - higher than 84% of population"
+}
+```
+
+4. Update iOS UI:
+- Display percentile alongside IQ
+- Visual representation (e.g., "Top 16%")
+- Chart showing position on bell curve
+
+IMPLEMENTATION COMPLEXITY: Very Low
+- Simple calculation from IQ score
+- No additional data needed
+- Easy to add to existing system
+
+INTERIM SOLUTION:
+- Can add immediately with low effort
+- High value for user experience
+- Should implement before or shortly after launch
+
+PRIORITY: Low-Medium (nice to have, easy win)
+
+================================================================================
+
+DIVERGENCE #10: AGE-BASED NORMS (MINOR)
+----------------------------------------
+
+CURRENT IMPLEMENTATION:
+- No age tracking beyond implicit in created_at
+- No age-based normalization
+- All users scored on same scale regardless of age
+
+Database Schema (backend/app/models/models.py):
+- Users table has no age or birthdate field
+
+IDEAL IMPLEMENTATION (from research):
+
+Age-Based Norms:
+- Separate normative data for age groups
+- Accounts for developmental differences
+- Common in clinical IQ testing
+
+Typical Age Groups:
+- 16-19, 20-24, 25-29, 30-34, ... 85-89, 90+
+- WAIS-IV uses 13 age groups (16-90+)
+
+Purpose:
+- Cognitive abilities change with age (especially fluid intelligence)
+- Crystallized intelligence stable/increases with age
+- Fluid intelligence peaks in 20s, declines gradually
+
+Age-Adjusted Scoring:
+- Raw score converted using age-specific norms
+- Allows comparison to age peers
+- Accounts for typical cognitive aging
+
+OUR CONTEXT:
+- App for tracking change within individual over time
+- Primary goal: longitudinal within-person comparison
+- Secondary goal: comparison to general population
+
+Age norms less critical because:
+- Users compare to their own baseline
+- 6-month intervals = minimal aging effects
+- Not used for clinical/educational decisions
+
+IMPACT:
+- Minor for our use case (within-person tracking)
+- More relevant if used for cross-person comparisons
+- Could add if user base becomes diverse in age
+
+REMEDIATION REQUIRED (Optional):
+
+Database Addition:
+```sql
+ALTER TABLE users ADD COLUMN birth_date DATE;
+```
+
+Implementation:
+1. Collect birth date during registration
+2. Calculate age at time of each test
+3. Store age in test_results for future age-based analysis
+4. If implementing age norms, separate norming samples by age group
+
+IMPLEMENTATION COMPLEXITY: Low (data collection), High (age-specific norms)
+
+INTERIM SOLUTION:
+- Not needed for MVP
+- Can add birth_date field for future use
+- Defer age-based normalization unless user base research demands it
+
+PRIORITY: Very Low (not needed for core use case)
+
+================================================================================
+
+DIVERGENCE #11: SCORE RANGE RESTRICTION (MINOR)
+------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+File: backend/app/core/scoring.py (lines 141-143)
+
+Score Clamping:
+```python
+iq_score = max(50, min(150, round(iq_score_raw)))
+```
+
+Artificially restricts range to [50, 150]
+Motivation: "avoid extreme values" (line 142 comment)
+
+IDEAL IMPLEMENTATION (from research):
+
+Theoretical Range:
+- IQ scores theoretically unbounded (normal distribution)
+- Practically: 55-145 encompasses 99.7% of population (±3 SD)
+- Extreme scores rare but possible:
+  * IQ 160+ = 1 in 31,560
+  * IQ 180+ = 1 in 3.5 million
+  * IQ 40- = 1 in 31,560 (below)
+
+No Artificial Capping:
+- Standard IQ tests don't cap scores
+- Proper norming naturally limits extreme scores
+- Ceiling effects handled through test design
+
+IMPACT:
+- Minor for typical users (95% fall within 70-130)
+- Could affect measurement of very high/low performers
+- Artificial cap appears unprofessional
+- Not needed with proper scoring method
+
+REMEDIATION REQUIRED:
+
+SHORT TERM:
+Remove artificial clamping:
+```python
+iq_score = round(iq_score_raw)
+```
+
+Natural bounds will emerge from:
+- Proper deviation IQ scoring (limits based on σ)
+- Test difficulty distribution
+- Item Response Theory (if implemented)
+
+If concerned about outliers:
+- Validate extreme scores
+- Set soft warnings (flag for review) not hard caps
+- Example: Flag scores >145 or <55 for manual review
+
+IMPLEMENTATION COMPLEXITY: Very Low (remove clamping code)
+
+INTERIM SOLUTION:
+- Can remove immediately
+- No harm in allowing full range
+- Proper scoring method will naturally constrain
+
+PRIORITY: Very Low (cosmetic issue, easily fixed)
+
+================================================================================
+
+DIVERGENCE #12: PILOT TESTING OF QUESTIONS (MINOR)
+---------------------------------------------------
+
+CURRENT IMPLEMENTATION:
+
+Question Validation (question-service/app/arbiter.py):
+- Questions evaluated by LLM arbiter
+- No pilot testing with real human users
+- Approval based on AI judgment, not empirical data
+
+Arbiter Evaluation Criteria (question-service/app/prompts.py):
+- Clarity score (0.0-1.0)
+- Difficulty score (0.0-1.0)
+- Validity score (0.0-1.0)
+- Formatting score (0.0-1.0)
+- Creativity score (0.0-1.0)
+- Minimum threshold: 0.7 (from config)
+
+IDEAL IMPLEMENTATION (from research):
+
+Pilot Testing Process:
+
+1. Initial Item Generation:
+   - Create candidate questions
+   - LLM review (as we do) - acceptable first filter
+
+2. Pilot Administration:
+   - Administer to representative sample (100-200 participants)
+   - Collect response data (correct/incorrect, time taken)
+   - Gather qualitative feedback (clarity, fairness)
+
+3. Statistical Analysis:
+   - Calculate p-value (difficulty)
+   - Calculate discrimination index
+   - Identify problematic items
+
+4. Item Refinement:
+   - Revise items with poor statistics
+   - Eliminate items that don't perform as expected
+   - Retest refined items
+
+5. Final Selection:
+   - Build item bank of validated questions
+   - Document psychometric properties
+
+Benefits:
+- Empirically validated difficulty levels
+- Questions proven to discriminate ability
+- Ambiguous questions identified and fixed
+- Higher quality assessment
+
+IMPACT:
+- LLM-only validation is innovative but unproven
+- Risk of including ambiguous or invalid questions
+- Actual difficulty may differ from AI-predicted difficulty
+- Limited to AI's judgment of what's clear/fair
+
+REMEDIATION REQUIRED:
+
+SHORT TERM (MVP):
+1. Beta testing phase:
+   - Recruit small group of users (50-100)
+   - Mark questions as "pilot" status
+   - Collect performance data
+
+2. Post-launch validation:
+   - Monitor question statistics (p-value, discrimination)
+   - Flag underperforming questions
+   - Deactivate or revise problematic items
+
+3. Feedback mechanism:
+   - Allow users to report unclear/unfair questions
+   - Review flagged questions
+   - Update or remove as needed
+
+MEDIUM TERM:
+1. Formal pilot process:
+   - Generate 2x questions needed
+   - Run pilot study
+   - Select best-performing items
+   - Build validated item bank
+
+2. Continuous monitoring:
+   - Track item statistics as users take tests
+   - Periodic review of question quality
+   - Ongoing refinement
+
+IMPLEMENTATION COMPLEXITY: Medium
+- Requires user recruitment for pilots
+- Statistical analysis infrastructure
+- Question lifecycle management
+
+INTERIM SOLUTION:
+- LLM validation acceptable for MVP launch
+- Treat first 6-12 months as extended pilot
+- Use early user data for question validation
+- Replace/refine questions based on empirical data
+
+PRIORITY: Low for MVP, Medium for mature product
+
+================================================================================
+
+SUMMARY OF DIVERGENCES
+================================================================================
+
+CRITICAL DIVERGENCES (Block Scientific Validity):
+┌─────┬──────────────────────────────────────┬────────────┬──────────┐
+│ #   │ Divergence                           │ Complexity │ Priority │
+├─────┼──────────────────────────────────────┼────────────┼──────────┤
+│ 1   │ Scoring Formula (not std dev IQ)     │ High       │ CRITICAL │
+│ 2   │ No Norming Sample                    │ Very High  │ CRITICAL │
+│ 3   │ No Empirical Question Calibration    │ Medium     │ CRITICAL │
+│ 4   │ No Psychometric Validation           │ High       │ CRITICAL │
+└─────┴──────────────────────────────────────┴────────────┴──────────┘
+
+IMPORTANT DIVERGENCES (Limit Quality):
+┌─────┬──────────────────────────────────────┬────────────┬──────────┐
+│ #   │ Divergence                           │ Complexity │ Priority │
+├─────┼──────────────────────────────────────┼────────────┼──────────┤
+│ 5   │ Equal Question Weighting             │ Low-High   │ Medium   │
+│ 6   │ No IRT Implementation                │ Very High  │ Medium   │
+│ 7   │ No Confidence Intervals              │ Low-Med    │ Medium   │
+│ 8   │ No Balanced Test Composition         │ Medium     │ High     │
+└─────┴──────────────────────────────────────┴────────────┴──────────┘
+
+MINOR DIVERGENCES (Nice to Have):
+┌─────┬──────────────────────────────────────┬────────────┬──────────┐
+│ #   │ Divergence                           │ Complexity │ Priority │
+├─────┼──────────────────────────────────────┼────────────┼──────────┤
+│ 9   │ No Percentile Rankings               │ Very Low   │ Low-Med  │
+│ 10  │ No Age-Based Norms                   │ Low-High   │ Very Low │
+│ 11  │ Artificial Score Range Cap           │ Very Low   │ Very Low │
+│ 12  │ No Pilot Testing with Users          │ Medium     │ Low-Med  │
+└─────┴──────────────────────────────────────┴────────────┴──────────┘
+
+================================================================================
+
+RECOMMENDED REMEDIATION ROADMAP
+================================================================================
+
+PHASE 1: IMMEDIATE (Before/At Launch) - Low-Hanging Fruit
+----------------------------------------------------------
+Priority: Address items that are easy wins
+
+1. ✓ Remove artificial score cap (50-150) → allow full range
+   - File: backend/app/core/scoring.py
+   - Effort: 5 minutes
+   - Impact: Removes unprofessional limitation
+
+2. ✓ Implement stratified question selection (balanced test composition)
+   - File: backend/app/api/v1/test_sessions.py
+   - Effort: 2-4 hours
+   - Impact: Major improvement in score validity
+
+3. ✓ Add percentile calculations and display
+   - Files: backend/app/core/scoring.py, iOS app
+   - Effort: 2-3 hours
+   - Impact: Better user understanding
+
+4. ✓ Add schema fields for future validation
+   - Database migrations
+   - Effort: 1 hour
+   - Fields: discrimination, irt_parameters, empirical_difficulty, etc.
+
+5. ✓ Begin tracking question statistics
+   - Analytics pipeline
+   - Effort: 4-6 hours
+   - Impact: Enables future calibration
+
+6. ✓ Update positioning/disclaimers
+   - Marketing copy, app descriptions
+   - Effort: 1 hour
+   - Impact: Sets appropriate expectations
+
+PHASE 2: MVP+ (First 3-6 Months) - Data Collection
+---------------------------------------------------
+Priority: Collect data for future improvements
+
+7. ✓ Implement basic question analytics
+   - Dashboard for question performance
+   - Flag underperforming questions
+   - Effort: 1-2 weeks
+   - Impact: Identifies problem questions
+
+8. ✓ Calculate internal consistency (Cronbach's α)
+   - Requires 100+ completed tests
+   - Effort: 1-2 days
+   - Impact: First reliability metric
+
+9. ✓ Track test-retest correlation
+   - For users who retake tests
+   - Effort: 1-2 days
+   - Impact: Reliability evidence
+
+10. ✓ Implement confidence intervals
+    - Based on estimated SEM from Cronbach's α
+    - Effort: 1 week
+    - Impact: More scientific reporting
+
+11. ✓ Question validation pipeline
+    - Review questions with p-value far from target
+    - Effort: Ongoing process
+    - Impact: Improve question quality
+
+PHASE 3: NORMING (6-12 Months) - Statistical Validity
+------------------------------------------------------
+Priority: Establish population norms once sufficient data
+
+12. ⏭ Collect norming sample data
+    - Target: 500-1000 users minimum
+    - Calculate population mean and standard deviation
+    - Effort: Data analysis + statistical work = 2-4 weeks
+    - Impact: Enables proper IQ scoring
+
+13. ⏭ Implement deviation IQ scoring
+    - Replace current algorithm with proper formula
+    - IQ = 100 + (15 × z-score)
+    - Effort: 1 week implementation + testing
+    - Impact: Scientifically valid IQ scores
+
+14. ⏭ Recalibrate historical scores
+    - Apply new scoring to all existing test results
+    - Migration script
+    - Effort: 1 week
+    - Impact: Consistent scoring across all users
+
+15. ⏭ Question difficulty calibration (CTT)
+    - Calculate empirical p-values from user data
+    - Update difficulty labels
+    - Effort: 1-2 weeks
+    - Impact: Accurate difficulty classifications
+
+PHASE 4: ADVANCED (12+ Months) - Research-Grade System
+-------------------------------------------------------
+Priority: Achieve professional-grade psychometric quality
+
+16. ⏭ IRT parameter estimation
+    - Calibrate all questions using IRT
+    - Requires 200+ responses per question
+    - Effort: 4-8 weeks (includes learning curve)
+    - Impact: Industry-standard calibration
+
+17. ⏭ IRT-based ability estimation
+    - Replace simple sum with IRT scoring
+    - Effort: 2-4 weeks
+    - Impact: More accurate IQ estimates
+
+18. ⏭ Formal validation study
+    - Recruit participants for test-retest
+    - Calculate reliability coefficients
+    - Effort: 3-6 months
+    - Impact: Publishable psychometric data
+
+19. ⏭ Expert consultation
+    - Psychometrician review
+    - Statistical validation
+    - Effort: Consulting engagement
+    - Impact: Professional credibility
+
+20. ⏭ Concurrent validity study (optional)
+    - Compare with established IQ test
+    - Requires institutional partnership
+    - Effort: 6-12 months
+    - Impact: Gold-standard validation
+
+================================================================================
+
+COST-BENEFIT ANALYSIS
+================================================================================
+
+Quick Wins (High Impact, Low Effort):
+- #1: Remove score cap (5 min, no cost)
+- #2: Balanced test composition (4 hours, high validity boost)
+- #3: Percentile rankings (3 hours, better UX)
+- #9: Question statistics tracking (1 week, enables future improvements)
+
+Essential for Credibility (High Impact, High Effort):
+- #12: Norming sample (requires user base, 2-4 weeks analysis)
+- #13: Proper deviation IQ scoring (1 week, scientifically necessary)
+- #15: Question calibration (1-2 weeks, improves validity)
+
+Advanced/Optional (Medium Impact, Very High Effort):
+- #16-17: IRT implementation (8-12 weeks, marginal improvement over CTT)
+- #18-19: Formal validation studies (6+ months, expensive)
+- #20: Concurrent validation (12+ months, very expensive)
+
+================================================================================
+
+RECOMMENDED MVP SCOPE
+================================================================================
+
+INCLUDE IN MVP LAUNCH:
+✓ Basic stratified question selection (#2)
+✓ Percentile rankings (#3)
+✓ Remove score cap (#1)
+✓ Start tracking question statistics (#5)
+✓ Appropriate disclaimers (#6)
+
+DEFER TO POST-LAUNCH (DATA-DEPENDENT):
+⏭ Proper deviation IQ scoring (#12-13) - needs norming data
+⏭ Confidence intervals (#10) - needs reliability data
+⏭ Question calibration (#15) - needs response data
+⏭ Internal consistency (#8-9) - needs sufficient tests
+
+LONG-TERM ENHANCEMENTS:
+⏭ IRT implementation (#16-17)
+⏭ Formal validation studies (#18-20)
+⏭ Age-based norms (#10) - if needed
+
+MESSAGING FOR MVP:
+"IQ Tracker provides cognitive performance assessment and tracks your
+mental abilities over time. While our tests are designed based on established
+psychometric principles, they are not equivalent to professionally administered
+clinical IQ tests. Use for personal insight and tracking only."
+
+================================================================================
+END OF DIVERGENCE ANALYSIS
+================================================================================
