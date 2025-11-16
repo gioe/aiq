@@ -1,6 +1,7 @@
 """
 Test session management endpoints.
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -26,8 +27,10 @@ from app.core.scoring import calculate_iq_score, iq_to_percentile
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
+from app.core.question_analytics import update_question_statistics
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def select_stratified_questions(
@@ -644,6 +647,16 @@ def submit_test(
     db.commit()
     db.refresh(test_session)
     db.refresh(test_result)
+
+    # Update question performance statistics (P11-009)
+    # Track empirical difficulty and discrimination for each question
+    try:
+        update_question_statistics(db, int(test_session.id))  # type: ignore
+    except Exception as e:
+        # Log error but don't fail the submission
+        logger.error(
+            f"Failed to update question statistics for session {test_session.id}: {e}"
+        )
 
     # Track analytics event
     AnalyticsTracker.track_test_completed(

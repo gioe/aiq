@@ -259,6 +259,13 @@ class TestResult(Base):
     completion_time_seconds = Column(Integer)
     completed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # Confidence interval fields (P11-008)
+    # These fields prepare for Phase 12 when we can calculate actual SEM
+    # and provide confidence intervals for IQ scores
+    standard_error = Column(Float, nullable=True)  # Standard Error of Measurement (SEM)
+    ci_lower = Column(Integer, nullable=True)  # Lower bound of confidence interval
+    ci_upper = Column(Integer, nullable=True)  # Upper bound of confidence interval
+
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")

@@ -1,8 +1,9 @@
 """
 Read-only admin views for all database models.
 """
-# mypy: disable-error-code="list-item"
+# mypy: disable-error-code="list-item,arg-type,dict-item"
 from sqladmin import ModelView
+from markupsafe import Markup
 
 from app.models import (
     User,
@@ -11,6 +12,7 @@ from app.models import (
     TestSession,
     Response,
     TestResult,
+    DifficultyLevel,
 )
 
 
@@ -70,7 +72,14 @@ class UserAdmin(ReadOnlyModelView, model=User):
 
 
 class QuestionAdmin(ReadOnlyModelView, model=Question):
-    """Admin view for Question model."""
+    """
+    Admin view for Question model with quality analytics.
+
+    Displays question performance statistics and flags quality issues such as:
+    - Difficulty mismatches (empirical vs. LLM-assigned)
+    - Low discrimination (poor ability to distinguish high/low performers)
+    - Insufficient response data
+    """
 
     name = "Question"
     name_plural = "Questions"
@@ -80,9 +89,12 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.id,
         Question.question_type,
         Question.difficulty_level,
-        Question.source_llm,
+        "quality_status",  # Custom column
+        Question.response_count,
+        Question.empirical_difficulty,
+        Question.discrimination,
         Question.arbiter_score,
-        Question.created_at,
+        Question.source_llm,
         Question.is_active,
     ]
 
@@ -94,9 +106,19 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.correct_answer,
         Question.answer_options,
         Question.explanation,
-        Question.question_metadata,
+        # Performance Statistics
+        Question.response_count,
+        Question.empirical_difficulty,
+        Question.discrimination,
+        # LLM Metadata
         Question.source_llm,
         Question.arbiter_score,
+        Question.question_metadata,
+        # IRT Fields (future use)
+        Question.irt_difficulty,
+        Question.irt_discrimination,
+        Question.irt_guessing,
+        # Status
         Question.created_at,
         Question.is_active,
     ]
@@ -109,17 +131,199 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.difficulty_level,
         Question.arbiter_score,
         Question.created_at,
+        Question.response_count,
+        Question.empirical_difficulty,
+        Question.discrimination,
     ]
 
-    column_default_sort = [(Question.created_at, True)]
+    column_default_sort = [
+        (Question.response_count, True)
+    ]  # Show most-used questions first
 
-    # Add filters for common queries
+    # Add filters for quality monitoring
     column_filters = [
         Question.question_type,
         Question.difficulty_level,
         Question.is_active,
         Question.source_llm,
+        Question.response_count,
+        Question.discrimination,
     ]
+
+    # Custom column formatters for quality indicators
+    column_formatters = {
+        "quality_status": lambda m, a: QuestionAdmin._format_quality_status(m),
+        Question.empirical_difficulty: lambda m, a: QuestionAdmin._format_empirical_difficulty(
+            m
+        ),
+        Question.discrimination: lambda m, a: QuestionAdmin._format_discrimination(m),
+        Question.response_count: lambda m, a: QuestionAdmin._format_response_count(m),
+    }
+
+    # Column labels
+    column_labels = {
+        "quality_status": "Quality",
+        Question.empirical_difficulty: "P-Value (Empirical)",
+        Question.discrimination: "Discrimination",
+        Question.response_count: "Responses",
+        Question.arbiter_score: "Arbiter Score",
+        Question.irt_difficulty: "IRT: b (difficulty)",
+        Question.irt_discrimination: "IRT: a (discrimination)",
+        Question.irt_guessing: "IRT: c (guessing)",
+    }
+
+    @staticmethod
+    def _format_quality_status(model: Question) -> Markup:
+        """
+        Display quality status badge based on multiple criteria:
+        - Response count (sufficient data?)
+        - Difficulty mismatch (empirical vs LLM-assigned)
+        - Discrimination quality (ability to distinguish performers)
+        """
+        if model.response_count is None or model.response_count < 30:
+            # Insufficient data - gray badge
+            return Markup(
+                '<span class="badge badge-secondary" title="Insufficient response data for analysis">'
+                f"📊 Pending ({model.response_count or 0} responses)"
+                "</span>"
+            )
+
+        issues = []
+
+        # Check for difficulty mismatch
+        if model.empirical_difficulty is not None:
+            difficulty_mismatch = QuestionAdmin._check_difficulty_mismatch(
+                model.difficulty_level, model.empirical_difficulty
+            )
+            if difficulty_mismatch:
+                issues.append(f"Difficulty mismatch: {difficulty_mismatch}")
+
+        # Check for low discrimination
+        if model.discrimination is not None and model.discrimination < 0.2:
+            issues.append(f"Low discrimination: {model.discrimination:.2f}")
+
+        # Return appropriate badge
+        if not issues:
+            # Good quality - green badge
+            return Markup(
+                '<span class="badge badge-success" title="Question performing well">✓ Good</span>'
+            )
+        else:
+            # Issues detected - red badge with tooltip
+            tooltip = "; ".join(issues)
+            return Markup(
+                f'<span class="badge badge-danger" title="{tooltip}">⚠ Review Needed</span>'
+            )
+
+    @staticmethod
+    def _check_difficulty_mismatch(
+        assigned_difficulty: DifficultyLevel, p_value: float
+    ) -> str:
+        """
+        Check if empirical difficulty matches LLM-assigned difficulty.
+
+        P-value interpretation (proportion correct):
+        - Easy questions: p-value should be > 0.7
+        - Medium questions: p-value should be 0.4-0.7
+        - Hard questions: p-value should be < 0.4
+
+        Returns:
+            Empty string if match is good, otherwise description of mismatch
+        """
+        if assigned_difficulty == DifficultyLevel.EASY:
+            expected = "easy (p > 0.7)"
+            if p_value < 0.5:
+                return f"Too hard (p={p_value:.2f}, expected {expected})"
+        elif assigned_difficulty == DifficultyLevel.MEDIUM:
+            expected = "medium (0.4 < p < 0.7)"
+            if p_value < 0.3:
+                return f"Too hard (p={p_value:.2f}, expected {expected})"
+            elif p_value > 0.8:
+                return f"Too easy (p={p_value:.2f}, expected {expected})"
+        elif assigned_difficulty == DifficultyLevel.HARD:
+            expected = "hard (p < 0.4)"
+            if p_value > 0.6:
+                return f"Too easy (p={p_value:.2f}, expected {expected})"
+
+        return ""
+
+    @staticmethod
+    def _format_empirical_difficulty(model: Question) -> Markup:
+        """Format empirical difficulty (p-value) with color coding."""
+        if model.empirical_difficulty is None:
+            return Markup('<span class="text-muted">N/A</span>')
+
+        p_value = model.empirical_difficulty
+
+        # Color code based on value (easier questions = higher p-value = green)
+        if p_value > 0.7:
+            color = "success"
+            label = "Easy"
+        elif p_value > 0.4:
+            color = "warning"
+            label = "Medium"
+        else:
+            color = "danger"
+            label = "Hard"
+
+        return Markup(
+            f'<span class="text-{color}" title="Proportion correct: {label}">'
+            f"{p_value:.3f}"
+            "</span>"
+        )
+
+    @staticmethod
+    def _format_discrimination(model: Question) -> Markup:
+        """Format discrimination value with color coding."""
+        if model.discrimination is None:
+            return Markup('<span class="text-muted">N/A</span>')
+
+        disc = model.discrimination
+
+        # Color code based on quality thresholds
+        # Discrimination > 0.4 = excellent, > 0.3 = good, > 0.2 = acceptable, < 0.2 = poor
+        if disc >= 0.4:
+            color = "success"
+            label = "Excellent"
+        elif disc >= 0.3:
+            color = "info"
+            label = "Good"
+        elif disc >= 0.2:
+            color = "warning"
+            label = "Acceptable"
+        else:
+            color = "danger"
+            label = "Poor"
+
+        return Markup(
+            f'<span class="text-{color}" title="{label} discrimination">'
+            f"{disc:.3f}"
+            "</span>"
+        )
+
+    @staticmethod
+    def _format_response_count(model: Question) -> Markup:
+        """Format response count with indicator for statistical reliability."""
+        if model.response_count is None or model.response_count == 0:
+            return Markup('<span class="text-muted">0</span>')
+
+        count = model.response_count
+
+        # Color code based on statistical reliability
+        # < 30 = insufficient, 30-100 = marginal, 100+ = reliable
+        if count >= 100:
+            color = "success"
+            title = "Statistically reliable"
+        elif count >= 30:
+            color = "warning"
+            title = "Marginally reliable"
+        else:
+            color = "secondary"
+            title = "Insufficient data"
+
+        return Markup(
+            f'<span class="badge badge-{color}" title="{title}">{count}</span>'
+        )
 
 
 class UserQuestionAdmin(ReadOnlyModelView, model=UserQuestion):
