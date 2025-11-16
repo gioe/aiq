@@ -11,6 +11,7 @@ class TestSubmitTest:
     ):
         """Test successfully submitting responses with all correct answers."""
         from app.models.models import Response, TestSession, TestStatus, TestResult
+        from app.models import Question
 
         # Start a test first
         start_response = client.post(
@@ -20,13 +21,29 @@ class TestSubmitTest:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
         # Submit responses (all correct)
         submission_data = {
             "session_id": session_id,
             "responses": [
-                {"question_id": questions[0]["id"], "user_answer": "10"},
-                {"question_id": questions[1]["id"], "user_answer": "No"},
-                {"question_id": questions[2]["id"], "user_answer": "180"},
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": questions_dict[questions[1]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[2]["id"],
+                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                },
             ],
         }
 
@@ -99,6 +116,7 @@ class TestSubmitTest:
     ):
         """Test submitting responses with mixed correct and incorrect answers."""
         from app.models.models import Response, TestResult
+        from app.models import Question
 
         # Start a test
         start_response = client.post(
@@ -107,13 +125,29 @@ class TestSubmitTest:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
         # Submit responses (1 correct, 2 incorrect)
         submission_data = {
             "session_id": session_id,
             "responses": [
-                {"question_id": questions[0]["id"], "user_answer": "10"},  # Correct
-                {"question_id": questions[1]["id"], "user_answer": "Yes"},  # Incorrect
-                {"question_id": questions[2]["id"], "user_answer": "200"},  # Incorrect
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },  # Correct
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": "WRONG_ANSWER_1",
+                },  # Incorrect
+                {
+                    "question_id": questions[2]["id"],
+                    "user_answer": "WRONG_ANSWER_2",
+                },  # Incorrect
             ],
         }
 
@@ -430,6 +464,7 @@ class TestSubmitTest:
     ):
         """Test that user answers are trimmed before storage."""
         from app.models.models import Response
+        from app.models import Question
 
         # Start a test
         start_response = client.post(
@@ -438,11 +473,20 @@ class TestSubmitTest:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
+        # Get the actual correct answer from the database
+        db_question = (
+            db_session.query(Question).filter(Question.id == questions[0]["id"]).first()
+        )
+        correct_answer = db_question.correct_answer
+
         # Submit with extra whitespace
         submission_data = {
             "session_id": session_id,
             "responses": [
-                {"question_id": questions[0]["id"], "user_answer": "  10  "},
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": f"  {correct_answer}  ",
+                },
             ],
         }
 
@@ -458,7 +502,7 @@ class TestSubmitTest:
             .filter(Response.test_session_id == session_id)
             .first()
         )
-        assert db_response.user_answer == "10"
+        assert db_response.user_answer == correct_answer
         assert db_response.is_correct is True
 
     def test_submit_test_transaction_atomicity(

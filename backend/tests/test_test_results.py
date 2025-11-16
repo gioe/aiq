@@ -10,6 +10,8 @@ class TestGetTestResult:
         self, client, auth_headers, test_questions, db_session
     ):
         """Test successfully retrieving a specific test result."""
+        from app.models import Question
+
         # Create a completed test by starting and submitting
         start_response = client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
@@ -18,13 +20,29 @@ class TestGetTestResult:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
-        # Submit responses
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
+        # Submit responses (all correct)
         submission_data = {
             "session_id": session_id,
             "responses": [
-                {"question_id": questions[0]["id"], "user_answer": "10"},
-                {"question_id": questions[1]["id"], "user_answer": "No"},
-                {"question_id": questions[2]["id"], "user_answer": "180"},
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": questions_dict[questions[1]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[2]["id"],
+                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                },
             ],
         }
         submit_response = client.post(
@@ -117,6 +135,8 @@ class TestGetTestResult:
         self, client, auth_headers, test_questions, db_session
     ):
         """Test retrieving a test result with partial correct answers."""
+        from app.models import Question
+
         # Start test
         start_response = client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
@@ -125,13 +145,29 @@ class TestGetTestResult:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
         # Submit with 2/3 correct (66.67%)
         submission_data = {
             "session_id": session_id,
             "responses": [
-                {"question_id": questions[0]["id"], "user_answer": "10"},  # Correct
-                {"question_id": questions[1]["id"], "user_answer": "Yes"},  # Wrong
-                {"question_id": questions[2]["id"], "user_answer": "180"},  # Correct
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },  # Correct
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": "WRONG_ANSWER",
+                },  # Wrong
+                {
+                    "question_id": questions[2]["id"],
+                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                },  # Correct
             ],
         }
         submit_response = client.post(
