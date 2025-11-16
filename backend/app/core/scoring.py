@@ -5,50 +5,43 @@ This module provides scoring algorithms for converting test performance
 into IQ scores. The architecture is designed to be pluggable, allowing
 easy swapping of scoring strategies.
 
-TODO: Research Plan for Real-World IQ Scoring
-==============================================
-We need to develop a comprehensive research plan to understand how IQ tests
-are scored in the real world. This should include:
+Research & Methodology
+======================
+Comprehensive research into IQ testing methodology has been completed.
+See project root for detailed findings:
 
-1. **Standardized Test Research:**
-   - Wechsler Adult Intelligence Scale (WAIS)
-   - Stanford-Binet Intelligence Scales
-   - Raven's Progressive Matrices
-   - How do these tests normalize scores across populations?
+- IQ_TEST_RESEARCH_FINDINGS.txt: Research on standardized tests (WAIS,
+  Stanford-Binet, Raven's), scoring formulas, psychometric standards
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt: Analysis of divergences from
+  ideal system and remediation roadmap
+- PLAN.md (Phases 11-14): Implementation roadmap for methodology improvements
 
-2. **Statistical Methods:**
-   - Standard deviation and z-score normalization
-   - Age-based norm groups
-   - Percentile rank conversion
-   - Item Response Theory (IRT) vs Classical Test Theory (CTT)
+Current Implementation
+======================
+**Scoring Algorithm:** StandardIQRangeScoring (MVP)
+- Linear transformation: IQ = 100 + ((accuracy - 0.5) * 30)
+- Range: Approximately 85-115 for typical performance
+- Simple, deterministic, suitable for MVP
 
-3. **Question Weighting:**
-   - How are questions weighted by difficulty?
-   - Adaptive testing algorithms (CAT - Computer Adaptive Testing)
-   - Impact of question type (spatial, verbal, logic, etc.) on overall IQ
+**Percentile Calculation:**
+- Converts IQ scores to percentile ranks using normal distribution
+- Formula: percentile = norm.cdf((IQ - 100) / 15) * 100
+- Shows what percentage of population scores below given IQ
 
-4. **Validation:**
-   - Test-retest reliability
-   - Correlation with other validated IQ tests
-   - Population-based calibration requirements
+Roadmap to Standard Deviation IQ
+=================================
+Phase 13 (6-12 months) will implement proper deviation IQ scoring:
+- IQ = 100 + (15 × z-score) where z = (X - μ) / σ
+- Requires norming sample (500-1000+ users)
+- See PLAN.md Phase 13 for details
 
-5. **Ethical Considerations:**
-   - Cultural bias in IQ testing
-   - Flynn effect (IQ score inflation over time)
-   - Appropriate use of IQ scores
-
-**Action Items:**
-- [ ] Literature review of modern IQ testing methodologies
-- [ ] Consult with psychometrician or educational psychologist
-- [ ] Gather sample data to validate our scoring approach
-- [ ] Consider implementing multiple scoring models and A/B testing
-
-**Current Status:** Using simplified Standard IQ Range algorithm (MVP)
-**Priority:** Medium (post-MVP research task)
+Current algorithm acceptable for MVP but will be replaced with
+scientifically validated approach once sufficient user data available.
 """
 
 from typing import Protocol
 from dataclasses import dataclass
+from scipy.stats import norm
 
 
 @dataclass
@@ -59,6 +52,56 @@ class TestScore:
     correct_answers: int
     total_questions: int
     accuracy_percentage: float
+
+
+def iq_to_percentile(iq_score: int, mean: float = 100.0, sd: float = 15.0) -> float:
+    """
+    Convert IQ score to percentile rank using normal distribution.
+
+    The percentile rank represents what percentage of the population
+    scores below the given IQ score.
+
+    Args:
+        iq_score: The IQ score to convert
+        mean: Mean of IQ distribution (default: 100)
+        sd: Standard deviation of IQ distribution (default: 15)
+
+    Returns:
+        Percentile rank (0-100), rounded to 1 decimal place
+
+    Example:
+        >>> iq_to_percentile(100)
+        50.0  # 100 IQ is at the 50th percentile (median)
+        >>> iq_to_percentile(115)
+        84.1  # 115 IQ is at the 84th percentile (+1 SD)
+        >>> iq_to_percentile(130)
+        97.7  # 130 IQ is at the 98th percentile (+2 SD)
+    """
+    # Calculate z-score: number of standard deviations from mean
+    z_score = (iq_score - mean) / sd
+
+    # Convert z-score to percentile using cumulative distribution function
+    percentile = norm.cdf(z_score) * 100
+
+    # Round to 1 decimal place
+    return round(percentile, 1)
+
+
+def get_percentile_interpretation(percentile: float) -> str:
+    """
+    Get human-readable interpretation of percentile rank.
+
+    Args:
+        percentile: Percentile rank (0-100)
+
+    Returns:
+        Interpretation string describing performance level
+
+    Example:
+        >>> get_percentile_interpretation(84.1)
+        "Higher than 84% of the population"
+    """
+    return f"Higher than {percentile:.0f}% of the population"
 
 
 class ScoringStrategy(Protocol):
@@ -138,9 +181,9 @@ class StandardIQRangeScoring:
         # Center at 100, scale by 30 (±1 standard deviation = ±15 points)
         iq_score_raw = 100 + ((accuracy - 0.5) * 30)
 
-        # Round to nearest integer and clamp to reasonable bounds
-        # (50-150 for MVP to avoid extreme values)
-        iq_score = max(50, min(150, round(iq_score_raw)))
+        # Round to nearest integer
+        # No artificial cap - allow full normal distribution range
+        iq_score = round(iq_score_raw)
 
         return TestScore(
             iq_score=iq_score,

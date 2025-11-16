@@ -6,6 +6,9 @@ psycopg2-binary==2.9.10
 # Configuration
 python-dotenv==1.0.0
 
+# Statistical/Mathematical
+scipy==1.16.3
+
 # FastAPI and server (will be used in later phases)
 fastapi==0.115.0
 uvicorn[standard]==0.32.1

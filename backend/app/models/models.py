@@ -210,6 +210,7 @@ class TestResult(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     iq_score = Column(Integer, nullable=False)
+    percentile_rank = Column(Float, nullable=True)  # Percentile rank (0-100)
     total_questions = Column(Integer, nullable=False)
     correct_answers = Column(Integer, nullable=False)
     completion_time_seconds = Column(Integer)

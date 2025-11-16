@@ -22,7 +22,7 @@ from app.schemas.responses import (
     TestResultResponse,
 )
 from app.core.auth import get_current_user
-from app.core.scoring import calculate_iq_score
+from app.core.scoring import calculate_iq_score, iq_to_percentile
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
@@ -462,6 +462,9 @@ def submit_test(
         correct_answers=correct_count, total_questions=response_count
     )
 
+    # Calculate percentile rank
+    percentile = iq_to_percentile(score_result.iq_score)
+
     # Create TestResult record
     from app.models.models import TestResult
 
@@ -469,6 +472,7 @@ def submit_test(
         test_session_id=test_session.id,
         user_id=current_user.id,
         iq_score=score_result.iq_score,
+        percentile_rank=percentile,
         total_questions=score_result.total_questions,
         correct_answers=score_result.correct_answers,
         completion_time_seconds=completion_time_seconds,
@@ -499,6 +503,7 @@ def submit_test(
         test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
         user_id=test_result.user_id,  # type: ignore[arg-type]
         iq_score=test_result.iq_score,  # type: ignore[arg-type]
+        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
         total_questions=test_result.total_questions,  # type: ignore[arg-type]
         correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
         accuracy_percentage=score_result.accuracy_percentage,
@@ -561,6 +566,7 @@ def get_test_result(
         test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
         user_id=test_result.user_id,  # type: ignore[arg-type]
         iq_score=test_result.iq_score,  # type: ignore[arg-type]
+        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
         total_questions=test_result.total_questions,  # type: ignore[arg-type]
         correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
         accuracy_percentage=accuracy_percentage,
@@ -612,6 +618,7 @@ def get_test_history(
                 test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
                 user_id=test_result.user_id,  # type: ignore[arg-type]
                 iq_score=test_result.iq_score,  # type: ignore[arg-type]
+                percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
                 total_questions=test_result.total_questions,  # type: ignore[arg-type]
                 correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
                 accuracy_percentage=accuracy_percentage,

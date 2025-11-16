@@ -812,21 +812,21 @@ arbiters:
 **Tasks:**
 
 **Scoring Improvements:**
-- [ ] **P11-001**: Remove artificial IQ score cap (50-150) from scoring.py
+- [x] **P11-001**: Remove artificial IQ score cap (50-150) from scoring.py
   - Current: Scores clamped to [50, 150]
   - Target: Allow full normal distribution range
   - Impact: Removes unprofessional limitation
   - Effort: 5 minutes
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #11
 
-- [ ] **P11-002**: Implement percentile calculation from IQ scores
+- [x] **P11-002**: Implement percentile calculation from IQ scores
   - Add percentile conversion function using z-score
   - Formula: percentile = norm.cdf((IQ - 100) / 15) * 100
   - Add percentile_rank field to test_results table
   - Effort: 3 hours
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #9
 
-- [ ] **P11-003**: Update API to return percentile with IQ score
+- [x] **P11-003**: Update API to return percentile with IQ score
   - Modify test results endpoint to include percentile
   - Add interpretation text (e.g., "Higher than 84% of population")
   - Effort: 1 hour
