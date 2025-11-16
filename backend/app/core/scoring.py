@@ -138,9 +138,9 @@ class StandardIQRangeScoring:
         # Center at 100, scale by 30 (±1 standard deviation = ±15 points)
         iq_score_raw = 100 + ((accuracy - 0.5) * 30)
 
-        # Round to nearest integer and clamp to reasonable bounds
-        # (50-150 for MVP to avoid extreme values)
-        iq_score = max(50, min(150, round(iq_score_raw)))
+        # Round to nearest integer
+        # No artificial cap - allow full normal distribution range
+        iq_score = round(iq_score_raw)
 
         return TestScore(
             iq_score=iq_score,
