@@ -799,6 +799,528 @@ arbiters:
 
 ---
 
+### Phase 11: IQ Methodology - Quick Wins (Immediate Improvements)
+
+**Goal:** Address low-hanging fruit to improve scientific validity before/at launch
+
+**Context:** Based on comprehensive research into IQ testing methodology (see IQ_TEST_RESEARCH_FINDINGS.txt and IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt), we identified 12 divergences from scientific standards. This phase addresses the easiest, highest-impact improvements.
+
+**Research References:**
+- IQ_TEST_RESEARCH_FINDINGS.txt: Standard deviation IQ method, test composition, percentile rankings
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt: Divergences #1 (scoring), #8 (test composition), #9 (percentiles), #11 (score cap)
+
+**Tasks:**
+
+**Scoring Improvements:**
+- [ ] **P11-001**: Remove artificial IQ score cap (50-150) from scoring.py
+  - Current: Scores clamped to [50, 150]
+  - Target: Allow full normal distribution range
+  - Impact: Removes unprofessional limitation
+  - Effort: 5 minutes
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #11
+
+- [ ] **P11-002**: Implement percentile calculation from IQ scores
+  - Add percentile conversion function using z-score
+  - Formula: percentile = norm.cdf((IQ - 100) / 15) * 100
+  - Add percentile_rank field to test_results table
+  - Effort: 3 hours
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #9
+
+- [ ] **P11-003**: Update API to return percentile with IQ score
+  - Modify test results endpoint to include percentile
+  - Add interpretation text (e.g., "Higher than 84% of population")
+  - Effort: 1 hour
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.3
+
+**Test Composition Improvements:**
+- [ ] **P11-004**: Define standard test composition configuration
+  - Document: 20 questions total
+  - Distribution: 30% easy (6), 40% medium (8), 30% hard (6)
+  - Domain balance: ~3-4 questions per cognitive domain
+  - Create TEST_COMPOSITION constant in config
+  - Effort: 1 hour
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
+
+- [ ] **P11-005**: Implement stratified question selection algorithm
+  - Replace random selection with balanced selection
+  - Ensure difficulty distribution (easy/medium/hard)
+  - Ensure domain distribution (pattern/logic/spatial/math/verbal/memory)
+  - Update question serving endpoint
+  - Effort: 4-6 hours
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4
+
+- [ ] **P11-006**: Add test composition metadata to test sessions
+  - Store actual composition in test_sessions.metadata JSON field
+  - Track for analysis of test difficulty variance
+  - Effort: 2 hours
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 890-905
+
+**Database Schema for Future Validation:**
+- [ ] **P11-007**: Add question statistics fields to database
+  - Add columns: empirical_difficulty (float), discrimination (float), response_count (int)
+  - Add columns: irt_difficulty, irt_discrimination, irt_guessing (for future IRT)
+  - Migration script
+  - Effort: 2 hours
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #3
+
+- [ ] **P11-008**: Add confidence interval fields to test_results
+  - Add columns: standard_error (float), ci_lower (int), ci_upper (int)
+  - Prepare for Phase 12 when we can calculate actual SEM
+  - Effort: 1 hour
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #7
+
+**Analytics Infrastructure:**
+- [ ] **P11-009**: Implement question performance tracking
+  - Track correct/incorrect responses per question
+  - Calculate p-value (proportion correct) as data accumulates
+  - Calculate item-total correlation for discrimination
+  - Create analytics queries/views
+  - Effort: 1 week
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (IRT/CTT)
+
+- [ ] **P11-010**: Create question quality dashboard (backend admin)
+  - View question statistics (p-value, discrimination, response count)
+  - Flag questions where empirical difficulty != LLM-assigned difficulty
+  - Identify underperforming questions
+  - Effort: 1 week
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 395-420
+
+**Messaging & Positioning:**
+- [ ] **P11-011**: Update app disclaimers and positioning
+  - Change "IQ Test" → "Cognitive Performance Assessment"
+  - Add disclaimer: "For personal insight and tracking only, not clinical use"
+  - Update App Store description, onboarding, results screen
+  - Clear messaging about limitations vs professional IQ tests
+  - Effort: 2-3 hours
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 518-531
+
+**iOS Updates:**
+- [ ] **P11-012**: Display percentile rankings in iOS app
+  - Update results screen to show percentile
+  - Add visual representation (e.g., "Top 16%")
+  - Update history view to show percentiles
+  - Effort: 3-4 hours
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #9
+
+**Dependencies:** Phase 2 (Backend API) complete
+
+**Timeline:** 1-2 weeks
+
+---
+
+### Phase 12: IQ Methodology - Data Collection & Validation (MVP+)
+
+**Goal:** Collect empirical data and establish basic psychometric validation
+
+**Context:** After launch with Phase 11 improvements, begin collecting user response data to enable proper statistical validation. This phase focuses on gathering evidence for reliability and validity.
+
+**Research References:**
+- IQ_TEST_RESEARCH_FINDINGS.txt: Part 2.3 (Pilot Testing), Part 2.5 (Validation)
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt: Divergences #3 (calibration), #4 (validation), #7 (confidence intervals)
+
+**Timeline:** 3-6 months post-launch
+
+**Tasks:**
+
+**Reliability Analysis:**
+- [ ] **P12-001**: Calculate Cronbach's Alpha (internal consistency)
+  - Requires: 100+ completed tests with common questions
+  - Calculate alpha coefficient for test reliability
+  - Target: α ≥ 0.70 (acceptable), α ≥ 0.90 (excellent)
+  - Effort: 2-3 days (statistical analysis)
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4.1
+
+- [ ] **P12-002**: Implement test-retest reliability tracking
+  - Identify users who take multiple tests
+  - Calculate correlation between test scores
+  - Minimum time gap: 2-4 weeks recommended
+  - Target: r > 0.7 (good)
+  - Effort: 2-3 days
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4.1
+
+- [ ] **P12-003**: Calculate Standard Error of Measurement (SEM)
+  - Formula: SEM = SD × √(1 - α)
+  - Use population SD and Cronbach's alpha
+  - Enables confidence interval calculation
+  - Effort: 1 day
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 680-710
+
+- [ ] **P12-004**: Implement confidence intervals in scoring
+  - Calculate CI using SEM: CI = IQ ± (1.96 × SEM)
+  - Store ci_lower and ci_upper in test_results
+  - Update API responses to include confidence intervals
+  - Effort: 2-3 days
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.4
+
+- [ ] **P12-005**: Update iOS app to display confidence intervals
+  - Change from "IQ: 115" to "IQ: 115 (range: 109-121)"
+  - Add tooltip explaining confidence intervals
+  - Show ranges in history view
+  - Effort: 1 week
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 715-745
+
+**Question Calibration (Classical Test Theory):**
+- [ ] **P12-006**: Empirical difficulty calculation (p-values)
+  - For each question: p = correct_count / total_attempts
+  - Requires: 100+ responses per question minimum
+  - Compare to LLM-assigned difficulty
+  - Update empirical_difficulty field
+  - Effort: 1 week
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (CTT)
+
+- [ ] **P12-007**: Item discrimination analysis
+  - Calculate point-biserial correlation (item vs total score)
+  - Target: r > 0.3 acceptable, r > 0.4 good
+  - Flag items with low discrimination for review
+  - Update discrimination field
+  - Effort: 1 week
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6
+
+- [ ] **P12-008**: Question quality review process
+  - Review questions where empirical_difficulty deviates from target
+  - Review questions with discrimination < 0.3
+  - Revise or deactivate problematic questions
+  - Document decisions
+  - Effort: Ongoing, 4-6 hours monthly
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 425-455
+
+**Validation Studies:**
+- [ ] **P12-009**: Document psychometric properties
+  - Compile reliability coefficients (alpha, test-retest)
+  - Calculate mean scores and standard deviations
+  - Document question statistics
+  - Create technical report
+  - Effort: 1-2 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4
+
+- [ ] **P12-010**: Establish interim scoring improvements
+  - Use collected data to refine scoring algorithm
+  - Adjust for question difficulty if sufficient data
+  - Still preparing for full norming in Phase 13
+  - Effort: 2-3 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 175-215
+
+**Data Infrastructure:**
+- [ ] **P12-011**: Create psychometric analysis pipeline
+  - Automated calculation of reliability metrics
+  - Scheduled jobs to update question statistics
+  - Reporting dashboard for monitoring test quality
+  - Effort: 2-3 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 460-485
+
+**Dependencies:**
+- Phase 11 complete (data collection infrastructure in place)
+- 100+ users with completed tests
+- Multiple months of user data
+
+**Success Criteria:**
+- Cronbach's α > 0.70
+- Test-retest correlation r > 0.5
+- 80%+ of questions have 100+ responses
+- SEM calculated and confidence intervals implemented
+
+---
+
+### Phase 13: IQ Methodology - Norming & Proper IQ Scoring
+
+**Goal:** Implement scientifically valid deviation IQ scoring with population norms
+
+**Context:** With sufficient user data (500-1000+ users), establish population norms and implement proper standard deviation IQ scoring method. This is the critical phase for achieving scientific validity.
+
+**Research References:**
+- IQ_TEST_RESEARCH_FINDINGS.txt: Part 3 (Scoring Formulas), Part 2.4 (Norming)
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt: Divergences #1 (scoring formula), #2 (norming sample)
+
+**Timeline:** 6-12 months post-launch
+
+**Prerequisites:**
+- 500-1000+ users with completed tests (minimum for stable norms)
+- Diverse user base (age, education, geography)
+- Multiple test cycles completed (6+ months of data)
+
+**Tasks:**
+
+**Norming Sample Collection:**
+- [ ] **P13-001**: Collect demographic data for norming
+  - Add optional demographic fields to user profiles
+  - Age, education level, geographic location
+  - Voluntary participation in norming study
+  - Ensure privacy compliance
+  - Effort: 1 week (UI + backend)
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.4
+
+- [ ] **P13-002**: Validate norming sample representativeness
+  - Analyze demographic distribution
+  - Compare to general population statistics
+  - Identify any sampling biases
+  - Document limitations
+  - Effort: 2-3 weeks (statistical analysis)
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 225-260
+
+- [ ] **P13-003**: Calculate population statistics
+  - Calculate mean (μ) of raw scores across norming sample
+  - Calculate standard deviation (σ) of raw scores
+  - Validate normal distribution assumption
+  - Store in configuration/database
+  - Effort: 1 week
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.1
+
+**Deviation IQ Scoring Implementation:**
+- [ ] **P13-004**: Implement proper z-score calculation
+  - z = (X - μ) / σ where X = individual raw score
+  - Handle edge cases (σ = 0, outliers)
+  - Unit tests for z-score calculation
+  - Effort: 3-4 days
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.1
+
+- [ ] **P13-005**: Implement deviation IQ formula
+  - IQ = 100 + (15 × z)
+  - Replace existing StandardIQRangeScoring class
+  - Create DeviationIQScoring class
+  - Effort: 3-4 days
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 50-120
+
+- [ ] **P13-006**: Create scoring strategy switcher
+  - Configuration to toggle between old and new scoring
+  - A/B testing capability
+  - Gradual rollout support
+  - Effort: 1 week
+  - Reference: backend/app/core/scoring.py (existing strategy pattern)
+
+- [ ] **P13-007**: Validate new scoring algorithm
+  - Compare old vs new scores on historical data
+  - Ensure distribution is normal (mean=100, SD=15)
+  - Check for edge cases and outliers
+  - Statistical validation
+  - Effort: 2-3 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.3
+
+**Score Migration:**
+- [ ] **P13-008**: Recalculate historical scores
+  - Apply new scoring to all existing test results
+  - Store both old and new scores for comparison
+  - Migration script with rollback capability
+  - Effort: 1 week (careful implementation required)
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 910-925
+
+- [ ] **P13-009**: Update user-facing scores
+  - Transition from old to new scoring in UI
+  - Explain score changes to users
+  - Provide mapping/comparison
+  - Handle user communications
+  - Effort: 1-2 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 518-531
+
+**Ongoing Norming:**
+- [ ] **P13-010**: Implement continuous norming system
+  - Update population statistics as user base grows
+  - Periodic recalculation (quarterly/annually)
+  - Detect and handle Flynn effect (score inflation)
+  - Version norm sets
+  - Effort: 3-4 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.4
+
+- [ ] **P13-011**: Create norm monitoring dashboard
+  - Track population mean and SD over time
+  - Detect significant shifts requiring renorming
+  - Alert system for anomalies
+  - Effort: 1-2 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 260-280
+
+**Documentation & Communication:**
+- [ ] **P13-012**: Document norming methodology
+  - Technical documentation of norming process
+  - Sample characteristics and limitations
+  - Scoring methodology explanation
+  - Publish psychometric properties
+  - Effort: 2-3 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 7
+
+- [ ] **P13-013**: Update app messaging with new claims
+  - Can now claim "standardized IQ scoring"
+  - Update disclaimers appropriately
+  - Still note limitations vs clinical tests
+  - Effort: 1 week
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 1450-1470
+
+**Dependencies:**
+- Phase 12 complete (reliability established)
+- 500-1000+ users with completed tests
+- Diverse, representative user base
+
+**Success Criteria:**
+- Proper deviation IQ formula implemented and validated
+- Population norms established with documented methodology
+- Score distribution follows normal curve (mean=100, SD=15)
+- Historical scores successfully migrated
+- Psychometric properties documented and published
+
+---
+
+### Phase 14: IQ Methodology - Advanced Psychometrics (Optional)
+
+**Goal:** Achieve research-grade psychometric quality with IRT and formal validation
+
+**Context:** This phase represents the gold standard for IQ assessment - IRT-based scoring, formal validation studies, and potential academic publication. Optional for commercial product but necessary for research or clinical applications.
+
+**Research References:**
+- IQ_TEST_RESEARCH_FINDINGS.txt: Part 2.3 (IRT), Part 4 (Validation Standards)
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt: Divergence #6 (IRT), Divergence #4 (validation)
+
+**Timeline:** 12+ months post-launch
+
+**Prerequisites:**
+- Phase 13 complete (deviation IQ scoring in place)
+- 200+ responses per question (for stable IRT parameters)
+- 1000+ users (for robust validation studies)
+- Budget for external validation (optional)
+
+**Tasks:**
+
+**Item Response Theory (IRT) Implementation:**
+- [ ] **P14-001**: Research and select IRT library/approach
+  - Evaluate: py-irt, mirt (via rpy2), pyirt
+  - Choose 2PL or 3PL model
+  - Proof of concept implementation
+  - Effort: 2-3 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.3.2
+
+- [ ] **P14-002**: Prepare response matrix for IRT analysis
+  - Extract user × question response data
+  - Format for IRT library
+  - Data quality validation
+  - Effort: 1-2 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 650-675
+
+- [ ] **P14-003**: Calibrate IRT item parameters
+  - Estimate a (discrimination), b (difficulty), c (guessing) for each question
+  - Validate model fit
+  - Identify poorly fitting items
+  - Store parameters in database
+  - Effort: 4-6 weeks (includes learning curve)
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.3.3
+
+- [ ] **P14-004**: Implement IRT-based ability estimation
+  - Maximum Likelihood Estimation (MLE) or EAP/MAP
+  - Replace sum scoring with IRT theta estimation
+  - Convert theta to IQ scale: IQ = 100 + (15 × theta)
+  - Effort: 4-6 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 620-665
+
+- [ ] **P14-005**: Implement Test Information Function
+  - Calculate precision across ability range
+  - Compute person-specific SEM
+  - Display measurement precision to users
+  - Effort: 2-3 weeks
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.3.6
+
+- [ ] **P14-006**: Validate IRT scoring vs CTT scoring
+  - Compare IRT and deviation IQ scores
+  - Correlation should be high (r > 0.9)
+  - Document improvements in measurement precision
+  - Effort: 2-3 weeks
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 620-650
+
+**Formal Validation Studies:**
+- [ ] **P14-007**: Design test-retest reliability study
+  - Recruit 50-100 participants for formal study
+  - Administer test twice (2-4 weeks apart)
+  - IRB approval if publishing
+  - Effort: 3-6 months (study execution)
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4.1
+
+- [ ] **P14-008**: Conduct reliability study and analysis
+  - Calculate test-retest correlation
+  - Calculate confidence intervals
+  - Compare to professional IQ test standards
+  - Document methodology and results
+  - Effort: 2-3 months
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 490-545
+
+- [ ] **P14-009**: Design concurrent validity study (optional, expensive)
+  - Partner with research institution
+  - Participants take both our test and established IQ test (WAIS/Stanford-Binet)
+  - Calculate correlation
+  - Target: r > 0.70 with established tests
+  - Effort: 6-12 months, significant cost
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4.2
+
+- [ ] **P14-010**: Conduct concurrent validity study
+  - Recruit participants
+  - Administer both tests
+  - Statistical analysis
+  - Document results and limitations
+  - Effort: 6-12 months
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 545-560
+
+**Expert Consultation:**
+- [ ] **P14-011**: Engage psychometrician for review
+  - Expert review of methodology
+  - Statistical validation of approach
+  - Recommendations for improvement
+  - Effort: Consulting engagement, 1-3 months
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 930-945
+
+- [ ] **P14-012**: Peer review preparation (if pursuing publication)
+  - Write technical paper documenting methodology
+  - Describe psychometric properties
+  - Submit to journal (e.g., Journal of Psychoeducational Assessment)
+  - Effort: 6-12 months
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 7
+
+**Advanced Features:**
+- [ ] **P14-013**: Computer Adaptive Testing (CAT) research
+  - Investigate adaptive question selection
+  - Select next question based on current ability estimate
+  - Reduce test length while maintaining precision
+  - Proof of concept
+  - Effort: 3-6 months
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.3.7
+
+- [ ] **P14-014**: Implement CAT (if validated)
+  - Real-time ability estimation during test
+  - Dynamic question selection algorithm
+  - Stopping rule (precision threshold or question limit)
+  - Effort: 6-12 months
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 780-820
+
+**Documentation & Publication:**
+- [ ] **P14-015**: Publish comprehensive psychometric report
+  - Reliability coefficients
+  - Validity evidence
+  - IRT parameters and model fit
+  - Norming sample characteristics
+  - Limitations and appropriate uses
+  - Effort: 2-3 months
+  - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 4
+
+- [ ] **P14-016**: Seek professional endorsement (optional)
+  - APA guidelines compliance
+  - Professional organization review
+  - Certification/accreditation if applicable
+  - Effort: 6-12 months
+  - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 950-975
+
+**Dependencies:**
+- Phase 13 complete (norming established)
+- Sufficient data for IRT (200+ responses per question)
+- Budget for validation studies and expert consultation
+
+**Success Criteria:**
+- IRT parameters estimated for all active questions
+- Test-retest reliability r > 0.80
+- Internal consistency α > 0.90
+- Published psychometric properties
+- Optional: Concurrent validity r > 0.70 with established tests
+
+**Note:** This phase is optional for commercial product. Implement if:
+- Pursuing research/academic use cases
+- Seeking clinical applications
+- Targeting enterprise/educational market requiring validation
+- Building long-term scientific credibility
+
+---
+
 ### Current Status
 
 **Completed:**
