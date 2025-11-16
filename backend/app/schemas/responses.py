@@ -46,6 +46,9 @@ class TestResultResponse(BaseModel):
     test_session_id: int = Field(..., description="Associated test session ID")
     user_id: int = Field(..., description="User ID")
     iq_score: int = Field(..., description="Calculated IQ score")
+    percentile_rank: Optional[float] = Field(
+        None, description="Percentile rank (0-100, what % of population scores below)"
+    )
     total_questions: int = Field(..., description="Total questions in test")
     correct_answers: int = Field(..., description="Number of correct answers")
     accuracy_percentage: float = Field(..., description="Accuracy percentage (0-100)")
