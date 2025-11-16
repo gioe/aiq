@@ -886,7 +886,7 @@ arbiters:
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 395-420
 
 **Messaging & Positioning:**
-- [ ] **P11-011**: Update app disclaimers and positioning
+- [x] **P11-011**: Update app disclaimers and positioning
   - Change "IQ Test" → "Cognitive Performance Assessment"
   - Add disclaimer: "For personal insight and tracking only, not clinical use"
   - Update App Store description, onboarding, results screen
