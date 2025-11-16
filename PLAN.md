@@ -833,7 +833,7 @@ arbiters:
   - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 3.3
 
 **Test Composition Improvements:**
-- [ ] **P11-004**: Define standard test composition configuration
+- [x] **P11-004**: Define standard test composition configuration
   - Document: 20 questions total
   - Distribution: 30% easy (6), 40% medium (8), 30% hard (6)
   - Domain balance: ~3-4 questions per cognitive domain
@@ -841,7 +841,7 @@ arbiters:
   - Effort: 1 hour
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
 
-- [ ] **P11-005**: Implement stratified question selection algorithm
+- [x] **P11-005**: Implement stratified question selection algorithm
   - Replace random selection with balanced selection
   - Ensure difficulty distribution (easy/medium/hard)
   - Ensure domain distribution (pattern/logic/spatial/math/verbal/memory)
@@ -849,8 +849,8 @@ arbiters:
   - Effort: 4-6 hours
   - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4
 
-- [ ] **P11-006**: Add test composition metadata to test sessions
-  - Store actual composition in test_sessions.metadata JSON field
+- [x] **P11-006**: Add test composition metadata to test sessions
+  - Store actual composition in test_sessions.composition_metadata JSON field
   - Track for analysis of test difficulty variance
   - Effort: 2 hours
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 890-905
