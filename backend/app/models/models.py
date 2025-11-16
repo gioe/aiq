@@ -146,6 +146,9 @@ class TestSession(Base):
     status = Column(
         Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False, index=True
     )
+    composition_metadata = Column(
+        JSON, nullable=True
+    )  # Test composition metadata (P11-006)
 
     # Relationships
     user = relationship("User", back_populates="test_sessions")

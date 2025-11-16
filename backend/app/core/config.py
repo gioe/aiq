@@ -51,6 +51,18 @@ class Settings(BaseSettings):
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
 
+    # Test Composition (P11-004: Standard IQ Test Structure)
+    # Based on IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
+    # and IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
+    TEST_TOTAL_QUESTIONS: int = 20
+    TEST_DIFFICULTY_DISTRIBUTION: dict = {
+        "easy": 0.30,  # 30% easy (6 questions)
+        "medium": 0.40,  # 40% medium (8 questions)
+        "hard": 0.30,  # 30% hard (6 questions)
+    }
+    # Target ~3-4 questions per cognitive domain for balanced assessment
+    # Domains: pattern, logic, spatial, math, verbal, memory (6 domains)
+
     # Apple Push Notification Service (APNs)
     APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
     APNS_TEAM_ID: str = ""  # Apple Developer Team ID (10 characters)
