@@ -2,7 +2,15 @@
 API v1 router combining all v1 endpoints.
 """
 from fastapi import APIRouter
-from app.api.v1 import health, auth, user, questions, test, notifications
+from app.api.v1 import (
+    health,
+    auth,
+    user,
+    questions,
+    test,
+    notifications,
+    question_analytics,
+)
 
 api_router = APIRouter()
 
@@ -14,4 +22,7 @@ api_router.include_router(questions.router, prefix="/questions", tags=["question
 api_router.include_router(test.router, prefix="/test", tags=["test"])
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
+)
+api_router.include_router(
+    question_analytics.router, prefix="/analytics", tags=["analytics"]
 )

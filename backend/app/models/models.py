@@ -99,6 +99,46 @@ class Question(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
+    # Question Performance Statistics (P11-007)
+    # These fields track empirical question performance and are populated by P11-009
+    # as users complete tests. They remain NULL until sufficient response data exists.
+
+    # Classical Test Theory (CTT) metrics
+    empirical_difficulty = Column(
+        Float, nullable=True
+    )  # P-value: proportion of users answering correctly (0.0-1.0)
+    # Lower values = harder questions. Calculated as: correct_responses / total_responses
+    # Populated by P11-009 after each test submission
+
+    discrimination = Column(
+        Float, nullable=True
+    )  # Item-total correlation: how well this question discriminates ability (-1.0 to 1.0)
+    # Higher values = better discrimination. Calculated using point-biserial correlation
+    # between question correctness and total test score. Populated by P11-009
+
+    response_count = Column(
+        Integer, nullable=True, default=0
+    )  # Number of times this question has been answered
+    # Incremented by P11-009 after each test submission
+    # Used to determine statistical reliability of empirical_difficulty and discrimination
+
+    # Item Response Theory (IRT) parameters (for future use in Phase 12+)
+    # These require specialized IRT calibration and will be NULL until IRT analysis is implemented
+    irt_difficulty = Column(
+        Float, nullable=True
+    )  # IRT difficulty parameter (b): location on ability scale
+    # Typically ranges from -3 to +3, with 0 being average difficulty
+
+    irt_discrimination = Column(
+        Float, nullable=True
+    )  # IRT discrimination parameter (a): slope of item characteristic curve
+    # Higher values indicate steeper curves (better discrimination)
+
+    irt_guessing = Column(
+        Float, nullable=True
+    )  # IRT guessing parameter (c): lower asymptote (0.0-1.0)
+    # Probability of correct answer by random guessing (e.g., 0.25 for 4-option multiple choice)
+
     # Relationships
     responses = relationship("Response", back_populates="question")
     user_questions = relationship("UserQuestion", back_populates="question")
@@ -218,6 +258,13 @@ class TestResult(Base):
     correct_answers = Column(Integer, nullable=False)
     completion_time_seconds = Column(Integer)
     completed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Confidence interval fields (P11-008)
+    # These fields prepare for Phase 12 when we can calculate actual SEM
+    # and provide confidence intervals for IQ scores
+    standard_error = Column(Float, nullable=True)  # Standard Error of Measurement (SEM)
+    ci_lower = Column(Integer, nullable=True)  # Lower bound of confidence interval
+    ci_upper = Column(Integer, nullable=True)  # Upper bound of confidence interval
 
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")

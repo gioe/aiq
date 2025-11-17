@@ -80,6 +80,15 @@ struct TestResultsView: View {
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityHidden(true) // Already included in hint above
+
+            // Disclaimer
+            Text("This is a cognitive performance assessment for personal insight, not a clinical IQ test.")
+                .font(Typography.captionMedium)
+                .foregroundColor(ColorPalette.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.top, DesignSystem.Spacing.sm)
+                .opacity(showAnimation ? 1.0 : 0.0)
         }
         .padding(DesignSystem.Spacing.xxl)
         .cardStyle(

@@ -1,0 +1,404 @@
+"""
+Question performance tracking and analytics (P11-009).
+
+This module implements Classical Test Theory (CTT) metrics for tracking
+empirical question performance based on user responses.
+
+Based on:
+- IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (CTT/IRT)
+- IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #3
+
+Metrics calculated:
+1. Empirical Difficulty (p-value): Proportion of users answering correctly
+2. Discrimination: Point-biserial correlation between question correctness and total score
+3. Response Count: Number of times question has been answered
+"""
+# mypy: disable-error-code="dict-item"
+import logging
+from sqlalchemy.orm import Session
+from typing import Dict, List
+import statistics
+
+from app.models.models import Question, Response, TestResult
+
+logger = logging.getLogger(__name__)
+
+
+def calculate_point_biserial_correlation(
+    item_scores: List[int], total_scores: List[int]
+) -> float:
+    """
+    Calculate point-biserial correlation between item scores and total scores.
+
+    This measures how well a question discriminates between high and low performers.
+    Higher values indicate better discrimination (the question separates high/low ability).
+
+    Formula:
+        r_pb = (M1 - M0) / SD_total * sqrt(p * q)
+    Where:
+        M1 = mean total score for those who got item correct
+        M0 = mean total score for those who got item incorrect
+        SD_total = standard deviation of all total scores
+        p = proportion who got item correct
+        q = 1 - p
+
+    Args:
+        item_scores: List of 1 (correct) or 0 (incorrect) for this question
+        total_scores: List of total test scores for same users
+
+    Returns:
+        Point-biserial correlation coefficient (-1.0 to 1.0)
+        Returns 0.0 if calculation not possible (insufficient variance)
+
+    Reference:
+        IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (Item Discrimination)
+    """
+    if len(item_scores) != len(total_scores):
+        logger.warning("Item scores and total scores length mismatch")
+        return 0.0
+
+    if len(item_scores) < 2:
+        # Need at least 2 data points for correlation
+        return 0.0
+
+    # Separate total scores by item correctness
+    correct_total_scores = [
+        total_scores[i] for i in range(len(item_scores)) if item_scores[i] == 1
+    ]
+    incorrect_total_scores = [
+        total_scores[i] for i in range(len(item_scores)) if item_scores[i] == 0
+    ]
+
+    # Need at least one correct and one incorrect for discrimination
+    if not correct_total_scores or not incorrect_total_scores:
+        return 0.0
+
+    # Calculate means
+    M1 = statistics.mean(correct_total_scores)  # Mean score for correct answers
+    M0 = statistics.mean(incorrect_total_scores)  # Mean score for incorrect answers
+
+    # Calculate standard deviation of all total scores
+    try:
+        SD_total = statistics.stdev(total_scores)
+    except statistics.StatisticsError:
+        # No variance in scores (everyone got same total score)
+        return 0.0
+
+    if SD_total == 0:
+        return 0.0
+
+    # Calculate p and q
+    p = sum(item_scores) / len(item_scores)  # Proportion correct
+    q = 1 - p  # Proportion incorrect
+
+    # Calculate point-biserial correlation
+    r_pb = ((M1 - M0) / SD_total) * (p * q) ** 0.5
+
+    # Clamp to valid range due to potential floating point errors
+    r_pb = max(-1.0, min(1.0, r_pb))
+
+    return r_pb
+
+
+def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
+    """
+    Update empirical statistics for all questions in a completed test session.
+
+    This function is called after each test completion to update:
+    - empirical_difficulty (p-value): proportion of users answering correctly
+    - discrimination: item-total correlation
+    - response_count: number of responses
+
+    The calculations use all historical responses for each question to
+    provide increasingly accurate statistics as more users complete tests.
+
+    Args:
+        db: Database session
+        session_id: ID of completed test session
+
+    Returns:
+        Dictionary mapping question_id to updated statistics:
+        {
+            question_id: {
+                "empirical_difficulty": float,
+                "discrimination": float,
+                "response_count": int,
+                "updated": bool
+            }
+        }
+
+    Implementation Notes:
+        - For empirical_difficulty: Simple proportion (correct / total)
+        - For discrimination: Point-biserial correlation requires pairing each
+          response with the user's total test score, so we need to join
+          responses with test_results
+        - Minimum data requirements:
+          - Need at least 2 responses for p-value
+          - Need at least 2 responses with variance for discrimination
+
+    Reference:
+        IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (Classical Test Theory)
+        IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 390-420
+    """
+    # Get all responses from this session to know which questions to update
+    session_responses = (
+        db.query(Response.question_id)
+        .filter(Response.test_session_id == session_id)
+        .distinct()
+        .all()
+    )
+
+    question_ids = [r.question_id for r in session_responses]
+
+    if not question_ids:
+        logger.warning(f"No responses found for session {session_id}")
+        return {}
+
+    results = {}
+
+    for question_id in question_ids:
+        # Get all responses for this question across all users/sessions
+        all_responses = (
+            db.query(Response.is_correct, Response.user_id, Response.test_session_id)
+            .filter(Response.question_id == question_id)
+            .all()
+        )
+
+        response_count = len(all_responses)
+
+        if response_count == 0:
+            logger.warning(f"No responses found for question {question_id}")
+            continue
+
+        # Calculate empirical difficulty (p-value)
+        correct_count = sum(1 for r in all_responses if r.is_correct)
+        empirical_difficulty = correct_count / response_count
+
+        # Calculate discrimination (item-total correlation)
+        # Need to pair each response with the user's total test score
+        discrimination = 0.0
+
+        if response_count >= 2:
+            # Get total scores for each response
+            # Join responses with test_results to get the total score for each test
+            item_scores = []  # 1 for correct, 0 for incorrect
+            total_scores = []  # Total test score for that session
+
+            for response in all_responses:
+                # Get the test result for this session
+                test_result = (
+                    db.query(TestResult.correct_answers)
+                    .filter(TestResult.test_session_id == response.test_session_id)
+                    .first()
+                )
+
+                if test_result:
+                    item_scores.append(1 if response.is_correct else 0)
+                    total_scores.append(test_result.correct_answers)
+
+            # Calculate point-biserial correlation if we have enough data
+            if len(item_scores) >= 2 and len(set(item_scores)) > 1:
+                # Need at least 2 responses and some variance (not all same)
+                discrimination = calculate_point_biserial_correlation(
+                    item_scores, total_scores
+                )
+
+        # Update question statistics
+        question = db.query(Question).filter(Question.id == question_id).first()
+
+        if question:
+            question.empirical_difficulty = empirical_difficulty  # type: ignore
+            question.discrimination = discrimination  # type: ignore
+            question.response_count = response_count  # type: ignore
+
+            results[question_id] = {
+                "empirical_difficulty": empirical_difficulty,
+                "discrimination": discrimination,
+                "response_count": response_count,
+                "updated": True,
+            }
+
+            logger.info(
+                f"Updated question {question_id} statistics: "
+                f"p-value={empirical_difficulty:.3f}, "
+                f"discrimination={discrimination:.3f}, "
+                f"responses={response_count}"
+            )
+        else:
+            logger.error(f"Question {question_id} not found in database")
+            # mypy: ignore - None values intentional for missing questions
+            results[question_id] = {  # type: ignore
+                "empirical_difficulty": None,
+                "discrimination": None,
+                "response_count": response_count,
+                "updated": False,
+            }
+
+    # Commit all question updates
+    db.commit()
+
+    logger.info(
+        f"Updated statistics for {len(results)} questions from session {session_id}"
+    )
+
+    return results
+
+
+def get_question_statistics(db: Session, question_id: int) -> Dict:
+    """
+    Get current performance statistics for a question.
+
+    Args:
+        db: Database session
+        question_id: Question ID
+
+    Returns:
+        Dictionary with current statistics:
+        {
+            "question_id": int,
+            "empirical_difficulty": float or None,
+            "discrimination": float or None,
+            "response_count": int or None,
+            "has_sufficient_data": bool
+        }
+    """
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        return {
+            "question_id": question_id,
+            "empirical_difficulty": None,
+            "discrimination": None,
+            "response_count": None,
+            "has_sufficient_data": False,
+        }
+
+    # Consider data "sufficient" if we have at least 30 responses
+    # (common rule of thumb in psychometrics)
+    has_sufficient_data = (question.response_count or 0) >= 30
+
+    return {
+        "question_id": question_id,
+        "empirical_difficulty": question.empirical_difficulty,
+        "discrimination": question.discrimination,
+        "response_count": question.response_count or 0,
+        "has_sufficient_data": has_sufficient_data,
+    }
+
+
+def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dict]:
+    """
+    Get performance statistics for all questions.
+
+    Args:
+        db: Database session
+        min_responses: Minimum response count to include (default: 0 for all)
+
+    Returns:
+        List of dictionaries with question statistics, ordered by response count DESC
+    """
+    query = db.query(Question).filter(Question.response_count >= min_responses)
+
+    questions = query.order_by(Question.response_count.desc()).all()
+
+    results = []
+    for question in questions:
+        has_sufficient_data = (question.response_count or 0) >= 30
+
+        results.append(
+            {
+                "question_id": question.id,
+                "question_type": question.question_type.value,
+                "difficulty_level": question.difficulty_level.value,
+                "empirical_difficulty": question.empirical_difficulty,
+                "discrimination": question.discrimination,
+                "response_count": question.response_count or 0,
+                "has_sufficient_data": has_sufficient_data,
+                "is_active": question.is_active,
+            }
+        )
+
+    return results
+
+
+def identify_problematic_questions(
+    db: Session, min_responses: int = 30
+) -> Dict[str, List[Dict]]:
+    """
+    Identify questions with poor psychometric properties.
+
+    Problematic questions are those that:
+    1. Are too easy (empirical_difficulty > 0.95)
+    2. Are too hard (empirical_difficulty < 0.05)
+    3. Have poor discrimination (discrimination < 0.2)
+    4. Have negative discrimination (discrimination < 0)
+
+    Args:
+        db: Database session
+        min_responses: Minimum responses required to flag as problematic (default: 30)
+
+    Returns:
+        Dictionary with categories of problematic questions:
+        {
+            "too_easy": [...],
+            "too_hard": [...],
+            "poor_discrimination": [...],
+            "negative_discrimination": [...]
+        }
+
+    Reference:
+        IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (Item Analysis)
+        IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 425-455
+    """
+    # Get all questions with sufficient data
+    questions = (
+        db.query(Question)
+        .filter(
+            Question.response_count >= min_responses,
+            Question.is_active == True,  # noqa: E712
+        )
+        .all()
+    )
+
+    results = {
+        "too_easy": [],
+        "too_hard": [],
+        "poor_discrimination": [],
+        "negative_discrimination": [],
+    }
+
+    for question in questions:
+        q_data = {
+            "question_id": question.id,
+            "question_type": question.question_type.value,
+            "difficulty_level": question.difficulty_level.value,
+            "empirical_difficulty": question.empirical_difficulty,
+            "discrimination": question.discrimination,
+            "response_count": question.response_count,
+        }
+
+        # Check if too easy (> 95% correct)
+        if question.empirical_difficulty and question.empirical_difficulty > 0.95:
+            results["too_easy"].append(q_data)
+
+        # Check if too hard (< 5% correct)
+        if question.empirical_difficulty and question.empirical_difficulty < 0.05:
+            results["too_hard"].append(q_data)
+
+        # Check for poor discrimination (< 0.2)
+        if question.discrimination is not None and 0 <= question.discrimination < 0.2:
+            results["poor_discrimination"].append(q_data)
+
+        # Check for negative discrimination (< 0)
+        if question.discrimination is not None and question.discrimination < 0:
+            results["negative_discrimination"].append(q_data)
+
+    logger.info(
+        f"Identified problematic questions: "
+        f"{len(results['too_easy'])} too easy, "
+        f"{len(results['too_hard'])} too hard, "
+        f"{len(results['poor_discrimination'])} poor discrimination, "
+        f"{len(results['negative_discrimination'])} negative discrimination"
+    )
+
+    return results

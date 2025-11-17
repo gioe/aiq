@@ -15,11 +15,21 @@ struct RegistrationView: View {
                             .font(.system(size: 34, weight: .bold))
                             .foregroundColor(.accentColor)
 
-                        Text("Join IQ Tracker to start tracking your cognitive performance")
+                        Text("Cognitive Performance Assessment")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+
+                        Text(
+                            """
+                            Track your cognitive performance over time with assessments \
+                            designed for personal insight. Not a clinical IQ test.
+                            """
+                        )
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                     }
                     .padding(.top, 40)
 

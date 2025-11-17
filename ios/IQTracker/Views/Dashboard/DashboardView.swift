@@ -169,7 +169,7 @@ struct DashboardView: View {
                 .cornerRadius(DesignSystem.CornerRadius.md)
         }
         .accessibilityLabel("Take Another Test")
-        .accessibilityHint("Start a new IQ test")
+        .accessibilityHint("Start a new cognitive performance test")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -184,8 +184,8 @@ struct DashboardView: View {
                     icon: "brain.head.profile",
                     title: "Ready to Begin?",
                     message: """
-                    Take your first IQ test to establish your baseline score. \
-                    Track your progress and discover insights about your cognitive performance.
+                    Take your first cognitive performance assessment to establish your baseline score. \
+                    Track your progress over time and discover insights about your performance.
                     """,
                     actionTitle: "Start Your First Test",
                     action: {

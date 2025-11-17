@@ -15,10 +15,21 @@ struct WelcomeView: View {
                                 .font(Typography.displayMedium)
                                 .foregroundColor(ColorPalette.primary)
 
-                            Text("Track your cognitive performance over time")
-                                .font(Typography.bodyMedium)
+                            Text("Cognitive Performance Assessment")
+                                .font(Typography.bodyLarge)
                                 .foregroundColor(ColorPalette.textSecondary)
                                 .multilineTextAlignment(.center)
+
+                            Text(
+                                """
+                                Track your cognitive performance over time with assessments \
+                                designed for personal insight. Not a clinical IQ test.
+                                """
+                            )
+                            .font(Typography.bodySmall)
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, DesignSystem.Spacing.md)
                         }
                         .padding(.top, DesignSystem.Spacing.section)
 

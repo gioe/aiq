@@ -856,21 +856,21 @@ arbiters:
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 890-905
 
 **Database Schema for Future Validation:**
-- [ ] **P11-007**: Add question statistics fields to database
+- [x] **P11-007**: Add question statistics fields to database
   - Add columns: empirical_difficulty (float), discrimination (float), response_count (int)
   - Add columns: irt_difficulty, irt_discrimination, irt_guessing (for future IRT)
   - Migration script
   - Effort: 2 hours
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #3
 
-- [ ] **P11-008**: Add confidence interval fields to test_results
+- [x] **P11-008**: Add confidence interval fields to test_results
   - Add columns: standard_error (float), ci_lower (int), ci_upper (int)
   - Prepare for Phase 12 when we can calculate actual SEM
   - Effort: 1 hour
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #7
 
 **Analytics Infrastructure:**
-- [ ] **P11-009**: Implement question performance tracking
+- [x] **P11-009**: Implement question performance tracking
   - Track correct/incorrect responses per question
   - Calculate p-value (proportion correct) as data accumulates
   - Calculate item-total correlation for discrimination
@@ -878,7 +878,7 @@ arbiters:
   - Effort: 1 week
   - Reference: IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (IRT/CTT)
 
-- [ ] **P11-010**: Create question quality dashboard (backend admin)
+- [x] **P11-010**: Create question quality dashboard (backend admin)
   - View question statistics (p-value, discrimination, response count)
   - Flag questions where empirical difficulty != LLM-assigned difficulty
   - Identify underperforming questions
@@ -886,7 +886,7 @@ arbiters:
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 395-420
 
 **Messaging & Positioning:**
-- [ ] **P11-011**: Update app disclaimers and positioning
+- [x] **P11-011**: Update app disclaimers and positioning
   - Change "IQ Test" → "Cognitive Performance Assessment"
   - Add disclaimer: "For personal insight and tracking only, not clinical use"
   - Update App Store description, onboarding, results screen
