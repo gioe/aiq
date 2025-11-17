@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_DEFAULT_WINDOW: int = 60  # seconds
 
     # Notification Scheduling
-    TEST_CADENCE_DAYS: int = 180  # 6 months = 180 days
+    TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
 
