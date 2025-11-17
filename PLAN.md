@@ -895,7 +895,7 @@ arbiters:
   - Reference: IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 518-531
 
 **iOS Updates:**
-- [ ] **P11-012**: Display percentile rankings in iOS app
+- [x] **P11-012**: Display percentile rankings in iOS app
   - Update results screen to show percentile
   - Add visual representation (e.g., "Top 16%")
   - Update history view to show percentiles

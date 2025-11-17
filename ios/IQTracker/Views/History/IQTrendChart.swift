@@ -129,6 +129,7 @@ struct IQTrendChart: View {
             testSessionId: 1,
             userId: 1,
             iqScore: 105,
+            percentileRank: 63.0,
             totalQuestions: 20,
             correctAnswers: 13,
             accuracyPercentage: 65.0,
@@ -140,6 +141,7 @@ struct IQTrendChart: View {
             testSessionId: 2,
             userId: 1,
             iqScore: 112,
+            percentileRank: 75.0,
             totalQuestions: 20,
             correctAnswers: 15,
             accuracyPercentage: 75.0,
@@ -151,6 +153,7 @@ struct IQTrendChart: View {
             testSessionId: 3,
             userId: 1,
             iqScore: 118,
+            percentileRank: 88.0,
             totalQuestions: 20,
             correctAnswers: 17,
             accuracyPercentage: 85.0,
@@ -162,6 +165,7 @@ struct IQTrendChart: View {
             testSessionId: 4,
             userId: 1,
             iqScore: 125,
+            percentileRank: 95.0,
             totalQuestions: 20,
             correctAnswers: 18,
             accuracyPercentage: 90.0,
@@ -170,7 +174,7 @@ struct IQTrendChart: View {
         )
     ]
 
-    return ScrollView {
+    ScrollView {
         VStack(spacing: 16) {
             IQTrendChart(testHistory: sampleHistory)
 

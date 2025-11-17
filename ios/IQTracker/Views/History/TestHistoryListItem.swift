@@ -16,6 +16,23 @@ struct TestHistoryListItem: View {
                     Text("\(testResult.iqScore)")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(scoreColor)
+
+                    // Percentile badge (if available)
+                    if let percentileText = testResult.percentileFormatted {
+                        Text(percentileText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.blue, Color.purple],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(6)
+                    }
                 }
 
                 Spacer()
@@ -104,6 +121,7 @@ private struct MetricView: View {
         testSessionId: 1,
         userId: 1,
         iqScore: 125,
+        percentileRank: 84.0,
         totalQuestions: 20,
         correctAnswers: 17,
         accuracyPercentage: 85.0,
