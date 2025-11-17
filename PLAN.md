@@ -379,9 +379,9 @@ LIMIT 1
 ### System Configuration
 
 **Testing Cadence:**
-- **Frequency**: 6 months between tests
+- **Frequency**: 3 months between tests
 - **Scope**: System-wide (applies to all users)
-- **Rationale**: Aligns with typical health checkup patterns, reduces practice effects, provides meaningful data points for cognitive tracking
+- **Rationale**: Research-based interval that minimizes practice effects while maintaining engagement. Fresh question pool eliminates item-specific learning. 3 months provides sufficient time for meaningful cognitive trend detection.
 - **Implementation**: Configured in backend application settings (not database)
 - **Future**: Can be adjusted system-wide based on data and user feedback
 
@@ -531,7 +531,7 @@ arbiters:
 | Authentication | JWT + Bcrypt | ✅ Decided |
 | iOS Minimum Version | iOS 16+ | ✅ Decided |
 | Question Service Language | Python | ✅ Decided |
-| Testing Cadence | 6 months | ✅ Decided |
+| Testing Cadence | 3 months | ✅ Decided |
 
 ---
 
@@ -1428,7 +1428,7 @@ When new tasks are identified:
 ### User Experience
 
 **Q9: What happens when a user runs out of unseen questions?**
-- With 6-month cadence, users would need ~20-30 new questions every 6 months
+- With 3-month cadence, users would need ~20 new questions every 3 months (80 per year)
 - Question pool should grow faster than consumption
 - Edge case: what if pool exhausted? Allow repeats after X time? Show message?
 - **Priority**: Nice to handle for MVP, can defer
