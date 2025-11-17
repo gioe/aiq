@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 IQ Tracker is a monorepo containing an iOS app, FastAPI backend, and AI-powered question generation service. The app enables users to track their IQ scores over time through periodic testing with fresh, AI-generated questions.
 
-**Testing Cadence**: 6 months between tests (system-wide, not configurable per user)
+**Testing Cadence**: 3 months between tests (system-wide, not configurable per user)
 
 ## Build & Run Commands
 
@@ -342,7 +342,7 @@ open IQTracker.xcodeproj  # Select your development team in project settings
 
 **Question Pool**: Question generation service will run on schedule to ensure continuous supply. Initial pool seeding strategy TBD in Phase 6.
 
-**Notification Frequency**: System-wide 6-month cadence (not user-configurable). Notifications implemented in Phase 7.
+**Notification Frequency**: System-wide 3-month cadence (not user-configurable). Notifications implemented in Phase 7.
 
 **API Design**: RESTful API with `/v1/` prefix for versioning. All responses use consistent JSON structure.
 
