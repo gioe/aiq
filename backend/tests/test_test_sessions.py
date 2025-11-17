@@ -177,10 +177,10 @@ class TestStartTest:
         assert test_session.user_id == test_user.id
         assert test_session.status.value == "in_progress"
 
-    def test_start_test_enforces_six_month_cadence(
+    def test_start_test_enforces_three_month_cadence(
         self, client, auth_headers, test_questions, db_session
     ):
-        """Test that users cannot start a new test within 6 months of last completed test."""
+        """Test that users cannot start a new test within 3 months of last completed test."""
         from app.models import TestSession, User
         from app.models.models import TestStatus
         from datetime import datetime, timedelta
@@ -189,7 +189,7 @@ class TestStartTest:
             db_session.query(User).filter(User.email == "test@example.com").first()
         )
 
-        # Create a completed test session from 30 days ago (within 6-month window)
+        # Create a completed test session from 30 days ago (within 3-month window)
         completed_session = TestSession(
             user_id=test_user.id,
             status=TestStatus.COMPLETED,
@@ -205,13 +205,13 @@ class TestStartTest:
         # Should be blocked
         assert response.status_code == 400
         detail = response.json()["detail"]
-        assert "180 days" in detail or "6 months" in detail
+        assert "90 days" in detail or "3 months" in detail
         assert "days remaining" in detail
 
-    def test_start_test_allows_test_after_six_months(
+    def test_start_test_allows_test_after_three_months(
         self, client, auth_headers, test_questions, db_session
     ):
-        """Test that users CAN start a new test after 6 months have passed."""
+        """Test that users CAN start a new test after 3 months have passed."""
         from app.models import TestSession, User, UserQuestion
         from app.models.models import TestStatus
         from datetime import datetime, timedelta
@@ -220,8 +220,8 @@ class TestStartTest:
             db_session.query(User).filter(User.email == "test@example.com").first()
         )
 
-        # Mark 2 questions as seen (simulate previous test from 181 days ago)
-        old_seen_at = datetime.utcnow() - timedelta(days=181)
+        # Mark 2 questions as seen (simulate previous test from 91 days ago)
+        old_seen_at = datetime.utcnow() - timedelta(days=91)
         user_question_1 = UserQuestion(
             user_id=test_user.id,
             question_id=test_questions[0].id,
