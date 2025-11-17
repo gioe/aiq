@@ -128,7 +128,7 @@ DEBUG=False                        # Set to True for development
 
 **Development (.env.development)**:
 ```bash
-DATABASE_URL=postgresql://localhost:5432/iq_tracker_dev
+DATABASE_URL=postgresql://localhost:5432/aiq_dev
 ENV=development
 DEBUG=True
 LOG_LEVEL=DEBUG
@@ -137,7 +137,7 @@ QUESTIONS_PER_RUN=10              # Smaller batches for testing
 
 **Production (.env.production)**:
 ```bash
-DATABASE_URL=postgresql://prod-host:5432/iq_tracker_prod
+DATABASE_URL=postgresql://prod-host:5432/aiq_prod
 ENV=production
 DEBUG=False
 LOG_LEVEL=INFO
@@ -304,18 +304,18 @@ tail -f logs/cron.log
 **Create service and timer files**:
 ```bash
 # Service file
-sudo nano /etc/systemd/system/iq-tracker-generation.service
+sudo nano /etc/systemd/system/aiq-generation.service
 
 # Timer file
-sudo nano /etc/systemd/system/iq-tracker-generation.timer
+sudo nano /etc/systemd/system/aiq-generation.timer
 
 # Enable and start
 sudo systemctl daemon-reload
-sudo systemctl enable iq-tracker-generation.timer
-sudo systemctl start iq-tracker-generation.timer
+sudo systemctl enable aiq-generation.timer
+sudo systemctl start aiq-generation.timer
 
 # Check status
-sudo systemctl status iq-tracker-generation.timer
+sudo systemctl status aiq-generation.timer
 ```
 
 #### 3. Cloud Schedulers
@@ -411,7 +411,7 @@ The cron wrapper script supports email notifications on failure. Edit `scripts/r
 # Uncomment and configure email section
 if [ $EXIT_CODE -ne 0 ]; then
     echo "Generation failed" | \
-        mail -s "IQ Tracker Alert" admin@example.com
+        mail -s "AIQ Alert" admin@example.com
 fi
 ```
 
@@ -498,7 +498,7 @@ telnet db-host 5432
 - Verify `DATABASE_URL` format: `postgresql://user:pass@host:port/dbname`
 - Check database credentials
 - Verify firewall rules allow connection
-- Ensure database exists: `psql -l | grep iq_tracker`
+- Ensure database exists: `psql -l | grep aiq`
 
 #### 4. Partial Failure (Exit Code 1)
 
@@ -681,7 +681,7 @@ Prevent disk space issues by rotating logs:
 
 ```bash
 # Create logrotate config (Linux)
-sudo nano /etc/logrotate.d/iq-tracker
+sudo nano /etc/logrotate.d/aiq
 
 # Add configuration:
 /path/to/question-service/logs/*.log {
@@ -694,7 +694,7 @@ sudo nano /etc/logrotate.d/iq-tracker
 }
 
 # Test logrotate
-sudo logrotate -f /etc/logrotate.d/iq-tracker
+sudo logrotate -f /etc/logrotate.d/aiq
 ```
 
 ### Database Maintenance
@@ -705,7 +705,7 @@ psql $DATABASE_URL -c "VACUUM ANALYZE questions;"
 
 # Check database size
 psql $DATABASE_URL -c "
-  SELECT pg_size_pretty(pg_database_size('iq_tracker_prod'));
+  SELECT pg_size_pretty(pg_database_size('aiq_prod'));
 "
 
 # Backup database
@@ -819,14 +819,14 @@ grep "Approval rate" logs/question_service.log             # Check approval rate
 # Scheduling
 crontab -e                                                  # Edit cron jobs
 crontab -l                                                  # List cron jobs
-systemctl status iq-tracker-generation.timer               # Check systemd timer
-journalctl -u iq-tracker-generation.service -f             # View systemd logs
+systemctl status aiq-generation.timer               # Check systemd timer
+journalctl -u aiq-generation.service -f             # View systemd logs
 ```
 
 ### Support & Resources
 
 **Internal Documentation**:
-- Repository: `/iq-tracker/question-service/`
+- Repository: `/aiq/question-service/`
 - Planning: `PLAN.md` (Phase 6 tasks)
 - Development: `DEVELOPMENT.md`
 

@@ -1,4 +1,4 @@
-"""IQ Tracker Question Generation Service."""
+"""AIQ Question Generation Service."""
 
 from app.arbiter import QuestionArbiter
 from app.arbiter_config import (

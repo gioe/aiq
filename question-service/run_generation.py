@@ -32,10 +32,13 @@ from app import (  # noqa: E402
     QuestionDeduplicator,
     QuestionGenerationPipeline,
 )
+from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
+from app.error_classifier import ErrorClassifier  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
 from app.models import QuestionType  # noqa: E402
+from app.providers.base import LLMProviderError  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -43,6 +46,8 @@ EXIT_PARTIAL_FAILURE = 1
 EXIT_COMPLETE_FAILURE = 2
 EXIT_CONFIG_ERROR = 3
 EXIT_DATABASE_ERROR = 4
+EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
+EXIT_AUTH_ERROR = 6  # New: Authentication failure
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -167,6 +172,25 @@ def main() -> int:
         # Initialize metrics
         metrics = MetricsTracker()
         metrics.start_run()
+
+        # Initialize alert manager
+        to_emails = []
+        if settings.alert_to_emails:
+            to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
+
+        alert_manager = AlertManager(
+            email_enabled=settings.enable_email_alerts,
+            smtp_host=settings.smtp_host,
+            smtp_port=settings.smtp_port,
+            smtp_username=settings.smtp_username,
+            smtp_password=settings.smtp_password,
+            from_email=settings.alert_from_email,
+            to_emails=to_emails,
+            alert_file_path=settings.alert_file_path,
+        )
+        logger.info(
+            f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'})"
+        )
 
         # Parse question types
         question_types = None

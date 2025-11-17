@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .error_classifier import ClassifiedError
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,6 +66,12 @@ class MetricsTracker:
         self.api_calls_by_provider: Dict[str, int] = defaultdict(int)
         self.total_api_calls = 0
 
+        # Error categorization metrics
+        self.errors_by_category: Dict[str, int] = defaultdict(int)
+        self.errors_by_severity: Dict[str, int] = defaultdict(int)
+        self.critical_errors: List[Dict[str, Any]] = []
+        self.classified_errors: List[Dict[str, Any]] = []
+
         logger.debug("Metrics reset")
 
     def start_run(self) -> None:
@@ -113,6 +121,7 @@ class MetricsTracker:
         error: str,
         question_type: Optional[str] = None,
         difficulty: Optional[str] = None,
+        classified_error: Optional[ClassifiedError] = None,
     ) -> None:
         """Record failed question generation.
 
@@ -121,17 +130,35 @@ class MetricsTracker:
             error: Error message
             question_type: Type of question (optional)
             difficulty: Difficulty level (optional)
+            classified_error: Classified error with category and severity (optional)
         """
         self.generation_failures += 1
-        self.generation_errors.append(
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "provider": provider,
-                "question_type": question_type,
-                "difficulty": difficulty,
-                "error": error,
-            }
-        )
+        error_record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "provider": provider,
+            "question_type": question_type,
+            "difficulty": difficulty,
+            "error": error,
+        }
+
+        # Add classification info if available
+        if classified_error:
+            error_record["category"] = classified_error.category.value
+            error_record["severity"] = classified_error.severity.value
+            error_record["is_retryable"] = classified_error.is_retryable
+
+            # Track by category and severity
+            self.errors_by_category[classified_error.category.value] += 1
+            self.errors_by_severity[classified_error.severity.value] += 1
+
+            # Track critical errors separately
+            if classified_error.severity.value == "critical":
+                self.critical_errors.append(classified_error.to_dict())
+
+            # Store classified error
+            self.classified_errors.append(classified_error.to_dict())
+
+        self.generation_errors.append(error_record)
         logger.debug(f"Generation failure: {provider} - {error}")
 
     def record_evaluation_success(
@@ -337,6 +364,13 @@ class MetricsTracker:
                 "total_calls": self.total_api_calls,
                 "by_provider": dict(self.api_calls_by_provider),
             },
+            "error_classification": {
+                "by_category": dict(self.errors_by_category),
+                "by_severity": dict(self.errors_by_severity),
+                "critical_errors": len(self.critical_errors),
+                "critical_error_details": self.critical_errors,
+                "total_classified_errors": len(self.classified_errors),
+            },
             "overall": {
                 "questions_requested": self.questions_requested,
                 "questions_final_output": self.questions_inserted,
@@ -411,6 +445,15 @@ class MetricsTracker:
         print("\nAPI Usage:")
         print(f"  Total Calls: {api['total_calls']}")
         print(f"  By Provider: {api['by_provider']}")
+
+        # Error classification
+        error_class = summary["error_classification"]
+        if error_class["total_classified_errors"] > 0:
+            print("\nError Classification:")
+            print(f"  Total Classified: {error_class['total_classified_errors']}")
+            print(f"  Critical Errors:  {error_class['critical_errors']}")
+            print(f"  By Category: {error_class['by_category']}")
+            print(f"  By Severity: {error_class['by_severity']}")
 
         # Overall
         overall = summary["overall"]

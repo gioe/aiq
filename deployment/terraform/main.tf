@@ -10,10 +10,10 @@ terraform {
 
   backend "s3" {
     # Configure this with your own S3 bucket and DynamoDB table
-    # bucket         = "iq-tracker-terraform-state"
+    # bucket         = "aiq-terraform-state"
     # key            = "prod/terraform.tfstate"
     # region         = "us-east-1"
-    # dynamodb_table = "iq-tracker-terraform-locks"
+    # dynamodb_table = "aiq-terraform-locks"
     # encrypt        = true
   }
 }

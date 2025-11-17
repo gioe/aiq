@@ -61,7 +61,7 @@ class OpenAIProvider(BaseLLMProvider):
             )
             return response.choices[0].message.content or ""
         except openai.OpenAIError as e:
-            raise Exception(f"OpenAI API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def generate_structured_completion(
         self,
@@ -104,7 +104,7 @@ class OpenAIProvider(BaseLLMProvider):
             content = response.choices[0].message.content or "{}"
             return json.loads(content)
         except openai.OpenAIError as e:
-            raise Exception(f"OpenAI API error: {str(e)}") from e
+            raise self._handle_api_error(e)
         except json.JSONDecodeError as e:
             raise Exception(f"Failed to parse JSON response: {str(e)}") from e
 

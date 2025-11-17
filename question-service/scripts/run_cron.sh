@@ -1,12 +1,12 @@
 #!/bin/bash
-# Cron wrapper script for IQ Tracker question generation
+# Cron wrapper script for AIQ question generation
 #
 # This script should be called from crontab to run scheduled question generation.
 # It handles environment setup, logging, and optional error notifications.
 #
 # Usage:
 #   Add to crontab:
-#   0 2 * * 0 /path/to/iq-tracker/question-service/scripts/run_cron.sh >> /path/to/logs/cron.log 2>&1
+#   0 2 * * 0 /path/to/aiq/question-service/scripts/run_cron.sh >> /path/to/logs/cron.log 2>&1
 
 # Exit on error
 set -e
@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "================================================================"
-echo "IQ Tracker Question Generation - Cron Run"
+echo "AIQ Question Generation - Cron Run"
 echo "Started: $(date)"
 echo "Service directory: $SERVICE_DIR"
 echo "================================================================"
@@ -88,8 +88,8 @@ echo "================================================================"
 #     LOG_FILE="$SERVICE_DIR/logs/question_service.log"
 #
 #     echo "Question generation failed with exit code $EXIT_CODE on $HOSTNAME" | \
-#         mail -s "IQ Tracker Alert: Generation Failed" \
-#         -a "From: iq-tracker@$HOSTNAME" \
+#         mail -s "AIQ Alert: Generation Failed" \
+#         -a "From: aiq@$HOSTNAME" \
 #         admin@example.com
 #
 #     echo "Failure notification sent to admin@example.com"

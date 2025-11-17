@@ -1,4 +1,4 @@
-# IQ Tracker iOS App
+# AIQ iOS App
 
 Native iOS application for tracking IQ scores over time.
 
@@ -9,7 +9,7 @@ Native iOS application for tracking IQ scores over time.
 Quick start:
 ```bash
 cd ios
-open IQTracker.xcodeproj
+open AIQ.xcodeproj
 # Select your development team in Xcode, then ⌘+R to build and run
 ```
 
@@ -36,13 +36,13 @@ The app follows MVVM architecture with:
 
 ```bash
 # Build
-xcodebuild -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15' build
+xcodebuild -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15' build
 
 # Run tests
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15'
 
 # Run single test
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:IQTrackerTests/TestClass/testMethod
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:AIQTests/TestClass/testMethod
 ```
 
 ## Code Quality Tools
@@ -57,13 +57,13 @@ brew install swiftlint swiftformat
 Run manually:
 ```bash
 swiftlint lint --config .swiftlint.yml
-swiftformat --config .swiftformat --lint IQTracker/
+swiftformat --config .swiftformat --lint AIQ/
 ```
 
 ## Project Structure
 
 ```
-IQTracker/
+AIQ/
 ├── Models/              # Data models
 ├── ViewModels/          # MVVM ViewModels (inherit from BaseViewModel)
 ├── Views/               # SwiftUI views by feature

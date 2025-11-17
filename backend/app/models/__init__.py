@@ -1,5 +1,5 @@
 """
-Models package for IQ Tracker backend.
+Models package for AIQ backend.
 """
 from .base import Base, engine, SessionLocal, get_db
 from .models import (

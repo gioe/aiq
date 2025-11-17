@@ -1,4 +1,4 @@
-# Security Audit Report - IQ Tracker
+# Security Audit Report - AIQ
 
 **Date**: November 14, 2025
 **Auditor**: Claude Code (Automated Security Review)
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-This security audit was performed on the IQ Tracker application (backend API and iOS app) to identify potential security vulnerabilities and ensure best practices are followed. The audit covered authentication, authorization, data storage, input validation, and general security configuration.
+This security audit was performed on the AIQ application (backend API and iOS app) to identify potential security vulnerabilities and ensure best practices are followed. The audit covered authentication, authorization, data storage, input validation, and general security configuration.
 
 ### Overall Security Rating: **GOOD**
 
@@ -45,7 +45,7 @@ The application demonstrates strong security fundamentals with several critical 
 5. **iOS Secure Storage**
    - ✅ Keychain storage for sensitive data (now with maximum security level)
    - ✅ Proper error handling
-   - Location: `ios/IQTracker/Services/Storage/KeychainStorage.swift`
+   - Location: `ios/AIQ/Services/Storage/KeychainStorage.swift`
 
 6. **Security Headers**
    - ✅ HSTS (production only)
@@ -123,7 +123,7 @@ SECRET_KEY: str = Field(..., description="Application secret key (required)")
 - Data excluded from backups and migrations
 - Data tied to specific device
 
-**Location**: `ios/IQTracker/Services/Storage/KeychainStorage.swift:32`
+**Location**: `ios/AIQ/Services/Storage/KeychainStorage.swift:32`
 
 **Impact**: Maximum security for stored tokens and sensitive data.
 
@@ -227,9 +227,9 @@ pytest tests/test_security.py -v  # If exists
 Test keychain storage:
 ```bash
 cd ios
-xcodebuild test -scheme IQTracker \
+xcodebuild test -scheme AIQ \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  -only-testing:IQTrackerTests/KeychainStorageTests
+  -only-testing:AIQTests/KeychainStorageTests
 ```
 
 ### Manual Security Testing
@@ -272,7 +272,7 @@ xcodebuild test -scheme IQTracker \
 
 ## Conclusion
 
-The IQ Tracker application demonstrates **strong security fundamentals**. All critical issues identified during the audit have been resolved. The application is ready for production deployment with the recommendations above implemented.
+The AIQ application demonstrates **strong security fundamentals**. All critical issues identified during the audit have been resolved. The application is ready for production deployment with the recommendations above implemented.
 
 ### Next Steps:
 

@@ -1,6 +1,6 @@
 import Combine
 import Foundation
-@testable import IQTracker
+@testable import AIQ
 
 /// Mock implementation of AuthManager for testing
 @MainActor

@@ -7,7 +7,7 @@ class KeychainStorage: SecureStorageProtocol {
 
     private let serviceName: String
 
-    init(serviceName: String = Bundle.main.bundleIdentifier ?? "com.iqtracker.app") {
+    init(serviceName: String = Bundle.main.bundleIdentifier ?? "com.aiq.app") {
         self.serviceName = serviceName
     }
 

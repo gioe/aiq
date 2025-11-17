@@ -1,6 +1,6 @@
 # Shared Resources
 
-This directory contains resources shared across multiple components of the IQ Tracker application.
+This directory contains resources shared across multiple components of the AIQ application.
 
 ## Contents
 

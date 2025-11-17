@@ -5,7 +5,7 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: iq_tracker
+      POSTGRES_DB: aiq
       POSTGRES_USER: ${DB_USER:-iqtracker}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     volumes:
@@ -24,7 +24,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-iqtracker}:${DB_PASSWORD:-changeme}@db:5432/iq_tracker
+      DATABASE_URL: postgresql://${DB_USER:-iqtracker}:${DB_PASSWORD:-changeme}@db:5432/aiq
       SECRET_KEY: ${SECRET_KEY:-development-secret-key-change-in-production}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-development-jwt-secret-change-in-production}
       DEBUG: ${DEBUG:-true}
@@ -44,7 +44,7 @@ services:
       context: ./question-service
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-iqtracker}:${DB_PASSWORD:-changeme}@db:5432/iq_tracker
+      DATABASE_URL: postgresql://${DB_USER:-iqtracker}:${DB_PASSWORD:-changeme}@db:5432/aiq
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}

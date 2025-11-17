@@ -5,7 +5,7 @@
 
 set -e
 
-BUNDLE_ID="com.iqtracker.app"
+BUNDLE_ID="com.aiq.app"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🔔 IQ Tracker Notification Testing Script"

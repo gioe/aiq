@@ -2,7 +2,7 @@
 
 ## Overview
 
-The IQ Tracker iOS app follows **MVVM (Model-View-ViewModel)** architecture with a clear separation of concerns.
+The AIQ iOS app follows **MVVM (Model-View-ViewModel)** architecture with a clear separation of concerns.
 
 ## Architecture Components
 

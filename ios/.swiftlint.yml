@@ -12,8 +12,8 @@ excluded:
   - Pods
   - .build
   - DerivedData
-  - IQTracker.xcodeproj
-  - IQTrackerTests
+  - AIQ.xcodeproj
+  - AIQTests
 
 line_length:
   warning: 120

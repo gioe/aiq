@@ -45,9 +45,9 @@ class AnalyticsService {
 
     private init() {
         // Create separate loggers for different categories
-        logger = Logger(subsystem: "com.iqtracker.app", category: "analytics")
-        performanceLogger = Logger(subsystem: "com.iqtracker.app", category: "performance")
-        errorLogger = Logger(subsystem: "com.iqtracker.app", category: "errors")
+        logger = Logger(subsystem: "com.aiq.app", category: "analytics")
+        performanceLogger = Logger(subsystem: "com.aiq.app", category: "performance")
+        errorLogger = Logger(subsystem: "com.aiq.app", category: "errors")
     }
 
     // MARK: - Public Methods

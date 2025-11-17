@@ -70,10 +70,10 @@ def create_application() -> FastAPI:
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         description=(
-            "**IQ Tracker API** - A backend service for tracking cognitive performance over time.\n\n"
+            "**AIQ API** - A backend service for AI-generated cognitive assessments.\n\n"
             "This API provides:\n"
             "* User authentication and profile management\n"
-            "* Periodic IQ testing with AI-generated questions\n"
+            "* Periodic cognitive testing with AI-generated questions\n"
             "* Test session management and response submission\n"
             "* Historical test results and trend analysis\n\n"
             "## Authentication\n\n"
@@ -83,8 +83,8 @@ def create_application() -> FastAPI:
             "Users are recommended to take tests every 3 months for optimal cognitive tracking."
         ),
         contact={
-            "name": "IQ Tracker Support",
-            "email": "support@iqtracker.example.com",
+            "name": "AIQ Support",
+            "email": "support@aiq.app",
         },
         license_info={
             "name": "MIT",
@@ -229,7 +229,7 @@ def create_application() -> FastAPI:
         admin = Admin(
             app=app,
             engine=engine,
-            title="IQ Tracker Admin",
+            title="AIQ Admin",
             base_url="/admin",
             authentication_backend=AdminAuth(secret_key=settings.SECRET_KEY),
         )

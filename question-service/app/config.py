@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     # Arbiter Configuration
     arbiter_config_path: str = "./config/arbiters.yaml"
 
+    # Alert Configuration
+    enable_email_alerts: bool = False
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    alert_from_email: Optional[str] = None
+    alert_to_emails: Optional[str] = None  # Comma-separated list
+    alert_file_path: str = "./logs/alerts.log"
+
 
 # Global settings instance
 settings = Settings()

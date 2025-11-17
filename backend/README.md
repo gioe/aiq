@@ -1,6 +1,6 @@
-# IQ Tracker Backend
+# AIQ Backend
 
-FastAPI backend server for the IQ Tracker application.
+FastAPI backend server for the AIQ application.
 
 ## Setup
 

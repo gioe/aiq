@@ -91,15 +91,15 @@ This guide covers deploying the IQ Tracker application to AWS using Terraform an
 2. **Create IAM User for Deployment**
    ```bash
    # Create IAM user with admin access (for initial setup)
-   aws iam create-user --user-name iq-tracker-deployer
+   aws iam create-user --user-name aiq-deployer
 
    # Attach AdministratorAccess policy (use more restrictive policy in production)
    aws iam attach-user-policy \
-     --user-name iq-tracker-deployer \
+     --user-name aiq-deployer \
      --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
    # Create access keys
-   aws iam create-access-key --user-name iq-tracker-deployer
+   aws iam create-access-key --user-name aiq-deployer
    ```
 
 3. **Configure AWS CLI**
@@ -149,17 +149,17 @@ For production, use S3 + DynamoDB for Terraform state:
 ```bash
 # Create S3 bucket for state
 aws s3api create-bucket \
-  --bucket iq-tracker-terraform-state \
+  --bucket aiq-terraform-state \
   --region us-east-1
 
 # Enable versioning
 aws s3api put-bucket-versioning \
-  --bucket iq-tracker-terraform-state \
+  --bucket aiq-terraform-state \
   --versioning-configuration Status=Enabled
 
 # Enable encryption
 aws s3api put-bucket-encryption \
-  --bucket iq-tracker-terraform-state \
+  --bucket aiq-terraform-state \
   --server-side-encryption-configuration '{
     "Rules": [{
       "ApplyServerSideEncryptionByDefault": {
@@ -170,7 +170,7 @@ aws s3api put-bucket-encryption \
 
 # Create DynamoDB table for state locking
 aws dynamodb create-table \
-  --table-name iq-tracker-terraform-locks \
+  --table-name aiq-terraform-locks \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
@@ -180,10 +180,10 @@ aws dynamodb create-table \
 Then uncomment and configure the backend in `main.tf`:
 ```hcl
 backend "s3" {
-  bucket         = "iq-tracker-terraform-state"
+  bucket         = "aiq-terraform-state"
   key            = "prod/terraform.tfstate"
   region         = "us-east-1"
-  dynamodb_table = "iq-tracker-terraform-locks"
+  dynamodb_table = "aiq-terraform-locks"
   encrypt        = true
 }
 ```
@@ -240,10 +240,10 @@ Type `yes` when prompted. This will take 10-15 minutes.
    cd backend
 
    # Build image
-   docker build -t iq-tracker-backend .
+   docker build -t aiq-backend .
 
    # Tag image
-   docker tag iq-tracker-backend:latest \
+   docker tag aiq-backend:latest \
      $(cd ../deployment/terraform && terraform output -raw ecr_backend_repository_url):latest
 
    # Push image
@@ -256,10 +256,10 @@ Type `yes` when prompted. This will take 10-15 minutes.
    cd question-service
 
    # Build image
-   docker build -t iq-tracker-question-service .
+   docker build -t aiq-question-service .
 
    # Tag image
-   docker tag iq-tracker-question-service:latest \
+   docker tag aiq-question-service:latest \
      $(cd ../deployment/terraform && terraform output -raw ecr_question_service_repository_url):latest
 
    # Push image
@@ -320,7 +320,7 @@ Alternatively, run migrations manually:
 
 2. **Check CloudWatch Logs**
    ```bash
-   aws logs tail /ecs/iq-tracker-prod-backend --follow --region us-east-1
+   aws logs tail /ecs/aiq-prod-backend --follow --region us-east-1
    ```
 
 3. **Test API endpoints**
@@ -345,7 +345,7 @@ Add these to AWS Secrets Manager:
 ```bash
 # Create secret for API keys
 aws secretsmanager create-secret \
-  --name iq-tracker-prod-app-secrets \
+  --name aiq-prod-app-secrets \
   --secret-string '{
     "SECRET_KEY": "your-app-secret-key-here",
     "JWT_SECRET_KEY": "your-jwt-secret-key-here",
@@ -374,10 +374,10 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_BACKEND_REPOSITORY: iq-tracker-backend
-  ECR_QUESTION_SERVICE_REPOSITORY: iq-tracker-question-service
-  ECS_CLUSTER: iq-tracker-prod-cluster
-  ECS_SERVICE: iq-tracker-prod-backend
+  ECR_BACKEND_REPOSITORY: aiq-backend
+  ECR_QUESTION_SERVICE_REPOSITORY: aiq-question-service
+  ECS_CLUSTER: aiq-prod-cluster
+  ECS_SERVICE: aiq-prod-backend
 
 jobs:
   deploy:
@@ -422,7 +422,7 @@ Create a CloudWatch dashboard:
 
 ```bash
 aws cloudwatch put-dashboard \
-  --dashboard-name iq-tracker-prod \
+  --dashboard-name aiq-prod \
   --dashboard-body file://deployment/monitoring/dashboard.json \
   --region us-east-1
 ```
@@ -440,13 +440,13 @@ Set up alarms for:
 
 ```bash
 # Backend logs
-aws logs tail /ecs/iq-tracker-prod-backend --follow
+aws logs tail /ecs/aiq-prod-backend --follow
 
 # Question service logs
-aws logs tail /ecs/iq-tracker-prod-question-service --follow
+aws logs tail /ecs/aiq-prod-question-service --follow
 
 # Database logs
-aws rds describe-db-log-files --db-instance-identifier iq-tracker-prod-db
+aws rds describe-db-log-files --db-instance-identifier aiq-prod-db
 ```
 
 ## Updating the Application
@@ -459,17 +459,17 @@ aws rds describe-db-log-files --db-instance-identifier iq-tracker-prod-db
 # OR manually:
 
 cd backend
-docker build -t iq-tracker-backend .
+docker build -t aiq-backend .
 
 # Tag and push
 ECR_URL=$(cd ../deployment/terraform && terraform output -raw ecr_backend_repository_url)
-docker tag iq-tracker-backend:latest $ECR_URL:latest
+docker tag aiq-backend:latest $ECR_URL:latest
 docker push $ECR_URL:latest
 
 # Force ECS to redeploy
 aws ecs update-service \
-  --cluster iq-tracker-prod-cluster \
-  --service iq-tracker-prod-backend \
+  --cluster aiq-prod-cluster \
+  --service aiq-prod-backend \
   --force-new-deployment
 ```
 
@@ -513,13 +513,13 @@ alembic upgrade head
 ```bash
 # Check task status
 aws ecs describe-tasks \
-  --cluster iq-tracker-prod-cluster \
+  --cluster aiq-prod-cluster \
   --tasks <task-id> \
   --region us-east-1
 
 # Check stopped tasks
 aws ecs list-tasks \
-  --cluster iq-tracker-prod-cluster \
+  --cluster aiq-prod-cluster \
   --desired-status STOPPED \
   --region us-east-1
 ```
@@ -532,7 +532,7 @@ aws ecs list-tasks \
 
 # Test from ECS task
 aws ecs execute-command \
-  --cluster iq-tracker-prod-cluster \
+  --cluster aiq-prod-cluster \
   --task <task-id> \
   --container backend \
   --interactive \
@@ -543,7 +543,7 @@ aws ecs execute-command \
 
 ```bash
 # Verify ECR repository permissions
-aws ecr describe-repositories --repository-names iq-tracker-backend
+aws ecr describe-repositories --repository-names aiq-backend
 
 # Re-authenticate Docker
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ecr-url>
@@ -558,14 +558,14 @@ RDS automated backups are enabled (7-day retention for prod).
 To create manual snapshot:
 ```bash
 aws rds create-db-snapshot \
-  --db-instance-identifier iq-tracker-prod-db \
-  --db-snapshot-identifier iq-tracker-manual-snapshot-$(date +%Y%m%d-%H%M%S)
+  --db-instance-identifier aiq-prod-db \
+  --db-snapshot-identifier aiq-manual-snapshot-$(date +%Y%m%d-%H%M%S)
 ```
 
 To restore:
 ```bash
 aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier iq-tracker-prod-db-restored \
+  --db-instance-identifier aiq-prod-db-restored \
   --db-snapshot-identifier <snapshot-id>
 ```
 

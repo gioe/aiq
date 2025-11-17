@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-IQ Tracker is a monorepo containing an iOS app, FastAPI backend, and AI-powered question generation service. The app enables users to track their IQ scores over time through periodic testing with fresh, AI-generated questions.
+AIQ is a monorepo containing an iOS app, FastAPI backend, and AI-powered question generation service. The app enables users to track their IQ scores over time through periodic testing with fresh, AI-generated questions.
 
 **Testing Cadence**: 3 months between tests (system-wide, not configurable per user)
 
@@ -42,16 +42,16 @@ alembic history                                   # View migration history
 cd ios
 
 # Build and run
-xcodebuild -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15' build
+xcodebuild -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15' build
 
 # Run tests
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15'
 
 # Run single test
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:IQTrackerTests/TestClassName/testMethodName
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:AIQTests/TestClassName/testMethodName
 ```
 
-**In Xcode**: Open `ios/IQTracker.xcodeproj` and press ⌘+R to build and run
+**In Xcode**: Open `ios/AIQ.xcodeproj` and press ⌘+R to build and run
 
 ### Question Service
 
@@ -90,7 +90,7 @@ pytest  # Run tests when implemented
 
 **Directory Structure**:
 ```
-ios/IQTracker/
+ios/AIQ/
 ├── Models/              # Data models (User, Question, TestResult, etc.)
 ├── ViewModels/          # MVVM ViewModels (inherit from BaseViewModel)
 ├── Views/               # SwiftUI views organized by feature
@@ -161,8 +161,8 @@ ios/IQTracker/
 ### iOS Testing (XCTest)
 
 **Test Organization**:
-- `IQTrackerTests/ViewModels/` - ViewModel unit tests
-- `IQTrackerTests/Mocks/` - Mock implementations (MockAuthManager, etc.)
+- `AIQTests/ViewModels/` - ViewModel unit tests
+- `AIQTests/Mocks/` - Mock implementations (MockAuthManager, etc.)
 
 **Testing Patterns**:
 - ViewModels tested independently with mocked dependencies
@@ -255,7 +255,7 @@ LIMIT N
 ## Question Generation Service (Phase 6 - Not Yet Implemented)
 
 **Architecture**:
-- Multi-LLM generation (OpenAI, Anthropic, Google)
+- Multi-LLM generation (OpenAI, Anthropic, Google, xAi)
 - Specialized arbiter models per question type (configurable via YAML/JSON)
 - Question types: pattern_recognition, logical_reasoning, spatial_reasoning, mathematical, verbal_reasoning, memory
 - Deduplication checking against existing questions
@@ -279,8 +279,8 @@ LIMIT N
 **Database Setup**:
 ```bash
 psql -U <username> -d postgres
-CREATE DATABASE iq_tracker_dev;
-CREATE DATABASE iq_tracker_test;
+CREATE DATABASE aiq_dev;
+CREATE DATABASE aiq_test;
 ```
 
 **First-time Setup**:
@@ -294,7 +294,7 @@ alembic upgrade head
 
 # iOS
 cd ios
-open IQTracker.xcodeproj  # Select your development team in project settings
+open AIQ.xcodeproj  # Select your development team in project settings
 ```
 
 ## Code Quality Standards

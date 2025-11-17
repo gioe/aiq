@@ -1,7 +1,7 @@
 import Combine
 import XCTest
 
-@testable import IQTracker
+@testable import AIQ
 
 /// Integration tests for APIClient networking layer.
 /// These tests verify the APIClient works correctly with URLSession and handles real HTTP scenarios.

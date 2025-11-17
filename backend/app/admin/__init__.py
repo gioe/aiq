@@ -1,5 +1,5 @@
 """
-Admin dashboard module for IQ Tracker.
+Admin dashboard module for AIQ.
 """
 from .auth import AdminAuth
 from .views import (

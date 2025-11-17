@@ -76,7 +76,7 @@ class XAIProvider(BaseLLMProvider):
 
         except Exception as e:
             logger.error(f"xAI API error: {str(e)}")
-            raise Exception(f"xAI API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def generate_structured_completion(
         self,
@@ -142,7 +142,7 @@ class XAIProvider(BaseLLMProvider):
             raise Exception(f"Failed to parse JSON response: {str(e)}") from e
         except Exception as e:
             logger.error(f"xAI API error: {str(e)}")
-            raise Exception(f"xAI API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def count_tokens(self, text: str) -> int:
         """

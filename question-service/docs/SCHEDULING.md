@@ -95,7 +95,7 @@ The question generation service is designed to run periodically to maintain a fr
    # Cron wrapper for question generation
 
    # Set working directory
-   cd /path/to/iq-tracker/question-service || exit 1
+   cd /path/to/aiq/question-service || exit 1
 
    # Activate virtual environment
    source venv/bin/activate
@@ -112,7 +112,7 @@ The question generation service is designed to run periodically to maintain a fr
    # Optional: Send notification on failure
    if [ $EXIT_CODE -ne 0 ]; then
        echo "Question generation failed with exit code $EXIT_CODE" | \
-           mail -s "IQ Tracker: Generation Failure" admin@example.com
+           mail -s "AIQ: Generation Failure" admin@example.com
    fi
 
    exit $EXIT_CODE
@@ -130,8 +130,8 @@ The question generation service is designed to run periodically to maintain a fr
 
 4. **Add cron entry** (runs every Sunday at 2:00 AM):
    ```cron
-   # IQ Tracker Question Generation (every Sunday at 2:00 AM)
-   0 2 * * 0 /path/to/iq-tracker/question-service/scripts/run_cron.sh >> /path/to/iq-tracker/question-service/logs/cron.log 2>&1
+   # AIQ Question Generation (every Sunday at 2:00 AM)
+   0 2 * * 0 /path/to/aiq/question-service/scripts/run_cron.sh >> /path/to/aiq/question-service/logs/cron.log 2>&1
    ```
 
 ### Cron Schedule Examples
@@ -171,22 +171,22 @@ For production Linux servers, systemd timers are more robust than cron.
 
 ### Setup
 
-1. **Create service file** (`/etc/systemd/system/iq-tracker-generation.service`):
+1. **Create service file** (`/etc/systemd/system/aiq-generation.service`):
    ```ini
    [Unit]
-   Description=IQ Tracker Question Generation
+   Description=AIQ Question Generation
    After=network.target postgresql.service
 
    [Service]
    Type=oneshot
-   User=iq-tracker
-   Group=iq-tracker
-   WorkingDirectory=/opt/iq-tracker/question-service
-   Environment="PATH=/opt/iq-tracker/question-service/venv/bin:/usr/bin"
-   EnvironmentFile=/opt/iq-tracker/question-service/.env
-   ExecStart=/opt/iq-tracker/question-service/venv/bin/python run_generation.py --no-console
-   StandardOutput=append:/var/log/iq-tracker/generation.log
-   StandardError=append:/var/log/iq-tracker/generation-error.log
+   User=aiq
+   Group=aiq
+   WorkingDirectory=/opt/aiq/question-service
+   Environment="PATH=/opt/aiq/question-service/venv/bin:/usr/bin"
+   EnvironmentFile=/opt/aiq/question-service/.env
+   ExecStart=/opt/aiq/question-service/venv/bin/python run_generation.py --no-console
+   StandardOutput=append:/var/log/aiq/generation.log
+   StandardError=append:/var/log/aiq/generation-error.log
 
    # Restart policy
    Restart=on-failure
@@ -197,11 +197,11 @@ For production Linux servers, systemd timers are more robust than cron.
    NoNewPrivileges=true
    ```
 
-2. **Create timer file** (`/etc/systemd/system/iq-tracker-generation.timer`):
+2. **Create timer file** (`/etc/systemd/system/aiq-generation.timer`):
    ```ini
    [Unit]
-   Description=IQ Tracker Question Generation Timer
-   Requires=iq-tracker-generation.service
+   Description=AIQ Question Generation Timer
+   Requires=aiq-generation.service
 
    [Timer]
    # Run every Sunday at 2:00 AM
@@ -223,13 +223,13 @@ For production Linux servers, systemd timers are more robust than cron.
    sudo systemctl daemon-reload
 
    # Enable timer (start on boot)
-   sudo systemctl enable iq-tracker-generation.timer
+   sudo systemctl enable aiq-generation.timer
 
    # Start timer
-   sudo systemctl start iq-tracker-generation.timer
+   sudo systemctl start aiq-generation.timer
 
    # Check status
-   sudo systemctl status iq-tracker-generation.timer
+   sudo systemctl status aiq-generation.timer
    ```
 
 ### Systemd Timer Schedule Examples
@@ -258,19 +258,19 @@ OnCalendar=*-*-* 00/6:00:00
 systemctl list-timers
 
 # Check timer status
-systemctl status iq-tracker-generation.timer
+systemctl status aiq-generation.timer
 
 # View logs
-journalctl -u iq-tracker-generation.service -f
+journalctl -u aiq-generation.service -f
 
 # Manually trigger generation (testing)
-systemctl start iq-tracker-generation.service
+systemctl start aiq-generation.service
 
 # Stop timer
-systemctl stop iq-tracker-generation.timer
+systemctl stop aiq-generation.timer
 
 # Disable timer (prevent auto-start on boot)
-systemctl disable iq-tracker-generation.timer
+systemctl disable aiq-generation.timer
 ```
 
 ---
@@ -316,12 +316,12 @@ systemctl disable iq-tracker-generation.timer
 2. **Create EventBridge rule** (AWS Console or CLI):
    ```bash
    aws events put-rule \
-       --name iq-tracker-generation-weekly \
+       --name aiq-generation-weekly \
        --schedule-expression "cron(0 2 ? * SUN *)" \
        --description "Weekly question generation"
 
    aws events put-targets \
-       --rule iq-tracker-generation-weekly \
+       --rule aiq-generation-weekly \
        --targets "Id"="1","Arn"="arn:aws:lambda:REGION:ACCOUNT:function:trigger-generation"
    ```
 
@@ -330,12 +330,12 @@ systemctl disable iq-tracker-generation.timer
 ```bash
 # Create EventBridge rule that directly runs ECS task
 aws events put-rule \
-    --name iq-tracker-generation-weekly \
+    --name aiq-generation-weekly \
     --schedule-expression "cron(0 2 ? * SUN *)"
 
 # Add ECS task as target
 aws events put-targets \
-    --rule iq-tracker-generation-weekly \
+    --rule aiq-generation-weekly \
     --targets file://ecs-target.json
 ```
 
@@ -344,7 +344,7 @@ aws events put-targets \
 [
   {
     "Id": "1",
-    "Arn": "arn:aws:ecs:REGION:ACCOUNT:cluster/iq-tracker",
+    "Arn": "arn:aws:ecs:REGION:ACCOUNT:cluster/aiq",
     "RoleArn": "arn:aws:iam::ACCOUNT:role/ecsEventsRole",
     "EcsParameters": {
       "TaskDefinitionArn": "arn:aws:ecs:REGION:ACCOUNT:task-definition/question-generation:1",
@@ -470,7 +470,7 @@ Add to cron wrapper script:
 ```bash
 if [ $EXIT_CODE -ne 0 ]; then
     echo "Generation failed. Check logs at $(hostname):$LOG_FILE" | \
-        mail -s "IQ Tracker Alert: Generation Failed" admin@example.com
+        mail -s "AIQ Alert: Generation Failed" admin@example.com
 fi
 ```
 
@@ -478,17 +478,17 @@ fi
 
 ```bash
 # Create SNS topic for alerts
-aws sns create-topic --name iq-tracker-alerts
+aws sns create-topic --name aiq-alerts
 
 # Subscribe email to topic
 aws sns subscribe \
-    --topic-arn arn:aws:sns:REGION:ACCOUNT:iq-tracker-alerts \
+    --topic-arn arn:aws:sns:REGION:ACCOUNT:aiq-alerts \
     --protocol email \
     --notification-endpoint admin@example.com
 
 # Create CloudWatch alarm (monitor Lambda errors)
 aws cloudwatch put-metric-alarm \
-    --alarm-name iq-tracker-generation-failures \
+    --alarm-name aiq-generation-failures \
     --alarm-description "Alert on generation failures" \
     --metric-name Errors \
     --namespace AWS/Lambda \
@@ -497,7 +497,7 @@ aws cloudwatch put-metric-alarm \
     --threshold 1 \
     --comparison-operator GreaterThanThreshold \
     --evaluation-periods 1 \
-    --alarm-actions arn:aws:sns:REGION:ACCOUNT:iq-tracker-alerts
+    --alarm-actions arn:aws:sns:REGION:ACCOUNT:aiq-alerts
 ```
 
 #### Option 3: Health Check Endpoint
@@ -654,14 +654,14 @@ psql $DATABASE_URL -c "SELECT COUNT(*) FROM questions;"
 
 5. **Log retention**: Rotate logs to prevent disk space issues
    ```bash
-   # Example logrotate config (/etc/logrotate.d/iq-tracker)
-   /opt/iq-tracker/question-service/logs/*.log {
+   # Example logrotate config (/etc/logrotate.d/aiq)
+   /opt/aiq/question-service/logs/*.log {
        daily
        rotate 30
        compress
        delaycompress
        notifempty
-       create 0644 iq-tracker iq-tracker
+       create 0644 aiq aiq
    }
    ```
 

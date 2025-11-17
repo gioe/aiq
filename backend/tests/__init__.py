@@ -1,3 +1,3 @@
 """
-Tests package for IQ Tracker backend.
+Tests package for AIQ backend.
 """

@@ -1,5 +1,5 @@
 """
-Database models for IQ Tracker application.
+Database models for AIQ application.
 
 Based on schema defined in PLAN.md Section 4.
 """

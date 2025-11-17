@@ -6,7 +6,7 @@
 
 ## 1. Test Objectives
 
-Validate the complete user journey through the IQ Tracker application, ensuring all components work together seamlessly from user registration through test taking, results viewing, and notifications.
+Validate the complete user journey through the AIQ application, ensuring all components work together seamlessly from user registration through test taking, results viewing, and notifications.
 
 **Success Criteria:**
 - All critical user flows complete without errors
@@ -750,10 +750,10 @@ python run_generation.py --count 1 --verbose
 ### Database
 ```bash
 # Check question pool
-psql iq_tracker_dev -c "SELECT question_type, difficulty_level, COUNT(*) FROM questions WHERE is_active = true GROUP BY question_type, difficulty_level;"
+psql aiq_dev -c "SELECT question_type, difficulty_level, COUNT(*) FROM questions WHERE is_active = true GROUP BY question_type, difficulty_level;"
 
 # View recent test sessions
-psql iq_tracker_dev -c "SELECT id, user_id, status, started_at, completed_at FROM test_sessions ORDER BY started_at DESC LIMIT 10;"
+psql aiq_dev -c "SELECT id, user_id, status, started_at, completed_at FROM test_sessions ORDER BY started_at DESC LIMIT 10;"
 ```
 
 ### iOS
@@ -761,10 +761,10 @@ psql iq_tracker_dev -c "SELECT id, user_id, status, started_at, completed_at FRO
 cd ios
 
 # Build and run
-xcodebuild -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15' build
+xcodebuild -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15' build
 
 # Run all tests
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 ---

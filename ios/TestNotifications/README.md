@@ -1,6 +1,6 @@
 # Notification Testing Guide
 
-This directory contains tools and test files for testing push notifications in IQ Tracker.
+This directory contains tools and test files for testing push notifications in AIQ.
 
 ## Overview
 
@@ -48,7 +48,7 @@ xcrun simctl push <simulator-id> com.iqtracker.app test_reminder.apns
 
 ### Method 3: Drag and Drop
 
-1. Build and run IQ Tracker app in simulator
+1. Build and run AIQ app in simulator
 2. Drag an `.apns` file from Finder onto the simulator window
 3. The notification will appear
 

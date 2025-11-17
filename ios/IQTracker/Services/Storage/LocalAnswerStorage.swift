@@ -13,7 +13,7 @@ class LocalAnswerStorage: LocalAnswerStorageProtocol {
     static let shared = LocalAnswerStorage()
 
     private let userDefaults: UserDefaults
-    private let storageKey = "com.iqtracker.savedTestProgress"
+    private let storageKey = "com.aiq.savedTestProgress"
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
