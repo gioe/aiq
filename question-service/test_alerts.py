@@ -10,9 +10,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.alerting import AlertManager
-from app.config import settings
-from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+from app.alerting import AlertManager  # noqa: E402
+from app.config import settings  # noqa: E402
+from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity  # noqa: E402
 
 
 def main():
@@ -94,7 +94,7 @@ def main():
 
     # Show alert summary
     summary = alert_manager.get_alerts_summary()
-    print(f"\nAlerts Summary:")
+    print("\nAlerts Summary:")
     print(f"  Total alerts sent: {summary['total_alerts']}")
     print(f"  Successful: {summary['successful']}")
     print(f"  Failed: {summary['failed']}")

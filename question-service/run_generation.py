@@ -34,11 +34,9 @@ from app import (  # noqa: E402
 )
 from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.error_classifier import ErrorClassifier  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
 from app.models import QuestionType  # noqa: E402
-from app.providers.base import LLMProviderError  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -178,7 +176,7 @@ def main() -> int:
         if settings.alert_to_emails:
             to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
 
-        alert_manager = AlertManager(
+        _alert_manager = AlertManager(  # noqa: F841
             email_enabled=settings.enable_email_alerts,
             smtp_host=settings.smtp_host,
             smtp_port=settings.smtp_port,
