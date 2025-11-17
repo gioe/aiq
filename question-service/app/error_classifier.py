@@ -7,7 +7,6 @@ monitoring responses.
 
 import re
 from enum import Enum
-from typing import Optional
 
 
 class ErrorCategory(Enum):

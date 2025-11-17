@@ -162,7 +162,7 @@ class AlertManager:
             lines.extend(
                 [
                     f"1. Check your {classified_error.provider} account balance",
-                    f"2. Review usage quotas and limits",
+                    "2. Review usage quotas and limits",
                     "3. Add funds or upgrade plan if needed",
                     "4. Verify billing information is up to date",
                 ]
