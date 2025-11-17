@@ -5,6 +5,7 @@ struct TestResult: Codable, Identifiable, Equatable {
     let testSessionId: Int
     let userId: Int
     let iqScore: Int
+    let percentileRank: Double?
     let totalQuestions: Int
     let correctAnswers: Int
     let accuracyPercentage: Double
@@ -20,6 +21,38 @@ struct TestResult: Codable, Identifiable, Equatable {
         let minutes = seconds / 60
         let secs = seconds % 60
         return String(format: "%d:%02d", minutes, secs)
+    }
+
+    /// Formatted percentile string (e.g., "Top 16%", "Top 50%")
+    var percentileFormatted: String? {
+        guard let percentile = percentileRank else { return nil }
+        // percentileRank is 0-100, representing what % scored below you
+        // So if you're at 84th percentile, you're in the top 16%
+        let topPercent = Int(round(100 - percentile))
+        return "Top \(topPercent)%"
+    }
+
+    /// Detailed percentile description (e.g., "84th percentile")
+    var percentileDescription: String? {
+        guard let percentile = percentileRank else { return nil }
+        let ordinal = ordinalSuffix(for: Int(round(percentile)))
+        return "\(Int(round(percentile)))\(ordinal) percentile"
+    }
+
+    private func ordinalSuffix(for number: Int) -> String {
+        let ones = number % 10
+        let tens = (number % 100) / 10
+
+        if tens == 1 {
+            return "th"
+        }
+
+        switch ones {
+        case 1: return "st"
+        case 2: return "nd"
+        case 3: return "rd"
+        default: return "th"
+        }
     }
 
     enum CodingKeys: String, CodingKey {

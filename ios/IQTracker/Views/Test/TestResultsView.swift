@@ -13,6 +13,14 @@ struct TestResultsView: View {
                     // IQ Score - Main highlight
                     iqScoreCard
 
+                    // Percentile ranking (if available)
+                    if result.percentileRank != nil {
+                        PercentileCard(
+                            percentileRank: result.percentileRank,
+                            showAnimation: showAnimation
+                        )
+                    }
+
                     // Performance metrics
                     metricsGrid
 
@@ -315,6 +323,7 @@ struct TestResultsView: View {
             testSessionId: 123,
             userId: 1,
             iqScore: 142,
+            percentileRank: 98.5,
             totalQuestions: 20,
             correctAnswers: 19,
             accuracyPercentage: 95.0,
@@ -332,6 +341,7 @@ struct TestResultsView: View {
             testSessionId: 124,
             userId: 1,
             iqScore: 105,
+            percentileRank: 63.2,
             totalQuestions: 20,
             correctAnswers: 14,
             accuracyPercentage: 70.0,
@@ -349,6 +359,7 @@ struct TestResultsView: View {
             testSessionId: 125,
             userId: 1,
             iqScore: 88,
+            percentileRank: 21.8,
             totalQuestions: 20,
             correctAnswers: 9,
             accuracyPercentage: 45.0,
