@@ -27,7 +27,9 @@ def main():
         to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
 
     # Initialize alert manager
-    print(f"\nEmail alerts: {'ENABLED' if settings.enable_email_alerts else 'DISABLED'}")
+    print(
+        f"\nEmail alerts: {'ENABLED' if settings.enable_email_alerts else 'DISABLED'}"
+    )
     if settings.enable_email_alerts:
         print(f"SMTP Host: {settings.smtp_host}:{settings.smtp_port}")
         print(f"From: {settings.alert_from_email}")
