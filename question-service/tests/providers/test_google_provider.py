@@ -111,7 +111,7 @@ class TestGoogleProvider:
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="Google API error"):
+        with pytest.raises(Exception, match="google.*API error"):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.google_provider.genai.configure")
@@ -183,7 +183,7 @@ class TestGoogleProvider:
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="Google API error"):
+        with pytest.raises(Exception, match="google.*API error"):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.google_provider.genai.configure")

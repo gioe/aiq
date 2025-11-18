@@ -131,7 +131,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="OpenAI API error"):
+        with pytest.raises(Exception, match="openai.*API error"):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.openai_provider.OpenAI")
@@ -205,7 +205,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="OpenAI API error"):
+        with pytest.raises(Exception, match="openai.*API error"):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.openai_provider.OpenAI")
