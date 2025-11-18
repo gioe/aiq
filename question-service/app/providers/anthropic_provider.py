@@ -63,7 +63,7 @@ class AnthropicProvider(BaseLLMProvider):
             return ""
 
         except anthropic.AnthropicError as e:
-            raise Exception(f"Anthropic API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def generate_structured_completion(
         self,
@@ -131,7 +131,7 @@ class AnthropicProvider(BaseLLMProvider):
             return {}
 
         except anthropic.AnthropicError as e:
-            raise Exception(f"Anthropic API error: {str(e)}") from e
+            raise self._handle_api_error(e)
         except json.JSONDecodeError as e:
             raise Exception(f"Failed to parse JSON response: {str(e)}") from e
 

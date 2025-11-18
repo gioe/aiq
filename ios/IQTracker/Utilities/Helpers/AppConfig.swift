@@ -8,7 +8,7 @@ enum AppConfig {
             return "http://localhost:8000"
         #else
             // Note: Production URL to be configured during deployment (Phase 9)
-            return "https://api.iqtracker.app"
+            return "https://api.aiq.app"
         #endif
     }
 

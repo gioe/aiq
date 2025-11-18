@@ -1,6 +1,6 @@
 # Apple Push Notification Service (APNs) Setup Guide
 
-This guide provides step-by-step instructions for setting up Apple Push Notification service (APNs) for the IQ Tracker iOS app.
+This guide provides step-by-step instructions for setting up Apple Push Notification service (APNs) for the AIQ iOS app.
 
 ## Table of Contents
 
@@ -40,7 +40,7 @@ Apple recommends using **token-based authentication** (APNs Auth Key) over certi
 
 1. In the left sidebar, click **Keys**
 2. Click the **+** button (Add a new key)
-3. Enter a **Key Name** (e.g., "IQ Tracker APNs Key")
+3. Enter a **Key Name** (e.g., "AIQ APNs Key")
 4. Check the box for **Apple Push Notifications service (APNs)**
 5. Click **Continue**
 6. Review the key details and click **Register**
@@ -71,7 +71,7 @@ You'll need all three of these values to configure your backend.
 The iOS app has already been configured with push notification capabilities:
 
 ✅ **Push Notifications capability** added to Xcode project
-✅ **Entitlements file** created (`IQTracker.entitlements`)
+✅ **Entitlements file** created (`AIQ.entitlements`)
 ✅ **AppDelegate** implemented with notification registration
 ✅ **UIApplicationDelegateAdaptor** added to main App structure
 
@@ -80,10 +80,10 @@ The iOS app has already been configured with push notification capabilities:
 1. Open the Xcode project:
    ```bash
    cd ios
-   open IQTracker.xcodeproj
+   open AIQ.xcodeproj
    ```
 
-2. Select the **IQTracker** target in the project navigator
+2. Select the **AIQ** target in the project navigator
 
 3. Go to the **Signing & Capabilities** tab
 
@@ -184,7 +184,7 @@ apns-push \
   --team-id <TEAM_ID> \
   --bundle-id com.iqtracker.app \
   --environment development \
-  --message "Test notification from IQ Tracker"
+  --message "Test notification from AIQ"
 ```
 
 #### Option C: Using Python Script
@@ -202,7 +202,7 @@ apns_client = APNsClient(
 )
 
 # Create notification payload
-payload = Payload(alert="Test notification from IQ Tracker", sound="default", badge=1)
+payload = Payload(alert="Test notification from AIQ", sound="default", badge=1)
 
 # Send notification
 device_token = '<DEVICE_TOKEN>'
@@ -216,7 +216,7 @@ The app logs received notifications to the console. Check Xcode console for:
 ```
 Received remote notification: {
     aps =     {
-        alert = "Test notification from IQ Tracker";
+        alert = "Test notification from AIQ";
         badge = 1;
         sound = default;
     };
@@ -248,7 +248,7 @@ Received remote notification: {
 - Network issues preventing APNs connection
 
 **Solutions:**
-1. Go to iOS Settings → IQ Tracker → Notifications and enable permissions
+1. Go to iOS Settings → AIQ → Notifications and enable permissions
 2. Check device has internet connectivity
 3. Restart the app and check console logs
 
@@ -303,7 +303,7 @@ Apple Push Notification service has two separate environments:
 
 ### Switching Environments
 
-The entitlements file (`IQTracker.entitlements`) currently has:
+The entitlements file (`AIQ.entitlements`) currently has:
 
 ```xml
 <key>aps-environment</key>

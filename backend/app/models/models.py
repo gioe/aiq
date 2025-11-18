@@ -1,5 +1,5 @@
 """
-Database models for IQ Tracker application.
+Database models for AIQ application.
 
 Based on schema defined in PLAN.md Section 4.
 """
@@ -96,6 +96,9 @@ class Question(Base):
     question_metadata = Column(JSON)  # Flexible field for additional data
     source_llm = Column(String(100))  # Which LLM generated this question
     arbiter_score = Column(Float)  # Quality score from arbiter LLM
+    prompt_version = Column(
+        String(50), default="1.0"
+    )  # Version of prompts used for generation
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 

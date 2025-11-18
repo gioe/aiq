@@ -1,3 +1,3 @@
 """
-IQ Tracker Backend Application.
+AIQ Backend Application.
 """

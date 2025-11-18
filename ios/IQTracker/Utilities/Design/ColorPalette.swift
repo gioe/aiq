@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Centralized color palette for the IQ Tracker app
+/// Centralized color palette for the AIQ app
 /// Provides consistent colors across light and dark modes
 enum ColorPalette {
     // MARK: - Primary Colors

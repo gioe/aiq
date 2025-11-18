@@ -1,6 +1,6 @@
-# IQ Tracker - Development Guide
+# AIQ - Development Guide
 
-Complete guide for setting up and developing the IQ Tracker project.
+Complete guide for setting up and developing the AIQ project.
 
 ## Prerequisites
 
@@ -27,8 +27,8 @@ Follow these steps to get the entire project running locally:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/gioe/iq-tracker.git
-cd iq-tracker
+git clone https://github.com/gioe/aiq.git
+cd aiq
 ```
 
 ### 2. Set Up PostgreSQL Database
@@ -58,8 +58,8 @@ Download and install from [postgresql.org](https://www.postgresql.org/download/w
 psql -U <your-username> -d postgres
 
 # Create databases
-CREATE DATABASE iq_tracker_dev;
-CREATE DATABASE iq_tracker_test;
+CREATE DATABASE aiq_dev;
+CREATE DATABASE aiq_test;
 
 # Verify creation
 \l
@@ -141,7 +141,7 @@ pip install -r requirements.txt
 cd ios
 
 # Open Xcode project
-open IQTracker.xcodeproj
+open AIQ.xcodeproj
 ```
 
 In Xcode:
@@ -152,7 +152,7 @@ In Xcode:
 ## Project Structure
 
 ```
-iq-tracker/
+aiq/
 ├── backend/              # FastAPI backend server
 │   ├── app/              # Application code
 │   ├── alembic/          # Database migrations
@@ -164,8 +164,8 @@ iq-tracker/
 │   └── requirements.txt  # Python dependencies
 │
 ├── ios/                  # iOS application
-│   ├── IQTracker.xcodeproj
-│   └── IQTracker/        # Swift source files
+│   ├── AIQ.xcodeproj
+│   └── AIQ/        # Swift source files
 │
 ├── shared/               # Shared documentation and schemas
 ├── PLAN.md              # Detailed project plan and roadmap
@@ -256,7 +256,7 @@ pytest
 **iOS:**
 ```bash
 cd ios
-xcodebuild test -scheme IQTracker -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 ## Common Tasks
@@ -304,7 +304,7 @@ With the backend server running:
 
 **Connect to database:**
 ```bash
-psql -U <your-username> -d iq_tracker_dev
+psql -U <your-username> -d aiq_dev
 ```
 
 **View tables:**
@@ -351,7 +351,7 @@ Key variables:
 **Issue**: Database connection errors
 
 **Solution**:
-- Verify PostgreSQL is running: `psql -U <username> -d iq_tracker_dev -c "SELECT 1;"`
+- Verify PostgreSQL is running: `psql -U <username> -d aiq_dev -c "SELECT 1;"`
 - Check DATABASE_URL in `.env` file
 - Ensure database exists: `psql -l`
 
@@ -384,7 +384,7 @@ Key variables:
 
 - **Project Plan**: See `PLAN.md` for detailed roadmap and task list
 - **Component READMEs**: Each directory has its own README with specific setup instructions
-- **Issues**: Report bugs at https://github.com/gioe/iq-tracker/issues
+- **Issues**: Report bugs at https://github.com/gioe/aiq/issues
 - **Pull Requests**: Follow the workflow in `PLAN.md`
 
 ## Next Steps

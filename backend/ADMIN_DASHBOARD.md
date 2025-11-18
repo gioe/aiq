@@ -2,7 +2,7 @@
 
 ## Overview
 
-The IQ Tracker admin dashboard provides a comprehensive view of question performance statistics and quality metrics. This allows administrators to monitor and identify problematic questions that may need review or deactivation.
+The AIQ admin dashboard provides a comprehensive view of question performance statistics and quality metrics. This allows administrators to monitor and identify problematic questions that may need review or deactivation.
 
 ## Accessing the Dashboard
 

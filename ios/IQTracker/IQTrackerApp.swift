@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct IQTrackerApp: App {
+struct AIQApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

@@ -12,12 +12,36 @@ from .models import DifficultyLevel, QuestionType
 SYSTEM_PROMPT = """You are an expert psychometrician and IQ test designer with deep knowledge of cognitive assessment.
 Your task is to generate high-quality, scientifically valid IQ test questions that accurately measure cognitive abilities.
 
-Key requirements:
-- Questions must be clear, unambiguous, and have a single correct answer
-- Questions should be original and creative (avoid common or well-known puzzles)
-- Difficulty should be appropriate for the specified level
-- Questions must be culturally neutral and accessible
-- Include clear explanations for why the answer is correct
+CONTEXT: These questions are for a mobile IQ tracking app where users take tests periodically (every 3 months)
+to monitor their cognitive performance over time. Questions must be:
+- Suitable for repeated testing (highly original, not memorizable)
+- Optimized for mobile display (concise, clear formatting)
+- Aligned with established IQ testing principles (Wechsler, Stanford-Binet, Raven's Progressive Matrices)
+
+IQ TESTING PRINCIPLES:
+- Measure fluid intelligence (problem-solving, pattern recognition) and crystallized intelligence (knowledge, reasoning)
+- Questions should have good discriminatory power (distinguish between different ability levels)
+- Distractors (wrong answers) should be plausible but definitively incorrect
+- Avoid floor/ceiling effects (questions too easy or too hard for target population)
+- Cultural fairness: avoid region-specific knowledge, idioms, or culturally-biased content
+
+KEY REQUIREMENTS:
+✓ Clear, unambiguous wording with a single objectively correct answer
+✓ Original and creative (avoid well-known puzzles like Monty Hall, Tower of Hanoi, common riddles)
+✓ Appropriate difficulty calibration for specified level
+✓ Culturally neutral and globally accessible
+✓ Concise question text (ideally under 300 characters for mobile readability)
+✓ High-quality distractors that test understanding, not just guessing
+✓ Clear, pedagogical explanations
+
+ANTI-PATTERNS TO AVOID:
+✗ Ambiguous wording or multiple valid interpretations
+✗ Questions requiring specialized knowledge (advanced mathematics, obscure vocabulary, cultural references)
+✗ Trick questions or gotchas that test attention rather than reasoning
+✗ Overly verbose or complex sentence structures
+✗ Distractors that are obviously wrong or random numbers/letters
+✗ Questions found in common IQ test prep materials
+✗ Content that could be easily memorized and recognized on retesting
 """
 
 # Question type-specific generation prompts
@@ -31,11 +55,20 @@ Requirements:
 - Provide 4-6 answer options including distractors
 - Include an explanation of the pattern rule
 
+GOLD STANDARD EXAMPLE:
+Question: "What comes next in the sequence? 3, 6, 11, 18, 27, ?"
+Options: ["36", "38", "40", "42", "44"]
+Answer: "38"
+Explanation: "Each number increases by consecutive odd numbers: +3, +5, +7, +9, +11. So 27 + 11 = 38."
+
+Quality notes: Clear progression rule, plausible distractors (other arithmetic progressions), concise wording.
+
 Example types:
-- Number sequences (e.g., 2, 4, 8, 16, ?)
-- Letter patterns (e.g., A, C, F, J, ?)
-- Visual pattern descriptions (e.g., rotating shapes, size progressions)
+- Number sequences with arithmetic/geometric progressions
+- Letter patterns (alphabetic positions, skip patterns)
+- Visual pattern descriptions (rotating shapes, size progressions)
 - Matrix patterns (describe a 3x3 grid with one missing cell)
+- Alternating or recursive patterns
 """,
     QuestionType.LOGICAL_REASONING: """Generate a logical reasoning question that tests deductive or inductive reasoning abilities.
 
@@ -46,11 +79,25 @@ Requirements:
 - Provide 4-6 answer options including plausible distractors
 - Include an explanation of the logical reasoning process
 
+GOLD STANDARD EXAMPLE:
+Question: "All musicians can read sheet music. Some musicians are teachers. Which statement must be true?"
+Options: [
+  "All teachers can read sheet music",
+  "Some teachers can read sheet music",
+  "All people who read sheet music are musicians",
+  "Some musicians who teach cannot read sheet music"
+]
+Answer: "Some teachers can read sheet music"
+Explanation: "Since some musicians are teachers, and all musicians can read sheet music, it follows that at least some teachers (those who are musicians) can read sheet music. We cannot conclude that ALL teachers can read music since only some are musicians."
+
+Quality notes: Tests syllogistic reasoning, distractors exploit common logical fallacies, clear and unambiguous.
+
 Example types:
-- Syllogisms (All A are B, All B are C, therefore...)
-- If-then reasoning (If X, then Y. X is true, therefore...)
+- Syllogisms (All A are B, Some B are C, therefore...)
+- If-then reasoning with valid/invalid inferences
 - Set theory problems (Venn diagram logic)
-- Deductive puzzles (Given facts, what must be true?)
+- Deductive puzzles from given facts
+- Necessary vs. sufficient conditions
 """,
     QuestionType.SPATIAL_REASONING: """Generate a spatial reasoning question that tests the ability to visualize and manipulate objects in space.
 
@@ -61,11 +108,20 @@ Requirements:
 - Provide 4-6 answer options including similar but incorrect options
 - Include an explanation of the spatial transformation
 
+GOLD STANDARD EXAMPLE:
+Question: "A cube has different symbols on each face: ★ on top, ● on bottom, ■ on front, ▲ on back, ◆ on left, and ✦ on right. If you rotate the cube 90° forward (top face moves to front), then 90° clockwise (when viewed from above), which symbol is now on top?"
+Options: ["★", "●", "■", "▲", "◆"]
+Answer: "◆"
+Explanation: "After rotating forward 90°: ● moves to front, ★ moves to back, ■ moves to top, ▲ moves to bottom. Then rotating 90° clockwise from above: ◆ (left) moves to top."
+
+Quality notes: Tests sequential 3D visualization, requires mental manipulation, clear face labeling.
+
 Example types:
-- Paper folding (describe folding sequence, ask what it looks like unfolded)
-- 3D object rotation (describe a shape and its rotation, ask for resulting view)
-- Shape assembly (which pieces combine to form a target shape?)
-- Mirror images (which option is the mirror image of the given shape?)
+- Cube rotations with labeled faces
+- Paper folding sequences with holes/marks
+- 3D object assembly from 2D nets
+- Mirror/reflection problems
+- Cross-section identification (what shape results from slicing a 3D object)
 """,
     QuestionType.MATHEMATICAL: """Generate a mathematical reasoning question that tests quantitative and numerical reasoning.
 
@@ -76,26 +132,45 @@ Requirements:
 - Provide 4-6 answer options with numerical answers
 - Include a step-by-step explanation of the solution
 
+GOLD STANDARD EXAMPLE:
+Question: "A store sells apples in bags of 6 and oranges in bags of 8. If you buy the same number of apples and oranges, what is the minimum number of each fruit you must buy?"
+Options: ["12", "16", "24", "32", "48"]
+Answer: "24"
+Explanation: "We need the least common multiple (LCM) of 6 and 8. Factors: 6 = 2 × 3, 8 = 2³. LCM = 2³ × 3 = 24. You need 4 bags of apples (4 × 6 = 24) and 3 bags of oranges (3 × 8 = 24)."
+
+Quality notes: Tests LCM concept through practical context, requires reasoning not just calculation, appropriate distractors.
+
 Example types:
-- Word problems (age problems, distance/rate/time, mixture problems)
-- Number theory (prime numbers, divisibility, factors)
-- Algebra (solve for x, system of equations)
-- Probability or combinatorics (simple counting problems)
+- Word problems with practical contexts (avoiding culturally-specific scenarios)
+- Number theory (LCM, GCD, divisibility patterns)
+- Proportional reasoning (ratios, rates, scaling)
+- Algebraic thinking (pattern generalization, unknown quantities)
+- Logical-mathematical puzzles (digit problems, arithmetic constraints)
 """,
     QuestionType.VERBAL_REASONING: """Generate a verbal reasoning question that tests language comprehension and reasoning.
 
 Requirements:
-- Present an analogies, word relationships, or vocabulary problem
-- Test understanding of meaning, not just vocabulary knowledge
-- Questions should require reasoning about word relationships
+- Present analogies, word relationships, or vocabulary problems
+- Test understanding of meaning and relationships, not just vocabulary knowledge
+- Questions should require reasoning about conceptual connections
 - Provide 4-6 answer options
 - Include an explanation of the relationship or reasoning
+- Use common vocabulary (avoid obscure or highly technical terms)
+
+GOLD STANDARD EXAMPLE:
+Question: "Book is to Chapter as Building is to ____"
+Options: ["Floor", "Brick", "Foundation", "Architect", "City"]
+Answer: "Floor"
+Explanation: "A book is divided into chapters; similarly, a building is divided into floors. The relationship is 'whole to major subdivision.' Brick is too small (a component), Foundation is a specific part, Architect is the creator, and City is a larger container."
+
+Quality notes: Tests hierarchical relationship reasoning, uses common words, distractors test different relationship types.
 
 Example types:
-- Analogies (A is to B as C is to ?)
-- Word relationships (odd one out, categorization)
-- Sentence completion (choose word that best completes meaning)
-- Logical reading (brief passage with an inference question)
+- Analogies (testing various relationship types: part-whole, cause-effect, function, category)
+- Odd one out (identify item that doesn't share a property)
+- Word relationships (synonyms, antonyms, category membership)
+- Inference from context (complete a sentence where meaning determines the answer)
+- Semantic reasoning (which word fits a described relationship)
 """,
     QuestionType.MEMORY: """Generate a memory-based question that tests working memory and recall.
 
@@ -106,11 +181,20 @@ Requirements:
 - Provide 4-6 answer options
 - Include an explanation referencing the original information
 
+GOLD STANDARD EXAMPLE:
+Question: "MEMORIZE THIS LIST: maple, oak, dolphin, cherry, whale, birch, salmon. Which item from the list is a mammal that is NOT the fourth item?"
+Options: ["dolphin", "whale", "salmon", "cherry", "oak"]
+Answer: "whale"
+Explanation: "The mammals in the list are dolphin and whale. The fourth item is cherry (not a mammal). Therefore, whale is the mammal that is not the fourth item."
+
+Quality notes: Tests both memory retention and logical reasoning, clear structure, appropriate cognitive load.
+
 Example types:
-- List recall (provide a list, ask which item was included)
-- Sequence memory (provide a sequence, ask for a specific position)
-- Detail recall (provide a short passage, ask about a specific detail)
-- Pattern memory (show a pattern, ask to identify it from options)
+- List recall with logical constraint (remember items, then answer question requiring reasoning)
+- Sequence memory (position-based recall)
+- Detail recall from short passage (2-3 sentences)
+- Pattern memory (number/letter sequences to recall and identify)
+- Multi-step memory (remember, transform, recall)
 
 Note: For actual testing, there would be a delay between presentation and recall.
 For question generation, clearly separate the "presentation" and "question" parts.
@@ -120,25 +204,35 @@ For question generation, clearly separate the "presentation" and "question" part
 # Difficulty-specific instructions
 DIFFICULTY_INSTRUCTIONS: Dict[DifficultyLevel, str] = {
     DifficultyLevel.EASY: """Difficulty: EASY
-- Suitable for most adults
-- Pattern or logic should be straightforward
-- Minimal steps to solution
-- Common knowledge sufficient
-- Target: ~70-80% of test-takers should answer correctly
+- Suitable for most adults with average cognitive ability
+- Pattern or logic should be straightforward and recognizable
+- Single-step or simple two-step reasoning
+- Common knowledge sufficient (no specialized expertise needed)
+- Distractors should be clearly wrong to someone who understands the concept
+- Target success rate: ~70-80% of general population
+- IQ range: Effectively measures differences in the 85-115 range
+- Discriminatory power: Should still differentiate between average and above-average
 """,
     DifficultyLevel.MEDIUM: """Difficulty: MEDIUM
 - Suitable for above-average problem solvers
-- Pattern or logic requires more thought
-- Multiple-step reasoning may be needed
-- Some specialized knowledge may help
-- Target: ~40-60% of test-takers should answer correctly
+- Pattern or logic requires careful analysis and thought
+- Multi-step reasoning or non-obvious pattern identification
+- May involve integration of multiple concepts
+- Distractors should be plausible and test partial understanding
+- Target success rate: ~40-60% of general population
+- IQ range: Effectively measures differences in the 100-130 range
+- Discriminatory power: Should clearly separate average from high performers
 """,
     DifficultyLevel.HARD: """Difficulty: HARD
-- Suitable for high-performing individuals
-- Complex patterns or multi-step logic
-- Abstract or non-obvious relationships
-- May require creative insight
-- Target: ~10-30% of test-takers should answer correctly
+- Suitable for high-performing individuals (top 10-15%)
+- Complex patterns requiring abstract thinking or creative insight
+- Multi-step logic with non-obvious intermediate steps
+- May require working memory to hold multiple constraints
+- Distractors should be sophisticated and appeal to incomplete reasoning
+- Target success rate: ~10-30% of general population
+- IQ range: Effectively measures differences in the 115-145+ range
+- Discriminatory power: Should identify genuinely exceptional reasoning ability
+- Avoid making questions hard through obscurity; difficulty should come from cognitive demand
 """,
 }
 
@@ -222,15 +316,41 @@ def build_arbiter_prompt(
     Returns:
         Prompt string for arbiter evaluation
     """
-    return f"""You are an expert psychometrician evaluating the quality of an IQ test question.
+    return f"""You are an expert psychometrician evaluating IQ test questions for a mobile app used for longitudinal cognitive tracking.
+
+CONTEXT: These questions will be used for repeated testing every 3 months. They must be highly original, suitable for mobile display, and aligned with established IQ testing principles (Wechsler, Stanford-Binet, Raven's).
 
 Evaluate the following question across these criteria:
 
-1. CLARITY (0.0-1.0): Is the question clear, unambiguous, and well-written?
-2. DIFFICULTY (0.0-1.0): Is the difficulty appropriate for the specified level ({difficulty})?
-3. VALIDITY (0.0-1.0): Is this a valid IQ test question for measuring {question_type} ability?
-4. FORMATTING (0.0-1.0): Are the answer options properly formatted? Is the correct answer valid?
-5. CREATIVITY (0.0-1.0): Is the question original and interesting (not a well-known puzzle)?
+1. CLARITY (0.0-1.0):
+   - Is wording unambiguous and clear?
+   - Is the question concise enough for mobile display (ideally <300 characters)?
+   - Can it be understood without multiple readings?
+
+2. DIFFICULTY (0.0-1.0):
+   - Is difficulty appropriate for {difficulty} level?
+   - EASY: ~70-80% success rate, tests basic understanding
+   - MEDIUM: ~40-60% success rate, requires multi-step reasoning
+   - HARD: ~10-30% success rate, requires abstract/creative thinking
+   - Does cognitive demand match the target, not just obscure knowledge?
+
+3. VALIDITY (0.0-1.0):
+   - Does it genuinely measure {question_type} cognitive ability?
+   - Is there ONE objectively correct answer?
+   - Is it culturally neutral (no region-specific knowledge, idioms, or bias)?
+   - Does it align with psychometric best practices?
+
+4. FORMATTING (0.0-1.0):
+   - Are there 4-6 answer options?
+   - Is the correct answer included in the options?
+   - Are distractors plausible and well-designed (not obviously wrong)?
+   - Do distractors test understanding rather than random guessing?
+
+5. CREATIVITY (0.0-1.0):
+   - Is the question original and unlikely to be recognized on retesting?
+   - Avoids well-known puzzles (Monty Hall, Tower of Hanoi, common riddles)?
+   - Would it feel fresh even to someone who took an IQ test recently?
+   - Does it show innovative problem design?
 
 Question to evaluate:
 ---
@@ -255,5 +375,6 @@ Respond with valid JSON matching this exact structure:
     "feedback": "<brief explanation of scores and any issues>"
 }}
 
-Be rigorous in your evaluation. Only high-quality questions should score above 0.7 overall.
+Be rigorous in your evaluation. Questions must score above 0.7 in ALL categories to be acceptable.
+A question with even one weak dimension should be rejected.
 """

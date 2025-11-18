@@ -13,7 +13,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "iq-tracker"
+  default     = "aiq"
 }
 
 # VPC Configuration
@@ -69,7 +69,7 @@ variable "db_max_allocated_storage" {
 variable "db_name" {
   description = "Database name"
   type        = string
-  default     = "iq_tracker"
+  default     = "aiq"
 }
 
 variable "db_username" {

@@ -64,7 +64,7 @@ class GoogleProvider(BaseLLMProvider):
             return ""
 
         except Exception as e:
-            raise Exception(f"Google API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def generate_structured_completion(
         self,
@@ -123,7 +123,7 @@ class GoogleProvider(BaseLLMProvider):
             # Check if it's a JSON parsing error
             if isinstance(e, json.JSONDecodeError):
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            raise Exception(f"Google API error: {str(e)}") from e
+            raise self._handle_api_error(e)
 
     def count_tokens(self, text: str) -> int:
         """

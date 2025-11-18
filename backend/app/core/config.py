@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Application
-    APP_NAME: str = "IQ Tracker API"
+    APP_NAME: str = "AIQ API"
     APP_VERSION: str = "0.1.0"
     ENV: str = "development"
     DEBUG: bool = True

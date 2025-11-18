@@ -28,6 +28,9 @@ from .models import EvaluatedQuestion, GeneratedQuestion
 
 logger = logging.getLogger(__name__)
 
+# Prompt version for tracking which prompt templates were used
+PROMPT_VERSION = "2.0"  # Enhanced prompts with IQ testing context and examples
+
 
 class Base(DeclarativeBase):
     """Base class for SQLAlchemy models."""
@@ -70,6 +73,7 @@ class QuestionModel(Base):
     question_metadata = Column(JSON)
     source_llm = Column(String(100))
     arbiter_score = Column(Float)
+    prompt_version = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
@@ -163,6 +167,7 @@ class DatabaseService:
                 question_metadata=question.metadata,
                 source_llm=question.source_llm,
                 arbiter_score=arbiter_score,
+                prompt_version=PROMPT_VERSION,
                 is_active=True,
             )
 
@@ -255,6 +260,7 @@ class DatabaseService:
                     question_metadata=question.metadata,
                     source_llm=question.source_llm,
                     arbiter_score=arbiter_score,
+                    prompt_version=PROMPT_VERSION,
                     is_active=True,
                 )
 
@@ -325,6 +331,7 @@ class DatabaseService:
                         "question_metadata": q.question_metadata,
                         "source_llm": q.source_llm,
                         "arbiter_score": q.arbiter_score,
+                        "prompt_version": q.prompt_version,
                         "created_at": q.created_at,
                         "is_active": q.is_active,
                     }

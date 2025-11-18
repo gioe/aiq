@@ -119,7 +119,7 @@ class TestAnthropicProvider:
 
         provider = AnthropicProvider(api_key=mock_anthropic_api_key)
 
-        with pytest.raises(Exception, match="Anthropic API error"):
+        with pytest.raises(Exception, match="anthropic.*API error"):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.anthropic_provider.Anthropic")
@@ -198,7 +198,7 @@ class TestAnthropicProvider:
 
         provider = AnthropicProvider(api_key=mock_anthropic_api_key)
 
-        with pytest.raises(Exception, match="Anthropic API error"):
+        with pytest.raises(Exception, match="anthropic.*API error"):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.anthropic_provider.Anthropic")

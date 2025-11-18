@@ -28,7 +28,7 @@ class NotificationManager: ObservableObject {
     private var pendingDeviceToken: String?
 
     /// UserDefaults key for storing device token
-    private let deviceTokenKey = "com.iqtracker.deviceToken"
+    private let deviceTokenKey = "com.aiq.deviceToken"
 
     /// Whether we're currently processing a device token registration
     private var isRegisteringToken = false

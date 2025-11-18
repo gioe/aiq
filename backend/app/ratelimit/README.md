@@ -283,4 +283,4 @@ limiter.reset("user123")
 
 ## License
 
-Part of the IQ Tracker project.
+Part of the AIQ project.

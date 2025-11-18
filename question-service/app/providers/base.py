@@ -3,6 +3,32 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+from ..error_classifier import ClassifiedError, ErrorClassifier
+
+
+class LLMProviderError(Exception):
+    """Exception raised by LLM providers with classification.
+
+    Attributes:
+        classified_error: The classified error with category and severity
+        original_exception: The original exception that was raised
+    """
+
+    def __init__(
+        self,
+        classified_error: ClassifiedError,
+        original_exception: Exception,
+    ):
+        """Initialize LLM provider error.
+
+        Args:
+            classified_error: The classified error
+            original_exception: The original exception
+        """
+        self.classified_error = classified_error
+        self.original_exception = original_exception
+        super().__init__(str(classified_error))
+
 
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM provider integrations."""
@@ -94,3 +120,21 @@ class BaseLLMProvider(ABC):
             Provider name (e.g., "openai", "anthropic", "google")
         """
         return self.__class__.__name__.replace("Provider", "").lower()
+
+    def _handle_api_error(self, error: Exception) -> LLMProviderError:
+        """Classify and wrap an API error.
+
+        Args:
+            error: The exception that was raised
+
+        Returns:
+            LLMProviderError with classified error
+        """
+        classified = ErrorClassifier.classify_error(
+            error=error,
+            provider=self.get_provider_name(),
+        )
+        return LLMProviderError(
+            classified_error=classified,
+            original_exception=error,
+        )

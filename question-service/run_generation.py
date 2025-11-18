@@ -32,6 +32,7 @@ from app import (  # noqa: E402
     QuestionDeduplicator,
     QuestionGenerationPipeline,
 )
+from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
@@ -43,6 +44,8 @@ EXIT_PARTIAL_FAILURE = 1
 EXIT_COMPLETE_FAILURE = 2
 EXIT_CONFIG_ERROR = 3
 EXIT_DATABASE_ERROR = 4
+EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
+EXIT_AUTH_ERROR = 6  # New: Authentication failure
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -168,6 +171,25 @@ def main() -> int:
         metrics = MetricsTracker()
         metrics.start_run()
 
+        # Initialize alert manager
+        to_emails = []
+        if settings.alert_to_emails:
+            to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
+
+        _alert_manager = AlertManager(  # noqa: F841
+            email_enabled=settings.enable_email_alerts,
+            smtp_host=settings.smtp_host,
+            smtp_port=settings.smtp_port,
+            smtp_username=settings.smtp_username,
+            smtp_password=settings.smtp_password,
+            from_email=settings.alert_from_email,
+            to_emails=to_emails,
+            alert_file_path=settings.alert_file_path,
+        )
+        logger.info(
+            f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'})"
+        )
+
         # Parse question types
         question_types = None
         if args.types:
@@ -282,12 +304,16 @@ def main() -> int:
                 evaluated_question = arbiter.evaluate_question(question)
 
                 if evaluated_question.evaluation.overall_score >= min_score:
-                    approved_questions.append(question)
+                    approved_questions.append(
+                        evaluated_question
+                    )  # Store evaluated_question with score
                     logger.info(
                         f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
                 else:
-                    rejected_questions.append(question)
+                    rejected_questions.append(
+                        evaluated_question
+                    )  # Also store rejected with scores for metrics
                     logger.info(
                         f"  ✗ REJECTED (score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
@@ -301,7 +327,7 @@ def main() -> int:
 
             except Exception as e:
                 logger.error(f"  ✗ Evaluation failed: {e}")
-                rejected_questions.append(question)
+                # Can't append to rejected_questions as we don't have an evaluation
                 continue
 
         approval_rate = len(approved_questions) / len(generated_questions) * 100
@@ -337,20 +363,24 @@ def main() -> int:
             unique_questions = []
             duplicate_count = 0
 
-            for question in approved_questions:
+            for evaluated_question in approved_questions:
                 try:
                     # Type assertion: deduplicator is guaranteed to be initialized here
                     assert deduplicator is not None
-                    result = deduplicator.check_duplicate(question, existing_questions)
+                    result = deduplicator.check_duplicate(
+                        evaluated_question.question, existing_questions
+                    )
 
                     if not result.is_duplicate:
-                        unique_questions.append(question)
-                        logger.debug(f"✓ Unique: {question.question_text[:60]}...")
+                        unique_questions.append(evaluated_question)
+                        logger.debug(
+                            f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
+                        )
                     else:
                         duplicate_count += 1
                         logger.info(
                             f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
-                            f"{question.question_text[:60]}..."
+                            f"{evaluated_question.question.question_text[:60]}..."
                         )
 
                     metrics.record_duplicate_check(
@@ -361,7 +391,7 @@ def main() -> int:
                 except Exception as e:
                     logger.error(f"Deduplication check failed: {e}")
                     # Include question if deduplication check fails (fail open)
-                    unique_questions.append(question)
+                    unique_questions.append(evaluated_question)
                     continue
 
             logger.info(f"\nUnique questions: {len(unique_questions)}")
@@ -375,15 +405,15 @@ def main() -> int:
             logger.info("PHASE 4: Database Insertion")
             logger.info("=" * 80)
 
-            for i, question in enumerate(unique_questions, 1):
+            for i, evaluated_question in enumerate(unique_questions, 1):
                 try:
                     # Type assertion: db is guaranteed to be initialized here
                     assert db is not None
-                    question_id = db.insert_question(question)
+                    question_id = db.insert_evaluated_question(evaluated_question)
                     inserted_count += 1
                     logger.debug(
                         f"✓ Inserted question {i}/{len(unique_questions)} "
-                        f"(ID: {question_id})"
+                        f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
 
                     metrics.record_insertion_success(count=1)

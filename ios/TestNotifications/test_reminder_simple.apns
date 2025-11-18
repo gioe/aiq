@@ -1,5 +1,5 @@
 {
-  "Simulator Target Bundle": "com.iqtracker.app",
+  "Simulator Target Bundle": "com.aiq.app",
   "aps": {
     "alert": "Simple notification text - Time for your IQ test!",
     "badge": 1,

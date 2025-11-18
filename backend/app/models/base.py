@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/iq_tracker_dev")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/aiq_dev")
 
 # Environment setting - echo SQL in development only
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")

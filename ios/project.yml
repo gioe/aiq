@@ -1,6 +1,6 @@
-name: IQTracker
+name: AIQ
 options:
-  bundleIdPrefix: com.iqtracker
+  bundleIdPrefix: com.aiq
   deploymentTarget:
     iOS: 16.0
   developmentLanguage: en
@@ -12,14 +12,14 @@ settings:
   ENABLE_PREVIEWS: YES
 
 targets:
-  IQTracker:
+  AIQ:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
     sources:
       - IQTracker
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.iqtracker.app
+      PRODUCT_BUNDLE_IDENTIFIER: com.aiq.app
       INFOPLIST_FILE: IQTracker/Info.plist
       CODE_SIGN_ENTITLEMENTS: IQTracker/IQTracker.entitlements
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -31,30 +31,30 @@ targets:
     dependencies:
       - sdk: SwiftUI.framework
 
-  IQTrackerTests:
+  AIQTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "16.0"
     sources:
       - IQTrackerTests
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.iqtracker.tests
+      PRODUCT_BUNDLE_IDENTIFIER: com.aiq.tests
       SWIFT_EMIT_LOC_STRINGS: YES
       GENERATE_INFOPLIST_FILE: YES
     dependencies:
-      - target: IQTracker
+      - target: AIQ
 
 schemes:
-  IQTracker:
+  AIQ:
     build:
       targets:
-        IQTracker: all
+        AIQ: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - IQTrackerTests
+        - AIQTests
     profile:
       config: Release
     analyze:

@@ -1,4 +1,4 @@
-# IQ Tracker - Project Plan
+# AIQ - Project Plan
 
 ## 1. Project Overview & Goals
 

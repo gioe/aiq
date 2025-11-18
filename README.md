@@ -1,13 +1,13 @@
-# IQ Tracker
+# AIQ
 
 An iOS application that tracks users' IQ scores over time through periodic testing with AI-generated questions.
 
 ## Project Structure
 
-This is a monorepo containing all components of the IQ Tracker application:
+This is a monorepo containing all components of the AIQ application:
 
 ```
-iq-tracker/
+aiq/
 ├── ios/                    # SwiftUI iOS application
 ├── backend/                # Backend API server
 ├── question-service/       # AI-powered question generation service
