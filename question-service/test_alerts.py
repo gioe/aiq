@@ -12,7 +12,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity  # noqa: E402
+from app.error_classifier import (  # noqa: E402
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
 
 
 def main():
