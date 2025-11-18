@@ -145,7 +145,7 @@ class MetricsTracker:
         if classified_error:
             error_record["category"] = classified_error.category.value
             error_record["severity"] = classified_error.severity.value
-            error_record["is_retryable"] = classified_error.is_retryable
+            error_record["is_retryable"] = str(classified_error.is_retryable)
 
             # Track by category and severity
             self.errors_by_category[classified_error.category.value] += 1

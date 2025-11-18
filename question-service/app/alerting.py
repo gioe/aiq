@@ -226,6 +226,10 @@ class AlertManager:
         msg.attach(MIMEText(html_body, "html"))
 
         # Send email
+        assert self.smtp_host is not None, "SMTP host must be configured"
+        assert self.smtp_username is not None, "SMTP username must be configured"
+        assert self.smtp_password is not None, "SMTP password must be configured"
+
         with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
             server.starttls()
             server.login(self.smtp_username, self.smtp_password)
@@ -368,6 +372,7 @@ TIMESTAMP: {timestamp}
 
 """
 
+        assert self.alert_file_path is not None, "Alert file path must be configured"
         with open(self.alert_file_path, "a") as f:
             f.write(alert_entry)
 
