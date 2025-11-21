@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "23A0A6B356F16A47EDFDB64C"
-               BuildableName = "IQTracker.app"
-               BlueprintName = "IQTracker"
-               ReferencedContainer = "container:IQTracker.xcodeproj">
+               BuildableName = "AIQ.app"
+               BlueprintName = "AIQ"
+               ReferencedContainer = "container:AIQ.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "23A0A6B356F16A47EDFDB64C"
-            BuildableName = "IQTracker.app"
-            BlueprintName = "IQTracker"
-            ReferencedContainer = "container:IQTracker.xcodeproj">
+            BuildableName = "AIQ.app"
+            BlueprintName = "AIQ"
+            ReferencedContainer = "container:AIQ.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -45,9 +45,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "ABAF8BDEB1015C8CB0388D78"
-               BuildableName = "IQTrackerTests.xctest"
-               BlueprintName = "IQTrackerTests"
-               ReferencedContainer = "container:IQTracker.xcodeproj">
+               BuildableName = "AIQTests.xctest"
+               BlueprintName = "AIQTests"
+               ReferencedContainer = "container:AIQ.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -69,9 +69,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "23A0A6B356F16A47EDFDB64C"
-            BuildableName = "IQTracker.app"
-            BlueprintName = "IQTracker"
-            ReferencedContainer = "container:IQTracker.xcodeproj">
+            BuildableName = "AIQ.app"
+            BlueprintName = "AIQ"
+            ReferencedContainer = "container:AIQ.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -88,9 +88,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "23A0A6B356F16A47EDFDB64C"
-            BuildableName = "IQTracker.app"
-            BlueprintName = "IQTracker"
-            ReferencedContainer = "container:IQTracker.xcodeproj">
+            BuildableName = "AIQ.app"
+            BlueprintName = "AIQ"
+            ReferencedContainer = "container:AIQ.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

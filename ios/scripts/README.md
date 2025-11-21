@@ -15,12 +15,12 @@ ruby scripts/add_files_to_xcode.rb <file_path1> <file_path2> ...
 **Example:**
 ```bash
 # Add a single file
-ruby scripts/add_files_to_xcode.rb IQTracker/ViewModels/MyViewModel.swift
+ruby scripts/add_files_to_xcode.rb AIQ/ViewModels/MyViewModel.swift
 
 # Add multiple files
 ruby scripts/add_files_to_xcode.rb \
-  IQTracker/ViewModels/MyViewModel.swift \
-  IQTracker/Views/MyView.swift
+  AIQ/ViewModels/MyViewModel.swift \
+  AIQ/Views/MyView.swift
 ```
 
 **Requirements:**

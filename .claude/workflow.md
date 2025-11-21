@@ -1,6 +1,6 @@
-# IQ Tracker Development Workflow
+# AIQ Development Workflow
 
-This document defines the development workflow and conventions for the IQ Tracker project.
+This document defines the development workflow and conventions for the AIQ project.
 
 ## Project Structure
 
@@ -154,7 +154,7 @@ Tasks in PLAN.md follow this structure:
 
 ```bash
 # After completing implementation
-git add ios/IQTracker/...
+git add ios/AIQ/...
 git add PLAN.md
 git commit -m "[P4-007] Build test submission logic
 

@@ -34,7 +34,7 @@ jobs:
       - name: Run SwiftFormat (lint mode)
         run: |
           cd ios
-          swiftformat --config .swiftformat --lint IQTracker/
+          swiftformat --config .swiftformat --lint AIQ/
 
       - name: List available simulators
         run: xcrun simctl list devices available
@@ -42,8 +42,8 @@ jobs:
       - name: Build iOS project
         run: |
           cd ios
-          xcodebuild -project IQTracker.xcodeproj \
-            -scheme IQTracker \
+          xcodebuild -project AIQ.xcodeproj \
+            -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             clean build \

@@ -1,13 +1,13 @@
 #!/usr/bin/env ruby
 # Script to add Swift files to the Xcode project
 # Usage: ruby add_files_to_xcode.rb <file_path1> <file_path2> ...
-# Example: ruby add_files_to_xcode.rb IQTracker/ViewModels/MyViewModel.swift IQTracker/Views/MyView.swift
+# Example: ruby add_files_to_xcode.rb AIQ/ViewModels/MyViewModel.swift AIQ/Views/MyView.swift
 
 require 'xcodeproj'
 
 if ARGV.empty?
   puts "Usage: ruby add_files_to_xcode.rb <file_path1> <file_path2> ..."
-  puts "Example: ruby add_files_to_xcode.rb IQTracker/ViewModels/MyViewModel.swift"
+  puts "Example: ruby add_files_to_xcode.rb AIQ/ViewModels/MyViewModel.swift"
   exit 1
 end
 
@@ -15,7 +15,7 @@ end
 Dir.chdir(File.dirname(__FILE__) + '/..')
 
 # Open the Xcode project
-project_path = 'IQTracker.xcodeproj'
+project_path = 'AIQ.xcodeproj'
 unless File.exist?(project_path)
   puts "Error: Could not find #{project_path}"
   exit 1
@@ -34,7 +34,7 @@ ARGV.each do |file_path|
   end
 
   # Determine the group path from the file path
-  # e.g., "IQTracker/ViewModels/MyViewModel.swift" -> ["IQTracker", "ViewModels"]
+  # e.g., "AIQ/ViewModels/MyViewModel.swift" -> ["AIQ", "ViewModels"]
   path_parts = file_path.split('/')
   file_name = path_parts.pop
 

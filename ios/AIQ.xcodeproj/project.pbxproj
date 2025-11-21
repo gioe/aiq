@@ -72,7 +72,7 @@
 		B21BA9DD4167BDF1852D1EC8 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1A0D7C2A77C6D1B6AFAC46 /* AppConfig.swift */; };
 		B23A55ED0D362D1647AFD2AA /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838E36535E4A65E426992EAE /* TestProgressView.swift */; };
 		B9ED84EC51137DEBAAED6983 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA15DF43B47008B21D0BCF9 /* ErrorView.swift */; };
-		BB0A35ADCC8900F61FF3AA69 /* IQTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67FA448BFAB112EAB0F5C41 /* IQTrackerApp.swift */; };
+		BB0A35ADCC8900F61FF3AA69 /* AIQApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67FA448BFAB112EAB0F5C41 /* AIQApp.swift */; };
 		BDD8082177D8D3108C6F2543 /* AnswerInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7033CFEF53C70F37F31A02 /* AnswerInputView.swift */; };
 		BFF4359E4728C06CE24F7D38 /* PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */; };
 		C724BDDCDE04C6024C537E6A /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C37CC31D01E82510D06904 /* Auth.swift */; };
@@ -94,14 +94,14 @@
 /* Begin PBXContainerItemProxy section */
 		89ACD3EE3DB705A435C7DC2F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 3CE77B9B59A13917FC3CE867 /* IQTracker.xcodeproj */;
+			containerPortal = 3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 9991BD48AC67777078326042;
 			remoteInfo = Subproject;
 		};
 		F87C1CEC92B4F71BA70C738E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 3CE77B9B59A13917FC3CE867 /* IQTracker.xcodeproj */;
+			containerPortal = 3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 2CEC069BFB05B84DA04D4F18;
 			remoteInfo = Subproject;
@@ -111,7 +111,7 @@
 			containerPortal = 583F9FE9CB7C10A5D27386BB /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 23A0A6B356F16A47EDFDB64C;
-			remoteInfo = IQTracker;
+			remoteInfo = AIQ;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -130,13 +130,13 @@
 		2A92FBC0678B2E896CA141C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2AC337DE18B966F35FBA132D /* ColorPalette.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorPalette.swift; sourceTree = "<group>"; };
 		2C29486AFD5130B405113D8A /* DataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataCache.swift; sourceTree = "<group>"; };
-		2CEC069BFB05B84DA04D4F18 /* IQTracker.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = IQTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2CEC069BFB05B84DA04D4F18 /* AIQ.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AIQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModelTests.swift; sourceTree = "<group>"; };
 		36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		37BB50D991A32B416A57E171 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		393F8818483E0E7701A1A328 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		39EDCBF276BB2B46B38307F6 /* InsightsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsCardView.swift; sourceTree = "<group>"; };
-		3CE77B9B59A13917FC3CE867 /* IQTracker.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = IQTracker.xcodeproj; sourceTree = "<group>"; };
+		3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AIQ.xcodeproj; sourceTree = "<group>"; };
 		3CEC920C25BC5A979C3F0253 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
 		3E09B407D867D4141B0DAB81 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
 		420BD147BE5F3B7A85137699 /* TestDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDetailView.swift; sourceTree = "<group>"; };
@@ -150,7 +150,7 @@
 		511F20E653108CE007281485 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		5261BFE90E4BE297C8F4D661 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
 		53CA2AD619C442D69F44A581 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
-		54A82E41DC9C54475BC41B81 /* IQTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IQTracker.entitlements; sourceTree = "<group>"; };
+		54A82E41DC9C54475BC41B81 /* AIQ.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AIQ.entitlements; sourceTree = "<group>"; };
 		565BB90693929F5317496786 /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		5797E5D16A75977F1346CB94 /* BaseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewModel.swift; sourceTree = "<group>"; };
 		5AA5F757688E9D59CB558163 /* TestHistoryListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHistoryListItem.swift; sourceTree = "<group>"; };
@@ -176,7 +176,7 @@
 		86E43C061ABEE2ECA98EAFF1 /* TestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSession.swift; sourceTree = "<group>"; };
 		89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
 		8E7BCB4CC05FA692DC3EE511 /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
-		9991BD48AC67777078326042 /* IQTrackerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = IQTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9991BD48AC67777078326042 /* AIQTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AIQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9AA15DF43B47008B21D0BCF9 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		9D44EA52AA38A090775DF762 /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
 		A1941EA8F56F56B72E3C44F2 /* Typography.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
@@ -184,7 +184,7 @@
 		A46174E2D8FEE08DEBCAAE9C /* NetworkStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkStatusBanner.swift; sourceTree = "<group>"; };
 		A60BF6153CD6BF7A06AAD263 /* RequestInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestInterceptor.swift; sourceTree = "<group>"; };
 		B5417B4CD26041562A41E46B /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
-		B67FA448BFAB112EAB0F5C41 /* IQTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQTrackerApp.swift; sourceTree = "<group>"; };
+		B67FA448BFAB112EAB0F5C41 /* AIQApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQApp.swift; sourceTree = "<group>"; };
 		C3AD4E8BA8243FCABD9E4FB4 /* SecureStorageProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStorageProtocol.swift; sourceTree = "<group>"; };
 		C41D1590ED26BCAF95CA3650 /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 		C64FE278A925F2286ADD61B2 /* TokenRefreshInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshInterceptor.swift; sourceTree = "<group>"; };
@@ -355,21 +355,21 @@
 		3C23018FF6613F589AA02CEB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2CEC069BFB05B84DA04D4F18 /* IQTracker.app */,
-				9991BD48AC67777078326042 /* IQTrackerTests.xctest */,
-				AD2E38C0896323D5F489D33F /* IQTracker.app */,
-				358C11353F1FEC9CE41FDDC3 /* IQTrackerTests.xctest */,
+				2CEC069BFB05B84DA04D4F18 /* AIQ.app */,
+				9991BD48AC67777078326042 /* AIQTests.xctest */,
+				AD2E38C0896323D5F489D33F /* AIQ.app */,
+				358C11353F1FEC9CE41FDDC3 /* AIQTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		63ED0BA88638364748F7C3FC /* IQTrackerTests */ = {
+		63ED0BA88638364748F7C3FC /* AIQTests */ = {
 			isa = PBXGroup;
 			children = (
 				055F17F3D066294DB72A2006 /* Mocks */,
 				0CF338C0D0FFA2CB33019FFF /* ViewModels */,
 			);
-			path = IQTrackerTests;
+			path = AIQTests;
 			sourceTree = "<group>";
 		};
 		6AFE36D6770B9381AF55D5A0 /* Services */ = {
@@ -386,11 +386,11 @@
 		8B519C62B870ED4C9F2F394B = {
 			isa = PBXGroup;
 			children = (
-				970DDFA52A2533A088D083E6 /* IQTracker */,
-				63ED0BA88638364748F7C3FC /* IQTrackerTests */,
+				970DDFA52A2533A088D083E6 /* AIQ */,
+				63ED0BA88638364748F7C3FC /* AIQTests */,
 				209A206DB60F9D5CE07F8436 /* Frameworks */,
 				3C23018FF6613F589AA02CEB /* Products */,
-				3CE77B9B59A13917FC3CE867 /* IQTracker.xcodeproj */,
+				3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */,
 			);
 			sourceTree = "<group>";
 		};
@@ -422,21 +422,21 @@
 			path = Extensions;
 			sourceTree = "<group>";
 		};
-		970DDFA52A2533A088D083E6 /* IQTracker */ = {
+		970DDFA52A2533A088D083E6 /* AIQ */ = {
 			isa = PBXGroup;
 			children = (
 				220AB5C8EBF32FEBE3533030 /* AppDelegate.swift */,
 				7A0B3336ACC1395A6017781A /* Assets.xcassets */,
 				2A92FBC0678B2E896CA141C9 /* Info.plist */,
-				54A82E41DC9C54475BC41B81 /* IQTracker.entitlements */,
-				B67FA448BFAB112EAB0F5C41 /* IQTrackerApp.swift */,
+				54A82E41DC9C54475BC41B81 /* AIQ.entitlements */,
+				B67FA448BFAB112EAB0F5C41 /* AIQApp.swift */,
 				19457F6CEF4C46AAD35D0518 /* Models */,
 				6AFE36D6770B9381AF55D5A0 /* Services */,
 				12CC20E9AA7ED05430234E9B /* Utilities */,
 				25C537FD0D2CE13ADC5D0CEF /* ViewModels */,
 				2435EBB8ED00DA11629F1B10 /* Views */,
 			);
-			path = IQTracker;
+			path = AIQ;
 			sourceTree = "<group>";
 		};
 		AD8782CBF18F682217D10EA2 /* Storage */ = {
@@ -505,9 +505,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		23A0A6B356F16A47EDFDB64C /* IQTracker */ = {
+		23A0A6B356F16A47EDFDB64C /* AIQ */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9C28FB48F4FB45249BD575CA /* Build configuration list for PBXNativeTarget "IQTracker" */;
+			buildConfigurationList = 9C28FB48F4FB45249BD575CA /* Build configuration list for PBXNativeTarget "AIQ" */;
 			buildPhases = (
 				668A1E918948E33A2B048EFE /* Sources */,
 				3D252AE194A00EAF09802638 /* Resources */,
@@ -517,14 +517,14 @@
 			);
 			dependencies = (
 			);
-			name = IQTracker;
-			productName = IQTracker;
-			productReference = 2CEC069BFB05B84DA04D4F18 /* IQTracker.app */;
+			name = AIQ;
+			productName = AIQ;
+			productReference = 2CEC069BFB05B84DA04D4F18 /* AIQ.app */;
 			productType = "com.apple.product-type.application";
 		};
-		ABAF8BDEB1015C8CB0388D78 /* IQTrackerTests */ = {
+		ABAF8BDEB1015C8CB0388D78 /* AIQTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "IQTrackerTests" */;
+			buildConfigurationList = 35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "AIQTests" */;
 			buildPhases = (
 				1DC782FCABCF56C1F5C91D36 /* Sources */,
 			);
@@ -533,9 +533,9 @@
 			dependencies = (
 				521E2046C6D323A890193A34 /* PBXTargetDependency */,
 			);
-			name = IQTrackerTests;
-			productName = IQTrackerTests;
-			productReference = 9991BD48AC67777078326042 /* IQTrackerTests.xctest */;
+			name = AIQTests;
+			productName = AIQTests;
+			productReference = 9991BD48AC67777078326042 /* AIQTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -547,7 +547,7 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 			};
-			buildConfigurationList = 35EF6E15FB653F3D13ADAFEC /* Build configuration list for PBXProject "IQTracker" */;
+			buildConfigurationList = 35EF6E15FB653F3D13ADAFEC /* Build configuration list for PBXProject "AIQ" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -563,29 +563,29 @@
 			projectReferences = (
 				{
 					ProductGroup = 3C23018FF6613F589AA02CEB /* Products */;
-					ProjectRef = 3CE77B9B59A13917FC3CE867 /* IQTracker.xcodeproj */;
+					ProjectRef = 3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */;
 				},
 			);
 			projectRoot = "";
 			targets = (
-				23A0A6B356F16A47EDFDB64C /* IQTracker */,
-				ABAF8BDEB1015C8CB0388D78 /* IQTrackerTests */,
+				23A0A6B356F16A47EDFDB64C /* AIQ */,
+				ABAF8BDEB1015C8CB0388D78 /* AIQTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		358C11353F1FEC9CE41FDDC3 /* IQTrackerTests.xctest */ = {
+		358C11353F1FEC9CE41FDDC3 /* AIQTests.xctest */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.cfbundle;
-			path = IQTrackerTests.xctest;
+			path = AIQTests.xctest;
 			remoteRef = 89ACD3EE3DB705A435C7DC2F /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		AD2E38C0896323D5F489D33F /* IQTracker.app */ = {
+		AD2E38C0896323D5F489D33F /* AIQ.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;
-			path = IQTracker.app;
+			path = AIQ.app;
 			remoteRef = F87C1CEC92B4F71BA70C738E /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
@@ -643,7 +643,7 @@
 				B9ED84EC51137DEBAAED6983 /* ErrorView.swift in Sources */,
 				800D854C2A16D5BCF6A3A0C6 /* HistoryView.swift in Sources */,
 				0FDC01236CFD3443FA27A45C /* HistoryViewModel.swift in Sources */,
-				BB0A35ADCC8900F61FF3AA69 /* IQTrackerApp.swift in Sources */,
+				BB0A35ADCC8900F61FF3AA69 /* AIQApp.swift in Sources */,
 				A450BDE1AC3B5ED5396006B8 /* IQTrendChart.swift in Sources */,
 				0B164F8AC5D529748951EF6C /* InsightsCardView.swift in Sources */,
 				91429C7C16E238E0C072F0E3 /* KeychainStorage.swift in Sources */,
@@ -701,7 +701,7 @@
 /* Begin PBXTargetDependency section */
 		521E2046C6D323A890193A34 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 23A0A6B356F16A47EDFDB64C /* IQTracker */;
+			target = 23A0A6B356F16A47EDFDB64C /* AIQ */;
 			targetProxy = FB8E748FA7DE2B1BF12F9BBE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -712,10 +712,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = IQTracker/IQTracker.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AIQ/AIQ.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = IQTracker/Info.plist;
+				INFOPLIST_FILE = AIQ/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -866,7 +866,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IQTracker.app/IQTracker";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AIQ.app/AIQ";
 			};
 			name = Debug;
 		};
@@ -885,7 +885,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IQTracker.app/IQTracker";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AIQ.app/AIQ";
 			};
 			name = Release;
 		};
@@ -894,10 +894,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = IQTracker/IQTracker.entitlements;
+				CODE_SIGN_ENTITLEMENTS = AIQ/AIQ.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = IQTracker/Info.plist;
+				INFOPLIST_FILE = AIQ/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -913,7 +913,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "IQTrackerTests" */ = {
+		35AD765916746E731EAE7CB0 /* Build configuration list for PBXNativeTarget "AIQTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				11389CDBD13381CB93869173 /* Debug */,
@@ -922,7 +922,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		35EF6E15FB653F3D13ADAFEC /* Build configuration list for PBXProject "IQTracker" */ = {
+		35EF6E15FB653F3D13ADAFEC /* Build configuration list for PBXProject "AIQ" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0DCFDA5B98F23F6924E9FCAA /* Debug */,
@@ -931,7 +931,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		9C28FB48F4FB45249BD575CA /* Build configuration list for PBXNativeTarget "IQTracker" */ = {
+		9C28FB48F4FB45249BD575CA /* Build configuration list for PBXNativeTarget "AIQ" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				883D4CB7669D67E15CA50344 /* Debug */,

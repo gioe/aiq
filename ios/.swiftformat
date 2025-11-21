@@ -2,7 +2,7 @@
 # https://github.com/nicklockwood/SwiftFormat
 
 # File options
---exclude Pods,.build,DerivedData,IQTracker.xcodeproj
+--exclude Pods,.build,DerivedData,AIQ.xcodeproj
 
 # Format options
 --indent 4
