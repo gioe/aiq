@@ -1,5 +1,6 @@
 # Dockerfile for Question Generation Trigger Service
 # This runs a web server that allows manual triggering of question generation
+# Updated: 2025-11-22 - Ensure anthropic==0.42.0 is installed
 FROM python:3.11-slim
 
 # Set working directory
