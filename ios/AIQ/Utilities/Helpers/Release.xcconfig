@@ -1,0 +1,7 @@
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+// Release Configuration
+// Uses Railway production backend
+
+API_BASE_URL = https:/$()/aiq-backend-production.up.railway.app/v1
