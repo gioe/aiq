@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Upgrade pip and install with retry logic and increased timeout
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --user --retries 5 --timeout 300 -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
