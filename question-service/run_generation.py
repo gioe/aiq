@@ -684,7 +684,7 @@ def main() -> int:
                 inserted_count=inserted_count,
                 approval_rate=approval_rate,
             )
-            logger.info(f"Success metrics logged to logs/success_runs.jsonl")
+            logger.info("Success metrics logged to logs/success_runs.jsonl")
 
         # Write final heartbeat with completion status
         write_heartbeat(
