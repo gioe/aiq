@@ -301,7 +301,11 @@ def main() -> int:
             )
 
             # Send alert for configuration error
-            from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+            from app.error_classifier import (
+                ClassifiedError,
+                ErrorCategory,
+                ErrorSeverity,
+            )
 
             config_error = ClassifiedError(
                 category=ErrorCategory.AUTHENTICATION,
