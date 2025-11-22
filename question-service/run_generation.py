@@ -19,9 +19,12 @@ Exit Codes:
 """
 
 import argparse
+import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -46,6 +49,86 @@ EXIT_CONFIG_ERROR = 3
 EXIT_DATABASE_ERROR = 4
 EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
 EXIT_AUTH_ERROR = 6  # New: Authentication failure
+
+
+def write_heartbeat(
+    status: str,
+    exit_code: Optional[int] = None,
+    error_message: Optional[str] = None,
+    stats: Optional[dict] = None,
+) -> None:
+    """Write heartbeat to track cron execution and health.
+
+    This creates a simple file that monitoring systems can check to verify
+    the cron is running on schedule. Also logs to stdout for Railway visibility.
+
+    Args:
+        status: Current status ("started", "completed", "failed")
+        exit_code: Script exit code (if completed)
+        error_message: Error message (if failed)
+        stats: Run statistics (if completed successfully)
+    """
+    heartbeat_file = Path("./logs/heartbeat.json")
+    heartbeat_file.parent.mkdir(parents=True, exist_ok=True)
+
+    data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": status,
+        "hostname": os.uname().nodename if hasattr(os, "uname") else "unknown",
+    }
+
+    if exit_code is not None:
+        data["exit_code"] = exit_code
+
+    if error_message:
+        data["error_message"] = error_message
+
+    if stats:
+        data["stats"] = stats
+
+    # Write to file for filesystem monitoring
+    with open(heartbeat_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+    # IMPORTANT: Also log to stdout for Railway/cloud platform visibility
+    # This ensures the heartbeat is captured in Railway logs
+    print(f"HEARTBEAT: {json.dumps(data)}", flush=True)
+
+
+def log_success_run(
+    stats: dict,
+    inserted_count: int,
+    approval_rate: float,
+) -> None:
+    """Log successful run to a separate success log for monitoring.
+
+    This creates a JSONL file with one entry per successful run,
+    making it easy to track historical success metrics. Also logs to stdout
+    for Railway visibility.
+
+    Args:
+        stats: Run statistics dictionary
+        inserted_count: Number of questions inserted
+        approval_rate: Approval rate percentage
+    """
+    success_file = Path("./logs/success_runs.jsonl")
+    success_file.parent.mkdir(parents=True, exist_ok=True)
+
+    success_entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "questions_generated": stats.get("questions_generated", 0),
+        "questions_inserted": inserted_count,
+        "duration_seconds": stats.get("duration_seconds", 0),
+        "approval_rate": approval_rate,
+        "providers_used": stats.get("providers_used", []),
+    }
+
+    # Write to file for filesystem monitoring
+    with open(success_file, "a") as f:
+        f.write(json.dumps(success_entry) + "\n")
+
+    # IMPORTANT: Also log to stdout for Railway/cloud platform visibility
+    print(f"SUCCESS_RUN: {json.dumps(success_entry)}", flush=True)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -139,6 +222,10 @@ def main() -> int:
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
+    # Write initial heartbeat BEFORE anything else
+    # This proves the cron triggered, even if it fails immediately
+    write_heartbeat(status="started")
+
     args = parse_arguments()
 
     # Setup logging
@@ -176,7 +263,7 @@ def main() -> int:
         if settings.alert_to_emails:
             to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
 
-        _alert_manager = AlertManager(  # noqa: F841
+        alert_manager = AlertManager(
             email_enabled=settings.enable_email_alerts,
             smtp_host=settings.smtp_host,
             smtp_port=settings.smtp_port,
@@ -211,6 +298,29 @@ def main() -> int:
             logger.error("No LLM API keys configured!")
             logger.error(
                 "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or XAI_API_KEY"
+            )
+
+            # Send alert for configuration error
+            from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+
+            config_error = ClassifiedError(
+                category=ErrorCategory.AUTHENTICATION,
+                severity=ErrorSeverity.CRITICAL,
+                provider="system",
+                original_error="ConfigurationError",
+                message="No LLM API keys configured. Question generation cannot run.",
+                is_retryable=False,
+            )
+            alert_manager.send_alert(
+                config_error,
+                context="Question generation script failed to start due to missing API keys. "
+                "Check environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY",
+            )
+
+            write_heartbeat(
+                status="failed",
+                exit_code=EXIT_CONFIG_ERROR,
+                error_message="No LLM API keys configured",
             )
             return EXIT_CONFIG_ERROR
 
@@ -259,6 +369,33 @@ def main() -> int:
                 logger.info("✓ Deduplicator initialized")
             except Exception as e:
                 logger.error(f"Failed to connect to database: {e}")
+
+                # Send alert for database error
+                from app.error_classifier import (
+                    ClassifiedError,
+                    ErrorCategory,
+                    ErrorSeverity,
+                )
+
+                db_error = ClassifiedError(
+                    category=ErrorCategory.SERVER_ERROR,
+                    severity=ErrorSeverity.CRITICAL,
+                    provider="database",
+                    original_error=type(e).__name__,
+                    message=f"Database connection failed: {str(e)}",
+                    is_retryable=False,
+                )
+                alert_manager.send_alert(
+                    db_error,
+                    context=f"Question generation cannot connect to database. "
+                    f"Check DATABASE_URL and database availability. Error: {str(e)}",
+                )
+
+                write_heartbeat(
+                    status="failed",
+                    exit_code=EXIT_DATABASE_ERROR,
+                    error_message=f"Database connection failed: {str(e)}",
+                )
                 return EXIT_DATABASE_ERROR
 
         # Run generation job
@@ -284,6 +421,34 @@ def main() -> int:
 
         if not generated_questions:
             logger.error("No questions generated!")
+
+            # Send alert for complete generation failure
+            from app.error_classifier import (
+                ClassifiedError,
+                ErrorCategory,
+                ErrorSeverity,
+            )
+
+            generation_error = ClassifiedError(
+                category=ErrorCategory.UNKNOWN,
+                severity=ErrorSeverity.CRITICAL,
+                provider="pipeline",
+                original_error="GenerationFailure",
+                message="Question generation produced zero questions. All generation attempts failed.",
+                is_retryable=True,
+            )
+            alert_manager.send_alert(
+                generation_error,
+                context=f"Question generation job completed but produced no questions. "
+                f"Target: {stats['target_questions']}, Generated: 0. Check logs for LLM API errors.",
+            )
+
+            write_heartbeat(
+                status="failed",
+                exit_code=EXIT_COMPLETE_FAILURE,
+                error_message="No questions generated",
+                stats=stats,
+            )
             return EXIT_COMPLETE_FAILURE
 
         # Evaluate with arbiter
@@ -339,6 +504,35 @@ def main() -> int:
 
         if not approved_questions:
             logger.warning("No questions passed arbiter evaluation!")
+
+            # Send alert for arbiter rejection
+            from app.error_classifier import (
+                ClassifiedError,
+                ErrorCategory,
+                ErrorSeverity,
+            )
+
+            arbiter_error = ClassifiedError(
+                category=ErrorCategory.INVALID_REQUEST,
+                severity=ErrorSeverity.HIGH,
+                provider="arbiter",
+                original_error="ArbiterRejectionFailure",
+                message=f"All {len(generated_questions)} generated questions were rejected by arbiter evaluation.",
+                is_retryable=True,
+            )
+            alert_manager.send_alert(
+                arbiter_error,
+                context=f"Question generation produced {len(generated_questions)} questions but arbiter "
+                f"rejected all of them. Minimum score threshold: {min_score}. "
+                f"Consider reviewing arbiter configuration or lowering MIN_ARBITER_SCORE.",
+            )
+
+            write_heartbeat(
+                status="failed",
+                exit_code=EXIT_COMPLETE_FAILURE,
+                error_message="No questions passed arbiter evaluation",
+                stats=stats,
+            )
             return EXIT_COMPLETE_FAILURE
 
         # Deduplication
@@ -449,6 +643,28 @@ def main() -> int:
             exit_code = EXIT_SUCCESS
         elif inserted_count == 0:
             logger.error("No questions were inserted to database!")
+
+            # Send alert for insertion failure
+            from app.error_classifier import (
+                ClassifiedError,
+                ErrorCategory,
+                ErrorSeverity,
+            )
+
+            insertion_error = ClassifiedError(
+                category=ErrorCategory.SERVER_ERROR,
+                severity=ErrorSeverity.CRITICAL,
+                provider="database",
+                original_error="InsertionFailure",
+                message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
+                is_retryable=True,
+            )
+            alert_manager.send_alert(
+                insertion_error,
+                context=f"Question generation completed successfully through arbiter evaluation, "
+                f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
+            )
+
             exit_code = EXIT_COMPLETE_FAILURE
         elif inserted_count < len(unique_questions):
             logger.warning("Some questions failed to insert")
@@ -456,6 +672,27 @@ def main() -> int:
         else:
             logger.info("✓ All unique questions inserted successfully")
             exit_code = EXIT_SUCCESS
+
+        # Write success metrics for successful runs
+        if exit_code == EXIT_SUCCESS and inserted_count > 0:
+            log_success_run(
+                stats=stats,
+                inserted_count=inserted_count,
+                approval_rate=approval_rate,
+            )
+            logger.info(f"Success metrics logged to logs/success_runs.jsonl")
+
+        # Write final heartbeat with completion status
+        write_heartbeat(
+            status="completed" if exit_code == EXIT_SUCCESS else "failed",
+            exit_code=exit_code,
+            stats={
+                "questions_generated": stats["questions_generated"],
+                "questions_inserted": inserted_count,
+                "approval_rate": approval_rate,
+                "duration_seconds": stats["duration_seconds"],
+            },
+        )
 
         logger.info("=" * 80)
         logger.info(f"Script completed with exit code: {exit_code}")
@@ -465,15 +702,61 @@ def main() -> int:
 
     except KeyboardInterrupt:
         logger.warning("\nScript interrupted by user")
+
+        write_heartbeat(
+            status="failed",
+            exit_code=EXIT_PARTIAL_FAILURE,
+            error_message="Script interrupted by user",
+        )
         return EXIT_PARTIAL_FAILURE
 
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
+
+        # Try to send alert for unexpected errors
+        try:
+            from app.error_classifier import ErrorClassifier
+
+            classified_error = ErrorClassifier.classify_error(e, "system")
+
+            # Initialize alert manager if not already done
+            if "alert_manager" not in locals():
+                to_emails = []
+                if settings.alert_to_emails:
+                    to_emails = [
+                        email.strip() for email in settings.alert_to_emails.split(",")
+                    ]
+
+                alert_manager = AlertManager(
+                    email_enabled=settings.enable_email_alerts,
+                    smtp_host=settings.smtp_host,
+                    smtp_port=settings.smtp_port,
+                    smtp_username=settings.smtp_username,
+                    smtp_password=settings.smtp_password,
+                    from_email=settings.alert_from_email,
+                    to_emails=to_emails,
+                    alert_file_path=settings.alert_file_path,
+                )
+
+            alert_manager.send_alert(
+                classified_error,
+                context=f"Question generation script encountered an unexpected error and crashed. "
+                f"Error: {str(e)[:200]}. Check logs for full details.",
+            )
+        except Exception as alert_error:
+            # Don't let alert failures prevent cleanup
+            logger.error(f"Failed to send alert for unexpected error: {alert_error}")
+
+        write_heartbeat(
+            status="failed",
+            exit_code=EXIT_COMPLETE_FAILURE,
+            error_message=f"Unexpected error: {str(e)[:100]}",
+        )
         return EXIT_COMPLETE_FAILURE
 
     finally:
         # Clean up database connection
-        if db:
+        if "db" in locals() and db:
             try:
                 db.close()
                 logger.info("Database connection closed")
