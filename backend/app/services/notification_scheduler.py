@@ -2,7 +2,7 @@
 Notification scheduling service for determining which users should receive
 test reminder notifications based on the 3-month testing cadence.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -46,7 +46,7 @@ def get_users_due_for_test(
     Returns:
         List of User objects who should receive notifications
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Set default notification window if not provided
     if notification_window_start is None:
@@ -227,7 +227,7 @@ class NotificationScheduler:
             return True
 
         # Check if the next test date has passed
-        return datetime.utcnow() >= next_test_date
+        return datetime.now(timezone.utc) >= next_test_date
 
     async def send_notifications_to_users(
         self,

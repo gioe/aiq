@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSON
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 from .base import Base
@@ -73,8 +73,12 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     first_name = Column(String(100))
     last_name = Column(String(100))
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login_at = Column(DateTime)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    last_login_at = Column(DateTime(timezone=True))
     notification_enabled = Column(Boolean, default=True, nullable=False)
     apns_device_token = Column(String(255))
 
@@ -84,7 +88,9 @@ class User(Base):
     education_level = Column(
         Enum(EducationLevel), nullable=True
     )  # Highest education level attained
-    country = Column(String(100), nullable=True)  # Country of residence (ISO country name or code)
+    country = Column(
+        String(100), nullable=True
+    )  # Country of residence (ISO country name or code)
     region = Column(String(100), nullable=True)  # State/Province/Region within country
 
     # Relationships
@@ -120,7 +126,11 @@ class Question(Base):
     prompt_version = Column(
         String(50), default="1.0"
     )  # Version of prompts used for generation
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
     # Question Performance Statistics (P11-007)
@@ -183,7 +193,11 @@ class UserQuestion(Base):
     question_id = Column(
         Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
     )
-    seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    seen_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     # Relationships
     user = relationship("User", back_populates="user_questions")
@@ -205,8 +219,12 @@ class TestSession(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    completed_at = Column(DateTime, index=True)
+    started_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    completed_at = Column(DateTime(timezone=True), index=True)
     status = Column(
         Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False, index=True
     )
@@ -253,7 +271,11 @@ class Response(Base):
     )
     user_answer = Column(String(500), nullable=False)
     is_correct = Column(Boolean, nullable=False)
-    answered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    answered_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     # Relationships
     test_session = relationship("TestSession", back_populates="responses")
@@ -281,7 +303,11 @@ class TestResult(Base):
     total_questions = Column(Integer, nullable=False)
     correct_answers = Column(Integer, nullable=False)
     completion_time_seconds = Column(Integer)
-    completed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     # Confidence interval fields (P11-008)
     # These fields prepare for Phase 12 when we can calculate actual SEM

@@ -4,7 +4,7 @@ Test session management endpoints.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.models import get_db, User, Question, TestSession, UserQuestion
@@ -80,7 +80,9 @@ def start_test(
 
     # Check 6-month test cadence: user cannot take another test within 180 days
     # of their last completed test
-    cadence_cutoff = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+    cadence_cutoff = datetime.now(timezone.utc) - timedelta(
+        days=settings.TEST_CADENCE_DAYS
+    )
     recent_completed_session = (
         db.query(TestSession)
         .filter(
@@ -97,7 +99,9 @@ def start_test(
         next_eligible = recent_completed_session.completed_at + timedelta(
             days=settings.TEST_CADENCE_DAYS
         )
-        days_remaining = (next_eligible - datetime.utcnow()).days + 1  # Round up
+        days_remaining = (
+            next_eligible - datetime.now(timezone.utc)
+        ).days + 1  # Round up
 
         raise HTTPException(
             status_code=400,
@@ -129,7 +133,7 @@ def start_test(
     test_session = TestSession(
         user_id=current_user.id,
         status=TestStatus.IN_PROGRESS,
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
         composition_metadata=composition_metadata,
     )
     db.add(test_session)
@@ -140,7 +144,7 @@ def start_test(
         user_question = UserQuestion(
             user_id=current_user.id,
             question_id=question.id,
-            seen_at=datetime.utcnow(),
+            seen_at=datetime.now(timezone.utc),
         )
         db.add(user_question)
 
@@ -304,7 +308,7 @@ def abandon_test(
 
     # Mark session as abandoned
     test_session.status = TestStatus.ABANDONED  # type: ignore[assignment]
-    test_session.completed_at = datetime.utcnow()  # type: ignore[assignment]
+    test_session.completed_at = datetime.now(timezone.utc)  # type: ignore[assignment]
 
     db.commit()
     db.refresh(test_session)
@@ -437,13 +441,13 @@ def submit_test(
             question_id=resp_item.question_id,
             user_answer=resp_item.user_answer.strip(),
             is_correct=is_correct,
-            answered_at=datetime.utcnow(),
+            answered_at=datetime.now(timezone.utc),
         )
         db.add(response)
         response_count += 1
 
     # Update test session status to completed
-    completion_time = datetime.utcnow()
+    completion_time = datetime.now(timezone.utc)
     test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
     test_session.completed_at = completion_time  # type: ignore[assignment]
 
