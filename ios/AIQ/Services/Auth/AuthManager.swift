@@ -22,7 +22,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         tokenRefreshInterceptor = TokenRefreshInterceptor(authService: authService)
 
         // Set up token refresh interceptor in APIClient
-        if let apiClient = authService as? AuthService {
+        if authService is AuthService {
             // Access the shared APIClient and set the auth service
             APIClient.shared.setAuthService(authService)
         }

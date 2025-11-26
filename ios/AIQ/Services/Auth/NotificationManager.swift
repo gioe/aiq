@@ -21,7 +21,7 @@ class NotificationManager: ObservableObject {
     // MARK: - Private Properties
 
     private let notificationService: NotificationServiceProtocol
-    private nonisolated(unsafe) let authManager: AuthManager
+    private let authManager: AuthManager
     private var cancellables = Set<AnyCancellable>()
 
     /// Cached device token (stored until user is authenticated)

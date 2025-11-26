@@ -20,14 +20,23 @@ class TestRegisterUser:
         assert response.status_code == 201
         data = response.json()
 
-        # Verify response structure
-        assert "id" in data
-        assert data["email"] == "newuser@example.com"
-        assert data["first_name"] == "John"
-        assert data["last_name"] == "Doe"
-        assert "created_at" in data
-        assert data["notification_enabled"] is True  # Default value
-        assert "password" not in data  # Password should not be returned
+        # Verify response structure includes tokens
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["token_type"] == "bearer"
+        assert len(data["access_token"]) > 0
+        assert len(data["refresh_token"]) > 0
+
+        # Verify user data in response
+        assert "user" in data
+        user_data = data["user"]
+        assert "id" in user_data
+        assert user_data["email"] == "newuser@example.com"
+        assert user_data["first_name"] == "John"
+        assert user_data["last_name"] == "Doe"
+        assert "created_at" in user_data
+        assert user_data["notification_enabled"] is True  # Default value
+        assert "password" not in user_data  # Password should not be returned
 
         # Verify user in database
         from app.models import User
@@ -155,7 +164,7 @@ class TestLoginUser:
         assert response.status_code == 200
         data = response.json()
 
-        # Verify response structure
+        # Verify response structure includes tokens
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
@@ -163,6 +172,15 @@ class TestLoginUser:
         # Verify tokens are not empty
         assert len(data["access_token"]) > 0
         assert len(data["refresh_token"]) > 0
+
+        # Verify user data in response
+        assert "user" in data
+        user_data = data["user"]
+        assert user_data["email"] == "test@example.com"
+        assert user_data["first_name"] == "Test"
+        assert user_data["last_name"] == "User"
+        assert "id" in user_data
+        assert "created_at" in user_data
 
     def test_login_user_invalid_email(self, client):
         """Test login with non-existent email."""
@@ -291,13 +309,18 @@ class TestRefreshToken:
         assert response.status_code == 200
         data = response.json()
 
-        # Verify response structure
+        # Verify response structure includes both tokens
         assert "access_token" in data
+        assert "refresh_token" in data
         assert data["token_type"] == "bearer"
         assert len(data["access_token"]) > 0
+        assert len(data["refresh_token"]) > 0
 
-        # Verify no refresh token in response (only access token)
-        assert "refresh_token" not in data
+        # Verify user data in response
+        assert "user" in data
+        user_data = data["user"]
+        assert user_data["email"] == "test@example.com"
+        assert "id" in user_data
 
     def test_refresh_token_invalid_token(self, client):
         """Test refresh with invalid token."""

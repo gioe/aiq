@@ -54,7 +54,10 @@ class UserRegister(BaseModel):
         None, description="Highest education level attained (optional)"
     )
     country: Optional[str] = Field(
-        None, min_length=1, max_length=100, description="Country of residence (optional)"
+        None,
+        min_length=1,
+        max_length=100,
+        description="Country of residence (optional)",
     )
     region: Optional[str] = Field(
         None,
@@ -134,18 +137,21 @@ class UserLogin(BaseModel):
 
 
 class Token(BaseModel):
-    """Schema for token response."""
+    """Schema for token response (login only)."""
 
     access_token: str = Field(..., description="JWT access token")
     refresh_token: str = Field(..., description="JWT refresh token")
     token_type: str = Field(default="bearer", description="Token type")
+    user: "UserResponse" = Field(..., description="User information")
 
 
 class TokenRefresh(BaseModel):
     """Schema for token refresh response."""
 
     access_token: str = Field(..., description="New JWT access token")
+    refresh_token: str = Field(..., description="New JWT refresh token")
     token_type: str = Field(default="bearer", description="Token type")
+    user: "UserResponse" = Field(..., description="User information")
 
 
 class UserResponse(BaseModel):

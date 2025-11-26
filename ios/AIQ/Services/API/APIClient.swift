@@ -199,14 +199,27 @@ class APIClient: APIClientProtocol {
         let startTime = Date()
 
         // Perform request
+        print("📤 Making request to: \(urlRequest.url?.absoluteString ?? "unknown URL")")
+        print("   - Method: \(urlRequest.httpMethod ?? "unknown")")
+        print("   - Headers: \(urlRequest.allHTTPHeaderFields ?? [:])")
+        if let bodyData = urlRequest.httpBody, let bodyString = String(data: bodyData, encoding: .utf8) {
+            print("   - Body: \(bodyString)")
+        }
+
         let (data, response) = try await session.data(for: urlRequest)
 
         // Calculate request duration
         let duration = Date().timeIntervalSince(startTime)
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Invalid response - not an HTTP response")
             throw APIError.invalidResponse
         }
+
+        print("📥 Received response:")
+        print("   - Status code: \(httpResponse.statusCode)")
+        print("   - Duration: \(String(format: "%.2f", duration))s")
+        print("   - Response size: \(data.count) bytes")
 
         // Log response
         NetworkLogger.shared.logResponse(httpResponse, data: data)
@@ -340,6 +353,45 @@ class APIClient: APIClientProtocol {
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode(T.self, from: data)
         } catch {
+            // Enhanced logging for debugging decoding errors
+            print("❌ DECODING ERROR for type: \(T.self)")
+            print("📝 Raw response data size: \(data.count) bytes")
+
+            // Log the raw JSON response if possible
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("📄 Raw JSON response:")
+                print(jsonString)
+            } else {
+                print("⚠️ Unable to convert response data to string")
+            }
+
+            // Log specific decoding error details
+            if let decodingError = error as? DecodingError {
+                print("🔍 Decoding error details:")
+                switch decodingError {
+                case let .keyNotFound(key, context):
+                    let path = context.codingPath.map(\.stringValue).joined(separator: " -> ")
+                    print("  - Missing key: '\(key.stringValue)' at path: \(path)")
+                case let .typeMismatch(type, context):
+                    let path = context.codingPath.map(\.stringValue).joined(separator: " -> ")
+                    print("  - Type mismatch for type: \(type) at path: \(path)")
+                    print("  - Debug description: \(context.debugDescription)")
+                case let .valueNotFound(type, context):
+                    let path = context.codingPath.map(\.stringValue).joined(separator: " -> ")
+                    print("  - Value not found for type: \(type) at path: \(path)")
+                    print("  - Debug description: \(context.debugDescription)")
+                case let .dataCorrupted(context):
+                    let path = context.codingPath.map(\.stringValue).joined(separator: " -> ")
+                    print("  - Data corrupted at path: \(path)")
+                    print("  - Debug description: \(context.debugDescription)")
+                @unknown default:
+                    print("  - Unknown decoding error: \(error.localizedDescription)")
+                }
+            } else {
+                print("  - Error type: \(type(of: error))")
+                print("  - Error description: \(error.localizedDescription)")
+            }
+
             throw APIError.decodingError(error)
         }
     }

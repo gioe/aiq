@@ -39,6 +39,11 @@ class AuthService: AuthServiceProtocol {
         country: String? = nil,
         region: String? = nil
     ) async throws -> AuthResponse {
+        print("🔐 Starting registration for email: \(email)")
+        print("   - First name: \(firstName), Last name: \(lastName)")
+        print("   - Birth year: \(birthYear?.description ?? "nil")")
+        print("   - Education level: \(educationLevel?.rawValue ?? "nil")")
+
         let request = RegisterRequest(
             email: email,
             password: password,
@@ -50,33 +55,54 @@ class AuthService: AuthServiceProtocol {
             region: region
         )
 
-        let response: AuthResponse = try await apiClient.request(
-            endpoint: .register,
-            method: .post,
-            body: request,
-            requiresAuth: false
-        )
+        do {
+            let response: AuthResponse = try await apiClient.request(
+                endpoint: .register,
+                method: .post,
+                body: request,
+                requiresAuth: false
+            )
 
-        // Save tokens and user
-        try saveAuthData(response)
+            print("✅ Registration successful, received tokens and user data")
+            print("   - Access token length: \(response.accessToken.count)")
+            print("   - User ID: \(response.user.id)")
+            print("   - User email: \(response.user.email)")
 
-        return response
+            // Save tokens and user
+            try saveAuthData(response)
+
+            return response
+        } catch {
+            print("❌ Registration failed with error: \(error)")
+            throw error
+        }
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
+        print("🔐 Starting login for email: \(email)")
         let request = LoginRequest(email: email, password: password)
 
-        let response: AuthResponse = try await apiClient.request(
-            endpoint: .login,
-            method: .post,
-            body: request,
-            requiresAuth: false
-        )
+        do {
+            let response: AuthResponse = try await apiClient.request(
+                endpoint: .login,
+                method: .post,
+                body: request,
+                requiresAuth: false
+            )
 
-        // Save tokens and user
-        try saveAuthData(response)
+            print("✅ Login successful, received tokens and user data")
+            print("   - Access token length: \(response.accessToken.count)")
+            print("   - User ID: \(response.user.id)")
+            print("   - User email: \(response.user.email)")
 
-        return response
+            // Save tokens and user
+            try saveAuthData(response)
+
+            return response
+        } catch {
+            print("❌ Login failed with error: \(error)")
+            throw error
+        }
     }
 
     func refreshToken() async throws -> AuthResponse {
@@ -131,7 +157,7 @@ class AuthService: AuthServiceProtocol {
             forKey: SecureStorageKey.refreshToken.rawValue
         )
         try secureStorage.save(
-            response.user.id,
+            String(describing: response.user.id),
             forKey: SecureStorageKey.userId.rawValue
         )
 

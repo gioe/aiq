@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
 from app.models import get_db, User
-from app.schemas.auth import UserRegister, UserLogin, Token, TokenRefresh, UserResponse
+from app.schemas.auth import UserRegister, UserLogin, Token, TokenRefresh
 from app.core.security import (
     hash_password,
     verify_password,
@@ -19,9 +19,7 @@ from app.core.analytics import AnalyticsTracker
 router = APIRouter()
 
 
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     """
     Register a new user account.
@@ -31,7 +29,7 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         db: Database session
 
     Returns:
-        Created user information
+        Created user information with access and refresh tokens
 
     Raises:
         HTTPException: 409 if email already exists
@@ -67,7 +65,17 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         email=new_user.email,  # type: ignore
     )
 
-    return new_user
+    # Create tokens for immediate login after registration
+    token_data = {"user_id": new_user.id, "email": new_user.email}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"user_id": new_user.id})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": new_user,
+    }
 
 
 @router.post("/login", response_model=Token)
@@ -80,7 +88,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         db: Database session
 
     Returns:
-        Access and refresh JWT tokens
+        Access and refresh JWT tokens with user information
 
     Raises:
         HTTPException: 401 if credentials are invalid
@@ -103,6 +111,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     # Update last login timestamp
     user.last_login_at = datetime.now(timezone.utc)  # type: ignore
     db.commit()
+    db.refresh(user)
 
     # Track analytics event
     AnalyticsTracker.track_user_login(
@@ -119,21 +128,24 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "user": user,
     }
 
 
 @router.post("/refresh", response_model=TokenRefresh)
 def refresh_access_token(
     current_user: User = Depends(get_current_user_from_refresh_token),
+    db: Session = Depends(get_db),
 ):
     """
     Refresh access token using refresh token.
 
     Args:
         current_user: Current authenticated user from refresh token
+        db: Database session
 
     Returns:
-        New access token
+        New access and refresh tokens with user information
 
     Raises:
         HTTPException: 401 if refresh token is invalid
@@ -146,13 +158,19 @@ def refresh_access_token(
         user_id=int(current_user.id),  # type: ignore
     )
 
-    # Create new access token
+    # Refresh user data from database to ensure it's current
+    db.refresh(current_user)
+
+    # Create new tokens
     token_data = {"user_id": current_user.id, "email": current_user.email}
     access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"user_id": current_user.id})
 
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
+        "user": current_user,
     }
 
 
