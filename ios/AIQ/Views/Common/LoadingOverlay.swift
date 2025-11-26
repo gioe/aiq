@@ -13,7 +13,7 @@ struct LoadingOverlay: View {
     var body: some View {
         ZStack {
             // Semi-transparent backdrop
-            ColorPalette.backgroundPrimary
+            ColorPalette.background
                 .opacity(0.8)
                 .ignoresSafeArea()
 
@@ -67,7 +67,7 @@ struct LoadingOverlay: View {
 
 #Preview {
     ZStack {
-        ColorPalette.backgroundPrimary
+        ColorPalette.background
             .ignoresSafeArea()
 
         LoadingOverlay(message: "Signing in...")
