@@ -8,12 +8,14 @@ protocol APIClientProtocol {
     ///   - method: HTTP method to use
     ///   - body: Optional request body
     ///   - requiresAuth: Whether authentication is required
+    ///   - customHeaders: Optional custom headers to add to the request
     /// - Returns: Decoded response of type T
     func request<T: Decodable>(
         endpoint: APIEndpoint,
         method: HTTPMethod,
         body: Encodable?,
-        requiresAuth: Bool
+        requiresAuth: Bool,
+        customHeaders: [String: String]?
     ) async throws -> T
 
     /// Set the authentication token for API requests
@@ -164,7 +166,8 @@ class APIClient: APIClientProtocol {
         endpoint: APIEndpoint,
         method: HTTPMethod = .get,
         body: Encodable? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        customHeaders: [String: String]? = nil
     ) async throws -> T {
         // Use retry executor for resilient requests
         try await retryExecutor.execute {
@@ -172,7 +175,8 @@ class APIClient: APIClientProtocol {
                 endpoint: endpoint,
                 method: method,
                 body: body,
-                requiresAuth: requiresAuth
+                requiresAuth: requiresAuth,
+                customHeaders: customHeaders
             )
         }
     }
@@ -181,7 +185,8 @@ class APIClient: APIClientProtocol {
         endpoint: APIEndpoint,
         method: HTTPMethod,
         body: Encodable?,
-        requiresAuth: Bool
+        requiresAuth: Bool,
+        customHeaders: [String: String]?
     ) async throws -> (T, HTTPURLResponse) {
         var urlRequest = try buildRequest(
             endpoint: endpoint,
@@ -189,6 +194,13 @@ class APIClient: APIClientProtocol {
             body: body,
             requiresAuth: requiresAuth
         )
+
+        // Add custom headers if provided
+        if let customHeaders {
+            for (key, value) in customHeaders {
+                urlRequest.setValue(value, forHTTPHeaderField: key)
+            }
+        }
 
         // Apply request interceptors
         for interceptor in requestInterceptors {
@@ -198,17 +210,9 @@ class APIClient: APIClientProtocol {
         // Track request start time for performance monitoring
         let startTime = Date()
 
-        // Perform request
-        print("📤 Making request to: \(urlRequest.url?.absoluteString ?? "unknown URL")")
-        print("   - Method: \(urlRequest.httpMethod ?? "unknown")")
-        print("   - Headers: \(urlRequest.allHTTPHeaderFields ?? [:])")
-        if let bodyData = urlRequest.httpBody, let bodyString = String(data: bodyData, encoding: .utf8) {
-            print("   - Body: \(bodyString)")
-        }
-
+        // Log and perform request
+        logRequest(urlRequest)
         let (data, response) = try await session.data(for: urlRequest)
-
-        // Calculate request duration
         let duration = Date().timeIntervalSince(startTime)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -216,10 +220,7 @@ class APIClient: APIClientProtocol {
             throw APIError.invalidResponse
         }
 
-        print("📥 Received response:")
-        print("   - Status code: \(httpResponse.statusCode)")
-        print("   - Duration: \(String(format: "%.2f", duration))s")
-        print("   - Response size: \(data.count) bytes")
+        logResponse(httpResponse, data: data, duration: duration)
 
         // Log response
         NetworkLogger.shared.logResponse(httpResponse, data: data)
@@ -240,7 +241,8 @@ class APIClient: APIClientProtocol {
                         endpoint: endpoint,
                         method: method,
                         body: body,
-                        requiresAuth: requiresAuth
+                        requiresAuth: requiresAuth,
+                        customHeaders: customHeaders
                     )
                 }
                 throw error
@@ -394,5 +396,21 @@ class APIClient: APIClientProtocol {
 
             throw APIError.decodingError(error)
         }
+    }
+
+    private func logRequest(_ request: URLRequest) {
+        print("📤 Making request to: \(request.url?.absoluteString ?? "unknown URL")")
+        print("   - Method: \(request.httpMethod ?? "unknown")")
+        print("   - Headers: \(request.allHTTPHeaderFields ?? [:])")
+        if let bodyData = request.httpBody, let bodyString = String(data: bodyData, encoding: .utf8) {
+            print("   - Body: \(bodyString)")
+        }
+    }
+
+    private func logResponse(_ response: HTTPURLResponse, data: Data, duration: TimeInterval) {
+        print("📥 Received response:")
+        print("   - Status code: \(response.statusCode)")
+        print("   - Duration: \(String(format: "%.2f", duration))s")
+        print("   - Response size: \(data.count) bytes")
     }
 }
