@@ -54,7 +54,11 @@ class MockAPIClient: APIClientProtocol {
                     lastName: "User",
                     createdAt: Date(),
                     lastLoginAt: Date(),
-                    notificationEnabled: true
+                    notificationEnabled: true,
+                    birthYear: nil,
+                    educationLevel: nil,
+                    country: nil,
+                    region: nil
                 )
             ) as! T
         } else if T.self == User.self {
@@ -65,7 +69,11 @@ class MockAPIClient: APIClientProtocol {
                 lastName: "User",
                 createdAt: Date(),
                 lastLoginAt: Date(),
-                notificationEnabled: true
+                notificationEnabled: true,
+                birthYear: nil,
+                educationLevel: nil,
+                country: nil,
+                region: nil
             ) as! T
         } else if T.self == TestSession.self {
             return TestSession(
