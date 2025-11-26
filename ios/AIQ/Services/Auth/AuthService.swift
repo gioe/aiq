@@ -112,13 +112,13 @@ class AuthService: AuthServiceProtocol {
             throw AuthError.noRefreshToken
         }
 
-        let request = RefreshTokenRequest(refreshToken: refreshToken)
-
+        // Send refresh token in Authorization header, not body
         let response: AuthResponse = try await apiClient.request(
             endpoint: .refreshToken,
             method: .post,
-            body: request,
-            requiresAuth: false
+            body: String?.none,
+            requiresAuth: false,
+            customHeaders: ["Authorization": "Bearer \(refreshToken)"]
         )
 
         // Save new tokens
