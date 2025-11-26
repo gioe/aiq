@@ -11,11 +11,21 @@ struct RegisterRequest: Codable {
     let firstName: String
     let lastName: String
 
+    // Optional demographic data for norming study (P13-001)
+    let birthYear: Int?
+    let educationLevel: EducationLevel?
+    let country: String?
+    let region: String?
+
     enum CodingKeys: String, CodingKey {
         case email
         case password
         case firstName = "first_name"
         case lastName = "last_name"
+        case birthYear = "birth_year"
+        case educationLevel = "education_level"
+        case country
+        case region
     }
 }
 

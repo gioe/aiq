@@ -33,13 +33,21 @@ class AuthService: AuthServiceProtocol {
         email: String,
         password: String,
         firstName: String,
-        lastName: String
+        lastName: String,
+        birthYear: Int? = nil,
+        educationLevel: EducationLevel? = nil,
+        country: String? = nil,
+        region: String? = nil
     ) async throws -> AuthResponse {
         let request = RegisterRequest(
             email: email,
             password: password,
             firstName: firstName,
-            lastName: lastName
+            lastName: lastName,
+            birthYear: birthYear,
+            educationLevel: educationLevel,
+            country: country,
+            region: region
         )
 
         let response: AuthResponse = try await apiClient.request(

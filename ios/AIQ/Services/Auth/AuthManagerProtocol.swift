@@ -16,7 +16,11 @@ protocol AuthManagerProtocol: AnyObject {
         email: String,
         password: String,
         firstName: String,
-        lastName: String
+        lastName: String,
+        birthYear: Int?,
+        educationLevel: EducationLevel?,
+        country: String?,
+        region: String?
     ) async throws
 
     func login(email: String, password: String) async throws

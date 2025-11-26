@@ -12,6 +12,12 @@ class RegistrationViewModel: BaseViewModel {
     @Published var firstName: String = ""
     @Published var lastName: String = ""
 
+    // Optional demographic data for norming study (P13-001)
+    @Published var birthYear: String = ""
+    @Published var selectedEducationLevel: EducationLevel?
+    @Published var country: String = ""
+    @Published var region: String = ""
+
     // MARK: - Private Properties
 
     private let authManager: any AuthManagerProtocol
@@ -94,12 +100,22 @@ class RegistrationViewModel: BaseViewModel {
             return
         }
 
+        // Convert birthYear string to Int if valid
+        let birthYearInt: Int? = {
+            let trimmed = birthYear.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : Int(trimmed)
+        }()
+
         do {
             try await authManager.register(
                 email: email.trimmingCharacters(in: .whitespaces),
                 password: password,
                 firstName: firstName.trimmingCharacters(in: .whitespaces),
-                lastName: lastName.trimmingCharacters(in: .whitespaces)
+                lastName: lastName.trimmingCharacters(in: .whitespaces),
+                birthYear: birthYearInt,
+                educationLevel: selectedEducationLevel,
+                country: country.trimmingCharacters(in: .whitespaces).isEmpty ? nil : country.trimmingCharacters(in: .whitespaces),
+                region: region.trimmingCharacters(in: .whitespaces).isEmpty ? nil : region.trimmingCharacters(in: .whitespaces)
             )
             // Clear sensitive data on success
             clearForm()
@@ -116,6 +132,10 @@ class RegistrationViewModel: BaseViewModel {
         confirmPassword = ""
         firstName = ""
         lastName = ""
+        birthYear = ""
+        selectedEducationLevel = nil
+        country = ""
+        region = ""
         error = nil
         authManager.clearError()
     }

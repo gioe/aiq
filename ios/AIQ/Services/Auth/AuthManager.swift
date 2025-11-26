@@ -38,7 +38,11 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         email: String,
         password: String,
         firstName: String,
-        lastName: String
+        lastName: String,
+        birthYear: Int? = nil,
+        educationLevel: EducationLevel? = nil,
+        country: String? = nil,
+        region: String? = nil
     ) async throws {
         isLoading = true
         authError = nil
@@ -48,7 +52,11 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
                 email: email,
                 password: password,
                 firstName: firstName,
-                lastName: lastName
+                lastName: lastName,
+                birthYear: birthYear,
+                educationLevel: educationLevel,
+                country: country,
+                region: region
             )
 
             isAuthenticated = true

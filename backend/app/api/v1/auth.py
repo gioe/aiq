@@ -50,6 +50,11 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         password_hash=hash_password(user_data.password),
         first_name=user_data.first_name,
         last_name=user_data.last_name,
+        # Optional demographic data for norming study (P13-001)
+        birth_year=user_data.birth_year,
+        education_level=user_data.education_level,
+        country=user_data.country,
+        region=user_data.region,
     )
 
     db.add(new_user)

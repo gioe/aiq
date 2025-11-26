@@ -32,18 +32,30 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var lastRegisterPassword: String?
     var lastRegisterFirstName: String?
     var lastRegisterLastName: String?
+    var lastRegisterBirthYear: Int?
+    var lastRegisterEducationLevel: EducationLevel?
+    var lastRegisterCountry: String?
+    var lastRegisterRegion: String?
 
     func register(
         email: String,
         password: String,
         firstName: String,
-        lastName: String
+        lastName: String,
+        birthYear: Int? = nil,
+        educationLevel: EducationLevel? = nil,
+        country: String? = nil,
+        region: String? = nil
     ) async throws {
         registerCalled = true
         lastRegisterEmail = email
         lastRegisterPassword = password
         lastRegisterFirstName = firstName
         lastRegisterLastName = lastName
+        lastRegisterBirthYear = birthYear
+        lastRegisterEducationLevel = educationLevel
+        lastRegisterCountry = country
+        lastRegisterRegion = region
 
         isLoading = true
         authError = nil
@@ -60,7 +72,11 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
                 lastName: lastName,
                 createdAt: Date(),
                 lastLoginAt: nil,
-                notificationEnabled: false
+                notificationEnabled: false,
+                birthYear: birthYear,
+                educationLevel: educationLevel,
+                country: country,
+                region: region
             )
             isAuthenticated = true
             currentUser = mockUser
@@ -97,7 +113,11 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
                 lastName: "User",
                 createdAt: Date(),
                 lastLoginAt: Date(),
-                notificationEnabled: true
+                notificationEnabled: true,
+                birthYear: nil,
+                educationLevel: nil,
+                country: nil,
+                region: nil
             )
             isAuthenticated = true
             currentUser = mockUser
@@ -148,5 +168,9 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         lastRegisterPassword = nil
         lastRegisterFirstName = nil
         lastRegisterLastName = nil
+        lastRegisterBirthYear = nil
+        lastRegisterEducationLevel = nil
+        lastRegisterCountry = nil
+        lastRegisterRegion = nil
     }
 }

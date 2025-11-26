@@ -51,6 +51,18 @@ class TestStatus(str, enum.Enum):
     ABANDONED = "abandoned"
 
 
+class EducationLevel(str, enum.Enum):
+    """Education level enumeration for demographic data."""
+
+    HIGH_SCHOOL = "high_school"
+    SOME_COLLEGE = "some_college"
+    ASSOCIATES = "associates"
+    BACHELORS = "bachelors"
+    MASTERS = "masters"
+    DOCTORATE = "doctorate"
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+
+
 class User(Base):
     """User model for authentication and profile."""
 
@@ -65,6 +77,15 @@ class User(Base):
     last_login_at = Column(DateTime)
     notification_enabled = Column(Boolean, default=True, nullable=False)
     apns_device_token = Column(String(255))
+
+    # Demographic data for norming study (P13-001)
+    # All fields are optional to ensure privacy and voluntary participation
+    birth_year = Column(Integer, nullable=True)  # Year of birth (e.g., 1990)
+    education_level = Column(
+        Enum(EducationLevel), nullable=True
+    )  # Highest education level attained
+    country = Column(String(100), nullable=True)  # Country of residence (ISO country name or code)
+    region = Column(String(100), nullable=True)  # State/Province/Region within country
 
     # Relationships
     test_sessions = relationship(
