@@ -714,11 +714,11 @@ arbiters:
 
 **Tasks:**
 - [x] **P9-001**: Choose cloud hosting provider (AWS/GCP/Azure)
-- [ ] **P9-002**: Set up production database
-- [ ] **P9-003**: Set up CI/CD pipelines
-- [ ] **P9-004**: Deploy backend to production
-- [ ] **P9-005**: Deploy question generation service
-- [ ] **P9-006**: Configure environment variables and secrets management
+- [x] **P9-002**: Set up production database
+- [x] **P9-003**: Set up CI/CD pipelines
+- [x] **P9-004**: Deploy backend to production
+- [x] **P9-005**: Deploy question generation service
+- [x] **P9-006**: Configure environment variables and secrets management
 - [ ] **P9-007**: Set up monitoring and alerting (error tracking, uptime)
 - [ ] **P9-008**: Prepare App Store listing (screenshots, description, keywords)
 - [ ] **P9-009**: App Store submission and review

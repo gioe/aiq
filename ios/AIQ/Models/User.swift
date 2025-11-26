@@ -24,7 +24,7 @@ enum EducationLevel: String, Codable, CaseIterable {
 }
 
 struct User: Codable, Identifiable, Equatable {
-    let id: String
+    let id: Int
     let email: String
     let firstName: String
     let lastName: String

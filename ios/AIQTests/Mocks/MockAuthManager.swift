@@ -66,7 +66,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
 
         if shouldSucceedRegister {
             let mockUser = User(
-                id: "test-user-id",
+                id: 1,
                 email: email,
                 firstName: firstName,
                 lastName: lastName,
@@ -107,7 +107,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
 
         if shouldSucceedLogin {
             let mockUser = User(
-                id: "test-user-id",
+                id: 1,
                 email: email,
                 firstName: "Test",
                 lastName: "User",

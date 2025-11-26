@@ -48,7 +48,7 @@ class MockAPIClient: APIClientProtocol {
                 refreshToken: "mock_refresh_token",
                 tokenType: "Bearer",
                 user: User(
-                    id: "mock_user_id",
+                    id: 1,
                     email: "test@example.com",
                     firstName: "Test",
                     lastName: "User",
@@ -63,7 +63,7 @@ class MockAPIClient: APIClientProtocol {
             ) as! T
         } else if T.self == User.self {
             return User(
-                id: "mock_user_id",
+                id: 1,
                 email: "test@example.com",
                 firstName: "Test",
                 lastName: "User",
