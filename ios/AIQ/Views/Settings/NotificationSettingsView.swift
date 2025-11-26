@@ -6,6 +6,17 @@ struct NotificationSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Error Display - Positioned at top for visibility
+            if let error = viewModel.error {
+                ErrorBanner(
+                    message: error.localizedDescription,
+                    onDismiss: {
+                        viewModel.clearError()
+                    }
+                )
+                .padding(.bottom, 8)
+            }
+
             // Notification Toggle
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -59,17 +70,6 @@ struct NotificationSettingsView: View {
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 8)
-            }
-
-            // Error Display
-            if let error = viewModel.error {
-                ErrorBanner(
-                    message: error.localizedDescription,
-                    onDismiss: {
-                        viewModel.clearError()
-                    }
-                )
                 .padding(.top, 8)
             }
         }

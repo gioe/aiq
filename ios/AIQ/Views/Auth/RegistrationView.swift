@@ -15,6 +15,17 @@ struct RegistrationView: View {
 
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.xxxl) {
+                    // Error Display - Positioned at top for visibility
+                    if let error = viewModel.error {
+                        ErrorBanner(
+                            message: error.localizedDescription,
+                            onDismiss: {
+                                viewModel.clearForm()
+                            }
+                        )
+                        .padding(.top, DesignSystem.Spacing.md)
+                    }
+
                     // Animated Hero Section
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // Animated Icon - Using sparkles to represent new beginning
@@ -260,16 +271,6 @@ struct RegistrationView: View {
                         DesignSystem.Animation.smooth.delay(0.6),
                         value: isAnimating
                     )
-
-                    // Error Display
-                    if let error = viewModel.error {
-                        ErrorBanner(
-                            message: error.localizedDescription,
-                            onDismiss: {
-                                viewModel.clearForm()
-                            }
-                        )
-                    }
 
                     // Login Link
                     VStack(spacing: DesignSystem.Spacing.md) {

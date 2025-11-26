@@ -15,6 +15,17 @@ struct WelcomeView: View {
 
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.xxxl) {
+                        // Error Display - Positioned at top for visibility
+                        if let error = viewModel.error {
+                            ErrorBanner(
+                                message: error.localizedDescription,
+                                onDismiss: {
+                                    viewModel.clearError()
+                                }
+                            )
+                            .padding(.top, DesignSystem.Spacing.md)
+                        }
+
                         // Animated Hero Section
                         VStack(spacing: DesignSystem.Spacing.lg) {
                             // Animated Brain Icon
@@ -112,16 +123,6 @@ struct WelcomeView: View {
                             DesignSystem.Animation.smooth.delay(0.6),
                             value: isAnimating
                         )
-
-                        // Error Display
-                        if let error = viewModel.error {
-                            ErrorBanner(
-                                message: error.localizedDescription,
-                                onDismiss: {
-                                    viewModel.clearError()
-                                }
-                            )
-                        }
 
                         // Registration Link
                         VStack(spacing: DesignSystem.Spacing.md) {
