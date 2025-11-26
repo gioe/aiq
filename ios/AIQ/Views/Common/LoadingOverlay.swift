@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A full-screen loading overlay with spinner and optional message
+/// A full-screen loading overlay with animated spinner and optional message
 struct LoadingOverlay: View {
     let message: String?
     @State private var isAnimating = false
+    @State private var rotationAngle: Double = 0
 
     init(message: String? = nil) {
         self.message = message
@@ -11,31 +12,54 @@ struct LoadingOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            // Semi-transparent backdrop
+            ColorPalette.backgroundPrimary
+                .opacity(0.8)
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(isAnimating ? 1.5 : 1.2)
+            // Loading card
+            VStack(spacing: DesignSystem.Spacing.xl) {
+                // Animated brain icon
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 48))
+                    .foregroundStyle(ColorPalette.scoreGradient)
+                    .rotationEffect(.degrees(rotationAngle))
+                    .scaleEffect(isAnimating ? 1.1 : 1.0)
 
                 if let message {
                     Text(message)
-                        .font(.subheadline)
-                        .foregroundColor(.white)
+                        .font(Typography.bodyLarge)
+                        .foregroundColor(ColorPalette.textPrimary)
+                        .multilineTextAlignment(.center)
                         .opacity(isAnimating ? 1.0 : 0.0)
                 }
             }
-            .padding(32)
-            .background(Color(.systemGray6))
-            .cornerRadius(16)
-            .shadow(radius: 10)
-            .scaleEffect(isAnimating ? 1.0 : 0.8)
+            .padding(DesignSystem.Spacing.xxxl)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
+                    .fill(ColorPalette.backgroundSecondary)
+                    .shadow(
+                        color: DesignSystem.Shadow.lg.color,
+                        radius: DesignSystem.Shadow.lg.radius,
+                        x: DesignSystem.Shadow.lg.x,
+                        y: DesignSystem.Shadow.lg.y
+                    )
+            )
+            .scaleEffect(isAnimating ? 1.0 : 0.85)
             .opacity(isAnimating ? 1.0 : 0.0)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.3)) {
+            // Entrance animation
+            withAnimation(DesignSystem.Animation.smooth) {
                 isAnimating = true
+            }
+
+            // Continuous rotation animation
+            withAnimation(
+                Animation.linear(duration: 2.0)
+                    .repeatForever(autoreverses: false)
+            ) {
+                rotationAngle = 360
             }
         }
     }
@@ -43,9 +67,9 @@ struct LoadingOverlay: View {
 
 #Preview {
     ZStack {
-        Color.blue
+        ColorPalette.backgroundPrimary
             .ignoresSafeArea()
 
-        LoadingOverlay(message: "Logging in...")
+        LoadingOverlay(message: "Signing in...")
     }
 }
