@@ -11,7 +11,7 @@ struct DashboardView: View {
             // Modern gradient background
             LinearGradient(
                 gradient: Gradient(colors: [
-                    ColorPalette.backgroundPrimary,
+                    ColorPalette.background,
                     ColorPalette.backgroundSecondary.opacity(0.3)
                 ]),
                 startPoint: .topLeading,
@@ -170,7 +170,7 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                 .fill(ColorPalette.backgroundSecondary)
                 .shadow(
-                    color: ColorPalette.shadowColor.opacity(0.1),
+                    color: Color.black.opacity(0.1),
                     radius: DesignSystem.Shadow.lg.radius,
                     x: 0,
                     y: DesignSystem.Shadow.lg.y
@@ -178,7 +178,7 @@ struct DashboardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                .strokeBorder(ColorPalette.borderPrimary.opacity(0.1), lineWidth: 1)
+                .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
         )
     }
 
@@ -322,7 +322,7 @@ private struct StatCard: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                 .fill(ColorPalette.backgroundSecondary)
                 .shadow(
-                    color: ColorPalette.shadowColor.opacity(0.08),
+                    color: Color.black.opacity(0.08),
                     radius: DesignSystem.Shadow.md.radius,
                     x: 0,
                     y: DesignSystem.Shadow.md.y
@@ -333,8 +333,8 @@ private struct StatCard: View {
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            ColorPalette.borderPrimary.opacity(0.1),
-                            ColorPalette.borderPrimary.opacity(0.05)
+                            Color.gray.opacity(0.1),
+                            Color.gray.opacity(0.05)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
