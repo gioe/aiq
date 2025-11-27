@@ -8,14 +8,28 @@ protocol APIClientProtocol {
     ///   - method: HTTP method to use
     ///   - body: Optional request body
     ///   - requiresAuth: Whether authentication is required
-    ///   - customHeaders: Optional custom headers to add to the request
+    /// - Returns: Decoded response of type T
+    func request<T: Decodable>(
+        endpoint: APIEndpoint,
+        method: HTTPMethod,
+        body: Encodable?,
+        requiresAuth: Bool
+    ) async throws -> T
+
+    /// Perform an API request with custom headers
+    /// - Parameters:
+    ///   - endpoint: The API endpoint to call
+    ///   - method: HTTP method to use
+    ///   - body: Optional request body
+    ///   - requiresAuth: Whether authentication is required
+    ///   - customHeaders: Custom headers to add to the request
     /// - Returns: Decoded response of type T
     func request<T: Decodable>(
         endpoint: APIEndpoint,
         method: HTTPMethod,
         body: Encodable?,
         requiresAuth: Bool,
-        customHeaders: [String: String]?
+        customHeaders: [String: String]
     ) async throws -> T
 
     /// Set the authentication token for API requests
@@ -166,8 +180,26 @@ class APIClient: APIClientProtocol {
         endpoint: APIEndpoint,
         method: HTTPMethod = .get,
         body: Encodable? = nil,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        // Use retry executor for resilient requests
+        try await retryExecutor.execute {
+            try await self.performRequest(
+                endpoint: endpoint,
+                method: method,
+                body: body,
+                requiresAuth: requiresAuth,
+                customHeaders: nil
+            )
+        }
+    }
+
+    func request<T: Decodable>(
+        endpoint: APIEndpoint,
+        method: HTTPMethod = .get,
+        body: Encodable? = nil,
         requiresAuth: Bool = true,
-        customHeaders: [String: String]? = nil
+        customHeaders: [String: String]
     ) async throws -> T {
         // Use retry executor for resilient requests
         try await retryExecutor.execute {
