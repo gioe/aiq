@@ -2,6 +2,8 @@ import Foundation
 
 /// Mock API client for testing and development
 class MockAPIClient: APIClientProtocol {
+
+    
     var authToken: String?
     var mockDelay: TimeInterval = 0.5
     var shouldFail: Bool = false
@@ -36,6 +38,22 @@ class MockAPIClient: APIClientProtocol {
 
         // Return mock data based on type
         return try mockDefaultResponse()
+    }
+
+    func request<T: Decodable>(
+        endpoint: APIEndpoint,
+        method: HTTPMethod,
+        body: Encodable?,
+        requiresAuth: Bool,
+        customHeaders _: [String: String]
+    ) async throws -> T {
+        // Delegate to the main request method, ignoring custom headers in mock
+        try await request(
+            endpoint: endpoint,
+            method: method,
+            body: body,
+            requiresAuth: requiresAuth
+        )
     }
 
     private func mockDefaultResponse<T: Decodable>() throws -> T {
