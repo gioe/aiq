@@ -11,6 +11,10 @@ class DashboardViewModel: BaseViewModel {
     @Published var averageScore: Int?
     @Published var isRefreshing: Bool = false
 
+    // Active session tracking
+    @Published var activeTestSession: TestSession?
+    @Published var activeSessionQuestionsAnswered: Int?
+
     // MARK: - Private Properties
 
     private let apiClient: APIClientProtocol
@@ -98,6 +102,11 @@ class DashboardViewModel: BaseViewModel {
     /// Whether user has taken any tests
     var hasTests: Bool {
         testCount > 0
+    }
+
+    /// Whether user has an active (in-progress) test session
+    var hasActiveTest: Bool {
+        activeTestSession != nil
     }
 
     /// Formatted latest test date
