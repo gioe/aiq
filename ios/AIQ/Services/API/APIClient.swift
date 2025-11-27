@@ -75,6 +75,8 @@ enum APIEndpoint {
     case notificationRegisterDevice
     /// Update notification preferences
     case notificationPreferences
+    /// Check for active test session
+    case testActive
 
     /// The URL path for this endpoint
     var path: String {
@@ -103,6 +105,8 @@ enum APIEndpoint {
             "/v1/notifications/register-device"
         case .notificationPreferences:
             "/v1/notifications/preferences"
+        case .testActive:
+            "/v1/test/active"
         }
     }
 }
