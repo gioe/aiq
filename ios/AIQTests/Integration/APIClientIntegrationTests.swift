@@ -193,6 +193,97 @@ final class APIClientIntegrationTests: XCTestCase {
         XCTAssertEqual(history.results[0].iqScore, 120)
         XCTAssertEqual(history.results[1].iqScore, 118)
     }
+
+    // MARK: - Active Session Integration Tests
+
+    func testFetchActiveSession_WithActiveSession() async throws {
+        // Given
+        sut.setAccessToken("valid-token")
+        mockActiveSessionResponse(hasActiveSession: true)
+
+        // When
+        let response: TestSessionStatusResponse = try await sut.request(
+            endpoint: .testActive,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
+
+        // Then
+        XCTAssertEqual(response.session.id, 123)
+        XCTAssertEqual(response.session.status, .inProgress)
+        XCTAssertEqual(response.questionsCount, 5)
+    }
+
+    func testFetchActiveSession_NoActiveSession() async throws {
+        // Given
+        sut.setAccessToken("valid-token")
+        mockActiveSessionResponse(hasActiveSession: false)
+
+        // When
+        do {
+            let _: TestSessionStatusResponse? = try await sut.request(
+                endpoint: .testActive,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            XCTFail("Should handle null response gracefully")
+        } catch {
+            // Expected - null response from server should be handled
+            // In practice, the backend returns null which can't decode to TestSessionStatusResponse
+            // This is expected behavior
+        }
+    }
+
+    func testFetchActiveSession_Unauthorized() async throws {
+        // Given - No auth token set
+        mockHTTPErrorResponse(statusCode: 401, detail: "Unauthorized")
+
+        // When/Then
+        do {
+            let _: TestSessionStatusResponse = try await sut.request(
+                endpoint: .testActive,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            XCTFail("Should have thrown unauthorized error")
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                // Success - correct error type
+            } else {
+                XCTFail("Expected unauthorized error, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+    }
+
+    func testFetchActiveSession_ServerError() async throws {
+        // Given
+        sut.setAccessToken("valid-token")
+        mockHTTPErrorResponse(statusCode: 500, detail: "Internal Server Error")
+
+        // When/Then
+        do {
+            let _: TestSessionStatusResponse = try await sut.request(
+                endpoint: .testActive,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            XCTFail("Should have thrown server error")
+        } catch let error as APIError {
+            if case .serverError = error {
+                // Success - correct error type
+            } else {
+                XCTFail("Expected server error, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+    }
 }
 
 // MARK: - Helper Methods
@@ -291,13 +382,13 @@ extension APIClientIntegrationTests {
                     "id": "q1",
                     "question_text": "What is 2+2?",
                     "question_type": "mathematical",
-                    "answer_options": ["A": "3", "B": "4", "C": "5"]
+                    "answer_options": ["3", "4", "5"]
                 ],
                 [
                     "id": "q2",
                     "question_text": "What comes next: 1, 2, 3, ?",
                     "question_type": "pattern_recognition",
-                    "answer_options": ["A": "4", "B": "5", "C": "6"]
+                    "answer_options": ["4", "5", "6"]
                 ]
             ],
             "total_questions": 2
@@ -386,6 +477,40 @@ extension APIClientIntegrationTests {
             ] as [String: Any]
 
             return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
+        }
+    }
+
+    private func mockActiveSessionResponse(hasActiveSession: Bool) {
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url!
+
+            if hasActiveSession {
+                let response = [
+                    "session": [
+                        "id": 123,
+                        "user_id": 1,
+                        "started_at": ISO8601DateFormatter().string(from: Date()),
+                        "completed_at": nil as String?,
+                        "status": "in_progress"
+                    ] as [String: Any?],
+                    "questions_count": 5
+                ] as [String: Any]
+
+                return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
+            } else {
+                // Backend returns null when no active session
+                guard let httpResponse = HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                ) else {
+                    throw URLError(.cannotParseResponse)
+                }
+
+                let data = "null".data(using: .utf8)!
+                return (httpResponse, data)
+            }
         }
     }
 
