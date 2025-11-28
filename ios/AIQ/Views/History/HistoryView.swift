@@ -70,19 +70,19 @@ struct HistoryView: View {
                    let bestScore = viewModel.bestIQScore {
                     VStack(spacing: 12) {
                         HStack(spacing: 20) {
-                            StatCard(
+                            HistoryStatCard(
                                 label: "Tests Taken",
                                 value: "\(viewModel.totalTestsTaken)",
                                 icon: "list.clipboard.fill"
                             )
 
-                            StatCard(
+                            HistoryStatCard(
                                 label: "Average IQ",
                                 value: "\(avgScore)",
                                 icon: "chart.line.uptrend.xyaxis"
                             )
 
-                            StatCard(
+                            HistoryStatCard(
                                 label: "Best Score",
                                 value: "\(bestScore)",
                                 icon: "star.fill"
@@ -170,8 +170,8 @@ struct HistoryView: View {
     }
 }
 
-/// Stat card component for summary statistics
-private struct StatCard: View {
+/// Simple stat card component for history summary statistics
+private struct HistoryStatCard: View {
     let label: String
     let value: String
     let icon: String
