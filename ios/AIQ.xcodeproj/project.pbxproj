@@ -15,6 +15,7 @@
 		1AEF30782EDA486C0080F75D /* TestSessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30772EDA486C0080F75D /* TestSessionStatus.swift */; };
 		1AEF307B2EDA49BE0080F75D /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30792EDA49BE0080F75D /* DashboardView.swift */; };
 		1AEF307C2EDA49BE0080F75D /* InProgressTestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF307A2EDA49BE0080F75D /* InProgressTestCard.swift */; };
+		1AEF308D2EDA4EBF0080F75D /* DashboardCardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF308C2EDA4EBF0080F75D /* DashboardCardComponents.swift */; };
 		1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71784E51191C7B135F175A35 /* LoadingOverlay.swift */; };
 		21A658E2072F82F9451E2D51 /* RegistrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7144DFDCC0350CF613E06B /* RegistrationViewModel.swift */; };
 		22CFA102A085208C5A02A0E3 /* TestDetailView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC34CF425BCF0769C9BDCD9 /* TestDetailView+Helpers.swift */; };
@@ -114,6 +115,7 @@
 		1AEF30772EDA486C0080F75D /* TestSessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStatus.swift; sourceTree = "<group>"; };
 		1AEF30792EDA49BE0080F75D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		1AEF307A2EDA49BE0080F75D /* InProgressTestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InProgressTestCard.swift; sourceTree = "<group>"; };
+		1AEF308C2EDA4EBF0080F75D /* DashboardCardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCardComponents.swift; sourceTree = "<group>"; };
 		1CED6BD6ED806B6CE39A12D8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		220AB5C8EBF32FEBE3533030 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2A1A0D7C2A77C6D1B6AFAC46 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
@@ -472,6 +474,7 @@
 		D460B8527E0ABFDA28B1CBA9 /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
+				1AEF308C2EDA4EBF0080F75D /* DashboardCardComponents.swift */,
 				1AEF30792EDA49BE0080F75D /* DashboardView.swift */,
 				1AEF307A2EDA49BE0080F75D /* InProgressTestCard.swift */,
 			);
@@ -619,6 +622,7 @@
 				A450BDE1AC3B5ED5396006B8 /* IQTrendChart.swift in Sources */,
 				0B164F8AC5D529748951EF6C /* InsightsCardView.swift in Sources */,
 				91429C7C16E238E0C072F0E3 /* KeychainStorage.swift in Sources */,
+				1AEF308D2EDA4EBF0080F75D /* DashboardCardComponents.swift in Sources */,
 				1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */,
 				1AEF30782EDA486C0080F75D /* TestSessionStatus.swift in Sources */,
 				351F95043E2BEBB36F24E35F /* LoadingView.swift in Sources */,
