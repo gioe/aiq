@@ -105,6 +105,7 @@ extension DataCache {
         static let testHistory = "test_history"
         static let userProfile = "user_profile"
         static let dashboardData = "dashboard_data"
+        static let activeTestSession = "active_test_session"
 
         static func testResult(id: Int) -> String {
             "test_result_\(id)"
