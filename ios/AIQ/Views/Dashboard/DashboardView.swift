@@ -201,10 +201,10 @@ struct DashboardView: View {
             navigateToTest = true
         } label: {
             HStack(spacing: DesignSystem.Spacing.sm) {
-                Image(systemName: "brain.head.profile")
+                Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
                     .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
 
-                Text("Take Another Test")
+                Text(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
                     .font(Typography.button)
 
                 Spacer()
@@ -231,8 +231,8 @@ struct DashboardView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Take Another Test")
-        .accessibilityHint("Start a new cognitive performance test")
+        .accessibilityLabel(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+        .accessibilityHint(viewModel.hasActiveTest ? "Continue your in-progress cognitive performance test" : "Start a new cognitive performance test")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -244,13 +244,15 @@ struct DashboardView: View {
                 welcomeHeader
 
                 EmptyStateView(
-                    icon: "brain.head.profile",
-                    title: "Ready to Begin?",
-                    message: """
-                    Take your first cognitive performance assessment to establish your baseline score. \
-                    Track your progress over time and discover insights about your performance.
-                    """,
-                    actionTitle: "Start Your First Test",
+                    icon: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile",
+                    title: viewModel.hasActiveTest ? "Test in Progress" : "Ready to Begin?",
+                    message: viewModel.hasActiveTest ?
+                        "You have a test in progress. Resume it to continue or complete it to see your results." :
+                        """
+                        Take your first cognitive performance assessment to establish your baseline score. \
+                        Track your progress over time and discover insights about your performance.
+                        """,
+                    actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
                     action: {
                         navigateToTest = true
                     }
