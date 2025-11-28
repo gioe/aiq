@@ -64,7 +64,7 @@ Implement a two-pronged approach:
   - Show "Start Your First Test" / "Take Another Test" when `hasActiveTest == false`
   - Update button icon (e.g., "play.circle.fill" for resume)
 
-- [ ] P3-002: Add visual indicator for in-progress test
+- [x] P3-002: Add visual indicator for in-progress test
   - Add status badge/chip above action button
   - Display: "Test in Progress" with warning/info styling (orange/blue)
   - Show additional context: "X questions answered" if available
