@@ -69,7 +69,7 @@ Implement a two-pronged approach:
   - Display: "Test in Progress" with warning/info styling (orange/blue)
   - Show additional context: "X questions answered" if available
 
-- [ ] P3-003: Create InProgressTestCard component (optional enhancement)
+- [x] P3-003: Create InProgressTestCard component (optional enhancement)
   - Card showing test session details
   - "Resume Test" primary button
   - "Abandon Test" secondary button (destructive)
