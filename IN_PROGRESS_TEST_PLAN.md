@@ -59,7 +59,7 @@ Implement a two-pronged approach:
 ### Phase 3: DashboardView UI - Display Active Session State
 **Goal**: Update UI to show when a test is in progress
 
-- [ ] P3-001: Update action button to reflect active session state
+- [x] P3-001: Update action button to reflect active session state
   - Show "Resume Test in Progress" when `hasActiveTest == true`
   - Show "Start Your First Test" / "Take Another Test" when `hasActiveTest == false`
   - Update button icon (e.g., "play.circle.fill" for resume)
