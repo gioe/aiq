@@ -75,7 +75,7 @@ Implement a two-pronged approach:
   - "Abandon Test" secondary button (destructive)
   - Show session started time (e.g., "Started 2 hours ago")
 
-- [ ] P3-004: Update empty state to handle active sessions
+- [x] P3-004: Update empty state to handle active sessions
   - If user has no completed tests BUT has active session
   - Show "Test in Progress" messaging instead of "Ready to Begin?"
 
