@@ -50,7 +50,7 @@ Implement a two-pronged approach:
   - Don't block dashboard load if active session check fails
   - Cache active session data with appropriate TTL
 
-- [ ] P2-004: Write unit tests for DashboardViewModel active session logic
+- [x] P2-004: Write unit tests for DashboardViewModel active session logic
   - Test with no active session
   - Test with active session
   - Test error handling
