@@ -16,9 +16,9 @@ class QuestionResponse(BaseModel):
     difficulty_level: str = Field(
         ..., description="Difficulty level (easy, medium, hard)"
     )
-    answer_options: Optional[Dict[str, str]] = Field(
+    answer_options: Optional[List[str]] = Field(
         None,
-        description="Answer options for multiple choice as dict (e.g., {'A': 'answer1', 'B': 'answer2'})",
+        description="Answer options for multiple choice as list (e.g., ['A', 'B', 'C', 'D'])",
     )
     explanation: Optional[str] = Field(
         None, description="Explanation for the correct answer (if available)"

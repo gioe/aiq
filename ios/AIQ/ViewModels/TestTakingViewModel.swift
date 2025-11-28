@@ -119,7 +119,7 @@ class TestTakingViewModel: BaseViewModel {
             // Call the backend API to start a new test
             let response: StartTestResponse = try await apiClient.request(
                 endpoint: .testStart,
-                method: .get,
+                method: .post,
                 body: nil as String?,
                 requiresAuth: true
             )

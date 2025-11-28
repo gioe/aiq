@@ -75,7 +75,7 @@ struct Question: Codable {
     let id: String
     let questionText: String
     let questionType: String
-    let answerOptions: [String: String]
+    let answerOptions: [String]
 
     enum CodingKeys: String, CodingKey {
         case id
