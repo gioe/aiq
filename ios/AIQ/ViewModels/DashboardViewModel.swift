@@ -108,6 +108,52 @@ class DashboardViewModel: BaseViewModel {
         isRefreshing = false
     }
 
+    /// Abandon the active test session
+    /// - Note: This will mark the test as abandoned and clear the active session state
+    func abandonActiveTest() async {
+        guard let sessionId = activeTestSession?.id else {
+            #if DEBUG
+                print("⚠️ No active test session to abandon")
+            #endif
+            return
+        }
+
+        setLoading(true)
+        clearError()
+
+        do {
+            // Call abandon endpoint
+            let response: TestAbandonResponse = try await apiClient.request(
+                endpoint: .testAbandon(sessionId),
+                method: .post,
+                body: nil as String?,
+                requiresAuth: true
+            )
+
+            #if DEBUG
+                print("✅ Test abandoned: \(response.message)")
+                print("   Responses saved: \(response.responsesSaved)")
+            #endif
+
+            // Clear active session state
+            activeTestSession = nil
+            activeSessionQuestionsAnswered = nil
+
+            // Invalidate cache
+            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+
+            // Refresh dashboard to update test history (abandoned test might appear)
+            await fetchDashboardData(forceRefresh: true)
+
+            setLoading(false)
+
+        } catch {
+            handleError(error) {
+                await self.abandonActiveTest()
+            }
+        }
+    }
+
     /// Fetch active test session from API with caching
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
     /// - Note: Errors are logged but don't block dashboard loading
@@ -146,7 +192,10 @@ class DashboardViewModel: BaseViewModel {
 
                 #if DEBUG
                     if let resp = response {
-                        print("✅ Active session fetched from API: \(resp.session.id) with \(resp.questionsCount) questions answered")
+                        print(
+                            "✅ Active session fetched from API: \(resp.session.id) " +
+                                "with \(resp.questionsCount) questions answered"
+                        )
                     } else {
                         print("ℹ️ No active session found")
                     }
@@ -154,14 +203,7 @@ class DashboardViewModel: BaseViewModel {
             }
 
             // Update properties from response
-            if let response = response {
-                activeTestSession = response.session
-                activeSessionQuestionsAnswered = response.questionsCount
-            } else {
-                // No active session
-                activeTestSession = nil
-                activeSessionQuestionsAnswered = nil
-            }
+            updateActiveSessionState(response)
 
         } catch {
             // Gracefully handle errors - log but don't block dashboard
@@ -170,6 +212,17 @@ class DashboardViewModel: BaseViewModel {
             #endif
 
             // Clear active session state on error
+            updateActiveSessionState(nil)
+        }
+    }
+
+    /// Update active session state from response
+    /// - Parameter response: The session status response, or nil if no active session
+    private func updateActiveSessionState(_ response: TestSessionStatusResponse?) {
+        if let response {
+            activeTestSession = response.session
+            activeSessionQuestionsAnswered = response.questionsCount
+        } else {
             activeTestSession = nil
             activeSessionQuestionsAnswered = nil
         }
