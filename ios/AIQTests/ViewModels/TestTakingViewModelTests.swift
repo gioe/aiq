@@ -378,6 +378,9 @@ final class TestTakingViewModelTests: XCTestCase {
     func testAbandonAndStartNew_CallsStartTestAfterSuccessfulAbandon() async {
         // Given
         let sessionId = 777
+        let newSessionId = 888
+
+        // First response: abandon success
         let abandonResponse = TestAbandonResponse(
             session: TestSession(
                 id: sessionId,
@@ -389,21 +392,47 @@ final class TestTakingViewModelTests: XCTestCase {
             ),
             responsesSaved: 3
         )
-        mockAPIClient.mockResponse = abandonResponse
 
-        // Track API calls
-        var apiCalls: [APIEndpoint] = []
+        // Second response: start test success
+        let startTestResponse = StartTestResponse(
+            session: TestSession(
+                id: newSessionId,
+                userId: 1,
+                startedAt: Date(),
+                completedAt: nil,
+                status: .inProgress,
+                questions: nil
+            ),
+            questions: [
+                Question(
+                    id: 1,
+                    questionText: "New test question?",
+                    questionType: .logic,
+                    difficultyLevel: .medium,
+                    answerOptions: ["A", "B", "C", "D"],
+                    explanation: nil
+                )
+            ]
+        )
+
+        // Set up queue with both responses
+        mockAPIClient.responseQueue = [abandonResponse, startTestResponse]
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // Then - Should have tried to call abandon
-        XCTAssertTrue(mockAPIClient.requestCalled, "Should call API")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testAbandon(sessionId), "Should abandon first")
+        // Then - Verify both API calls were made
+        XCTAssertEqual(mockAPIClient.allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(mockAPIClient.allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
+        XCTAssertEqual(mockAPIClient.allEndpoints[1], .testStart, "Second call should start new test")
+        XCTAssertEqual(mockAPIClient.allMethods[0], .post, "Abandon should use POST")
+        XCTAssertEqual(mockAPIClient.allMethods[1], .post, "Start test should use POST")
 
-        // Note: The second call to startTest happens automatically, but in this test
-        // it will fail because we haven't set up a mock response for it.
-        // In a real scenario with proper mocking, we'd verify both calls.
+        // Verify the new test was started successfully
+        XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
+        XCTAssertEqual(sut.questions.count, 1, "Should have new questions")
+        XCTAssertFalse(sut.isLoading, "Loading should be false")
+        XCTAssertNil(sut.error, "Should have no error")
     }
 
     // MARK: - Error Handling in Recovery Tests
