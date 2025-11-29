@@ -82,7 +82,7 @@ Implement a two-pronged approach:
 ### Phase 4: TestTakingView - Graceful Error Handling
 **Goal**: Handle edge cases where user navigates to test with active session
 
-- [ ] P4-001: Add error parsing for "active session" error
+- [x] P4-001: Add error parsing for "active session" error
   - Detect 400 error with "already has an active test session" message
   - Parse session ID from error detail string
   - Create `ActiveSessionError` type to encapsulate this case
