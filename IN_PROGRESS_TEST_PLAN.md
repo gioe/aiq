@@ -99,7 +99,7 @@ Implement a two-pronged approach:
   - Populate questions and session state
   - Handle local saved progress merge if applicable
 
-- [ ] P4-004: Update error handling in `startTest()` method
+- [x] P4-004: Update error handling in `startTest()` method
   - Add specific handling for active session error
   - Show recovery alert instead of generic error
   - Track analytics event for this edge case
