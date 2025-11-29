@@ -15,7 +15,6 @@ from app.schemas.test_sessions import (
     TestSessionStatusResponse,
     TestSessionAbandonResponse,
 )
-from app.schemas.questions import QuestionResponse
 from app.schemas.responses import (
     ResponseSubmission,
     SubmitTestResponse,
@@ -28,35 +27,10 @@ from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
+from app.core.question_utils import question_to_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def _question_to_response(
-    question: Question, include_explanation: bool = False
-) -> QuestionResponse:
-    """
-    Convert a Question model to QuestionResponse schema.
-
-    Handles conversion of answer_options from dict to list format if needed.
-    """
-    # Convert answer_options dict to list if necessary
-    answer_options = question.answer_options
-    if answer_options and isinstance(answer_options, dict):
-        # Convert dict format {"A": "option1", "B": "option2"} to list
-        answer_options = [answer_options[key] for key in sorted(answer_options.keys())]
-
-    return QuestionResponse.model_validate(
-        {
-            "id": question.id,
-            "question_text": question.question_text,
-            "question_type": question.question_type.value,
-            "difficulty_level": question.difficulty_level.value,
-            "answer_options": answer_options,
-            "explanation": question.explanation if include_explanation else None,
-        }
-    )
 
 
 @router.post("/start", response_model=StartTestResponse)
@@ -186,7 +160,7 @@ def start_test(
 
     # Convert questions to response format
     questions_response = [
-        _question_to_response(q, include_explanation=False) for q in unseen_questions
+        question_to_response(q, include_explanation=False) for q in unseen_questions
     ]
 
     return StartTestResponse(
@@ -262,7 +236,7 @@ def get_test_session(
 
             # Convert to response format (without explanations for security)
             questions_response = [
-                _question_to_response(q, include_explanation=False) for q in questions
+                question_to_response(q, include_explanation=False) for q in questions
             ]
 
     return TestSessionStatusResponse(
@@ -325,7 +299,7 @@ def get_active_test_session(
     if question_ids:
         questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
         questions_response = [
-            _question_to_response(q, include_explanation=False) for q in questions
+            question_to_response(q, include_explanation=False) for q in questions
         ]
 
     return TestSessionStatusResponse(
