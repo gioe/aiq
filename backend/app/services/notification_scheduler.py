@@ -9,18 +9,7 @@ from sqlalchemy import and_
 
 from app.models import User, TestResult
 from app.core.config import settings
-
-
-def ensure_timezone_aware(dt: Optional[datetime]) -> datetime:
-    """
-    Ensure a datetime object is timezone-aware (UTC).
-    SQLite may return timezone-naive datetimes even when stored as timezone-aware.
-    """
-    if dt is None:
-        raise ValueError("datetime cannot be None")
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
+from app.core.datetime_utils import ensure_timezone_aware
 
 
 def calculate_next_test_date(last_test_date: datetime) -> datetime:
