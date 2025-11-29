@@ -3,7 +3,7 @@ import Foundation
 /// Protocol defining authentication service interface
 protocol AuthServiceProtocol: AnyObject {
     /// Register a new user
-    func register(
+    func register( // swiftlint:disable:this function_parameter_count
         email: String,
         password: String,
         firstName: String,

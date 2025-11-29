@@ -2,8 +2,6 @@ import Foundation
 
 /// Mock API client for testing and development
 class MockAPIClient: APIClientProtocol {
-
-    
     var authToken: String?
     var mockDelay: TimeInterval = 0.5
     var shouldFail: Bool = false

@@ -12,7 +12,7 @@ protocol AuthManagerProtocol: AnyObject {
     var isLoadingPublisher: Published<Bool>.Publisher { get }
     var authErrorPublisher: Published<Error?>.Publisher { get }
 
-    func register(
+    func register( // swiftlint:disable:this function_parameter_count
         email: String,
         password: String,
         firstName: String,

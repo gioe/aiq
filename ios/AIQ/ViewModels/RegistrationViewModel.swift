@@ -114,8 +114,10 @@ class RegistrationViewModel: BaseViewModel {
                 lastName: lastName.trimmingCharacters(in: .whitespaces),
                 birthYear: birthYearInt,
                 educationLevel: selectedEducationLevel,
-                country: country.trimmingCharacters(in: .whitespaces).isEmpty ? nil : country.trimmingCharacters(in: .whitespaces),
-                region: region.trimmingCharacters(in: .whitespaces).isEmpty ? nil : region.trimmingCharacters(in: .whitespaces)
+                country: country.trimmingCharacters(in: .whitespaces).isEmpty
+                    ? nil : country.trimmingCharacters(in: .whitespaces),
+                region: region.trimmingCharacters(in: .whitespaces).isEmpty
+                    ? nil : region.trimmingCharacters(in: .whitespaces)
             )
             // Clear sensitive data on success
             clearForm()
