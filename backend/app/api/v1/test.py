@@ -186,7 +186,7 @@ def get_test_session(
         db: Database session
 
     Returns:
-        Test session details
+        Test session details with questions (if session is in_progress)
 
     Raises:
         HTTPException: If session not found or doesn't belong to user
@@ -209,9 +209,44 @@ def get_test_session(
         db.query(Response).filter(Response.test_session_id == session_id).count()
     )
 
+    # If session is in_progress, retrieve the questions for this session
+    questions_response = None
+    if test_session.status == TestStatus.IN_PROGRESS:
+        # Get questions that were marked as seen at the time of session start
+        # We look for questions seen within a small window after session start
+        # (typically all questions are marked simultaneously, but we add buffer)
+        session_start = test_session.started_at
+        # 1 minute buffer to account for any delays in question marking
+        time_window_end = session_start + timedelta(minutes=1)
+
+        # Get question IDs that were seen during this session's start window
+        session_question_ids = (
+            db.query(UserQuestion.question_id)
+            .filter(
+                UserQuestion.user_id == current_user.id,
+                UserQuestion.seen_at >= session_start,
+                UserQuestion.seen_at <= time_window_end,
+            )
+            .all()
+        )
+        question_ids = [q_id for (q_id,) in session_question_ids]
+
+        if question_ids:
+            # Fetch the actual questions
+            questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+
+            # Convert to response format (without explanations for security)
+            questions_response = [
+                QuestionResponse.model_validate(q).model_copy(
+                    update={"explanation": None}
+                )
+                for q in questions
+            ]
+
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(test_session),
         questions_count=questions_count,
+        questions=questions_response,
     )
 
 
@@ -249,9 +284,33 @@ def get_active_test_session(
         db.query(Response).filter(Response.test_session_id == active_session.id).count()
     )
 
+    # Get questions for the active session (always in_progress)
+    session_start = active_session.started_at
+    time_window_end = session_start + timedelta(minutes=1)
+
+    session_question_ids = (
+        db.query(UserQuestion.question_id)
+        .filter(
+            UserQuestion.user_id == current_user.id,
+            UserQuestion.seen_at >= session_start,
+            UserQuestion.seen_at <= time_window_end,
+        )
+        .all()
+    )
+    question_ids = [q_id for (q_id,) in session_question_ids]
+
+    questions_response = None
+    if question_ids:
+        questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+        questions_response = [
+            QuestionResponse.model_validate(q).model_copy(update={"explanation": None})
+            for q in questions
+        ]
+
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(active_session),
         questions_count=questions_count,
+        questions=questions_response,
     )
 
 

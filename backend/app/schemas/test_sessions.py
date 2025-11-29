@@ -22,6 +22,8 @@ class TestSessionResponse(BaseModel):
     )
 
     class Config:
+        """Pydantic configuration."""
+
         from_attributes = True
 
 
@@ -40,6 +42,9 @@ class TestSessionStatusResponse(BaseModel):
 
     session: TestSessionResponse = Field(..., description="Test session details")
     questions_count: int = Field(..., description="Number of questions in this session")
+    questions: Optional[List[QuestionResponse]] = Field(
+        None, description="Questions for this session (if session is in_progress)"
+    )
 
 
 class TestSessionAbandonResponse(BaseModel):
