@@ -302,6 +302,9 @@ final class TestTakingViewModelTests: XCTestCase {
     func testAbandonAndStartNew_SuccessfullyAbandonsAndStartsNew() async {
         // Given
         let sessionId = 444
+        let newSessionId = 555
+
+        // First response: abandon success
         let abandonResponse = TestAbandonResponse(
             session: TestSession(
                 id: sessionId,
@@ -313,50 +316,45 @@ final class TestTakingViewModelTests: XCTestCase {
             ),
             responsesSaved: 5
         )
-        let newSession = TestSession(
-            id: 555,
-            userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil
-        )
-        let newQuestions = [
-            Question(
-                id: 100,
-                text: "New question?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "A",
-                explanation: nil,
-                imageUrl: nil
-            )
-        ]
+
+        // Second response: start test success
         let startResponse = StartTestResponse(
-            session: newSession,
-            questions: newQuestions
+            session: TestSession(
+                id: newSessionId,
+                userId: 1,
+                startedAt: Date(),
+                completedAt: nil,
+                status: .inProgress,
+                questions: nil
+            ),
+            questions: [
+                Question(
+                    id: 100,
+                    questionText: "New question?",
+                    questionType: .logic,
+                    difficultyLevel: .medium,
+                    answerOptions: ["A", "B", "C", "D"],
+                    explanation: nil
+                )
+            ]
         )
 
-        // First call returns abandon response, second call returns start response
-        mockAPIClient.mockResponse = abandonResponse
+        // Set up queue with both responses for internal calls
+        mockAPIClient.responseQueue = [abandonResponse, startResponse]
 
-        // When
+        // When - abandonAndStartNew should make both calls internally
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // First API call should be to abandon
-        XCTAssertTrue(mockAPIClient.requestCalled, "API should be called")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testAbandon(sessionId), "First call should abandon session")
+        // Then - verify both API calls were made
+        XCTAssertEqual(mockAPIClient.allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(mockAPIClient.allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
+        XCTAssertEqual(mockAPIClient.allEndpoints[1], .testStart, "Second call should start new test")
 
-        // Set up second response for startTest
-        mockAPIClient.reset()
-        mockAPIClient.mockResponse = startResponse
-        await sut.startTest(questionCount: 20)
-
-        // Then - verify new test was started
-        XCTAssertEqual(sut.testSession?.id, 555, "Should have new session")
+        // Verify the new test was started successfully
+        XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
         XCTAssertEqual(sut.questions.count, 1, "Should have new questions")
         XCTAssertFalse(sut.isLoading, "Loading should be false")
+        XCTAssertNil(sut.error, "Should have no error")
     }
 
     func testAbandonAndStartNew_HandlesAbandonError() async {
