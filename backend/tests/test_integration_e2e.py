@@ -4,7 +4,7 @@ End-to-end integration tests for complete user journeys.
 These tests verify that multiple components work together correctly
 to support complete user workflows from registration to viewing results.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class TestCompleteUserJourney:
@@ -30,8 +30,9 @@ class TestCompleteUserJourney:
         register_response = client.post("/v1/auth/register", json=register_payload)
         assert register_response.status_code == 201
         register_data = register_response.json()
-        assert "email" in register_data
-        assert register_data["email"] == "newuser@example.com"
+        assert "user" in register_data
+        assert "email" in register_data["user"]
+        assert register_data["user"]["email"] == "newuser@example.com"
 
         # Step 2: Login with credentials to get tokens
         login_payload = {
@@ -70,21 +71,15 @@ class TestCompleteUserJourney:
             "responses": [
                 {
                     "question_id": questions[0]["id"],
-                    "user_answer": questions[0]["answer_options"][
-                        "B"
-                    ],  # Correct answer
+                    "user_answer": "B",  # Correct answer
                 },
                 {
                     "question_id": questions[1]["id"],
-                    "user_answer": questions[1]["answer_options"][
-                        "B"
-                    ],  # Correct answer
+                    "user_answer": "B",  # Correct answer
                 },
                 {
                     "question_id": questions[2]["id"],
-                    "user_answer": questions[2]["answer_options"][
-                        "A"
-                    ],  # Incorrect answer
+                    "user_answer": "A",  # Incorrect answer
                 },
             ],
         }
@@ -182,12 +177,12 @@ class TestCompleteUserJourney:
             .filter(TestResultModel.test_session_id == session1_id)
             .first()
         )
-        test_result.completed_at = datetime.utcnow() - timedelta(days=180)
+        test_result.completed_at = datetime.now(timezone.utc) - timedelta(days=180)
 
         test_session = (
             db_session.query(TestSession).filter(TestSession.id == session1_id).first()
         )
-        test_session.completed_at = datetime.utcnow() - timedelta(days=180)
+        test_session.completed_at = datetime.now(timezone.utc) - timedelta(days=180)
         db_session.commit()
 
         # Take second test with 2 questions

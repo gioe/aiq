@@ -33,6 +33,18 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def ensure_timezone_aware(dt: Optional[datetime]) -> datetime:
+    """
+    Ensure a datetime object is timezone-aware (UTC).
+    SQLite may return timezone-naive datetimes even when stored as timezone-aware.
+    """
+    if dt is None:
+        raise ValueError("datetime cannot be None")
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 @router.post("/start", response_model=StartTestResponse)
 def start_test(
     question_count: int = Query(
@@ -96,9 +108,8 @@ def start_test(
 
     if recent_completed_session:
         # Calculate next eligible date
-        next_eligible = recent_completed_session.completed_at + timedelta(
-            days=settings.TEST_CADENCE_DAYS
-        )
+        completed_at = ensure_timezone_aware(recent_completed_session.completed_at)  # type: ignore[arg-type]
+        next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
         days_remaining = (
             next_eligible - datetime.now(timezone.utc)
         ).days + 1  # Round up
@@ -106,7 +117,7 @@ def start_test(
         raise HTTPException(
             status_code=400,
             detail=f"You must wait {settings.TEST_CADENCE_DAYS} days (3 months) between tests. "
-            f"Your last test was completed on {recent_completed_session.completed_at.strftime('%Y-%m-%d')}. "
+            f"Your last test was completed on {completed_at.strftime('%Y-%m-%d')}. "
             f"You can take your next test on {next_eligible.strftime('%Y-%m-%d')} "
             f"({days_remaining} days remaining).",
         )
@@ -506,7 +517,8 @@ def submit_test(
     test_session.completed_at = completion_time  # type: ignore[assignment]
 
     # Calculate completion time in seconds
-    time_delta = completion_time - test_session.started_at
+    started_at = ensure_timezone_aware(test_session.started_at)  # type: ignore[arg-type]
+    time_delta = completion_time - started_at
     completion_time_seconds = int(time_delta.total_seconds())
 
     # Calculate IQ score using scoring module
