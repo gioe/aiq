@@ -87,7 +87,7 @@ Implement a two-pronged approach:
   - Parse session ID from error detail string
   - Create `ActiveSessionError` type to encapsulate this case
 
-- [ ] P4-002: Implement active session recovery flow
+- [x] P4-002: Implement active session recovery flow
   - When ActiveSessionError detected, show alert with options:
     - "Resume" - Call `/v1/test/session/{session_id}` and load that session
     - "Abandon & Start New" - Call `/v1/test/{session_id}/abandon` then retry startTest()
