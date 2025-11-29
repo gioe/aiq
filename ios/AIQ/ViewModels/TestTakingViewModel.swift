@@ -242,7 +242,7 @@ class TestTakingViewModel: BaseViewModel {
 
     private func mergeSavedProgress(_ progress: SavedTestProgress) {
         // Restore user answers from saved progress
-        userAnswers = progress.answers
+        userAnswers = progress.userAnswers
 
         // Set current question index to the first unanswered question
         let answeredQuestionIds = Set(userAnswers.keys)
