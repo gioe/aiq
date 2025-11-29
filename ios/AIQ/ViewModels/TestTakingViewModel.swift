@@ -81,6 +81,13 @@ class TestTakingViewModel: BaseViewModel {
     /// Recalculated when userAnswers changes
     @Published private(set) var answeredQuestionIndices: Set<Int> = []
 
+    /// Returns the set of question IDs that have been answered
+    private var answeredQuestionIds: Set<Int> {
+        Set(userAnswers.compactMap { questionId, answer in
+            answer.isEmpty ? nil : questionId
+        })
+    }
+
     /// Update the cached answered indices set
     private func updateAnsweredIndices() {
         var indices = Set<Int>()
