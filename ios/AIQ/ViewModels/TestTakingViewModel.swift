@@ -193,7 +193,6 @@ class TestTakingViewModel: BaseViewModel {
 
     /// Resume an active test session
     /// - Parameter sessionId: The ID of the session to resume
-    /// - Note: Currently limited - backend doesn't return questions for existing sessions
     func resumeActiveSession(sessionId: Int) async {
         setLoading(true)
         clearError()
@@ -205,42 +204,64 @@ class TestTakingViewModel: BaseViewModel {
                 body: nil as String?,
                 requiresAuth: true
             )
+
+            // Verify we have questions in the response
+            guard let fetchedQuestions = response.questions, !fetchedQuestions.isEmpty else {
+                showNoQuestionsAvailableError()
+                return
+            }
+
+            // Set session and questions
             testSession = response.session
-            handleResumeSessionResponse(sessionId: sessionId)
+            questions = fetchedQuestions
+
+            // Check for local saved progress and merge if available
+            if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
+                mergeSavedProgress(savedProgress)
+            } else {
+                // No saved progress, start from beginning
+                currentQuestionIndex = 0
+                userAnswers.removeAll()
+            }
+
+            testCompleted = false
+            setLoading(false)
+
+            #if DEBUG
+                print("✅ Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
+                if userAnswers.isEmpty {
+                    print("   Starting fresh - no saved progress found")
+                } else {
+                    print("   Restored \(userAnswers.count) saved answers")
+                }
+            #endif
         } catch {
             handleResumeSessionError(error, sessionId: sessionId)
         }
     }
 
-    private func handleResumeSessionResponse(sessionId: Int) {
-        if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
-            showResumeNotSupportedError()
+    private func mergeSavedProgress(_ progress: SavedTestProgress) {
+        // Restore user answers from saved progress
+        userAnswers = progress.answers
+
+        // Set current question index to the first unanswered question
+        let answeredQuestionIds = Set(userAnswers.keys)
+        if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
+            currentQuestionIndex = firstUnansweredIndex
         } else {
-            showNoLocalProgressError()
+            // All questions answered, go to last question
+            currentQuestionIndex = questions.count - 1
         }
     }
 
-    private func showResumeNotSupportedError() {
+    private func showNoQuestionsAvailableError() {
         setLoading(false)
         let error = NSError(
             domain: "TestTakingViewModel",
             code: -1,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Resume functionality requires backend support. Please abandon this test and start a new one."
-            ]
-        )
-        handleError(error)
-    }
-
-    private func showNoLocalProgressError() {
-        setLoading(false)
-        let error = NSError(
-            domain: "TestTakingViewModel",
-            code: -1,
-            userInfo: [
-                NSLocalizedDescriptionKey:
-                    "No local progress found for this session. Please abandon and start a new test."
+                    "Unable to retrieve questions for this session. Please abandon and start a new test."
             ]
         )
         handleError(error)

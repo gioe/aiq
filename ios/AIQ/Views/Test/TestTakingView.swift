@@ -90,6 +90,11 @@ struct TestTakingView: View {
         }
         .alert("Active Test Session", isPresented: .constant(isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
+                Button("Resume Test") {
+                    Task {
+                        await viewModel.resumeActiveSession(sessionId: sessionId)
+                    }
+                }
                 Button("Abandon & Start New", role: .destructive) {
                     Task {
                         await viewModel.abandonAndStartNew(sessionId: sessionId)
@@ -101,12 +106,7 @@ struct TestTakingView: View {
                 }
             }
         } message: {
-            Text(
-                """
-                You have an active test session. Please abandon it to start a new test, \
-                or return to the dashboard to resume from there.
-                """
-            )
+            Text("You have an active test session. Would you like to resume it or start a new test?")
         }
     }
 
