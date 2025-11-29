@@ -159,6 +159,9 @@ class TestTakingViewModel: BaseViewModel {
     private func handleTestStartError(_ error: APIError, questionCount: Int) {
         // Check if this is an active session conflict
         if case let .activeSessionConflict(sessionId, _) = error {
+            // Track analytics for this edge case
+            AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
+
             Task {
                 await showActiveSessionRecoveryAlert(sessionId: sessionId)
             }

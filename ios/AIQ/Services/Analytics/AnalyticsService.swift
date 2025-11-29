@@ -13,6 +13,7 @@ enum AnalyticsEvent: String {
     case testStarted = "test.started"
     case testCompleted = "test.completed"
     case testAbandoned = "test.abandoned"
+    case activeSessionConflict = "test.active_session_conflict"
 
     // Question events
     case questionAnswered = "question.answered"
@@ -128,6 +129,15 @@ class AnalyticsService {
         track(event: .testAbandoned, properties: [
             "session_id": sessionId,
             "answered_count": answeredCount
+        ])
+    }
+
+    /// Track active session conflict detection
+    ///
+    /// - Parameter sessionId: The ID of the conflicting active session
+    func trackActiveSessionConflict(sessionId: Int) {
+        track(event: .activeSessionConflict, properties: [
+            "session_id": sessionId
         ])
     }
 
