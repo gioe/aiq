@@ -81,6 +81,13 @@ class TestTakingViewModel: BaseViewModel {
     /// Recalculated when userAnswers changes
     @Published private(set) var answeredQuestionIndices: Set<Int> = []
 
+    /// Returns the set of question IDs that have been answered
+    private var answeredQuestionIds: Set<Int> {
+        Set(userAnswers.compactMap { questionId, answer in
+            answer.isEmpty ? nil : questionId
+        })
+    }
+
     /// Update the cached answered indices set
     private func updateAnsweredIndices() {
         var indices = Set<Int>()
@@ -193,7 +200,6 @@ class TestTakingViewModel: BaseViewModel {
 
     /// Resume an active test session
     /// - Parameter sessionId: The ID of the session to resume
-    /// - Note: Currently limited - backend doesn't return questions for existing sessions
     func resumeActiveSession(sessionId: Int) async {
         setLoading(true)
         clearError()
@@ -205,42 +211,67 @@ class TestTakingViewModel: BaseViewModel {
                 body: nil as String?,
                 requiresAuth: true
             )
+
+            // Verify we have questions in the response
+            guard let fetchedQuestions = response.questions, !fetchedQuestions.isEmpty else {
+                showNoQuestionsAvailableError()
+                return
+            }
+
+            // Set session and questions
             testSession = response.session
-            handleResumeSessionResponse(sessionId: sessionId)
+            questions = fetchedQuestions
+
+            // Check for local saved progress and merge if available
+            if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
+                mergeSavedProgress(savedProgress)
+            } else {
+                // No saved progress, start from beginning
+                currentQuestionIndex = 0
+                userAnswers.removeAll()
+            }
+
+            testCompleted = false
+            setLoading(false)
+
+            #if DEBUG
+                print("✅ Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
+                if userAnswers.isEmpty {
+                    print("   Starting fresh - no saved progress found")
+                } else {
+                    print("   Restored \(userAnswers.count) saved answers")
+                }
+            #endif
         } catch {
             handleResumeSessionError(error, sessionId: sessionId)
         }
     }
 
-    private func handleResumeSessionResponse(sessionId: Int) {
-        if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
-            showResumeNotSupportedError()
+    private func mergeSavedProgress(_ progress: SavedTestProgress) {
+        guard !questions.isEmpty else {
+            showNoQuestionsAvailableError()
+            return
+        }
+
+        // Filter out answers for questions not in this session
+        let validQuestionIds = Set(questions.map(\.id))
+        userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
+
+        if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
+            currentQuestionIndex = firstUnansweredIndex
         } else {
-            showNoLocalProgressError()
+            currentQuestionIndex = max(0, questions.count - 1)
         }
     }
 
-    private func showResumeNotSupportedError() {
+    private func showNoQuestionsAvailableError() {
         setLoading(false)
         let error = NSError(
             domain: "TestTakingViewModel",
             code: -1,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Resume functionality requires backend support. Please abandon this test and start a new one."
-            ]
-        )
-        handleError(error)
-    }
-
-    private func showNoLocalProgressError() {
-        setLoading(false)
-        let error = NSError(
-            domain: "TestTakingViewModel",
-            code: -1,
-            userInfo: [
-                NSLocalizedDescriptionKey:
-                    "No local progress found for this session. Please abandon and start a new test."
+                    "Unable to retrieve questions for this session. Please abandon and start a new test."
             ]
         )
         handleError(error)

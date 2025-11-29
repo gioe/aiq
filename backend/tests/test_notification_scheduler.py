@@ -2,7 +2,7 @@
 Tests for notification scheduling service.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.models import User, TestSession, TestResult
@@ -126,7 +126,9 @@ class TestGetUsersDueForTest:
     def test_user_due_for_test_is_returned(self, db_session, user_with_device_token):
         """Test that a user who is due for a test is returned."""
         # Create a test result from 6 months ago
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_with_device_token.id, six_months_ago)
 
         users = get_users_due_for_test(db_session)
@@ -137,7 +139,7 @@ class TestGetUsersDueForTest:
     def test_user_not_due_is_not_returned(self, db_session, user_with_device_token):
         """Test that a user who recently tested is not returned."""
         # Create a test result from 1 month ago
-        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        one_month_ago = datetime.now(timezone.utc) - timedelta(days=30)
         create_test_result(db_session, user_with_device_token.id, one_month_ago)
 
         users = get_users_due_for_test(db_session)
@@ -148,7 +150,9 @@ class TestGetUsersDueForTest:
         self, db_session, user_without_notifications
     ):
         """Test that users with notifications disabled are not returned."""
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_without_notifications.id, six_months_ago)
 
         users = get_users_due_for_test(db_session)
@@ -159,7 +163,9 @@ class TestGetUsersDueForTest:
         self, db_session, user_without_device_token
     ):
         """Test that users without device tokens are not returned."""
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_without_device_token.id, six_months_ago)
 
         users = get_users_due_for_test(db_session)
@@ -185,7 +191,7 @@ class TestGetUsersDueForTest:
             users.append(user)
 
             # Create test results from 6 months ago
-            six_months_ago = datetime.utcnow() - timedelta(
+            six_months_ago = datetime.now(timezone.utc) - timedelta(
                 days=settings.TEST_CADENCE_DAYS
             )
             create_test_result(db_session, user.id, six_months_ago)
@@ -197,12 +203,12 @@ class TestGetUsersDueForTest:
     def test_custom_notification_window(self, db_session, user_with_device_token):
         """Test with custom notification window."""
         # Create a test result from 7 months ago
-        seven_months_ago = datetime.utcnow() - timedelta(days=210)
+        seven_months_ago = datetime.now(timezone.utc) - timedelta(days=210)
         create_test_result(db_session, user_with_device_token.id, seven_months_ago)
 
         # Set a narrow window that excludes this user
-        window_start = datetime.utcnow() - timedelta(days=1)
-        window_end = datetime.utcnow() + timedelta(days=1)
+        window_start = datetime.now(timezone.utc) - timedelta(days=1)
+        window_end = datetime.now(timezone.utc) + timedelta(days=1)
 
         users = get_users_due_for_test(
             db_session,
@@ -218,7 +224,9 @@ class TestGetUsersDueForTest:
     ):
         """Test that the reminder window catches users who are slightly overdue."""
         # Create a test result that makes user due 5 days ago
-        test_date = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS + 5)
+        test_date = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS + 5
+        )
         create_test_result(db_session, user_with_device_token.id, test_date)
 
         # With default window (NOTIFICATION_REMINDER_DAYS = 7), user should be included
@@ -248,7 +256,9 @@ class TestGetUsersNeverTested:
     def test_user_with_test_not_returned(self, db_session, user_with_device_token):
         """Test that users with test history are not returned."""
         # Create a test result
-        create_test_result(db_session, user_with_device_token.id, datetime.utcnow())
+        create_test_result(
+            db_session, user_with_device_token.id, datetime.now(timezone.utc)
+        )
 
         users = get_users_never_tested(db_session)
 
@@ -279,7 +289,9 @@ class TestNotificationScheduler:
     ):
         """Test getting users to notify without including never-tested users."""
         # Create a test result from 6 months ago
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_with_device_token.id, six_months_ago)
 
         # Create another user who never tested
@@ -306,7 +318,9 @@ class TestNotificationScheduler:
     ):
         """Test getting users to notify including never-tested users."""
         # Create a test result from 6 months ago
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_with_device_token.id, six_months_ago)
 
         # Create another user who never tested
@@ -330,7 +344,7 @@ class TestNotificationScheduler:
     def test_get_next_test_date_for_user(self, db_session, user_with_device_token):
         """Test getting next test date for a specific user."""
         # Create a test result
-        test_date = datetime.utcnow() - timedelta(days=30)
+        test_date = datetime.now(timezone.utc) - timedelta(days=30)
         create_test_result(db_session, user_with_device_token.id, test_date)
 
         scheduler = NotificationScheduler(db_session)
@@ -351,7 +365,9 @@ class TestNotificationScheduler:
     def test_is_user_due_for_test_when_due(self, db_session, user_with_device_token):
         """Test checking if user is due when they are."""
         # Create a test result from 6 months ago
-        six_months_ago = datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        six_months_ago = datetime.now(timezone.utc) - timedelta(
+            days=settings.TEST_CADENCE_DAYS
+        )
         create_test_result(db_session, user_with_device_token.id, six_months_ago)
 
         scheduler = NotificationScheduler(db_session)
@@ -364,7 +380,7 @@ class TestNotificationScheduler:
     ):
         """Test checking if user is due when they are not."""
         # Create a test result from 1 month ago
-        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        one_month_ago = datetime.now(timezone.utc) - timedelta(days=30)
         create_test_result(db_session, user_with_device_token.id, one_month_ago)
 
         scheduler = NotificationScheduler(db_session)
@@ -384,8 +400,8 @@ class TestNotificationScheduler:
     ):
         """Test that scheduler uses the most recent test when calculating next date."""
         # Create two test results
-        old_test = datetime.utcnow() - timedelta(days=200)
-        recent_test = datetime.utcnow() - timedelta(days=30)
+        old_test = datetime.now(timezone.utc) - timedelta(days=200)
+        recent_test = datetime.now(timezone.utc) - timedelta(days=30)
 
         create_test_result(db_session, user_with_device_token.id, old_test)
         create_test_result(db_session, user_with_device_token.id, recent_test)

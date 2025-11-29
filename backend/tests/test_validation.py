@@ -260,7 +260,7 @@ class TestRegistrationValidation:
         assert response.status_code == 201
         data = response.json()
         # HTML should be sanitized
-        assert "<script>" not in data["first_name"]
+        assert "<script>" not in data["user"]["first_name"]
 
 
 class TestResponseValidation:

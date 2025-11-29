@@ -11,6 +11,18 @@ from app.models import User, TestResult
 from app.core.config import settings
 
 
+def ensure_timezone_aware(dt: Optional[datetime]) -> datetime:
+    """
+    Ensure a datetime object is timezone-aware (UTC).
+    SQLite may return timezone-naive datetimes even when stored as timezone-aware.
+    """
+    if dt is None:
+        raise ValueError("datetime cannot be None")
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def calculate_next_test_date(last_test_date: datetime) -> datetime:
     """
     Calculate the next test due date based on the last test completion date.
@@ -208,7 +220,8 @@ class NotificationScheduler:
             # User has never taken a test
             return None
 
-        return calculate_next_test_date(latest_result.completed_at)  # type: ignore
+        completed_at = ensure_timezone_aware(latest_result.completed_at)  # type: ignore
+        return calculate_next_test_date(completed_at)
 
     def is_user_due_for_test(self, user_id: int) -> bool:
         """

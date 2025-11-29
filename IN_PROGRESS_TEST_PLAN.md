@@ -93,7 +93,7 @@ Implement a two-pronged approach:
     - "Abandon & Start New" - Call `/v1/test/{session_id}/abandon` then retry startTest()
     - "Cancel" - Return to dashboard
 
-- [ ] P4-003: Add session retrieval support
+- [x] P4-003: Add session retrieval support
   - Add method `fetchTestSession(_ sessionId: Int)` to TestTakingViewModel
   - Call `/v1/test/session/{session_id}` endpoint
   - Populate questions and session state

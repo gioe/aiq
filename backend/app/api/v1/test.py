@@ -4,6 +4,7 @@ Test session management endpoints.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import case
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -15,7 +16,6 @@ from app.schemas.test_sessions import (
     TestSessionStatusResponse,
     TestSessionAbandonResponse,
 )
-from app.schemas.questions import QuestionResponse
 from app.schemas.responses import (
     ResponseSubmission,
     SubmitTestResponse,
@@ -28,9 +28,22 @@ from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
+from app.core.question_utils import question_to_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def ensure_timezone_aware(dt: Optional[datetime]) -> datetime:
+    """
+    Ensure a datetime object is timezone-aware (UTC).
+    SQLite may return timezone-naive datetimes even when stored as timezone-aware.
+    """
+    if dt is None:
+        raise ValueError("datetime cannot be None")
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 @router.post("/start", response_model=StartTestResponse)
@@ -96,9 +109,8 @@ def start_test(
 
     if recent_completed_session:
         # Calculate next eligible date
-        next_eligible = recent_completed_session.completed_at + timedelta(
-            days=settings.TEST_CADENCE_DAYS
-        )
+        completed_at = ensure_timezone_aware(recent_completed_session.completed_at)  # type: ignore[arg-type]
+        next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
         days_remaining = (
             next_eligible - datetime.now(timezone.utc)
         ).days + 1  # Round up
@@ -106,7 +118,7 @@ def start_test(
         raise HTTPException(
             status_code=400,
             detail=f"You must wait {settings.TEST_CADENCE_DAYS} days (3 months) between tests. "
-            f"Your last test was completed on {recent_completed_session.completed_at.strftime('%Y-%m-%d')}. "
+            f"Your last test was completed on {completed_at.strftime('%Y-%m-%d')}. "
             f"You can take your next test on {next_eligible.strftime('%Y-%m-%d')} "
             f"({days_remaining} days remaining).",
         )
@@ -144,6 +156,7 @@ def start_test(
         user_question = UserQuestion(
             user_id=current_user.id,
             question_id=question.id,
+            test_session_id=test_session.id,
             seen_at=datetime.now(timezone.utc),
         )
         db.add(user_question)
@@ -160,8 +173,7 @@ def start_test(
 
     # Convert questions to response format
     questions_response = [
-        QuestionResponse.model_validate(q).model_copy(update={"explanation": None})
-        for q in unseen_questions
+        question_to_response(q, include_explanation=False) for q in unseen_questions
     ]
 
     return StartTestResponse(
@@ -186,7 +198,7 @@ def get_test_session(
         db: Database session
 
     Returns:
-        Test session details
+        Test session details with questions (if session is in_progress)
 
     Raises:
         HTTPException: If session not found or doesn't belong to user
@@ -209,9 +221,49 @@ def get_test_session(
         db.query(Response).filter(Response.test_session_id == session_id).count()
     )
 
+    # If session is in_progress, retrieve the questions for this session
+    questions_response = None
+    if test_session.status == TestStatus.IN_PROGRESS:
+        # Get questions that were marked as seen at the time of session start
+        # We look for questions seen within a small window after session start
+        # (typically all questions are marked simultaneously, but we add buffer)
+        session_start = test_session.started_at
+        # 1 minute buffer to account for any delays in question marking
+        time_window_end = session_start + timedelta(minutes=1)
+
+        # Get question IDs that were seen during this session's start window
+        session_question_ids = (
+            db.query(UserQuestion.question_id)
+            .filter(
+                UserQuestion.user_id == current_user.id,
+                UserQuestion.seen_at >= session_start,
+                UserQuestion.seen_at <= time_window_end,
+            )
+            .all()
+        )
+        question_ids = [q_id for (q_id,) in session_question_ids]
+
+        if question_ids:
+            # Fetch the actual questions in the order they were saved
+            ordering = case(
+                {id: index for index, id in enumerate(question_ids)}, value=Question.id
+            )
+            questions = (
+                db.query(Question)
+                .filter(Question.id.in_(question_ids))
+                .order_by(ordering)
+                .all()
+            )
+
+            # Convert to response format (without explanations for security)
+            questions_response = [
+                question_to_response(q, include_explanation=False) for q in questions
+            ]
+
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(test_session),
         questions_count=questions_count,
+        questions=questions_response,
     )
 
 
@@ -249,9 +301,37 @@ def get_active_test_session(
         db.query(Response).filter(Response.test_session_id == active_session.id).count()
     )
 
+    # Get questions for the active session using explicit session relationship
+    session_question_ids = (
+        db.query(UserQuestion.question_id)
+        .filter(
+            UserQuestion.user_id == current_user.id,
+            UserQuestion.test_session_id == active_session.id,
+        )
+        .all()
+    )
+    question_ids = [q_id for (q_id,) in session_question_ids]
+
+    questions_response = None
+    if question_ids:
+        # Fetch questions in the order they were saved
+        ordering = case(
+            {id: index for index, id in enumerate(question_ids)}, value=Question.id
+        )
+        questions = (
+            db.query(Question)
+            .filter(Question.id.in_(question_ids))
+            .order_by(ordering)
+            .all()
+        )
+        questions_response = [
+            question_to_response(q, include_explanation=False) for q in questions
+        ]
+
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(active_session),
         questions_count=questions_count,
+        questions=questions_response,
     )
 
 
@@ -452,7 +532,8 @@ def submit_test(
     test_session.completed_at = completion_time  # type: ignore[assignment]
 
     # Calculate completion time in seconds
-    time_delta = completion_time - test_session.started_at
+    started_at = ensure_timezone_aware(test_session.started_at)  # type: ignore[arg-type]
+    time_delta = completion_time - started_at
     completion_time_seconds = int(time_delta.total_seconds())
 
     # Calculate IQ score using scoring module

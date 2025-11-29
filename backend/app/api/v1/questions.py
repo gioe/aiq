@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 
 from app.models import get_db, User, Question, UserQuestion
-from app.schemas.questions import QuestionResponse, UnseenQuestionsResponse
+from app.schemas.questions import UnseenQuestionsResponse
 from app.core.auth import get_current_user
+from app.core.question_utils import question_to_response
 
 router = APIRouter()
 
@@ -75,10 +76,8 @@ def get_unseen_questions(
         )
 
     # Convert to response schema (which excludes correct_answer and sensitive fields)
-    # Use Pydantic's model_validate with from_attributes=True, then override explanation
     questions_response = [
-        QuestionResponse.model_validate(q).model_copy(update={"explanation": None})
-        for q in unseen_questions
+        question_to_response(q, include_explanation=False) for q in unseen_questions
     ]
 
     return UnseenQuestionsResponse(

@@ -7,7 +7,7 @@ Tests the end-to-end notification flow including:
 - Notification payload formatting
 - APNs service configuration (without actually sending)
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -55,7 +55,8 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -81,7 +82,8 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -107,7 +109,8 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -134,7 +137,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=30),
+            completed_at=datetime.now(timezone.utc) - timedelta(days=30),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -170,7 +173,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -197,7 +200,8 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -222,7 +226,8 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -246,7 +251,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=30),
+            completed_at=datetime.now(timezone.utc) - timedelta(days=30),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -270,7 +275,9 @@ class TestNotificationScheduler:
     ):
         """Test getting next test date for a user."""
         # Create a test result
-        completed_at = datetime(2024, 1, 1, 12, 0, 0)
+        from datetime import timezone
+
+        completed_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         from app.models import TestResult as TestResultModel
 
         test_result = TestResultModel(
@@ -321,7 +328,8 @@ class TestNotificationPayloadFormatting:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.utcnow() - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=datetime.now(timezone.utc)
+            - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()

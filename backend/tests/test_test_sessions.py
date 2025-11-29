@@ -297,6 +297,7 @@ class TestGetTestSession:
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
+        start_questions = start_response.json()["questions"]
 
         # Get the session
         response = client.get(f"/v1/test/session/{session_id}", headers=auth_headers)
@@ -306,9 +307,18 @@ class TestGetTestSession:
 
         assert "session" in data
         assert "questions_count" in data
+        assert "questions" in data
         assert data["session"]["id"] == session_id
         assert data["session"]["status"] == "in_progress"
         assert data["questions_count"] == 0  # No responses yet
+
+        # Verify questions are returned for in_progress sessions
+        assert data["questions"] is not None
+        assert len(data["questions"]) == 2
+        # Verify question IDs match those from start_test
+        retrieved_q_ids = {q["id"] for q in data["questions"]}
+        start_q_ids = {q["id"] for q in start_questions}
+        assert retrieved_q_ids == start_q_ids
 
     def test_get_test_session_not_found(self, client, auth_headers):
         """Test getting non-existent session."""

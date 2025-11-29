@@ -2,7 +2,7 @@
 Pydantic schemas for question endpoints.
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 
 class QuestionResponse(BaseModel):
