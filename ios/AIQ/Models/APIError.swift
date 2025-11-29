@@ -61,6 +61,10 @@ enum APIError: Error, LocalizedError {
     case forbidden(message: String? = nil)
     /// The requested resource was not found
     case notFound(message: String? = nil)
+    /// Bad request - client error
+    case badRequest(message: String? = nil)
+    /// User already has an active test session
+    case activeSessionConflict(sessionId: Int, message: String)
     /// Server error occurred
     case serverError(statusCode: Int, message: String? = nil)
     /// Failed to decode the server response
@@ -87,6 +91,10 @@ enum APIError: Error, LocalizedError {
             message ?? "You don't have permission to access this resource"
         case let .notFound(message):
             message ?? "The requested resource was not found"
+        case let .badRequest(message):
+            message ?? "Invalid request. Please try again."
+        case let .activeSessionConflict(sessionId, message):
+            message
         case let .serverError(statusCode, message):
             if let message {
                 "Server error: \(message)"
@@ -124,7 +132,8 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .networkError, .timeout, .noInternetConnection, .serverError:
             true
-        case .unauthorized, .forbidden, .invalidURL, .invalidResponse, .notFound, .decodingError, .unknown:
+        case .unauthorized, .forbidden, .invalidURL, .invalidResponse, .notFound, .badRequest,
+             .activeSessionConflict, .decodingError, .unknown:
             false
         }
     }
@@ -159,4 +168,37 @@ struct ContextualError: Error, LocalizedError {
 struct ErrorResponse: Codable {
     /// Detailed error message from the server
     let detail: String
+}
+
+// MARK: - Active Session Error Parsing
+
+extension APIError {
+    /// Parse a 400 error to detect active session conflicts
+    /// - Parameter message: The error message from the server
+    /// - Returns: An activeSessionConflict error if detected, otherwise a badRequest error
+    static func parseBadRequest(message: String?) -> APIError {
+        guard let message else {
+            return .badRequest(message: nil)
+        }
+
+        // Check if this is an active session conflict
+        // Expected format: "User already has an active test session (ID: 123). ..."
+        if message.contains("already has an active test session") {
+            // Extract session ID using regex
+            let pattern = #"active test session \(ID: (\d+)\)"#
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+               let match = regex.firstMatch(
+                   in: message,
+                   options: [],
+                   range: NSRange(message.startIndex..., in: message)
+               ),
+               let sessionIdRange = Range(match.range(at: 1), in: message),
+               let sessionId = Int(message[sessionIdRange]) {
+                return .activeSessionConflict(sessionId: sessionId, message: message)
+            }
+        }
+
+        // Not an active session conflict - return generic bad request
+        return .badRequest(message: message)
+    }
 }

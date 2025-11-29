@@ -358,6 +358,9 @@ class APIClient: APIClientProtocol {
         switch statusCode {
         case 200 ... 299:
             return try decodeResponse(data: data)
+        case 400:
+            let message = parseErrorMessage(from: data)
+            throw APIError.parseBadRequest(message: message)
         case 401:
             let message = parseErrorMessage(from: data)
             throw APIError.unauthorized(message: message)
