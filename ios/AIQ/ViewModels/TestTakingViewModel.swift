@@ -116,44 +116,199 @@ class TestTakingViewModel: BaseViewModel {
         clearError()
 
         do {
-            // Call the backend API to start a new test
-            let response: StartTestResponse = try await apiClient.request(
-                endpoint: .testStart,
+            let response = try await fetchTestQuestions(questionCount: questionCount)
+            handleTestStartSuccess(response: response)
+        } catch let error as APIError {
+            handleTestStartError(error, questionCount: questionCount)
+        } catch {
+            handleGenericTestStartError(error, questionCount: questionCount)
+        }
+    }
+
+    private func fetchTestQuestions(questionCount _: Int) async throws -> StartTestResponse {
+        try await apiClient.request(
+            endpoint: .testStart,
+            method: .post,
+            body: nil as String?,
+            requiresAuth: true
+        )
+    }
+
+    private func handleTestStartSuccess(response: StartTestResponse) {
+        testSession = response.session
+        questions = response.questions
+        currentQuestionIndex = 0
+        userAnswers.removeAll()
+        testCompleted = false
+
+        AnalyticsService.shared.trackTestStarted(
+            sessionId: response.session.id,
+            questionCount: response.questions.count
+        )
+
+        setLoading(false)
+    }
+
+    private func handleTestStartError(_ error: APIError, questionCount: Int) {
+        // Check if this is an active session conflict
+        if case let .activeSessionConflict(sessionId, _) = error {
+            Task {
+                await showActiveSessionRecoveryAlert(sessionId: sessionId)
+            }
+            setLoading(false)
+            return
+        }
+
+        // Handle other API errors normally
+        let contextualError = ContextualError(
+            error: error,
+            operation: .fetchQuestions
+        )
+        handleError(contextualError, retryOperation: { [weak self] in
+            await self?.startTest(questionCount: questionCount)
+        })
+
+        #if DEBUG
+            print("Failed to load questions from API, falling back to mock data: \(error)")
+            loadMockQuestions(count: questionCount)
+            setLoading(false)
+        #endif
+    }
+
+    private func handleGenericTestStartError(_ error: Error, questionCount: Int) {
+        let contextualError = ContextualError(
+            error: .unknown(),
+            operation: .fetchQuestions
+        )
+        handleError(contextualError, retryOperation: { [weak self] in
+            await self?.startTest(questionCount: questionCount)
+        })
+
+        #if DEBUG
+            print("Failed to load questions from API: \(error)")
+            loadMockQuestions(count: questionCount)
+            setLoading(false)
+        #endif
+    }
+
+    /// Resume an active test session
+    /// - Parameter sessionId: The ID of the session to resume
+    /// - Note: Currently limited - backend doesn't return questions for existing sessions
+    func resumeActiveSession(sessionId: Int) async {
+        setLoading(true)
+        clearError()
+
+        do {
+            let response: TestSessionStatusResponse = try await apiClient.request(
+                endpoint: .testSession(sessionId),
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            testSession = response.session
+            handleResumeSessionResponse(sessionId: sessionId)
+        } catch {
+            handleResumeSessionError(error, sessionId: sessionId)
+        }
+    }
+
+    private func handleResumeSessionResponse(sessionId: Int) {
+        if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
+            showResumeNotSupportedError()
+        } else {
+            showNoLocalProgressError()
+        }
+    }
+
+    private func showResumeNotSupportedError() {
+        setLoading(false)
+        let error = NSError(
+            domain: "TestTakingViewModel",
+            code: -1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Resume functionality requires backend support. Please abandon this test and start a new one."
+            ]
+        )
+        handleError(error)
+    }
+
+    private func showNoLocalProgressError() {
+        setLoading(false)
+        let error = NSError(
+            domain: "TestTakingViewModel",
+            code: -1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "No local progress found for this session. Please abandon and start a new test."
+            ]
+        )
+        handleError(error)
+    }
+
+    private func handleResumeSessionError(_ error: Error, sessionId: Int) {
+        setLoading(false)
+        let contextualError = ContextualError(
+            error: error as? APIError ?? .unknown(),
+            operation: .fetchQuestions
+        )
+        handleError(contextualError)
+
+        #if DEBUG
+            print("❌ Failed to resume session \(sessionId): \(error)")
+        #endif
+    }
+
+    /// Abandon the active session and start a new test
+    /// - Parameter sessionId: The ID of the session to abandon
+    func abandonAndStartNew(sessionId: Int, questionCount: Int = 20) async {
+        setLoading(true)
+        clearError()
+
+        do {
+            // First, abandon the existing session
+            let _: TestAbandonResponse = try await apiClient.request(
+                endpoint: .testAbandon(sessionId),
                 method: .post,
                 body: nil as String?,
                 requiresAuth: true
             )
 
-            // Update state with the response
-            testSession = response.session
-            questions = response.questions
-            currentQuestionIndex = 0
-            userAnswers.removeAll()
-            testCompleted = false
+            #if DEBUG
+                print("✅ Abandoned session \(sessionId), starting new test")
+            #endif
 
-            // Track analytics
-            AnalyticsService.shared.trackTestStarted(
-                sessionId: response.session.id,
-                questionCount: response.questions.count
-            )
-
-            setLoading(false)
+            // Then start a new test
+            await startTest(questionCount: questionCount)
         } catch {
+            setLoading(false)
+
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(),
-                operation: .fetchQuestions
+                operation: .submitTest
             )
-            handleError(contextualError, retryOperation: { [weak self] in
-                await self?.startTest(questionCount: questionCount)
-            })
+            handleError(contextualError)
 
-            // Fall back to mock questions in development/testing
             #if DEBUG
-                print("Failed to load questions from API, falling back to mock data: \(error)")
-                loadMockQuestions(count: questionCount)
-                setLoading(false)
+                print("❌ Failed to abandon session \(sessionId): \(error)")
             #endif
         }
+    }
+
+    /// Show recovery alert for active session conflict
+    /// - Parameter sessionId: The ID of the conflicting session
+    private func showActiveSessionRecoveryAlert(sessionId: Int) async {
+        // This will be handled by the view layer
+        // The view should observe the error state and show an appropriate alert
+        let error = APIError.activeSessionConflict(
+            sessionId: sessionId,
+            message: "You have an active test session. Would you like to resume it or start a new test?"
+        )
+
+        self.error = ContextualError(
+            error: error,
+            operation: .fetchQuestions
+        )
     }
 
     func submitTest() async {

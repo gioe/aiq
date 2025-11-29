@@ -8,6 +8,25 @@ struct TestTakingView: View {
     @State private var showExitConfirmation = false
     @State private var savedProgress: SavedTestProgress?
     @State private var showResultsView = false
+    @State private var activeSessionConflictId: Int?
+
+    /// Check if the current error is an active session conflict
+    private var isActiveSessionConflict: Bool {
+        if let contextualError = viewModel.error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            return true
+        }
+        return false
+    }
+
+    /// Extract session ID from active session conflict error
+    private var conflictingSessionId: Int? {
+        if let contextualError = viewModel.error as? ContextualError,
+           case let .activeSessionConflict(sessionId, _) = contextualError.underlyingError {
+            return sessionId
+        }
+        return nil
+    }
 
     var body: some View {
         ZStack {
@@ -68,6 +87,26 @@ struct TestTakingView: View {
                     dismiss()
                 }
             }
+        }
+        .alert("Active Test Session", isPresented: .constant(isActiveSessionConflict)) {
+            if let sessionId = conflictingSessionId {
+                Button("Abandon & Start New", role: .destructive) {
+                    Task {
+                        await viewModel.abandonAndStartNew(sessionId: sessionId)
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    viewModel.clearError()
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(
+                """
+                You have an active test session. Please abandon it to start a new test, \
+                or return to the dashboard to resume from there.
+                """
+            )
         }
     }
 

@@ -54,6 +54,11 @@ Follow these steps IN ORDER:
    - Create PR: `gh pr create` with title format `[{{task_id}}] Brief task description`
    - The PR should merge the feature branch into main
 
+10. **For iOS tasks: Open Xcode for manual testing**
+   - If the task involves iOS app changes (Swift/SwiftUI code), run the `/ios` command
+   - This will build and open the iOS project in Xcode for manual testing
+   - Verify the changes work as expected before finalizing the PR
+
 Important guidelines:
 - Read related tasks in the same phase for context
 - Follow existing code patterns and architecture
