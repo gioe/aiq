@@ -1,5 +1,5 @@
-import Foundation
 @testable import AIQ
+import Foundation
 
 /// Mock implementation of APIClientProtocol for testing
 class MockAPIClient: APIClientProtocol {
@@ -12,10 +12,18 @@ class MockAPIClient: APIClientProtocol {
     var lastRequiresAuth: Bool?
     var lastCustomHeaders: [String: String]?
 
+    // Track all API calls
+    var allEndpoints: [APIEndpoint] = []
+    var allMethods: [HTTPMethod] = []
+
     // MARK: - Mock Response Configuration
 
     var mockResponse: Any?
     var mockError: Error?
+
+    // Queue-based responses for multiple sequential calls
+    var responseQueue: [Any] = []
+    var errorQueue: [Error] = []
 
     // MARK: - APIClientProtocol Implementation
 
@@ -31,10 +39,35 @@ class MockAPIClient: APIClientProtocol {
         lastBody = body
         lastRequiresAuth = requiresAuth
 
+        // Track all calls
+        allEndpoints.append(endpoint)
+        allMethods.append(method)
+
+        // Check error queue first
+        if !errorQueue.isEmpty {
+            let error = errorQueue.removeFirst()
+            throw error
+        }
+
+        // Check for single error
         if let error = mockError {
             throw error
         }
 
+        // Check response queue
+        if !responseQueue.isEmpty {
+            let response = responseQueue.removeFirst()
+            guard let typedResponse = response as? T else {
+                throw NSError(
+                    domain: "MockAPIClient",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Queued response type mismatch"]
+                )
+            }
+            return typedResponse
+        }
+
+        // Fall back to single response
         guard let response = mockResponse as? T else {
             throw NSError(
                 domain: "MockAPIClient",
@@ -62,7 +95,7 @@ class MockAPIClient: APIClientProtocol {
         )
     }
 
-    func setAuthToken(_ token: String?) {
+    func setAuthToken(_: String?) {
         // No-op for mock
     }
 
@@ -77,5 +110,9 @@ class MockAPIClient: APIClientProtocol {
         lastCustomHeaders = nil
         mockResponse = nil
         mockError = nil
+        responseQueue.removeAll()
+        errorQueue.removeAll()
+        allEndpoints.removeAll()
+        allMethods.removeAll()
     }
 }
