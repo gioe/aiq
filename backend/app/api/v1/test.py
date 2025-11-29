@@ -33,6 +33,32 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _question_to_response(
+    question: Question, include_explanation: bool = False
+) -> QuestionResponse:
+    """
+    Convert a Question model to QuestionResponse schema.
+
+    Handles conversion of answer_options from dict to list format if needed.
+    """
+    # Convert answer_options dict to list if necessary
+    answer_options = question.answer_options
+    if answer_options and isinstance(answer_options, dict):
+        # Convert dict format {"A": "option1", "B": "option2"} to list
+        answer_options = [answer_options[key] for key in sorted(answer_options.keys())]
+
+    return QuestionResponse.model_validate(
+        {
+            "id": question.id,
+            "question_text": question.question_text,
+            "question_type": question.question_type.value,
+            "difficulty_level": question.difficulty_level.value,
+            "answer_options": answer_options,
+            "explanation": question.explanation if include_explanation else None,
+        }
+    )
+
+
 @router.post("/start", response_model=StartTestResponse)
 def start_test(
     question_count: int = Query(
@@ -160,8 +186,7 @@ def start_test(
 
     # Convert questions to response format
     questions_response = [
-        QuestionResponse.model_validate(q).model_copy(update={"explanation": None})
-        for q in unseen_questions
+        _question_to_response(q, include_explanation=False) for q in unseen_questions
     ]
 
     return StartTestResponse(
@@ -237,10 +262,7 @@ def get_test_session(
 
             # Convert to response format (without explanations for security)
             questions_response = [
-                QuestionResponse.model_validate(q).model_copy(
-                    update={"explanation": None}
-                )
-                for q in questions
+                _question_to_response(q, include_explanation=False) for q in questions
             ]
 
     return TestSessionStatusResponse(
@@ -303,8 +325,7 @@ def get_active_test_session(
     if question_ids:
         questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
         questions_response = [
-            QuestionResponse.model_validate(q).model_copy(update={"explanation": None})
-            for q in questions
+            _question_to_response(q, include_explanation=False) for q in questions
         ]
 
     return TestSessionStatusResponse(
