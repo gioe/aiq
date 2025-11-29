@@ -29,21 +29,137 @@ from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
 from app.core.question_utils import question_to_response
+from app.core.datetime_utils import ensure_timezone_aware
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def ensure_timezone_aware(dt: Optional[datetime]) -> datetime:
+def get_session_questions(
+    db: Session, user_id: int, session_id: int, include_explanation: bool = False
+) -> list:
     """
-    Ensure a datetime object is timezone-aware (UTC).
-    SQLite may return timezone-naive datetimes even when stored as timezone-aware.
+    Fetch questions for a specific test session.
+
+    Args:
+        db: Database session
+        user_id: User ID
+        session_id: Test session ID
+        include_explanation: Whether to include explanations in response
+
+    Returns:
+        List of questions in response format
     """
-    if dt is None:
-        raise ValueError("datetime cannot be None")
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
+    session_question_ids = (
+        db.query(UserQuestion.question_id)
+        .filter(
+            UserQuestion.user_id == user_id,
+            UserQuestion.test_session_id == session_id,
+        )
+        .all()
+    )
+    question_ids = [q_id for (q_id,) in session_question_ids]
+
+    if not question_ids:
+        return []
+
+    # Fetch questions in the order they were saved
+    ordering = case(
+        {id: index for index, id in enumerate(question_ids)}, value=Question.id
+    )
+    questions = (
+        db.query(Question)
+        .filter(Question.id.in_(question_ids))
+        .order_by(ordering)
+        .all()
+    )
+
+    return [
+        question_to_response(q, include_explanation=include_explanation)
+        for q in questions
+    ]
+
+
+def count_session_responses(db: Session, session_id: int) -> int:
+    """
+    Count the number of responses for a test session.
+
+    Args:
+        db: Database session
+        session_id: Test session ID
+
+    Returns:
+        Number of responses
+    """
+    from app.models.models import Response
+
+    return db.query(Response).filter(Response.test_session_id == session_id).count()
+
+
+def verify_session_ownership(test_session: TestSession, user_id: int) -> None:
+    """
+    Verify that a test session belongs to the specified user.
+
+    Args:
+        test_session: Test session to verify
+        user_id: Expected user ID
+
+    Raises:
+        HTTPException: If session doesn't belong to user
+    """
+    if test_session.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this test session"
+        )
+
+
+def verify_session_in_progress(test_session: TestSession) -> None:
+    """
+    Verify that a test session is in progress.
+
+    Args:
+        test_session: Test session to verify
+
+    Raises:
+        HTTPException: If session is not in progress
+    """
+    if test_session.status != TestStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Test session is already {test_session.status.value}. "  # type: ignore[attr-defined]
+            "Only in-progress sessions can be modified.",
+        )
+
+
+def build_test_result_response(test_result) -> TestResultResponse:
+    """
+    Build a TestResultResponse from a TestResult model.
+
+    Args:
+        test_result: TestResult model instance
+
+    Returns:
+        TestResultResponse with calculated accuracy percentage
+    """
+    accuracy_percentage: float = (
+        (float(test_result.correct_answers) / float(test_result.total_questions))
+        * 100.0
+        if test_result.total_questions > 0
+        else 0.0
+    )
+
+    return TestResultResponse(
+        id=test_result.id,  # type: ignore[arg-type]
+        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
+        user_id=test_result.user_id,  # type: ignore[arg-type]
+        iq_score=test_result.iq_score,  # type: ignore[arg-type]
+        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
+        total_questions=test_result.total_questions,  # type: ignore[arg-type]
+        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
+        accuracy_percentage=accuracy_percentage,
+        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
+        completed_at=test_result.completed_at,  # type: ignore[arg-type]
+    )
 
 
 @router.post("/start", response_model=StartTestResponse)
@@ -209,56 +325,17 @@ def get_test_session(
         raise HTTPException(status_code=404, detail="Test session not found")
 
     # Verify session belongs to current user
-    if test_session.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this test session"
-        )
+    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
 
     # Count responses for this session
-    from app.models.models import Response
-
-    questions_count = (
-        db.query(Response).filter(Response.test_session_id == session_id).count()
-    )
+    questions_count = count_session_responses(db, session_id)
 
     # If session is in_progress, retrieve the questions for this session
     questions_response = None
     if test_session.status == TestStatus.IN_PROGRESS:
-        # Get questions that were marked as seen at the time of session start
-        # We look for questions seen within a small window after session start
-        # (typically all questions are marked simultaneously, but we add buffer)
-        session_start = test_session.started_at
-        # 1 minute buffer to account for any delays in question marking
-        time_window_end = session_start + timedelta(minutes=1)
-
-        # Get question IDs that were seen during this session's start window
-        session_question_ids = (
-            db.query(UserQuestion.question_id)
-            .filter(
-                UserQuestion.user_id == current_user.id,
-                UserQuestion.seen_at >= session_start,
-                UserQuestion.seen_at <= time_window_end,
-            )
-            .all()
+        questions_response = get_session_questions(
+            db, int(current_user.id), session_id, include_explanation=False  # type: ignore
         )
-        question_ids = [q_id for (q_id,) in session_question_ids]
-
-        if question_ids:
-            # Fetch the actual questions in the order they were saved
-            ordering = case(
-                {id: index for index, id in enumerate(question_ids)}, value=Question.id
-            )
-            questions = (
-                db.query(Question)
-                .filter(Question.id.in_(question_ids))
-                .order_by(ordering)
-                .all()
-            )
-
-            # Convert to response format (without explanations for security)
-            questions_response = [
-                question_to_response(q, include_explanation=False) for q in questions
-            ]
 
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(test_session),
@@ -295,38 +372,12 @@ def get_active_test_session(
         return None
 
     # Count responses for this session
-    from app.models.models import Response
+    questions_count = count_session_responses(db, int(active_session.id))  # type: ignore
 
-    questions_count = (
-        db.query(Response).filter(Response.test_session_id == active_session.id).count()
+    # Get questions for the active session
+    questions_response = get_session_questions(
+        db, int(current_user.id), int(active_session.id), include_explanation=False  # type: ignore
     )
-
-    # Get questions for the active session using explicit session relationship
-    session_question_ids = (
-        db.query(UserQuestion.question_id)
-        .filter(
-            UserQuestion.user_id == current_user.id,
-            UserQuestion.test_session_id == active_session.id,
-        )
-        .all()
-    )
-    question_ids = [q_id for (q_id,) in session_question_ids]
-
-    questions_response = None
-    if question_ids:
-        # Fetch questions in the order they were saved
-        ordering = case(
-            {id: index for index, id in enumerate(question_ids)}, value=Question.id
-        )
-        questions = (
-            db.query(Question)
-            .filter(Question.id.in_(question_ids))
-            .order_by(ordering)
-            .all()
-        )
-        questions_response = [
-            question_to_response(q, include_explanation=False) for q in questions
-        ]
 
     return TestSessionStatusResponse(
         session=TestSessionResponse.model_validate(active_session),
@@ -359,8 +410,6 @@ def abandon_test(
     Raises:
         HTTPException: If session not found, not authorized, or already completed
     """
-    from app.models.models import Response
-
     # Fetch the test session
     test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
 
@@ -368,23 +417,13 @@ def abandon_test(
         raise HTTPException(status_code=404, detail="Test session not found")
 
     # Verify session belongs to current user
-    if test_session.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to abandon this test session"
-        )
+    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
 
     # Verify session is in progress
-    if test_session.status != TestStatus.IN_PROGRESS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Test session is already {test_session.status.value}. "  # type: ignore[attr-defined]
-            "Only in-progress sessions can be abandoned.",
-        )
+    verify_session_in_progress(test_session)
 
     # Count any responses that were saved during the test
-    responses_saved = (
-        db.query(Response).filter(Response.test_session_id == session_id).count()
-    )
+    responses_saved = count_session_responses(db, session_id)
 
     # Mark session as abandoned
     test_session.status = TestStatus.ABANDONED  # type: ignore[assignment]
@@ -442,18 +481,10 @@ def submit_test(
         raise HTTPException(status_code=404, detail="Test session not found")
 
     # Verify session belongs to current user
-    if test_session.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to submit for this test session"
-        )
+    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
 
     # Verify session is still in progress
-    if test_session.status != TestStatus.IN_PROGRESS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Test session is already {test_session.status.value}. "  # type: ignore[attr-defined]
-            "Cannot submit responses for a completed or abandoned session.",
-        )
+    verify_session_in_progress(test_session)
 
     # Validate that responses list is not empty
     if not submission.responses:
@@ -587,18 +618,7 @@ def submit_test(
     invalidate_user_cache(int(current_user.id))  # type: ignore[arg-type]
 
     # Build response with test result
-    result_response = TestResultResponse(
-        id=test_result.id,  # type: ignore[arg-type]
-        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
-        user_id=test_result.user_id,  # type: ignore[arg-type]
-        iq_score=test_result.iq_score,  # type: ignore[arg-type]
-        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
-        total_questions=test_result.total_questions,  # type: ignore[arg-type]
-        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
-        accuracy_percentage=score_result.accuracy_percentage,
-        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
-        completed_at=test_result.completed_at,  # type: ignore[arg-type]
-    )
+    result_response = build_test_result_response(test_result)
 
     return SubmitTestResponse(
         session=TestSessionResponse.model_validate(test_session),
@@ -642,26 +662,7 @@ def get_test_result(
             status_code=403, detail="Not authorized to access this test result"
         )
 
-    # Calculate accuracy percentage
-    accuracy_percentage: float = (
-        (float(test_result.correct_answers) / float(test_result.total_questions))
-        * 100.0
-        if test_result.total_questions > 0
-        else 0.0
-    )
-
-    return TestResultResponse(
-        id=test_result.id,  # type: ignore[arg-type]
-        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
-        user_id=test_result.user_id,  # type: ignore[arg-type]
-        iq_score=test_result.iq_score,  # type: ignore[arg-type]
-        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
-        total_questions=test_result.total_questions,  # type: ignore[arg-type]
-        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
-        accuracy_percentage=accuracy_percentage,
-        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
-        completed_at=test_result.completed_at,  # type: ignore[arg-type]
-    )
+    return build_test_result_response(test_result)
 
 
 @router.get("/history", response_model=list[TestResultResponse])
@@ -692,28 +693,4 @@ def get_test_history(
     )
 
     # Convert to response format
-    results_response = []
-    for test_result in test_results:
-        accuracy_percentage: float = (
-            (float(test_result.correct_answers) / float(test_result.total_questions))
-            * 100.0
-            if test_result.total_questions > 0
-            else 0.0
-        )
-
-        results_response.append(
-            TestResultResponse(
-                id=test_result.id,  # type: ignore[arg-type]
-                test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
-                user_id=test_result.user_id,  # type: ignore[arg-type]
-                iq_score=test_result.iq_score,  # type: ignore[arg-type]
-                percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
-                total_questions=test_result.total_questions,  # type: ignore[arg-type]
-                correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
-                accuracy_percentage=accuracy_percentage,
-                completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
-                completed_at=test_result.completed_at,  # type: ignore[arg-type]
-            )
-        )
-
-    return results_response
+    return [build_test_result_response(test_result) for test_result in test_results]
