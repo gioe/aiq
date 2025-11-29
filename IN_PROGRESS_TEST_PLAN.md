@@ -104,7 +104,7 @@ Implement a two-pronged approach:
   - Show recovery alert instead of generic error
   - Track analytics event for this edge case
 
-- [ ] P4-005: Write unit tests for error recovery flow
+- [x] P4-005: Write unit tests for error recovery flow
   - Test active session error detection
   - Test resume flow
   - Test abandon flow
