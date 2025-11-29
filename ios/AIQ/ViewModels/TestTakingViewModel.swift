@@ -241,16 +241,19 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func mergeSavedProgress(_ progress: SavedTestProgress) {
-        // Restore user answers from saved progress
-        userAnswers = progress.userAnswers
+        guard !questions.isEmpty else {
+            showNoQuestionsAvailableError()
+            return
+        }
 
-        // Set current question index to the first unanswered question
-        let answeredQuestionIds = Set(userAnswers.keys)
+        // Filter out answers for questions not in this session
+        let validQuestionIds = Set(questions.map(\.id))
+        userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
+
         if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
             currentQuestionIndex = firstUnansweredIndex
         } else {
-            // All questions answered, go to last question
-            currentQuestionIndex = questions.count - 1
+            currentQuestionIndex = max(0, questions.count - 1)
         }
     }
 

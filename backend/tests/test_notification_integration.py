@@ -275,7 +275,9 @@ class TestNotificationScheduler:
     ):
         """Test getting next test date for a user."""
         # Create a test result
-        completed_at = datetime(2024, 1, 1, 12, 0, 0)
+        from datetime import timezone
+
+        completed_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         from app.models import TestResult as TestResultModel
 
         test_result = TestResultModel(

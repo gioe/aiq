@@ -193,6 +193,9 @@ class UserQuestion(Base):
     question_id = Column(
         Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
     )
+    test_session_id = Column(
+        Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=True
+    )
     seen_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -202,11 +205,13 @@ class UserQuestion(Base):
     # Relationships
     user = relationship("User", back_populates="user_questions")
     question = relationship("Question", back_populates="user_questions")
+    test_session = relationship("TestSession", back_populates="user_questions")
 
     # Constraints and indexes
     __table_args__ = (
         UniqueConstraint("user_id", "question_id", name="uq_user_question"),
         Index("ix_user_questions_user_id", "user_id"),
+        Index("ix_user_questions_test_session_id", "test_session_id"),
     )
 
 
@@ -242,6 +247,9 @@ class TestSession(Base):
         back_populates="test_session",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    user_questions = relationship(
+        "UserQuestion", back_populates="test_session", cascade="all, delete-orphan"
     )
 
     # Performance indexes for common query patterns

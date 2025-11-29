@@ -4,6 +4,7 @@ Test session management endpoints.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import case
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -155,6 +156,7 @@ def start_test(
         user_question = UserQuestion(
             user_id=current_user.id,
             question_id=question.id,
+            test_session_id=test_session.id,
             seen_at=datetime.now(timezone.utc),
         )
         db.add(user_question)
@@ -242,8 +244,16 @@ def get_test_session(
         question_ids = [q_id for (q_id,) in session_question_ids]
 
         if question_ids:
-            # Fetch the actual questions
-            questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+            # Fetch the actual questions in the order they were saved
+            ordering = case(
+                {id: index for index, id in enumerate(question_ids)}, value=Question.id
+            )
+            questions = (
+                db.query(Question)
+                .filter(Question.id.in_(question_ids))
+                .order_by(ordering)
+                .all()
+            )
 
             # Convert to response format (without explanations for security)
             questions_response = [
@@ -291,16 +301,12 @@ def get_active_test_session(
         db.query(Response).filter(Response.test_session_id == active_session.id).count()
     )
 
-    # Get questions for the active session (always in_progress)
-    session_start = active_session.started_at
-    time_window_end = session_start + timedelta(minutes=1)
-
+    # Get questions for the active session using explicit session relationship
     session_question_ids = (
         db.query(UserQuestion.question_id)
         .filter(
             UserQuestion.user_id == current_user.id,
-            UserQuestion.seen_at >= session_start,
-            UserQuestion.seen_at <= time_window_end,
+            UserQuestion.test_session_id == active_session.id,
         )
         .all()
     )
@@ -308,7 +314,16 @@ def get_active_test_session(
 
     questions_response = None
     if question_ids:
-        questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+        # Fetch questions in the order they were saved
+        ordering = case(
+            {id: index for index, id in enumerate(question_ids)}, value=Question.id
+        )
+        questions = (
+            db.query(Question)
+            .filter(Question.id.in_(question_ids))
+            .order_by(ordering)
+            .all()
+        )
         questions_response = [
             question_to_response(q, include_explanation=False) for q in questions
         ]
