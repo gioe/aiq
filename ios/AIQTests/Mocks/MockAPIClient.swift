@@ -101,6 +101,16 @@ class MockAPIClient: APIClientProtocol {
 
     // MARK: - Helper Methods
 
+    /// Add a response to the queue for sequential API calls
+    func addQueuedResponse(_ response: some Any) {
+        responseQueue.append(response)
+    }
+
+    /// Add an error to the queue for sequential API calls
+    func addQueuedError(_ error: Error) {
+        errorQueue.append(error)
+    }
+
     func reset() {
         requestCalled = false
         lastEndpoint = nil
