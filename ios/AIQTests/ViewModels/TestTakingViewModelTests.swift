@@ -427,7 +427,7 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeTestSession(
         id: Int,
         userId: Int = 1,
-        status: TestSessionStatus = .inProgress,
+        status: TestSession.Status = .inProgress,
         startedAt: Date = Date(),
         completedAt: Date? = nil
     ) -> TestSession {

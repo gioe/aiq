@@ -70,7 +70,8 @@ final class DashboardViewModelTests: XCTestCase {
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
-            questionsCount: 5
+            questionsCount: 5,
+            questions: nil
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -121,7 +122,8 @@ final class DashboardViewModelTests: XCTestCase {
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
-            questionsCount: 3
+            questionsCount: 3,
+            questions: nil
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -153,7 +155,8 @@ final class DashboardViewModelTests: XCTestCase {
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
-            questionsCount: 7
+            questionsCount: 7,
+            questions: nil
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -198,5 +201,196 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Then
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should return false when no session")
+    }
+
+    // MARK: - Abandon Active Test Tests
+
+    func testAbandonActiveTest_Success() async {
+        // Given
+        let mockSession = TestSession(
+            id: 456,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            status: .inProgress,
+            questions: nil
+        )
+        sut.activeTestSession = mockSession
+        sut.activeSessionQuestionsAnswered = 5
+
+        let mockAbandonedSession = TestSession(
+            id: 456,
+            userId: 1,
+            startedAt: mockSession.startedAt,
+            completedAt: nil,
+            status: .abandoned,
+            questions: nil
+        )
+        let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
+            message: "Test abandoned successfully",
+            responsesSaved: 5
+        )
+        mockAPIClient.mockResponse = mockAbandonResponse
+
+        // Mock the dashboard data for refresh
+        mockAPIClient.addQueuedResponse([] as [TestResult]) // Empty history after abandon
+        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?) // No active session after abandon
+
+        // When
+        await sut.abandonActiveTest()
+
+        // Then
+        XCTAssertTrue(mockAPIClient.requestCalled, "API request should be called")
+        // Note: Cannot assert on endpoint equality without Equatable conformance
+        XCTAssertEqual(mockAPIClient.lastMethod, .post, "Should use POST method")
+        XCTAssertTrue(mockAPIClient.lastRequiresAuth == true, "Should require authentication")
+        XCTAssertNil(sut.activeTestSession, "activeTestSession should be cleared after abandoning")
+        XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be cleared")
+        XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false after abandoning")
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after completion")
+    }
+
+    func testAbandonActiveTest_NoActiveSession() async {
+        // Given
+        sut.activeTestSession = nil
+
+        // When
+        await sut.abandonActiveTest()
+
+        // Then
+        XCTAssertFalse(mockAPIClient.requestCalled, "API request should not be called when no active session")
+    }
+
+    func testAbandonActiveTest_ErrorHandling() async {
+        // Given
+        let mockSession = TestSession(
+            id: 789,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            status: .inProgress,
+            questions: nil
+        )
+        sut.activeTestSession = mockSession
+        sut.activeSessionQuestionsAnswered = 3
+
+        let mockError = NSError(
+            domain: "TestDomain",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Server error"]
+        )
+        mockAPIClient.mockError = mockError
+
+        // When
+        await sut.abandonActiveTest()
+
+        // Then
+        XCTAssertTrue(mockAPIClient.requestCalled, "API request should be called")
+        XCTAssertNotNil(sut.error, "Error should be set when API fails")
+        XCTAssertNotNil(sut.activeTestSession, "activeTestSession should remain when abandon fails")
+        XCTAssertNotNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should remain when abandon fails")
+        XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should still be true when abandon fails")
+    }
+
+    func testAbandonActiveTest_InvalidatesCache() async {
+        // Given
+        let mockSession = TestSession(
+            id: 999,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            status: .inProgress,
+            questions: nil
+        )
+        sut.activeTestSession = mockSession
+
+        // Set up cache with active session
+        let cachedResponse = TestSessionStatusResponse(
+            session: mockSession,
+            questionsCount: 10,
+            questions: nil
+        )
+        await DataCache.shared.set(
+            cachedResponse,
+            forKey: DataCache.Key.activeTestSession
+        )
+
+        let mockAbandonedSession = TestSession(
+            id: 999,
+            userId: 1,
+            startedAt: mockSession.startedAt,
+            completedAt: nil,
+            status: .abandoned,
+            questions: nil
+        )
+        let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
+            message: "Test abandoned successfully",
+            responsesSaved: 10
+        )
+        mockAPIClient.mockResponse = mockAbandonResponse
+
+        // Mock the dashboard data for refresh
+        mockAPIClient.addQueuedResponse([] as [TestResult])
+        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
+
+        // When
+        await sut.abandonActiveTest()
+
+        // Then - Verify cache was invalidated
+        let cachedData: TestSessionStatusResponse?? = await DataCache.shared.get(
+            forKey: DataCache.Key.activeTestSession
+        )
+        XCTAssertNil(cachedData, "Cache should be invalidated after abandoning test")
+    }
+
+    func testAbandonActiveTest_RefreshesDashboardData() async {
+        // Given
+        let mockSession = TestSession(
+            id: 111,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            status: .inProgress,
+            questions: nil
+        )
+        sut.activeTestSession = mockSession
+
+        let mockAbandonedSession = TestSession(
+            id: 111,
+            userId: 1,
+            startedAt: mockSession.startedAt,
+            completedAt: nil,
+            status: .abandoned,
+            questions: nil
+        )
+        let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
+            message: "Test abandoned successfully",
+            responsesSaved: 2
+        )
+        mockAPIClient.mockResponse = mockAbandonResponse
+
+        // Mock dashboard data - should be called during refresh
+        let mockTestResult = TestResult(
+            id: "result-1",
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 120,
+            completedAt: Date(),
+            totalQuestions: 20,
+            correctAnswers: 15
+        )
+        mockAPIClient.addQueuedResponse([mockTestResult] as [TestResult])
+        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
+
+        // When
+        await sut.abandonActiveTest()
+
+        // Then
+        // Verify dashboard was refreshed (test history was fetched)
+        XCTAssertEqual(sut.testCount, 1, "Dashboard should be refreshed with updated test count")
+        XCTAssertNotNil(sut.latestTestResult, "Latest test result should be updated after refresh")
     }
 }
