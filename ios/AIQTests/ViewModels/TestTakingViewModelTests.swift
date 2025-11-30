@@ -110,23 +110,19 @@ final class TestTakingViewModelTests: XCTestCase {
         let mockQuestions = [
             Question(
                 id: 1,
-                text: "Test question 1?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "A",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Test question 1?",
+                questionType: .logic,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             ),
             Question(
                 id: 2,
-                text: "Test question 2?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "B",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Test question 2?",
+                questionType: .pattern,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             )
         ]
         let mockResponse = TestSessionStatusResponse(
@@ -166,23 +162,19 @@ final class TestTakingViewModelTests: XCTestCase {
         let mockQuestions = [
             Question(
                 id: 10,
-                text: "Question 1?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "A",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Question 1?",
+                questionType: .spatial,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             ),
             Question(
                 id: 20,
-                text: "Question 2?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "B",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Question 2?",
+                questionType: .math,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             )
         ]
         let mockResponse = TestSessionStatusResponse(
@@ -227,13 +219,11 @@ final class TestTakingViewModelTests: XCTestCase {
         let mockQuestions = [
             Question(
                 id: 1,
-                text: "Question 1?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "A",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Question 1?",
+                questionType: .verbal,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             )
         ]
         let mockResponse = TestSessionStatusResponse(
@@ -515,23 +505,19 @@ final class TestTakingViewModelTests: XCTestCase {
         let mockQuestions = [
             Question(
                 id: 1,
-                text: "Question 1?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "A",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Question 1?",
+                questionType: .memory,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             ),
             Question(
                 id: 2,
-                text: "Question 2?",
-                questionType: .multipleChoice,
-                difficulty: .medium,
-                options: ["A", "B", "C", "D"],
-                correctAnswer: "B",
-                explanation: nil,
-                imageUrl: nil
+                questionText: "Question 2?",
+                questionType: .pattern,
+                difficultyLevel: .medium,
+                answerOptions: ["A", "B", "C", "D"],
+                explanation: nil
             )
         ]
         let mockResponse = TestSessionStatusResponse(
