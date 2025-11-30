@@ -1,6 +1,9 @@
 import Foundation
 
-// MARK: - Test Data Structures
+// MARK: - Test Data Structures for API Integration Tests
+
+// Note: Models that match app models (TestSession, Question, TestResult, etc.)
+// have been removed to avoid conflicts. Use @testable import AIQ to access real models.
 
 struct LoginRequest: Codable {
     let email: String
@@ -47,92 +50,5 @@ struct UserProfile: Codable {
     }
 }
 
-struct TestStartResponse: Codable {
-    let session: TestSession
-    let questions: [Question]
-    let totalQuestions: Int
-
-    enum CodingKeys: String, CodingKey {
-        case session
-        case questions
-        case totalQuestions = "total_questions"
-    }
-}
-
-struct TestSession: Codable {
-    let id: String
-    let status: String
-    let startedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case status
-        case startedAt = "started_at"
-    }
-}
-
-struct Question: Codable {
-    let id: String
-    let questionText: String
-    let questionType: String
-    let answerOptions: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case questionText = "question_text"
-        case questionType = "question_type"
-        case answerOptions = "answer_options"
-    }
-}
-
-struct TestSubmitRequest: Codable {
-    let sessionId: String
-    let responses: [QuestionResponse]
-
-    enum CodingKeys: String, CodingKey {
-        case sessionId = "session_id"
-        case responses
-    }
-}
-
-struct QuestionResponse: Codable {
-    let questionId: String
-    let userAnswer: String
-
-    enum CodingKeys: String, CodingKey {
-        case questionId = "question_id"
-        case userAnswer = "user_answer"
-    }
-}
-
-struct TestSubmitResponse: Codable {
-    let result: TestResult
-}
-
-struct TestResult: Codable {
-    let id: String
-    let iqScore: Int
-    let totalQuestions: Int
-    let correctAnswers: Int
-    let completionTimeSeconds: Int
-    let completedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case iqScore = "iq_score"
-        case totalQuestions = "total_questions"
-        case correctAnswers = "correct_answers"
-        case completionTimeSeconds = "completion_time_seconds"
-        case completedAt = "completed_at"
-    }
-}
-
-struct TestHistoryResponse: Codable {
-    let results: [TestResult]
-    let totalTests: Int
-
-    enum CodingKeys: String, CodingKey {
-        case results
-        case totalTests = "total_tests"
-    }
-}
+// Note: Use AIQ.TestSession, AIQ.Question, AIQ.TestResult, etc. from the main app
+// instead of defining duplicate test models here
