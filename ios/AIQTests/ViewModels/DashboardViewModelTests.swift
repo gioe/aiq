@@ -8,16 +8,13 @@ final class DashboardViewModelTests: XCTestCase {
     var sut: DashboardViewModel!
     var mockAPIClient: MockAPIClient!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         mockAPIClient = MockAPIClient()
         sut = DashboardViewModel(apiClient: mockAPIClient)
 
-        // Clear cache before each test
-        Task {
-            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-            await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-        }
+        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
     }
 
     override func tearDown() {
@@ -231,20 +228,19 @@ final class DashboardViewModelTests: XCTestCase {
             message: "Test abandoned successfully",
             responsesSaved: 5
         )
-        mockAPIClient.mockResponse = mockAbandonResponse
 
-        // Mock the dashboard data for refresh
-        mockAPIClient.addQueuedResponse([] as [TestResult]) // Empty history after abandon
-        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?) // No active session after abandon
+        mockAPIClient.addQueuedResponse(mockAbandonResponse)
+        mockAPIClient.addQueuedResponse([] as [TestResult])
+        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
 
         // When
         await sut.abandonActiveTest()
 
         // Then
         XCTAssertTrue(mockAPIClient.requestCalled, "API request should be called")
-        // Note: Cannot assert on endpoint equality without Equatable conformance
         XCTAssertEqual(mockAPIClient.lastMethod, .post, "Should use POST method")
         XCTAssertTrue(mockAPIClient.lastRequiresAuth == true, "Should require authentication")
+        XCTAssertEqual(mockAPIClient.lastEndpoint, .testAbandon(456), "Should call testAbandon endpoint")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be cleared after abandoning")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be cleared")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false after abandoning")
