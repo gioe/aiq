@@ -46,9 +46,10 @@ final class APIClientIntegrationTests: XCTestCase {
         // When
         let loginRequest = LoginRequest(email: email, password: password)
         let result: AuthResponse = try await sut.request(
-            "/auth/login",
-            method: .POST,
-            body: loginRequest
+            endpoint: .login,
+            method: .post,
+            body: loginRequest,
+            requiresAuth: false
         )
 
         // Then
@@ -74,9 +75,10 @@ final class APIClientIntegrationTests: XCTestCase {
             lastName: lastName
         )
         let result: AuthResponse = try await sut.request(
-            "/auth/register",
-            method: .POST,
-            body: registrationRequest
+            endpoint: .register,
+            method: .post,
+            body: registrationRequest,
+            requiresAuth: false
         )
 
         // Then
@@ -89,13 +91,18 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testAutomaticTokenInjection() async throws {
         // Given - Set access token
-        sut.setAccessToken("test-bearer-token")
+        sut.setAuthToken("test-bearer-token")
 
         var capturedHeaders: [String: String]?
         mockUserProfileResponse(captureHeaders: &capturedHeaders)
 
         // When
-        let _: UserProfile = try await sut.request("/user/profile", method: .GET)
+        let _: UserProfile = try await sut.request(
+            endpoint: .userProfile,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
 
         // Then - Verify Authorization header was included
         XCTAssertEqual(capturedHeaders?["Authorization"], "Bearer test-bearer-token")
@@ -105,15 +112,16 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testCompleteTestTakingFlow() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
 
         var requestCount = 0
         mockTestTakingFlow(requestCount: &requestCount)
-
         // When - Start test
         let startResponse: TestStartResponse = try await sut.request(
-            "/test/start?question_count=2",
-            method: .POST
+            endpoint: .testStart,
+            method: .post,
+            body: nil as String?,
+            requiresAuth: true
         )
 
         // Then - Verify test started
@@ -164,7 +172,12 @@ final class APIClientIntegrationTests: XCTestCase {
         // When/Then
         do {
             let request = LoginRequest(email: "invalid", password: "test")
-            let _: AuthResponse = try await sut.request("/auth/login", method: .POST, body: request)
+            let _: AuthResponse = try await sut.request(
+                endpoint: .login,
+                method: .post,
+                body: request,
+                requiresAuth: false
+            )
             XCTFail("Should have thrown error")
         } catch let error as APIError {
             if case .validationError = error {
@@ -181,11 +194,16 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchTestHistory() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockTestHistoryResponse()
 
         // When
-        let history: TestHistoryResponse = try await sut.request("/test/history", method: .GET)
+        let history: TestHistoryResponse = try await sut.request(
+            endpoint: .testHistory,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
 
         // Then
         XCTAssertEqual(history.results.count, 2)
@@ -198,7 +216,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_WithActiveSession() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockActiveSessionResponse(hasActiveSession: true)
 
         // When
@@ -217,7 +235,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_NoActiveSession() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockActiveSessionResponse(hasActiveSession: false)
 
         // When
@@ -262,7 +280,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_ServerError() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockHTTPErrorResponse(statusCode: 500, detail: "Internal Server Error")
 
         // When/Then
@@ -416,15 +434,16 @@ extension APIClientIntegrationTests {
         let submitRequest = TestSubmitRequest(
             sessionId: sessionId,
             responses: [
-                QuestionResponse(questionId: "q1", userAnswer: "4"),
-                QuestionResponse(questionId: "q2", userAnswer: "4")
+                QuestionResponse(questionId: 1, userAnswer: "4"),
+                QuestionResponse(questionId: 2, userAnswer: "4")
             ]
         )
 
         return try await sut.request(
-            "/test/submit",
-            method: .POST,
-            body: submitRequest
+            endpoint: .testSubmit,
+            method: .post,
+            body: submitRequest,
+            requiresAuth: true
         )
     }
 
@@ -539,7 +558,12 @@ extension APIClientIntegrationTests {
         line: UInt = #line
     ) async {
         do {
-            let _: UserProfile = try await sut.request("/user/profile", method: .GET)
+            let _: UserProfile = try await sut.request(
+                endpoint: .userProfile,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
             XCTFail("Should have thrown error", file: file, line: line)
         } catch let error as APIError {
             switch (error, expectedError) {

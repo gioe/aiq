@@ -50,7 +50,7 @@ enum HTTPMethod: String {
 }
 
 /// API endpoint definitions
-enum APIEndpoint {
+enum APIEndpoint: Equatable {
     /// User registration endpoint
     case register
     /// User login endpoint
