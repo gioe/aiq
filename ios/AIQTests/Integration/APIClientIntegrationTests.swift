@@ -93,8 +93,8 @@ final class APIClientIntegrationTests: XCTestCase {
         // Given - Set access token
         sut.setAuthToken("test-bearer-token")
 
-        var capturedHeaders: [String: String]?
-        mockUserProfileResponse(captureHeaders: &capturedHeaders)
+        let capturedHeaders = HeadersCapture()
+        mockUserProfileResponse(captureHeaders: capturedHeaders)
 
         // When
         let _: UserProfile = try await sut.request(
@@ -105,7 +105,7 @@ final class APIClientIntegrationTests: XCTestCase {
         )
 
         // Then - Verify Authorization header was included
-        XCTAssertEqual(capturedHeaders?["Authorization"], "Bearer test-bearer-token")
+        XCTAssertEqual(capturedHeaders.headers?["Authorization"], "Bearer test-bearer-token")
     }
 
     // MARK: - Test Taking Flow Integration Tests
@@ -114,8 +114,8 @@ final class APIClientIntegrationTests: XCTestCase {
         // Given
         sut.setAuthToken("valid-token")
 
-        var requestCount = 0
-        mockTestTakingFlow(requestCount: &requestCount)
+        let requestCount = RequestCounter()
+        mockTestTakingFlow(requestCount: requestCount)
         // When - Start test
         let startResponse: TestStartResponse = try await sut.request(
             endpoint: .testStart,
@@ -134,7 +134,7 @@ final class APIClientIntegrationTests: XCTestCase {
         // Then - Verify submission successful
         XCTAssertEqual(submitResponse.result.iqScore, 120)
         XCTAssertEqual(submitResponse.result.totalQuestions, 2)
-        XCTAssertEqual(requestCount, 2)
+        XCTAssertEqual(requestCount.count, 2)
     }
 
     // MARK: - Error Handling Integration Tests
@@ -146,7 +146,7 @@ final class APIClientIntegrationTests: XCTestCase {
         }
 
         // When/Then
-        await assertThrowsAPIError(.networkError)
+        await assertThrowsAPIError(.networkError(URLError(.notConnectedToInternet)))
     }
 
     func testUnauthorizedErrorHandling() async {
@@ -154,7 +154,7 @@ final class APIClientIntegrationTests: XCTestCase {
         mockHTTPErrorResponse(statusCode: 401, detail: "Unauthorized")
 
         // When/Then
-        await assertThrowsAPIError(.unauthorized)
+        await assertThrowsAPIError(.unauthorized(message: nil))
     }
 
     func testServerErrorHandling() async {
@@ -162,7 +162,7 @@ final class APIClientIntegrationTests: XCTestCase {
         mockHTTPErrorResponse(statusCode: 500, detail: "Internal Server Error")
 
         // When/Then
-        await assertThrowsAPIError(.serverError)
+        await assertThrowsAPIError(.serverError(statusCode: 500, message: nil))
     }
 
     func testValidationErrorHandling() async {
@@ -180,10 +180,10 @@ final class APIClientIntegrationTests: XCTestCase {
             )
             XCTFail("Should have thrown error")
         } catch let error as APIError {
-            if case .validationError = error {
-                // Success - correct error type
+            if case .badRequest = error {
+                // Success - correct error type (422 validation error maps to badRequest)
             } else {
-                XCTFail("Expected validationError, got \(error)")
+                XCTFail("Expected badRequest, got \(error)")
             }
         } catch {
             XCTFail("Unexpected error type: \(error)")
@@ -357,9 +357,9 @@ extension APIClientIntegrationTests {
         }
     }
 
-    private func mockUserProfileResponse(captureHeaders: inout [String: String]?) {
+    private func mockUserProfileResponse(captureHeaders: HeadersCapture) {
         MockURLProtocol.requestHandler = { request in
-            captureHeaders = request.allHTTPHeaderFields
+            captureHeaders.headers = request.allHTTPHeaderFields
 
             let url = request.url!
             let response = [
@@ -373,9 +373,9 @@ extension APIClientIntegrationTests {
         }
     }
 
-    private func mockTestTakingFlow(requestCount: inout Int) {
+    private func mockTestTakingFlow(requestCount: RequestCounter) {
         MockURLProtocol.requestHandler = { request in
-            requestCount += 1
+            requestCount.increment()
             let url = request.url!
 
             if url.path.contains("/test/start") {
@@ -567,9 +567,9 @@ extension APIClientIntegrationTests {
             XCTFail("Should have thrown error", file: file, line: line)
         } catch let error as APIError {
             switch (error, expectedError) {
-            case (.networkError, .networkError),
-                 (.unauthorized, .unauthorized),
-                 (.serverError, .serverError):
+            case (.networkError(_), .networkError(_)),
+                 (.unauthorized(_), .unauthorized(_)),
+                 (.serverError(_, _), .serverError(_, _)):
                 break // Success - correct error type
             default:
                 XCTFail("Expected \(expectedError), got \(error)", file: file, line: line)
@@ -578,4 +578,20 @@ extension APIClientIntegrationTests {
             XCTFail("Unexpected error type: \(error)", file: file, line: line)
         }
     }
+}
+
+// MARK: - Helper Classes
+
+/// Reference type wrapper for counting requests in escaping closures
+private class RequestCounter {
+    var count = 0
+
+    func increment() {
+        count += 1
+    }
+}
+
+/// Reference type wrapper for capturing headers in escaping closures
+private class HeadersCapture {
+    var headers: [String: String]?
 }

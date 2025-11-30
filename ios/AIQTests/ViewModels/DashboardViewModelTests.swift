@@ -339,7 +339,7 @@ final class DashboardViewModelTests: XCTestCase {
         await sut.abandonActiveTest()
 
         // Then - Verify cache was invalidated
-        let cachedData: TestSessionStatusResponse?? = await DataCache.shared.get(
+        let cachedData: TestSessionStatusResponse? = await DataCache.shared.get(
             forKey: DataCache.Key.activeTestSession
         )
         XCTAssertNil(cachedData, "Cache should be invalidated after abandoning test")
@@ -374,13 +374,16 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Mock dashboard data - should be called during refresh
         let mockTestResult = TestResult(
-            id: "result-1",
+            id: 1,
             testSessionId: 100,
             userId: 1,
             iqScore: 120,
-            completedAt: Date(),
+            percentileRank: 84.0,
             totalQuestions: 20,
-            correctAnswers: 15
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completionTimeSeconds: 300,
+            completedAt: Date()
         )
         mockAPIClient.addQueuedResponse([mockTestResult] as [TestResult])
         mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
