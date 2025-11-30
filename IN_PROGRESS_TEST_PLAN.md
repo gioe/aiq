@@ -113,7 +113,7 @@ Implement a two-pronged approach:
 ### Phase 5: Test Abandonment from Dashboard (Optional Enhancement)
 **Goal**: Allow users to abandon in-progress tests directly from dashboard
 
-- [ ] P5-001: Add "Abandon Test" functionality to DashboardViewModel
+- [x] P5-001: Add "Abandon Test" functionality to DashboardViewModel
   - Create `abandonActiveTest()` async method
   - Call `/v1/test/{session_id}/abandon` endpoint
   - Clear activeTestSession state on success
