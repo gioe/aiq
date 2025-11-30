@@ -427,7 +427,7 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeTestSession(
         id: Int,
         userId: Int = 1,
-        status: TestSession.Status = .inProgress,
+        status: TestStatus = .inProgress,
         startedAt: Date = Date(),
         completedAt: Date? = nil
     ) -> TestSession {
@@ -497,7 +497,7 @@ final class TestTakingViewModelTests: XCTestCase {
         message: String = "Test abandoned successfully"
     ) -> TestAbandonResponse {
         TestAbandonResponse(
-            session: makeTestSession(id: sessionId, status: .abandoned),
+            session: makeTestSession(id: sessionId, status: TestStatus.abandoned),
             message: message,
             responsesSaved: responsesSaved
         )
