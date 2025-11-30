@@ -50,3 +50,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             ONLY_ACTIVE_ARCH=NO
+
+      - name: Run iOS tests
+        run: |
+          cd ios
+          xcodebuild test \
+            -project AIQ.xcodeproj \
+            -scheme AIQ \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -skip-testing:AIQTests/APIClientIntegrationTests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-test-results
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+          retention-days: 7
