@@ -99,36 +99,10 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_SuccessfullyLoadsSession() async {
         // Given
         let sessionId = 789
-        let mockSession = TestSession(
-            id: sessionId,
-            userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil
-        )
-        let mockQuestions = [
-            Question(
-                id: 1,
-                questionText: "Test question 1?",
-                questionType: .logic,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
-            ),
-            Question(
-                id: 2,
-                questionText: "Test question 2?",
-                questionType: .pattern,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
-            )
-        ]
-        let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
-            questions: mockQuestions,
-            questionsCount: mockQuestions.count
+        let mockQuestions = makeQuestions(count: 2)
+        let mockResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -151,36 +125,13 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_MergesSavedProgressWhenAvailable() async {
         // Given
         let sessionId = 999
-        let mockSession = TestSession(
-            id: sessionId,
-            userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil
-        )
         let mockQuestions = [
-            Question(
-                id: 10,
-                questionText: "Question 1?",
-                questionType: .spatial,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
-            ),
-            Question(
-                id: 20,
-                questionText: "Question 2?",
-                questionType: .math,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
-            )
+            makeQuestion(id: 10, text: "Question 1?", type: .spatial),
+            makeQuestion(id: 20, text: "Question 2?", type: .math)
         ]
-        let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
-            questions: mockQuestions,
-            questionsCount: mockQuestions.count
+        let mockResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -208,28 +159,10 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_StartsFromBeginningWithNoSavedProgress() async {
         // Given
         let sessionId = 111
-        let mockSession = TestSession(
-            id: sessionId,
-            userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil
-        )
-        let mockQuestions = [
-            Question(
-                id: 1,
-                questionText: "Question 1?",
-                questionType: .verbal,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
-            )
-        ]
-        let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
-            questions: mockQuestions,
-            questionsCount: mockQuestions.count
+        let mockQuestions = makeQuestions(count: 1)
+        let mockResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
         )
         mockAPIClient.mockResponse = mockResponse
         mockAnswerStorage.mockProgress = nil // No saved progress
@@ -294,39 +227,10 @@ final class TestTakingViewModelTests: XCTestCase {
         let sessionId = 444
         let newSessionId = 555
 
-        // First response: abandon success
-        let abandonResponse = TestAbandonResponse(
-            session: TestSession(
-                id: sessionId,
-                userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .abandoned,
-                questions: nil
-            ),
-            responsesSaved: 5
-        )
-
-        // Second response: start test success
-        let startResponse = StartTestResponse(
-            session: TestSession(
-                id: newSessionId,
-                userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil
-            ),
-            questions: [
-                Question(
-                    id: 100,
-                    questionText: "New question?",
-                    questionType: .logic,
-                    difficultyLevel: .medium,
-                    answerOptions: ["A", "B", "C", "D"],
-                    explanation: nil
-                )
-            ]
+        let abandonResponse = makeAbandonResponse(sessionId: sessionId, responsesSaved: 5)
+        let startResponse = makeStartTestResponse(
+            sessionId: newSessionId,
+            questions: makeQuestions(count: 1, startingId: 100)
         )
 
         // Set up queue with both responses for internal calls
@@ -368,39 +272,10 @@ final class TestTakingViewModelTests: XCTestCase {
         let sessionId = 777
         let newSessionId = 888
 
-        // First response: abandon success
-        let abandonResponse = TestAbandonResponse(
-            session: TestSession(
-                id: sessionId,
-                userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .abandoned,
-                questions: nil
-            ),
-            responsesSaved: 3
-        )
-
-        // Second response: start test success
-        let startTestResponse = StartTestResponse(
-            session: TestSession(
-                id: newSessionId,
-                userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil
-            ),
-            questions: [
-                Question(
-                    id: 1,
-                    questionText: "New test question?",
-                    questionType: .logic,
-                    difficultyLevel: .medium,
-                    answerOptions: ["A", "B", "C", "D"],
-                    explanation: nil
-                )
-            ]
+        let abandonResponse = makeAbandonResponse(sessionId: sessionId, responsesSaved: 3)
+        let startTestResponse = makeStartTestResponse(
+            sessionId: newSessionId,
+            questions: makeQuestions(count: 1)
         )
 
         // Set up queue with both responses
@@ -545,5 +420,82 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(sut.userAnswers.count, 1, "Should only restore valid answers")
         XCTAssertEqual(sut.userAnswers[1], "A", "Should restore answer for question 1")
         XCTAssertNil(sut.userAnswers[3], "Should not restore answer for question 3")
+    }
+
+    // MARK: - Test Factory Methods
+
+    private func makeTestSession(
+        id: Int,
+        userId: Int = 1,
+        status: TestSessionStatus = .inProgress,
+        startedAt: Date = Date(),
+        completedAt: Date? = nil
+    ) -> TestSession {
+        TestSession(
+            id: id,
+            userId: userId,
+            startedAt: startedAt,
+            completedAt: completedAt,
+            status: status,
+            questions: nil
+        )
+    }
+
+    private func makeQuestion(
+        id: Int,
+        text: String = "Test question?",
+        type: QuestionType = .logic,
+        difficulty: DifficultyLevel = .medium,
+        options: [String]? = ["A", "B", "C", "D"]
+    ) -> Question {
+        Question(
+            id: id,
+            questionText: text,
+            questionType: type,
+            difficultyLevel: difficulty,
+            answerOptions: options,
+            explanation: nil
+        )
+    }
+
+    private func makeQuestions(count: Int, startingId: Int = 1) -> [Question] {
+        (0 ..< count).map { index in
+            makeQuestion(
+                id: startingId + index,
+                text: "Test question \(startingId + index)?"
+            )
+        }
+    }
+
+    private func makeSessionStatusResponse(
+        sessionId: Int,
+        questions: [Question],
+        questionsCount: Int? = nil
+    ) -> TestSessionStatusResponse {
+        TestSessionStatusResponse(
+            session: makeTestSession(id: sessionId),
+            questions: questions,
+            questionsCount: questionsCount ?? questions.count
+        )
+    }
+
+    private func makeStartTestResponse(
+        sessionId: Int,
+        questions: [Question]
+    ) -> StartTestResponse {
+        StartTestResponse(
+            session: makeTestSession(id: sessionId),
+            questions: questions
+        )
+    }
+
+    private func makeAbandonResponse(
+        sessionId: Int,
+        responsesSaved: Int = 0
+    ) -> TestAbandonResponse {
+        TestAbandonResponse(
+            session: makeTestSession(id: sessionId, status: .abandoned),
+            responsesSaved: responsesSaved
+        )
     }
 }
