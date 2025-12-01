@@ -119,7 +119,7 @@ Implement a two-pronged approach:
   - Clear activeTestSession state on success
   - Invalidate cache and refresh dashboard data
 
-- [ ] P5-002: Add abandon confirmation dialog to DashboardView
+- [x] P5-002: Add abandon confirmation dialog to DashboardView
   - Show confirmation alert before abandoning
   - Warning message: "This test will not count toward your history"
   - "Abandon Test" (destructive) vs "Cancel" buttons
