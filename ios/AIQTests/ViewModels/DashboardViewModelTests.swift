@@ -40,7 +40,7 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testFetchActiveSession_WithNoActiveSession() async {
         // Given
-        mockAPIClient.mockResponse = nil as TestSessionStatusResponse?
+        mockAPIClient.mockResponse = NSNull() // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.fetchActiveSession()
@@ -231,7 +231,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         mockAPIClient.addQueuedResponse(mockAbandonResponse)
         mockAPIClient.addQueuedResponse([] as [TestResult])
-        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
+        mockAPIClient.addQueuedResponse(NSNull()) // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()
@@ -336,7 +336,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Mock the dashboard data for refresh
         mockAPIClient.addQueuedResponse([] as [TestResult])
-        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
+        mockAPIClient.addQueuedResponse(NSNull()) // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()
@@ -389,7 +389,7 @@ final class DashboardViewModelTests: XCTestCase {
             completedAt: Date()
         )
         mockAPIClient.addQueuedResponse([mockTestResult] as [TestResult])
-        mockAPIClient.addQueuedResponse(nil as TestSessionStatusResponse?)
+        mockAPIClient.addQueuedResponse(NSNull()) // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()

@@ -57,6 +57,21 @@ class MockAPIClient: APIClientProtocol {
         // Check response queue
         if !responseQueue.isEmpty {
             let response = responseQueue.removeFirst()
+
+            // Handle NSNull as explicit nil for Optional types
+            if response is NSNull {
+                // NSNull represents explicit nil - cast it to Optional type
+                guard let nilResponse = (nil as T?) else {
+                    throw NSError(
+                        domain: "MockAPIClient",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Cannot return nil for non-optional type"]
+                    )
+                }
+                return nilResponse
+            }
+
+            // Try to cast the response to the expected type
             guard let typedResponse = response as? T else {
                 throw NSError(
                     domain: "MockAPIClient",

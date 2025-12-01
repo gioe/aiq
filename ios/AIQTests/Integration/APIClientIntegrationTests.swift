@@ -180,10 +180,10 @@ final class APIClientIntegrationTests: XCTestCase {
             )
             XCTFail("Should have thrown error")
         } catch let error as APIError {
-            if case .badRequest = error {
-                // Success - correct error type (422 validation error maps to badRequest)
+            if case .unprocessableEntity = error {
+                // Success - correct error type (422 validation error maps to unprocessableEntity)
             } else {
-                XCTFail("Expected badRequest, got \(error)")
+                XCTFail("Expected unprocessableEntity, got \(error)")
             }
         } catch {
             XCTFail("Unexpected error type: \(error)")
