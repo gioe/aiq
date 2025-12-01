@@ -237,7 +237,7 @@ class APIClient: APIClientProtocol {
         requiresAuth: Bool,
         customHeaders: [String: String]?
     ) async throws -> (T, HTTPURLResponse) {
-        let urlRequest = try prepareRequest(
+        let urlRequest = try await prepareRequest(
             endpoint: endpoint,
             method: method,
             body: body,
@@ -338,14 +338,20 @@ class APIClient: APIClientProtocol {
                 // retry the original request
                 if let tokenRefreshError = error as? TokenRefreshError,
                    case .shouldRetryRequest = tokenRefreshError {
-                    let result: (Data, HTTPURLResponse, TimeInterval) = try await performRequest(
+                    // Retry the request: prepare, execute, and apply interceptors again
+                    let urlRequest = try await prepareRequest(
                         endpoint: context.endpoint,
                         method: context.method,
                         body: context.body,
                         requiresAuth: context.requiresAuth,
                         customHeaders: context.customHeaders
                     )
-                    return result.0
+                    let (newData, newResponse, _) = try await executeRequest(urlRequest)
+                    return try await applyResponseInterceptors(
+                        data: newData,
+                        response: newResponse,
+                        context: context
+                    )
                 }
                 throw error
             }
@@ -435,7 +441,7 @@ class APIClient: APIClientProtocol {
         case 422:
             // Validation error - map to badRequest
             let message = parseErrorMessage(from: data)
-            throw APIError.badRequest(message: message)
+            throw APIError.unprocessableEntity(message: message)
         case 500 ... 599:
             let message = parseErrorMessage(from: data)
             throw APIError.serverError(statusCode: statusCode, message: message)
