@@ -145,6 +145,84 @@ final class APIClientIntegrationTests: XCTestCase {
         XCTAssertEqual(requestCount.count, 2)
     }
 
+    // MARK: - Token Refresh Retry Limit Tests
+
+    func testTokenRefreshRetryLimitPreventsInfiniteLoop() async {
+        // Given - Create APIClient with token refresh interceptor
+        let mockAuthService = MockAuthService()
+        let tokenRefreshInterceptor = TokenRefreshInterceptor(authService: mockAuthService)
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let testSession = URLSession(configuration: configuration)
+
+        let testClient = APIClient(
+            baseURL: "https://api.test.com",
+            session: testSession,
+            retryPolicy: RetryPolicy(
+                maxAttempts: 1,
+                retryableStatusCodes: [],
+                retryableErrors: [],
+                delayCalculator: { _ in 0 }
+            ),
+            requestInterceptors: [],
+            responseInterceptors: [tokenRefreshInterceptor]
+        )
+
+        testClient.setAuthToken("expired-token")
+
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            let url = request.url!
+
+            // Token refresh endpoint always succeeds
+            if url.path.contains("/auth/refresh") {
+                let response = [
+                    "access_token": "new-access-token",
+                    "refresh_token": "new-refresh-token",
+                    "user": [
+                        "id": "123",
+                        "email": "test@example.com",
+                        "first_name": "Test",
+                        "last_name": "User"
+                    ]
+                ] as [String: Any]
+                return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
+            }
+
+            // All other requests return 401 to simulate persistent auth failure
+            let errorResponse = ["detail": "Unauthorized"]
+            return try self.createHTTPResponse(url: url, statusCode: 401, json: errorResponse)
+        }
+
+        // When/Then - Request should fail after retry limit is exceeded
+        do {
+            let _: UserProfile = try await testClient.request(
+                endpoint: .userProfile,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            XCTFail("Should have thrown unauthorized error after retry limit")
+        } catch let error as APIError {
+            if case let .unauthorized(message) = error {
+                // Success - verify it's the retry limit error
+                XCTAssertTrue(
+                    message?.contains("Authentication failed after token refresh") ?? false,
+                    "Error message should indicate retry limit exceeded"
+                )
+                // Verify we didn't recurse infinitely
+                // Should be: 1 initial request + 1 token refresh + 1 retry + 1 token refresh = 4 max
+                XCTAssertLessThanOrEqual(requestCount, 4, "Should not exceed retry limit")
+            } else {
+                XCTFail("Expected unauthorized error with retry limit message, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+    }
+
     // MARK: - Error Handling Integration Tests
 
     func testNetworkErrorHandling() async {
@@ -603,4 +681,64 @@ private class RequestCounter {
 /// Reference type wrapper for capturing headers in escaping closures
 private class HeadersCapture {
     var headers: [String: String]?
+}
+
+/// Mock authentication service for testing token refresh
+private class MockAuthService: AuthServiceProtocol {
+    var isAuthenticated: Bool = true
+    var currentUser: AIQ.User?
+    var refreshTokenCallCount = 0
+    var logoutCallCount = 0
+
+    func register(
+        email _: String,
+        password _: String,
+        firstName _: String,
+        lastName _: String,
+        birthYear _: Int?,
+        educationLevel _: EducationLevel?,
+        country _: String?,
+        region _: String?
+    ) async throws -> AIQ.AuthResponse {
+        fatalError("Not implemented for this test")
+    }
+
+    func login(email _: String, password _: String) async throws -> AIQ.AuthResponse {
+        fatalError("Not implemented for this test")
+    }
+
+    func refreshToken() async throws -> AIQ.AuthResponse {
+        refreshTokenCallCount += 1
+        // Return a mock successful refresh response
+        let user = AIQ.User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        currentUser = user
+        return AIQ.AuthResponse(
+            accessToken: "new-access-token-\(refreshTokenCallCount)",
+            refreshToken: "new-refresh-token-\(refreshTokenCallCount)",
+            tokenType: "bearer",
+            user: user
+        )
+    }
+
+    func logout() async throws {
+        logoutCallCount += 1
+        isAuthenticated = false
+        currentUser = nil
+    }
+
+    func getAccessToken() -> String? {
+        "mock-access-token"
+    }
 }

@@ -122,6 +122,10 @@ private struct RequestContext {
     let body: Encodable?
     let requiresAuth: Bool
     let customHeaders: [String: String]?
+    let retryCount: Int
+
+    /// Maximum number of retries allowed for token refresh
+    static let maxRetries = 1
 }
 
 /// Main API client implementation
@@ -254,7 +258,8 @@ class APIClient: APIClientProtocol {
             method: method,
             body: body,
             requiresAuth: requiresAuth,
-            customHeaders: customHeaders
+            customHeaders: customHeaders,
+            retryCount: 0
         )
 
         let responseData = try await applyResponseInterceptors(
@@ -340,7 +345,13 @@ class APIClient: APIClientProtocol {
                 // retry the original request
                 if let tokenRefreshError = error as? TokenRefreshError,
                    case .shouldRetryRequest = tokenRefreshError {
-                    // Retry the request: prepare, execute, and apply interceptors again
+                    // Check if we've exceeded the retry limit
+                    guard context.retryCount < RequestContext.maxRetries else {
+                        print("❌ Token refresh retry limit exceeded (\(RequestContext.maxRetries) attempts)")
+                        throw APIError.unauthorized(message: "Authentication failed after token refresh")
+                    }
+
+                    // Retry the request with incremented retry count
                     let urlRequest = try await prepareRequest(
                         endpoint: context.endpoint,
                         method: context.method,
@@ -349,10 +360,21 @@ class APIClient: APIClientProtocol {
                         customHeaders: context.customHeaders
                     )
                     let (newData, newResponse, _) = try await executeRequest(urlRequest)
+
+                    // Create new context with incremented retry count
+                    let newContext = RequestContext(
+                        endpoint: context.endpoint,
+                        method: context.method,
+                        body: context.body,
+                        requiresAuth: context.requiresAuth,
+                        customHeaders: context.customHeaders,
+                        retryCount: context.retryCount + 1
+                    )
+
                     return try await applyResponseInterceptors(
                         data: newData,
                         response: newResponse,
-                        context: context
+                        context: newContext
                     )
                 }
                 throw error
