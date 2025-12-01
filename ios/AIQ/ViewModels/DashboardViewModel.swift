@@ -183,12 +183,18 @@ class DashboardViewModel: BaseViewModel {
                     requiresAuth: true
                 )
 
-                // Cache the response with shorter TTL (2 minutes for active sessions)
-                await DataCache.shared.set(
-                    response,
-                    forKey: DataCache.Key.activeTestSession,
-                    expiration: 120 // 2 minutes
-                )
+                // Cache the response only if not nil (2 minutes TTL for active sessions)
+                // Don't cache nil responses - user might start a new test at any time
+                if let response {
+                    await DataCache.shared.set(
+                        response,
+                        forKey: DataCache.Key.activeTestSession,
+                        expiration: 120 // 2 minutes
+                    )
+                } else {
+                    // Ensure cache is cleared if no active session
+                    await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+                }
 
                 #if DEBUG
                     if let resp = response {

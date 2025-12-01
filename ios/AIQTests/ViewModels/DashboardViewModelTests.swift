@@ -238,9 +238,16 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockAPIClient.requestCalled, "API request should be called")
-        XCTAssertEqual(mockAPIClient.lastMethod, .post, "Should use POST method")
+        // Check that testAbandon was called (it's the first call, followed by dashboard refresh calls)
+        XCTAssertTrue(mockAPIClient.allMethods.contains(.post), "Should use POST method")
+        XCTAssertTrue(mockAPIClient.allMethods.first == .post, "First call should be POST")
         XCTAssertTrue(mockAPIClient.lastRequiresAuth == true, "Should require authentication")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testAbandon(456), "Should call testAbandon endpoint")
+        // Verify the abandon endpoint was called by checking allEndpoints
+        let abandonCalled = mockAPIClient.allEndpoints.contains { endpoint in
+            if case .testAbandon(456) = endpoint { return true }
+            return false
+        }
+        XCTAssertTrue(abandonCalled, "Should call testAbandon endpoint")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be cleared after abandoning")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be cleared")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false after abandoning")

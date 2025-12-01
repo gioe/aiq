@@ -238,19 +238,20 @@ final class APIClientIntegrationTests: XCTestCase {
         sut.setAuthToken("valid-token")
         mockActiveSessionResponse(hasActiveSession: false)
 
-        // When
+        // When/Then
+        // Backend returns null when no active session exists
+        // The API client should handle this gracefully by allowing Optional return type
         do {
-            let _: TestSessionStatusResponse? = try await sut.request(
+            let response: TestSessionStatusResponse? = try await sut.request(
                 endpoint: .testActive,
                 method: .get,
                 body: nil as String?,
                 requiresAuth: true
             )
-            XCTFail("Should handle null response gracefully")
+            // Success - null response handled gracefully
+            XCTAssertNil(response, "Should decode null response as nil")
         } catch {
-            // Expected - null response from server should be handled
-            // In practice, the backend returns null which can't decode to TestSessionStatusResponse
-            // This is expected behavior
+            XCTFail("Should handle null response gracefully, got error: \(error)")
         }
     }
 

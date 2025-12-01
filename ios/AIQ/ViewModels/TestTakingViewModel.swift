@@ -162,6 +162,13 @@ class TestTakingViewModel: BaseViewModel {
             // Track analytics for this edge case
             AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
 
+            // Set the error so UI can react appropriately
+            let contextualError = ContextualError(
+                error: error,
+                operation: .fetchQuestions
+            )
+            self.error = contextualError
+
             Task {
                 await showActiveSessionRecoveryAlert(sessionId: sessionId)
             }
