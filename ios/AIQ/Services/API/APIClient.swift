@@ -145,7 +145,9 @@ class APIClient: APIClientProtocol {
         baseURL: String,
         session: URLSession = .shared,
         retryPolicy: RetryPolicy = .default,
-        requestTimeout: TimeInterval = 30.0
+        requestTimeout: TimeInterval = 30.0,
+        requestInterceptors: [RequestInterceptor]? = nil,
+        responseInterceptors: [ResponseInterceptor]? = nil
     ) {
         guard let url = URL(string: baseURL) else {
             fatalError("Invalid base URL: \(baseURL)")
@@ -159,14 +161,14 @@ class APIClient: APIClientProtocol {
         // Note: AuthService will be set later to avoid circular dependency
         tokenRefreshInterceptor = TokenRefreshInterceptor()
 
-        // Set up default request interceptors
-        requestInterceptors = [
+        // Set up request interceptors (use provided or defaults)
+        self.requestInterceptors = requestInterceptors ?? [
             ConnectivityInterceptor(),
             LoggingInterceptor()
         ]
 
-        // Set up default response interceptors
-        responseInterceptors = [
+        // Set up response interceptors (use provided or defaults)
+        self.responseInterceptors = responseInterceptors ?? [
             tokenRefreshInterceptor
         ]
     }

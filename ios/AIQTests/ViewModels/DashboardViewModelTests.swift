@@ -332,9 +332,9 @@ final class DashboardViewModelTests: XCTestCase {
             message: "Test abandoned successfully",
             responsesSaved: 10
         )
-        mockAPIClient.mockResponse = mockAbandonResponse
 
-        // Mock the dashboard data for refresh
+        // Queue all responses in order: abandon, test history, active session
+        mockAPIClient.addQueuedResponse(mockAbandonResponse)
         mockAPIClient.addQueuedResponse([] as [TestResult])
         mockAPIClient.addQueuedResponse(NSNull()) // Represents nil for TestSessionStatusResponse?
 
@@ -373,7 +373,6 @@ final class DashboardViewModelTests: XCTestCase {
             message: "Test abandoned successfully",
             responsesSaved: 2
         )
-        mockAPIClient.mockResponse = mockAbandonResponse
 
         // Mock dashboard data - should be called during refresh
         let mockTestResult = TestResult(
@@ -388,6 +387,9 @@ final class DashboardViewModelTests: XCTestCase {
             completionTimeSeconds: 300,
             completedAt: Date()
         )
+
+        // Queue all responses in order: abandon, test history, active session
+        mockAPIClient.addQueuedResponse(mockAbandonResponse)
         mockAPIClient.addQueuedResponse([mockTestResult] as [TestResult])
         mockAPIClient.addQueuedResponse(NSNull()) // Represents nil for TestSessionStatusResponse?
 

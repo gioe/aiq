@@ -22,7 +22,15 @@ final class APIClientIntegrationTests: XCTestCase {
 
         sut = APIClient(
             baseURL: "https://api.test.com",
-            session: mockURLSession
+            session: mockURLSession,
+            retryPolicy: RetryPolicy(
+                maxAttempts: 1,
+                retryableStatusCodes: [],
+                retryableErrors: [],
+                delayCalculator: { _ in 0 }
+            ), // Disable retries for testing
+            requestInterceptors: [], // Disable interceptors for testing
+            responseInterceptors: [] // Disable interceptors for testing
         )
     }
 

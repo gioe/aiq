@@ -60,15 +60,9 @@ class MockAPIClient: APIClientProtocol {
 
             // Handle NSNull as explicit nil for Optional types
             if response is NSNull {
-                // NSNull represents explicit nil - cast it to Optional type
-                guard let nilResponse = (nil as T?) else {
-                    throw NSError(
-                        domain: "MockAPIClient",
-                        code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Cannot return nil for non-optional type"]
-                    )
-                }
-                return nilResponse
+                // For optional types, we need to return nil properly
+                // We use a helper to avoid double-optional issues
+                return nilValue()
             }
 
             // Try to cast the response to the expected type
@@ -139,5 +133,17 @@ class MockAPIClient: APIClientProtocol {
         errorQueue.removeAll()
         allEndpoints.removeAll()
         allMethods.removeAll()
+    }
+
+    /// Helper function to return nil for optional types
+    /// This avoids double-optional issues when T is already an Optional type
+    private func nilValue<T>() -> T {
+        // Cast Optional<Any>.none (nil) through Any to T
+        // This works when T is an optional type like TestSessionStatusResponse?
+        if let result = (Any?.none as Any) as? T {
+            result
+        } else {
+            fatalError("Cannot cast nil to type \(T.self) - type must be Optional")
+        }
     }
 }

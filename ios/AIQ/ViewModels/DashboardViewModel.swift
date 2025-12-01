@@ -172,13 +172,13 @@ class DashboardViewModel: BaseViewModel {
     /// Get active session response from cache or API
     private func getActiveSessionResponse(forceRefresh: Bool) async throws -> TestSessionStatusResponse? {
         // Check cache first if not forcing refresh
-        if !forceRefresh, let cached: TestSessionStatusResponse? = await DataCache.shared.get(
+        if !forceRefresh, let cached: TestSessionStatusResponse = await DataCache.shared.get(
             forKey: DataCache.Key.activeTestSession
-        ), let cachedResponse = cached {
+        ) {
             #if DEBUG
-                print("✅ Active session loaded from cache: \(cachedResponse.session.id)")
+                print("✅ Active session loaded from cache: \(cached.session.id)")
             #endif
-            return cachedResponse
+            return cached
         }
 
         #if DEBUG

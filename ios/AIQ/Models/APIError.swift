@@ -136,8 +136,9 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .networkError, .timeout, .noInternetConnection, .serverError:
             true
-        case .unauthorized, .forbidden, .invalidURL, .invalidResponse, .notFound, .badRequest,
-             .activeSessionConflict, .decodingError, .unknown, .unprocessableEntity:
+        case .badRequest, .unprocessableEntity, .unauthorized, .forbidden,
+             .invalidURL, .invalidResponse, .notFound,
+             .activeSessionConflict, .decodingError, .unknown:
             false
         }
     }

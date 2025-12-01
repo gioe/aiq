@@ -30,13 +30,32 @@ class MockURLProtocol: URLProtocol {
         }
 
         do {
-            // Restore httpBody from property storage if needed
+            // Restore httpBody from property storage, httpBody, or httpBodyStream
             var requestToHandle = request
-            if requestToHandle.httpBody == nil,
-               let savedBody = URLProtocol.property(forKey: Self.httpBodyKey, in: request) as? Data {
-                var mutableRequest = request
+            if let savedBody = URLProtocol.property(forKey: Self.httpBodyKey, in: request) as? Data {
+                // Body was saved in canonicalRequest
+                var mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
                 mutableRequest.httpBody = savedBody
-                requestToHandle = mutableRequest
+                requestToHandle = mutableRequest as URLRequest
+            } else if request.httpBody == nil, let bodyStream = request.httpBodyStream {
+                // Read from body stream if no httpBody is present
+                bodyStream.open()
+                let bufferSize = 1024
+                var data = Data()
+                let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+                defer { buffer.deallocate() }
+
+                while bodyStream.hasBytesAvailable {
+                    let bytesRead = bodyStream.read(buffer, maxLength: bufferSize)
+                    if bytesRead > 0 {
+                        data.append(buffer, count: bytesRead)
+                    }
+                }
+                bodyStream.close()
+
+                var mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+                mutableRequest.httpBody = data
+                requestToHandle = mutableRequest as URLRequest
             }
 
             let (response, data) = try handler(requestToHandle)
