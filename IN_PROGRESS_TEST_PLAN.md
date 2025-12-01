@@ -124,7 +124,7 @@ Implement a two-pronged approach:
   - Warning message: "This test will not count toward your history"
   - "Abandon Test" (destructive) vs "Cancel" buttons
 
-- [ ] P5-003: Update InProgressTestCard with abandon button
+- [x] P5-003: Update InProgressTestCard with abandon button
   - Add secondary "Abandon" button with destructive styling
   - Show confirmation dialog on tap
   - Update UI after successful abandonment
