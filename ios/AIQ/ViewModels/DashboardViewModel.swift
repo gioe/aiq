@@ -159,61 +159,77 @@ class DashboardViewModel: BaseViewModel {
     /// - Note: Errors are logged but don't block dashboard loading
     func fetchActiveSession(forceRefresh: Bool = false) async {
         do {
-            // Try to get from cache first if not forcing refresh
-            var response: TestSessionStatusResponse?
-
-            if !forceRefresh,
-               let cachedResponse: TestSessionStatusResponse? = await DataCache.shared.get(
-                   forKey: DataCache.Key.activeTestSession
-               ) {
-                response = cachedResponse
-                #if DEBUG
-                    if let resp = cachedResponse {
-                        print("✅ Active session loaded from cache: \(resp.session.id)")
-                    } else {
-                        print("✅ No active session (from cache)")
-                    }
-                #endif
-            } else {
-                // Fetch from API
-                response = try await apiClient.request(
-                    endpoint: .testActive,
-                    method: .get,
-                    body: nil as String?,
-                    requiresAuth: true
-                )
-
-                // Cache the response with shorter TTL (2 minutes for active sessions)
-                await DataCache.shared.set(
-                    response,
-                    forKey: DataCache.Key.activeTestSession,
-                    expiration: 120 // 2 minutes
-                )
-
-                #if DEBUG
-                    if let resp = response {
-                        print(
-                            "✅ Active session fetched from API: \(resp.session.id) " +
-                                "with \(resp.questionsCount) questions answered"
-                        )
-                    } else {
-                        print("ℹ️ No active session found")
-                    }
-                #endif
-            }
-
-            // Update properties from response
+            let response = try await getActiveSessionResponse(forceRefresh: forceRefresh)
             updateActiveSessionState(response)
-
         } catch {
-            // Gracefully handle errors - log but don't block dashboard
             #if DEBUG
                 print("⚠️ Failed to fetch active session: \(error)")
             #endif
-
-            // Clear active session state on error
             updateActiveSessionState(nil)
         }
+    }
+
+    /// Get active session response from cache or API
+    private func getActiveSessionResponse(forceRefresh: Bool) async throws -> TestSessionStatusResponse? {
+        // Check cache first if not forcing refresh
+        if !forceRefresh, let cached: TestSessionStatusResponse = await DataCache.shared.get(
+            forKey: DataCache.Key.activeTestSession
+        ) {
+            #if DEBUG
+                print("✅ Active session loaded from cache: \(cached.session.id)")
+            #endif
+            return cached
+        }
+
+        #if DEBUG
+            if !forceRefresh {
+                print("ℹ️ No active session in cache, fetching from API")
+            }
+        #endif
+
+        // Fetch from API
+        let response: TestSessionStatusResponse? = try await apiClient.request(
+            endpoint: .testActive,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
+
+        // Cache or remove based on response
+        await cacheActiveSessionResponse(response)
+
+        #if DEBUG
+            logActiveSessionAPIResponse(response)
+        #endif
+
+        return response
+    }
+
+    /// Cache or remove active session response
+    private func cacheActiveSessionResponse(_ response: TestSessionStatusResponse?) async {
+        if let response {
+            await DataCache.shared.set(
+                response,
+                forKey: DataCache.Key.activeTestSession,
+                expiration: 120 // 2 minutes
+            )
+        } else {
+            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+        }
+    }
+
+    /// Log active session API response (debug only)
+    private func logActiveSessionAPIResponse(_ response: TestSessionStatusResponse?) {
+        #if DEBUG
+            if let response {
+                print(
+                    "✅ Active session fetched from API: \(response.session.id) " +
+                        "with \(response.questionsCount) questions answered"
+                )
+            } else {
+                print("ℹ️ No active session found")
+            }
+        #endif
     }
 
     /// Update active session state from response

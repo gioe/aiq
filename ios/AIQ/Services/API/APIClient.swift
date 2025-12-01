@@ -50,7 +50,7 @@ enum HTTPMethod: String {
 }
 
 /// API endpoint definitions
-enum APIEndpoint {
+enum APIEndpoint: Equatable {
     /// User registration endpoint
     case register
     /// User login endpoint
@@ -115,6 +115,19 @@ enum APIEndpoint {
     }
 }
 
+/// Context for request retries after token refresh
+private struct RequestContext {
+    let endpoint: APIEndpoint
+    let method: HTTPMethod
+    let body: Encodable?
+    let requiresAuth: Bool
+    let customHeaders: [String: String]?
+    let retryCount: Int
+
+    /// Maximum number of retries allowed for token refresh
+    static let maxRetries = 1
+}
+
 /// Main API client implementation
 class APIClient: APIClientProtocol {
     /// Shared singleton instance
@@ -136,7 +149,9 @@ class APIClient: APIClientProtocol {
         baseURL: String,
         session: URLSession = .shared,
         retryPolicy: RetryPolicy = .default,
-        requestTimeout: TimeInterval = 30.0
+        requestTimeout: TimeInterval = 30.0,
+        requestInterceptors: [RequestInterceptor]? = nil,
+        responseInterceptors: [ResponseInterceptor]? = nil
     ) {
         guard let url = URL(string: baseURL) else {
             fatalError("Invalid base URL: \(baseURL)")
@@ -150,14 +165,14 @@ class APIClient: APIClientProtocol {
         // Note: AuthService will be set later to avoid circular dependency
         tokenRefreshInterceptor = TokenRefreshInterceptor()
 
-        // Set up default request interceptors
-        requestInterceptors = [
+        // Set up request interceptors (use provided or defaults)
+        self.requestInterceptors = requestInterceptors ?? [
             ConnectivityInterceptor(),
             LoggingInterceptor()
         ]
 
-        // Set up default response interceptors
-        responseInterceptors = [
+        // Set up response interceptors (use provided or defaults)
+        self.responseInterceptors = responseInterceptors ?? [
             tokenRefreshInterceptor
         ]
     }
@@ -228,6 +243,46 @@ class APIClient: APIClientProtocol {
         requiresAuth: Bool,
         customHeaders: [String: String]?
     ) async throws -> (T, HTTPURLResponse) {
+        let urlRequest = try await prepareRequest(
+            endpoint: endpoint,
+            method: method,
+            body: body,
+            requiresAuth: requiresAuth,
+            customHeaders: customHeaders
+        )
+
+        let (data, httpResponse, duration) = try await executeRequest(urlRequest)
+
+        let context = RequestContext(
+            endpoint: endpoint,
+            method: method,
+            body: body,
+            requiresAuth: requiresAuth,
+            customHeaders: customHeaders,
+            retryCount: 0
+        )
+
+        let responseData = try await applyResponseInterceptors(
+            data: data,
+            response: httpResponse,
+            context: context
+        )
+
+        return try handleResponseWithAnalytics(
+            data: responseData,
+            response: httpResponse,
+            endpoint: endpoint,
+            duration: duration
+        )
+    }
+
+    private func prepareRequest(
+        endpoint: APIEndpoint,
+        method: HTTPMethod,
+        body: Encodable?,
+        requiresAuth: Bool,
+        customHeaders: [String: String]?
+    ) async throws -> URLRequest {
         var urlRequest = try buildRequest(
             endpoint: endpoint,
             method: method,
@@ -247,12 +302,21 @@ class APIClient: APIClientProtocol {
             urlRequest = try await interceptor.intercept(urlRequest)
         }
 
-        // Track request start time for performance monitoring
-        let startTime = Date()
+        return urlRequest
+    }
 
-        // Log and perform request
+    private func executeRequest(_ urlRequest: URLRequest) async throws -> (Data, HTTPURLResponse, TimeInterval) {
+        let startTime = Date()
         logRequest(urlRequest)
-        let (data, response) = try await session.data(for: urlRequest)
+
+        // Perform network request and wrap URLErrors in APIError
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(for: urlRequest)
+        } catch let urlError as URLError {
+            throw APIError.networkError(urlError)
+        }
+
         let duration = Date().timeIntervalSince(startTime)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -261,41 +325,63 @@ class APIClient: APIClientProtocol {
         }
 
         logResponse(httpResponse, data: data, duration: duration)
-
-        // Log response
         NetworkLogger.shared.logResponse(httpResponse, data: data)
 
+        return (data, httpResponse, duration)
+    }
+
+    private func applyResponseInterceptors(
+        data: Data,
+        response: HTTPURLResponse,
+        context: RequestContext
+    ) async throws -> Data {
         var responseData = data
 
-        // Apply response interceptors
         for interceptor in responseInterceptors {
             do {
-                responseData = try await interceptor.intercept(response: httpResponse, data: responseData)
+                responseData = try await interceptor.intercept(response: response, data: responseData)
             } catch {
                 // If a response interceptor handles the error (e.g., token refresh),
                 // retry the original request
                 if let tokenRefreshError = error as? TokenRefreshError,
                    case .shouldRetryRequest = tokenRefreshError {
-                    // Retry the request with the new token
-                    return try await performRequest(
-                        endpoint: endpoint,
-                        method: method,
-                        body: body,
-                        requiresAuth: requiresAuth,
-                        customHeaders: customHeaders
+                    // Check if we've exceeded the retry limit
+                    guard context.retryCount < RequestContext.maxRetries else {
+                        print("❌ Token refresh retry limit exceeded (\(RequestContext.maxRetries) attempts)")
+                        throw APIError.unauthorized(message: "Authentication failed after token refresh")
+                    }
+
+                    // Retry the request with incremented retry count
+                    let urlRequest = try await prepareRequest(
+                        endpoint: context.endpoint,
+                        method: context.method,
+                        body: context.body,
+                        requiresAuth: context.requiresAuth,
+                        customHeaders: context.customHeaders
+                    )
+                    let (newData, newResponse, _) = try await executeRequest(urlRequest)
+
+                    // Create new context with incremented retry count
+                    let newContext = RequestContext(
+                        endpoint: context.endpoint,
+                        method: context.method,
+                        body: context.body,
+                        requiresAuth: context.requiresAuth,
+                        customHeaders: context.customHeaders,
+                        retryCount: context.retryCount + 1
+                    )
+
+                    return try await applyResponseInterceptors(
+                        data: newData,
+                        response: newResponse,
+                        context: newContext
                     )
                 }
                 throw error
             }
         }
 
-        // Handle response and track analytics
-        return try handleResponseWithAnalytics(
-            data: responseData,
-            response: httpResponse,
-            endpoint: endpoint,
-            duration: duration
-        )
+        return responseData
     }
 
     private func handleResponseWithAnalytics<T: Decodable>(
@@ -364,7 +450,7 @@ class APIClient: APIClientProtocol {
             return try decodeResponse(data: data)
         case 400:
             let message = parseErrorMessage(from: data)
-            throw APIError.parseBadRequest(message: message)
+            throw APIError.badRequest(message: message)
         case 401:
             let message = parseErrorMessage(from: data)
             throw APIError.unauthorized(message: message)
@@ -376,6 +462,10 @@ class APIClient: APIClientProtocol {
             throw APIError.notFound(message: message)
         case 408:
             throw APIError.timeout
+        case 422:
+            // Validation error - map to badRequest
+            let message = parseErrorMessage(from: data)
+            throw APIError.unprocessableEntity(message: message)
         case 500 ... 599:
             let message = parseErrorMessage(from: data)
             throw APIError.serverError(statusCode: statusCode, message: message)

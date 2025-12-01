@@ -77,6 +77,8 @@ enum APIError: Error, LocalizedError {
     case noInternetConnection
     /// Unknown error occurred
     case unknown(message: String? = nil)
+    /// Unprocessable entity
+    case unprocessableEntity(message: String? = nil)
 
     /// User-friendly error description
     var errorDescription: String? {
@@ -91,9 +93,11 @@ enum APIError: Error, LocalizedError {
             message ?? "You don't have permission to access this resource"
         case let .notFound(message):
             message ?? "The requested resource was not found"
+        case let .unprocessableEntity(message):
+            message ?? "Entity cannot be processed"
         case let .badRequest(message):
             message ?? "Invalid request. Please try again."
-        case let .activeSessionConflict(sessionId, message):
+        case let .activeSessionConflict(_, message):
             message
         case let .serverError(statusCode, message):
             if let message {
@@ -132,7 +136,8 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .networkError, .timeout, .noInternetConnection, .serverError:
             true
-        case .unauthorized, .forbidden, .invalidURL, .invalidResponse, .notFound, .badRequest,
+        case .badRequest, .unprocessableEntity, .unauthorized, .forbidden,
+             .invalidURL, .invalidResponse, .notFound,
              .activeSessionConflict, .decodingError, .unknown:
             false
         }

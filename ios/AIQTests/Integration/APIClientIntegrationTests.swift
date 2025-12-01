@@ -22,7 +22,15 @@ final class APIClientIntegrationTests: XCTestCase {
 
         sut = APIClient(
             baseURL: "https://api.test.com",
-            session: mockURLSession
+            session: mockURLSession,
+            retryPolicy: RetryPolicy(
+                maxAttempts: 1,
+                retryableStatusCodes: [],
+                retryableErrors: [],
+                delayCalculator: { _ in 0 }
+            ), // Disable retries for testing
+            requestInterceptors: [], // Disable interceptors for testing
+            responseInterceptors: [] // Disable interceptors for testing
         )
     }
 
@@ -46,9 +54,10 @@ final class APIClientIntegrationTests: XCTestCase {
         // When
         let loginRequest = LoginRequest(email: email, password: password)
         let result: AuthResponse = try await sut.request(
-            "/auth/login",
-            method: .POST,
-            body: loginRequest
+            endpoint: .login,
+            method: .post,
+            body: loginRequest,
+            requiresAuth: false
         )
 
         // Then
@@ -74,9 +83,10 @@ final class APIClientIntegrationTests: XCTestCase {
             lastName: lastName
         )
         let result: AuthResponse = try await sut.request(
-            "/auth/register",
-            method: .POST,
-            body: registrationRequest
+            endpoint: .register,
+            method: .post,
+            body: registrationRequest,
+            requiresAuth: false
         )
 
         // Then
@@ -89,31 +99,37 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testAutomaticTokenInjection() async throws {
         // Given - Set access token
-        sut.setAccessToken("test-bearer-token")
+        sut.setAuthToken("test-bearer-token")
 
-        var capturedHeaders: [String: String]?
-        mockUserProfileResponse(captureHeaders: &capturedHeaders)
+        let capturedHeaders = HeadersCapture()
+        mockUserProfileResponse(captureHeaders: capturedHeaders)
 
         // When
-        let _: UserProfile = try await sut.request("/user/profile", method: .GET)
+        let _: UserProfile = try await sut.request(
+            endpoint: .userProfile,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
 
         // Then - Verify Authorization header was included
-        XCTAssertEqual(capturedHeaders?["Authorization"], "Bearer test-bearer-token")
+        XCTAssertEqual(capturedHeaders.headers?["Authorization"], "Bearer test-bearer-token")
     }
 
     // MARK: - Test Taking Flow Integration Tests
 
     func testCompleteTestTakingFlow() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
 
-        var requestCount = 0
-        mockTestTakingFlow(requestCount: &requestCount)
-
+        let requestCount = RequestCounter()
+        mockTestTakingFlow(requestCount: requestCount)
         // When - Start test
         let startResponse: TestStartResponse = try await sut.request(
-            "/test/start?question_count=2",
-            method: .POST
+            endpoint: .testStart,
+            method: .post,
+            body: nil as String?,
+            requiresAuth: true
         )
 
         // Then - Verify test started
@@ -126,7 +142,85 @@ final class APIClientIntegrationTests: XCTestCase {
         // Then - Verify submission successful
         XCTAssertEqual(submitResponse.result.iqScore, 120)
         XCTAssertEqual(submitResponse.result.totalQuestions, 2)
-        XCTAssertEqual(requestCount, 2)
+        XCTAssertEqual(requestCount.count, 2)
+    }
+
+    // MARK: - Token Refresh Retry Limit Tests
+
+    func testTokenRefreshRetryLimitPreventsInfiniteLoop() async {
+        // Given - Create APIClient with token refresh interceptor
+        let mockAuthService = MockAuthService()
+        let tokenRefreshInterceptor = TokenRefreshInterceptor(authService: mockAuthService)
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let testSession = URLSession(configuration: configuration)
+
+        let testClient = APIClient(
+            baseURL: "https://api.test.com",
+            session: testSession,
+            retryPolicy: RetryPolicy(
+                maxAttempts: 1,
+                retryableStatusCodes: [],
+                retryableErrors: [],
+                delayCalculator: { _ in 0 }
+            ),
+            requestInterceptors: [],
+            responseInterceptors: [tokenRefreshInterceptor]
+        )
+
+        testClient.setAuthToken("expired-token")
+
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            let url = request.url!
+
+            // Token refresh endpoint always succeeds
+            if url.path.contains("/auth/refresh") {
+                let response = [
+                    "access_token": "new-access-token",
+                    "refresh_token": "new-refresh-token",
+                    "user": [
+                        "id": "123",
+                        "email": "test@example.com",
+                        "first_name": "Test",
+                        "last_name": "User"
+                    ]
+                ] as [String: Any]
+                return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
+            }
+
+            // All other requests return 401 to simulate persistent auth failure
+            let errorResponse = ["detail": "Unauthorized"]
+            return try self.createHTTPResponse(url: url, statusCode: 401, json: errorResponse)
+        }
+
+        // When/Then - Request should fail after retry limit is exceeded
+        do {
+            let _: UserProfile = try await testClient.request(
+                endpoint: .userProfile,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+            XCTFail("Should have thrown unauthorized error after retry limit")
+        } catch let error as APIError {
+            if case let .unauthorized(message) = error {
+                // Success - verify it's the retry limit error
+                XCTAssertTrue(
+                    message?.contains("Authentication failed after token refresh") ?? false,
+                    "Error message should indicate retry limit exceeded"
+                )
+                // Verify we didn't recurse infinitely
+                // Should be: 1 initial request + 1 token refresh + 1 retry + 1 token refresh = 4 max
+                XCTAssertLessThanOrEqual(requestCount, 4, "Should not exceed retry limit")
+            } else {
+                XCTFail("Expected unauthorized error with retry limit message, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
     }
 
     // MARK: - Error Handling Integration Tests
@@ -138,7 +232,7 @@ final class APIClientIntegrationTests: XCTestCase {
         }
 
         // When/Then
-        await assertThrowsAPIError(.networkError)
+        await assertThrowsAPIError(.networkError(URLError(.notConnectedToInternet)))
     }
 
     func testUnauthorizedErrorHandling() async {
@@ -146,7 +240,7 @@ final class APIClientIntegrationTests: XCTestCase {
         mockHTTPErrorResponse(statusCode: 401, detail: "Unauthorized")
 
         // When/Then
-        await assertThrowsAPIError(.unauthorized)
+        await assertThrowsAPIError(.unauthorized(message: nil))
     }
 
     func testServerErrorHandling() async {
@@ -154,7 +248,7 @@ final class APIClientIntegrationTests: XCTestCase {
         mockHTTPErrorResponse(statusCode: 500, detail: "Internal Server Error")
 
         // When/Then
-        await assertThrowsAPIError(.serverError)
+        await assertThrowsAPIError(.serverError(statusCode: 500, message: nil))
     }
 
     func testValidationErrorHandling() async {
@@ -164,13 +258,18 @@ final class APIClientIntegrationTests: XCTestCase {
         // When/Then
         do {
             let request = LoginRequest(email: "invalid", password: "test")
-            let _: AuthResponse = try await sut.request("/auth/login", method: .POST, body: request)
+            let _: AuthResponse = try await sut.request(
+                endpoint: .login,
+                method: .post,
+                body: request,
+                requiresAuth: false
+            )
             XCTFail("Should have thrown error")
         } catch let error as APIError {
-            if case .validationError = error {
-                // Success - correct error type
+            if case .unprocessableEntity = error {
+                // Success - correct error type (422 validation error maps to unprocessableEntity)
             } else {
-                XCTFail("Expected validationError, got \(error)")
+                XCTFail("Expected unprocessableEntity, got \(error)")
             }
         } catch {
             XCTFail("Unexpected error type: \(error)")
@@ -181,11 +280,16 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchTestHistory() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockTestHistoryResponse()
 
         // When
-        let history: TestHistoryResponse = try await sut.request("/test/history", method: .GET)
+        let history: TestHistoryResponse = try await sut.request(
+            endpoint: .testHistory,
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true
+        )
 
         // Then
         XCTAssertEqual(history.results.count, 2)
@@ -198,7 +302,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_WithActiveSession() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockActiveSessionResponse(hasActiveSession: true)
 
         // When
@@ -217,22 +321,23 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_NoActiveSession() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockActiveSessionResponse(hasActiveSession: false)
 
-        // When
+        // When/Then
+        // Backend returns null when no active session exists
+        // The API client should handle this gracefully by allowing Optional return type
         do {
-            let _: TestSessionStatusResponse? = try await sut.request(
+            let response: TestSessionStatusResponse? = try await sut.request(
                 endpoint: .testActive,
                 method: .get,
                 body: nil as String?,
                 requiresAuth: true
             )
-            XCTFail("Should handle null response gracefully")
+            // Success - null response handled gracefully
+            XCTAssertNil(response, "Should decode null response as nil")
         } catch {
-            // Expected - null response from server should be handled
-            // In practice, the backend returns null which can't decode to TestSessionStatusResponse
-            // This is expected behavior
+            XCTFail("Should handle null response gracefully, got error: \(error)")
         }
     }
 
@@ -262,7 +367,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
     func testFetchActiveSession_ServerError() async throws {
         // Given
-        sut.setAccessToken("valid-token")
+        sut.setAuthToken("valid-token")
         mockHTTPErrorResponse(statusCode: 500, detail: "Internal Server Error")
 
         // When/Then
@@ -339,9 +444,9 @@ extension APIClientIntegrationTests {
         }
     }
 
-    private func mockUserProfileResponse(captureHeaders: inout [String: String]?) {
+    private func mockUserProfileResponse(captureHeaders: HeadersCapture) {
         MockURLProtocol.requestHandler = { request in
-            captureHeaders = request.allHTTPHeaderFields
+            captureHeaders.headers = request.allHTTPHeaderFields
 
             let url = request.url!
             let response = [
@@ -355,9 +460,9 @@ extension APIClientIntegrationTests {
         }
     }
 
-    private func mockTestTakingFlow(requestCount: inout Int) {
+    private func mockTestTakingFlow(requestCount: RequestCounter) {
         MockURLProtocol.requestHandler = { request in
-            requestCount += 1
+            requestCount.increment()
             let url = request.url!
 
             if url.path.contains("/test/start") {
@@ -416,15 +521,16 @@ extension APIClientIntegrationTests {
         let submitRequest = TestSubmitRequest(
             sessionId: sessionId,
             responses: [
-                QuestionResponse(questionId: "q1", userAnswer: "4"),
-                QuestionResponse(questionId: "q2", userAnswer: "4")
+                QuestionResponse(questionId: 1, userAnswer: "4"),
+                QuestionResponse(questionId: 2, userAnswer: "4")
             ]
         )
 
         return try await sut.request(
-            "/test/submit",
-            method: .POST,
-            body: submitRequest
+            endpoint: .testSubmit,
+            method: .post,
+            body: submitRequest,
+            requiresAuth: true
         )
     }
 
@@ -539,13 +645,18 @@ extension APIClientIntegrationTests {
         line: UInt = #line
     ) async {
         do {
-            let _: UserProfile = try await sut.request("/user/profile", method: .GET)
+            let _: UserProfile = try await sut.request(
+                endpoint: .userProfile,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
             XCTFail("Should have thrown error", file: file, line: line)
         } catch let error as APIError {
             switch (error, expectedError) {
-            case (.networkError, .networkError),
-                 (.unauthorized, .unauthorized),
-                 (.serverError, .serverError):
+            case (.networkError(_), .networkError(_)),
+                 (.unauthorized(_), .unauthorized(_)),
+                 (.serverError(_, _), .serverError(_, _)):
                 break // Success - correct error type
             default:
                 XCTFail("Expected \(expectedError), got \(error)", file: file, line: line)
@@ -553,5 +664,81 @@ extension APIClientIntegrationTests {
         } catch {
             XCTFail("Unexpected error type: \(error)", file: file, line: line)
         }
+    }
+}
+
+// MARK: - Helper Classes
+
+/// Reference type wrapper for counting requests in escaping closures
+private class RequestCounter {
+    var count = 0
+
+    func increment() {
+        count += 1
+    }
+}
+
+/// Reference type wrapper for capturing headers in escaping closures
+private class HeadersCapture {
+    var headers: [String: String]?
+}
+
+/// Mock authentication service for testing token refresh
+private class MockAuthService: AuthServiceProtocol {
+    var isAuthenticated: Bool = true
+    var currentUser: AIQ.User?
+    var refreshTokenCallCount = 0
+    var logoutCallCount = 0
+
+    func register(
+        email _: String,
+        password _: String,
+        firstName _: String,
+        lastName _: String,
+        birthYear _: Int?,
+        educationLevel _: EducationLevel?,
+        country _: String?,
+        region _: String?
+    ) async throws -> AIQ.AuthResponse {
+        fatalError("Not implemented for this test")
+    }
+
+    func login(email _: String, password _: String) async throws -> AIQ.AuthResponse {
+        fatalError("Not implemented for this test")
+    }
+
+    func refreshToken() async throws -> AIQ.AuthResponse {
+        refreshTokenCallCount += 1
+        // Return a mock successful refresh response
+        let user = AIQ.User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        currentUser = user
+        return AIQ.AuthResponse(
+            accessToken: "new-access-token-\(refreshTokenCallCount)",
+            refreshToken: "new-refresh-token-\(refreshTokenCallCount)",
+            tokenType: "bearer",
+            user: user
+        )
+    }
+
+    func logout() async throws {
+        logoutCallCount += 1
+        isAuthenticated = false
+        currentUser = nil
+    }
+
+    func getAccessToken() -> String? {
+        "mock-access-token"
     }
 }

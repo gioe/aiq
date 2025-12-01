@@ -190,8 +190,8 @@ final class TestTakingViewModelTests: XCTestCase {
         // Response with no questions
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
-            questions: nil,
-            questionsCount: 0
+            questionsCount: 0,
+            questions: nil
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -397,8 +397,8 @@ final class TestTakingViewModelTests: XCTestCase {
         ]
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
-            questions: mockQuestions,
-            questionsCount: mockQuestions.count
+            questionsCount: mockQuestions.count,
+            questions: mockQuestions
         )
         mockAPIClient.mockResponse = mockResponse
 
@@ -427,7 +427,7 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeTestSession(
         id: Int,
         userId: Int = 1,
-        status: TestSessionStatus = .inProgress,
+        status: TestStatus = .inProgress,
         startedAt: Date = Date(),
         completedAt: Date? = nil
     ) -> TestSession {
@@ -474,27 +474,31 @@ final class TestTakingViewModelTests: XCTestCase {
     ) -> TestSessionStatusResponse {
         TestSessionStatusResponse(
             session: makeTestSession(id: sessionId),
-            questions: questions,
-            questionsCount: questionsCount ?? questions.count
+            questionsCount: questionsCount ?? questions.count,
+            questions: questions
         )
     }
 
     private func makeStartTestResponse(
         sessionId: Int,
-        questions: [Question]
+        questions: [Question],
+        totalQuestions: Int? = nil
     ) -> StartTestResponse {
         StartTestResponse(
             session: makeTestSession(id: sessionId),
-            questions: questions
+            questions: questions,
+            totalQuestions: totalQuestions ?? questions.count
         )
     }
 
     private func makeAbandonResponse(
         sessionId: Int,
-        responsesSaved: Int = 0
+        responsesSaved: Int = 0,
+        message: String = "Test abandoned successfully"
     ) -> TestAbandonResponse {
         TestAbandonResponse(
-            session: makeTestSession(id: sessionId, status: .abandoned),
+            session: makeTestSession(id: sessionId, status: TestStatus.abandoned),
+            message: message,
             responsesSaved: responsesSaved
         )
     }
