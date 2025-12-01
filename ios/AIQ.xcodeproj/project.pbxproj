@@ -12,6 +12,7 @@
 		0B164F8AC5D529748951EF6C /* InsightsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EDCBF276BB2B46B38307F6 /* InsightsCardView.swift */; };
 		0FDC01236CFD3443FA27A45C /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEC920C25BC5A979C3F0253 /* HistoryViewModel.swift */; };
 		12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393F8818483E0E7701A1A328 /* MockAPIClient.swift */; };
+		1A894C592EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A894C582EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift */; };
 		1AEF30782EDA486C0080F75D /* TestSessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30772EDA486C0080F75D /* TestSessionStatus.swift */; };
 		1AEF307B2EDA49BE0080F75D /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30792EDA49BE0080F75D /* DashboardView.swift */; };
 		1AEF307C2EDA49BE0080F75D /* InProgressTestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF307A2EDA49BE0080F75D /* InProgressTestCard.swift */; };
@@ -119,6 +120,7 @@
 		0F1EB27503C7AD5786387369 /* TestTakingViewModel+MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestTakingViewModel+MockData.swift"; sourceTree = "<group>"; };
 		0F6487DD574F26453779E268 /* NotificationSettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsViewModel.swift; sourceTree = "<group>"; };
 		11E187E84003BCA98C5744EB /* TestResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultsView.swift; sourceTree = "<group>"; };
+		1A894C582EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionFlowIntegrationTests.swift; sourceTree = "<group>"; };
 		1AEF30772EDA486C0080F75D /* TestSessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStatus.swift; sourceTree = "<group>"; };
 		1AEF30792EDA49BE0080F75D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		1AEF307A2EDA49BE0080F75D /* InProgressTestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InProgressTestCard.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 				1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */,
 				1AEF30A62EDB95FA0080F75D /* APIClientTestModels.swift */,
 				1AEF30A72EDB95FA0080F75D /* MockURLProtocol.swift */,
+				1A894C582EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift */,
 			);
 			path = Integration;
 			sourceTree = "<group>";
@@ -615,6 +618,7 @@
 				F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */,
 				348117B474C84837E6D632E6 /* MockAuthManager.swift in Sources */,
 				1AEF30A92EDB95FA0080F75D /* APIClientTestModels.swift in Sources */,
+				1A894C592EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift in Sources */,
 				1AEF30AA2EDB95FA0080F75D /* APIClientIntegrationTests.swift in Sources */,
 				1AEF30AB2EDB95FA0080F75D /* MockURLProtocol.swift in Sources */,
 				1AEF30952EDB8DDE0080F75D /* TestTakingViewModelTests.swift in Sources */,
