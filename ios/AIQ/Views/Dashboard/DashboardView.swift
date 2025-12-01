@@ -5,7 +5,6 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @StateObject private var authManager = AuthManager.shared
     @State private var navigateToTest = false
-    @State private var showAbandonConfirmation = false
 
     var body: some View {
         ZStack {
@@ -45,16 +44,6 @@ struct DashboardView: View {
         .task {
             await viewModel.fetchDashboardData()
         }
-        .alert("Abandon Test?", isPresented: $showAbandonConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Abandon Test", role: .destructive) {
-                Task {
-                    await viewModel.abandonActiveTest()
-                }
-            }
-        } message: {
-            Text("This test will not count toward your history. Are you sure you want to abandon it?")
-        }
     }
 
     // MARK: - Dashboard Content
@@ -74,7 +63,9 @@ struct DashboardView: View {
                             navigateToTest = true
                         },
                         onAbandon: {
-                            showAbandonConfirmation = true
+                            Task {
+                                await viewModel.abandonActiveTest()
+                            }
                         }
                     )
                 }
@@ -326,7 +317,9 @@ struct DashboardView: View {
                             navigateToTest = true
                         },
                         onAbandon: {
-                            showAbandonConfirmation = true
+                            Task {
+                                await viewModel.abandonActiveTest()
+                            }
                         }
                     )
                 }
