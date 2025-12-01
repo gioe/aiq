@@ -13,11 +13,15 @@ class MockURLProtocol: URLProtocol {
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
         // Preserve the httpBody by storing it in URLProtocol's property storage
-        var mutableRequest = request
-        if let body = request.httpBody, URLProtocol.property(forKey: httpBodyKey, in: request) == nil {
-            URLProtocol.setProperty(body, forKey: httpBodyKey, in: mutableRequest as URLRequest)
+        guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+            return request
         }
-        return mutableRequest
+
+        if let body = request.httpBody, URLProtocol.property(forKey: httpBodyKey, in: request) == nil {
+            URLProtocol.setProperty(body, forKey: httpBodyKey, in: mutableRequest)
+        }
+
+        return mutableRequest as URLRequest
     }
 
     override func startLoading() {
