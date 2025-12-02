@@ -595,24 +595,35 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await testTakingViewModel.startTest(questionCount: 2)
 
         // Simulate answering all questions and submitting
-        testTakingViewModel.selectAnswer("A", for: mockQuestions[0].id)
-        testTakingViewModel.selectAnswer("B", for: mockQuestions[1].id)
+        testTakingViewModel.userAnswers[mockQuestions[0].id] = "A"
+        testTakingViewModel.userAnswers[mockQuestions[1].id] = "B"
 
         // Reset and set up submit response
         mockAPIClient.reset()
+        let testResult = SubmittedTestResult(
+            id: 1,
+            testSessionId: sessionId,
+            userId: 1,
+            iqScore: 125,
+            percentileRank: 90.0,
+            totalQuestions: 2,
+            correctAnswers: 2,
+            accuracyPercentage: 100.0,
+            completionTimeSeconds: 120,
+            completedAt: Date()
+        )
+        let completedSession = TestSession(
+            id: sessionId,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: Date(),
+            status: .completed,
+            questions: nil
+        )
         let submitResponse = TestSubmitResponse(
-            result: TestResult(
-                id: 1,
-                testSessionId: sessionId,
-                userId: 1,
-                iqScore: 125,
-                percentileRank: 90.0,
-                totalQuestions: 2,
-                correctAnswers: 2,
-                accuracyPercentage: 100.0,
-                completionTimeSeconds: 120,
-                completedAt: Date()
-            ),
+            session: completedSession,
+            result: testResult,
+            responsesCount: 2,
             message: "Test completed successfully"
         )
         mockAPIClient.mockResponse = submitResponse
