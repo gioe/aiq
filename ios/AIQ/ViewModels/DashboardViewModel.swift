@@ -89,11 +89,8 @@ class DashboardViewModel: BaseViewModel {
             activeTestSession = nil
             activeSessionQuestionsAnswered = nil
 
-            // Invalidate cache
-            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-
             // Refresh dashboard to update test history (abandoned test might appear)
-            await fetchDashboardData(forceRefresh: true)
+            await refreshDashboard()
 
             setLoading(false)
 
