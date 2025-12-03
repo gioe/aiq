@@ -88,7 +88,10 @@ class HistoryViewModel: BaseViewModel {
                 endpoint: .testHistory,
                 method: .get,
                 body: nil as String?,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             // Cache the results (5 minute expiration)

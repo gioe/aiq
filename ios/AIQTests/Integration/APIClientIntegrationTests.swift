@@ -76,11 +76,15 @@ final class APIClientIntegrationTests: XCTestCase {
         mockRegistrationResponse(email: email, firstName: firstName, lastName: lastName)
 
         // When
-        let registrationRequest = RegistrationRequest(
+        let registrationRequest = RegisterRequest(
             email: email,
             password: password,
             firstName: firstName,
-            lastName: lastName
+            lastName: lastName,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
         )
         let result: AuthResponse = try await sut.request(
             endpoint: .register,
@@ -125,7 +129,7 @@ final class APIClientIntegrationTests: XCTestCase {
         let requestCount = RequestCounter()
         mockTestTakingFlow(requestCount: requestCount)
         // When - Start test
-        let startResponse: TestStartResponse = try await sut.request(
+        let startResponse: StartTestResponse = try await sut.request(
             endpoint: .testStart,
             method: .post,
             body: nil as String?,
@@ -133,7 +137,7 @@ final class APIClientIntegrationTests: XCTestCase {
         )
 
         // Then - Verify test started
-        XCTAssertEqual(startResponse.session.status, "in_progress")
+        XCTAssertEqual(startResponse.session.status, .inProgress)
         XCTAssertEqual(startResponse.questions.count, 2)
 
         // When - Submit test
@@ -181,12 +185,16 @@ final class APIClientIntegrationTests: XCTestCase {
                 let response = [
                     "access_token": "new-access-token",
                     "refresh_token": "new-refresh-token",
+                    "token_type": "bearer",
                     "user": [
-                        "id": "123",
+                        "id": 123,
                         "email": "test@example.com",
                         "first_name": "Test",
-                        "last_name": "User"
-                    ]
+                        "last_name": "User",
+                        "created_at": ISO8601DateFormatter().string(from: Date()),
+                        "last_login_at": ISO8601DateFormatter().string(from: Date()),
+                        "notification_enabled": true
+                    ] as [String: Any]
                 ] as [String: Any]
                 return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
             }
@@ -284,7 +292,7 @@ final class APIClientIntegrationTests: XCTestCase {
         mockTestHistoryResponse()
 
         // When
-        let history: TestHistoryResponse = try await sut.request(
+        let history: [TestResult] = try await sut.request(
             endpoint: .testHistory,
             method: .get,
             body: nil as String?,
@@ -292,10 +300,9 @@ final class APIClientIntegrationTests: XCTestCase {
         )
 
         // Then
-        XCTAssertEqual(history.results.count, 2)
-        XCTAssertEqual(history.totalTests, 2)
-        XCTAssertEqual(history.results[0].iqScore, 120)
-        XCTAssertEqual(history.results[1].iqScore, 118)
+        XCTAssertEqual(history.count, 2)
+        XCTAssertEqual(history[0].iqScore, 120)
+        XCTAssertEqual(history[1].iqScore, 118)
     }
 
     // MARK: - Active Session Integration Tests
@@ -409,12 +416,16 @@ extension APIClientIntegrationTests {
             let response = [
                 "access_token": "mock-access-token",
                 "refresh_token": "mock-refresh-token",
+                "token_type": "bearer",
                 "user": [
-                    "id": "123",
+                    "id": 123,
                     "email": email,
                     "first_name": "Test",
-                    "last_name": "User"
-                ]
+                    "last_name": "User",
+                    "created_at": ISO8601DateFormatter().string(from: Date()),
+                    "last_login_at": ISO8601DateFormatter().string(from: Date()),
+                    "notification_enabled": true
+                ] as [String: Any]
             ] as [String: Any]
 
             return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
@@ -432,12 +443,16 @@ extension APIClientIntegrationTests {
             let response = [
                 "access_token": "new-access-token",
                 "refresh_token": "new-refresh-token",
+                "token_type": "bearer",
                 "user": [
-                    "id": "456",
+                    "id": 456,
                     "email": email,
                     "first_name": firstName,
-                    "last_name": lastName
-                ]
+                    "last_name": lastName,
+                    "created_at": ISO8601DateFormatter().string(from: Date()),
+                    "last_login_at": ISO8601DateFormatter().string(from: Date()),
+                    "notification_enabled": true
+                ] as [String: Any]
             ] as [String: Any]
 
             return try self.createHTTPResponse(url: url, statusCode: 201, json: response)
@@ -450,10 +465,9 @@ extension APIClientIntegrationTests {
 
             let url = request.url!
             let response = [
-                "id": "123",
-                "email": "test@example.com",
                 "first_name": "Test",
-                "last_name": "User"
+                "last_name": "User",
+                "notification_enabled": true
             ] as [String: Any]
 
             return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
@@ -478,21 +492,25 @@ extension APIClientIntegrationTests {
     private func createStartTestResponse(url: URL) throws -> (HTTPURLResponse, Data) {
         let response = [
             "session": [
-                "id": "session-123",
-                "status": "in_progress",
-                "started_at": ISO8601DateFormatter().string(from: Date())
-            ],
+                "id": 123,
+                "user_id": 1,
+                "started_at": ISO8601DateFormatter().string(from: Date()),
+                "completed_at": nil as String?,
+                "status": "in_progress"
+            ] as [String: Any?],
             "questions": [
                 [
-                    "id": "q1",
+                    "id": 1,
                     "question_text": "What is 2+2?",
-                    "question_type": "mathematical",
+                    "question_type": "math",
+                    "difficulty_level": "easy",
                     "answer_options": ["3", "4", "5"]
                 ],
                 [
-                    "id": "q2",
+                    "id": 2,
                     "question_text": "What comes next: 1, 2, 3, ?",
-                    "question_type": "pattern_recognition",
+                    "question_type": "pattern",
+                    "difficulty_level": "easy",
                     "answer_options": ["4", "5", "6"]
                 ]
             ],
@@ -504,21 +522,34 @@ extension APIClientIntegrationTests {
 
     private func createSubmitTestResponse(url: URL) throws -> (HTTPURLResponse, Data) {
         let response = [
+            "session": [
+                "id": 123,
+                "user_id": 1,
+                "started_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-120)),
+                "completed_at": ISO8601DateFormatter().string(from: Date()),
+                "status": "completed"
+            ] as [String: Any],
             "result": [
-                "id": "result-123",
+                "id": 1,
+                "test_session_id": 123,
+                "user_id": 1,
                 "iq_score": 120,
+                "percentile_rank": 84.0,
                 "total_questions": 2,
                 "correct_answers": 2,
+                "accuracy_percentage": 100.0,
                 "completion_time_seconds": 60,
                 "completed_at": ISO8601DateFormatter().string(from: Date())
-            ]
+            ],
+            "responses_count": 2,
+            "message": "Test completed successfully"
         ] as [String: Any]
 
         return try createHTTPResponse(url: url, statusCode: 200, json: response)
     }
 
-    private func submitTest(sessionId: String) async throws -> TestSubmitResponse {
-        let submitRequest = TestSubmitRequest(
+    private func submitTest(sessionId: Int) async throws -> TestSubmitResponse {
+        let submitRequest = TestSubmission(
             sessionId: sessionId,
             responses: [
                 QuestionResponse(questionId: 1, userAnswer: "4"),
@@ -561,28 +592,49 @@ extension APIClientIntegrationTests {
 
     private func mockTestHistoryResponse() {
         MockURLProtocol.requestHandler = { request in
-            let url = request.url!
-            let response = [
-                "results": [
-                    [
-                        "id": "result-1",
-                        "iq_score": 120,
-                        "total_questions": 20,
-                        "correct_answers": 15,
-                        "completed_at": ISO8601DateFormatter().string(from: Date())
-                    ],
-                    [
-                        "id": "result-2",
-                        "iq_score": 118,
-                        "total_questions": 20,
-                        "correct_answers": 14,
-                        "completed_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400))
-                    ]
-                ],
-                "total_tests": 2
-            ] as [String: Any]
+            guard let url = request.url else {
+                throw URLError(.badURL)
+            }
 
-            return try self.createHTTPResponse(url: url, statusCode: 200, json: response)
+            let results = [
+                [
+                    "id": 1,
+                    "test_session_id": 1,
+                    "user_id": 1,
+                    "iq_score": 120,
+                    "percentile_rank": 84.0,
+                    "total_questions": 20,
+                    "correct_answers": 15,
+                    "accuracy_percentage": 75.0,
+                    "completion_time_seconds": 1200,
+                    "completed_at": ISO8601DateFormatter().string(from: Date())
+                ],
+                [
+                    "id": 2,
+                    "test_session_id": 2,
+                    "user_id": 1,
+                    "iq_score": 118,
+                    "percentile_rank": 80.0,
+                    "total_questions": 20,
+                    "correct_answers": 14,
+                    "accuracy_percentage": 70.0,
+                    "completion_time_seconds": 1300,
+                    "completed_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400))
+                ]
+            ]
+
+            guard let data = try? JSONSerialization.data(withJSONObject: results),
+                  let httpResponse = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "application/json"]
+                  )
+            else {
+                throw URLError(.cannotParseResponse)
+            }
+
+            return (httpResponse, data)
         }
     }
 

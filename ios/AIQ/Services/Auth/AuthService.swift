@@ -60,7 +60,10 @@ class AuthService: AuthServiceProtocol {
                 endpoint: .register,
                 method: .post,
                 body: request,
-                requiresAuth: false
+                requiresAuth: false,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             print("✅ Registration successful, received tokens and user data")
@@ -87,7 +90,10 @@ class AuthService: AuthServiceProtocol {
                 endpoint: .login,
                 method: .post,
                 body: request,
-                requiresAuth: false
+                requiresAuth: false,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             print("✅ Login successful, received tokens and user data")
@@ -118,7 +124,10 @@ class AuthService: AuthServiceProtocol {
             method: .post,
             body: String?.none,
             requiresAuth: false,
-            customHeaders: ["Authorization": "Bearer \(refreshToken)"]
+            customHeaders: ["Authorization": "Bearer \(refreshToken)"],
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
 
         // Save new tokens
@@ -133,7 +142,10 @@ class AuthService: AuthServiceProtocol {
             endpoint: .logout,
             method: .post,
             body: String?.none,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         ) as String
 
         // Clear local data

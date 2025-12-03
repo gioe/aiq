@@ -80,7 +80,10 @@ class NotificationService: NotificationServiceProtocol {
             endpoint: .notificationRegisterDevice,
             method: .post,
             body: request,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
 
         return response
@@ -91,7 +94,10 @@ class NotificationService: NotificationServiceProtocol {
             endpoint: .notificationRegisterDevice,
             method: .delete,
             body: nil as String?,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
 
         return response
@@ -104,7 +110,10 @@ class NotificationService: NotificationServiceProtocol {
             endpoint: .notificationPreferences,
             method: .put,
             body: request,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
 
         return response
@@ -115,7 +124,10 @@ class NotificationService: NotificationServiceProtocol {
             endpoint: .notificationPreferences,
             method: .get,
             body: nil as String?,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
 
         return response

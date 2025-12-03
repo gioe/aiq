@@ -11,7 +11,6 @@
 		03D4E0477F6CAD3F7DBCAA47 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62B75FB0EA5BA9F69AF3E323 /* NotificationManager.swift */; };
 		0B164F8AC5D529748951EF6C /* InsightsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EDCBF276BB2B46B38307F6 /* InsightsCardView.swift */; };
 		0FDC01236CFD3443FA27A45C /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEC920C25BC5A979C3F0253 /* HistoryViewModel.swift */; };
-		12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393F8818483E0E7701A1A328 /* MockAPIClient.swift */; };
 		1A894C592EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A894C582EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift */; };
 		1AEF30782EDA486C0080F75D /* TestSessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30772EDA486C0080F75D /* TestSessionStatus.swift */; };
 		1AEF307B2EDA49BE0080F75D /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30792EDA49BE0080F75D /* DashboardView.swift */; };
@@ -21,7 +20,6 @@
 		1AEF30952EDB8DDE0080F75D /* TestTakingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30942EDB8DDE0080F75D /* TestTakingViewModelTests.swift */; };
 		1AEF30972EDB93690080F75D /* MockLocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30962EDB93690080F75D /* MockLocalAnswerStorage.swift */; };
 		1AEF30992EDB93740080F75D /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30982EDB93740080F75D /* MockAPIClient.swift */; };
-		1AEF30A92EDB95FA0080F75D /* APIClientTestModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30A62EDB95FA0080F75D /* APIClientTestModels.swift */; };
 		1AEF30AA2EDB95FA0080F75D /* APIClientIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */; };
 		1AEF30AB2EDB95FA0080F75D /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30A72EDB95FA0080F75D /* MockURLProtocol.swift */; };
 		1B7C4B863956DA477A931C3C /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71784E51191C7B135F175A35 /* LoadingOverlay.swift */; };
@@ -130,7 +128,6 @@
 		1AEF30962EDB93690080F75D /* MockLocalAnswerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLocalAnswerStorage.swift; sourceTree = "<group>"; };
 		1AEF30982EDB93740080F75D /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientIntegrationTests.swift; sourceTree = "<group>"; };
-		1AEF30A62EDB95FA0080F75D /* APIClientTestModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTestModels.swift; sourceTree = "<group>"; };
 		1AEF30A72EDB95FA0080F75D /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		1CED6BD6ED806B6CE39A12D8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		220AB5C8EBF32FEBE3533030 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -142,7 +139,6 @@
 		3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModelTests.swift; sourceTree = "<group>"; };
 		36E8B9155D2D60439EDA7C02 /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		37BB50D991A32B416A57E171 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		393F8818483E0E7701A1A328 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		39EDCBF276BB2B46B38307F6 /* InsightsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsCardView.swift; sourceTree = "<group>"; };
 		3CE77B9B59A13917FC3CE867 /* AIQ.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AIQ.xcodeproj; sourceTree = "<group>"; };
 		3CEC920C25BC5A979C3F0253 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
@@ -299,7 +295,6 @@
 			isa = PBXGroup;
 			children = (
 				1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */,
-				1AEF30A62EDB95FA0080F75D /* APIClientTestModels.swift */,
 				1AEF30A72EDB95FA0080F75D /* MockURLProtocol.swift */,
 				1A894C582EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift */,
 			);
@@ -517,7 +512,6 @@
 			isa = PBXGroup;
 			children = (
 				D588304008C2CFF98967110F /* APIClient.swift */,
-				393F8818483E0E7701A1A328 /* MockAPIClient.swift */,
 				E2663855F834DC8669ED571A /* NetworkLogger.swift */,
 				D5F42C32E420524BE19718FA /* NetworkMonitor.swift */,
 				A60BF6153CD6BF7A06AAD263 /* RequestInterceptor.swift */,
@@ -617,7 +611,6 @@
 				1AEF30972EDB93690080F75D /* MockLocalAnswerStorage.swift in Sources */,
 				F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */,
 				348117B474C84837E6D632E6 /* MockAuthManager.swift in Sources */,
-				1AEF30A92EDB95FA0080F75D /* APIClientTestModels.swift in Sources */,
 				1A894C592EDE47B000634A50 /* ActiveSessionFlowIntegrationTests.swift in Sources */,
 				1AEF30AA2EDB95FA0080F75D /* APIClientIntegrationTests.swift in Sources */,
 				1AEF30AB2EDB95FA0080F75D /* MockURLProtocol.swift in Sources */,
@@ -669,7 +662,6 @@
 				015349D76C6748A7E2A41E1F /* LocalAnswerStorage.swift in Sources */,
 				530531E24E0ACE60A41AC0CC /* LoginViewModel.swift in Sources */,
 				53B2C01514AAE02D8B84AE2F /* MainTabView.swift in Sources */,
-				12E5E143015C1776441F6F5F /* MockAPIClient.swift in Sources */,
 				2C95FEDE80C248AF74AFA03D /* NetworkLogger.swift in Sources */,
 				89481B3B3B6250D18FB1CBCF /* NetworkMonitor.swift in Sources */,
 				7460650B71B8E7FD1FD123EE /* NetworkStatusBanner.swift in Sources */,

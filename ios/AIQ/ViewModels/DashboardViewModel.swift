@@ -33,69 +33,16 @@ class DashboardViewModel: BaseViewModel {
         setLoading(true)
         clearError()
 
-        do {
-            // Fetch test history and active session in parallel
-            // Active session check should not block dashboard load
-            async let historyTask: [TestResult] = {
-                // Try to get from cache first if not forcing refresh
-                if !forceRefresh,
-                   let cachedHistory: [TestResult] = await DataCache.shared.get(
-                       forKey: DataCache.Key.testHistory
-                   ) {
-                    #if DEBUG
-                        print("✅ Dashboard loaded \(cachedHistory.count) test results from cache")
-                    #endif
-                    return cachedHistory
-                } else {
-                    // Fetch from API
-                    let history: [TestResult] = try await apiClient.request(
-                        endpoint: .testHistory,
-                        method: .get,
-                        body: nil as String?,
-                        requiresAuth: true
-                    )
+        // Fetch test history and active session in parallel
+        // Both functions handle their own state updates and errors
+        async let historyTask: Void = fetchTestHistory(forceRefresh: forceRefresh)
+        async let activeSessionTask: Void = fetchActiveSession(forceRefresh: forceRefresh)
 
-                    // Cache the results
-                    await DataCache.shared.set(history, forKey: DataCache.Key.testHistory)
+        // Wait for both tasks to complete
+        await historyTask
+        await activeSessionTask
 
-                    #if DEBUG
-                        print("✅ Dashboard fetched \(history.count) test results from API")
-                    #endif
-                    return history
-                }
-            }()
-
-            // Fetch active session in parallel (errors handled internally)
-            async let activeSessionTask: Void = fetchActiveSession(forceRefresh: forceRefresh)
-
-            // Wait for both tasks to complete
-            let history = try await historyTask
-            await activeSessionTask
-
-            // Update dashboard data
-            if !history.isEmpty {
-                // Sort by date (newest first)
-                let sortedHistory = history.sorted { $0.completedAt > $1.completedAt }
-                latestTestResult = sortedHistory.first
-
-                testCount = history.count
-
-                // Calculate average score
-                let totalScore = history.reduce(0) { $0 + $1.iqScore }
-                averageScore = totalScore / history.count
-            } else {
-                latestTestResult = nil
-                testCount = 0
-                averageScore = nil
-            }
-
-            setLoading(false)
-
-        } catch {
-            handleError(error) {
-                await self.fetchDashboardData(forceRefresh: forceRefresh)
-            }
-        }
+        setLoading(false)
     }
 
     /// Refresh dashboard data (pull-to-refresh)
@@ -127,7 +74,10 @@ class DashboardViewModel: BaseViewModel {
                 endpoint: .testAbandon(sessionId),
                 method: .post,
                 body: nil as String?,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             #if DEBUG
@@ -154,82 +104,78 @@ class DashboardViewModel: BaseViewModel {
         }
     }
 
+    /// Fetch test history from API with caching and update dashboard state
+    /// - Parameter forceRefresh: If true, bypass cache and fetch from API
+    /// - Note: Errors are logged and result in empty dashboard state
+    func fetchTestHistory(forceRefresh: Bool = false) async {
+        do {
+            let history: [TestResult] = try await apiClient.request(
+                endpoint: .testHistory,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true,
+                cacheKey: DataCache.Key.testHistory,
+                cacheDuration: nil, // Use default cache duration
+                forceRefresh: forceRefresh
+            )
+
+            // Update dashboard state
+            updateDashboardState(with: history)
+
+        } catch {
+            #if DEBUG
+                print("⚠️ Failed to fetch test history: \(error)")
+            #endif
+            // Set empty state on error
+            updateDashboardState(with: [])
+        }
+    }
+
     /// Fetch active test session from API with caching
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
     /// - Note: Errors are logged but don't block dashboard loading
     func fetchActiveSession(forceRefresh: Bool = false) async {
         do {
-            let response = try await getActiveSessionResponse(forceRefresh: forceRefresh)
+            let response: TestSessionStatusResponse? = try await apiClient.request(
+                endpoint: .testActive,
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true,
+                cacheKey: DataCache.Key.activeTestSession,
+                cacheDuration: 120, // 2 minutes
+                forceRefresh: forceRefresh
+            )
+
+            // Update active session state
             updateActiveSessionState(response)
+
         } catch {
             #if DEBUG
                 print("⚠️ Failed to fetch active session: \(error)")
             #endif
+            // Clear active session state on error
             updateActiveSessionState(nil)
         }
     }
 
-    /// Get active session response from cache or API
-    private func getActiveSessionResponse(forceRefresh: Bool) async throws -> TestSessionStatusResponse? {
-        // Check cache first if not forcing refresh
-        if !forceRefresh, let cached: TestSessionStatusResponse = await DataCache.shared.get(
-            forKey: DataCache.Key.activeTestSession
-        ) {
-            #if DEBUG
-                print("✅ Active session loaded from cache: \(cached.session.id)")
-            #endif
-            return cached
-        }
+    /// Update dashboard state from test history
+    /// - Parameter history: Array of test results
+    private func updateDashboardState(with history: [TestResult]) {
+        if !history.isEmpty {
+            // Sort by date (newest first)
+            let sortedHistory = history.sorted { $0.completedAt > $1.completedAt }
+            latestTestResult = sortedHistory.first
 
-        #if DEBUG
-            if !forceRefresh {
-                print("ℹ️ No active session in cache, fetching from API")
-            }
-        #endif
+            testCount = history.count
 
-        // Fetch from API
-        let response: TestSessionStatusResponse? = try await apiClient.request(
-            endpoint: .testActive,
-            method: .get,
-            body: nil as String?,
-            requiresAuth: true
-        )
-
-        // Cache or remove based on response
-        await cacheActiveSessionResponse(response)
-
-        #if DEBUG
-            logActiveSessionAPIResponse(response)
-        #endif
-
-        return response
-    }
-
-    /// Cache or remove active session response
-    private func cacheActiveSessionResponse(_ response: TestSessionStatusResponse?) async {
-        if let response {
-            await DataCache.shared.set(
-                response,
-                forKey: DataCache.Key.activeTestSession,
-                expiration: 120 // 2 minutes
-            )
+            // Calculate average score
+            let totalScore = history.reduce(0) { $0 + $1.iqScore }
+            averageScore = totalScore / history.count
         } else {
-            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+            latestTestResult = nil
+            testCount = 0
+            averageScore = nil
         }
-    }
-
-    /// Log active session API response (debug only)
-    private func logActiveSessionAPIResponse(_ response: TestSessionStatusResponse?) {
-        #if DEBUG
-            if let response {
-                print(
-                    "✅ Active session fetched from API: \(response.session.id) " +
-                        "with \(response.questionsCount) questions answered"
-                )
-            } else {
-                print("ℹ️ No active session found")
-            }
-        #endif
     }
 
     /// Update active session state from response
@@ -263,5 +209,9 @@ class DashboardViewModel: BaseViewModel {
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter.string(from: latest.completedAt)
+    }
+
+    func setActiveTestSession(_ session: TestSession) {
+        activeTestSession = session
     }
 }
