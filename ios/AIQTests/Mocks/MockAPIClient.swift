@@ -2,7 +2,8 @@
 import Foundation
 
 /// Mock implementation of APIClientProtocol for testing
-class MockAPIClient: APIClientProtocol {
+/// Thread-safe via actor isolation
+actor MockAPIClient: APIClientProtocol {
     // MARK: - Properties for Testing
 
     var requestCalled = false
@@ -21,9 +22,13 @@ class MockAPIClient: APIClientProtocol {
     var mockResponse: Any?
     var mockError: Error?
 
-    // Queue-based responses for multiple sequential calls
-    var responseQueue: [Any] = []
-    var errorQueue: [Error] = []
+    // Endpoint-based response mapping
+    var endpointResponses: [String: Any] = [:]
+    var endpointErrors: [String: Error] = [:]
+
+    // MARK: - Initialization
+
+    init() {}
 
     // MARK: - APIClientProtocol Implementation
 
@@ -31,22 +36,40 @@ class MockAPIClient: APIClientProtocol {
         endpoint: APIEndpoint,
         method: HTTPMethod,
         body: Encodable?,
-        requiresAuth: Bool
+        requiresAuth: Bool,
+        customHeaders: [String: String]?,
+        cacheKey: String?,
+        cacheDuration: TimeInterval?,
+        forceRefresh: Bool
     ) async throws -> T {
+        // Check cache first if caching is enabled and not forcing refresh
+        // Use DataCache (same as real APIClient) instead of internal cache
+        if let cacheKey, !forceRefresh {
+            if let cached: T = await DataCache.shared.get(forKey: cacheKey) {
+                #if DEBUG
+                    print("✅ MockAPIClient Cache HIT: \(cacheKey)")
+                #endif
+                return cached
+            }
+        }
+
+        // Track API call (only called when cache miss or force refresh)
+        // All mutations are now actor-isolated and thread-safe
         requestCalled = true
         lastEndpoint = endpoint
         lastMethod = method
         lastBody = body
         lastRequiresAuth = requiresAuth
+        lastCustomHeaders = customHeaders
 
         // Track all calls
         allEndpoints.append(endpoint)
         allMethods.append(method)
 
-        // Check error queue first
-        if !errorQueue.isEmpty {
-            let error = errorQueue.removeFirst()
-            throw error
+        // Check endpoint-specific error first
+        let endpointKey = endpoint.path
+        if let endpointError = endpointErrors[endpointKey] {
+            throw endpointError
         }
 
         // Check for single error
@@ -54,72 +77,79 @@ class MockAPIClient: APIClientProtocol {
             throw error
         }
 
-        // Check response queue
-        if !responseQueue.isEmpty {
-            let response = responseQueue.removeFirst()
-
-            // Handle NSNull as explicit nil for Optional types
-            if response is NSNull {
-                // For optional types, we need to return nil properly
-                // We use a helper to avoid double-optional issues
-                return nilValue()
+        // Get response: endpoint-specific or single
+        let response: T
+        if let endpointResponse = endpointResponses[endpointKey] {
+            // Use endpoint-specific response
+            if endpointResponse is NSNull {
+                response = nilValue()
+            } else {
+                guard let typedResponse = endpointResponse as? T else {
+                    throw NSError(
+                        domain: "MockAPIClient",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Endpoint response type mismatch for \(endpointKey)"]
+                    )
+                }
+                response = typedResponse
             }
-
-            // Try to cast the response to the expected type
-            guard let typedResponse = response as? T else {
+        } else {
+            // Fall back to single response
+            guard let singleResponse = mockResponse as? T else {
                 throw NSError(
                     domain: "MockAPIClient",
                     code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Queued response type mismatch"]
+                    userInfo: [NSLocalizedDescriptionKey: "Mock response not configured or type mismatch"]
                 )
             }
-            return typedResponse
+            response = singleResponse
         }
 
-        // Fall back to single response
-        guard let response = mockResponse as? T else {
-            throw NSError(
-                domain: "MockAPIClient",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Mock response not configured or type mismatch"]
+        // Cache the result if caching is enabled
+        // Use DataCache (same as real APIClient) to properly mock caching behavior
+        if let cacheKey {
+            await DataCache.shared.set(
+                response,
+                forKey: cacheKey,
+                expiration: cacheDuration
             )
+            #if DEBUG
+                print("📦 MockAPIClient Cache SET: \(cacheKey)")
+            #endif
         }
 
         return response
     }
 
-    func request<T: Decodable>(
-        endpoint: APIEndpoint,
-        method: HTTPMethod,
-        body: Encodable?,
-        requiresAuth: Bool,
-        customHeaders: [String: String]
-    ) async throws -> T {
-        lastCustomHeaders = customHeaders
-        return try await request(
-            endpoint: endpoint,
-            method: method,
-            body: body,
-            requiresAuth: requiresAuth
-        )
-    }
-
-    func setAuthToken(_: String?) {
+    nonisolated func setAuthToken(_: String?) {
         // No-op for mock
+        // nonisolated because this doesn't access actor state
     }
 
     // MARK: - Helper Methods
 
-    /// Add a response to the queue for sequential API calls
-    func addQueuedResponse(_ response: some Any) {
-        responseQueue.append(response)
+    /// Set response for a specific endpoint
+    /// - Parameters:
+    ///   - response: The response to return for this endpoint
+    ///   - endpoint: The API endpoint
+    func setResponse(_ response: some Any, for endpoint: APIEndpoint) {
+        endpointResponses[endpoint.path] = response
     }
 
-    /// Add an error to the queue for sequential API calls
-    func addQueuedError(_ error: Error) {
-        errorQueue.append(error)
+    /// Set error for a specific endpoint
+    /// - Parameters:
+    ///   - error: The error to throw for this endpoint
+    ///   - endpoint: The API endpoint
+    func setError(_ error: Error, for endpoint: APIEndpoint) {
+        endpointErrors[endpoint.path] = error
     }
 
+    func setMockError(_ error: APIError?) {
+        mockError = error
+    }
+
+    /// Reset API call tracking state
+    /// Note: This does NOT clear DataCache - tests should manage DataCache directly
     func reset() {
         requestCalled = false
         lastEndpoint = nil
@@ -129,8 +159,8 @@ class MockAPIClient: APIClientProtocol {
         lastCustomHeaders = nil
         mockResponse = nil
         mockError = nil
-        responseQueue.removeAll()
-        errorQueue.removeAll()
+        endpointResponses.removeAll()
+        endpointErrors.removeAll()
         allEndpoints.removeAll()
         allMethods.removeAll()
     }

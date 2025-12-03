@@ -8,33 +8,50 @@ protocol APIClientProtocol {
     ///   - method: HTTP method to use
     ///   - body: Optional request body
     ///   - requiresAuth: Whether authentication is required
+    ///   - customHeaders: Optional custom headers to add to the request
+    ///   - cacheKey: Optional cache key for storing/retrieving cached responses
+    ///   - cacheDuration: Optional cache duration in seconds (only used if cacheKey is provided)
+    ///   - forceRefresh: If true, bypass cache and fetch from API
     /// - Returns: Decoded response of type T
-    func request<T: Decodable>(
-        endpoint: APIEndpoint,
-        method: HTTPMethod,
-        body: Encodable?,
-        requiresAuth: Bool
-    ) async throws -> T
-
-    /// Perform an API request with custom headers
-    /// - Parameters:
-    ///   - endpoint: The API endpoint to call
-    ///   - method: HTTP method to use
-    ///   - body: Optional request body
-    ///   - requiresAuth: Whether authentication is required
-    ///   - customHeaders: Custom headers to add to the request
-    /// - Returns: Decoded response of type T
-    func request<T: Decodable>(
+    func request<T: Decodable>( // swiftlint:disable:this function_parameter_count
         endpoint: APIEndpoint,
         method: HTTPMethod,
         body: Encodable?,
         requiresAuth: Bool,
-        customHeaders: [String: String]
+        customHeaders: [String: String]?,
+        cacheKey: String?,
+        cacheDuration: TimeInterval?,
+        forceRefresh: Bool
     ) async throws -> T
 
     /// Set the authentication token for API requests
     /// - Parameter token: The bearer token to use, or nil to clear
     func setAuthToken(_ token: String?)
+}
+
+/// Extension providing default parameter values for protocol
+extension APIClientProtocol {
+    func request<T: Decodable>(
+        endpoint: APIEndpoint,
+        method: HTTPMethod = .get,
+        body: Encodable? = nil,
+        requiresAuth: Bool = true,
+        customHeaders: [String: String]? = nil,
+        cacheKey: String? = nil,
+        cacheDuration: TimeInterval? = nil,
+        forceRefresh: Bool = false
+    ) async throws -> T {
+        try await request(
+            endpoint: endpoint,
+            method: method,
+            body: body,
+            requiresAuth: requiresAuth,
+            customHeaders: customHeaders,
+            cacheKey: cacheKey,
+            cacheDuration: cacheDuration,
+            forceRefresh: forceRefresh
+        )
+    }
 }
 
 /// HTTP methods supported by the API
@@ -203,29 +220,24 @@ class APIClient: APIClientProtocol {
         endpoint: APIEndpoint,
         method: HTTPMethod = .get,
         body: Encodable? = nil,
-        requiresAuth: Bool = true
-    ) async throws -> T {
-        // Use retry executor for resilient requests
-        try await retryExecutor.execute {
-            try await self.performRequest(
-                endpoint: endpoint,
-                method: method,
-                body: body,
-                requiresAuth: requiresAuth,
-                customHeaders: nil
-            )
-        }
-    }
-
-    func request<T: Decodable>(
-        endpoint: APIEndpoint,
-        method: HTTPMethod = .get,
-        body: Encodable? = nil,
         requiresAuth: Bool = true,
-        customHeaders: [String: String]
+        customHeaders: [String: String]? = nil,
+        cacheKey: String? = nil,
+        cacheDuration: TimeInterval? = nil,
+        forceRefresh: Bool = false
     ) async throws -> T {
+        // Check cache first if caching is enabled and not forcing refresh
+        if let cacheKey, !forceRefresh {
+            if let cached: T = await DataCache.shared.get(forKey: cacheKey) {
+                #if DEBUG
+                    print("✅ Loaded response from cache (key: \(cacheKey))")
+                #endif
+                return cached
+            }
+        }
+
         // Use retry executor for resilient requests
-        try await retryExecutor.execute {
+        let result: T = try await retryExecutor.execute {
             try await self.performRequest(
                 endpoint: endpoint,
                 method: method,
@@ -234,6 +246,21 @@ class APIClient: APIClientProtocol {
                 customHeaders: customHeaders
             )
         }
+
+        // Cache the result if caching is enabled
+        if let cacheKey {
+            await DataCache.shared.set(
+                result,
+                forKey: cacheKey,
+                expiration: cacheDuration
+            )
+            #if DEBUG
+                let durationText = cacheDuration.map { "\($0)s" } ?? "default"
+                print("✅ Cached response (key: \(cacheKey), duration: \(durationText))")
+            #endif
+        }
+
+        return result
     }
 
     private func performRequest<T: Decodable>(

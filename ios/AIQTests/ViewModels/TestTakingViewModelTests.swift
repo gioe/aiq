@@ -35,14 +35,18 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             message: "User already has an active test session (ID: \(sessionId)). Please complete or abandon the existing session."
         )
-        mockAPIClient.mockError = conflictError
+        await mockAPIClient.setMockError(conflictError)
 
         // When
         await sut.startTest(questionCount: 20)
 
         // Then
-        XCTAssertTrue(mockAPIClient.requestCalled, "API should be called")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testStart, "Should call testStart endpoint")
+
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+
+        XCTAssertTrue(requestCalled, "API should be called")
+        XCTAssertEqual(lastEndpoint, .testStart, "Should call testStart endpoint")
         XCTAssertFalse(sut.isLoading, "Loading should be false after error")
         XCTAssertNotNil(sut.error, "Error should be set")
 
@@ -62,7 +66,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             message: "User already has an active test session (ID: \(sessionId))."
         )
-        mockAPIClient.mockError = conflictError
+        await mockAPIClient.setMockError(conflictError)
 
         // When
         await sut.startTest(questionCount: 20)
@@ -81,7 +85,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testStartTest_DoesNotSetActiveSessionConflictForOtherErrors() async {
         // Given - Mock API returns a different error
         let otherError = APIError.serverError(statusCode: 500, message: "Internal server error")
-        mockAPIClient.mockError = otherError
+        await mockAPIClient.setMockError(otherError)
 
         // When
         await sut.startTest(questionCount: 20)
@@ -104,16 +108,22 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        mockAPIClient.mockResponse = mockResponse
+
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
 
         // Then
-        XCTAssertTrue(mockAPIClient.requestCalled, "API should be called")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testSession(sessionId), "Should call testSession endpoint")
-        XCTAssertEqual(mockAPIClient.lastMethod, .get, "Should use GET method")
-        XCTAssertTrue(mockAPIClient.lastRequiresAuth == true, "Should require authentication")
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+
+        XCTAssertTrue(requestCalled, "API should be called")
+        XCTAssertEqual(lastEndpoint, .testSession(sessionId), "Should call testSession endpoint")
+        XCTAssertEqual(lastMethod, .get, "Should use GET method")
+        XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
         XCTAssertNotNil(sut.testSession, "Test session should be set")
         XCTAssertEqual(sut.testSession?.id, sessionId, "Session ID should match")
         XCTAssertEqual(sut.questions.count, 2, "Should have 2 questions")
@@ -133,7 +143,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        mockAPIClient.mockResponse = mockResponse
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
 
         // Set up saved progress with one answer
         let savedProgress = SavedTestProgress(
@@ -144,6 +154,7 @@ final class TestTakingViewModelTests: XCTestCase {
             currentQuestionIndex: 1,
             savedAt: Date()
         )
+
         mockAnswerStorage.mockProgress = savedProgress
 
         // When
@@ -164,7 +175,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        mockAPIClient.mockResponse = mockResponse
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
         mockAnswerStorage.mockProgress = nil // No saved progress
 
         // When
@@ -193,7 +204,7 @@ final class TestTakingViewModelTests: XCTestCase {
             questionsCount: 0,
             questions: nil
         )
-        mockAPIClient.mockResponse = mockResponse
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -208,7 +219,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 333
         let apiError = APIError.notFound(message: "Session not found")
-        mockAPIClient.mockError = apiError
+        await mockAPIClient.setMockError(apiError)
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -233,16 +244,18 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: makeQuestions(count: 1, startingId: 100)
         )
 
-        // Set up queue with both responses for internal calls
-        mockAPIClient.responseQueue = [abandonResponse, startResponse]
+        // Set up endpoint-specific responses for sequential calls
+        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
 
         // When - abandonAndStartNew should make both calls internally
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
         // Then - verify both API calls were made
-        XCTAssertEqual(mockAPIClient.allEndpoints.count, 2, "Should make 2 API calls")
-        XCTAssertEqual(mockAPIClient.allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(mockAPIClient.allEndpoints[1], .testStart, "Second call should start new test")
+        let allEndpoints = await mockAPIClient.allEndpoints
+        XCTAssertEqual(allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
+        XCTAssertEqual(allEndpoints[1], .testStart, "Second call should start new test")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -255,7 +268,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 666
         let abandonError = APIError.serverError(statusCode: 500, message: "Failed to abandon")
-        mockAPIClient.mockError = abandonError
+        await mockAPIClient.setMockError(abandonError)
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
@@ -263,8 +276,12 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNotNil(sut.error, "Error should be set")
-        XCTAssertTrue(mockAPIClient.requestCalled, "API should be called")
-        XCTAssertEqual(mockAPIClient.lastEndpoint, .testAbandon(sessionId), "Should try to abandon")
+
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+
+        XCTAssertTrue(requestCalled, "API should be called")
+        XCTAssertEqual(lastEndpoint, .testAbandon(sessionId), "Should try to abandon")
     }
 
     func testAbandonAndStartNew_CallsStartTestAfterSuccessfulAbandon() async {
@@ -278,18 +295,22 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: makeQuestions(count: 1)
         )
 
-        // Set up queue with both responses
-        mockAPIClient.responseQueue = [abandonResponse, startTestResponse]
+        // Set up endpoint-specific responses for sequential calls
+        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
+        await mockAPIClient.setResponse(startTestResponse, for: .testStart)
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
         // Then - Verify both API calls were made
-        XCTAssertEqual(mockAPIClient.allEndpoints.count, 2, "Should make 2 API calls")
-        XCTAssertEqual(mockAPIClient.allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(mockAPIClient.allEndpoints[1], .testStart, "Second call should start new test")
-        XCTAssertEqual(mockAPIClient.allMethods[0], .post, "Abandon should use POST")
-        XCTAssertEqual(mockAPIClient.allMethods[1], .post, "Start test should use POST")
+        let allEndpoints = await mockAPIClient.allEndpoints
+        let allMethods = await mockAPIClient.allMethods
+
+        XCTAssertEqual(allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
+        XCTAssertEqual(allEndpoints[1], .testStart, "Second call should start new test")
+        XCTAssertEqual(allMethods[0], .post, "Abandon should use POST")
+        XCTAssertEqual(allMethods[1], .post, "Start test should use POST")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -304,7 +325,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 888
         let expiredError = APIError.notFound(message: "Session has expired")
-        mockAPIClient.mockError = expiredError
+        await mockAPIClient.setMockError(expiredError)
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -327,7 +348,7 @@ final class TestTakingViewModelTests: XCTestCase {
         let networkError = APIError.networkError(
             URLError(.notConnectedToInternet)
         )
-        mockAPIClient.mockError = networkError
+        await mockAPIClient.setMockError(networkError)
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -348,7 +369,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 1010
         let authError = APIError.unauthorized(message: "Session expired")
-        mockAPIClient.mockError = authError
+        await mockAPIClient.setMockError(authError)
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
@@ -400,8 +421,7 @@ final class TestTakingViewModelTests: XCTestCase {
             questionsCount: mockQuestions.count,
             questions: mockQuestions
         )
-        mockAPIClient.mockResponse = mockResponse
-
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
         // Saved progress includes an answer for question 3 (not in session) and question 1 (in session)
         let savedProgress = SavedTestProgress(
             sessionId: sessionId,

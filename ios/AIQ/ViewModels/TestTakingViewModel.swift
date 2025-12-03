@@ -137,7 +137,10 @@ class TestTakingViewModel: BaseViewModel {
             endpoint: .testStart,
             method: .post,
             body: nil as String?,
-            requiresAuth: true
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
         )
     }
 
@@ -168,10 +171,6 @@ class TestTakingViewModel: BaseViewModel {
                 operation: .fetchQuestions
             )
             self.error = contextualError
-
-            Task {
-                await showActiveSessionRecoveryAlert(sessionId: sessionId)
-            }
             setLoading(false)
             return
         }
@@ -219,7 +218,10 @@ class TestTakingViewModel: BaseViewModel {
                 endpoint: .testSession(sessionId),
                 method: .get,
                 body: nil as String?,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             // Verify we have questions in the response
@@ -312,7 +314,10 @@ class TestTakingViewModel: BaseViewModel {
                 endpoint: .testAbandon(sessionId),
                 method: .post,
                 body: nil as String?,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             #if DEBUG
@@ -386,7 +391,10 @@ class TestTakingViewModel: BaseViewModel {
                 endpoint: .testSubmit,
                 method: .post,
                 body: submission,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             handleSubmissionSuccess(response)
@@ -457,7 +465,10 @@ class TestTakingViewModel: BaseViewModel {
                 endpoint: .testAbandon(session.id),
                 method: .post,
                 body: nil as String?,
-                requiresAuth: true
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
             )
 
             // Update session with abandoned status
