@@ -63,16 +63,10 @@ struct DashboardView: View {
                             navigateToTest = true
                         },
                         onAbandon: {
-                            Task {
-                                await viewModel.abandonActiveTest()
-                            }
+                            await viewModel.abandonActiveTest()
                         }
                     )
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.9).combined(with: .opacity),
-                        removal: .scale(scale: 0.9).combined(with: .opacity)
-                    ))
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.activeTestSession?.id)
+                    .inProgressCardTransition(sessionId: viewModel.activeTestSession?.id)
                 }
 
                 // Stats Grid
@@ -322,16 +316,10 @@ struct DashboardView: View {
                             navigateToTest = true
                         },
                         onAbandon: {
-                            Task {
-                                await viewModel.abandonActiveTest()
-                            }
+                            await viewModel.abandonActiveTest()
                         }
                     )
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.9).combined(with: .opacity),
-                        removal: .scale(scale: 0.9).combined(with: .opacity)
-                    ))
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.activeTestSession?.id)
+                    .inProgressCardTransition(sessionId: viewModel.activeTestSession?.id)
                 }
 
                 EmptyStateView(
@@ -357,6 +345,28 @@ struct DashboardView: View {
         .refreshable {
             await viewModel.refreshDashboard()
         }
+    }
+}
+
+// MARK: - View Modifiers
+
+/// View modifier for applying consistent transition and animation to InProgressTestCard
+private struct InProgressCardTransition: ViewModifier {
+    let sessionId: Int?
+
+    func body(content: Content) -> some View {
+        content
+            .transition(.asymmetric(
+                insertion: .scale(scale: 0.9).combined(with: .opacity),
+                removal: .scale(scale: 0.9).combined(with: .opacity)
+            ))
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: sessionId)
+    }
+}
+
+private extension View {
+    func inProgressCardTransition(sessionId: Int?) -> some View {
+        modifier(InProgressCardTransition(sessionId: sessionId))
     }
 }
 

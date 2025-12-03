@@ -5,7 +5,7 @@ struct InProgressTestCard: View {
     let session: TestSession
     let questionsAnswered: Int?
     let onResume: () -> Void
-    let onAbandon: () -> Void
+    let onAbandon: () async -> Void
 
     @State private var showAbandonConfirmation = false
     @State private var isAbandoning = false
@@ -44,7 +44,10 @@ struct InProgressTestCard: View {
             Button("Cancel", role: .cancel) {}
             Button("Abandon Test", role: .destructive) {
                 isAbandoning = true
-                onAbandon()
+                Task {
+                    await onAbandon()
+                    isAbandoning = false
+                }
             }
         } message: {
             Text("This test will not count toward your history. Are you sure you want to abandon it?")
