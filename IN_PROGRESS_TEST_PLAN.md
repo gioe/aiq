@@ -139,7 +139,7 @@ Implement a two-pronged approach:
   - Test error recovery in TestTakingView
   - Test state synchronization after refresh
 
-- [ ] P6-002: Backend integration testing
+- [x] P6-002: Backend integration testing
   - Verify `/v1/test/active` endpoint works correctly
   - Test session retrieval endpoint
   - Test edge cases (session deleted, expired, etc.)
