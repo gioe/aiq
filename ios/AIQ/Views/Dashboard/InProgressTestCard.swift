@@ -215,7 +215,7 @@ struct InProgressTestCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Abandon Test")
             .accessibilityHint("Discard this test. It will not count toward your history.")
-            .accessibilityAddTraits([.isButton, .isDestructive])
+            .accessibilityAddTraits(.isButton)
         }
     }
 
