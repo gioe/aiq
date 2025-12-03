@@ -5,9 +5,10 @@ struct InProgressTestCard: View {
     let session: TestSession
     let questionsAnswered: Int?
     let onResume: () -> Void
-    let onAbandon: () -> Void
+    let onAbandon: () async -> Void
 
     @State private var showAbandonConfirmation = false
+    @State private var isAbandoning = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
@@ -42,11 +43,40 @@ struct InProgressTestCard: View {
         .alert("Abandon Test?", isPresented: $showAbandonConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Abandon Test", role: .destructive) {
-                onAbandon()
+                isAbandoning = true
+                Task {
+                    await onAbandon()
+                    isAbandoning = false
+                }
             }
         } message: {
             Text("This test will not count toward your history. Are you sure you want to abandon it?")
         }
+        .overlay {
+            if isAbandoning {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+
+                    VStack(spacing: DesignSystem.Spacing.md) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.2)
+
+                        Text("Abandoning test...")
+                            .font(Typography.bodyMedium)
+                            .foregroundColor(.white)
+                    }
+                    .padding(DesignSystem.Spacing.xl)
+                    .background(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                            .fill(ColorPalette.textPrimary.opacity(0.9))
+                    )
+                }
+                .transition(.opacity)
+            }
+        }
+        .disabled(isAbandoning)
     }
 
     // MARK: - Header
@@ -125,6 +155,9 @@ struct InProgressTestCard: View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             // Resume Button (Primary)
             Button {
+                // Haptic feedback for button tap
+                let impact = UIImpactFeedbackGenerator(style: .medium)
+                impact.impactOccurred()
                 onResume()
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
@@ -154,9 +187,13 @@ struct InProgressTestCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Resume Test")
             .accessibilityHint("Continue your in-progress cognitive performance test")
+            .accessibilityAddTraits(.isButton)
 
             // Abandon Button (Secondary, Destructive)
             Button {
+                // Haptic feedback for destructive action
+                let notification = UINotificationFeedbackGenerator()
+                notification.notificationOccurred(.warning)
                 showAbandonConfirmation = true
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
@@ -181,6 +218,7 @@ struct InProgressTestCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Abandon Test")
             .accessibilityHint("Discard this test. It will not count toward your history.")
+            .accessibilityAddTraits(.isButton)
         }
     }
 
