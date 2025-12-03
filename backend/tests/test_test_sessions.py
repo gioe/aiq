@@ -429,6 +429,35 @@ class TestGetActiveTestSession:
         assert response.status_code == 200
         assert response.json() is None
 
+    def test_get_active_session_ignores_abandoned(
+        self, client, auth_headers, db_session, test_questions
+    ):
+        """Test that abandoned sessions are not returned as active."""
+        from app.models import User, TestSession
+        from app.models.models import TestStatus
+        from datetime import datetime
+
+        # Get test user
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create an abandoned session
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow(),
+            completed_at=datetime.utcnow(),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+
+        # Get active session (should be None)
+        response = client.get("/v1/test/active", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert response.json() is None
+
 
 class TestAbandonTest:
     """Tests for POST /v1/test/{session_id}/abandon endpoint."""
