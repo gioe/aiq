@@ -68,6 +68,11 @@ struct DashboardView: View {
                             }
                         }
                     )
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                    ))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.activeTestSession?.id)
                 }
 
                 // Stats Grid
@@ -322,6 +327,11 @@ struct DashboardView: View {
                             }
                         }
                     )
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                    ))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.activeTestSession?.id)
                 }
 
                 EmptyStateView(
