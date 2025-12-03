@@ -443,13 +443,14 @@ class TestGetActiveTestSession:
         )
 
         # Create an abandoned session
-        abandoned_session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.ABANDONED,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+        db_session.add(
+            TestSession(
+                user_id=test_user.id,
+                status=TestStatus.ABANDONED,
+                started_at=datetime.utcnow(),
+                completed_at=datetime.utcnow(),
+            )
         )
-        db_session.add(abandoned_session)
         db_session.commit()
 
         # Get active session (should be None)
