@@ -155,7 +155,7 @@ Implement a two-pronged approach:
   - Clear guidance on next steps
   - Consistent error handling patterns
 
-- [ ] P6-005: Analytics tracking
+- [x] P6-005: Analytics tracking
   - Track "test resumed from dashboard" events
   - Track "test abandoned from dashboard" events
   - Track "active session error recovered" events
