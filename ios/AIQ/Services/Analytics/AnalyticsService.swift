@@ -13,7 +13,11 @@ enum AnalyticsEvent: String {
     case testStarted = "test.started"
     case testCompleted = "test.completed"
     case testAbandoned = "test.abandoned"
+    case testAbandonedFromDashboard = "test.abandoned_from_dashboard"
+    case testResumedFromDashboard = "test.resumed_from_dashboard"
     case activeSessionConflict = "test.active_session_conflict"
+    case activeSessionErrorRecovered = "test.active_session_error_recovered"
+    case activeSessionDetected = "test.active_session_detected"
 
     // Question events
     case questionAnswered = "question.answered"
@@ -138,6 +142,54 @@ class AnalyticsService {
     func trackActiveSessionConflict(sessionId: Int) {
         track(event: .activeSessionConflict, properties: [
             "session_id": sessionId
+        ])
+    }
+
+    /// Track test resumed from dashboard
+    ///
+    /// - Parameters:
+    ///   - sessionId: Test session ID being resumed
+    ///   - questionsAnswered: Number of questions already answered
+    func trackTestResumedFromDashboard(sessionId: Int, questionsAnswered: Int) {
+        track(event: .testResumedFromDashboard, properties: [
+            "session_id": sessionId,
+            "questions_answered": questionsAnswered
+        ])
+    }
+
+    /// Track test abandoned from dashboard
+    ///
+    /// - Parameters:
+    ///   - sessionId: Test session ID being abandoned
+    ///   - questionsAnswered: Number of questions answered before abandonment
+    func trackTestAbandonedFromDashboard(sessionId: Int, questionsAnswered: Int) {
+        track(event: .testAbandonedFromDashboard, properties: [
+            "session_id": sessionId,
+            "questions_answered": questionsAnswered
+        ])
+    }
+
+    /// Track active session error recovered
+    ///
+    /// - Parameters:
+    ///   - sessionId: Test session ID that was recovered
+    ///   - recoveryAction: Action taken to recover (resume, abandon, cancel)
+    func trackActiveSessionErrorRecovered(sessionId: Int, recoveryAction: String) {
+        track(event: .activeSessionErrorRecovered, properties: [
+            "session_id": sessionId,
+            "recovery_action": recoveryAction
+        ])
+    }
+
+    /// Track active session detected on dashboard
+    ///
+    /// - Parameters:
+    ///   - sessionId: Active test session ID
+    ///   - questionsAnswered: Number of questions already answered
+    func trackActiveSessionDetected(sessionId: Int, questionsAnswered: Int) {
+        track(event: .activeSessionDetected, properties: [
+            "session_id": sessionId,
+            "questions_answered": questionsAnswered
         ])
     }
 
