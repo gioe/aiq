@@ -283,7 +283,10 @@ class TestTakingViewModel: BaseViewModel {
             code: -1,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Unable to retrieve questions for this session. Please abandon and start a new test."
+                    """
+                    We couldn't load the questions for this test session. \
+                    Please return to the dashboard and start a new test.
+                    """
             ]
         )
         handleError(error)
@@ -348,7 +351,10 @@ class TestTakingViewModel: BaseViewModel {
         // The view should observe the error state and show an appropriate alert
         let error = APIError.activeSessionConflict(
             sessionId: sessionId,
-            message: "You have an active test session. Would you like to resume it or start a new test?"
+            message: """
+            You have an in-progress test. Resume to continue where you left off, \
+            or abandon it to start fresh.
+            """
         )
 
         self.error = ContextualError(
@@ -362,7 +368,13 @@ class TestTakingViewModel: BaseViewModel {
             let error = NSError(
                 domain: "TestTakingViewModel",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No active test session. Please start a new test."]
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        """
+                        No active test session found. \
+                        Please return to the dashboard and start a new test.
+                        """
+                ]
             )
             handleError(error)
             return
@@ -374,7 +386,10 @@ class TestTakingViewModel: BaseViewModel {
                 code: -1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "Please answer all questions before submitting your test."
+                        """
+                        Please answer all \(questions.count) questions before submitting. \
+                        You've answered \(answeredCount) so far.
+                        """
                 ]
             )
             handleError(error)
