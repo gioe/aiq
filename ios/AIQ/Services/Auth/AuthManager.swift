@@ -112,8 +112,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         do {
             try await authService.logout()
         } catch {
-            // Log error but don't fail logout
-            print("⚠️ Logout error: \(error.localizedDescription)")
+            // Log error but don't fail logout - silently continue
+            #if DEBUG
+                print("⚠️ Logout error: \(error.localizedDescription)")
+            #endif
         }
 
         isAuthenticated = false

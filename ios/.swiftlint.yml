@@ -11,6 +11,7 @@ analyzer_rules:
 excluded:
   - Pods
   - .build
+  - build
   - DerivedData
   - AIQ.xcodeproj
   - AIQTests
