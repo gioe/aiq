@@ -65,6 +65,8 @@ class DashboardViewModel: BaseViewModel {
             return
         }
 
+        let questionsAnswered = activeSessionQuestionsAnswered ?? 0
+
         setLoading(true)
         clearError()
 
@@ -84,6 +86,12 @@ class DashboardViewModel: BaseViewModel {
                 print("✅ Test abandoned: \(response.message)")
                 print("   Responses saved: \(response.responsesSaved)")
             #endif
+
+            // Track abandonment from dashboard
+            AnalyticsService.shared.trackTestAbandonedFromDashboard(
+                sessionId: sessionId,
+                questionsAnswered: questionsAnswered
+            )
 
             // Clear active session state
             activeTestSession = nil
@@ -181,10 +189,31 @@ class DashboardViewModel: BaseViewModel {
         if let response {
             activeTestSession = response.session
             activeSessionQuestionsAnswered = response.questionsCount
+
+            // Track active session detection
+            AnalyticsService.shared.trackActiveSessionDetected(
+                sessionId: response.session.id,
+                questionsAnswered: response.questionsCount
+            )
         } else {
             activeTestSession = nil
             activeSessionQuestionsAnswered = nil
         }
+    }
+
+    /// Track test resume from dashboard
+    /// Called when user navigates to test from dashboard
+    func trackTestResumed() {
+        guard let sessionId = activeTestSession?.id,
+              let questionsAnswered = activeSessionQuestionsAnswered
+        else {
+            return
+        }
+
+        AnalyticsService.shared.trackTestResumedFromDashboard(
+            sessionId: sessionId,
+            questionsAnswered: questionsAnswered
+        )
     }
 
     // MARK: - Computed Properties
