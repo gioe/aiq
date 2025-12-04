@@ -203,6 +203,83 @@ Implement a two-pronged approach:
 - State cached with appropriate TTL (consider 1-5 minutes)
 - Invalidate cache after abandon or test submission
 
+### Active Session Detection Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Dashboard Load Flow                          │
+└─────────────────────────────────────────────────────────────────┘
+
+User Opens Dashboard
+        │
+        ├─────────────────┬─────────────────┐
+        │                 │                 │
+        v                 v                 v
+  fetchTestHistory  fetchActiveSession  fetchNextTestDate
+        │                 │                 │
+        │                 │                 │
+        v                 v                 │
+    History Data    GET /v1/test/active    │
+                           │                │
+                           v                │
+                    ┌──────────────┐        │
+                    │ Has Active?  │        │
+                    └──────────────┘        │
+                      │            │        │
+                   YES│            │NO      │
+                      v            v        │
+              ┌──────────┐   ┌─────────┐   │
+              │  Cache   │   │ Return  │   │
+              │ Session  │   │  null   │   │
+              │ 2min TTL │   └─────────┘   │
+              └──────────┘                 │
+                      │                    │
+        ┌─────────────┴────────────────────┘
+        v
+  Update UI State
+        │
+        ├─── hasActiveTest = true  → Show "Resume Test"
+        │
+        └─── hasActiveTest = false → Show "Start Test"
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                 Error Recovery Flow (Edge Case)                  │
+└─────────────────────────────────────────────────────────────────┘
+
+User Clicks "Start Test"
+        │
+        v
+  POST /v1/test/start
+        │
+        v
+    ┌─────────────────┐
+    │ Active Session? │
+    └─────────────────┘
+        │         │
+     NO │         │ YES (400 Error)
+        v         v
+    Success   Parse Error
+              Extract session_id
+                    │
+                    v
+            Show Alert Dialog
+            ┌──────────────────┐
+            │  Choose Action:  │
+            │  - Resume        │
+            │  - Abandon       │
+            │  - Cancel        │
+            └──────────────────┘
+                    │
+        ┌───────────┼───────────┐
+        v           v           v
+    Resume      Abandon     Cancel
+        │           │           │
+        v           v           v
+GET /session/X  POST /X/abandon  Return to
+Load questions  Then retry start  Dashboard
+```
+
 ### Edge Cases to Handle
 1. Active session deleted/expired between check and resume
 2. Network failure during active session check
