@@ -169,7 +169,7 @@ Implement a two-pronged approach:
   - Document error recovery pattern
   - Add to troubleshooting section
 
-- [ ] P7-002: Update API documentation
+- [x] P7-002: Update API documentation
   - Document `/v1/test/active` endpoint usage
   - Document TestSessionStatusResponse model
   - Add flow diagrams if needed
