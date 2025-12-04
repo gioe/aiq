@@ -244,6 +244,13 @@ class TestTakingViewModel: BaseViewModel {
             }
 
             testCompleted = false
+
+            // Track successful error recovery via resume
+            AnalyticsService.shared.trackActiveSessionErrorRecovered(
+                sessionId: sessionId,
+                recoveryAction: "resume"
+            )
+
             setLoading(false)
 
             #if DEBUG
@@ -326,6 +333,12 @@ class TestTakingViewModel: BaseViewModel {
             #if DEBUG
                 print("✅ Abandoned session \(sessionId), starting new test")
             #endif
+
+            // Track successful error recovery via abandon
+            AnalyticsService.shared.trackActiveSessionErrorRecovered(
+                sessionId: sessionId,
+                recoveryAction: "abandon"
+            )
 
             // Then start a new test
             await startTest(questionCount: questionCount)
