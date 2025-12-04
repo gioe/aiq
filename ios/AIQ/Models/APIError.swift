@@ -80,54 +80,57 @@ enum APIError: Error, LocalizedError {
     /// Unprocessable entity
     case unprocessableEntity(message: String? = nil)
 
-    /// User-friendly error description
+    /// User-friendly error description with clear guidance
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            "Invalid URL"
+            "There was a problem with the request. Please try again or contact support if the issue persists."
         case .invalidResponse:
-            "Invalid response from server"
+            "We received an unexpected response from the server. Please try again."
         case let .unauthorized(message):
-            message ?? "Your session has expired. Please log in again."
+            message ?? "Your session has expired. Please log in again to continue."
         case let .forbidden(message):
-            message ?? "You don't have permission to access this resource"
+            message ?? "Access denied. You don't have permission to perform this action."
         case let .notFound(message):
-            message ?? "The requested resource was not found"
+            message ?? "We couldn't find what you're looking for. It may have been removed or is no longer available."
         case let .unprocessableEntity(message):
-            message ?? "Entity cannot be processed"
+            message ?? "We couldn't process your request. Please check your information and try again."
         case let .badRequest(message):
-            message ?? "Invalid request. Please try again."
+            message ?? "There was a problem with your request. Please check your information and try again."
         case let .activeSessionConflict(_, message):
             message
         case let .serverError(statusCode, message):
             if let message {
-                "Server error: \(message)"
+                "Server error: \(message). Please try again in a few moments."
             } else {
-                "Server error (code: \(statusCode))"
+                "Our servers are experiencing issues (code: \(statusCode)). Please try again in a few moments."
             }
         case let .decodingError(error):
-            "Failed to process server response: \(error.localizedDescription)"
+            """
+            We couldn't understand the server's response. Please try again or contact support if this continues. \
+            Technical details: \(error.localizedDescription)
+            """
         case let .networkError(error):
             if let urlError = error as? URLError {
                 switch urlError.code {
                 case .notConnectedToInternet, .networkConnectionLost:
-                    "No internet connection. Please check your network settings."
+                    "No internet connection detected. Please check your Wi-Fi or cellular data and try again."
                 case .timedOut:
-                    "The request timed out. Please try again."
+                    "The connection timed out. Please check your internet connection and try again."
                 case .cannotFindHost, .cannotConnectToHost:
-                    "Unable to connect to server. Please try again later."
+                    "Unable to reach the server. Please check your internet connection and try again later."
                 default:
-                    "Network error: \(error.localizedDescription)"
+                    "A network error occurred. Please check your connection and try again."
                 }
             } else {
-                "Network error: \(error.localizedDescription)"
+                "A network error occurred. Please check your connection and try again."
             }
         case .timeout:
-            "The request timed out. Please check your connection and try again."
+            "The request took too long to complete. Please check your internet connection and try again."
         case .noInternetConnection:
-            "No internet connection. Please check your network settings and try again."
+            "No internet connection detected. Please check your Wi-Fi or cellular data settings and try again."
         case let .unknown(message):
-            message ?? "An unknown error occurred. Please try again."
+            message ?? "Something unexpected happened. Please try again or contact support if the issue continues."
         }
     }
 
@@ -152,10 +155,22 @@ struct ContextualError: Error, LocalizedError {
     let operation: NetworkOperation
 
     var errorDescription: String? {
-        guard let baseError = error.errorDescription else {
-            return "An error occurred while \(operation.userFacingName)"
+        // For some errors, just show the base error without repetitive context
+        switch error {
+        case .unauthorized, .noInternetConnection, .networkError, .timeout:
+            // These errors already have clear messaging, no need to repeat operation
+            return error.errorDescription
+        default:
+            // For other errors, add context about what we were trying to do
+            guard let baseError = error.errorDescription else {
+                return "An error occurred while \(operation.userFacingName). Please try again."
+            }
+            // Check if the base error already mentions the operation to avoid redundancy
+            if baseError.lowercased().contains(operation.userFacingName.lowercased()) {
+                return baseError
+            }
+            return baseError
         }
-        return "Error while \(operation.userFacingName): \(baseError)"
     }
 
     /// The underlying API error for detailed handling

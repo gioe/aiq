@@ -88,7 +88,7 @@ struct TestTakingView: View {
                 }
             }
         }
-        .alert("Active Test Session", isPresented: .constant(isActiveSessionConflict)) {
+        .alert("Test in Progress", isPresented: .constant(isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
                 Button("Resume Test") {
                     Task {
@@ -100,13 +100,18 @@ struct TestTakingView: View {
                         await viewModel.abandonAndStartNew(sessionId: sessionId)
                     }
                 }
-                Button("Cancel", role: .cancel) {
+                Button("Go Back", role: .cancel) {
                     viewModel.clearError()
                     dismiss()
                 }
             }
         } message: {
-            Text("You have an active test session. Would you like to resume it or start a new test?")
+            Text(
+                """
+                You have an in-progress test. Resume to continue where you left off, \
+                or abandon it to start a fresh test.
+                """
+            )
         }
     }
 
