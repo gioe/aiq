@@ -60,6 +60,7 @@ struct DashboardView: View {
                         session: activeSession,
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
+                            viewModel.trackTestResumed()
                             navigateToTest = true
                         },
                         onAbandon: {
