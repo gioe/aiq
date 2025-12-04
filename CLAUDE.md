@@ -140,6 +140,20 @@ ios/AIQ/
    - Batch submission to backend when test completed
    - Supports test abandonment and resumption
 
+6. **Active Session Detection**:
+   - Dashboard proactively checks for in-progress tests via `/v1/test/active` endpoint
+   - `DashboardViewModel.fetchActiveSession()` runs in parallel with test history fetch
+   - Active session state cached with 2-minute TTL to balance freshness and performance
+   - Cache invalidated after test completion or abandonment
+   - UI adapts to show "Resume Test" vs "Start Test" based on active session state
+
+7. **Error Recovery Pattern**:
+   - TestTakingViewModel detects active session conflicts when starting a new test
+   - `APIError.activeSessionConflict` provides sessionId for recovery options
+   - UI presents contextual error with actionable choices (Resume/Abandon/Cancel)
+   - Analytics tracking for edge cases (conflict detection, recovery paths)
+   - Graceful fallback ensures users never get stuck in error states
+
 **iOS Minimum Version**: iOS 16+
 
 ## Testing Practices
@@ -370,6 +384,12 @@ open AIQ.xcodeproj  # Select your development team in project settings
 **Tests failing**:
 - Backend: Ensure test database exists and is clean
 - iOS: Check simulator is available and running iOS 16+
+
+**Active session state issues**:
+- Dashboard shows stale "Resume Test" after test completed: Clear cache with pull-to-refresh or restart app
+- "Test already in progress" error when starting test: Check dashboard for active session, use Resume or Abandon
+- Active session check slow: Check backend `/v1/test/active` endpoint performance, verify 2-min cache TTL
+- Dashboard not showing in-progress test: Verify backend session status, check cache invalidation after operations
 
 ## Additional Documentation
 
