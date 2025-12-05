@@ -56,6 +56,38 @@ async def verify_admin_token(x_admin_token: str = Header(...)) -> bool:
     return True
 
 
+async def verify_service_key(x_service_key: str = Header(...)) -> bool:
+    """
+    Verify service API key for service-to-service authentication.
+
+    Used by internal services (e.g., question-service) to authenticate
+    with the backend API. Separate from admin token authentication
+    to allow different access levels and key rotation.
+
+    Args:
+        x_service_key: Service API key from X-Service-Key header
+
+    Returns:
+        bool: True if key is valid
+
+    Raises:
+        HTTPException: If key is invalid or not configured
+    """
+    if not settings.SERVICE_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Service API key not configured on server",
+        )
+
+    if x_service_key != settings.SERVICE_API_KEY:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid service API key",
+        )
+
+    return True
+
+
 @router.post(
     "/trigger-question-generation", response_model=TriggerQuestionGenerationResponse
 )
