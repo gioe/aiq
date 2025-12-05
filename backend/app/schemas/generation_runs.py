@@ -394,3 +394,17 @@ class QuestionGenerationRunStats(BaseModel):
     approval_rate_trend: Optional[str] = Field(
         None, description="Trend direction: improving, declining, or stable"
     )
+
+
+class QuestionGenerationRunCreateResponse(BaseModel):
+    """
+    Response schema for creating a question generation run record.
+
+    Returns the created run ID and status for confirmation.
+    """
+
+    id: int = Field(..., description="The created run ID")
+    status: GenerationRunStatusSchema = Field(
+        ..., description="Status of the created run"
+    )
+    message: str = Field(..., description="Confirmation message")
