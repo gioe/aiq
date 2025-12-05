@@ -82,6 +82,12 @@ class Settings(BaseSettings):
         description="Admin API token for triggering jobs (required for admin endpoints)",
     )
 
+    # Service-to-Service Authentication
+    SERVICE_API_KEY: str = Field(
+        default="",
+        description="API key for service-to-service authentication (e.g., question-service)",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

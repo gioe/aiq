@@ -198,7 +198,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
 
 ### Phase 2: API Endpoints
 
-- [ ] **QGT-004**: Create admin router structure
+- [x] **QGT-004**: Create admin router structure
   - Add `backend/app/api/v1/admin.py` router
   - Register in `api.py` with `/admin` prefix
   - Add service-to-service authentication (API key or JWT)
