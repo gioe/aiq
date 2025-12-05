@@ -834,3 +834,328 @@ class TestListGenerationRuns:
         assert data["total"] == 2
         assert data["page"] == 10
         assert data["total_pages"] == 1
+
+
+class TestGetGenerationRun:
+    """Tests for GET /v1/admin/generation-runs/{id} endpoint."""
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_success(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test successfully retrieving a single generation run."""
+        # Create a run first
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+        assert create_response.status_code == 201
+        run_id = create_response.json()["id"]
+
+        # Retrieve the run
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify basic fields
+        assert data["id"] == run_id
+        assert data["status"] == "success"
+        assert data["questions_requested"] == 50
+        assert data["questions_generated"] == 48
+        assert data["questions_inserted"] == 43
+        assert data["overall_success_rate"] == 0.86
+        assert data["environment"] == "production"
+        assert data["triggered_by"] == "scheduler"
+
+        # Verify JSONB fields are present (unlike the list endpoint)
+        assert data["provider_metrics"] is not None
+        assert "openai" in data["provider_metrics"]
+        assert data["provider_metrics"]["openai"]["generated"] == 25
+        assert data["type_metrics"] is not None
+        assert "pattern_recognition" in data["type_metrics"]
+        assert data["difficulty_metrics"] is not None
+        assert data["error_summary"] is not None
+
+        # Verify configuration fields
+        assert data["prompt_version"] == "v2.1"
+        assert data["arbiter_config_version"] == "v1.0"
+        assert data["min_arbiter_score_threshold"] == 0.7
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_pipeline_losses(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test that pipeline loss metrics are computed correctly."""
+        # Create a run first
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+        run_id = create_response.json()["id"]
+
+        # Retrieve the run
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify pipeline_losses field exists
+        assert "pipeline_losses" in data
+        losses = data["pipeline_losses"]
+
+        # Based on valid_generation_run_data:
+        # requested=50, generated=48, evaluated=48, approved=45, rejected=3
+        # duplicates_found=2, inserted=43
+
+        # generation_loss = requested - generated = 50 - 48 = 2
+        assert losses["generation_loss"] == 2
+
+        # evaluation_loss = generated - evaluated = 48 - 48 = 0
+        assert losses["evaluation_loss"] == 0
+
+        # rejection_loss = questions_rejected = 3
+        assert losses["rejection_loss"] == 3
+
+        # deduplication_loss = duplicates_found = 2
+        assert losses["deduplication_loss"] == 2
+
+        # insertion_loss = (approved - duplicates) - inserted = (45 - 2) - 43 = 0
+        assert losses["insertion_loss"] == 0
+
+        # total_loss = requested - inserted = 50 - 43 = 7
+        assert losses["total_loss"] == 7
+
+        # Check percentage values
+        assert losses["generation_loss_pct"] == 4.0  # 2/50 * 100
+        assert losses["evaluation_loss_pct"] == 0.0  # 0/48 * 100
+        assert losses["rejection_loss_pct"] == 6.25  # 3/48 * 100
+        assert losses["deduplication_loss_pct"] == 4.44  # 2/45 * 100 (rounded)
+        assert losses["insertion_loss_pct"] == 0.0  # 0/43 * 100
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_pipeline_losses_with_zeros(
+        self, client, db_session, service_key_headers
+    ):
+        """Test pipeline loss computation handles zero values correctly."""
+        # Create a run with minimal data (all zeros except required fields)
+        minimal_data = {
+            "started_at": "2024-12-05T10:00:00Z",
+            "status": "running",
+            "questions_requested": 50,
+        }
+
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=minimal_data,
+            headers=service_key_headers,
+        )
+        run_id = create_response.json()["id"]
+
+        # Retrieve the run
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        losses = data["pipeline_losses"]
+
+        # With all zeros: generation_loss = 50 - 0 = 50
+        assert losses["generation_loss"] == 50
+        assert losses["total_loss"] == 50
+
+        # Percentages should handle division by zero gracefully
+        assert losses["generation_loss_pct"] == 100.0  # 50/50 * 100
+        # evaluation_loss_pct should be None (generated is 0)
+        assert losses["evaluation_loss_pct"] is None
+        assert losses["rejection_loss_pct"] is None
+        assert losses["deduplication_loss_pct"] is None
+        assert losses["insertion_loss_pct"] is None
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_not_found(self, client, service_key_headers):
+        """Test that 404 is returned for non-existent run."""
+        response = client.get(
+            "/v1/admin/generation-runs/99999",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    def test_get_generation_run_no_auth(self, client):
+        """Test that request without service key is rejected."""
+        response = client.get("/v1/admin/generation-runs/1")
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_invalid_auth(self, client):
+        """Test that request with invalid service key is rejected."""
+        response = client.get(
+            "/v1/admin/generation-runs/1",
+            headers={"X-Service-Key": "wrong-key"},
+        )
+        assert response.status_code == 401
+        assert "Invalid service API key" in response.json()["detail"]
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_all_fields_present(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test that all expected fields are present in the response."""
+        # Create a run
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+        run_id = create_response.json()["id"]
+
+        # Retrieve the run
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check all expected fields are present
+        expected_fields = [
+            "id",
+            "started_at",
+            "completed_at",
+            "duration_seconds",
+            "status",
+            "exit_code",
+            "questions_requested",
+            "questions_generated",
+            "generation_failures",
+            "generation_success_rate",
+            "questions_evaluated",
+            "questions_approved",
+            "questions_rejected",
+            "approval_rate",
+            "avg_arbiter_score",
+            "min_arbiter_score",
+            "max_arbiter_score",
+            "duplicates_found",
+            "exact_duplicates",
+            "semantic_duplicates",
+            "duplicate_rate",
+            "questions_inserted",
+            "insertion_failures",
+            "overall_success_rate",
+            "total_errors",
+            "total_api_calls",
+            "provider_metrics",
+            "type_metrics",
+            "difficulty_metrics",
+            "error_summary",
+            "prompt_version",
+            "arbiter_config_version",
+            "min_arbiter_score_threshold",
+            "environment",
+            "triggered_by",
+            "created_at",
+            "pipeline_losses",
+        ]
+
+        for field in expected_fields:
+            assert field in data, f"Expected field '{field}' not in response"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_failed_status(
+        self, client, db_session, service_key_headers
+    ):
+        """Test retrieving a run with failed status."""
+        failed_data = {
+            "started_at": "2024-12-05T10:00:00Z",
+            "completed_at": "2024-12-05T10:01:00Z",
+            "duration_seconds": 60.0,
+            "status": "failed",
+            "exit_code": 1,
+            "questions_requested": 50,
+            "questions_generated": 0,
+            "total_errors": 5,
+        }
+
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=failed_data,
+            headers=service_key_headers,
+        )
+        run_id = create_response.json()["id"]
+
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "failed"
+        assert data["exit_code"] == 1
+        assert data["total_errors"] == 5
+
+        # Pipeline losses should reflect complete failure
+        losses = data["pipeline_losses"]
+        assert losses["generation_loss"] == 50  # All requested, none generated
+        assert losses["total_loss"] == 50
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_generation_run_partial_failure_status(
+        self, client, db_session, service_key_headers
+    ):
+        """Test retrieving a run with partial_failure status."""
+        partial_data = {
+            "started_at": "2024-12-05T10:00:00Z",
+            "completed_at": "2024-12-05T10:05:00Z",
+            "duration_seconds": 300.0,
+            "status": "partial_failure",
+            "exit_code": 3,
+            "questions_requested": 50,
+            "questions_generated": 30,
+            "questions_evaluated": 30,
+            "questions_approved": 25,
+            "questions_rejected": 5,
+            "questions_inserted": 20,
+            "duplicates_found": 3,
+            "total_errors": 10,
+        }
+
+        create_response = client.post(
+            "/v1/admin/generation-runs",
+            json=partial_data,
+            headers=service_key_headers,
+        )
+        run_id = create_response.json()["id"]
+
+        response = client.get(
+            f"/v1/admin/generation-runs/{run_id}",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "partial_failure"
+
+        # Verify pipeline losses for partial failure
+        losses = data["pipeline_losses"]
+        assert losses["generation_loss"] == 20  # 50 - 30
+        assert losses["evaluation_loss"] == 0  # 30 - 30
+        assert losses["rejection_loss"] == 5
+        assert losses["deduplication_loss"] == 3
+        # insertion_loss = (25 - 3) - 20 = 2
+        assert losses["insertion_loss"] == 2
+        assert losses["total_loss"] == 30  # 50 - 20
