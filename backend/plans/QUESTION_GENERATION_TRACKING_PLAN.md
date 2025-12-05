@@ -190,7 +190,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Include all indexes
   - Test migration up/down
 
-- [ ] **QGT-003**: Add Pydantic schemas
+- [x] **QGT-003**: Add Pydantic schemas
   - Create `QuestionGenerationRunCreate` for POST requests
   - Create `QuestionGenerationRunRead` for GET responses
   - Create `QuestionGenerationRunStats` for aggregated statistics

@@ -24,6 +24,14 @@ from .responses import (
     TestResultResponse,
     SubmitTestResponse,
 )
+from .generation_runs import (
+    GenerationRunStatusSchema,
+    QuestionGenerationRunCreate,
+    QuestionGenerationRunRead,
+    QuestionGenerationRunSummary,
+    QuestionGenerationRunListResponse,
+    QuestionGenerationRunStats,
+)
 
 __all__ = [
     "UserRegister",
@@ -41,4 +49,11 @@ __all__ = [
     "ResponseSubmission",
     "TestResultResponse",
     "SubmitTestResponse",
+    # Generation run tracking schemas
+    "GenerationRunStatusSchema",
+    "QuestionGenerationRunCreate",
+    "QuestionGenerationRunRead",
+    "QuestionGenerationRunSummary",
+    "QuestionGenerationRunListResponse",
+    "QuestionGenerationRunStats",
 ]
