@@ -209,7 +209,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Return created run ID
   - Handle both "running" status (start) and final status (completion)
 
-- [ ] **QGT-006**: Implement `GET /v1/admin/generation-runs`
+- [x] **QGT-006**: Implement `GET /v1/admin/generation-runs`
   - List runs with pagination
   - Filter by: status, environment, date range, min/max success rate
   - Sort by: started_at, duration, success_rate

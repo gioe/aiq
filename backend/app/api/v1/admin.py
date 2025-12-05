@@ -2,18 +2,22 @@
 Admin operations endpoints.
 """
 import subprocess
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import desc, asc
 
 from app.core import settings
 from app.models import get_db, QuestionGenerationRun, GenerationRunStatus
 from app.schemas.generation_runs import (
     QuestionGenerationRunCreate,
     QuestionGenerationRunCreateResponse,
+    QuestionGenerationRunListResponse,
+    QuestionGenerationRunSummary,
     GenerationRunStatusSchema,
 )
 
@@ -326,4 +330,145 @@ async def create_generation_run(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create generation run record: {str(e)}",
+        )
+
+
+@router.get(
+    "/generation-runs",
+    response_model=QuestionGenerationRunListResponse,
+)
+async def list_generation_runs(
+    # Pagination
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (1-100)"),
+    # Filters
+    status: Optional[GenerationRunStatusSchema] = Query(
+        None, description="Filter by run status"
+    ),
+    environment: Optional[str] = Query(
+        None, max_length=20, description="Filter by environment"
+    ),
+    start_date: Optional[datetime] = Query(
+        None, description="Filter runs started on or after this date (ISO format)"
+    ),
+    end_date: Optional[datetime] = Query(
+        None, description="Filter runs started on or before this date (ISO format)"
+    ),
+    min_success_rate: Optional[float] = Query(
+        None, ge=0.0, le=1.0, description="Filter by minimum overall success rate"
+    ),
+    max_success_rate: Optional[float] = Query(
+        None, ge=0.0, le=1.0, description="Filter by maximum overall success rate"
+    ),
+    # Sorting
+    sort_by: Literal["started_at", "duration_seconds", "overall_success_rate"] = Query(
+        "started_at", description="Field to sort by"
+    ),
+    sort_order: Literal["asc", "desc"] = Query(
+        "desc", description="Sort order (asc or desc)"
+    ),
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_service_key),
+):
+    r"""
+    List question generation runs with pagination, filtering, and sorting.
+
+    Returns a paginated list of generation run summaries (without full JSONB breakdowns)
+    to optimize query performance. Use GET /v1/admin/generation-runs/{id} to retrieve
+    full details for a specific run.
+
+    Requires X-Service-Key header with valid service API key.
+
+    **Filters:**
+    - `status`: Filter by run status (running, success, partial_failure, failed)
+    - `environment`: Filter by environment (production, staging, development)
+    - `start_date`/`end_date`: Filter by date range (ISO 8601 format)
+    - `min_success_rate`/`max_success_rate`: Filter by success rate range (0.0-1.0)
+
+    **Sorting:**
+    - `sort_by`: Field to sort by (started_at, duration_seconds, overall_success_rate)
+    - `sort_order`: Sort direction (asc, desc)
+
+    **Pagination:**
+    - `page`: Page number (1-indexed, default: 1)
+    - `page_size`: Items per page (1-100, default: 20)
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/generation-runs?status=success&page=1&page_size=10" \
+          -H "X-Service-Key: your-service-key"
+        ```
+    """
+    try:
+        # Build base query
+        query = db.query(QuestionGenerationRun)
+
+        # Apply filters
+        if status is not None:
+            # Map schema enum to model enum
+            status_mapping = {
+                GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
+                GenerationRunStatusSchema.SUCCESS: GenerationRunStatus.SUCCESS,
+                GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
+                GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
+            }
+            query = query.filter(QuestionGenerationRun.status == status_mapping[status])
+
+        if environment is not None:
+            query = query.filter(QuestionGenerationRun.environment == environment)
+
+        if start_date is not None:
+            query = query.filter(QuestionGenerationRun.started_at >= start_date)
+
+        if end_date is not None:
+            query = query.filter(QuestionGenerationRun.started_at <= end_date)
+
+        if min_success_rate is not None:
+            query = query.filter(
+                QuestionGenerationRun.overall_success_rate >= min_success_rate
+            )
+
+        if max_success_rate is not None:
+            query = query.filter(
+                QuestionGenerationRun.overall_success_rate <= max_success_rate
+            )
+
+        # Get total count before pagination
+        total = query.count()
+
+        # Apply sorting
+        sort_column = getattr(QuestionGenerationRun, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(desc(sort_column))
+        else:
+            query = query.order_by(asc(sort_column))
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+
+        # Execute query
+        runs = query.all()
+
+        # Convert to summary objects using model_validate for proper type handling
+        # QuestionGenerationRunSummary has from_attributes=True in Config
+        run_summaries = [
+            QuestionGenerationRunSummary.model_validate(run) for run in runs
+        ]
+
+        # Calculate total pages
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+
+        return QuestionGenerationRunListResponse(
+            runs=run_summaries,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve generation runs: {str(e)}",
         )
