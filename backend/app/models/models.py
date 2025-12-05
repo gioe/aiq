@@ -51,6 +51,15 @@ class TestStatus(str, enum.Enum):
     ABANDONED = "abandoned"
 
 
+class GenerationRunStatus(str, enum.Enum):
+    """Status enumeration for question generation runs."""
+
+    RUNNING = "running"
+    SUCCESS = "success"
+    PARTIAL_FAILURE = "partial_failure"
+    FAILED = "failed"
+
+
 class EducationLevel(str, enum.Enum):
     """Education level enumeration for demographic data."""
 
@@ -327,3 +336,106 @@ class TestResult(Base):
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")
+
+
+class QuestionGenerationRun(Base):
+    """
+    Model for tracking question generation service execution metrics.
+
+    Persists metrics from each run of the question-service to enable:
+    - Historical trend analysis (are arbiter scores declining over time?)
+    - Provider performance comparison (which LLM produces best questions?)
+    - Failure pattern detection (is a specific provider failing more often?)
+    - Prompt version effectiveness tracking (did v2.1 improve approval rates?)
+    - Cost optimization insights (API calls per successful question)
+    """
+
+    __tablename__ = "question_generation_runs"
+
+    # Identity
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Execution timing
+    started_at = Column(DateTime(timezone=True), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Float, nullable=True)
+
+    # Status & outcome
+    status = Column(Enum(GenerationRunStatus), nullable=False)
+    exit_code = Column(Integer, nullable=True)  # 0-6 matching run_generation.py codes
+
+    # Generation metrics
+    questions_requested = Column(Integer, nullable=False)
+    questions_generated = Column(Integer, nullable=False, default=0)
+    generation_failures = Column(Integer, nullable=False, default=0)
+    generation_success_rate = Column(Float, nullable=True)
+
+    # Evaluation metrics
+    questions_evaluated = Column(Integer, nullable=False, default=0)
+    questions_approved = Column(Integer, nullable=False, default=0)
+    questions_rejected = Column(Integer, nullable=False, default=0)
+    approval_rate = Column(Float, nullable=True)
+    avg_arbiter_score = Column(Float, nullable=True)
+    min_arbiter_score = Column(Float, nullable=True)
+    max_arbiter_score = Column(Float, nullable=True)
+
+    # Deduplication metrics
+    duplicates_found = Column(Integer, nullable=False, default=0)
+    exact_duplicates = Column(Integer, nullable=False, default=0)
+    semantic_duplicates = Column(Integer, nullable=False, default=0)
+    duplicate_rate = Column(Float, nullable=True)
+
+    # Database metrics
+    questions_inserted = Column(Integer, nullable=False, default=0)
+    insertion_failures = Column(Integer, nullable=False, default=0)
+
+    # Overall success
+    overall_success_rate = Column(
+        Float, nullable=True
+    )  # questions_inserted / questions_requested
+    total_errors = Column(Integer, nullable=False, default=0)
+
+    # API usage
+    total_api_calls = Column(Integer, nullable=False, default=0)
+
+    # Breakdown by provider (JSON for flexibility)
+    # Example: {"openai": {"generated": 10, "api_calls": 15, "failures": 1}, ...}
+    provider_metrics = Column(JSON, nullable=True)
+
+    # Breakdown by question type (JSON)
+    # Example: {"pattern_recognition": 8, "logical_reasoning": 12, ...}
+    type_metrics = Column(JSON, nullable=True)
+
+    # Breakdown by difficulty (JSON)
+    # Example: {"easy": 15, "medium": 22, "hard": 13}
+    difficulty_metrics = Column(JSON, nullable=True)
+
+    # Error tracking
+    # Example: {"by_category": {"rate_limit": 2}, "by_severity": {"high": 1}, "critical_count": 0}
+    error_summary = Column(JSON, nullable=True)
+
+    # Configuration used
+    prompt_version = Column(String(50), nullable=True)
+    arbiter_config_version = Column(String(50), nullable=True)
+    min_arbiter_score_threshold = Column(Float, nullable=True)
+
+    # Environment context
+    environment = Column(
+        String(20), nullable=True
+    )  # 'production', 'staging', 'development'
+    triggered_by = Column(String(50), nullable=True)  # 'scheduler', 'manual', 'webhook'
+
+    # Metadata
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Indexes for common queries
+    __table_args__ = (
+        Index("ix_qgr_started_at", "started_at"),
+        Index("ix_qgr_status", "status"),
+        Index("ix_qgr_environment", "environment"),
+        Index("ix_qgr_overall_success", "overall_success_rate"),
+    )
