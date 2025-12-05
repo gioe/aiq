@@ -219,7 +219,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Return full run details including JSONB breakdowns
   - Include computed fields (e.g., questions lost at each stage)
 
-- [ ] **QGT-008**: Implement `GET /v1/admin/generation-runs/stats`
+- [x] **QGT-008**: Implement `GET /v1/admin/generation-runs/stats`
   - Aggregate statistics over time period
   - Average success rates, scores, durations
   - Provider comparison summaries
