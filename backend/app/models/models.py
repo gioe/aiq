@@ -17,7 +17,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSON, JSONB
+from sqlalchemy.dialects.postgresql import JSON
 from datetime import datetime, timezone
 import enum
 
@@ -398,21 +398,21 @@ class QuestionGenerationRun(Base):
     # API usage
     total_api_calls = Column(Integer, nullable=False, default=0)
 
-    # Breakdown by provider (JSONB for flexibility)
+    # Breakdown by provider (JSON for flexibility)
     # Example: {"openai": {"generated": 10, "api_calls": 15, "failures": 1}, ...}
-    provider_metrics = Column(JSONB, nullable=True)
+    provider_metrics = Column(JSON, nullable=True)
 
-    # Breakdown by question type (JSONB)
+    # Breakdown by question type (JSON)
     # Example: {"pattern_recognition": 8, "logical_reasoning": 12, ...}
-    type_metrics = Column(JSONB, nullable=True)
+    type_metrics = Column(JSON, nullable=True)
 
-    # Breakdown by difficulty (JSONB)
+    # Breakdown by difficulty (JSON)
     # Example: {"easy": 15, "medium": 22, "hard": 13}
-    difficulty_metrics = Column(JSONB, nullable=True)
+    difficulty_metrics = Column(JSON, nullable=True)
 
     # Error tracking
     # Example: {"by_category": {"rate_limit": 2}, "by_severity": {"high": 1}, "critical_count": 0}
-    error_summary = Column(JSONB, nullable=True)
+    error_summary = Column(JSON, nullable=True)
 
     # Configuration used
     prompt_version = Column(String(50), nullable=True)
