@@ -1159,3 +1159,636 @@ class TestGetGenerationRun:
         # insertion_loss = (25 - 3) - 20 = 2
         assert losses["insertion_loss"] == 2
         assert losses["total_loss"] == 30  # 50 - 20
+
+
+class TestGetGenerationRunStats:
+    """Tests for GET /v1/admin/generation-runs/stats endpoint."""
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_empty_period(self, client, db_session, service_key_headers):
+        """Test getting stats when no runs exist in the period."""
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_runs"] == 0
+        assert data["successful_runs"] == 0
+        assert data["failed_runs"] == 0
+        assert data["partial_failure_runs"] == 0
+        assert data["total_questions_requested"] == 0
+        assert data["total_questions_generated"] == 0
+        assert data["total_questions_inserted"] == 0
+        assert data["avg_overall_success_rate"] is None
+        assert data["avg_approval_rate"] is None
+        assert data["avg_arbiter_score"] is None
+        assert data["total_api_calls"] == 0
+        assert data["total_errors"] == 0
+        assert data["provider_summary"] is None
+        assert data["success_rate_trend"] is None
+        assert data["approval_rate_trend"] is None
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_with_data(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test getting stats with run data."""
+        # Create a run within the period
+        client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_runs"] == 1
+        assert data["successful_runs"] == 1
+        assert data["failed_runs"] == 0
+        assert data["partial_failure_runs"] == 0
+        assert data["total_questions_requested"] == 50
+        assert data["total_questions_generated"] == 48
+        assert data["total_questions_inserted"] == 43
+        assert data["avg_overall_success_rate"] == 0.86
+        assert data["avg_approval_rate"] == 0.9375
+        assert data["avg_arbiter_score"] == 0.85
+        assert data["min_arbiter_score"] == 0.65
+        assert data["max_arbiter_score"] == 0.98
+        assert data["total_duplicates_found"] == 2
+        assert data["avg_duplicate_rate"] == 0.04
+        assert data["avg_duration_seconds"] == 300.5
+        assert data["total_api_calls"] == 120
+        assert data["total_errors"] == 4
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_multiple_runs(self, client, db_session, service_key_headers):
+        """Test stats aggregation with multiple runs."""
+        # Create runs with different statuses and values
+        runs_data = [
+            {
+                "started_at": "2024-12-01T10:00:00Z",
+                "completed_at": "2024-12-01T10:05:00Z",
+                "duration_seconds": 300.0,
+                "status": "success",
+                "questions_requested": 50,
+                "questions_generated": 48,
+                "questions_inserted": 45,
+                "overall_success_rate": 0.9,
+                "approval_rate": 0.92,
+                "avg_arbiter_score": 0.88,
+                "min_arbiter_score": 0.75,
+                "max_arbiter_score": 0.95,
+                "duplicates_found": 3,
+                "duplicate_rate": 0.06,
+                "total_api_calls": 100,
+                "total_errors": 2,
+            },
+            {
+                "started_at": "2024-12-02T10:00:00Z",
+                "completed_at": "2024-12-02T10:05:00Z",
+                "duration_seconds": 350.0,
+                "status": "success",
+                "questions_requested": 50,
+                "questions_generated": 45,
+                "questions_inserted": 40,
+                "overall_success_rate": 0.8,
+                "approval_rate": 0.88,
+                "avg_arbiter_score": 0.82,
+                "min_arbiter_score": 0.70,
+                "max_arbiter_score": 0.92,
+                "duplicates_found": 2,
+                "duplicate_rate": 0.04,
+                "total_api_calls": 110,
+                "total_errors": 3,
+            },
+            {
+                "started_at": "2024-12-03T10:00:00Z",
+                "completed_at": "2024-12-03T10:01:00Z",
+                "duration_seconds": 60.0,
+                "status": "failed",
+                "questions_requested": 50,
+                "questions_generated": 0,
+                "questions_inserted": 0,
+                "overall_success_rate": 0.0,
+                "total_api_calls": 20,
+                "total_errors": 10,
+            },
+            {
+                "started_at": "2024-12-04T10:00:00Z",
+                "completed_at": "2024-12-04T10:03:00Z",
+                "duration_seconds": 180.0,
+                "status": "partial_failure",
+                "questions_requested": 50,
+                "questions_generated": 25,
+                "questions_inserted": 20,
+                "overall_success_rate": 0.4,
+                "approval_rate": 0.80,
+                "avg_arbiter_score": 0.78,
+                "min_arbiter_score": 0.65,
+                "max_arbiter_score": 0.88,
+                "duplicates_found": 1,
+                "duplicate_rate": 0.04,
+                "total_api_calls": 80,
+                "total_errors": 5,
+            },
+        ]
+
+        for run_data in runs_data:
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify counts
+        assert data["total_runs"] == 4
+        assert data["successful_runs"] == 2
+        assert data["failed_runs"] == 1
+        assert data["partial_failure_runs"] == 1
+
+        # Verify totals
+        assert data["total_questions_requested"] == 200  # 50 * 4
+        assert data["total_questions_generated"] == 118  # 48 + 45 + 0 + 25
+        assert data["total_questions_inserted"] == 105  # 45 + 40 + 0 + 20
+
+        # Verify averages
+        # avg_overall_success_rate = (0.9 + 0.8 + 0.0 + 0.4) / 4 = 0.525
+        assert data["avg_overall_success_rate"] == 0.525
+
+        # avg_approval_rate = (0.92 + 0.88 + 0.80) / 3 (only runs with approval_rate)
+        expected_avg_approval = round((0.92 + 0.88 + 0.80) / 3, 4)
+        assert data["avg_approval_rate"] == expected_avg_approval
+
+        # avg_arbiter_score = (0.88 + 0.82 + 0.78) / 3
+        expected_avg_arbiter = round((0.88 + 0.82 + 0.78) / 3, 4)
+        assert data["avg_arbiter_score"] == expected_avg_arbiter
+
+        # min/max arbiter scores across all runs
+        assert data["min_arbiter_score"] == 0.65
+        assert data["max_arbiter_score"] == 0.95
+
+        # Verify totals
+        assert data["total_duplicates_found"] == 6  # 3 + 2 + 0 + 1
+        assert data["total_api_calls"] == 310  # 100 + 110 + 20 + 80
+        assert data["total_errors"] == 20  # 2 + 3 + 10 + 5
+
+        # Verify average duration
+        expected_avg_duration = round((300.0 + 350.0 + 60.0 + 180.0) / 4, 2)
+        assert data["avg_duration_seconds"] == expected_avg_duration
+
+        # Verify avg_api_calls_per_question = total_api_calls / total_questions_inserted
+        expected_avg_api_per_q = round(310 / 105, 2)
+        assert data["avg_api_calls_per_question"] == expected_avg_api_per_q
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_provider_summary(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test that provider summary is correctly aggregated."""
+        # Create two runs with provider metrics
+        run1 = valid_generation_run_data.copy()
+        run1["started_at"] = "2024-12-01T10:00:00Z"
+        run1["provider_metrics"] = {
+            "openai": {"generated": 25, "api_calls": 60, "failures": 1},
+            "anthropic": {"generated": 20, "api_calls": 50, "failures": 2},
+        }
+
+        run2 = valid_generation_run_data.copy()
+        run2["started_at"] = "2024-12-02T10:00:00Z"
+        run2["provider_metrics"] = {
+            "openai": {"generated": 30, "api_calls": 70, "failures": 0},
+            "anthropic": {"generated": 15, "api_calls": 40, "failures": 3},
+            "google": {"generated": 10, "api_calls": 25, "failures": 1},
+        }
+
+        client.post(
+            "/v1/admin/generation-runs",
+            json=run1,
+            headers=service_key_headers,
+        )
+        client.post(
+            "/v1/admin/generation-runs",
+            json=run2,
+            headers=service_key_headers,
+        )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["provider_summary"] is not None
+
+        # Verify OpenAI aggregation
+        assert data["provider_summary"]["openai"]["total_generated"] == 55  # 25 + 30
+        assert data["provider_summary"]["openai"]["total_api_calls"] == 130  # 60 + 70
+        assert data["provider_summary"]["openai"]["total_failures"] == 1  # 1 + 0
+        # success_rate = 55 / (55 + 1) = 0.9821
+        assert data["provider_summary"]["openai"]["success_rate"] == 0.9821
+
+        # Verify Anthropic aggregation
+        assert data["provider_summary"]["anthropic"]["total_generated"] == 35  # 20 + 15
+        assert data["provider_summary"]["anthropic"]["total_api_calls"] == 90  # 50 + 40
+        assert data["provider_summary"]["anthropic"]["total_failures"] == 5  # 2 + 3
+        # success_rate = 35 / (35 + 5) = 0.875
+        assert data["provider_summary"]["anthropic"]["success_rate"] == 0.875
+
+        # Verify Google (only in run2)
+        assert data["provider_summary"]["google"]["total_generated"] == 10
+        assert data["provider_summary"]["google"]["total_api_calls"] == 25
+        assert data["provider_summary"]["google"]["total_failures"] == 1
+        # success_rate = 10 / (10 + 1) = 0.9091
+        assert data["provider_summary"]["google"]["success_rate"] == 0.9091
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_trend_improving(self, client, db_session, service_key_headers):
+        """Test trend detection when metrics are improving."""
+        # Create runs with improving success rates
+        runs_data = [
+            {
+                "started_at": "2024-12-01T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.5,
+                "approval_rate": 0.6,
+            },
+            {
+                "started_at": "2024-12-02T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.55,
+                "approval_rate": 0.65,
+            },
+            {
+                "started_at": "2024-12-03T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.8,
+                "approval_rate": 0.85,
+            },
+            {
+                "started_at": "2024-12-04T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.85,
+                "approval_rate": 0.9,
+            },
+        ]
+
+        for run_data in runs_data:
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Older half: 0.5, 0.55 avg = 0.525
+        # Recent half: 0.8, 0.85 avg = 0.825
+        # Diff = 0.825 - 0.525 = 0.3 > 0.05 -> improving
+        assert data["success_rate_trend"] == "improving"
+        assert data["approval_rate_trend"] == "improving"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_trend_declining(self, client, db_session, service_key_headers):
+        """Test trend detection when metrics are declining."""
+        # Create runs with declining success rates
+        runs_data = [
+            {
+                "started_at": "2024-12-01T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.9,
+                "approval_rate": 0.92,
+            },
+            {
+                "started_at": "2024-12-02T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.85,
+                "approval_rate": 0.88,
+            },
+            {
+                "started_at": "2024-12-03T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.6,
+                "approval_rate": 0.65,
+            },
+            {
+                "started_at": "2024-12-04T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.55,
+                "approval_rate": 0.6,
+            },
+        ]
+
+        for run_data in runs_data:
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Older half: 0.9, 0.85 avg = 0.875
+        # Recent half: 0.6, 0.55 avg = 0.575
+        # Diff = 0.575 - 0.875 = -0.3 < -0.05 -> declining
+        assert data["success_rate_trend"] == "declining"
+        assert data["approval_rate_trend"] == "declining"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_trend_stable(self, client, db_session, service_key_headers):
+        """Test trend detection when metrics are stable."""
+        # Create runs with stable success rates
+        runs_data = [
+            {
+                "started_at": "2024-12-01T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.85,
+                "approval_rate": 0.88,
+            },
+            {
+                "started_at": "2024-12-02T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.83,
+                "approval_rate": 0.86,
+            },
+            {
+                "started_at": "2024-12-03T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.86,
+                "approval_rate": 0.89,
+            },
+            {
+                "started_at": "2024-12-04T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": 0.84,
+                "approval_rate": 0.87,
+            },
+        ]
+
+        for run_data in runs_data:
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Older half: 0.85, 0.83 avg = 0.84
+        # Recent half: 0.86, 0.84 avg = 0.85
+        # Diff = 0.85 - 0.84 = 0.01 < 0.05 -> stable
+        assert data["success_rate_trend"] == "stable"
+        assert data["approval_rate_trend"] == "stable"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_environment_filter(
+        self, client, db_session, service_key_headers
+    ):
+        """Test filtering stats by environment."""
+        # Create runs in different environments
+        for env, count in [("production", 3), ("staging", 2), ("development", 1)]:
+            for i in range(count):
+                run_data = {
+                    "started_at": f"2024-12-0{i+1}T10:00:00Z",
+                    "status": "success",
+                    "questions_requested": 50,
+                    "questions_inserted": 45 if env == "production" else 40,
+                    "overall_success_rate": 0.9 if env == "production" else 0.8,
+                    "environment": env,
+                }
+                client.post(
+                    "/v1/admin/generation-runs",
+                    json=run_data,
+                    headers=service_key_headers,
+                )
+
+        # Get stats for production only
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z&environment=production",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_runs"] == 3
+        assert data["total_questions_inserted"] == 135  # 45 * 3
+        assert data["avg_overall_success_rate"] == 0.9
+
+        # Get stats for staging only
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z&environment=staging",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_runs"] == 2
+        assert data["total_questions_inserted"] == 80  # 40 * 2
+        assert data["avg_overall_success_rate"] == 0.8
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_date_range_filter(self, client, db_session, service_key_headers):
+        """Test that date range correctly filters runs."""
+        # Create runs on different dates
+        dates = [
+            "2024-11-15T10:00:00Z",  # Before range
+            "2024-12-01T10:00:00Z",  # In range
+            "2024-12-15T10:00:00Z",  # In range
+            "2025-01-15T10:00:00Z",  # After range
+        ]
+
+        for date in dates:
+            run_data = {
+                "started_at": date,
+                "status": "success",
+                "questions_requested": 50,
+                "questions_inserted": 45,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Only 2 runs should be in the range
+        assert data["total_runs"] == 2
+        assert data["total_questions_inserted"] == 90  # 45 * 2
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_single_run_no_trends(
+        self, client, db_session, service_key_headers
+    ):
+        """Test that trends are None with a single run (can't compute trend)."""
+        run_data = {
+            "started_at": "2024-12-05T10:00:00Z",
+            "status": "success",
+            "questions_requested": 50,
+            "overall_success_rate": 0.9,
+            "approval_rate": 0.85,
+        }
+
+        client.post(
+            "/v1/admin/generation-runs",
+            json=run_data,
+            headers=service_key_headers,
+        )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_runs"] == 1
+        # With only 1 run, midpoint = 0, so trends should be None
+        assert data["success_rate_trend"] is None
+        assert data["approval_rate_trend"] is None
+
+    def test_get_stats_no_auth(self, client):
+        """Test that request without service key is rejected."""
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z"
+        )
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_invalid_auth(self, client):
+        """Test that request with invalid service key is rejected."""
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers={"X-Service-Key": "wrong-key"},
+        )
+        assert response.status_code == 401
+        assert "Invalid service API key" in response.json()["detail"]
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_missing_required_params(self, client, service_key_headers):
+        """Test that missing required parameters returns 422."""
+        # Missing both dates
+        response = client.get(
+            "/v1/admin/generation-runs/stats",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422
+
+        # Missing end_date
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422
+
+        # Missing start_date
+        response = client.get(
+            "/v1/admin/generation-runs/stats?end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_get_stats_all_fields_present(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test that all expected fields are present in the response."""
+        client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+
+        response = client.get(
+            "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        expected_fields = [
+            "period_start",
+            "period_end",
+            "total_runs",
+            "successful_runs",
+            "failed_runs",
+            "partial_failure_runs",
+            "total_questions_requested",
+            "total_questions_generated",
+            "total_questions_inserted",
+            "avg_overall_success_rate",
+            "avg_approval_rate",
+            "avg_arbiter_score",
+            "min_arbiter_score",
+            "max_arbiter_score",
+            "total_duplicates_found",
+            "avg_duplicate_rate",
+            "avg_duration_seconds",
+            "total_api_calls",
+            "avg_api_calls_per_question",
+            "total_errors",
+            "provider_summary",
+            "success_rate_trend",
+            "approval_rate_trend",
+        ]
+
+        for field in expected_fields:
+            assert field in data, f"Expected field '{field}' not in response"

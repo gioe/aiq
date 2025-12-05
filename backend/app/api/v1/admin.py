@@ -4,7 +4,7 @@ Admin operations endpoints.
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
@@ -19,6 +19,7 @@ from app.schemas.generation_runs import (
     QuestionGenerationRunListResponse,
     QuestionGenerationRunSummary,
     QuestionGenerationRunDetail,
+    QuestionGenerationRunStats,
     PipelineLosses,
     GenerationRunStatusSchema,
 )
@@ -473,6 +474,357 @@ async def list_generation_runs(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve generation runs: {str(e)}",
+        )
+
+
+def _compute_trend(
+    recent_avg: Optional[float], older_avg: Optional[float]
+) -> Optional[str]:
+    """
+    Compute trend direction by comparing recent vs older period averages.
+
+    Args:
+        recent_avg: Average from the more recent half of the period
+        older_avg: Average from the older half of the period
+
+    Returns:
+        "improving", "declining", or "stable" based on comparison.
+        Returns None if either value is None.
+    """
+    if recent_avg is None or older_avg is None:
+        return None
+
+    # Use a 5% threshold to determine meaningful change
+    threshold = 0.05
+    diff = recent_avg - older_avg
+
+    if abs(diff) < threshold:
+        return "stable"
+    elif diff > 0:
+        return "improving"
+    else:
+        return "declining"
+
+
+@router.get(
+    "/generation-runs/stats",
+    response_model=QuestionGenerationRunStats,
+)
+async def get_generation_runs_stats(
+    start_date: datetime = Query(
+        ..., description="Start of the analysis period (ISO format, required)"
+    ),
+    end_date: datetime = Query(
+        ..., description="End of the analysis period (ISO format, required)"
+    ),
+    environment: Optional[str] = Query(
+        None, max_length=20, description="Filter by environment"
+    ),
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_service_key),
+):
+    r"""
+    Get aggregated statistics for generation runs over a time period.
+
+    Returns aggregate metrics including success rates, approval rates, arbiter scores,
+    provider comparisons, and trend indicators. Useful for dashboards, trend analysis,
+    and quality monitoring.
+
+    Requires X-Service-Key header with valid service API key.
+
+    **Query Parameters:**
+    - `start_date`: Start of the analysis period (ISO 8601 format, required)
+    - `end_date`: End of the analysis period (ISO 8601 format, required)
+    - `environment`: Optional filter by environment (production, staging, development)
+
+    **Trend Indicators:**
+    The response includes trend indicators comparing the first half vs second half
+    of the analysis period. Possible values: "improving", "declining", "stable".
+    A difference of less than 5% is considered "stable".
+
+    **Provider Summary:**
+    Aggregated metrics per provider extracted from JSONB provider_metrics fields.
+    Includes total questions generated, total API calls, and success rates per provider.
+
+    Args:
+        start_date: Start of the analysis period
+        end_date: End of the analysis period
+        environment: Optional environment filter
+        db: Database session
+        _: Service key validation dependency
+
+    Returns:
+        QuestionGenerationRunStats with aggregated metrics and trends
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/generation-runs/stats?start_date=2024-11-01T00:00:00Z&end_date=2024-12-01T00:00:00Z" \
+          -H "X-Service-Key: your-service-key"
+        ```
+    """
+    try:
+        # Build base query for the period
+        query = db.query(QuestionGenerationRun).filter(
+            QuestionGenerationRun.started_at >= start_date,
+            QuestionGenerationRun.started_at <= end_date,
+        )
+
+        # Apply environment filter if provided
+        if environment is not None:
+            query = query.filter(QuestionGenerationRun.environment == environment)
+
+        # Get all runs in the period for detailed analysis
+        runs = query.all()
+
+        total_runs = len(runs)
+
+        # If no runs, return zeros
+        if total_runs == 0:
+            return QuestionGenerationRunStats(
+                period_start=start_date,
+                period_end=end_date,
+                total_runs=0,
+                successful_runs=0,
+                failed_runs=0,
+                partial_failure_runs=0,
+                total_questions_requested=0,
+                total_questions_generated=0,
+                total_questions_inserted=0,
+                avg_overall_success_rate=None,
+                avg_approval_rate=None,
+                avg_arbiter_score=None,
+                min_arbiter_score=None,
+                max_arbiter_score=None,
+                total_duplicates_found=0,
+                avg_duplicate_rate=None,
+                avg_duration_seconds=None,
+                total_api_calls=0,
+                avg_api_calls_per_question=None,
+                total_errors=0,
+                provider_summary=None,
+                success_rate_trend=None,
+                approval_rate_trend=None,
+            )
+
+        # Count runs by status
+        successful_runs = sum(
+            1 for r in runs if r.status == GenerationRunStatus.SUCCESS
+        )
+        failed_runs = sum(1 for r in runs if r.status == GenerationRunStatus.FAILED)
+        partial_failure_runs = sum(
+            1 for r in runs if r.status == GenerationRunStatus.PARTIAL_FAILURE
+        )
+
+        # Aggregate generation metrics (type ignores needed for SQLAlchemy Column types)
+        total_questions_requested: int = sum(
+            r.questions_requested or 0 for r in runs  # type: ignore[misc]
+        )
+        total_questions_generated: int = sum(
+            r.questions_generated or 0 for r in runs  # type: ignore[misc]
+        )
+        total_questions_inserted: int = sum(
+            r.questions_inserted or 0 for r in runs  # type: ignore[misc]
+        )
+
+        # Calculate average success rate (only from runs that have it)
+        success_rates = [
+            r.overall_success_rate for r in runs if r.overall_success_rate is not None
+        ]
+        avg_overall_success_rate = (
+            round(sum(success_rates) / len(success_rates), 4) if success_rates else None
+        )
+
+        # Aggregate evaluation metrics
+        approval_rates = [r.approval_rate for r in runs if r.approval_rate is not None]
+        avg_approval_rate = (
+            round(sum(approval_rates) / len(approval_rates), 4)
+            if approval_rates
+            else None
+        )
+
+        arbiter_scores = [
+            r.avg_arbiter_score for r in runs if r.avg_arbiter_score is not None
+        ]
+        avg_arbiter_score = (
+            round(sum(arbiter_scores) / len(arbiter_scores), 4)
+            if arbiter_scores
+            else None
+        )
+
+        min_arbiter_scores: list[float] = [
+            r.min_arbiter_score  # type: ignore[misc]
+            for r in runs
+            if r.min_arbiter_score is not None
+        ]
+        min_arbiter_score: Optional[float] = (
+            min(min_arbiter_scores) if min_arbiter_scores else None
+        )
+
+        max_arbiter_scores: list[float] = [
+            r.max_arbiter_score  # type: ignore[misc]
+            for r in runs
+            if r.max_arbiter_score is not None
+        ]
+        max_arbiter_score: Optional[float] = (
+            max(max_arbiter_scores) if max_arbiter_scores else None
+        )
+
+        # Aggregate deduplication metrics
+        total_duplicates_found: int = sum(
+            r.duplicates_found or 0 for r in runs  # type: ignore[misc]
+        )
+        duplicate_rates = [
+            r.duplicate_rate for r in runs if r.duplicate_rate is not None
+        ]
+        avg_duplicate_rate = (
+            round(sum(duplicate_rates) / len(duplicate_rates), 4)
+            if duplicate_rates
+            else None
+        )
+
+        # Performance metrics
+        durations = [r.duration_seconds for r in runs if r.duration_seconds is not None]
+        avg_duration_seconds = (
+            round(sum(durations) / len(durations), 2) if durations else None
+        )
+
+        total_api_calls: int = sum(
+            r.total_api_calls or 0 for r in runs  # type: ignore[misc]
+        )
+        avg_api_calls_per_question = (
+            round(total_api_calls / total_questions_inserted, 2)
+            if total_questions_inserted > 0
+            else None
+        )
+
+        # Error summary
+        total_errors: int = sum(r.total_errors or 0 for r in runs)  # type: ignore[misc]
+
+        # Aggregate provider metrics from JSONB
+        provider_summary: Dict[str, Dict[str, Any]] = {}
+        for run in runs:
+            if run.provider_metrics:
+                for provider, metrics in run.provider_metrics.items():
+                    if provider not in provider_summary:
+                        provider_summary[provider] = {
+                            "total_generated": 0,
+                            "total_api_calls": 0,
+                            "total_failures": 0,
+                        }
+                    provider_summary[provider]["total_generated"] += metrics.get(
+                        "generated", 0
+                    )
+                    provider_summary[provider]["total_api_calls"] += metrics.get(
+                        "api_calls", 0
+                    )
+                    provider_summary[provider]["total_failures"] += metrics.get(
+                        "failures", 0
+                    )
+
+        # Calculate provider success rates
+        for provider, metrics in provider_summary.items():
+            total_gen = metrics["total_generated"]
+            total_fail = metrics["total_failures"]
+            if total_gen + total_fail > 0:
+                metrics["success_rate"] = round(total_gen / (total_gen + total_fail), 4)
+            else:
+                metrics["success_rate"] = None
+
+        # Calculate trend indicators by comparing first half vs second half of period
+        # Sort runs by started_at
+        sorted_runs = sorted(
+            runs, key=lambda r: r.started_at  # type: ignore[arg-type,return-value]
+        )
+        midpoint = len(sorted_runs) // 2
+
+        success_rate_trend: Optional[str] = None
+        approval_rate_trend: Optional[str] = None
+
+        if midpoint > 0:
+            # Split into two halves
+            older_runs = sorted_runs[:midpoint]
+            recent_runs = sorted_runs[midpoint:]
+
+            # Calculate success rate trend
+            older_success_rates: list[float] = [
+                r.overall_success_rate  # type: ignore[misc]
+                for r in older_runs
+                if r.overall_success_rate is not None
+            ]
+            recent_success_rates: list[float] = [
+                r.overall_success_rate  # type: ignore[misc]
+                for r in recent_runs
+                if r.overall_success_rate is not None
+            ]
+
+            older_avg_success: Optional[float] = (
+                sum(older_success_rates) / len(older_success_rates)
+                if older_success_rates
+                else None
+            )
+            recent_avg_success: Optional[float] = (
+                sum(recent_success_rates) / len(recent_success_rates)
+                if recent_success_rates
+                else None
+            )
+            success_rate_trend = _compute_trend(recent_avg_success, older_avg_success)
+
+            # Calculate approval rate trend
+            older_approval_rates: list[float] = [
+                r.approval_rate  # type: ignore[misc]
+                for r in older_runs
+                if r.approval_rate is not None
+            ]
+            recent_approval_rates: list[float] = [
+                r.approval_rate  # type: ignore[misc]
+                for r in recent_runs
+                if r.approval_rate is not None
+            ]
+
+            older_avg_approval: Optional[float] = (
+                sum(older_approval_rates) / len(older_approval_rates)
+                if older_approval_rates
+                else None
+            )
+            recent_avg_approval: Optional[float] = (
+                sum(recent_approval_rates) / len(recent_approval_rates)
+                if recent_approval_rates
+                else None
+            )
+            approval_rate_trend = _compute_trend(
+                recent_avg_approval, older_avg_approval
+            )
+
+        return QuestionGenerationRunStats(
+            period_start=start_date,
+            period_end=end_date,
+            total_runs=total_runs,
+            successful_runs=successful_runs,
+            failed_runs=failed_runs,
+            partial_failure_runs=partial_failure_runs,
+            total_questions_requested=total_questions_requested,
+            total_questions_generated=total_questions_generated,
+            total_questions_inserted=total_questions_inserted,
+            avg_overall_success_rate=avg_overall_success_rate,
+            avg_approval_rate=avg_approval_rate,
+            avg_arbiter_score=avg_arbiter_score,
+            min_arbiter_score=min_arbiter_score,
+            max_arbiter_score=max_arbiter_score,
+            total_duplicates_found=total_duplicates_found,
+            avg_duplicate_rate=avg_duplicate_rate,
+            avg_duration_seconds=avg_duration_seconds,
+            total_api_calls=total_api_calls,
+            avg_api_calls_per_question=avg_api_calls_per_question,
+            total_errors=total_errors,
+            provider_summary=provider_summary if provider_summary else None,
+            success_rate_trend=success_rate_trend,
+            approval_rate_trend=approval_rate_trend,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve generation run statistics: {str(e)}",
         )
 
 
