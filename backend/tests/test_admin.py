@@ -354,3 +354,483 @@ class TestCreateGenerationRun:
         assert db_run.completed_at is not None
         assert db_run.created_at is not None
         assert db_run.duration_seconds == 300.5
+
+
+class TestListGenerationRuns:
+    """Tests for GET /v1/admin/generation-runs endpoint."""
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_empty(self, client, db_session, service_key_headers):
+        """Test listing runs when no runs exist."""
+        response = client.get(
+            "/v1/admin/generation-runs",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["page_size"] == 20
+        assert data["total_pages"] == 0
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_with_data(
+        self, client, db_session, service_key_headers, valid_generation_run_data
+    ):
+        """Test listing runs returns data correctly."""
+        # Create a run first
+        client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers=service_key_headers,
+        )
+
+        response = client.get(
+            "/v1/admin/generation-runs",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["runs"]) == 1
+        assert data["total"] == 1
+        assert data["total_pages"] == 1
+
+        # Verify summary fields are present
+        run = data["runs"][0]
+        assert "id" in run
+        assert run["status"] == "success"
+        assert run["questions_requested"] == 50
+        assert run["questions_inserted"] == 43
+        assert run["overall_success_rate"] == 0.86
+        assert run["environment"] == "production"
+        assert run["triggered_by"] == "scheduler"
+
+        # Verify JSONB fields are NOT present (summary only)
+        assert "provider_metrics" not in run
+        assert "type_metrics" not in run
+        assert "difficulty_metrics" not in run
+        assert "error_summary" not in run
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_pagination(
+        self, client, db_session, service_key_headers
+    ):
+        """Test pagination works correctly."""
+        # Create 5 runs
+        for i in range(5):
+            run_data = {
+                "started_at": f"2024-12-05T10:0{i}:00Z",
+                "status": "success",
+                "questions_requested": 50 + i,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Test page 1 with page_size=2
+        response = client.get(
+            "/v1/admin/generation-runs?page=1&page_size=2",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["runs"]) == 2
+        assert data["total"] == 5
+        assert data["page"] == 1
+        assert data["page_size"] == 2
+        assert data["total_pages"] == 3
+
+        # Test page 3 with page_size=2 (should have 1 item)
+        response = client.get(
+            "/v1/admin/generation-runs?page=3&page_size=2",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["runs"]) == 1
+        assert data["page"] == 3
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_filter_by_status(
+        self, client, db_session, service_key_headers
+    ):
+        """Test filtering by status."""
+        # Create runs with different statuses
+        for status in ["success", "failed", "partial_failure", "success"]:
+            run_data = {
+                "started_at": "2024-12-05T10:00:00Z",
+                "status": status,
+                "questions_requested": 50,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Filter by success
+        response = client.get(
+            "/v1/admin/generation-runs?status=success",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for run in data["runs"]:
+            assert run["status"] == "success"
+
+        # Filter by failed
+        response = client.get(
+            "/v1/admin/generation-runs?status=failed",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["runs"][0]["status"] == "failed"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_filter_by_environment(
+        self, client, db_session, service_key_headers
+    ):
+        """Test filtering by environment."""
+        # Create runs with different environments
+        for env in ["production", "staging", "production", "development"]:
+            run_data = {
+                "started_at": "2024-12-05T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "environment": env,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Filter by production
+        response = client.get(
+            "/v1/admin/generation-runs?environment=production",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for run in data["runs"]:
+            assert run["environment"] == "production"
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_filter_by_date_range(
+        self, client, db_session, service_key_headers
+    ):
+        """Test filtering by date range."""
+        # Create runs on different dates
+        dates = [
+            "2024-12-01T10:00:00Z",
+            "2024-12-03T10:00:00Z",
+            "2024-12-05T10:00:00Z",
+            "2024-12-07T10:00:00Z",
+        ]
+        for date in dates:
+            run_data = {
+                "started_at": date,
+                "status": "success",
+                "questions_requested": 50,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Filter by date range (should include Dec 3, 5)
+        response = client.get(
+            "/v1/admin/generation-runs?start_date=2024-12-02T00:00:00Z&end_date=2024-12-06T00:00:00Z",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_filter_by_success_rate(
+        self, client, db_session, service_key_headers
+    ):
+        """Test filtering by success rate range."""
+        # Create runs with different success rates
+        for rate in [0.5, 0.7, 0.85, 0.95]:
+            run_data = {
+                "started_at": "2024-12-05T10:00:00Z",
+                "status": "success",
+                "questions_requested": 50,
+                "overall_success_rate": rate,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Filter by min success rate
+        response = client.get(
+            "/v1/admin/generation-runs?min_success_rate=0.8",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for run in data["runs"]:
+            assert run["overall_success_rate"] >= 0.8
+
+        # Filter by max success rate
+        response = client.get(
+            "/v1/admin/generation-runs?max_success_rate=0.7",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for run in data["runs"]:
+            assert run["overall_success_rate"] <= 0.7
+
+        # Filter by both min and max
+        response = client.get(
+            "/v1/admin/generation-runs?min_success_rate=0.6&max_success_rate=0.9",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for run in data["runs"]:
+            assert 0.6 <= run["overall_success_rate"] <= 0.9
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_sorting(
+        self, client, db_session, service_key_headers
+    ):
+        """Test sorting by different fields."""
+        # Create runs with different values
+        runs_data = [
+            {
+                "started_at": "2024-12-01T10:00:00Z",
+                "duration_seconds": 100.0,
+                "overall_success_rate": 0.9,
+            },
+            {
+                "started_at": "2024-12-03T10:00:00Z",
+                "duration_seconds": 300.0,
+                "overall_success_rate": 0.5,
+            },
+            {
+                "started_at": "2024-12-02T10:00:00Z",
+                "duration_seconds": 200.0,
+                "overall_success_rate": 0.7,
+            },
+        ]
+        for run_data in runs_data:
+            run_data["status"] = "success"
+            run_data["questions_requested"] = 50
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Sort by started_at descending (default)
+        response = client.get(
+            "/v1/admin/generation-runs",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"][0]["started_at"] > data["runs"][1]["started_at"]
+        assert data["runs"][1]["started_at"] > data["runs"][2]["started_at"]
+
+        # Sort by started_at ascending
+        response = client.get(
+            "/v1/admin/generation-runs?sort_by=started_at&sort_order=asc",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"][0]["started_at"] < data["runs"][1]["started_at"]
+        assert data["runs"][1]["started_at"] < data["runs"][2]["started_at"]
+
+        # Sort by duration_seconds descending
+        response = client.get(
+            "/v1/admin/generation-runs?sort_by=duration_seconds&sort_order=desc",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"][0]["duration_seconds"] == 300.0
+        assert data["runs"][1]["duration_seconds"] == 200.0
+        assert data["runs"][2]["duration_seconds"] == 100.0
+
+        # Sort by overall_success_rate ascending
+        response = client.get(
+            "/v1/admin/generation-runs?sort_by=overall_success_rate&sort_order=asc",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"][0]["overall_success_rate"] == 0.5
+        assert data["runs"][1]["overall_success_rate"] == 0.7
+        assert data["runs"][2]["overall_success_rate"] == 0.9
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_combined_filters(
+        self, client, db_session, service_key_headers
+    ):
+        """Test combining multiple filters."""
+        # Create runs with various attributes
+        runs_data = [
+            {
+                "status": "success",
+                "environment": "production",
+                "overall_success_rate": 0.9,
+            },
+            {
+                "status": "success",
+                "environment": "staging",
+                "overall_success_rate": 0.8,
+            },
+            {
+                "status": "failed",
+                "environment": "production",
+                "overall_success_rate": 0.3,
+            },
+            {
+                "status": "success",
+                "environment": "production",
+                "overall_success_rate": 0.6,
+            },
+        ]
+        for i, run_data in enumerate(runs_data):
+            run_data["started_at"] = f"2024-12-0{i+1}T10:00:00Z"
+            run_data["questions_requested"] = 50
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Filter: status=success, environment=production, min_success_rate=0.7
+        response = client.get(
+            "/v1/admin/generation-runs?status=success&environment=production&min_success_rate=0.7",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        run = data["runs"][0]
+        assert run["status"] == "success"
+        assert run["environment"] == "production"
+        assert run["overall_success_rate"] >= 0.7
+
+    def test_list_generation_runs_no_auth(self, client):
+        """Test that request without service key is rejected."""
+        response = client.get("/v1/admin/generation-runs")
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_invalid_auth(self, client):
+        """Test that request with invalid service key is rejected."""
+        response = client.get(
+            "/v1/admin/generation-runs",
+            headers={"X-Service-Key": "wrong-key"},
+        )
+        assert response.status_code == 401
+        assert "Invalid service API key" in response.json()["detail"]
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_invalid_page(self, client, service_key_headers):
+        """Test validation of page parameter."""
+        response = client.get(
+            "/v1/admin/generation-runs?page=0",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422  # Validation error
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_invalid_page_size(self, client, service_key_headers):
+        """Test validation of page_size parameter."""
+        response = client.get(
+            "/v1/admin/generation-runs?page_size=101",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422  # Validation error
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_invalid_sort_by(self, client, service_key_headers):
+        """Test validation of sort_by parameter."""
+        response = client.get(
+            "/v1/admin/generation-runs?sort_by=invalid_field",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422  # Validation error
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_invalid_success_rate(
+        self, client, service_key_headers
+    ):
+        """Test validation of success rate range parameters."""
+        # Invalid min_success_rate (> 1.0)
+        response = client.get(
+            "/v1/admin/generation-runs?min_success_rate=1.5",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422
+
+        # Invalid min_success_rate (< 0.0)
+        response = client.get(
+            "/v1/admin/generation-runs?min_success_rate=-0.1",
+            headers=service_key_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_list_generation_runs_page_beyond_data(
+        self, client, db_session, service_key_headers
+    ):
+        """Test requesting a page beyond available data."""
+        # Create only 2 runs
+        for i in range(2):
+            run_data = {
+                "started_at": f"2024-12-05T10:0{i}:00Z",
+                "status": "success",
+                "questions_requested": 50,
+            }
+            client.post(
+                "/v1/admin/generation-runs",
+                json=run_data,
+                headers=service_key_headers,
+            )
+
+        # Request page 10
+        response = client.get(
+            "/v1/admin/generation-runs?page=10",
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs"] == []
+        assert data["total"] == 2
+        assert data["page"] == 10
+        assert data["total_pages"] == 1
