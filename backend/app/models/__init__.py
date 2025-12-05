@@ -12,6 +12,8 @@ from .models import (
     QuestionType,
     DifficultyLevel,
     TestStatus,
+    GenerationRunStatus,
+    QuestionGenerationRun,
 )
 
 __all__ = [
@@ -28,4 +30,6 @@ __all__ = [
     "QuestionType",
     "DifficultyLevel",
     "TestStatus",
+    "GenerationRunStatus",
+    "QuestionGenerationRun",
 ]
