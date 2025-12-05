@@ -185,7 +185,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Use JSONB for flexible breakdown fields
   - Add appropriate indexes
 
-- [ ] **QGT-002**: Create Alembic migration
+- [x] **QGT-002**: Create Alembic migration
   - Generate migration for `question_generation_runs` table
   - Include all indexes
   - Test migration up/down
