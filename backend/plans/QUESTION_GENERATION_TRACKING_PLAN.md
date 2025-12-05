@@ -215,7 +215,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Sort by: started_at, duration, success_rate
   - Return summary fields (not full JSONB breakdowns)
 
-- [ ] **QGT-007**: Implement `GET /v1/admin/generation-runs/{id}`
+- [x] **QGT-007**: Implement `GET /v1/admin/generation-runs/{id}`
   - Return full run details including JSONB breakdowns
   - Include computed fields (e.g., questions lost at each stage)
 
