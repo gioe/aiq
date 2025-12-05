@@ -203,7 +203,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Register in `api.py` with `/admin` prefix
   - Add service-to-service authentication (API key or JWT)
 
-- [ ] **QGT-005**: Implement `POST /v1/admin/generation-runs`
+- [x] **QGT-005**: Implement `POST /v1/admin/generation-runs`
   - Accept metrics payload from question-service
   - Validate and persist to database
   - Return created run ID
