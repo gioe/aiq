@@ -275,6 +275,163 @@ class QuestionGenerationRunRead(BaseModel):
         from_attributes = True
 
 
+class PipelineLosses(BaseModel):
+    """
+    Schema for tracking questions lost at each stage of the generation pipeline.
+
+    This provides insights into where questions are being lost during the
+    generation process, helping identify bottlenecks and optimization opportunities.
+    """
+
+    generation_loss: int = Field(
+        ...,
+        description="Questions lost during generation (requested - generated)",
+    )
+    evaluation_loss: int = Field(
+        ...,
+        description="Questions lost due to not being evaluated (generated - evaluated)",
+    )
+    rejection_loss: int = Field(
+        ...,
+        description="Questions rejected by arbiter (evaluated - approved)",
+    )
+    deduplication_loss: int = Field(
+        ...,
+        description="Questions removed as duplicates",
+    )
+    insertion_loss: int = Field(
+        ...,
+        description="Questions lost during database insertion (approved - duplicates - inserted)",
+    )
+    total_loss: int = Field(
+        ...,
+        description="Total questions lost across all stages (requested - inserted)",
+    )
+
+    # Percentages for easier analysis
+    generation_loss_pct: Optional[float] = Field(
+        None, description="Generation loss as percentage of requested"
+    )
+    evaluation_loss_pct: Optional[float] = Field(
+        None, description="Evaluation loss as percentage of generated"
+    )
+    rejection_loss_pct: Optional[float] = Field(
+        None, description="Rejection loss as percentage of evaluated"
+    )
+    deduplication_loss_pct: Optional[float] = Field(
+        None, description="Deduplication loss as percentage of approved"
+    )
+    insertion_loss_pct: Optional[float] = Field(
+        None, description="Insertion loss as percentage of (approved - duplicates)"
+    )
+
+
+class QuestionGenerationRunDetail(BaseModel):
+    """
+    Detailed schema for a single generation run with computed fields.
+
+    Extends QuestionGenerationRunRead with computed pipeline loss metrics
+    to help analyze where questions are being lost in the generation process.
+    """
+
+    # Identity
+    id: int = Field(..., description="Run ID")
+
+    # Execution timing
+    started_at: datetime = Field(..., description="When the generation run started")
+    completed_at: Optional[datetime] = Field(
+        None, description="When the generation run completed"
+    )
+    duration_seconds: Optional[float] = Field(
+        None, description="Total duration in seconds"
+    )
+
+    # Status & outcome
+    status: GenerationRunStatusSchema = Field(..., description="Run status")
+    exit_code: Optional[int] = Field(None, description="Exit code")
+
+    # Generation metrics
+    questions_requested: int = Field(..., description="Number of questions requested")
+    questions_generated: int = Field(..., description="Number of questions generated")
+    generation_failures: int = Field(..., description="Number of generation failures")
+    generation_success_rate: Optional[float] = Field(
+        None, description="Generation success rate"
+    )
+
+    # Evaluation metrics
+    questions_evaluated: int = Field(..., description="Questions evaluated by arbiter")
+    questions_approved: int = Field(..., description="Questions approved by arbiter")
+    questions_rejected: int = Field(..., description="Questions rejected by arbiter")
+    approval_rate: Optional[float] = Field(None, description="Approval rate")
+    avg_arbiter_score: Optional[float] = Field(
+        None, description="Average arbiter score"
+    )
+    min_arbiter_score: Optional[float] = Field(
+        None, description="Minimum arbiter score"
+    )
+    max_arbiter_score: Optional[float] = Field(
+        None, description="Maximum arbiter score"
+    )
+
+    # Deduplication metrics
+    duplicates_found: int = Field(..., description="Total duplicates found")
+    exact_duplicates: int = Field(..., description="Exact text duplicates found")
+    semantic_duplicates: int = Field(..., description="Semantic duplicates found")
+    duplicate_rate: Optional[float] = Field(None, description="Duplicate rate")
+
+    # Database metrics
+    questions_inserted: int = Field(..., description="Questions inserted into database")
+    insertion_failures: int = Field(..., description="Database insertion failures")
+
+    # Overall success
+    overall_success_rate: Optional[float] = Field(
+        None, description="Overall success rate"
+    )
+    total_errors: int = Field(..., description="Total errors encountered")
+
+    # API usage
+    total_api_calls: int = Field(..., description="Total API calls")
+
+    # Breakdown fields (JSONB)
+    provider_metrics: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None, description="Per-provider metrics breakdown"
+    )
+    type_metrics: Optional[Dict[str, int]] = Field(
+        None, description="Questions generated per type"
+    )
+    difficulty_metrics: Optional[Dict[str, int]] = Field(
+        None, description="Questions generated per difficulty"
+    )
+    error_summary: Optional[Dict[str, Any]] = Field(None, description="Error breakdown")
+
+    # Configuration used
+    prompt_version: Optional[str] = Field(None, description="Prompt version used")
+    arbiter_config_version: Optional[str] = Field(
+        None, description="Arbiter config version used"
+    )
+    min_arbiter_score_threshold: Optional[float] = Field(
+        None, description="Minimum arbiter score threshold"
+    )
+
+    # Environment context
+    environment: Optional[str] = Field(None, description="Environment")
+    triggered_by: Optional[str] = Field(None, description="Trigger source")
+
+    # Metadata
+    created_at: datetime = Field(..., description="Record creation timestamp")
+
+    # Computed field: Pipeline losses
+    pipeline_losses: PipelineLosses = Field(
+        ...,
+        description="Computed metrics showing questions lost at each pipeline stage",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        from_attributes = True
+
+
 class QuestionGenerationRunSummary(BaseModel):
     """
     Summary schema for listing generation runs.

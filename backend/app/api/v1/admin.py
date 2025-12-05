@@ -18,6 +18,8 @@ from app.schemas.generation_runs import (
     QuestionGenerationRunCreateResponse,
     QuestionGenerationRunListResponse,
     QuestionGenerationRunSummary,
+    QuestionGenerationRunDetail,
+    PipelineLosses,
     GenerationRunStatusSchema,
 )
 
@@ -471,4 +473,197 @@ async def list_generation_runs(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve generation runs: {str(e)}",
+        )
+
+
+def _compute_pipeline_losses(run: QuestionGenerationRun) -> PipelineLosses:
+    """
+    Compute pipeline loss metrics from a generation run.
+
+    Calculates the number of questions lost at each stage of the pipeline:
+    1. Generation: requested -> generated
+    2. Evaluation: generated -> evaluated
+    3. Rejection: evaluated -> approved
+    4. Deduplication: approved -> (approved - duplicates)
+    5. Insertion: (approved - duplicates) -> inserted
+
+    Args:
+        run: The generation run database record
+
+    Returns:
+        PipelineLosses with absolute and percentage values
+    """
+    # Extract values from SQLAlchemy model (mypy sees Column types, runtime has values)
+    requested: int = run.questions_requested  # type: ignore[assignment]
+    generated: int = run.questions_generated  # type: ignore[assignment]
+    evaluated: int = run.questions_evaluated  # type: ignore[assignment]
+    rejected: int = run.questions_rejected  # type: ignore[assignment]
+    approved: int = run.questions_approved  # type: ignore[assignment]
+    duplicates: int = run.duplicates_found  # type: ignore[assignment]
+    inserted: int = run.questions_inserted  # type: ignore[assignment]
+
+    # Calculate absolute losses at each stage
+    generation_loss = requested - generated
+    evaluation_loss = generated - evaluated
+    rejection_loss = rejected  # Same as (evaluated - approved)
+    deduplication_loss = duplicates
+    # After approval and dedup, what remains should be inserted
+    # approved - duplicates = questions available for insertion
+    questions_after_dedup = approved - duplicates
+    insertion_loss = max(0, questions_after_dedup - inserted)
+    total_loss = requested - inserted
+
+    # Calculate percentages (avoiding division by zero)
+    generation_loss_pct: Optional[float] = None
+    if requested > 0:
+        generation_loss_pct = round((generation_loss / requested) * 100, 2)
+
+    evaluation_loss_pct: Optional[float] = None
+    if generated > 0:
+        evaluation_loss_pct = round((evaluation_loss / generated) * 100, 2)
+
+    rejection_loss_pct: Optional[float] = None
+    if evaluated > 0:
+        rejection_loss_pct = round((rejection_loss / evaluated) * 100, 2)
+
+    deduplication_loss_pct: Optional[float] = None
+    if approved > 0:
+        deduplication_loss_pct = round((deduplication_loss / approved) * 100, 2)
+
+    insertion_loss_pct: Optional[float] = None
+    if questions_after_dedup > 0:
+        insertion_loss_pct = round((insertion_loss / questions_after_dedup) * 100, 2)
+
+    return PipelineLosses(
+        generation_loss=generation_loss,
+        evaluation_loss=evaluation_loss,
+        rejection_loss=rejection_loss,
+        deduplication_loss=deduplication_loss,
+        insertion_loss=insertion_loss,
+        total_loss=total_loss,
+        generation_loss_pct=generation_loss_pct,
+        evaluation_loss_pct=evaluation_loss_pct,
+        rejection_loss_pct=rejection_loss_pct,
+        deduplication_loss_pct=deduplication_loss_pct,
+        insertion_loss_pct=insertion_loss_pct,
+    )
+
+
+@router.get(
+    "/generation-runs/{run_id}",
+    response_model=QuestionGenerationRunDetail,
+)
+async def get_generation_run(
+    run_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_service_key),
+):
+    r"""
+    Get detailed information for a specific generation run.
+
+    Returns full run details including all JSONB breakdown fields and computed
+    pipeline loss metrics showing where questions were lost at each stage.
+
+    Requires X-Service-Key header with valid service API key.
+
+    **Pipeline Loss Metrics:**
+    The response includes a `pipeline_losses` object that tracks questions lost at:
+    - `generation_loss`: Failed during LLM generation (requested - generated)
+    - `evaluation_loss`: Not evaluated by arbiter (generated - evaluated)
+    - `rejection_loss`: Rejected by arbiter (evaluated - approved)
+    - `deduplication_loss`: Removed as duplicates
+    - `insertion_loss`: Failed during database insertion
+    - `total_loss`: Total lost across all stages (requested - inserted)
+
+    Each loss includes both absolute count and percentage values.
+
+    Args:
+        run_id: The unique identifier of the generation run
+        db: Database session
+        _: Service key validation dependency
+
+    Returns:
+        QuestionGenerationRunDetail with full run details and computed losses
+
+    Raises:
+        HTTPException 404: If the run with the specified ID is not found
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/generation-runs/123" \
+          -H "X-Service-Key: your-service-key"
+        ```
+    """
+    try:
+        # Query the database for the specific run
+        db_run = (
+            db.query(QuestionGenerationRun)
+            .filter(QuestionGenerationRun.id == run_id)
+            .first()
+        )
+
+        if db_run is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Generation run with ID {run_id} not found",
+            )
+
+        # Compute pipeline losses
+        pipeline_losses = _compute_pipeline_losses(db_run)
+
+        # Map the model enum to schema enum
+        status_mapping = {
+            GenerationRunStatus.RUNNING: GenerationRunStatusSchema.RUNNING,
+            GenerationRunStatus.SUCCESS: GenerationRunStatusSchema.SUCCESS,
+            GenerationRunStatus.PARTIAL_FAILURE: GenerationRunStatusSchema.PARTIAL_FAILURE,
+            GenerationRunStatus.FAILED: GenerationRunStatusSchema.FAILED,
+        }
+
+        # Build the response (type: ignore for SQLAlchemy Column types)
+        return QuestionGenerationRunDetail(
+            id=db_run.id,  # type: ignore[arg-type]
+            started_at=db_run.started_at,  # type: ignore[arg-type]
+            completed_at=db_run.completed_at,  # type: ignore[arg-type]
+            duration_seconds=db_run.duration_seconds,  # type: ignore[arg-type]
+            status=status_mapping[db_run.status],  # type: ignore[index]
+            exit_code=db_run.exit_code,  # type: ignore[arg-type]
+            questions_requested=db_run.questions_requested,  # type: ignore[arg-type]
+            questions_generated=db_run.questions_generated,  # type: ignore[arg-type]
+            generation_failures=db_run.generation_failures,  # type: ignore[arg-type]
+            generation_success_rate=db_run.generation_success_rate,  # type: ignore[arg-type]
+            questions_evaluated=db_run.questions_evaluated,  # type: ignore[arg-type]
+            questions_approved=db_run.questions_approved,  # type: ignore[arg-type]
+            questions_rejected=db_run.questions_rejected,  # type: ignore[arg-type]
+            approval_rate=db_run.approval_rate,  # type: ignore[arg-type]
+            avg_arbiter_score=db_run.avg_arbiter_score,  # type: ignore[arg-type]
+            min_arbiter_score=db_run.min_arbiter_score,  # type: ignore[arg-type]
+            max_arbiter_score=db_run.max_arbiter_score,  # type: ignore[arg-type]
+            duplicates_found=db_run.duplicates_found,  # type: ignore[arg-type]
+            exact_duplicates=db_run.exact_duplicates,  # type: ignore[arg-type]
+            semantic_duplicates=db_run.semantic_duplicates,  # type: ignore[arg-type]
+            duplicate_rate=db_run.duplicate_rate,  # type: ignore[arg-type]
+            questions_inserted=db_run.questions_inserted,  # type: ignore[arg-type]
+            insertion_failures=db_run.insertion_failures,  # type: ignore[arg-type]
+            overall_success_rate=db_run.overall_success_rate,  # type: ignore[arg-type]
+            total_errors=db_run.total_errors,  # type: ignore[arg-type]
+            total_api_calls=db_run.total_api_calls,  # type: ignore[arg-type]
+            provider_metrics=db_run.provider_metrics,  # type: ignore[arg-type]
+            type_metrics=db_run.type_metrics,  # type: ignore[arg-type]
+            difficulty_metrics=db_run.difficulty_metrics,  # type: ignore[arg-type]
+            error_summary=db_run.error_summary,  # type: ignore[arg-type]
+            prompt_version=db_run.prompt_version,  # type: ignore[arg-type]
+            arbiter_config_version=db_run.arbiter_config_version,  # type: ignore[arg-type]
+            min_arbiter_score_threshold=db_run.min_arbiter_score_threshold,  # type: ignore[arg-type]
+            environment=db_run.environment,  # type: ignore[arg-type]
+            triggered_by=db_run.triggered_by,  # type: ignore[arg-type]
+            created_at=db_run.created_at,  # type: ignore[arg-type]
+            pipeline_losses=pipeline_losses,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve generation run: {str(e)}",
         )
