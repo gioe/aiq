@@ -20,6 +20,7 @@ Exit Codes:
 
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ from app.config import settings  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
 from app.models import QuestionType  # noqa: E402
+from app.reporter import RunReporter  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -215,7 +217,54 @@ Examples:
         help="Disable console logging (only log to file)",
     )
 
+    parser.add_argument(
+        "--triggered-by",
+        type=str,
+        default="manual",
+        choices=["scheduler", "manual", "webhook"],
+        help="Source that triggered this run (default: manual)",
+    )
+
     return parser.parse_args()
+
+
+def create_run_reporter(
+    logger: Optional[logging.Logger] = None,
+) -> Optional[RunReporter]:
+    """Create a RunReporter instance if reporting is enabled and configured.
+
+    Args:
+        logger: Logger instance for output
+
+    Returns:
+        RunReporter instance if enabled and configured, None otherwise
+    """
+    if not settings.enable_run_reporting:
+        if logger:
+            logger.info("Run reporting is disabled")
+        return None
+
+    if not settings.backend_api_url:
+        if logger:
+            logger.warning(
+                "Run reporting enabled but BACKEND_API_URL not configured - skipping"
+            )
+        return None
+
+    if not settings.backend_service_key:
+        if logger:
+            logger.warning(
+                "Run reporting enabled but BACKEND_SERVICE_KEY not configured - skipping"
+            )
+        return None
+
+    reporter = RunReporter(
+        backend_url=settings.backend_api_url,
+        service_key=settings.backend_service_key,
+    )
+    if logger:
+        logger.info(f"Run reporter initialized (backend: {settings.backend_api_url})")
+    return reporter
 
 
 def main() -> int:
@@ -241,8 +290,6 @@ def main() -> int:
     )
 
     # Get logger after setup
-    import logging
-
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 80)
@@ -278,6 +325,9 @@ def main() -> int:
         logger.info(
             f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'})"
         )
+
+        # Initialize run reporter
+        run_reporter = create_run_reporter(logger)
 
         # Parse question types
         question_types = None
@@ -699,6 +749,23 @@ def main() -> int:
                 "duration_seconds": stats["duration_seconds"],
             },
         )
+
+        # Report run to backend API
+        if run_reporter:
+            min_score = args.min_score or settings.min_arbiter_score
+            run_id = run_reporter.report_run(
+                metrics_tracker=metrics,
+                exit_code=exit_code,
+                environment=settings.env,
+                triggered_by=args.triggered_by,
+                prompt_version=settings.prompt_version,
+                arbiter_config_version=settings.arbiter_config_version,
+                min_arbiter_score_threshold=min_score,
+            )
+            if run_id:
+                logger.info(f"Run reported to backend API (ID: {run_id})")
+            else:
+                logger.warning("Failed to report run to backend API")
 
         logger.info("=" * 80)
         logger.info(f"Script completed with exit code: {exit_code}")

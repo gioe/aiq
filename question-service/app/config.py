@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     alert_to_emails: Optional[str] = None  # Comma-separated list
     alert_file_path: str = "./logs/alerts.log"
 
+    # Run Reporter Configuration
+    enable_run_reporting: bool = True  # Enable/disable reporting to backend API
+    backend_api_url: Optional[str] = None  # Backend API base URL
+    backend_service_key: Optional[str] = None  # API key for service-to-service auth
+    prompt_version: Optional[str] = None  # Version of prompts used
+    arbiter_config_version: Optional[str] = None  # Version of arbiter config
+
 
 # Global settings instance
 settings = Settings()
