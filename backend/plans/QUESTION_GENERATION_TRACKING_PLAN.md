@@ -233,13 +233,13 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Transform `MetricsTracker.get_summary()` to API payload
   - Handle connection failures gracefully (log, don't crash)
 
-- [ ] **QGT-010**: Integrate reporter into pipeline
+- [x] **QGT-010**: Integrate reporter into pipeline
   - Modify `run_generation.py` to use `RunReporter`
   - Report "running" status at start (optional)
   - Report final status with full metrics at end
   - Pass environment and trigger context
 
-- [ ] **QGT-011**: Add configuration for reporter
+- [x] **QGT-011**: Add configuration for reporter
   - Backend API URL from environment variable
   - API key/auth token from environment variable
   - Enable/disable flag for local development
