@@ -264,7 +264,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
 
 ### Phase 5: Documentation
 
-- [ ] **QGT-015**: Update API documentation
+- [x] **QGT-015**: Update API documentation
   - Document new admin endpoints
   - Include example requests/responses
   - Document authentication requirements
