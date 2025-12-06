@@ -252,7 +252,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Test filtering and pagination
   - Test aggregation queries
 
-- [ ] **QGT-013**: Question service integration tests
+- [x] **QGT-013**: Question service integration tests
   - Test `RunReporter` with mocked backend
   - Test graceful failure handling
   - Test payload transformation
