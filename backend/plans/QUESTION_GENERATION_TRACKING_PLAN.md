@@ -246,7 +246,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
 
 ### Phase 4: Testing
 
-- [ ] **QGT-012**: Backend unit tests
+- [x] **QGT-012**: Backend unit tests
   - Test model creation and validation
   - Test each API endpoint
   - Test filtering and pagination
