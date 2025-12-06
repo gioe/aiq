@@ -257,7 +257,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Test graceful failure handling
   - Test payload transformation
 
-- [ ] **QGT-014**: End-to-end test
+- [x] **QGT-014**: End-to-end test
   - Run question-service with real backend
   - Verify metrics persisted correctly
   - Verify API returns correct data
