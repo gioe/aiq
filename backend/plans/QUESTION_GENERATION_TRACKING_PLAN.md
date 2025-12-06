@@ -227,7 +227,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
 
 ### Phase 3: Question Service Integration
 
-- [ ] **QGT-009**: Create `RunReporter` class
+- [x] **QGT-009**: Create `RunReporter` class
   - Add to `question-service/app/reporter.py`
   - HTTP client to call backend API
   - Transform `MetricsTracker.get_summary()` to API payload
