@@ -801,34 +801,55 @@ def recalibrate_questions(
         old_label = q_info["assigned_difficulty"]
         new_label = q_info["suggested_label"]
 
+        recalibration_succeeded = True
         if not dry_run:
             # Perform the actual recalibration
-            question = db.query(Question).filter(Question.id == question_id).first()
-            if question:
-                # Preserve original difficulty if this is the first recalibration
-                if question.original_difficulty_level is None:
-                    question.original_difficulty_level = question.difficulty_level
+            try:
+                question = db.query(Question).filter(Question.id == question_id).first()
+                if question:
+                    # Preserve original difficulty if this is the first recalibration
+                    if question.original_difficulty_level is None:
+                        question.original_difficulty_level = question.difficulty_level
 
-                # Update to new difficulty level
-                question.difficulty_level = DifficultyLevel(new_label.upper())  # type: ignore
-                question.difficulty_recalibrated_at = datetime.now(timezone.utc)  # type: ignore
+                    # Update to new difficulty level
+                    question.difficulty_level = DifficultyLevel(new_label.upper())  # type: ignore
+                    question.difficulty_recalibrated_at = datetime.now(timezone.utc)  # type: ignore
 
-                logger.info(
-                    f"Recalibrated question {question_id}: "
-                    f"{old_label} -> {new_label} "
-                    f"(empirical p-value: {q_info['empirical_difficulty']:.3f})"
-                )
+                    logger.info(
+                        f"Recalibrated question {question_id}: "
+                        f"{old_label} -> {new_label} "
+                        f"(empirical p-value: {q_info['empirical_difficulty']:.3f})"
+                    )
+                else:
+                    logger.error(
+                        f"Question {question_id} not found during recalibration"
+                    )
+                    recalibration_succeeded = False
+            except Exception as e:
+                logger.error(f"Failed to recalibrate question {question_id}: {e}")
+                recalibration_succeeded = False
+                # Continue processing other questions
 
-        results["recalibrated"].append(
-            {
-                "question_id": question_id,
-                "old_label": old_label,
-                "new_label": new_label,
-                "empirical_difficulty": q_info["empirical_difficulty"],
-                "response_count": q_info["response_count"],
-                "severity": severity,
-            }
-        )
+        if recalibration_succeeded:
+            results["recalibrated"].append(
+                {
+                    "question_id": question_id,
+                    "old_label": old_label,
+                    "new_label": new_label,
+                    "empirical_difficulty": q_info["empirical_difficulty"],
+                    "response_count": q_info["response_count"],
+                    "severity": severity,
+                }
+            )
+        else:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "database_error",
+                    "assigned_difficulty": old_label,
+                    "severity": severity,
+                }
+            )
 
     # Add correctly calibrated questions to skipped (if in question_ids filter)
     for q_info in validation_results["correctly_calibrated"]:
@@ -864,10 +885,18 @@ def recalibrate_questions(
 
     # Commit changes if not dry run
     if not dry_run and results["total_recalibrated"] > 0:
-        db.commit()
-        logger.info(
-            f"Recalibration complete: {results['total_recalibrated']} questions updated"
-        )
+        try:
+            db.commit()
+            logger.info(
+                f"Recalibration complete: {results['total_recalibrated']} questions updated"
+            )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to commit recalibration changes: {e}")
+            raise RuntimeError(
+                f"Recalibration failed during commit: {e}. "
+                f"All changes have been rolled back."
+            ) from e
     elif dry_run:
         logger.info(
             f"Recalibration dry run: {results['total_recalibrated']} questions "
