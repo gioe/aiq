@@ -53,7 +53,7 @@ DIFFICULTY_RANGES = {
 ---
 
 ### EIC-003: Implement validate_difficulty_labels() Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Create core validation function that compares empirical p-values against expected ranges for assigned difficulty labels.
 
@@ -90,11 +90,11 @@ def validate_difficulty_labels(
 - Severe: >0.25 outside expected range
 
 **Acceptance Criteria:**
-- [ ] Function queries all active questions with sufficient response data
-- [ ] Correctly categorizes questions as miscalibrated, calibrated, or insufficient data
-- [ ] Calculates severity based on distance from expected range
-- [ ] Suggests correct label based on where empirical p-value falls
-- [ ] Handles edge cases (p-value exactly on boundary, 0%, 100%)
+- [x] Function queries all active questions with sufficient response data
+- [x] Correctly categorizes questions as miscalibrated, calibrated, or insufficient data
+- [x] Calculates severity based on distance from expected range
+- [x] Suggests correct label based on where empirical p-value falls
+- [x] Handles edge cases (p-value exactly on boundary, 0%, 100%)
 
 ---
 
