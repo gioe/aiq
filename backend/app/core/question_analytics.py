@@ -19,7 +19,10 @@ from sqlalchemy.orm import Session
 from typing import Dict, List
 import statistics
 
-from app.models.models import Question, Response, TestResult
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from app.models.models import DifficultyLevel, Question, Response, TestResult
 
 logger = logging.getLogger(__name__)
 
@@ -674,5 +677,201 @@ def validate_difficulty_labels(
         f"{len(results['miscalibrated'])} miscalibrated, "
         f"{len(results['insufficient_data'])} insufficient data"
     )
+
+    return results
+
+
+# =============================================================================
+# DIFFICULTY RECALIBRATION (EIC-004)
+# =============================================================================
+
+# Severity levels ordered by precedence for threshold comparison
+SEVERITY_ORDER = {"minor": 0, "major": 1, "severe": 2}
+
+
+def recalibrate_questions(
+    db: Session,
+    min_responses: int = 100,
+    question_ids: Optional[List[int]] = None,
+    severity_threshold: str = "major",
+    dry_run: bool = True,
+) -> Dict[str, Any]:
+    """
+    Update difficulty labels based on empirical data.
+
+    This function recalibrates questions whose assigned difficulty labels
+    do not match their empirical p-values. It preserves the original
+    difficulty label before the first recalibration for audit purposes.
+
+    Args:
+        db: Database session
+        min_responses: Minimum responses required for reliable validation
+                       (default: 100, per psychometric standards)
+        question_ids: Optional list of specific question IDs to recalibrate.
+                      If None, all eligible questions are considered.
+        severity_threshold: Minimum severity level to trigger recalibration.
+                            Must be one of: "minor", "major", "severe".
+                            Questions with severity at or above this level
+                            will be recalibrated. (default: "major")
+        dry_run: If True, returns preview without modifying database.
+                 If False, commits changes to database. (default: True)
+
+    Returns:
+        Dictionary with recalibration results:
+        {
+            "recalibrated": [
+                {
+                    "question_id": int,
+                    "old_label": str,
+                    "new_label": str,
+                    "empirical_difficulty": float,
+                    "response_count": int,
+                    "severity": str
+                }
+            ],
+            "skipped": [
+                {
+                    "question_id": int,
+                    "reason": str,  # "below_threshold", "not_in_question_ids",
+                                    # "insufficient_data", "correctly_calibrated"
+                    "assigned_difficulty": str,
+                    "severity": str or None
+                }
+            ],
+            "total_recalibrated": int,
+            "dry_run": bool
+        }
+
+    Raises:
+        ValueError: If severity_threshold is not valid
+
+    Reference:
+        docs/psychometric-methodology/gaps/EMPIRICAL-ITEM-CALIBRATION.md
+        backend/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md (EIC-004)
+    """
+    # Validate severity_threshold
+    if severity_threshold not in SEVERITY_ORDER:
+        raise ValueError(
+            f"Invalid severity_threshold '{severity_threshold}'. "
+            f"Must be one of: {list(SEVERITY_ORDER.keys())}"
+        )
+
+    threshold_level = SEVERITY_ORDER[severity_threshold]
+
+    # Get validation results
+    validation_results = validate_difficulty_labels(db, min_responses)
+
+    results: Dict[str, Any] = {
+        "recalibrated": [],
+        "skipped": [],
+        "total_recalibrated": 0,
+        "dry_run": dry_run,
+    }
+
+    # Process miscalibrated questions
+    for q_info in validation_results["miscalibrated"]:
+        question_id = q_info["question_id"]
+        severity = q_info["severity"]
+
+        # Check if question is in the filter list (if provided)
+        if question_ids is not None and question_id not in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "not_in_question_ids",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": severity,
+                }
+            )
+            continue
+
+        # Check if severity meets threshold
+        if SEVERITY_ORDER[severity] < threshold_level:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "below_threshold",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": severity,
+                }
+            )
+            continue
+
+        # This question qualifies for recalibration
+        old_label = q_info["assigned_difficulty"]
+        new_label = q_info["suggested_label"]
+
+        if not dry_run:
+            # Perform the actual recalibration
+            question = db.query(Question).filter(Question.id == question_id).first()
+            if question:
+                # Preserve original difficulty if this is the first recalibration
+                if question.original_difficulty_level is None:
+                    question.original_difficulty_level = question.difficulty_level
+
+                # Update to new difficulty level
+                question.difficulty_level = DifficultyLevel(new_label.upper())  # type: ignore
+                question.difficulty_recalibrated_at = datetime.now(timezone.utc)  # type: ignore
+
+                logger.info(
+                    f"Recalibrated question {question_id}: "
+                    f"{old_label} -> {new_label} "
+                    f"(empirical p-value: {q_info['empirical_difficulty']:.3f})"
+                )
+
+        results["recalibrated"].append(
+            {
+                "question_id": question_id,
+                "old_label": old_label,
+                "new_label": new_label,
+                "empirical_difficulty": q_info["empirical_difficulty"],
+                "response_count": q_info["response_count"],
+                "severity": severity,
+            }
+        )
+
+    # Add correctly calibrated questions to skipped (if in question_ids filter)
+    for q_info in validation_results["correctly_calibrated"]:
+        question_id = q_info["question_id"]
+
+        # If question_ids filter is provided and this question is in it,
+        # add to skipped with reason
+        if question_ids is None or question_id in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "correctly_calibrated",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": None,
+                }
+            )
+
+    # Add insufficient data questions to skipped (if in question_ids filter)
+    for q_info in validation_results["insufficient_data"]:
+        question_id = q_info["question_id"]
+
+        if question_ids is None or question_id in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "insufficient_data",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": None,
+                }
+            )
+
+    results["total_recalibrated"] = len(results["recalibrated"])
+
+    # Commit changes if not dry run
+    if not dry_run and results["total_recalibrated"] > 0:
+        db.commit()
+        logger.info(
+            f"Recalibration complete: {results['total_recalibrated']} questions updated"
+        )
+    elif dry_run:
+        logger.info(
+            f"Recalibration dry run: {results['total_recalibrated']} questions "
+            f"would be updated"
+        )
 
     return results
