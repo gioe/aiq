@@ -182,6 +182,18 @@ class Question(Base):
     )  # IRT guessing parameter (c): lower asymptote (0.0-1.0)
     # Probability of correct answer by random guessing (e.g., 0.25 for 4-option multiple choice)
 
+    # Recalibration tracking (EIC-001)
+    # These fields track when difficulty labels are recalibrated based on empirical data
+    original_difficulty_level = Column(
+        Enum(DifficultyLevel), nullable=True
+    )  # Preserves arbiter's original judgment before recalibration
+    # NULL indicates the question has never been recalibrated
+
+    difficulty_recalibrated_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Timestamp of most recent recalibration
+    # NULL indicates the question has never been recalibrated
+
     # Relationships
     responses = relationship("Response", back_populates="question")
     user_questions = relationship("UserQuestion", back_populates="question")
