@@ -2171,3 +2171,478 @@ class TestCalibrationHealth:
         assert data["summary"]["miscalibrated"] == 0
         assert data["summary"]["miscalibration_rate"] == 0.0
         assert data["worst_offenders"] == []
+
+
+class TestRecalibrateQuestions:
+    """Tests for POST /v1/admin/questions/recalibrate endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_dry_run_success(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test dry run recalibration returns preview without changes."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "major",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify structure
+        assert "recalibrated" in data
+        assert "skipped" in data
+        assert "total_recalibrated" in data
+        assert "dry_run" in data
+
+        # Dry run should be True
+        assert data["dry_run"] is True
+
+        # Should find miscalibrated questions at major+ severity
+        # From fixture: severe (0.85 labeled hard) and major (0.45 labeled easy)
+        assert data["total_recalibrated"] == 2
+
+        # Verify the recalibrated questions
+        recalibrated_ids = [q["question_id"] for q in data["recalibrated"]]
+        assert len(recalibrated_ids) == 2
+
+        # Check a specific recalibration (severe case: hard -> easy)
+        severe_q = next(
+            (q for q in data["recalibrated"] if q["severity"] == "severe"),
+            None,
+        )
+        assert severe_q is not None
+        assert severe_q["old_label"] == "hard"
+        assert severe_q["new_label"] == "easy"
+        assert severe_q["empirical_difficulty"] == 0.85
+
+        # Verify database NOT changed (dry run)
+        for q in calibration_test_questions:
+            db_session.refresh(q)
+        # Find the severe miscalibrated question
+        severe_question = next(
+            (
+                q
+                for q in calibration_test_questions
+                if q.question_text == "Miscalibrated severe"
+            ),
+            None,
+        )
+        assert severe_question is not None
+        assert severe_question.difficulty_level == DifficultyLevel.HARD  # Unchanged
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_commit_success(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test actual recalibration with dry_run=false commits changes."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": False,
+                "min_responses": 100,
+                "severity_threshold": "major",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Dry run should be False
+        assert data["dry_run"] is False
+
+        # Should recalibrate major+ severity questions
+        assert data["total_recalibrated"] == 2
+
+        # Verify database WAS changed
+        for q in calibration_test_questions:
+            db_session.refresh(q)
+
+        # Find the severe miscalibrated question
+        severe_question = next(
+            (
+                q
+                for q in calibration_test_questions
+                if q.question_text == "Miscalibrated severe"
+            ),
+            None,
+        )
+        assert severe_question is not None
+        assert severe_question.difficulty_level == DifficultyLevel.EASY  # Changed!
+        assert (
+            severe_question.original_difficulty_level == DifficultyLevel.HARD
+        )  # Preserved
+        assert severe_question.difficulty_recalibrated_at is not None
+
+        # Find the major miscalibrated question
+        major_question = next(
+            (
+                q
+                for q in calibration_test_questions
+                if q.question_text == "Miscalibrated major"
+            ),
+            None,
+        )
+        assert major_question is not None
+        assert major_question.difficulty_level == DifficultyLevel.MEDIUM  # Changed!
+        assert (
+            major_question.original_difficulty_level == DifficultyLevel.EASY
+        )  # Preserved
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_severity_threshold_minor(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test recalibration with minor threshold includes more questions."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "minor",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should include all miscalibrated: severe, major, minor
+        assert data["total_recalibrated"] == 3
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_severity_threshold_severe(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test recalibration with severe threshold only includes severe."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "severe",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only include severe miscalibration
+        assert data["total_recalibrated"] == 1
+        assert data["recalibrated"][0]["severity"] == "severe"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_specific_question_ids(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test recalibration limited to specific question IDs."""
+        # Get the ID of the severe miscalibrated question
+        severe_question = next(
+            (
+                q
+                for q in calibration_test_questions
+                if q.question_text == "Miscalibrated severe"
+            ),
+            None,
+        )
+
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "major",
+                "question_ids": [severe_question.id],
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only recalibrate the specified question
+        assert data["total_recalibrated"] == 1
+        assert data["recalibrated"][0]["question_id"] == severe_question.id
+
+        # The other major question should be skipped
+        skipped_not_in_ids = [
+            q for q in data["skipped"] if q["reason"] == "not_in_question_ids"
+        ]
+        assert len(skipped_not_in_ids) >= 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_min_responses_filter(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test recalibration respects min_responses threshold."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 150,  # Higher threshold
+                "severity_threshold": "major",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # The minor miscalibrated (110 responses) should be insufficient data
+        # Only severe (200) and major (150) should qualify
+        # Major is exactly at threshold, should be included
+        assert data["total_recalibrated"] == 2
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_skipped_reasons(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that skipped questions have correct reasons."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "major",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check various skip reasons
+        skip_reasons = {q["reason"] for q in data["skipped"]}
+
+        # Minor miscalibrated should be skipped due to below_threshold
+        assert "below_threshold" in skip_reasons
+
+        # Correctly calibrated should be skipped
+        assert "correctly_calibrated" in skip_reasons
+
+        # Insufficient data should be skipped
+        assert "insufficient_data" in skip_reasons
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_empty_database(self, client, db_session, admin_token_headers):
+        """Test recalibration with no questions."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "major",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_recalibrated"] == 0
+        assert data["recalibrated"] == []
+        assert data["skipped"] == []
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_all_calibrated(self, client, db_session, admin_token_headers):
+        """Test recalibration when all questions are correctly calibrated."""
+        # Create only correctly calibrated questions
+        for i, (difficulty, p_value) in enumerate(
+            [
+                (DifficultyLevel.EASY, 0.80),
+                (DifficultyLevel.MEDIUM, 0.55),
+                (DifficultyLevel.HARD, 0.25),
+            ]
+        ):
+            q = Question(
+                question_text=f"Calibrated question {i}",
+                question_type=QuestionType.MATH,
+                difficulty_level=difficulty,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2"},
+                source_llm="test-llm",
+                arbiter_score=0.90,
+                is_active=True,
+                response_count=150,
+                empirical_difficulty=p_value,
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "minor",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_recalibrated"] == 0
+        assert data["recalibrated"] == []
+        # All questions should be skipped as correctly_calibrated
+        assert len(data["skipped"]) == 3
+        assert all(q["reason"] == "correctly_calibrated" for q in data["skipped"])
+
+    def test_recalibrate_no_auth(self, client):
+        """Test that request without admin token is rejected."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True},
+        )
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_invalid_auth(self, client):
+        """Test that request with invalid admin token is rejected."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True},
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "")
+    def test_recalibrate_token_not_configured(self, client, admin_token_headers):
+        """Test error when admin token is not configured on server."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True},
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 500
+        assert "not configured" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_invalid_min_responses(self, client, admin_token_headers):
+        """Test validation of min_responses parameter."""
+        # Below minimum (1)
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True, "min_responses": 0},
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+        # Above maximum (1000)
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True, "min_responses": 1001},
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_invalid_severity_threshold(self, client, admin_token_headers):
+        """Test validation of severity_threshold parameter."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={"dry_run": True, "severity_threshold": "invalid"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_default_values(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that default values work correctly."""
+        # Send minimal request (defaults should apply)
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={},  # Use all defaults
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Defaults: dry_run=True, min_responses=100, severity_threshold=major
+        assert data["dry_run"] is True
+        # Should include major+ (not minor)
+        assert data["total_recalibrated"] == 2
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_preserves_original_difficulty(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that original difficulty is preserved on first recalibration."""
+        # Get the severe miscalibrated question
+        severe_question = next(
+            (
+                q
+                for q in calibration_test_questions
+                if q.question_text == "Miscalibrated severe"
+            ),
+            None,
+        )
+        assert severe_question.original_difficulty_level is None  # Not set yet
+
+        # Perform actual recalibration
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": False,
+                "min_responses": 100,
+                "severity_threshold": "severe",
+                "question_ids": [severe_question.id],
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+
+        # Refresh and verify
+        db_session.refresh(severe_question)
+        assert severe_question.original_difficulty_level == DifficultyLevel.HARD
+        assert severe_question.difficulty_level == DifficultyLevel.EASY
+        assert severe_question.difficulty_recalibrated_at is not None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_recalibrate_response_format(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that response format matches schema exactly."""
+        response = client.post(
+            "/v1/admin/questions/recalibrate",
+            json={
+                "dry_run": True,
+                "min_responses": 100,
+                "severity_threshold": "severe",
+            },
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify recalibrated question structure
+        assert len(data["recalibrated"]) == 1
+        recal_q = data["recalibrated"][0]
+        assert "question_id" in recal_q
+        assert "old_label" in recal_q
+        assert "new_label" in recal_q
+        assert "empirical_difficulty" in recal_q
+        assert "response_count" in recal_q
+        assert "severity" in recal_q
+        assert recal_q["severity"] == "severe"
+
+        # Verify skipped question structure
+        assert len(data["skipped"]) > 0
+        skip_q = data["skipped"][0]
+        assert "question_id" in skip_q
+        assert "reason" in skip_q
+        assert "assigned_difficulty" in skip_q
+        assert "severity" in skip_q or skip_q.get("severity") is None

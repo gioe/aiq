@@ -31,8 +31,15 @@ from app.schemas.calibration import (
     DifficultyCalibrationStatus,
     MiscalibratedQuestion,
     SeverityLevel,
+    RecalibrationRequest,
+    RecalibratedQuestion,
+    SkippedQuestion,
+    RecalibrationResponse,
 )
-from app.core.question_analytics import validate_difficulty_labels
+from app.core.question_analytics import (
+    validate_difficulty_labels,
+    recalibrate_questions,
+)
 
 router = APIRouter()
 
@@ -1205,4 +1212,129 @@ async def get_calibration_health(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve calibration health: {str(e)}",
+        )
+
+
+# =============================================================================
+# RECALIBRATION ENDPOINT (EIC-006)
+# =============================================================================
+
+
+@router.post(
+    "/questions/recalibrate",
+    response_model=RecalibrationResponse,
+)
+async def recalibrate_difficulty_labels(
+    request: RecalibrationRequest,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Trigger recalibration of question difficulty labels based on empirical data.
+
+    Updates difficulty labels for questions where the AI-assigned label
+    doesn't match actual user performance. Preserves original labels for
+    audit purposes.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Expected p-value ranges by difficulty:**
+    - Easy: 0.70 - 0.90 (70-90% correct)
+    - Medium: 0.40 - 0.70 (40-70% correct)
+    - Hard: 0.15 - 0.40 (15-40% correct)
+
+    **Severity levels (determines threshold):**
+    - Minor: Within 0.10 of expected range boundary
+    - Major: 0.10-0.25 outside expected range
+    - Severe: >0.25 outside expected range
+
+    **Recalibration modes:**
+    - dry_run=true: Preview changes without applying (default)
+    - dry_run=false: Commit changes to database
+
+    **Filtering options:**
+    - question_ids: Limit to specific questions
+    - severity_threshold: Only recalibrate questions at or above this severity
+    - min_responses: Require minimum response count for reliability
+
+    Args:
+        request: Recalibration parameters
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        RecalibrationResponse with recalibrated and skipped questions
+
+    Example:
+        ```
+        # Dry run to preview changes
+        curl -X POST "https://api.example.com/v1/admin/questions/recalibrate" \
+          -H "X-Admin-Token: your-admin-token" \
+          -H "Content-Type: application/json" \
+          -d '{"dry_run": true, "min_responses": 100, "severity_threshold": "major"}'
+
+        # Apply changes
+        curl -X POST "https://api.example.com/v1/admin/questions/recalibrate" \
+          -H "X-Admin-Token: your-admin-token" \
+          -H "Content-Type: application/json" \
+          -d '{"dry_run": false, "min_responses": 100, "severity_threshold": "major"}'
+        ```
+    """
+    try:
+        # Call core recalibration function
+        results = recalibrate_questions(
+            db=db,
+            min_responses=request.min_responses,
+            question_ids=request.question_ids,
+            severity_threshold=request.severity_threshold.value,
+            dry_run=request.dry_run,
+        )
+
+        # Convert recalibrated questions to schema
+        recalibrated = [
+            RecalibratedQuestion(
+                question_id=q["question_id"],
+                old_label=q["old_label"],
+                new_label=q["new_label"],
+                empirical_difficulty=q["empirical_difficulty"],
+                response_count=q["response_count"],
+                severity=SeverityLevel(q["severity"]),
+            )
+            for q in results["recalibrated"]
+        ]
+
+        # Convert skipped questions to schema
+        skipped = [
+            SkippedQuestion(
+                question_id=q["question_id"],
+                reason=q["reason"],
+                assigned_difficulty=q["assigned_difficulty"],
+                severity=SeverityLevel(q["severity"]) if q.get("severity") else None,
+            )
+            for q in results["skipped"]
+        ]
+
+        return RecalibrationResponse(
+            recalibrated=recalibrated,
+            skipped=skipped,
+            total_recalibrated=results["total_recalibrated"],
+            dry_run=results["dry_run"],
+        )
+
+    except ValueError as e:
+        # Invalid severity_threshold
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        # Database commit failed
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to recalibrate questions: {str(e)}",
         )
