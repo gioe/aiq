@@ -438,3 +438,241 @@ def identify_problematic_questions(
     )
 
     return results
+
+
+# =============================================================================
+# DIFFICULTY LABEL VALIDATION (EIC-003)
+# =============================================================================
+
+
+def _get_suggested_difficulty_label(empirical_difficulty: float) -> str:
+    """
+    Determine the appropriate difficulty label based on empirical p-value.
+
+    Args:
+        empirical_difficulty: Empirical p-value (0.0-1.0)
+
+    Returns:
+        Suggested difficulty label: "easy", "medium", or "hard"
+
+    Note:
+        - Values above 0.90 are classified as "easy" (too easy for hard)
+        - Values below 0.15 are classified as "hard" (too hard for medium)
+        - Boundary values are handled by standard ranges
+    """
+    # Check each range in order (hard -> medium -> easy)
+    # to find where the p-value falls
+    if empirical_difficulty <= DIFFICULTY_RANGES["hard"][1]:  # <= 0.40
+        if empirical_difficulty >= DIFFICULTY_RANGES["hard"][0]:  # >= 0.15
+            return "hard"
+        else:
+            # Below 0.15 - still classify as "hard" (it's even harder)
+            return "hard"
+
+    if empirical_difficulty <= DIFFICULTY_RANGES["medium"][1]:  # <= 0.70
+        if empirical_difficulty >= DIFFICULTY_RANGES["medium"][0]:  # >= 0.40
+            return "medium"
+
+    if empirical_difficulty >= DIFFICULTY_RANGES["easy"][0]:  # >= 0.70
+        return "easy"
+
+    # Above 0.90 - still classify as "easy" (it's even easier)
+    return "easy"
+
+
+def _calculate_calibration_severity(
+    empirical_difficulty: float,
+    expected_range: tuple[float, float],
+) -> str:
+    """
+    Calculate the severity of miscalibration based on distance from expected range.
+
+    Args:
+        empirical_difficulty: Empirical p-value (0.0-1.0)
+        expected_range: Tuple of (min, max) for expected p-value range
+
+    Returns:
+        Severity level: "minor", "major", or "severe"
+
+    Severity definitions:
+        - minor: Within 0.10 of expected range boundary
+        - major: 0.10-0.25 outside expected range
+        - severe: >0.25 outside expected range
+    """
+    min_range, max_range = expected_range
+
+    # Calculate distance from nearest boundary
+    if empirical_difficulty < min_range:
+        distance = min_range - empirical_difficulty
+    elif empirical_difficulty > max_range:
+        distance = empirical_difficulty - max_range
+    else:
+        # Within range - shouldn't happen if called correctly
+        return "minor"
+
+    # Determine severity based on distance
+    if distance <= 0.10:
+        return "minor"
+    elif distance <= 0.25:
+        return "major"
+    else:
+        return "severe"
+
+
+def _is_within_range(
+    value: float,
+    expected_range: tuple[float, float],
+) -> bool:
+    """
+    Check if a value falls within an expected range (inclusive).
+
+    Args:
+        value: The value to check
+        expected_range: Tuple of (min, max)
+
+    Returns:
+        True if value is within range (inclusive), False otherwise
+    """
+    return expected_range[0] <= value <= expected_range[1]
+
+
+def validate_difficulty_labels(
+    db: Session,
+    min_responses: int = 100,
+) -> Dict[str, List[Dict]]:
+    """
+    Compare assigned difficulty labels against empirical p-values.
+
+    This function identifies questions where the AI-assigned difficulty label
+    doesn't match actual user performance. Questions with empirical p-values
+    outside the expected range for their assigned label are considered
+    miscalibrated.
+
+    Args:
+        db: Database session
+        min_responses: Minimum responses required for reliable validation
+                       (default: 100, per psychometric standards)
+
+    Returns:
+        Dictionary categorizing all active questions:
+        {
+            "miscalibrated": [
+                {
+                    "question_id": int,
+                    "assigned_difficulty": str,  # "easy", "medium", "hard"
+                    "empirical_difficulty": float,  # 0.0-1.0
+                    "expected_range": [float, float],
+                    "suggested_label": str,
+                    "response_count": int,
+                    "severity": str  # "minor", "major", "severe"
+                }
+            ],
+            "correctly_calibrated": [
+                {
+                    "question_id": int,
+                    "assigned_difficulty": str,
+                    "empirical_difficulty": float,
+                    "expected_range": [float, float],
+                    "response_count": int
+                }
+            ],
+            "insufficient_data": [
+                {
+                    "question_id": int,
+                    "assigned_difficulty": str,
+                    "empirical_difficulty": float or None,
+                    "response_count": int
+                }
+            ]
+        }
+
+    Reference:
+        docs/psychometric-methodology/gaps/EMPIRICAL-ITEM-CALIBRATION.md
+        IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+    """
+    # Get all active questions
+    questions = (
+        db.query(Question).filter(Question.is_active == True).all()  # noqa: E712
+    )
+
+    results: Dict[str, List[Dict]] = {
+        "miscalibrated": [],
+        "correctly_calibrated": [],
+        "insufficient_data": [],
+    }
+
+    for question in questions:
+        response_count = question.response_count or 0
+        assigned_difficulty = question.difficulty_level.value.lower()
+        # Cast to Optional[float] for type checker - at runtime this is already float | None
+        empirical_diff: float | None = question.empirical_difficulty  # type: ignore[assignment]
+
+        # Check if we have sufficient data for validation
+        if response_count < min_responses:
+            results["insufficient_data"].append(
+                {
+                    "question_id": question.id,
+                    "assigned_difficulty": assigned_difficulty,
+                    "empirical_difficulty": empirical_diff,
+                    "response_count": response_count,
+                }
+            )
+            continue
+
+        # Handle edge case: no empirical difficulty calculated yet
+        if empirical_diff is None:
+            results["insufficient_data"].append(
+                {
+                    "question_id": question.id,
+                    "assigned_difficulty": assigned_difficulty,
+                    "empirical_difficulty": None,
+                    "response_count": response_count,
+                }
+            )
+            continue
+
+        # Get expected range for assigned difficulty
+        expected_range = DIFFICULTY_RANGES.get(assigned_difficulty)
+        if expected_range is None:
+            logger.warning(
+                f"Unknown difficulty level '{assigned_difficulty}' for question {question.id}"
+            )
+            continue
+
+        # Check if empirical difficulty falls within expected range
+        if _is_within_range(empirical_diff, expected_range):
+            results["correctly_calibrated"].append(
+                {
+                    "question_id": question.id,
+                    "assigned_difficulty": assigned_difficulty,
+                    "empirical_difficulty": empirical_diff,
+                    "expected_range": list(expected_range),
+                    "response_count": response_count,
+                }
+            )
+        else:
+            # Miscalibrated - calculate severity and suggested label
+            severity = _calculate_calibration_severity(empirical_diff, expected_range)
+            suggested_label = _get_suggested_difficulty_label(empirical_diff)
+
+            results["miscalibrated"].append(
+                {
+                    "question_id": question.id,
+                    "assigned_difficulty": assigned_difficulty,
+                    "empirical_difficulty": empirical_diff,
+                    "expected_range": list(expected_range),
+                    "suggested_label": suggested_label,
+                    "response_count": response_count,
+                    "severity": severity,
+                }
+            )
+
+    # Log summary
+    logger.info(
+        f"Difficulty label validation complete: "
+        f"{len(results['correctly_calibrated'])} calibrated, "
+        f"{len(results['miscalibrated'])} miscalibrated, "
+        f"{len(results['insufficient_data'])} insufficient data"
+    )
+
+    return results
