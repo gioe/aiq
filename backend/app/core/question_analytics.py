@@ -23,6 +23,42 @@ from app.models.models import Question, Response, TestResult
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# DIFFICULTY CALIBRATION CONSTANTS
+# =============================================================================
+#
+# Standard p-value (proportion correct) ranges for each difficulty level.
+# These represent psychometrically-accepted ranges based on:
+# - IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+# - Standard Item Response Theory difficulty classifications
+#
+# Questions should fall within these ranges to be considered correctly calibrated.
+# Questions outside these ranges indicate a mismatch between assigned difficulty
+# and actual user performance.
+#
+# Reference:
+#   - IQ_METHODOLOGY.md Section 7: "P-value (Difficulty): correct / total → Match difficulty label"
+#   - docs/psychometric-methodology/gaps/EMPIRICAL-ITEM-CALIBRATION.md
+#
+# Usage:
+#   - Validate assigned difficulty labels against empirical p-values
+#   - Identify miscalibrated questions for recalibration
+#   - Monitor difficulty drift over time
+#
+# Note: Boundary values are inclusive. A question with p-value 0.70 is correctly
+# calibrated for both "easy" (lower bound) and "medium" (upper bound).
+
+DIFFICULTY_RANGES: dict[str, tuple[float, float]] = {
+    "easy": (0.70, 0.90),  # 70-90% of test-takers answer correctly
+    "medium": (0.40, 0.70),  # 40-70% of test-takers answer correctly
+    "hard": (0.15, 0.40),  # 15-40% of test-takers answer correctly
+}
+
+# Minimum response count required for reliable difficulty validation.
+# With fewer responses, p-value estimates are unstable and shouldn't be used
+# for recalibration decisions. 100 is a common psychometric threshold.
+MIN_RESPONSES_FOR_CALIBRATION: int = 100
+
 
 def calculate_point_biserial_correlation(
     item_scores: List[int], total_scores: List[int]
