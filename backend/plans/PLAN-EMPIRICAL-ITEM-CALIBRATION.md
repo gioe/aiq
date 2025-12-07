@@ -34,7 +34,7 @@ This implementation addresses the gap between AI-assigned difficulty labels and 
 ---
 
 ### EIC-002: Define Difficulty Range Constants
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Add psychometrically-standard p-value ranges for each difficulty level.
 **Implementation:**
@@ -47,8 +47,8 @@ DIFFICULTY_RANGES = {
 ```
 
 **Acceptance Criteria:**
-- [ ] Constants defined and documented
-- [ ] Ranges align with IQ_METHODOLOGY.md Section 7 standards
+- [x] Constants defined and documented
+- [x] Ranges align with IQ_METHODOLOGY.md Section 7 standards
 
 ---
 
