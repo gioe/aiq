@@ -99,7 +99,7 @@ def validate_difficulty_labels(
 ---
 
 ### EIC-004: Implement recalibrate_questions() Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Create function that updates difficulty labels based on empirical data.
 
@@ -124,10 +124,10 @@ def recalibrate_questions(
 4. Return summary of changes (or preview if dry_run=True)
 
 **Acceptance Criteria:**
-- [ ] Preserves original difficulty label before first recalibration
-- [ ] Only recalibrates questions meeting severity threshold
-- [ ] Respects dry_run flag (no DB changes when true)
-- [ ] Returns detailed list of recalibrated questions with old/new labels
+- [x] Preserves original difficulty label before first recalibration
+- [x] Only recalibrates questions meeting severity threshold
+- [x] Respects dry_run flag (no DB changes when true)
+- [x] Returns detailed list of recalibrated questions with old/new labels
 
 ---
 
