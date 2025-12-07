@@ -170,8 +170,8 @@ def recalibrate_questions(
 ---
 
 ### EIC-006: Create Recalibration Admin Endpoint
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/admin.py`, `backend/app/schemas/`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/calibration.py`
 **Description:** Create admin endpoint to trigger recalibration manually.
 
 **Endpoint:** `POST /v1/admin/questions/recalibrate`
@@ -204,11 +204,11 @@ def recalibrate_questions(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Validates request parameters
-- [ ] dry_run=true returns preview without database changes
-- [ ] dry_run=false commits changes and returns summary
-- [ ] All recalibrations logged for audit trail
+- [x] Endpoint requires admin authentication
+- [x] Validates request parameters
+- [x] dry_run=true returns preview without database changes
+- [x] dry_run=false commits changes and returns summary
+- [x] All recalibrations logged for audit trail
 
 ---
 
