@@ -263,6 +263,22 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
                 f"discrimination={discrimination:.3f}, "
                 f"responses={response_count}"
             )
+
+            # Real-time drift detection logging (EIC-007)
+            # Log warning when question has sufficient data and empirical difficulty
+            # falls outside expected range for assigned difficulty label
+            if response_count >= MIN_RESPONSES_FOR_CALIBRATION:
+                assigned_difficulty = question.difficulty_level.value.lower()
+                expected_range = DIFFICULTY_RANGES.get(assigned_difficulty)
+                if expected_range and not (
+                    expected_range[0] <= empirical_difficulty <= expected_range[1]
+                ):
+                    logger.warning(
+                        f"Question {question_id} drift detected: "
+                        f"labeled {question.difficulty_level.value} but "
+                        f"empirical p-value is {empirical_difficulty:.3f} "
+                        f"(expected range: {expected_range[0]:.2f}-{expected_range[1]:.2f})"
+                    )
         else:
             logger.error(f"Question {question_id} not found in database")
             # mypy: ignore - None values intentional for missing questions
