@@ -4,7 +4,8 @@ Tests for admin API endpoints.
 import pytest
 from unittest.mock import patch
 
-from app.models import QuestionGenerationRun, GenerationRunStatus
+from app.models import QuestionGenerationRun, GenerationRunStatus, Question
+from app.models.models import QuestionType, DifficultyLevel
 
 
 @pytest.fixture
@@ -1792,3 +1793,381 @@ class TestGetGenerationRunStats:
 
         for field in expected_fields:
             assert field in data, f"Expected field '{field}' not in response"
+
+
+# =============================================================================
+# CALIBRATION HEALTH ENDPOINT TESTS (EIC-005)
+# =============================================================================
+
+
+@pytest.fixture
+def admin_token_headers():
+    """Create admin token headers for authentication."""
+    return {"X-Admin-Token": "test-admin-token"}
+
+
+@pytest.fixture
+def calibration_test_questions(db_session):
+    """
+    Create questions with various empirical difficulty levels for testing
+    calibration health endpoint.
+    """
+    questions = [
+        # Correctly calibrated easy question (p-value in 0.70-0.90 range)
+        Question(
+            question_text="Easy question 1",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.90,
+            is_active=True,
+            response_count=150,
+            empirical_difficulty=0.80,  # Within easy range (0.70-0.90)
+        ),
+        # Correctly calibrated medium question (p-value in 0.40-0.70 range)
+        Question(
+            question_text="Medium question 1",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="B",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.85,
+            is_active=True,
+            response_count=120,
+            empirical_difficulty=0.55,  # Within medium range (0.40-0.70)
+        ),
+        # Correctly calibrated hard question (p-value in 0.15-0.40 range)
+        Question(
+            question_text="Hard question 1",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="C",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.88,
+            is_active=True,
+            response_count=100,
+            empirical_difficulty=0.25,  # Within hard range (0.15-0.40)
+        ),
+        # Miscalibrated: labeled HARD but actually easy (severe miscalibration)
+        Question(
+            question_text="Miscalibrated severe",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="D",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.92,
+            is_active=True,
+            response_count=200,
+            empirical_difficulty=0.85,  # Should be "easy" - severe deviation
+        ),
+        # Miscalibrated: labeled EASY but actually hard (major miscalibration)
+        Question(
+            question_text="Miscalibrated major",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.85,
+            is_active=True,
+            response_count=150,
+            empirical_difficulty=0.45,  # Should be "medium" - major deviation
+        ),
+        # Miscalibrated: labeled MEDIUM but slightly outside range (minor)
+        Question(
+            question_text="Miscalibrated minor",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="B",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.80,
+            is_active=True,
+            response_count=110,
+            empirical_difficulty=0.75,  # Just outside medium upper bound (0.70)
+        ),
+        # Insufficient data - below min_responses threshold
+        Question(
+            question_text="Insufficient data",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="C",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.75,
+            is_active=True,
+            response_count=50,  # Below default 100 threshold
+            empirical_difficulty=0.30,
+        ),
+        # Inactive question - should not be counted
+        Question(
+            question_text="Inactive question",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="D",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            arbiter_score=0.70,
+            is_active=False,
+            response_count=200,
+            empirical_difficulty=0.10,
+        ),
+    ]
+
+    for q in questions:
+        db_session.add(q)
+    db_session.commit()
+
+    for q in questions:
+        db_session.refresh(q)
+
+    return questions
+
+
+class TestCalibrationHealth:
+    """Tests for GET /v1/admin/questions/calibration-health endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_success(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test successful retrieval of calibration health."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify structure
+        assert "summary" in data
+        assert "by_severity" in data
+        assert "by_difficulty" in data
+        assert "worst_offenders" in data
+
+        # Verify summary (3 calibrated, 3 miscalibrated based on fixtures)
+        assert data["summary"]["correctly_calibrated"] == 3
+        assert data["summary"]["miscalibrated"] == 3
+        assert data["summary"]["total_questions_with_data"] == 6
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_severity_breakdown(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test severity breakdown is correctly calculated."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Based on fixtures:
+        # - severe: 1 (hard labeled but 0.85 p-value)
+        # - major: 1 (easy labeled but 0.45 p-value)
+        # - minor: 1 (medium labeled but 0.75 p-value)
+        assert data["by_severity"]["severe"] == 1
+        assert data["by_severity"]["major"] == 1
+        assert data["by_severity"]["minor"] == 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_difficulty_breakdown(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test difficulty breakdown is correctly calculated."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Based on fixtures:
+        # Easy: 1 calibrated (0.80), 1 miscalibrated (0.45)
+        # Medium: 1 calibrated (0.55), 1 miscalibrated (0.75)
+        # Hard: 1 calibrated (0.25), 1 miscalibrated (0.85)
+        assert data["by_difficulty"]["easy"]["calibrated"] == 1
+        assert data["by_difficulty"]["easy"]["miscalibrated"] == 1
+        assert data["by_difficulty"]["medium"]["calibrated"] == 1
+        assert data["by_difficulty"]["medium"]["miscalibrated"] == 1
+        assert data["by_difficulty"]["hard"]["calibrated"] == 1
+        assert data["by_difficulty"]["hard"]["miscalibrated"] == 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_worst_offenders(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test worst offenders are correctly identified and sorted."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have 3 worst offenders (all miscalibrated)
+        assert len(data["worst_offenders"]) == 3
+
+        # First should be most severe (hard labeled, 0.85 p-value)
+        first = data["worst_offenders"][0]
+        assert first["severity"] == "severe"
+        assert first["assigned_difficulty"] == "hard"
+        assert first["suggested_label"] == "easy"
+        assert first["empirical_difficulty"] == 0.85
+
+        # Verify structure of worst offenders
+        for offender in data["worst_offenders"]:
+            assert "question_id" in offender
+            assert "assigned_difficulty" in offender
+            assert "empirical_difficulty" in offender
+            assert "expected_range" in offender
+            assert "suggested_label" in offender
+            assert "response_count" in offender
+            assert "severity" in offender
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_custom_min_responses(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that min_responses parameter works correctly."""
+        # With min_responses=50, should include the "insufficient data" question
+        response = client.get(
+            "/v1/admin/questions/calibration-health?min_responses=50",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Now should have 7 questions with data (including the 50-response one)
+        assert data["summary"]["total_questions_with_data"] == 7
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_empty_database(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test calibration health with no questions."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return zeros/empty
+        assert data["summary"]["total_questions_with_data"] == 0
+        assert data["summary"]["correctly_calibrated"] == 0
+        assert data["summary"]["miscalibrated"] == 0
+        assert data["summary"]["miscalibration_rate"] == 0.0
+        assert data["worst_offenders"] == []
+
+    def test_calibration_health_no_auth(self, client):
+        """Test that request without admin token is rejected."""
+        response = client.get("/v1/admin/questions/calibration-health")
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_invalid_auth(self, client):
+        """Test that request with invalid admin token is rejected."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "")
+    def test_calibration_health_token_not_configured(self, client, admin_token_headers):
+        """Test error when admin token is not configured on server."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 500
+        assert "not configured" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_invalid_min_responses(
+        self, client, admin_token_headers
+    ):
+        """Test validation of min_responses parameter."""
+        # Below minimum (1)
+        response = client.get(
+            "/v1/admin/questions/calibration-health?min_responses=0",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+        # Above maximum (1000)
+        response = client.get(
+            "/v1/admin/questions/calibration-health?min_responses=1001",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_miscalibration_rate(
+        self, client, db_session, admin_token_headers, calibration_test_questions
+    ):
+        """Test that miscalibration rate is correctly calculated."""
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # 3 miscalibrated / 6 total = 0.5
+        assert data["summary"]["miscalibration_rate"] == 0.5
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_calibration_health_all_calibrated(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test when all questions are correctly calibrated."""
+        # Create only correctly calibrated questions
+        for i, (difficulty, p_value) in enumerate(
+            [
+                (DifficultyLevel.EASY, 0.80),
+                (DifficultyLevel.MEDIUM, 0.55),
+                (DifficultyLevel.HARD, 0.25),
+            ]
+        ):
+            q = Question(
+                question_text=f"Calibrated question {i}",
+                question_type=QuestionType.MATH,
+                difficulty_level=difficulty,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2"},
+                source_llm="test-llm",
+                arbiter_score=0.90,
+                is_active=True,
+                response_count=150,
+                empirical_difficulty=p_value,
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/questions/calibration-health",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["summary"]["correctly_calibrated"] == 3
+        assert data["summary"]["miscalibrated"] == 0
+        assert data["summary"]["miscalibration_rate"] == 0.0
+        assert data["worst_offenders"] == []
