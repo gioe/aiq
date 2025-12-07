@@ -5,7 +5,7 @@ These schemas support the admin endpoints for viewing calibration health
 and triggering recalibration of question difficulty labels.
 """
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from enum import Enum
 
 
@@ -201,5 +201,159 @@ class CalibrationHealthResponse(BaseModel):
                         "severity": "severe",
                     }
                 ],
+            }
+        }
+
+
+# =============================================================================
+# Recalibration Request/Response Schemas (EIC-006)
+# =============================================================================
+
+
+class RecalibrationRequest(BaseModel):
+    """
+    Request schema for POST /v1/admin/questions/recalibrate.
+
+    Allows triggering recalibration with configurable options.
+    """
+
+    dry_run: bool = Field(
+        True,
+        description="If true, preview changes without applying. If false, commit changes.",
+    )
+    min_responses: int = Field(
+        100,
+        ge=1,
+        le=1000,
+        description="Minimum responses required for reliable recalibration",
+    )
+    question_ids: Optional[List[int]] = Field(
+        None,
+        description="Specific question IDs to recalibrate. If null, all eligible questions are considered.",
+    )
+    severity_threshold: SeverityLevel = Field(
+        SeverityLevel.MAJOR,
+        description="Minimum severity level to trigger recalibration (minor, major, severe)",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "dry_run": True,
+                "min_responses": 100,
+                "question_ids": None,
+                "severity_threshold": "major",
+            }
+        }
+
+
+class RecalibratedQuestion(BaseModel):
+    """Details of a recalibrated question."""
+
+    question_id: int = Field(
+        ...,
+        description="Unique identifier of the question",
+    )
+    old_label: str = Field(
+        ...,
+        description="Previous difficulty label before recalibration",
+    )
+    new_label: str = Field(
+        ...,
+        description="New difficulty label after recalibration",
+    )
+    empirical_difficulty: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Empirical p-value (proportion of users answering correctly)",
+    )
+    response_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of responses used to calculate empirical difficulty",
+    )
+    severity: SeverityLevel = Field(
+        ...,
+        description="Severity of miscalibration that triggered recalibration",
+    )
+
+
+class SkippedQuestion(BaseModel):
+    """Details of a question that was skipped during recalibration."""
+
+    question_id: int = Field(
+        ...,
+        description="Unique identifier of the question",
+    )
+    reason: str = Field(
+        ...,
+        description=(
+            "Reason for skipping: 'below_threshold', 'not_in_question_ids', "
+            "'insufficient_data', 'correctly_calibrated', 'database_error'"
+        ),
+    )
+    assigned_difficulty: str = Field(
+        ...,
+        description="Current difficulty label",
+    )
+    severity: Optional[SeverityLevel] = Field(
+        None,
+        description="Severity of miscalibration (null for correctly calibrated or insufficient data)",
+    )
+
+
+class RecalibrationResponse(BaseModel):
+    """
+    Response schema for POST /v1/admin/questions/recalibrate.
+
+    Returns details of recalibrated and skipped questions.
+    """
+
+    recalibrated: List[RecalibratedQuestion] = Field(
+        ...,
+        description="Questions that were recalibrated (or would be if dry_run=true)",
+    )
+    skipped: List[SkippedQuestion] = Field(
+        ...,
+        description="Questions that were skipped with reasons",
+    )
+    total_recalibrated: int = Field(
+        ...,
+        ge=0,
+        description="Total number of questions recalibrated",
+    )
+    dry_run: bool = Field(
+        ...,
+        description="Whether this was a dry run (preview only)",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "recalibrated": [
+                    {
+                        "question_id": 123,
+                        "old_label": "hard",
+                        "new_label": "easy",
+                        "empirical_difficulty": 0.82,
+                        "response_count": 156,
+                        "severity": "severe",
+                    }
+                ],
+                "skipped": [
+                    {
+                        "question_id": 456,
+                        "reason": "below_threshold",
+                        "assigned_difficulty": "medium",
+                        "severity": "minor",
+                    }
+                ],
+                "total_recalibrated": 5,
+                "dry_run": True,
             }
         }

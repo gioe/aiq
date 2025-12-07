@@ -41,6 +41,10 @@ from .calibration import (
     DifficultyBreakdown,
     MiscalibratedQuestion,
     CalibrationHealthResponse,
+    RecalibrationRequest,
+    RecalibratedQuestion,
+    SkippedQuestion,
+    RecalibrationResponse,
 )
 
 __all__ = [
@@ -75,4 +79,9 @@ __all__ = [
     "DifficultyBreakdown",
     "MiscalibratedQuestion",
     "CalibrationHealthResponse",
+    # Recalibration schemas (EIC-006)
+    "RecalibrationRequest",
+    "RecalibratedQuestion",
+    "SkippedQuestion",
+    "RecalibrationResponse",
 ]
