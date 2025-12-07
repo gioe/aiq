@@ -32,6 +32,16 @@ from .generation_runs import (
     QuestionGenerationRunListResponse,
     QuestionGenerationRunStats,
 )
+from .calibration import (
+    SeverityLevel,
+    DifficultyLabel,
+    CalibrationSummary,
+    SeverityBreakdown,
+    DifficultyCalibrationStatus,
+    DifficultyBreakdown,
+    MiscalibratedQuestion,
+    CalibrationHealthResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -56,4 +66,13 @@ __all__ = [
     "QuestionGenerationRunSummary",
     "QuestionGenerationRunListResponse",
     "QuestionGenerationRunStats",
+    # Calibration schemas (EIC-005, EIC-006)
+    "SeverityLevel",
+    "DifficultyLabel",
+    "CalibrationSummary",
+    "SeverityBreakdown",
+    "DifficultyCalibrationStatus",
+    "DifficultyBreakdown",
+    "MiscalibratedQuestion",
+    "CalibrationHealthResponse",
 ]

@@ -132,8 +132,8 @@ def recalibrate_questions(
 ---
 
 ### EIC-005: Create Calibration Health Admin Endpoint
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/calibration.py`
 **Description:** Create endpoint exposing calibration status summary for admin dashboard.
 
 **Endpoint:** `GET /v1/admin/questions/calibration-health`
@@ -162,10 +162,10 @@ def recalibrate_questions(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Returns complete calibration health summary
-- [ ] Includes top 10 most severely miscalibrated questions
-- [ ] Response time < 2 seconds for 1000+ questions
+- [x] Endpoint requires admin authentication
+- [x] Returns complete calibration health summary
+- [x] Includes top 10 most severely miscalibrated questions
+- [x] Response time < 2 seconds for 1000+ questions
 
 ---
 
