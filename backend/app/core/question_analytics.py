@@ -801,6 +801,23 @@ def recalibrate_questions(
         old_label = q_info["assigned_difficulty"]
         new_label = q_info["suggested_label"]
 
+        # Validate suggested label before processing
+        valid_labels = {"easy", "medium", "hard"}
+        if new_label.lower() not in valid_labels:
+            logger.error(
+                f"Invalid suggested label '{new_label}' for question {question_id}. "
+                f"Expected one of: {valid_labels}"
+            )
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "invalid_suggested_label",
+                    "assigned_difficulty": old_label,
+                    "severity": severity,
+                }
+            )
+            continue
+
         recalibration_succeeded = True
         if not dry_run:
             # Perform the actual recalibration
@@ -811,8 +828,8 @@ def recalibrate_questions(
                     if question.original_difficulty_level is None:
                         question.original_difficulty_level = question.difficulty_level
 
-                    # Update to new difficulty level
-                    question.difficulty_level = DifficultyLevel(new_label.upper())  # type: ignore
+                    # Update to new difficulty level using enum member lookup
+                    question.difficulty_level = DifficultyLevel[new_label.upper()]  # type: ignore
                     question.difficulty_recalibrated_at = datetime.now(timezone.utc)  # type: ignore
 
                     logger.info(
