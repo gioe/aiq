@@ -213,7 +213,7 @@ def recalibrate_questions(
 ---
 
 ### EIC-007: Add Real-time Drift Detection Logging
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Modify `update_question_statistics()` to log warnings when empirical difficulty drifts outside expected range for assigned label.
 
@@ -231,10 +231,10 @@ if response_count >= 100:
 ```
 
 **Acceptance Criteria:**
-- [ ] Warning logged when question crosses 100 response threshold with drift
-- [ ] Warning logged on each update when question remains drifted
-- [ ] Log includes question ID, assigned label, and empirical p-value
-- [ ] Does not affect existing functionality
+- [x] Warning logged when question crosses 100 response threshold with drift
+- [x] Warning logged on each update when question remains drifted
+- [x] Log includes question ID, assigned label, and empirical p-value
+- [x] Does not affect existing functionality
 
 ---
 
