@@ -258,6 +258,13 @@ class TestSession(Base):
         JSON, nullable=True
     )  # Test composition metadata (P11-006)
 
+    # Time standardization (TS-001)
+    time_limit_exceeded = Column(
+        Boolean, default=False, nullable=False
+    )  # Flag indicating submission exceeded 30-minute time limit
+    # Set by backend during submission if total test time > 1800 seconds
+    # Over-time submissions are still accepted but flagged for validity analysis
+
     # Relationships
     user = relationship("User", back_populates="test_sessions")
     responses = relationship(
@@ -306,6 +313,13 @@ class Response(Base):
         nullable=False,
     )
 
+    # Time standardization (TS-001)
+    time_spent_seconds = Column(
+        Integer, nullable=True
+    )  # Time spent on this question in seconds
+    # Tracked by iOS app, submitted with batch response data
+    # Used for response time anomaly detection and speed-accuracy analysis
+
     # Relationships
     test_session = relationship("TestSession", back_populates="responses")
     user = relationship("User", back_populates="responses")
@@ -344,6 +358,13 @@ class TestResult(Base):
     standard_error = Column(Float, nullable=True)  # Standard Error of Measurement (SEM)
     ci_lower = Column(Integer, nullable=True)  # Lower bound of confidence interval
     ci_upper = Column(Integer, nullable=True)  # Upper bound of confidence interval
+
+    # Time standardization (TS-001)
+    response_time_flags = Column(
+        JSON, nullable=True
+    )  # Summary of response time anomalies detected during submission
+    # Example: {"rapid_responses": 2, "extended_times": 1, "rushed_session": false, "validity_concern": false}
+    # Populated by analyze_response_times() in time_analysis.py after test submission
 
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
