@@ -261,7 +261,7 @@ if response_count >= 100:
 ---
 
 ### EIC-009: Unit Tests for Recalibration Logic
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/core/test_question_analytics.py`
 **Description:** Unit tests for `recalibrate_questions()` function.
 
@@ -275,9 +275,9 @@ if response_count >= 100:
 - difficulty_recalibrated_at timestamp set correctly
 
 **Acceptance Criteria:**
-- [ ] Dry run verified to not modify database
-- [ ] Original label preservation logic verified
-- [ ] All filtering options tested
+- [x] Dry run verified to not modify database
+- [x] Original label preservation logic verified
+- [x] All filtering options tested
 
 ---
 
