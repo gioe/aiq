@@ -302,8 +302,8 @@ if response_count >= 100:
 ---
 
 ### EIC-011: Add Calibration Pydantic Schemas
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/admin.py` (create if doesn't exist)
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/calibration.py`
 **Description:** Create Pydantic models for request/response validation.
 
 **Schemas to Create:**
@@ -314,9 +314,9 @@ if response_count >= 100:
 - `RecalibratedQuestion`
 
 **Acceptance Criteria:**
-- [ ] All schemas match API specification
-- [ ] Proper validation rules (e.g., severity_threshold must be minor/major/severe)
-- [ ] Documentation strings for OpenAPI generation
+- [x] All schemas match API specification
+- [x] Proper validation rules (e.g., severity_threshold must be minor/major/severe)
+- [x] Documentation strings for OpenAPI generation
 
 ## Database Changes
 
