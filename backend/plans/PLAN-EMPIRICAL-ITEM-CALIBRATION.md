@@ -282,8 +282,8 @@ if response_count >= 100:
 ---
 
 ### EIC-010: Integration Tests for Admin Endpoints
-**Status:** [ ] Not Started
-**Files:** `backend/tests/api/v1/test_admin.py`
+**Status:** [x] Complete
+**Files:** `backend/tests/test_admin.py`
 **Description:** Integration tests for calibration health and recalibration endpoints.
 
 **Test Scenarios:**
@@ -295,9 +295,9 @@ if response_count >= 100:
 6. Verify authentication required for both endpoints
 
 **Acceptance Criteria:**
-- [ ] Full workflow tested end-to-end
-- [ ] Authentication enforced
-- [ ] Response schemas match specification
+- [x] Full workflow tested end-to-end
+- [x] Authentication enforced
+- [x] Response schemas match specification
 
 ---
 
