@@ -54,8 +54,8 @@ AIQ currently tracks completion time but lacks timing policies, per-question tim
 ---
 
 ### TS-003: Update Test Submission Endpoint to Accept Time Data
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/test.py`
 **Description:** Modify the test submission endpoint to accept and store per-question time data.
 
 **Changes:**
@@ -64,10 +64,10 @@ AIQ currently tracks completion time but lacks timing policies, per-question tim
 - Detect and flag if total time exceeds limit (30 minutes = 1800 seconds)
 
 **Acceptance Criteria:**
-- [ ] Endpoint accepts time_spent_seconds per response
-- [ ] Time data stored in database
-- [ ] Over-time submissions flagged but accepted
-- [ ] Backward compatible (time_spent_seconds optional)
+- [x] Endpoint accepts time_spent_seconds per response
+- [x] Time data stored in database
+- [x] Over-time submissions flagged but accepted
+- [x] Backward compatible (time_spent_seconds optional)
 
 ---
 

@@ -546,7 +546,7 @@ def submit_test(
         if is_correct:
             correct_count += 1
 
-        # Create Response record
+        # Create Response record with optional time tracking (TS-003)
         response = Response(
             test_session_id=test_session.id,
             user_id=current_user.id,
@@ -554,6 +554,7 @@ def submit_test(
             user_answer=resp_item.user_answer.strip(),
             is_correct=is_correct,
             answered_at=datetime.now(timezone.utc),
+            time_spent_seconds=resp_item.time_spent_seconds,  # TS-003: Store per-question time
         )
         db.add(response)
         response_count += 1
@@ -567,6 +568,16 @@ def submit_test(
     started_at = ensure_timezone_aware(test_session.started_at)  # type: ignore[arg-type]
     time_delta = completion_time - started_at
     completion_time_seconds = int(time_delta.total_seconds())
+
+    # TS-003: Detect and flag if total time exceeds 30-minute limit (1800 seconds)
+    # Over-time submissions are still accepted but flagged for validity analysis
+    TIME_LIMIT_SECONDS = 1800  # 30 minutes
+    if completion_time_seconds > TIME_LIMIT_SECONDS:
+        test_session.time_limit_exceeded = True  # type: ignore[assignment]
+        logger.info(
+            f"Test session {test_session.id} exceeded time limit: "
+            f"{completion_time_seconds}s > {TIME_LIMIT_SECONDS}s"
+        )
 
     # Calculate IQ score using scoring module
     score_result = calculate_iq_score(
