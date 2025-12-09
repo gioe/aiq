@@ -72,7 +72,7 @@ AIQ currently tracks completion time but lacks timing policies, per-question tim
 ---
 
 ### TS-004: Response Time Anomaly Detection Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/time_analysis.py` (new file)
 **Description:** Implement function to analyze response time patterns and detect anomalies.
 
@@ -109,12 +109,12 @@ def analyze_response_times(db: Session, session_id: int) -> Dict:
 - Rushed session: < 15 seconds average
 
 **Acceptance Criteria:**
-- [ ] Function calculates basic time statistics
-- [ ] Identifies rapid responses (< 3 seconds)
-- [ ] Identifies extended responses (> 5 minutes)
-- [ ] Flags overall rushed sessions
-- [ ] Returns structured anomaly data
-- [ ] Handles edge cases (no responses, missing time data)
+- [x] Function calculates basic time statistics
+- [x] Identifies rapid responses (< 3 seconds)
+- [x] Identifies extended responses (> 5 minutes)
+- [x] Flags overall rushed sessions
+- [x] Returns structured anomaly data
+- [x] Handles edge cases (no responses, missing time data)
 
 ---
 
