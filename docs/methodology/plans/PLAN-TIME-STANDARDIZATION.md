@@ -214,8 +214,8 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict:
 ---
 
 ### TS-008: iOS Per-Question Time Tracking
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/ViewModels/TestTakingViewModel.swift`, `ios/AIQ/Models/QuestionResponse.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/ViewModels/TestTakingViewModel.swift`, `ios/AIQ/Models/Question.swift`
 **Description:** Track time spent on each question in the iOS app.
 
 **Changes:**
@@ -234,11 +234,11 @@ struct QuestionResponse {
 ```
 
 **Acceptance Criteria:**
-- [ ] Time tracking starts when question displayed
-- [ ] Time recorded when answer submitted
-- [ ] Handles navigation between questions
-- [ ] Time included in batch submission payload
-- [ ] Handles app backgrounding gracefully
+- [x] Time tracking starts when question displayed
+- [x] Time recorded when answer submitted
+- [x] Handles navigation between questions
+- [x] Time included in batch submission payload
+- [x] Handles app backgrounding gracefully
 
 ---
 
