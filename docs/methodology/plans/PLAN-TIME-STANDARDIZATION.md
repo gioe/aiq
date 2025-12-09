@@ -119,8 +119,8 @@ def analyze_response_times(db: Session, session_id: int) -> Dict:
 ---
 
 ### TS-005: Integrate Anomaly Detection into Test Scoring
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/scoring.py`, `backend/app/api/v1/endpoints/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/test.py`
 **Description:** Call anomaly detection after test submission and store flags in TestResult.
 
 **Changes:**
@@ -129,10 +129,10 @@ def analyze_response_times(db: Session, session_id: int) -> Dict:
 - Include validity_concern in result response
 
 **Acceptance Criteria:**
-- [ ] Anomaly analysis runs on every completed test
-- [ ] Flags stored in TestResult.response_time_flags
-- [ ] Validity concern accessible in test result response
-- [ ] Analysis doesn't block or fail submission
+- [x] Anomaly analysis runs on every completed test
+- [x] Flags stored in TestResult.response_time_flags
+- [x] Validity concern accessible in test result response
+- [x] Analysis doesn't block or fail submission
 
 ---
 
