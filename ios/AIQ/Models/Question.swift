@@ -45,9 +45,18 @@ struct Question: Codable, Identifiable, Equatable {
 struct QuestionResponse: Codable, Equatable {
     let questionId: Int
     let userAnswer: String
+    let timeSpentSeconds: Int?
 
     enum CodingKeys: String, CodingKey {
         case questionId = "question_id"
         case userAnswer = "user_answer"
+        case timeSpentSeconds = "time_spent_seconds"
+    }
+
+    /// Creates a QuestionResponse with the given parameters
+    init(questionId: Int, userAnswer: String, timeSpentSeconds: Int? = nil) {
+        self.questionId = questionId
+        self.userAnswer = userAnswer
+        self.timeSpentSeconds = timeSpentSeconds
     }
 }

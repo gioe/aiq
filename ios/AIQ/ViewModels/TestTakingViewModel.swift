@@ -1,6 +1,8 @@
 import Combine
 import Foundation
+import UIKit
 
+// swiftlint:disable type_body_length
 /// ViewModel for managing test-taking state and logic
 @MainActor
 class TestTakingViewModel: BaseViewModel {
@@ -13,6 +15,17 @@ class TestTakingViewModel: BaseViewModel {
     @Published var isSubmitting: Bool = false
     @Published var testCompleted: Bool = false
     @Published var testResult: SubmittedTestResult?
+
+    // MARK: - Time Tracking Properties
+
+    /// Dictionary storing cumulative time spent per question (questionId -> seconds)
+    private var questionTimeSpent: [Int: Int] = [:]
+
+    /// When the current question was started/resumed
+    private var currentQuestionStartTime: Date?
+
+    /// For handling app backgrounding - when app went to background
+    private var backgroundEntryTime: Date?
 
     // MARK: - Private Properties
 
@@ -30,6 +43,12 @@ class TestTakingViewModel: BaseViewModel {
         self.answerStorage = answerStorage
         super.init()
         setupAutoSave()
+        setupBackgroundingNotifications()
+    }
+
+    deinit {
+        // Clean up notification observers
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Computed Properties
@@ -103,17 +122,23 @@ class TestTakingViewModel: BaseViewModel {
 
     func goToNext() {
         guard canGoNext else { return }
+        recordCurrentQuestionTime()
         currentQuestionIndex += 1
+        startQuestionTiming()
     }
 
     func goToPrevious() {
         guard canGoPrevious else { return }
+        recordCurrentQuestionTime()
         currentQuestionIndex -= 1
+        startQuestionTiming()
     }
 
     func goToQuestion(at index: Int) {
         guard index >= 0, index < questions.count else { return }
+        recordCurrentQuestionTime()
         currentQuestionIndex = index
+        startQuestionTiming()
     }
 
     // MARK: - Test Management
@@ -150,6 +175,10 @@ class TestTakingViewModel: BaseViewModel {
         currentQuestionIndex = 0
         userAnswers.removeAll()
         testCompleted = false
+
+        // Initialize time tracking
+        resetTimeTracking()
+        startQuestionTiming()
 
         AnalyticsService.shared.trackTestStarted(
             sessionId: response.session.id,
@@ -244,6 +273,10 @@ class TestTakingViewModel: BaseViewModel {
             }
 
             testCompleted = false
+
+            // Initialize time tracking for resumed session
+            resetTimeTracking()
+            startQuestionTiming()
 
             // Track successful error recovery via resume
             AnalyticsService.shared.trackActiveSessionErrorRecovered(
@@ -432,9 +465,17 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func buildTestSubmission(for session: TestSession) -> TestSubmission {
+        // Record final question time before submission
+        recordCurrentQuestionTime()
+
         let responses = questions.compactMap { question -> QuestionResponse? in
             guard let answer = userAnswers[question.id], !answer.isEmpty else { return nil }
-            return QuestionResponse(questionId: question.id, userAnswer: answer)
+            let timeSpent = questionTimeSpent[question.id]
+            return QuestionResponse(
+                questionId: question.id,
+                userAnswer: answer,
+                timeSpentSeconds: timeSpent
+            )
         }
         return TestSubmission(sessionId: session.id, responses: responses)
     }
@@ -540,6 +581,7 @@ class TestTakingViewModel: BaseViewModel {
         testCompleted = false
         testResult = nil
         error = nil
+        resetTimeTracking()
     }
 
     // MARK: - Local Storage
@@ -608,4 +650,86 @@ class TestTakingViewModel: BaseViewModel {
     var hasSavedProgress: Bool {
         answerStorage.hasProgress()
     }
+
+    // MARK: - Time Tracking
+
+    /// Sets up notification observers for app lifecycle events
+    private func setupBackgroundingNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillResignActive),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+
+    /// Called when app is about to go to background
+    @objc private func handleAppWillResignActive() {
+        // Record when we went to background
+        backgroundEntryTime = Date()
+
+        // Pause current question timing by recording elapsed time
+        if let startTime = currentQuestionStartTime, let question = currentQuestion {
+            let elapsed = Int(Date().timeIntervalSince(startTime))
+            questionTimeSpent[question.id, default: 0] += elapsed
+            currentQuestionStartTime = nil
+        }
+
+        #if DEBUG
+            print("⏸️ Time tracking paused - app backgrounded")
+        #endif
+    }
+
+    /// Called when app comes back to foreground
+    @objc private func handleAppDidBecomeActive() {
+        backgroundEntryTime = nil
+
+        // Resume timing for current question
+        if testSession != nil, !testCompleted, currentQuestion != nil {
+            currentQuestionStartTime = Date()
+        }
+
+        #if DEBUG
+            print("▶️ Time tracking resumed - app foregrounded")
+        #endif
+    }
+
+    /// Starts timing for the current question
+    private func startQuestionTiming() {
+        currentQuestionStartTime = Date()
+    }
+
+    /// Records time spent on current question and prepares for next
+    private func recordCurrentQuestionTime() {
+        guard let startTime = currentQuestionStartTime,
+              let question = currentQuestion else { return }
+
+        let elapsed = Int(Date().timeIntervalSince(startTime))
+        questionTimeSpent[question.id, default: 0] += elapsed
+        currentQuestionStartTime = nil
+
+        #if DEBUG
+            print("⏱️ Question \(question.id): +\(elapsed)s (total: \(questionTimeSpent[question.id] ?? 0)s)")
+        #endif
+    }
+
+    /// Gets the total time spent on a question
+    func getTimeSpentOnQuestion(_ questionId: Int) -> Int {
+        questionTimeSpent[questionId] ?? 0
+    }
+
+    /// Resets all time tracking data
+    private func resetTimeTracking() {
+        questionTimeSpent.removeAll()
+        currentQuestionStartTime = nil
+        backgroundEntryTime = nil
+    }
 }
+
+// swiftlint:enable type_body_length
