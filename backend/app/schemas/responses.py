@@ -2,7 +2,7 @@
 Pydantic schemas for response submission endpoints.
 """
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from app.schemas.test_sessions import TestSessionResponse
@@ -14,6 +14,9 @@ class ResponseItem(BaseModel):
 
     question_id: int = Field(..., description="Question ID being answered")
     user_answer: str = Field(..., description="User's answer to the question")
+    time_spent_seconds: Optional[int] = Field(
+        None, description="Time spent on this question in seconds"
+    )
 
     @field_validator("user_answer")
     @classmethod
@@ -56,6 +59,10 @@ class TestResultResponse(BaseModel):
         None, description="Time taken to complete test in seconds"
     )
     completed_at: datetime = Field(..., description="Timestamp of completion")
+    response_time_flags: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Summary of response time anomalies (rapid responses, extended times, validity concerns)",
+    )
 
     class Config:
         """Pydantic config."""

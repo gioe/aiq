@@ -20,6 +20,9 @@ class TestSessionResponse(BaseModel):
     completed_at: Optional[datetime] = Field(
         None, description="Session completion timestamp"
     )
+    time_limit_exceeded: bool = Field(
+        False, description="Flag indicating if 30-minute time limit was exceeded"
+    )
 
     class Config:
         """Pydantic configuration."""

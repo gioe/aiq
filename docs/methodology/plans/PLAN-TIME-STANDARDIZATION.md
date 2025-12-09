@@ -36,8 +36,8 @@ AIQ currently tracks completion time but lacks timing policies, per-question tim
 ---
 
 ### TS-002: Update Pydantic Schemas for Time Data
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/test.py`, `backend/app/schemas/response.py`
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/test_sessions.py`, `backend/app/schemas/responses.py`, `backend/app/api/v1/test.py`
 **Description:** Update request/response schemas to include per-question time spent and time-related flags.
 
 **Schema Changes:**
@@ -46,10 +46,10 @@ AIQ currently tracks completion time but lacks timing policies, per-question tim
 - Add `response_time_flags: Optional[dict]` to test result schema
 
 **Acceptance Criteria:**
-- [ ] ResponseSubmit schema accepts time_spent_seconds
-- [ ] TestSession response includes time_limit_exceeded
-- [ ] TestResult response includes response_time_flags
-- [ ] OpenAPI docs updated automatically
+- [x] ResponseSubmit schema accepts time_spent_seconds
+- [x] TestSession response includes time_limit_exceeded
+- [x] TestResult response includes response_time_flags
+- [x] OpenAPI docs updated automatically
 
 ---
 
