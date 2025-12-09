@@ -680,38 +680,32 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     Reference:
         docs/methodology/plans/PLAN-TIME-STANDARDIZATION.md (TS-007)
     """
+    from sqlalchemy import func
     from app.models.models import TestSession, TestStatus, TestResult
 
-    # Get all responses with time data from completed sessions
-    responses_with_time = (
-        db.query(Response, Question)
-        .join(Question, Response.question_id == Question.id)
+    # ==========================================================================
+    # Use database aggregations instead of loading all data into memory
+    # ==========================================================================
+
+    # Count total completed sessions (single scalar query)
+    total_sessions: int = (
+        db.query(func.count(TestSession.id))
+        .filter(TestSession.status == TestStatus.COMPLETED)
+        .scalar()
+        or 0
+    )
+
+    # Count total responses with time data from completed sessions
+    total_responses: int = (
+        db.query(func.count(Response.id))
         .join(TestSession, Response.test_session_id == TestSession.id)
         .filter(
             TestSession.status == TestStatus.COMPLETED,
             Response.time_spent_seconds.isnot(None),
         )
-        .all()
+        .scalar()
+        or 0
     )
-
-    # Get session-level data for duration calculations
-    completed_sessions = (
-        db.query(TestSession).filter(TestSession.status == TestStatus.COMPLETED).all()
-    )
-
-    # Get test results with response_time_flags for anomaly analysis
-    test_results_with_flags = (
-        db.query(TestResult)
-        .join(TestSession, TestResult.test_session_id == TestSession.id)
-        .filter(
-            TestSession.status == TestStatus.COMPLETED,
-            TestResult.response_time_flags.isnot(None),
-        )
-        .all()
-    )
-
-    total_sessions = len(completed_sessions)
-    total_responses = len(responses_with_time)
 
     # Handle edge case: no data
     if total_sessions == 0 or total_responses == 0:
@@ -719,32 +713,53 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
         return _create_empty_aggregate_analytics()
 
     # ==========================================================================
-    # Calculate overall statistics
+    # Calculate overall mean per question using database aggregation
     # ==========================================================================
 
-    # Calculate per-session total times
-    session_times: Dict[int, int] = {}
-    for response, _question in responses_with_time:
-        session_id = response.test_session_id
-        time_spent = response.time_spent_seconds  # type: ignore[assignment]
-        if session_id not in session_times:
-            session_times[session_id] = 0
-        session_times[session_id] += time_spent
+    mean_per_question_result = (
+        db.query(func.avg(Response.time_spent_seconds))
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .scalar()
+    )
+    mean_per_question: Optional[float] = (
+        round(float(mean_per_question_result), 2) if mean_per_question_result else None
+    )
 
-    # Calculate session duration statistics
-    session_durations = list(session_times.values())
+    # ==========================================================================
+    # Calculate per-session durations using database aggregation
+    # For median, we still need the values, but we aggregate at DB level first
+    # ==========================================================================
+
+    # Get per-session total times (grouped aggregation is more efficient than
+    # loading all individual responses)
+    session_duration_query = (
+        db.query(
+            Response.test_session_id,
+            func.sum(Response.time_spent_seconds).label("total_time"),
+        )
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .group_by(Response.test_session_id)
+        .all()
+    )
+
+    session_durations = [
+        row.total_time for row in session_duration_query if row.total_time
+    ]
+
     mean_test_duration: Optional[float] = None
     median_test_duration: Optional[float] = None
 
     if session_durations:
         mean_test_duration = round(statistics.mean(session_durations), 2)
         median_test_duration = round(statistics.median(session_durations), 2)
-
-    # Calculate overall mean per question
-    all_times = [r.time_spent_seconds for r, _q in responses_with_time]  # type: ignore
-    mean_per_question: Optional[float] = None
-    if all_times:
-        mean_per_question = round(statistics.mean(all_times), 2)
 
     overall_stats = {
         "mean_test_duration_seconds": mean_test_duration,
@@ -753,26 +768,63 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     }
 
     # ==========================================================================
-    # Calculate statistics by difficulty level
+    # Calculate statistics by difficulty level using database aggregation
     # ==========================================================================
 
-    difficulty_times: Dict[str, List[int]] = {
-        "easy": [],
-        "medium": [],
-        "hard": [],
-    }
+    difficulty_stats_query = (
+        db.query(
+            Question.difficulty_level,
+            func.avg(Response.time_spent_seconds).label("mean_time"),
+        )
+        .join(Response, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .group_by(Question.difficulty_level)
+        .all()
+    )
 
-    for response, question in responses_with_time:
-        difficulty = question.difficulty_level.value
-        time_spent = response.time_spent_seconds  # type: ignore[assignment]
-        if difficulty in difficulty_times:
-            difficulty_times[difficulty].append(time_spent)
+    # Build difficulty stats from aggregated results
+    difficulty_means: Dict[str, Optional[float]] = {
+        "easy": None,
+        "medium": None,
+        "hard": None,
+    }
+    for row in difficulty_stats_query:
+        difficulty_key = row.difficulty_level.value
+        if difficulty_key in difficulty_means and row.mean_time is not None:
+            difficulty_means[difficulty_key] = round(float(row.mean_time), 2)
+
+    # For median by difficulty, we need to fetch the values grouped by difficulty
+    # This is still more efficient than loading Response+Question for all rows
+    difficulty_times_query = (
+        db.query(
+            Question.difficulty_level,
+            Response.time_spent_seconds,
+        )
+        .join(Response, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .all()
+    )
+
+    difficulty_times: Dict[str, List[int]] = {"easy": [], "medium": [], "hard": []}
+    for row in difficulty_times_query:
+        difficulty_key = row.difficulty_level.value
+        if difficulty_key in difficulty_times:
+            difficulty_times[difficulty_key].append(row.time_spent_seconds)
 
     by_difficulty: Dict[str, Dict[str, Optional[float]]] = {}
-    for difficulty, times in difficulty_times.items():
+    for difficulty in ["easy", "medium", "hard"]:
+        times = difficulty_times[difficulty]
         if times:
             by_difficulty[difficulty] = {
-                "mean_seconds": round(statistics.mean(times), 2),
+                "mean_seconds": difficulty_means[difficulty],
                 "median_seconds": round(statistics.median(times), 2),
             }
         else:
@@ -782,45 +834,61 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
             }
 
     # ==========================================================================
-    # Calculate statistics by question type
+    # Calculate statistics by question type using database aggregation
     # ==========================================================================
 
-    question_type_times: Dict[str, List[int]] = {
-        "pattern": [],
-        "logic": [],
-        "spatial": [],
-        "math": [],
-        "verbal": [],
-        "memory": [],
+    question_type_stats_query = (
+        db.query(
+            Question.question_type,
+            func.avg(Response.time_spent_seconds).label("mean_time"),
+        )
+        .join(Response, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .group_by(Question.question_type)
+        .all()
+    )
+
+    # Build question type stats from aggregated results
+    by_question_type: Dict[str, Dict[str, Optional[float]]] = {
+        "pattern": {"mean_seconds": None},
+        "logic": {"mean_seconds": None},
+        "spatial": {"mean_seconds": None},
+        "math": {"mean_seconds": None},
+        "verbal": {"mean_seconds": None},
+        "memory": {"mean_seconds": None},
     }
 
-    for response, question in responses_with_time:
-        q_type = question.question_type.value
-        time_spent = response.time_spent_seconds  # type: ignore[assignment]
-        if q_type in question_type_times:
-            question_type_times[q_type].append(time_spent)
-
-    by_question_type: Dict[str, Dict[str, Optional[float]]] = {}
-    for q_type, times in question_type_times.items():
-        if times:
-            by_question_type[q_type] = {
-                "mean_seconds": round(statistics.mean(times), 2),
-            }
-        else:
-            by_question_type[q_type] = {
-                "mean_seconds": None,
+    for row in question_type_stats_query:
+        q_type_key = row.question_type.value
+        if q_type_key in by_question_type and row.mean_time is not None:
+            by_question_type[q_type_key] = {
+                "mean_seconds": round(float(row.mean_time), 2),
             }
 
     # ==========================================================================
-    # Calculate anomaly summary
+    # Calculate anomaly summary - only load response_time_flags column
     # ==========================================================================
+
+    # Load only the flags column, not full TestResult objects
+    flags_query = (
+        db.query(TestResult.response_time_flags)
+        .join(TestSession, TestResult.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            TestResult.response_time_flags.isnot(None),
+        )
+        .all()
+    )
 
     sessions_with_rapid = 0
     sessions_with_extended = 0
     sessions_flagged = 0
 
-    for result in test_results_with_flags:
-        flags_data = result.response_time_flags
+    for (flags_data,) in flags_query:
         if flags_data:
             # Check for rapid responses
             rapid_count = flags_data.get("rapid_responses", 0)
