@@ -40,6 +40,16 @@ from app.core.question_analytics import (
     validate_difficulty_labels,
     recalibrate_questions,
 )
+from app.core.time_analysis import get_aggregate_response_time_analytics
+from app.schemas.response_time_analytics import (
+    ResponseTimeAnalyticsResponse,
+    OverallTimeStats,
+    DifficultyTimeStats,
+    ByDifficultyStats,
+    QuestionTypeTimeStats,
+    ByQuestionTypeStats,
+    AnomalySummary,
+)
 
 router = APIRouter()
 
@@ -1337,4 +1347,131 @@ async def recalibrate_difficulty_labels(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to recalibrate questions: {str(e)}",
+        )
+
+
+# =============================================================================
+# RESPONSE TIME ANALYTICS ENDPOINT (TS-007)
+# =============================================================================
+
+
+@router.get(
+    "/analytics/response-times",
+    response_model=ResponseTimeAnalyticsResponse,
+)
+async def get_response_time_analytics(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Get aggregate response time analytics across all completed test sessions.
+
+    Returns comprehensive timing statistics including overall test duration,
+    breakdown by difficulty level and question type, and a summary of
+    timing anomalies (rapid responses, extended times, validity concerns).
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Overall Statistics:**
+    - Mean and median total test duration in seconds
+    - Mean time per question across all responses
+
+    **By Difficulty:**
+    - Mean and median response time for easy, medium, and hard questions
+
+    **By Question Type:**
+    - Mean response time for each question type (pattern, logic, spatial, math, verbal, memory)
+
+    **Anomaly Summary:**
+    - Count of sessions with rapid responses (< 3 seconds per question)
+    - Count of sessions with extended response times (> 5 minutes per question)
+    - Percentage of sessions flagged with validity concerns
+
+    Args:
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        ResponseTimeAnalyticsResponse with aggregate timing statistics
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/analytics/response-times" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    try:
+        # Get aggregate analytics from time_analysis module
+        analytics = get_aggregate_response_time_analytics(db)
+
+        # Build response using Pydantic models
+        overall = OverallTimeStats(
+            mean_test_duration_seconds=analytics["overall"][
+                "mean_test_duration_seconds"
+            ],
+            median_test_duration_seconds=analytics["overall"][
+                "median_test_duration_seconds"
+            ],
+            mean_per_question_seconds=analytics["overall"]["mean_per_question_seconds"],
+        )
+
+        by_difficulty = ByDifficultyStats(
+            easy=DifficultyTimeStats(
+                mean_seconds=analytics["by_difficulty"]["easy"]["mean_seconds"],
+                median_seconds=analytics["by_difficulty"]["easy"]["median_seconds"],
+            ),
+            medium=DifficultyTimeStats(
+                mean_seconds=analytics["by_difficulty"]["medium"]["mean_seconds"],
+                median_seconds=analytics["by_difficulty"]["medium"]["median_seconds"],
+            ),
+            hard=DifficultyTimeStats(
+                mean_seconds=analytics["by_difficulty"]["hard"]["mean_seconds"],
+                median_seconds=analytics["by_difficulty"]["hard"]["median_seconds"],
+            ),
+        )
+
+        by_question_type = ByQuestionTypeStats(
+            pattern=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["pattern"]["mean_seconds"],
+            ),
+            logic=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["logic"]["mean_seconds"],
+            ),
+            spatial=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["spatial"]["mean_seconds"],
+            ),
+            math=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["math"]["mean_seconds"],
+            ),
+            verbal=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["verbal"]["mean_seconds"],
+            ),
+            memory=QuestionTypeTimeStats(
+                mean_seconds=analytics["by_question_type"]["memory"]["mean_seconds"],
+            ),
+        )
+
+        anomaly_summary = AnomalySummary(
+            sessions_with_rapid_responses=analytics["anomaly_summary"][
+                "sessions_with_rapid_responses"
+            ],
+            sessions_with_extended_times=analytics["anomaly_summary"][
+                "sessions_with_extended_times"
+            ],
+            pct_flagged=analytics["anomaly_summary"]["pct_flagged"],
+        )
+
+        return ResponseTimeAnalyticsResponse(
+            overall=overall,
+            by_difficulty=by_difficulty,
+            by_question_type=by_question_type,
+            anomaly_summary=anomaly_summary,
+            total_sessions_analyzed=analytics["total_sessions_analyzed"],
+            total_responses_analyzed=analytics["total_responses_analyzed"],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve response time analytics: {str(e)}",
         )

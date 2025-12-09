@@ -168,8 +168,8 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict:
 ---
 
 ### TS-007: Admin Analytics Endpoint for Response Times
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/core/time_analysis.py`, `backend/app/schemas/response_time_analytics.py`
 **Description:** Create admin endpoint for aggregate response time analytics.
 
 **Endpoint:** `GET /v1/admin/analytics/response-times`
@@ -204,12 +204,12 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict:
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint returns aggregate time statistics
-- [ ] Breakdown by difficulty level
-- [ ] Breakdown by question type
-- [ ] Anomaly summary counts
-- [ ] Admin authentication required
-- [ ] Handles empty data gracefully
+- [x] Endpoint returns aggregate time statistics
+- [x] Breakdown by difficulty level
+- [x] Breakdown by question type
+- [x] Anomaly summary counts
+- [x] Admin authentication required
+- [x] Handles empty data gracefully
 
 ---
 

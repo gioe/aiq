@@ -46,6 +46,15 @@ from .calibration import (
     SkippedQuestion,
     RecalibrationResponse,
 )
+from .response_time_analytics import (
+    OverallTimeStats,
+    DifficultyTimeStats,
+    ByDifficultyStats,
+    QuestionTypeTimeStats,
+    ByQuestionTypeStats,
+    AnomalySummary,
+    ResponseTimeAnalyticsResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -84,4 +93,12 @@ __all__ = [
     "RecalibratedQuestion",
     "SkippedQuestion",
     "RecalibrationResponse",
+    # Response time analytics schemas (TS-007)
+    "OverallTimeStats",
+    "DifficultyTimeStats",
+    "ByDifficultyStats",
+    "QuestionTypeTimeStats",
+    "ByQuestionTypeStats",
+    "AnomalySummary",
+    "ResponseTimeAnalyticsResponse",
 ]
