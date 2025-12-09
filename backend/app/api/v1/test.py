@@ -23,6 +23,7 @@ from app.schemas.responses import (
 )
 from app.core.auth import get_current_user
 from app.core.scoring import calculate_iq_score, iq_to_percentile
+from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
@@ -587,6 +588,25 @@ def submit_test(
     # Calculate percentile rank
     percentile = iq_to_percentile(score_result.iq_score)
 
+    # TS-005: Run response time anomaly detection
+    # This analysis runs after scoring to detect timing patterns that may indicate
+    # validity concerns (random clicking, external assistance, etc.)
+    response_time_flags = None
+    try:
+        time_analysis = analyze_response_times(db, int(test_session.id))  # type: ignore
+        response_time_flags = get_session_time_summary(time_analysis)
+
+        if response_time_flags.get("validity_concern"):
+            logger.info(
+                f"Test session {test_session.id} has validity concerns: "
+                f"flags={response_time_flags.get('flags')}"
+            )
+    except Exception as e:
+        # Log error but don't fail the submission - anomaly detection is non-critical
+        logger.error(
+            f"Failed to analyze response times for session {test_session.id}: {e}"
+        )
+
     # Create TestResult record
     from app.models.models import TestResult
 
@@ -599,6 +619,7 @@ def submit_test(
         correct_answers=score_result.correct_answers,
         completion_time_seconds=completion_time_seconds,
         completed_at=completion_time,
+        response_time_flags=response_time_flags,  # TS-005: Store anomaly flags
     )
     db.add(test_result)
 
