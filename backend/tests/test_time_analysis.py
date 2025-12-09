@@ -1,10 +1,11 @@
 """
-Unit tests for response time analysis functions (TS-006, TS-012).
+Unit tests for response time analysis functions (TS-006, TS-007, TS-012).
 
 Tests cover:
 - analyze_speed_accuracy() function
 - Point-biserial correlation calculation
 - Interpretation logic
+- get_aggregate_response_time_analytics() function (TS-007)
 - Edge cases (insufficient data, empty responses, etc.)
 """
 
@@ -13,6 +14,8 @@ from app.core.time_analysis import (
     _calculate_point_biserial_correlation,
     _interpret_speed_accuracy,
     _create_empty_speed_accuracy_result,
+    get_aggregate_response_time_analytics,
+    _create_empty_aggregate_analytics,
 )
 
 
@@ -429,3 +432,421 @@ class TestEmptySpeedAccuracyResult:
         assert result["correlation"] is None
         assert result["interpretation"] == "insufficient_data"
         assert result["time_difference_seconds"] is None
+
+
+# =============================================================================
+# AGGREGATE RESPONSE TIME ANALYTICS TESTS (TS-007)
+# =============================================================================
+
+
+class TestGetAggregateResponseTimeAnalytics:
+    """Tests for the get_aggregate_response_time_analytics function."""
+
+    def test_no_data_returns_empty_analytics(self, db_session):
+        """Test that empty database returns empty analytics."""
+        result = get_aggregate_response_time_analytics(db_session)
+
+        assert result["total_sessions_analyzed"] == 0
+        assert result["total_responses_analyzed"] == 0
+        assert result["overall"]["mean_test_duration_seconds"] is None
+        assert result["overall"]["median_test_duration_seconds"] is None
+        assert result["overall"]["mean_per_question_seconds"] is None
+        assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 0
+        assert result["anomaly_summary"]["sessions_with_extended_times"] == 0
+        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+
+    def test_with_completed_sessions(self, db_session, test_user, test_questions):
+        """Test analytics with completed test sessions."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            TestResult,
+        )
+
+        # Create a completed session with responses
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with time data
+        # Use different difficulties and types from test_questions
+        time_spent_values = [20, 35, 25, 40]  # Total: 120 seconds
+        for i, question in enumerate(test_questions[:4]):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=question.id,
+                user_answer="10",
+                is_correct=True,
+                time_spent_seconds=time_spent_values[i],
+            )
+            db_session.add(response)
+
+        # Create test result
+        test_result = TestResult(
+            test_session_id=session.id,
+            user_id=test_user.id,
+            iq_score=100,
+            total_questions=4,
+            correct_answers=4,
+            completion_time_seconds=120,
+            response_time_flags={
+                "rapid_responses": 0,
+                "extended_times": 0,
+                "validity_concern": False,
+            },
+        )
+        db_session.add(test_result)
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        assert result["total_sessions_analyzed"] == 1
+        assert result["total_responses_analyzed"] == 4
+        assert result["overall"]["mean_test_duration_seconds"] == 120.0
+        assert result["overall"]["median_test_duration_seconds"] == 120.0
+        assert result["overall"]["mean_per_question_seconds"] == 30.0  # 120/4
+        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+
+    def test_by_difficulty_breakdown(self, db_session, test_user):
+        """Test that difficulty breakdown is calculated correctly."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+
+        # Create questions of each difficulty
+        easy_q = Question(
+            question_text="Easy question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            is_active=True,
+        )
+        medium_q = Question(
+            question_text="Medium question",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="B",
+            is_active=True,
+        )
+        hard_q = Question(
+            question_text="Hard question",
+            question_type=QuestionType.SPATIAL,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="C",
+            is_active=True,
+        )
+        db_session.add_all([easy_q, medium_q, hard_q])
+        db_session.commit()
+
+        # Create a completed session
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with specific times for each difficulty
+        # Easy: 20s, Medium: 40s, Hard: 60s
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=easy_q.id,
+                user_answer="A",
+                is_correct=True,
+                time_spent_seconds=20,
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=medium_q.id,
+                user_answer="B",
+                is_correct=True,
+                time_spent_seconds=40,
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=hard_q.id,
+                user_answer="C",
+                is_correct=True,
+                time_spent_seconds=60,
+            )
+        )
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        assert result["by_difficulty"]["easy"]["mean_seconds"] == 20.0
+        assert result["by_difficulty"]["medium"]["mean_seconds"] == 40.0
+        assert result["by_difficulty"]["hard"]["mean_seconds"] == 60.0
+
+    def test_by_question_type_breakdown(self, db_session, test_user):
+        """Test that question type breakdown is calculated correctly."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+
+        # Create questions of different types
+        pattern_q = Question(
+            question_text="Pattern question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            is_active=True,
+        )
+        math_q = Question(
+            question_text="Math question",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="B",
+            is_active=True,
+        )
+        verbal_q = Question(
+            question_text="Verbal question",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="C",
+            is_active=True,
+        )
+        db_session.add_all([pattern_q, math_q, verbal_q])
+        db_session.commit()
+
+        # Create a completed session
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with specific times for each type
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=pattern_q.id,
+                user_answer="A",
+                is_correct=True,
+                time_spent_seconds=45,
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=math_q.id,
+                user_answer="B",
+                is_correct=True,
+                time_spent_seconds=35,
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=verbal_q.id,
+                user_answer="C",
+                is_correct=True,
+                time_spent_seconds=25,
+            )
+        )
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        assert result["by_question_type"]["pattern"]["mean_seconds"] == 45.0
+        assert result["by_question_type"]["math"]["mean_seconds"] == 35.0
+        assert result["by_question_type"]["verbal"]["mean_seconds"] == 25.0
+        # Types without data should be None
+        assert result["by_question_type"]["logic"]["mean_seconds"] is None
+        assert result["by_question_type"]["spatial"]["mean_seconds"] is None
+        assert result["by_question_type"]["memory"]["mean_seconds"] is None
+
+    def test_anomaly_summary_counts_flagged_sessions(
+        self, db_session, test_user, test_questions
+    ):
+        """Test that anomaly summary correctly counts flagged sessions."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            TestResult,
+        )
+
+        # Create two sessions - one flagged, one not
+        session1 = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+        session2 = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+        db_session.add_all([session1, session2])
+        db_session.commit()
+
+        # Add responses to both sessions
+        for session in [session1, session2]:
+            db_session.add(
+                Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=test_questions[0].id,
+                    user_answer="10",
+                    is_correct=True,
+                    time_spent_seconds=30,
+                )
+            )
+
+        # Create test results - one with validity concern, one without
+        result1 = TestResult(
+            test_session_id=session1.id,
+            user_id=test_user.id,
+            iq_score=100,
+            total_questions=1,
+            correct_answers=1,
+            response_time_flags={
+                "rapid_responses": 3,
+                "extended_times": 0,
+                "validity_concern": True,
+            },
+        )
+        result2 = TestResult(
+            test_session_id=session2.id,
+            user_id=test_user.id,
+            iq_score=105,
+            total_questions=1,
+            correct_answers=1,
+            response_time_flags={
+                "rapid_responses": 0,
+                "extended_times": 1,
+                "validity_concern": False,
+            },
+        )
+        db_session.add_all([result1, result2])
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 1
+        assert result["anomaly_summary"]["sessions_with_extended_times"] == 1
+        assert result["anomaly_summary"]["pct_flagged"] == 50.0  # 1 out of 2
+
+    def test_in_progress_sessions_excluded(self, db_session, test_user, test_questions):
+        """Test that in-progress sessions are not included in analytics."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        # Create an in-progress session
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.IN_PROGRESS,  # Not completed
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add a response
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[0].id,
+                user_answer="10",
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+        )
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        # Should be empty because the session is not completed
+        assert result["total_sessions_analyzed"] == 0
+        assert result["total_responses_analyzed"] == 0
+
+    def test_responses_without_time_excluded(
+        self, db_session, test_user, test_questions
+    ):
+        """Test that responses without time data are excluded from time statistics."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add one response with time, one without
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[0].id,
+                user_answer="10",
+                is_correct=True,
+                time_spent_seconds=30,  # Has time data
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[1].id,
+                user_answer="No",
+                is_correct=True,
+                time_spent_seconds=None,  # No time data
+            )
+        )
+        db_session.commit()
+
+        result = get_aggregate_response_time_analytics(db_session)
+
+        # Only 1 response has time data
+        assert result["total_responses_analyzed"] == 1
+        assert result["overall"]["mean_per_question_seconds"] == 30.0
+
+
+class TestEmptyAggregateAnalytics:
+    """Tests for the empty aggregate analytics helper."""
+
+    def test_creates_correct_structure(self):
+        """Test that empty analytics has all expected fields."""
+        result = _create_empty_aggregate_analytics()
+
+        # Check overall
+        assert result["overall"]["mean_test_duration_seconds"] is None
+        assert result["overall"]["median_test_duration_seconds"] is None
+        assert result["overall"]["mean_per_question_seconds"] is None
+
+        # Check by_difficulty
+        for difficulty in ["easy", "medium", "hard"]:
+            assert result["by_difficulty"][difficulty]["mean_seconds"] is None
+            assert result["by_difficulty"][difficulty]["median_seconds"] is None
+
+        # Check by_question_type
+        for q_type in ["pattern", "logic", "spatial", "math", "verbal", "memory"]:
+            assert result["by_question_type"][q_type]["mean_seconds"] is None
+
+        # Check anomaly_summary
+        assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 0
+        assert result["anomaly_summary"]["sessions_with_extended_times"] == 0
+        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+
+        # Check totals
+        assert result["total_sessions_analyzed"] == 0
+        assert result["total_responses_analyzed"] == 0

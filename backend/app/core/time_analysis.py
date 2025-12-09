@@ -624,3 +624,276 @@ def _interpret_speed_accuracy(
         if correlation is not None and correlation < -0.2:
             return "faster_incorrect"
         return "slower_correct"
+
+
+# =============================================================================
+# AGGREGATE RESPONSE TIME ANALYTICS (TS-007)
+# =============================================================================
+
+
+def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
+    """
+    Calculate aggregate response time analytics across all completed test sessions.
+
+    This function provides overall timing statistics, breakdown by difficulty and
+    question type, and a summary of timing anomalies across the entire test-taking
+    population. Designed for admin dashboard and monitoring purposes.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dictionary containing aggregate analytics:
+        {
+            "overall": {
+                "mean_test_duration_seconds": float,
+                "median_test_duration_seconds": float,
+                "mean_per_question_seconds": float
+            },
+            "by_difficulty": {
+                "easy": {"mean_seconds": float, "median_seconds": float},
+                "medium": {"mean_seconds": float, "median_seconds": float},
+                "hard": {"mean_seconds": float, "median_seconds": float}
+            },
+            "by_question_type": {
+                "pattern": {"mean_seconds": float},
+                "logic": {"mean_seconds": float},
+                "spatial": {"mean_seconds": float},
+                "math": {"mean_seconds": float},
+                "verbal": {"mean_seconds": float},
+                "memory": {"mean_seconds": float}
+            },
+            "anomaly_summary": {
+                "sessions_with_rapid_responses": int,
+                "sessions_with_extended_times": int,
+                "pct_flagged": float
+            },
+            "total_sessions_analyzed": int,
+            "total_responses_analyzed": int
+        }
+
+    Edge Cases Handled:
+        - No completed sessions: Returns empty analytics with zeros
+        - No time data: Returns None for statistics that can't be computed
+        - Mixed data (some with time, some without): Uses available data
+
+    Reference:
+        docs/methodology/plans/PLAN-TIME-STANDARDIZATION.md (TS-007)
+    """
+    from app.models.models import TestSession, TestStatus, TestResult
+
+    # Get all responses with time data from completed sessions
+    responses_with_time = (
+        db.query(Response, Question)
+        .join(Question, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .all()
+    )
+
+    # Get session-level data for duration calculations
+    completed_sessions = (
+        db.query(TestSession).filter(TestSession.status == TestStatus.COMPLETED).all()
+    )
+
+    # Get test results with response_time_flags for anomaly analysis
+    test_results_with_flags = (
+        db.query(TestResult)
+        .join(TestSession, TestResult.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            TestResult.response_time_flags.isnot(None),
+        )
+        .all()
+    )
+
+    total_sessions = len(completed_sessions)
+    total_responses = len(responses_with_time)
+
+    # Handle edge case: no data
+    if total_sessions == 0 or total_responses == 0:
+        logger.info("No completed sessions with time data for aggregate analytics")
+        return _create_empty_aggregate_analytics()
+
+    # ==========================================================================
+    # Calculate overall statistics
+    # ==========================================================================
+
+    # Calculate per-session total times
+    session_times: Dict[int, int] = {}
+    for response, _question in responses_with_time:
+        session_id = response.test_session_id
+        time_spent = response.time_spent_seconds  # type: ignore[assignment]
+        if session_id not in session_times:
+            session_times[session_id] = 0
+        session_times[session_id] += time_spent
+
+    # Calculate session duration statistics
+    session_durations = list(session_times.values())
+    mean_test_duration: Optional[float] = None
+    median_test_duration: Optional[float] = None
+
+    if session_durations:
+        mean_test_duration = round(statistics.mean(session_durations), 2)
+        median_test_duration = round(statistics.median(session_durations), 2)
+
+    # Calculate overall mean per question
+    all_times = [r.time_spent_seconds for r, _q in responses_with_time]  # type: ignore
+    mean_per_question: Optional[float] = None
+    if all_times:
+        mean_per_question = round(statistics.mean(all_times), 2)
+
+    overall_stats = {
+        "mean_test_duration_seconds": mean_test_duration,
+        "median_test_duration_seconds": median_test_duration,
+        "mean_per_question_seconds": mean_per_question,
+    }
+
+    # ==========================================================================
+    # Calculate statistics by difficulty level
+    # ==========================================================================
+
+    difficulty_times: Dict[str, List[int]] = {
+        "easy": [],
+        "medium": [],
+        "hard": [],
+    }
+
+    for response, question in responses_with_time:
+        difficulty = question.difficulty_level.value
+        time_spent = response.time_spent_seconds  # type: ignore[assignment]
+        if difficulty in difficulty_times:
+            difficulty_times[difficulty].append(time_spent)
+
+    by_difficulty: Dict[str, Dict[str, Optional[float]]] = {}
+    for difficulty, times in difficulty_times.items():
+        if times:
+            by_difficulty[difficulty] = {
+                "mean_seconds": round(statistics.mean(times), 2),
+                "median_seconds": round(statistics.median(times), 2),
+            }
+        else:
+            by_difficulty[difficulty] = {
+                "mean_seconds": None,
+                "median_seconds": None,
+            }
+
+    # ==========================================================================
+    # Calculate statistics by question type
+    # ==========================================================================
+
+    question_type_times: Dict[str, List[int]] = {
+        "pattern": [],
+        "logic": [],
+        "spatial": [],
+        "math": [],
+        "verbal": [],
+        "memory": [],
+    }
+
+    for response, question in responses_with_time:
+        q_type = question.question_type.value
+        time_spent = response.time_spent_seconds  # type: ignore[assignment]
+        if q_type in question_type_times:
+            question_type_times[q_type].append(time_spent)
+
+    by_question_type: Dict[str, Dict[str, Optional[float]]] = {}
+    for q_type, times in question_type_times.items():
+        if times:
+            by_question_type[q_type] = {
+                "mean_seconds": round(statistics.mean(times), 2),
+            }
+        else:
+            by_question_type[q_type] = {
+                "mean_seconds": None,
+            }
+
+    # ==========================================================================
+    # Calculate anomaly summary
+    # ==========================================================================
+
+    sessions_with_rapid = 0
+    sessions_with_extended = 0
+    sessions_flagged = 0
+
+    for result in test_results_with_flags:
+        flags_data = result.response_time_flags
+        if flags_data:
+            # Check for rapid responses
+            rapid_count = flags_data.get("rapid_responses", 0)
+            if rapid_count > 0:
+                sessions_with_rapid += 1
+
+            # Check for extended times
+            extended_count = flags_data.get("extended_times", 0)
+            if extended_count > 0:
+                sessions_with_extended += 1
+
+            # Check for validity concern
+            if flags_data.get("validity_concern", False):
+                sessions_flagged += 1
+
+    # Calculate percentage flagged
+    pct_flagged = 0.0
+    if total_sessions > 0:
+        pct_flagged = round((sessions_flagged / total_sessions) * 100, 2)
+
+    anomaly_summary = {
+        "sessions_with_rapid_responses": sessions_with_rapid,
+        "sessions_with_extended_times": sessions_with_extended,
+        "pct_flagged": pct_flagged,
+    }
+
+    logger.info(
+        f"Aggregate analytics computed: "
+        f"{total_sessions} sessions, {total_responses} responses, "
+        f"{pct_flagged}% flagged"
+    )
+
+    return {
+        "overall": overall_stats,
+        "by_difficulty": by_difficulty,
+        "by_question_type": by_question_type,
+        "anomaly_summary": anomaly_summary,
+        "total_sessions_analyzed": total_sessions,
+        "total_responses_analyzed": total_responses,
+    }
+
+
+def _create_empty_aggregate_analytics() -> Dict[str, Any]:
+    """
+    Create empty aggregate analytics when no data is available.
+
+    Returns:
+        Empty analytics dictionary with all fields set to default values.
+    """
+    return {
+        "overall": {
+            "mean_test_duration_seconds": None,
+            "median_test_duration_seconds": None,
+            "mean_per_question_seconds": None,
+        },
+        "by_difficulty": {
+            "easy": {"mean_seconds": None, "median_seconds": None},
+            "medium": {"mean_seconds": None, "median_seconds": None},
+            "hard": {"mean_seconds": None, "median_seconds": None},
+        },
+        "by_question_type": {
+            "pattern": {"mean_seconds": None},
+            "logic": {"mean_seconds": None},
+            "spatial": {"mean_seconds": None},
+            "math": {"mean_seconds": None},
+            "verbal": {"mean_seconds": None},
+            "memory": {"mean_seconds": None},
+        },
+        "anomaly_summary": {
+            "sessions_with_rapid_responses": 0,
+            "sessions_with_extended_times": 0,
+            "pct_flagged": 0.0,
+        },
+        "total_sessions_analyzed": 0,
+        "total_responses_analyzed": 0,
+    }
