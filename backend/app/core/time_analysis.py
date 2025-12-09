@@ -472,7 +472,7 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict[str, Any]:
         "correlation": round(correlation, 4) if correlation is not None else None,
         "interpretation": interpretation,
         "time_difference_seconds": (
-            round(time_difference, 2) if time_difference else None
+            round(time_difference, 2) if time_difference is not None else None
         ),
     }
 
