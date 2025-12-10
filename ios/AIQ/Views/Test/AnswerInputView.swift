@@ -4,6 +4,7 @@ import SwiftUI
 struct AnswerInputView: View {
     let question: Question
     @Binding var userAnswer: String
+    var isDisabled: Bool = false
     @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
@@ -28,6 +29,7 @@ struct AnswerInputView: View {
                 OptionButton(
                     option: option,
                     isSelected: userAnswer == option,
+                    isDisabled: isDisabled,
                     action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             userAnswer = option
@@ -46,15 +48,17 @@ struct AnswerInputView: View {
                 .autocorrectionDisabled(shouldDisableAutocorrection)
                 .textInputAutocapitalization(capitalizationType)
                 .focused($isTextFieldFocused)
+                .disabled(isDisabled)
                 .padding()
-                .background(Color(.systemGray6))
+                .background(isDisabled ? Color(.systemGray5) : Color(.systemGray6))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(userAnswer.isEmpty ? Color.clear : Color.accentColor, lineWidth: 2)
                 )
+                .opacity(isDisabled ? 0.6 : 1.0)
                 .accessibilityLabel("Answer input field")
-                .accessibilityHint(accessibilityHint)
+                .accessibilityHint(isDisabled ? "Input disabled - time expired" : accessibilityHint)
 
             // Input hint based on question type
             if !inputHint.isEmpty {
@@ -153,6 +157,7 @@ struct AnswerInputView: View {
 private struct OptionButton: View {
     let option: String
     let isSelected: Bool
+    var isDisabled: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -160,27 +165,50 @@ private struct OptionButton: View {
             HStack {
                 Text(option)
                     .font(.body)
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .foregroundColor(foregroundColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .multilineTextAlignment(.leading)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
+                        .foregroundColor(isDisabled ? .gray : .white)
                 }
             }
             .padding()
-            .background(isSelected ? Color.accentColor : Color(.systemGray6))
+            .background(backgroundColor)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
             )
+            .opacity(isDisabled ? 0.6 : 1.0)
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled)
         .accessibilityLabel(option)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityHint(isSelected ? "Currently selected" : "Double tap to select this answer")
+        .accessibilityHint(accessibilityHintText)
+    }
+
+    private var foregroundColor: Color {
+        if isDisabled {
+            return isSelected ? .white.opacity(0.8) : .secondary
+        }
+        return isSelected ? .white : .primary
+    }
+
+    private var backgroundColor: Color {
+        if isDisabled {
+            return isSelected ? Color.accentColor.opacity(0.5) : Color(.systemGray5)
+        }
+        return isSelected ? Color.accentColor : Color(.systemGray6)
+    }
+
+    private var accessibilityHintText: String {
+        if isDisabled {
+            return "Input disabled - time expired"
+        }
+        return isSelected ? "Currently selected" : "Double tap to select this answer"
     }
 }
 

@@ -180,6 +180,8 @@ struct TestTakingView: View {
         .onChange(of: timerManager.hasExpired) { expired in
             // Handle timer expiration during test-taking
             if expired && !viewModel.testCompleted {
+                // Immediately lock answers to prevent race condition
+                viewModel.lockAnswers()
                 showTimeExpiredAlert = true
             }
         }
@@ -275,7 +277,8 @@ struct TestTakingView: View {
                             userAnswer: Binding(
                                 get: { viewModel.currentAnswer },
                                 set: { viewModel.currentAnswer = $0 }
-                            )
+                            ),
+                            isDisabled: viewModel.isLocked
                         )
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
