@@ -243,8 +243,8 @@ struct QuestionResponse {
 ---
 
 ### TS-009: iOS Test Timer Display
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/Test/TestTakingView.swift`, `ios/AIQ/ViewModels/TestTakingViewModel.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Views/Test/TestTakingView.swift`, `ios/AIQ/ViewModels/TestTimerManager.swift`, `ios/AIQ/Views/Test/TestTimerView.swift`, `ios/AIQ/Views/Test/TimeWarningBanner.swift`
 **Description:** Display countdown timer for 30-minute test limit.
 
 **Timer Manager:**
@@ -265,11 +265,11 @@ class TestTimerManager: ObservableObject {
 - Visual indication of time pressure
 
 **Acceptance Criteria:**
-- [ ] Timer displays remaining time
-- [ ] Timer counts down accurately
-- [ ] Warning shown at 5 minutes (300 seconds)
-- [ ] Timer visible but non-intrusive
-- [ ] Timer pauses when app backgrounded
+- [x] Timer displays remaining time
+- [x] Timer counts down accurately
+- [x] Warning shown at 5 minutes (300 seconds)
+- [x] Timer visible but non-intrusive
+- [x] Timer pauses when app backgrounded
 
 ---
 

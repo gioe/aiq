@@ -152,7 +152,8 @@ final class TestTakingViewModelTests: XCTestCase {
             questionIds: [10, 20],
             userAnswers: [10: "A"], // One answer saved
             currentQuestionIndex: 1,
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
 
         mockAnswerStorage.mockProgress = savedProgress
@@ -429,7 +430,8 @@ final class TestTakingViewModelTests: XCTestCase {
             questionIds: [1, 2, 3],
             userAnswers: [1: "A", 3: "C"], // Question 3 should be filtered out
             currentQuestionIndex: 0,
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
         mockAnswerStorage.mockProgress = savedProgress
 

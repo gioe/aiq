@@ -220,7 +220,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questionIds: [10, 20, 30],
             userAnswers: [10: "A", 20: "B"], // 2 answers saved
             currentQuestionIndex: 2, // On third question
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-600) // Started 10 minutes ago
         )
         mockAnswerStorage.mockProgress = savedProgress
 
@@ -339,7 +340,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questionIds: [1, 2, 3],
             userAnswers: [1: "A", 2: "B"],
             currentQuestionIndex: 2,
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-600) // Started 10 minutes ago
         )
         mockAnswerStorage.mockProgress = savedProgress
 

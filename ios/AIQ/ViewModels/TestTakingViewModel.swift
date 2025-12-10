@@ -15,6 +15,8 @@ class TestTakingViewModel: BaseViewModel {
     @Published var isSubmitting: Bool = false
     @Published var testCompleted: Bool = false
     @Published var testResult: SubmittedTestResult?
+    /// When true, prevents further answer modifications (used when timer expires)
+    @Published private(set) var isLocked: Bool = false
 
     // MARK: - Time Tracking Properties
 
@@ -64,6 +66,8 @@ class TestTakingViewModel: BaseViewModel {
             return userAnswers[question.id] ?? ""
         }
         set {
+            // Prevent modifications when test is locked (timer expired)
+            guard !isLocked else { return }
             guard let question = currentQuestion else { return }
             userAnswers[question.id] = newValue
             // Update cached indices when answer changes
@@ -409,6 +413,15 @@ class TestTakingViewModel: BaseViewModel {
         )
     }
 
+    /// Locks the test to prevent further answer modifications.
+    /// Called when the timer expires to prevent race conditions.
+    func lockAnswers() {
+        isLocked = true
+        #if DEBUG
+            print("🔒 Test answers locked - no further modifications allowed")
+        #endif
+    }
+
     func submitTest() async {
         guard let session = testSession else {
             let error = NSError(
@@ -619,7 +632,8 @@ class TestTakingViewModel: BaseViewModel {
             questionIds: questions.map(\.id),
             userAnswers: userAnswers,
             currentQuestionIndex: currentQuestionIndex,
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: session.startedAt
         )
 
         do {
