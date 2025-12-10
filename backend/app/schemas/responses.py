@@ -40,6 +40,10 @@ class ResponseSubmission(BaseModel):
     responses: List[ResponseItem] = Field(
         ..., description="List of responses for the test session"
     )
+    time_limit_exceeded: bool = Field(
+        False,
+        description="Flag indicating if the time limit was exceeded (client-reported)",
+    )
 
 
 class TestResultResponse(BaseModel):
