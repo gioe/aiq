@@ -423,7 +423,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     func submitTest() async {
-        guard let session = testSession else {
+        guard testSession != nil else {
             let error = NSError(
                 domain: "TestTakingViewModel",
                 code: -1,
@@ -455,29 +455,45 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
 
+        await performSubmission(timeLimitExceeded: false)
+    }
+
+    private func performSubmission(timeLimitExceeded: Bool) async {
+        guard let session = testSession else { return }
         isSubmitting = true
+        defer { isSubmitting = false }
         clearError()
 
-        let submission = buildTestSubmission(for: session)
-
+        let submission = buildTestSubmission(for: session, timeLimitExceeded: timeLimitExceeded)
         do {
             let response: TestSubmitResponse = try await apiClient.request(
-                endpoint: .testSubmit,
-                method: .post,
-                body: submission,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
+                endpoint: .testSubmit, method: .post, body: submission,
+                requiresAuth: true, cacheKey: nil, cacheDuration: nil, forceRefresh: false
             )
-
-            handleSubmissionSuccess(response)
+            handleSubmissionSuccess(response, isTimeoutSubmission: timeLimitExceeded)
         } catch {
             handleSubmissionFailure(error)
         }
     }
 
-    private func buildTestSubmission(for session: TestSession) -> TestSubmission {
+    /// Submits the test when time limit is exceeded.
+    /// Submits all answered questions without requiring all questions to be answered.
+    func submitTestForTimeout() async {
+        guard testSession != nil else {
+            handleError(NSError(
+                domain: "TestTakingViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No active test session found."]
+            ))
+            return
+        }
+        #if DEBUG
+            print("⏰ Auto-submitting test due to timeout: \(answeredCount)/\(questions.count) answered")
+        #endif
+        await performSubmission(timeLimitExceeded: true)
+    }
+
+    private func buildTestSubmission(for session: TestSession, timeLimitExceeded: Bool) -> TestSubmission {
         // Record final question time before submission
         recordCurrentQuestionTime()
 
@@ -490,15 +506,18 @@ class TestTakingViewModel: BaseViewModel {
                 timeSpentSeconds: timeSpent
             )
         }
-        return TestSubmission(sessionId: session.id, responses: responses)
+        return TestSubmission(
+            sessionId: session.id,
+            responses: responses,
+            timeLimitExceeded: timeLimitExceeded
+        )
     }
 
-    private func handleSubmissionSuccess(_ response: TestSubmitResponse) {
+    private func handleSubmissionSuccess(_ response: TestSubmitResponse, isTimeoutSubmission: Bool = false) {
         testResult = response.result
         testSession = response.session
         clearSavedProgress()
         testCompleted = true
-        isSubmitting = false
 
         // Track analytics
         let durationSeconds = response.result.completionTimeSeconds ?? 0
@@ -510,13 +529,15 @@ class TestTakingViewModel: BaseViewModel {
         )
 
         #if DEBUG
-            print("✅ Test submitted successfully! IQ Score: \(response.result.iqScore)")
+            if isTimeoutSubmission {
+                print("⏰ Test auto-submitted due to timeout! IQ Score: \(response.result.iqScore)")
+            } else {
+                print("✅ Test submitted successfully! IQ Score: \(response.result.iqScore)")
+            }
         #endif
     }
 
     private func handleSubmissionFailure(_ error: Error) {
-        isSubmitting = false
-
         let contextualError = ContextualError(
             error: error as? APIError ?? .unknown(),
             operation: .submitTest

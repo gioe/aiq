@@ -39,10 +39,18 @@ struct StartTestResponse: Codable, Equatable {
 struct TestSubmission: Codable, Equatable {
     let sessionId: Int
     let responses: [QuestionResponse]
+    let timeLimitExceeded: Bool
 
     enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
         case responses
+        case timeLimitExceeded = "time_limit_exceeded"
+    }
+
+    init(sessionId: Int, responses: [QuestionResponse], timeLimitExceeded: Bool = false) {
+        self.sessionId = sessionId
+        self.responses = responses
+        self.timeLimitExceeded = timeLimitExceeded
     }
 }
 

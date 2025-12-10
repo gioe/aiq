@@ -609,3 +609,108 @@ class TestSubmitTest:
 
         assert session1.status == TestStatus.COMPLETED
         assert session2.status == TestStatus.COMPLETED
+
+    def test_submit_test_time_limit_exceeded_client_flag(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that client-reported time_limit_exceeded flag is stored."""
+        from app.models import Question, TestSession
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
+        # Submit with time_limit_exceeded=True (client reports timeout)
+        submission_data = {
+            "session_id": session_id,
+            "responses": [
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": questions_dict[questions[1]["id"]].correct_answer,
+                },
+            ],
+            "time_limit_exceeded": True,
+        }
+
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response shows time_limit_exceeded
+        assert data["session"]["time_limit_exceeded"] is True
+
+        # Verify session in database has time_limit_exceeded set
+        session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert session.time_limit_exceeded is True
+
+    def test_submit_test_time_limit_exceeded_defaults_to_false(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that time_limit_exceeded defaults to False when not provided."""
+        from app.models import Question, TestSession
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Get the actual correct answers from the database
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
+        # Submit WITHOUT time_limit_exceeded field
+        submission_data = {
+            "session_id": session_id,
+            "responses": [
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": questions_dict[questions[1]["id"]].correct_answer,
+                },
+            ],
+        }
+
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response shows time_limit_exceeded as False
+        assert data["session"]["time_limit_exceeded"] is False
+
+        # Verify session in database has time_limit_exceeded as False
+        session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert session.time_limit_exceeded is False

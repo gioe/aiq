@@ -13,6 +13,7 @@ struct TestTakingView: View {
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
     @State private var showTimeExpiredAlert = false
+    @State private var isAutoSubmitting = false
 
     /// Check if the current error is an active session conflict
     private var isActiveSessionConflict: Bool {
@@ -82,7 +83,7 @@ struct TestTakingView: View {
                         let timerStarted = timerManager.startWithSessionTime(sessionStartedAt)
                         if !timerStarted {
                             // Time expired while viewing the alert - trigger auto-submit
-                            showTimeExpiredAlert = true
+                            handleTimerExpiration()
                         }
                     } else {
                         // Fallback: no session start time saved, start fresh timer
@@ -132,7 +133,7 @@ struct TestTakingView: View {
                             let timerStarted = timerManager.startWithSessionTime(session.startedAt)
                             if !timerStarted {
                                 // Time expired - trigger auto-submit
-                                showTimeExpiredAlert = true
+                                handleTimerExpiration()
                             }
                         }
                     }
@@ -160,29 +161,23 @@ struct TestTakingView: View {
                 """
             )
         }
-        .alert("Time Expired", isPresented: $showTimeExpiredAlert) {
-            Button("Submit Answers") {
-                Task {
-                    await viewModel.submitTest()
-                    if viewModel.testResult != nil {
-                        showResultsView = true
-                    }
-                }
+        .alert("Time's Up!", isPresented: $showTimeExpiredAlert) {
+            Button("OK") {
+                // Alert dismissed - auto-submit happens automatically
             }
         } message: {
             Text(
                 """
-                The 30-minute time limit for this test has expired. \
-                Your answers will be submitted now.
+                The 30-minute time limit has expired. \
+                Your \(viewModel.answeredCount) answered question\(viewModel.answeredCount == 1 ? "" : "s") \
+                will be submitted automatically.
                 """
             )
         }
         .onChange(of: timerManager.hasExpired) { expired in
             // Handle timer expiration during test-taking
-            if expired && !viewModel.testCompleted {
-                // Immediately lock answers to prevent race condition
-                viewModel.lockAnswers()
-                showTimeExpiredAlert = true
+            if expired && !viewModel.testCompleted && !isAutoSubmitting {
+                handleTimerExpiration()
             }
         }
     }
@@ -191,9 +186,9 @@ struct TestTakingView: View {
         if let progress = viewModel.loadSavedProgress() {
             // Check if test time has already expired
             if progress.isTimeExpired {
-                // Time expired - auto-submit and show message
+                // Time expired - restore progress and trigger auto-submit
                 viewModel.restoreProgress(progress)
-                showTimeExpiredAlert = true
+                handleTimerExpiration()
                 return
             }
             savedProgress = progress
@@ -203,6 +198,29 @@ struct TestTakingView: View {
             // Start timer after test loads successfully using session start time
             if let session = viewModel.testSession {
                 timerManager.startWithSessionTime(session.startedAt)
+            }
+        }
+    }
+
+    /// Handles timer expiration by locking answers, showing alert, and auto-submitting
+    private func handleTimerExpiration() {
+        // Prevent multiple auto-submits
+        guard !isAutoSubmitting else { return }
+        isAutoSubmitting = true
+
+        // Immediately lock answers to prevent race conditions
+        viewModel.lockAnswers()
+
+        // Show the "Time's Up" alert
+        showTimeExpiredAlert = true
+
+        // Auto-submit the test
+        Task {
+            await viewModel.submitTestForTimeout()
+
+            // Navigate to results after submission
+            if viewModel.testResult != nil {
+                showResultsView = true
             }
         }
     }

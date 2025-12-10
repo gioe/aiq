@@ -274,8 +274,8 @@ class TestTimerManager: ObservableObject {
 ---
 
 ### TS-010: iOS Auto-Submit on Timeout
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/ViewModels/TestTakingViewModel.swift`, `ios/AIQ/Views/Test/TestTakingView.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/ViewModels/TestTakingViewModel.swift`, `ios/AIQ/Views/Test/TestTakingView.swift`, `ios/AIQ/Models/TestSession.swift`
 **Description:** Automatically submit test when 30-minute limit reached.
 
 **Behavior:**
@@ -285,12 +285,12 @@ class TestTimerManager: ObservableObject {
 - Navigate to results after submission
 
 **Acceptance Criteria:**
-- [ ] Auto-submit triggers at 0 seconds
-- [ ] Current answer (if any) included
-- [ ] Unanswered questions submitted as skipped
-- [ ] User informed of auto-submission
-- [ ] Navigation to results works correctly
-- [ ] Backend receives time_limit_exceeded flag
+- [x] Auto-submit triggers at 0 seconds
+- [x] Current answer (if any) included
+- [x] Unanswered questions submitted as skipped
+- [x] User informed of auto-submission
+- [x] Navigation to results works correctly
+- [x] Backend receives time_limit_exceeded flag
 
 ---
 

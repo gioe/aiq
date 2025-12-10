@@ -570,14 +570,17 @@ def submit_test(
     time_delta = completion_time - started_at
     completion_time_seconds = int(time_delta.total_seconds())
 
-    # TS-003: Detect and flag if total time exceeds 30-minute limit (1800 seconds)
-    # Over-time submissions are still accepted but flagged for validity analysis
+    # TS-003/TS-010: Flag if time limit was exceeded
+    # Accept client-reported flag OR detect server-side if total time exceeds limit
+    # Using both ensures robustness: client knows about auto-submit, server validates
     TIME_LIMIT_SECONDS = 1800  # 30 minutes
-    if completion_time_seconds > TIME_LIMIT_SECONDS:
+    if submission.time_limit_exceeded or completion_time_seconds > TIME_LIMIT_SECONDS:
         test_session.time_limit_exceeded = True  # type: ignore[assignment]
         logger.info(
             f"Test session {test_session.id} exceeded time limit: "
-            f"{completion_time_seconds}s > {TIME_LIMIT_SECONDS}s"
+            f"client_reported={submission.time_limit_exceeded}, "
+            f"server_detected={completion_time_seconds > TIME_LIMIT_SECONDS} "
+            f"({completion_time_seconds}s)"
         )
 
     # Calculate IQ score using scoring module
