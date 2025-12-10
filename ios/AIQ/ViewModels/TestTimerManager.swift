@@ -30,6 +30,15 @@ class TestTimerManager: ObservableObject {
     private var backgroundEntryTime: Date?
     private var wasRunningBeforeBackground: Bool = false
 
+    /// Reference point for wall-clock based timing (eliminates drift)
+    private var sessionStartTime: Date?
+
+    /// Accumulated time from previous segments (used when pausing/resuming)
+    private var accumulatedElapsedSeconds: Int = 0
+
+    /// When the current timing segment started
+    private var currentSegmentStartTime: Date?
+
     // MARK: - Computed Properties
 
     /// Formatted time string in MM:SS format
@@ -70,10 +79,15 @@ class TestTimerManager: ObservableObject {
 
     /// Configures and starts the timer based on a session start time.
     /// Calculates elapsed time and sets remaining time accordingly.
+    /// Uses wall-clock reference to eliminate timer drift over 30 minutes.
     /// - Parameter sessionStartedAt: The timestamp when the test session started
     /// - Returns: `true` if timer started successfully, `false` if time has already expired
     @discardableResult
     func startWithSessionTime(_ sessionStartedAt: Date) -> Bool {
+        // Store the session start time as our reference point
+        sessionStartTime = sessionStartedAt
+        accumulatedElapsedSeconds = 0
+
         let elapsedSeconds = Int(Date().timeIntervalSince(sessionStartedAt))
         let remaining = Self.totalTimeSeconds - elapsedSeconds
 
@@ -111,7 +125,12 @@ class TestTimerManager: ObservableObject {
     func start() {
         guard timer == nil else { return } // Already running
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        // Record when this timing segment started
+        currentSegmentStartTime = Date()
+
+        // Use a faster interval (0.25s) for more responsive UI updates
+        // while still using wall-clock reference for accuracy
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.tick()
             }
@@ -129,6 +148,12 @@ class TestTimerManager: ObservableObject {
 
     /// Pauses the timer (used when app backgrounds)
     func pause() {
+        // Accumulate elapsed time from current segment before pausing
+        if let segmentStart = currentSegmentStartTime {
+            accumulatedElapsedSeconds += Int(Date().timeIntervalSince(segmentStart))
+        }
+        currentSegmentStartTime = nil
+
         timer?.invalidate()
         timer = nil
 
@@ -164,6 +189,9 @@ class TestTimerManager: ObservableObject {
         remainingSeconds = Self.totalTimeSeconds
         showWarning = false
         hasExpired = false
+        sessionStartTime = nil
+        accumulatedElapsedSeconds = 0
+        currentSegmentStartTime = nil
 
         #if DEBUG
             print("🔄 Test timer reset to \(formattedTime)")
@@ -172,16 +200,29 @@ class TestTimerManager: ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Calculate remaining time using wall-clock reference to eliminate drift
     private func tick() {
-        guard remainingSeconds > 0 else {
-            handleTimerExpired()
-            return
+        // Calculate total elapsed time using wall-clock
+        var totalElapsed = accumulatedElapsedSeconds
+        if let segmentStart = currentSegmentStartTime {
+            totalElapsed += Int(Date().timeIntervalSince(segmentStart))
         }
 
-        remainingSeconds -= 1
+        // If we have a session start time, use it directly for maximum accuracy
+        if let sessionStart = sessionStartTime {
+            totalElapsed = Int(Date().timeIntervalSince(sessionStart))
+        }
 
-        // Check if we should show warning
-        if remainingSeconds == Self.warningThresholdSeconds {
+        let newRemaining = max(0, Self.totalTimeSeconds - totalElapsed)
+
+        // Only update if value changed (avoids unnecessary UI updates)
+        guard newRemaining != remainingSeconds else { return }
+
+        let previousRemaining = remainingSeconds
+        remainingSeconds = newRemaining
+
+        // Check if we crossed the warning threshold
+        if previousRemaining > Self.warningThresholdSeconds && remainingSeconds <= Self.warningThresholdSeconds {
             showWarning = true
             #if DEBUG
                 print("⚠️ 5 minutes remaining warning triggered")
@@ -222,11 +263,11 @@ class TestTimerManager: ObservableObject {
     }
 
     @objc private func handleAppWillResignActive() {
-        // Record whether timer was running and when we went to background
+        // Record whether timer was running
         wasRunningBeforeBackground = timer != nil
         backgroundEntryTime = Date()
 
-        // Pause the timer
+        // Pause the timer (this accumulates elapsed time from current segment)
         if wasRunningBeforeBackground {
             pause()
         }
@@ -237,35 +278,35 @@ class TestTimerManager: ObservableObject {
     }
 
     @objc private func handleAppDidBecomeActive() {
-        // Calculate elapsed time while backgrounded
-        if let backgroundTime = backgroundEntryTime {
-            let elapsedSeconds = Int(Date().timeIntervalSince(backgroundTime))
+        guard wasRunningBeforeBackground else {
+            backgroundEntryTime = nil
+            return
+        }
 
-            // Subtract elapsed time from remaining (but don't go below 0)
-            remainingSeconds = max(0, remainingSeconds - elapsedSeconds)
+        // Add the background time to accumulated elapsed seconds
+        // (only if not using session start time, which handles this automatically)
+        if sessionStartTime == nil, let backgroundTime = backgroundEntryTime {
+            accumulatedElapsedSeconds += Int(Date().timeIntervalSince(backgroundTime))
+        }
 
-            // Check if we should now show warning
-            if remainingSeconds <= Self.warningThresholdSeconds && !showWarning {
-                showWarning = true
-            }
+        backgroundEntryTime = nil
+        wasRunningBeforeBackground = false
+
+        // Resume if not expired - tick() will recalculate remaining time from wall-clock
+        if !hasExpired {
+            resume()
+            // Immediately tick to update the display
+            tick()
 
             // Check if timer expired while backgrounded
             if remainingSeconds == 0 {
                 handleTimerExpired()
             }
-
-            #if DEBUG
-                print("📱 App foregrounded - \(elapsedSeconds)s elapsed, \(formattedTime) remaining")
-            #endif
         }
 
-        backgroundEntryTime = nil
-
-        // Resume if it was running before
-        if wasRunningBeforeBackground && !hasExpired {
-            resume()
-        }
-        wasRunningBeforeBackground = false
+        #if DEBUG
+            print("📱 App foregrounded - \(formattedTime) remaining")
+        #endif
     }
 }
 
