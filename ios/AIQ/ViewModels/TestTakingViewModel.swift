@@ -461,6 +461,7 @@ class TestTakingViewModel: BaseViewModel {
     private func performSubmission(timeLimitExceeded: Bool) async {
         guard let session = testSession else { return }
         isSubmitting = true
+        defer { isSubmitting = false }
         clearError()
 
         let submission = buildTestSubmission(for: session, timeLimitExceeded: timeLimitExceeded)
@@ -517,7 +518,6 @@ class TestTakingViewModel: BaseViewModel {
         testSession = response.session
         clearSavedProgress()
         testCompleted = true
-        isSubmitting = false
 
         // Track analytics
         let durationSeconds = response.result.completionTimeSeconds ?? 0
@@ -538,8 +538,6 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func handleSubmissionFailure(_ error: Error) {
-        isSubmitting = false
-
         let contextualError = ContextualError(
             error: error as? APIError ?? .unknown(),
             operation: .submitTest
