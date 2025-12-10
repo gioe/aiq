@@ -3,12 +3,15 @@ import SwiftUI
 /// Main view for taking an IQ test
 struct TestTakingView: View {
     @StateObject private var viewModel = TestTakingViewModel()
+    @StateObject private var timerManager = TestTimerManager()
     @Environment(\.dismiss) private var dismiss
     @State private var showResumeAlert = false
     @State private var showExitConfirmation = false
     @State private var savedProgress: SavedTestProgress?
     @State private var showResultsView = false
     @State private var activeSessionConflictId: Int?
+    @State private var showTimeWarningBanner = false
+    @State private var warningBannerDismissed = false
 
     /// Check if the current error is an active session conflict
     private var isActiveSessionConflict: Bool {
@@ -45,6 +48,9 @@ struct TestTakingView: View {
         .navigationTitle("IQ Test")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                TestTimerView(timerManager: timerManager)
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Exit") {
                     handleExit()
@@ -54,16 +60,32 @@ struct TestTakingView: View {
         .task {
             await checkForSavedProgress()
         }
+        .onChange(of: timerManager.showWarning) { showWarning in
+            // Show warning banner when timer hits 5 minutes (unless already dismissed)
+            if showWarning && !warningBannerDismissed {
+                showTimeWarningBanner = true
+            }
+        }
+        .onChange(of: viewModel.testCompleted) { completed in
+            // Stop timer when test is completed
+            if completed {
+                timerManager.stop()
+            }
+        }
         .alert("Resume Test?", isPresented: $showResumeAlert) {
             Button("Resume") {
                 if let progress = savedProgress {
                     viewModel.restoreProgress(progress)
+                    timerManager.start()
                 }
             }
             Button("Start New") {
                 viewModel.clearSavedProgress()
                 Task {
                     await viewModel.startTest()
+                    if !viewModel.questions.isEmpty {
+                        timerManager.start()
+                    }
                 }
             }
         } message: {
@@ -93,11 +115,18 @@ struct TestTakingView: View {
                 Button("Resume Test") {
                     Task {
                         await viewModel.resumeActiveSession(sessionId: sessionId)
+                        if !viewModel.questions.isEmpty {
+                            timerManager.start()
+                        }
                     }
                 }
                 Button("Abandon & Start New", role: .destructive) {
                     Task {
                         await viewModel.abandonAndStartNew(sessionId: sessionId)
+                        if !viewModel.questions.isEmpty {
+                            timerManager.reset()
+                            timerManager.start()
+                        }
                     }
                 }
                 Button("Go Back", role: .cancel) {
@@ -121,6 +150,10 @@ struct TestTakingView: View {
             showResumeAlert = true
         } else {
             await viewModel.startTest()
+            // Start timer after test loads successfully
+            if !viewModel.questions.isEmpty {
+                timerManager.start()
+            }
         }
     }
 
@@ -136,6 +169,19 @@ struct TestTakingView: View {
 
     private var testContentView: some View {
         VStack(spacing: 0) {
+            // Time warning banner (shown when 5 minutes remaining)
+            if showTimeWarningBanner {
+                TimeWarningBanner(
+                    remainingTime: timerManager.formattedTime,
+                    onDismiss: {
+                        showTimeWarningBanner = false
+                        warningBannerDismissed = true
+                    }
+                )
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Progress section at the top
             VStack(spacing: 12) {
                 // Enhanced progress bar with stats
