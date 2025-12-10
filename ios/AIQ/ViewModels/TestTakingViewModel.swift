@@ -619,7 +619,8 @@ class TestTakingViewModel: BaseViewModel {
             questionIds: questions.map(\.id),
             userAnswers: userAnswers,
             currentQuestionIndex: currentQuestionIndex,
-            savedAt: Date()
+            savedAt: Date(),
+            sessionStartedAt: session.startedAt
         )
 
         do {

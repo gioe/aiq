@@ -68,7 +68,46 @@ class TestTimerManager: ObservableObject {
 
     // MARK: - Timer Control
 
-    /// Starts the countdown timer
+    /// Configures and starts the timer based on a session start time.
+    /// Calculates elapsed time and sets remaining time accordingly.
+    /// - Parameter sessionStartedAt: The timestamp when the test session started
+    /// - Returns: `true` if timer started successfully, `false` if time has already expired
+    @discardableResult
+    func startWithSessionTime(_ sessionStartedAt: Date) -> Bool {
+        let elapsedSeconds = Int(Date().timeIntervalSince(sessionStartedAt))
+        let remaining = Self.totalTimeSeconds - elapsedSeconds
+
+        #if DEBUG
+            print("⏱️ Session started at: \(sessionStartedAt)")
+            print("⏱️ Elapsed since start: \(elapsedSeconds)s")
+            print("⏱️ Remaining time: \(remaining)s")
+        #endif
+
+        // Check if time has already expired
+        if remaining <= 0 {
+            remainingSeconds = 0
+            hasExpired = true
+            showWarning = true
+            #if DEBUG
+                print("🚨 Test time already expired! Elapsed: \(elapsedSeconds)s")
+            #endif
+            return false
+        }
+
+        // Set remaining time
+        remainingSeconds = remaining
+
+        // Check if we're already in warning territory
+        if remaining <= Self.warningThresholdSeconds {
+            showWarning = true
+        }
+
+        // Start the timer
+        start()
+        return true
+    }
+
+    /// Starts the countdown timer from current remainingSeconds value
     func start() {
         guard timer == nil else { return } // Already running
 

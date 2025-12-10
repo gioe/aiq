@@ -12,6 +12,7 @@ struct TestTakingView: View {
     @State private var activeSessionConflictId: Int?
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
+    @State private var showTimeExpiredAlert = false
 
     /// Check if the current error is an active session conflict
     private var isActiveSessionConflict: Bool {
@@ -76,15 +77,26 @@ struct TestTakingView: View {
             Button("Resume") {
                 if let progress = savedProgress {
                     viewModel.restoreProgress(progress)
-                    timerManager.start()
+                    // Start timer with the original session start time
+                    if let sessionStartedAt = progress.sessionStartedAt {
+                        let timerStarted = timerManager.startWithSessionTime(sessionStartedAt)
+                        if !timerStarted {
+                            // Time expired while viewing the alert - trigger auto-submit
+                            showTimeExpiredAlert = true
+                        }
+                    } else {
+                        // Fallback: no session start time saved, start fresh timer
+                        // This handles legacy saved progress without sessionStartedAt
+                        timerManager.start()
+                    }
                 }
             }
             Button("Start New") {
                 viewModel.clearSavedProgress()
                 Task {
                     await viewModel.startTest()
-                    if !viewModel.questions.isEmpty {
-                        timerManager.start()
+                    if let session = viewModel.testSession {
+                        timerManager.startWithSessionTime(session.startedAt)
                     }
                 }
             }
@@ -115,17 +127,23 @@ struct TestTakingView: View {
                 Button("Resume Test") {
                     Task {
                         await viewModel.resumeActiveSession(sessionId: sessionId)
-                        if !viewModel.questions.isEmpty {
-                            timerManager.start()
+                        // Start timer using the session's original start time
+                        if let session = viewModel.testSession {
+                            let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+                            if !timerStarted {
+                                // Time expired - trigger auto-submit
+                                showTimeExpiredAlert = true
+                            }
                         }
                     }
                 }
                 Button("Abandon & Start New", role: .destructive) {
                     Task {
                         await viewModel.abandonAndStartNew(sessionId: sessionId)
-                        if !viewModel.questions.isEmpty {
+                        // New session starts with fresh timer using new session's start time
+                        if let session = viewModel.testSession {
                             timerManager.reset()
-                            timerManager.start()
+                            timerManager.startWithSessionTime(session.startedAt)
                         }
                     }
                 }
@@ -142,17 +160,47 @@ struct TestTakingView: View {
                 """
             )
         }
+        .alert("Time Expired", isPresented: $showTimeExpiredAlert) {
+            Button("Submit Answers") {
+                Task {
+                    await viewModel.submitTest()
+                    if viewModel.testResult != nil {
+                        showResultsView = true
+                    }
+                }
+            }
+        } message: {
+            Text(
+                """
+                The 30-minute time limit for this test has expired. \
+                Your answers will be submitted now.
+                """
+            )
+        }
+        .onChange(of: timerManager.hasExpired) { expired in
+            // Handle timer expiration during test-taking
+            if expired && !viewModel.testCompleted {
+                showTimeExpiredAlert = true
+            }
+        }
     }
 
     private func checkForSavedProgress() async {
         if let progress = viewModel.loadSavedProgress() {
+            // Check if test time has already expired
+            if progress.isTimeExpired {
+                // Time expired - auto-submit and show message
+                viewModel.restoreProgress(progress)
+                showTimeExpiredAlert = true
+                return
+            }
             savedProgress = progress
             showResumeAlert = true
         } else {
             await viewModel.startTest()
-            // Start timer after test loads successfully
-            if !viewModel.questions.isEmpty {
-                timerManager.start()
+            // Start timer after test loads successfully using session start time
+            if let session = viewModel.testSession {
+                timerManager.startWithSessionTime(session.startedAt)
             }
         }
     }
