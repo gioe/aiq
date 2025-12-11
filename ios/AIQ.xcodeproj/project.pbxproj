@@ -18,6 +18,7 @@
 		1AEF308D2EDA4EBF0080F75D /* DashboardCardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF308C2EDA4EBF0080F75D /* DashboardCardComponents.swift */; };
 		1AEF30932EDB8DD10080F75D /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30922EDB8DD10080F75D /* DashboardViewModelTests.swift */; };
 		1AEF30952EDB8DDE0080F75D /* TestTakingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30942EDB8DDE0080F75D /* TestTakingViewModelTests.swift */; };
+		TS015001A /* TestTimerManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TS015001B /* TestTimerManagerTests.swift */; };
 		1AEF30972EDB93690080F75D /* MockLocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30962EDB93690080F75D /* MockLocalAnswerStorage.swift */; };
 		1AEF30992EDB93740080F75D /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30982EDB93740080F75D /* MockAPIClient.swift */; };
 		1AEF30AA2EDB95FA0080F75D /* APIClientIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */; };
@@ -128,6 +129,7 @@
 		1AEF308C2EDA4EBF0080F75D /* DashboardCardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCardComponents.swift; sourceTree = "<group>"; };
 		1AEF30922EDB8DD10080F75D /* DashboardViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModelTests.swift; sourceTree = "<group>"; };
 		1AEF30942EDB8DDE0080F75D /* TestTakingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingViewModelTests.swift; sourceTree = "<group>"; };
+		TS015001B /* TestTimerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTimerManagerTests.swift; sourceTree = "<group>"; };
 		1AEF30962EDB93690080F75D /* MockLocalAnswerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLocalAnswerStorage.swift; sourceTree = "<group>"; };
 		1AEF30982EDB93740080F75D /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		1AEF30A52EDB95FA0080F75D /* APIClientIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientIntegrationTests.swift; sourceTree = "<group>"; };
@@ -244,6 +246,7 @@
 				4E9D80DD93370014E289266F /* RegistrationViewModelValidationTests.swift */,
 				1AEF30922EDB8DD10080F75D /* DashboardViewModelTests.swift */,
 				1AEF30942EDB8DDE0080F75D /* TestTakingViewModelTests.swift */,
+				TS015001B /* TestTimerManagerTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -624,6 +627,7 @@
 				1AEF30AA2EDB95FA0080F75D /* APIClientIntegrationTests.swift in Sources */,
 				1AEF30AB2EDB95FA0080F75D /* MockURLProtocol.swift in Sources */,
 				1AEF30952EDB8DDE0080F75D /* TestTakingViewModelTests.swift in Sources */,
+				TS015001A /* TestTimerManagerTests.swift in Sources */,
 				1AEF30932EDB8DD10080F75D /* DashboardViewModelTests.swift in Sources */,
 				354A07CEC538B8C1138FF155 /* RegistrationViewModelTests.swift in Sources */,
 				C87861B0E1FC354674C088A6 /* RegistrationViewModelValidationTests.swift in Sources */,
