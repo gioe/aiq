@@ -354,8 +354,8 @@ class TestTimerManager: ObservableObject {
 ---
 
 ### TS-014: Update IQ_METHODOLOGY.md with Timing Policy
-**Status:** [ ] Not Started
-**Files:** `docs/methodology/IQ_METHODOLOGY.md`
+**Status:** [x] Complete
+**Files:** `docs/methodology/IQ_SCORING.md`
 **Description:** Document the timing policy in the methodology documentation.
 
 **Content to Add:**
@@ -366,10 +366,10 @@ class TestTimerManager: ObservableObject {
 - User communication expectations
 
 **Acceptance Criteria:**
-- [ ] Section 5 (Test Composition) updated with timing policy
-- [ ] Rationale for hybrid approach documented
-- [ ] Time anomaly implications explained
-- [ ] User-facing time expectations documented
+- [x] Section 5 (Test Composition) updated with timing policy
+- [x] Rationale for hybrid approach documented
+- [x] Time anomaly implications explained
+- [x] User-facing time expectations documented
 
 ---
 
