@@ -135,15 +135,15 @@ def analyze_distractor_effectiveness(
 ---
 
 ### DA-006: Integrate Distractor Update into Response Recording
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/test.py` (or wherever responses are created)
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/test.py`
 **Description:** Call `update_distractor_stats` after each response is recorded to maintain real-time statistics.
 
 **Acceptance Criteria:**
-- [ ] `update_distractor_stats` called for each response
-- [ ] Only called for multiple-choice questions (skip free-response)
-- [ ] Does not block response recording on failure (graceful degradation)
-- [ ] Logged appropriately
+- [x] `update_distractor_stats` called for each response
+- [x] Only called for multiple-choice questions (skip free-response)
+- [x] Does not block response recording on failure (graceful degradation)
+- [x] Logged appropriately
 
 ---
 
