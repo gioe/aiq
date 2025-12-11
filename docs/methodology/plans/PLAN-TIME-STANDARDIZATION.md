@@ -374,8 +374,8 @@ class TestTimerManager: ObservableObject {
 ---
 
 ### TS-015: iOS Unit Tests for Timer
-**Status:** [ ] Not Started
-**Files:** `ios/AIQTests/ViewModels/TestTakingViewModelTests.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQTests/ViewModels/TestTakingViewModelTests.swift`, `ios/AIQTests/ViewModels/TestTimerManagerTests.swift`
 **Description:** Write iOS unit tests for timer functionality.
 
 **Test Cases:**
@@ -387,11 +387,11 @@ class TestTimerManager: ObservableObject {
 - Per-question time tracking accuracy
 
 **Acceptance Criteria:**
-- [ ] Timer accuracy tests
-- [ ] Background/foreground handling tests
-- [ ] Warning trigger tests
-- [ ] Auto-submit trigger tests
-- [ ] All tests pass
+- [x] Timer accuracy tests
+- [x] Background/foreground handling tests
+- [x] Warning trigger tests
+- [x] Auto-submit trigger tests
+- [x] All tests pass
 
 ## Database Changes
 
