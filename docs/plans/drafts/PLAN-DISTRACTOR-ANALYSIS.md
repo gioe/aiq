@@ -38,14 +38,14 @@ distractor_stats = Column(JSON, nullable=True)
 ---
 
 ### DA-002: Create Database Migration for Distractor Stats
-**Status:** [ ] Not Started
-**Files:** `backend/alembic/versions/xxx_add_distractor_stats.py`
+**Status:** [x] Complete
+**Files:** `backend/alembic/versions/6023c90777fd_add_distractor_stats_column_to_.py`
 **Description:** Create Alembic migration to add the `distractor_stats` column to the questions table.
 
 **Acceptance Criteria:**
-- [ ] Migration file created with proper up/down operations
-- [ ] Migration applies successfully to test database
-- [ ] Rollback works correctly
+- [x] Migration file created with proper up/down operations
+- [x] Migration applies successfully to test database
+- [x] Rollback works correctly
 
 ---
 
