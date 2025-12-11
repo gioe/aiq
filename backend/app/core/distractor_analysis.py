@@ -327,6 +327,232 @@ def calculate_distractor_discrimination(
     }
 
 
+# Status thresholds for distractor effectiveness
+FUNCTIONING_THRESHOLD = 0.05  # >= 5% selection rate
+WEAK_THRESHOLD = 0.02  # 2-5% selection rate
+# < 2% is non-functioning
+
+# Discrimination thresholds
+DISCRIMINATION_THRESHOLD = 0.10  # |index| > 10% is considered significant
+
+
+def analyze_distractor_effectiveness(
+    db: Session,
+    question_id: int,
+    min_responses: int = 50,
+) -> Dict[str, Any]:
+    """
+    Analyze effectiveness of each distractor for a question.
+
+    This is the main analysis function that evaluates distractor quality by examining
+    both selection rates and discrimination patterns. It builds on the discrimination
+    data from calculate_distractor_discrimination() and adds categorical assessments.
+
+    Args:
+        db: Database session
+        question_id: ID of the question to analyze
+        min_responses: Minimum responses required for meaningful analysis (default: 50)
+
+    Returns:
+        Dictionary with comprehensive distractor analysis:
+        - If insufficient data: {"insufficient_data": True, "total_responses": N, "min_required": 50}
+        - Otherwise: {
+            "question_id": int,
+            "total_responses": int,
+            "correct_answer": str,
+            "options": {
+                "A": {
+                    "is_correct": bool,
+                    "selection_rate": float,
+                    "status": "functioning" | "weak" | "non-functioning",
+                    "discrimination": "good" | "neutral" | "inverted",
+                    "discrimination_index": float,
+                    "top_quartile_rate": float,
+                    "bottom_quartile_rate": float,
+                },
+                ...
+            },
+            "summary": {
+                "functioning_distractors": int,
+                "weak_distractors": int,
+                "non_functioning_distractors": int,
+                "inverted_distractors": int,
+                "effective_option_count": float,
+            },
+            "recommendations": [str, ...]
+        }
+
+    Status Definitions:
+        - functioning: Selected by >=5% of respondents (good distractor)
+        - weak: Selected by 2-5% of respondents (marginal)
+        - non-functioning: Selected by <2% of respondents (not attracting anyone)
+
+    Discrimination Categories:
+        - good: Bottom quartile selects more than top quartile (positive index > 0.10)
+        - neutral: Similar selection rates across ability levels (|index| <= 0.10)
+        - inverted: Top quartile selects more than bottom quartile (negative index < -0.10)
+          This is problematic for distractors as it suggests the "wrong" answer
+          is attracting high-ability test-takers.
+
+    Note:
+        The correct answer is identified and excluded from distractor analysis.
+        It's expected to have inverted discrimination (high scorers select more).
+    """
+    # First get discrimination data
+    discrimination = calculate_distractor_discrimination(
+        db, question_id, min_responses=min_responses
+    )
+
+    # Check for insufficient data
+    if discrimination.get("insufficient_data"):
+        return {
+            "insufficient_data": True,
+            "total_responses": discrimination.get("total_responses", 0),
+            "min_required": min_responses,
+        }
+
+    # Get the question for correct answer
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        return {
+            "insufficient_data": True,
+            "total_responses": 0,
+            "min_required": min_responses,
+        }
+
+    correct_answer = (
+        str(question.correct_answer).strip() if question.correct_answer else None
+    )
+
+    # Analyze each option
+    options_analysis: Dict[str, Dict[str, Any]] = {}
+    functioning_count = 0
+    weak_count = 0
+    non_functioning_count = 0
+    inverted_count = 0
+    recommendations: list[str] = []
+
+    for option_key, option_data in discrimination["options"].items():
+        selection_rate = option_data["selection_rate"]
+        discrimination_index = option_data["discrimination_index"]
+        is_correct = option_key == correct_answer
+
+        # Determine status based on selection rate
+        if selection_rate >= FUNCTIONING_THRESHOLD:
+            status = "functioning"
+            if not is_correct:
+                functioning_count += 1
+        elif selection_rate >= WEAK_THRESHOLD:
+            status = "weak"
+            if not is_correct:
+                weak_count += 1
+        else:
+            status = "non-functioning"
+            if not is_correct:
+                non_functioning_count += 1
+
+        # Determine discrimination category
+        # For distractors: positive index is good, negative is inverted
+        # For correct answer: negative index is actually expected behavior
+        if discrimination_index > DISCRIMINATION_THRESHOLD:
+            discrimination_cat = "good"
+        elif discrimination_index < -DISCRIMINATION_THRESHOLD:
+            discrimination_cat = "inverted"
+            if not is_correct:
+                inverted_count += 1
+        else:
+            discrimination_cat = "neutral"
+
+        options_analysis[option_key] = {
+            "is_correct": is_correct,
+            "selection_rate": selection_rate,
+            "status": status,
+            "discrimination": discrimination_cat,
+            "discrimination_index": discrimination_index,
+            "top_quartile_rate": option_data["top_quartile_rate"],
+            "bottom_quartile_rate": option_data["bottom_quartile_rate"],
+        }
+
+        # Generate recommendations for problematic distractors
+        if not is_correct:
+            if status == "non-functioning":
+                recommendations.append(
+                    f"Option '{option_key}' is non-functioning (selected by only "
+                    f"{selection_rate*100:.1f}% of respondents). Consider revising or replacing."
+                )
+            elif status == "weak":
+                recommendations.append(
+                    f"Option '{option_key}' is weak (selected by {selection_rate*100:.1f}% "
+                    f"of respondents). Consider strengthening its plausibility."
+                )
+
+            if discrimination_cat == "inverted":
+                recommendations.append(
+                    f"Option '{option_key}' has INVERTED discrimination: high-ability "
+                    f"test-takers select this more than low-ability. This may indicate "
+                    f"an ambiguous question or a distractor that's too attractive."
+                )
+
+    # Calculate effective option count
+    # This measures how many options are truly "effective" based on their selection rates
+    # Using Simpson's diversity index adapted for options
+    total_responses = discrimination["total_responses"]
+    effective_option_count = _calculate_effective_option_count(
+        discrimination["options"], total_responses
+    )
+
+    return {
+        "question_id": question_id,
+        "total_responses": total_responses,
+        "correct_answer": correct_answer,
+        "options": options_analysis,
+        "summary": {
+            "functioning_distractors": functioning_count,
+            "weak_distractors": weak_count,
+            "non_functioning_distractors": non_functioning_count,
+            "inverted_distractors": inverted_count,
+            "effective_option_count": round(effective_option_count, 2),
+        },
+        "recommendations": recommendations,
+    }
+
+
+def _calculate_effective_option_count(
+    options_data: Dict[str, Dict[str, Any]],
+    total_responses: int,
+) -> float:
+    """
+    Calculate effective number of options using the inverse Simpson index.
+
+    This metric indicates how many options are effectively being used.
+    A value of 4.0 for a 4-option question means all options are selected equally.
+    A value of 1.0 means essentially only one option is ever selected.
+
+    Formula: 1 / sum(p_i^2) where p_i is the selection rate of option i
+
+    Args:
+        options_data: Dictionary of option data with selection_rate
+        total_responses: Total number of responses
+
+    Returns:
+        Effective option count (float between 1 and number of options)
+    """
+    if total_responses == 0:
+        return 0.0
+
+    # Calculate sum of squared proportions
+    sum_squared = sum(
+        opt["selection_rate"] ** 2
+        for opt in options_data.values()
+        if opt["selection_rate"] > 0
+    )
+
+    if sum_squared == 0:
+        return 0.0
+
+    return 1.0 / sum_squared
+
+
 def get_distractor_stats(
     db: Session,
     question_id: int,
