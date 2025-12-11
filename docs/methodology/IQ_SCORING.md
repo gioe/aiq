@@ -2,7 +2,7 @@
 
 This document establishes AIQ's principles, methodologies, and standards for cognitive assessment, along with how they relate to established IQ testing practices.
 
-**Last Updated:** 2025-12-06
+**Last Updated:** 2025-12-10
 
 ---
 
@@ -220,6 +220,125 @@ Each test session stores its actual composition for analysis:
 - Difficulty distribution achieved
 - Domain distribution achieved
 - Total questions served
+
+### Test Timing Policy
+
+AIQ uses a **hybrid timing approach**: a total test time limit without per-question time constraints. This balances measurement validity with practical considerations.
+
+#### Timing Approach Comparison
+
+| Approach | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **Power Test** (Untimed) | Unlimited time to complete | Measures maximum ability | Allows answer lookup, reduces validity |
+| **Speeded Test** (Strict timing) | Per-question time limits | Resistant to cheating | Penalizes careful thinkers, adds anxiety |
+| **Hybrid** (AIQ approach) | Total time limit, no per-question limit | Balances ability measurement with validity | Requires clear communication |
+
+#### Total Test Time Limit: 30 Minutes
+
+AIQ enforces a **30-minute total time limit** for all tests.
+
+**Rationale:**
+- **Prevents excessive completion times**: A test completed over hours or days has fundamentally different validity than one completed in a single focused session
+- **Reduces cheating opportunity**: Limited time makes answer lookup, consultation, or tool use more difficult
+- **Matches standard practice**: Most professional IQ tests (WAIS, Stanford-Binet) use time limits between 60-90 minutes for full batteries; our 20-question subset warrants approximately 30 minutes
+- **Maintains engagement**: Extended sessions lead to fatigue, distraction, and motivation loss
+- **Average pacing**: 30 minutes for 20 questions = 90 seconds per question average, generous for most items
+
+**User Experience:**
+- Timer displayed during test (MM:SS countdown format)
+- Warning banner at 5 minutes (300 seconds) remaining
+- Auto-submission at 0 seconds with "Time's up" notification
+- Users informed of time limit before test begins
+
+#### No Per-Question Time Limit
+
+AIQ does **not** enforce per-question time limits.
+
+**Rationale:**
+- **Natural pacing**: Users may legitimately spend more time on difficult questions and less on easy ones
+- **Reduced anxiety**: Per-question timers create pressure that can artificially lower scores
+- **Ability vs. speed**: Strict per-question limits measure processing speed more than reasoning ability
+- **Cognitive style accommodation**: Some valid cognitive styles favor careful deliberation over rapid response
+
+**Trade-off Acknowledgment:**
+- Without per-question limits, a user could theoretically spend 28 minutes on one question and 10 seconds each on the remaining 19
+- This edge case is addressed through response time anomaly detection (see below)
+
+#### Time Limit Enforcement
+
+When the 30-minute limit is reached:
+1. Current answer (if any selected) is recorded
+2. Any unanswered questions are marked as skipped
+3. Test is automatically submitted
+4. Results are calculated based on answered questions
+5. `time_limit_exceeded` flag is set on the session for analytical purposes
+
+**Important**: Over-time submissions are accepted and scored, not rejected. The flag allows for validity assessment without losing user data.
+
+#### Response Time Anomaly Detection
+
+Per-question response times are tracked and analyzed for patterns that may indicate validity concerns:
+
+| Pattern | Threshold | Implication |
+|---------|-----------|-------------|
+| **Too fast** | <3 seconds | Random clicking, no reading |
+| **Very fast on hard** | <5 seconds on hard questions | Suspicious - may indicate pre-knowledge |
+| **Too slow** | >5 minutes (300 seconds) | Possible answer lookup or cheating |
+| **Rushed session** | <15 seconds average | Insufficient engagement |
+
+**Anomaly Flags Stored:**
+- Per-session anomaly analysis stored in `response_time_flags`
+- Includes: total time, mean/median per question, list of flagged responses, overall validity concern
+- Used for administrative review and aggregate analytics, not automatic score adjustment
+
+**Time Does NOT Affect Scores:**
+- Response time anomalies are informational flags only
+- Scores are calculated based on correctness, not speed
+- Administrators can review flagged sessions for potential validity concerns
+
+#### Time-Based Validity Assessment
+
+Response time patterns contribute to overall test validity assessment:
+
+```
+Validity Concern Triggers:
+├── Multiple rapid responses (<3 seconds)
+├── Extremely fast on hard questions (<5 seconds)
+├── Extended single-question time (>5 minutes)
+├── Session average below 15 seconds/question
+└── Total session time significantly below or above expected range
+```
+
+**Expected Time Distributions:**
+
+| Difficulty | Expected Range | Typical Median |
+|------------|---------------|----------------|
+| Easy | 10-30 seconds | ~20 seconds |
+| Medium | 20-60 seconds | ~35 seconds |
+| Hard | 30-120 seconds | ~55 seconds |
+
+**Expected Total Test Duration:**
+- Most users: 12-20 minutes
+- Fast but valid: 8-12 minutes
+- Deliberate pace: 20-28 minutes
+- Suspicious if: <5 minutes or exactly at 30-minute limit with many unanswered
+
+#### User Communication
+
+Test timing is communicated clearly to users:
+
+**Pre-Test Instructions:**
+> "You have 30 minutes to complete this 20-question test. Most people finish in 15-20 minutes. A timer will be displayed throughout the test, and you'll receive a warning when 5 minutes remain. Take your time on each question - there are no per-question time limits."
+
+**During Test:**
+- Persistent timer display in MM:SS format
+- Yellow/orange warning banner at 5 minutes remaining
+- Automatic submission when time expires
+
+**Post-Test (if timed out):**
+- Clear notification that time expired
+- Confirmation that all answered questions were scored
+- Results displayed normally
 
 ---
 
