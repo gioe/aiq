@@ -334,7 +334,7 @@ class TestTimerManager: ObservableObject {
 ---
 
 ### TS-013: Integration Tests for Time Submission Flow
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_test_sessions.py`
 **Description:** Write integration tests for test submission with time data.
 
@@ -345,11 +345,11 @@ class TestTimerManager: ObservableObject {
 - Submit test without time data - verify backward compatibility
 
 **Acceptance Criteria:**
-- [ ] Test submission stores time_spent_seconds
-- [ ] Over-time flag set correctly
-- [ ] Anomaly flags generated and stored
-- [ ] Backward compatibility maintained
-- [ ] All tests pass
+- [x] Test submission stores time_spent_seconds
+- [x] Over-time flag set correctly
+- [x] Anomaly flags generated and stored
+- [x] Backward compatibility maintained
+- [x] All tests pass
 
 ---
 
