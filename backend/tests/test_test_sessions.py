@@ -680,3 +680,322 @@ class TestAbandonTest:
 
         # Should be a different session
         assert session_id2 != session_id1
+
+
+class TestSubmitTestWithTimeData:
+    """Integration tests for test submission with time data (TS-013)."""
+
+    def test_submit_with_time_data_stores_correctly(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that time_spent_seconds is stored correctly for each response."""
+        from app.models.models import Response
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test with time data for each question
+        # answer_options is a list like ["8", "10", "12", "14"]
+        responses = [
+            {
+                "question_id": questions[0]["id"],
+                "user_answer": questions[0]["answer_options"][0],  # First option
+                "time_spent_seconds": 45,  # 45 seconds on question 1
+            },
+            {
+                "question_id": questions[1]["id"],
+                "user_answer": questions[1]["answer_options"][1],  # Second option
+                "time_spent_seconds": 120,  # 2 minutes on question 2
+            },
+            {
+                "question_id": questions[2]["id"],
+                "user_answer": questions[2]["answer_options"][2],  # Third option
+                "time_spent_seconds": 30,  # 30 seconds on question 3
+            },
+        ]
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+        assert data["responses_count"] == 3
+
+        # Verify time data was stored in the database
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .all()
+        )
+
+        assert len(stored_responses) == 3
+
+        # Create a map of question_id to time_spent_seconds for verification
+        expected_times = {r["question_id"]: r["time_spent_seconds"] for r in responses}
+        for resp in stored_responses:
+            assert resp.time_spent_seconds == expected_times[resp.question_id]
+
+    def test_submit_over_time_limit_sets_flag(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that time_limit_exceeded flag is set correctly when client reports it."""
+        from app.models import TestSession
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test with time_limit_exceeded flag set (simulating auto-submit)
+        # answer_options is a list like ["8", "10", "12", "14"]
+        responses = [
+            {
+                "question_id": questions[0]["id"],
+                "user_answer": questions[0]["answer_options"][0],  # First option
+                "time_spent_seconds": 1000,  # About 16 minutes on question 1
+            },
+            {
+                "question_id": questions[1]["id"],
+                "user_answer": questions[1]["answer_options"][1],  # Second option
+                "time_spent_seconds": 900,  # 15 minutes on question 2
+            },
+        ]
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+            "time_limit_exceeded": True,  # Client reports time limit exceeded
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+
+        # Verify time_limit_exceeded flag was set in the database
+        test_session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert test_session.time_limit_exceeded is True
+
+    def test_submit_with_anomalies_generates_flags(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that response time anomalies are detected and stored in response_time_flags."""
+        from app.models.models import TestResult
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test with anomalous times:
+        # - Question 1: Very fast (< 3 seconds) - should be flagged as "too_fast"
+        # - Question 2: Normal time
+        # - Question 3: Normal time
+        # - Question 4: Very slow (> 300 seconds) - should be flagged as "too_slow"
+        # answer_options is a list like ["8", "10", "12", "14"]
+        responses = [
+            {
+                "question_id": questions[0]["id"],
+                "user_answer": questions[0]["answer_options"][0],  # First option
+                "time_spent_seconds": 1,  # Too fast - random clicking
+            },
+            {
+                "question_id": questions[1]["id"],
+                "user_answer": questions[1]["answer_options"][1],  # Second option
+                "time_spent_seconds": 45,  # Normal
+            },
+            {
+                "question_id": questions[2]["id"],
+                "user_answer": questions[2]["answer_options"][2],  # Third option
+                "time_spent_seconds": 60,  # Normal
+            },
+            {
+                "question_id": questions[3]["id"],
+                "user_answer": questions[3]["answer_options"][0],  # First option
+                "time_spent_seconds": 350,  # Too slow - possible lookup
+            },
+        ]
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+
+        # Verify response_time_flags were stored in the test result
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        assert test_result is not None
+        assert test_result.response_time_flags is not None
+
+        # The flags should contain anomaly information
+        flags = test_result.response_time_flags
+        assert "flags" in flags
+        # Should have at least one flag for the rapid response
+        assert len(flags["flags"]) > 0
+
+        # The response should also include the flags
+        assert data["result"]["response_time_flags"] is not None
+
+    def test_submit_without_time_data_backward_compatible(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that test submission works without time data (backward compatibility)."""
+        from app.models.models import Response, TestResult
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test WITHOUT time_spent_seconds (old client behavior)
+        # answer_options is a list like ["8", "10", "12", "14"]
+        responses = [
+            {
+                "question_id": questions[0]["id"],
+                "user_answer": questions[0]["answer_options"][0],  # First option
+                # No time_spent_seconds
+            },
+            {
+                "question_id": questions[1]["id"],
+                "user_answer": questions[1]["answer_options"][1],  # Second option
+                # No time_spent_seconds
+            },
+        ]
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+            # No time_limit_exceeded
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        # Submission should succeed
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+        assert data["responses_count"] == 2
+
+        # Verify responses were stored with NULL time_spent_seconds
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .all()
+        )
+
+        assert len(stored_responses) == 2
+        for resp in stored_responses:
+            assert resp.time_spent_seconds is None
+
+        # Verify TestSession doesn't have time_limit_exceeded set
+        from app.models import TestSession
+
+        test_session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert test_session.time_limit_exceeded is False
+
+        # Verify TestResult was created (scoring should work without time data)
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert test_result.iq_score is not None
+
+    def test_submit_mixed_time_data_handles_partial(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test submission with some questions having time data and some without."""
+        from app.models.models import Response
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test with mixed time data
+        # answer_options is a list like ["8", "10", "12", "14"]
+        responses = [
+            {
+                "question_id": questions[0]["id"],
+                "user_answer": questions[0]["answer_options"][0],  # First option
+                "time_spent_seconds": 45,  # Has time data
+            },
+            {
+                "question_id": questions[1]["id"],
+                "user_answer": questions[1]["answer_options"][1],  # Second option
+                # No time_spent_seconds
+            },
+            {
+                "question_id": questions[2]["id"],
+                "user_answer": questions[2]["answer_options"][2],  # Third option
+                "time_spent_seconds": 30,  # Has time data
+            },
+        ]
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        # Submission should succeed
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+
+        # Verify responses were stored with correct time data
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .order_by(Response.question_id)
+            .all()
+        )
+
+        assert len(stored_responses) == 3
+
+        # Create map for verification
+        response_times = {r.question_id: r.time_spent_seconds for r in stored_responses}
+
+        # Question 0 and 2 have time data, question 1 doesn't
+        assert response_times[questions[0]["id"]] == 45
+        assert response_times[questions[1]["id"]] is None
+        assert response_times[questions[2]["id"]] == 30
