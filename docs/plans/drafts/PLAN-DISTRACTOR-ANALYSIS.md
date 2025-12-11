@@ -97,8 +97,8 @@ def calculate_distractor_discrimination(
 ---
 
 ### DA-005: Implement Distractor Effectiveness Analysis
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/distractor_analysis.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/distractor_analysis.py`, `backend/tests/test_distractor_analysis.py`
 **Description:** Create main analysis function that evaluates each distractor's effectiveness.
 
 **Implementation:**
@@ -121,16 +121,16 @@ def analyze_distractor_effectiveness(
 - Non-functioning: Selected by <2% of respondents
 
 **Discrimination Categories:**
-- Good: Bottom quartile selects more than top quartile
-- Neutral: Similar selection rates across ability levels
-- Inverted: Top quartile selects more than bottom quartile (problematic)
+- Good: Bottom quartile selects more than top quartile (index > 0.10)
+- Neutral: Similar selection rates across ability levels (|index| <= 0.10)
+- Inverted: Top quartile selects more than bottom quartile (index < -0.10)
 
 **Acceptance Criteria:**
-- [ ] Correctly calculates selection_rate for each option
-- [ ] Properly categorizes status based on thresholds
-- [ ] Properly categorizes discrimination based on quartile rates
-- [ ] Generates actionable recommendations list
-- [ ] Calculates effective_option_count correctly
+- [x] Correctly calculates selection_rate for each option
+- [x] Properly categorizes status based on thresholds
+- [x] Properly categorizes discrimination based on quartile rates
+- [x] Generates actionable recommendations list
+- [x] Calculates effective_option_count correctly using inverse Simpson index
 
 ---
 
