@@ -29,7 +29,10 @@ from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
-from app.core.distractor_analysis import update_distractor_stats
+from app.core.distractor_analysis import (
+    update_distractor_stats,
+    update_session_quartile_stats,
+)
 from app.core.question_utils import question_to_response
 from app.core.datetime_utils import ensure_timezone_aware
 
@@ -654,6 +657,22 @@ def submit_test(
         # Log error but don't fail the submission
         logger.error(
             f"Failed to update question statistics for session {test_session.id}: {e}"
+        )
+
+    # DA-007: Update quartile-based distractor stats after test completion
+    # This enables discrimination analysis to identify which distractors attract
+    # high-ability vs low-ability test-takers
+    try:
+        update_session_quartile_stats(
+            db=db,
+            test_session_id=int(test_session.id),  # type: ignore
+            correct_answers=correct_count,
+            total_questions=response_count,
+        )
+    except Exception as e:
+        # Log error but don't fail the submission - quartile stats are non-critical
+        logger.warning(
+            f"Failed to update distractor quartile stats for session {test_session.id}: {e}"
         )
 
     # Track analytics event

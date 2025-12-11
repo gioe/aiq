@@ -16,6 +16,7 @@ Based on:
 import logging
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.models import Question
 
@@ -179,6 +180,8 @@ def update_distractor_quartile_stats(
 
     # Update the question's distractor_stats
     question.distractor_stats = current_stats  # type: ignore[assignment]
+    # Flag the JSONB column as modified so SQLAlchemy detects the change
+    flag_modified(question, "distractor_stats")
 
     quartile_name = "top_q" if is_top_quartile else "bottom_q"
     logger.debug(
@@ -602,3 +605,196 @@ def get_distractor_stats(
         "total_responses": total_responses,
         "has_quartile_data": has_quartile_data,
     }
+
+
+def determine_score_quartile(
+    db: Session,
+    correct_answers: int,
+    total_questions: int,
+    min_historical_results: int = 10,
+) -> Dict[str, Any]:
+    """
+    Determine if a test score falls in the top or bottom quartile.
+
+    Compares the user's correct_answers against historical test results
+    to determine their quartile placement. This enables discrimination
+    analysis by tracking which options are preferred by high vs low scorers.
+
+    Args:
+        db: Database session
+        correct_answers: Number of correct answers in the current test
+        total_questions: Total questions in the current test
+        min_historical_results: Minimum historical results required for comparison (default: 10)
+
+    Returns:
+        Dictionary with quartile determination:
+        {
+            "quartile": "top" | "bottom" | "middle" | "insufficient_data",
+            "is_top": True | False | None,  # True=top, False=bottom, None=middle/insufficient
+            "historical_count": int,
+        }
+
+    Note:
+        We compare using raw score (correct_answers) rather than percentage
+        because tests of the same length are most comparable. For mixed-length
+        tests, this comparison is approximate.
+    """
+    from app.models.models import TestResult
+
+    # Get historical test results for comparison
+    # Only consider tests with similar question count (+/- 20%)
+    min_questions = int(total_questions * 0.8)
+    max_questions = int(total_questions * 1.2)
+
+    historical_scores = (
+        db.query(TestResult.correct_answers)
+        .filter(
+            TestResult.total_questions >= min_questions,
+            TestResult.total_questions <= max_questions,
+        )
+        .all()
+    )
+
+    # Extract scores into a list
+    scores = [score for (score,) in historical_scores]
+
+    # Check minimum data requirement
+    if len(scores) < min_historical_results:
+        logger.debug(
+            f"Insufficient historical data for quartile determination: "
+            f"have {len(scores)}, need {min_historical_results}"
+        )
+        return {
+            "quartile": "insufficient_data",
+            "is_top": None,
+            "historical_count": len(scores),
+        }
+
+    # Sort scores to find quartile boundaries
+    scores.sort()
+    n = len(scores)
+
+    # Calculate quartile boundaries
+    # Bottom quartile: 0-25th percentile
+    # Top quartile: 75th-100th percentile
+    bottom_quartile_threshold = scores[n // 4]  # 25th percentile
+    top_quartile_threshold = scores[3 * n // 4]  # 75th percentile
+
+    # Determine quartile membership
+    if correct_answers >= top_quartile_threshold:
+        return {
+            "quartile": "top",
+            "is_top": True,
+            "historical_count": n,
+        }
+    elif correct_answers <= bottom_quartile_threshold:
+        return {
+            "quartile": "bottom",
+            "is_top": False,
+            "historical_count": n,
+        }
+    else:
+        return {
+            "quartile": "middle",
+            "is_top": None,
+            "historical_count": n,
+        }
+
+
+def update_session_quartile_stats(
+    db: Session,
+    test_session_id: int,
+    correct_answers: int,
+    total_questions: int,
+) -> Dict[str, Any]:
+    """
+    Update quartile-based distractor stats for all responses in a test session.
+
+    Called after test completion when the user's total score is known.
+    This function:
+    1. Determines if the user is in top/bottom quartile based on historical scores
+    2. Updates quartile stats (top_q/bottom_q) for each question they answered
+    3. Only updates multiple-choice questions (skips free-response)
+
+    Args:
+        db: Database session
+        test_session_id: ID of the completed test session
+        correct_answers: Number of correct answers in the test
+        total_questions: Total number of questions in the test
+
+    Returns:
+        Dictionary with update summary:
+        {
+            "session_id": int,
+            "quartile": "top" | "bottom" | "middle" | "insufficient_data",
+            "questions_updated": int,
+            "questions_skipped": int,  # Free-response or errors
+        }
+    """
+    from app.models.models import Response
+
+    # Determine user's quartile
+    quartile_result = determine_score_quartile(db, correct_answers, total_questions)
+
+    result = {
+        "session_id": test_session_id,
+        "quartile": quartile_result["quartile"],
+        "questions_updated": 0,
+        "questions_skipped": 0,
+    }
+
+    # If user is in middle 50% or insufficient data, don't update quartile stats
+    if quartile_result["is_top"] is None:
+        if result["quartile"] == "middle":
+            logger.debug(
+                f"Session {test_session_id} is in middle quartile; "
+                f"skipping quartile stats update"
+            )
+        else:
+            logger.debug(
+                f"Session {test_session_id}: insufficient historical data "
+                f"for quartile determination"
+            )
+        return result
+
+    # Get all responses for this session
+    responses = (
+        db.query(Response).filter(Response.test_session_id == test_session_id).all()
+    )
+
+    if not responses:
+        logger.warning(f"No responses found for session {test_session_id}")
+        return result
+
+    # Update quartile stats for each response
+    is_top_quartile = quartile_result["is_top"]
+
+    for response in responses:
+        try:
+            success = update_distractor_quartile_stats(
+                db=db,
+                question_id=int(response.question_id),  # type: ignore[arg-type]
+                selected_answer=str(response.user_answer),
+                is_top_quartile=is_top_quartile,
+            )
+            if success:
+                result["questions_updated"] += 1
+            else:
+                result["questions_skipped"] += 1
+        except Exception as e:
+            logger.warning(
+                f"Failed to update quartile stats for question {response.question_id} "
+                f"in session {test_session_id}: {e}"
+            )
+            result["questions_skipped"] += 1
+
+    # Commit all the changes made to question distractor_stats
+    db.commit()
+
+    logger.info(
+        f"Updated quartile stats for session {test_session_id}: "
+        f"quartile={result['quartile']}, updated={result['questions_updated']}, "
+        f"skipped={result['questions_skipped']}"
+    )
+
+    return result
