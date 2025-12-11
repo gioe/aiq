@@ -13,6 +13,7 @@ struct TestSession: Codable, Identifiable, Equatable {
     let completedAt: Date?
     let status: TestStatus
     let questions: [Question]?
+    let timeLimitExceeded: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -21,6 +22,7 @@ struct TestSession: Codable, Identifiable, Equatable {
         case completedAt = "completed_at"
         case status
         case questions
+        case timeLimitExceeded = "time_limit_exceeded"
     }
 }
 
@@ -91,6 +93,7 @@ struct SubmittedTestResult: Codable, Equatable {
     let accuracyPercentage: Double
     let completionTimeSeconds: Int?
     let completedAt: Date
+    let responseTimeFlags: ResponseTimeFlags?
 
     var accuracy: Double {
         accuracyPercentage / 100.0
@@ -146,5 +149,42 @@ struct SubmittedTestResult: Codable, Equatable {
         case accuracyPercentage = "accuracy_percentage"
         case completionTimeSeconds = "completion_time_seconds"
         case completedAt = "completed_at"
+        case responseTimeFlags = "response_time_flags"
+    }
+}
+
+/// Response time analysis flags returned from the backend
+struct ResponseTimeFlags: Codable, Equatable {
+    let totalTimeSeconds: Int?
+    let meanTimePerQuestion: Double?
+    let medianTimePerQuestion: Double?
+    let stdTimePerQuestion: Double?
+    let anomalies: [ResponseTimeAnomaly]?
+    let flags: [String]?
+    let validityConcern: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case totalTimeSeconds = "total_time_seconds"
+        case meanTimePerQuestion = "mean_time_per_question"
+        case medianTimePerQuestion = "median_time_per_question"
+        case stdTimePerQuestion = "std_time_per_question"
+        case anomalies
+        case flags
+        case validityConcern = "validity_concern"
+    }
+}
+
+/// Individual response time anomaly
+struct ResponseTimeAnomaly: Codable, Equatable {
+    let questionId: Int
+    let timeSeconds: Int
+    let anomalyType: String
+    let zScore: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case questionId = "question_id"
+        case timeSeconds = "time_seconds"
+        case anomalyType = "anomaly_type"
+        case zScore = "z_score"
     }
 }

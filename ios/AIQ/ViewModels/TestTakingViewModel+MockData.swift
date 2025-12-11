@@ -80,7 +80,8 @@ extension TestTakingViewModel {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: allQuestions
+            questions: allQuestions,
+            timeLimitExceeded: false
         )
     }
 }

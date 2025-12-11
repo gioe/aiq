@@ -197,7 +197,8 @@ final class TestTakingViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         // Response with no questions
         let mockResponse = TestSessionStatusResponse(
@@ -396,7 +397,8 @@ final class TestTakingViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         // Only include questions 1 and 2 in the session
         let mockQuestions = [
@@ -451,7 +453,8 @@ final class TestTakingViewModelTests: XCTestCase {
         userId: Int = 1,
         status: TestStatus = .inProgress,
         startedAt: Date = Date(),
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        timeLimitExceeded: Bool? = false
     ) -> TestSession {
         TestSession(
             id: id,
@@ -459,7 +462,8 @@ final class TestTakingViewModelTests: XCTestCase {
             startedAt: startedAt,
             completedAt: completedAt,
             status: status,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: timeLimitExceeded
         )
     }
 

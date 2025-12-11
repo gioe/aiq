@@ -107,7 +107,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -137,7 +138,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-3600), // Started 1 hour ago
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -193,7 +195,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-1800), // Started 30 mins ago
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
 
         // Dashboard shows active session
@@ -258,7 +261,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-7200), // Started 2 hours ago
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -288,7 +292,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: activeSession.startedAt,
             completedAt: nil,
             status: .abandoned,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let abandonResponse = TestAbandonResponse(
             session: abandonedSession,
@@ -330,7 +335,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
 
         // Set up saved progress
@@ -357,7 +363,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 startedAt: activeSession.startedAt,
                 completedAt: nil,
                 status: .abandoned,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             message: "Test abandoned successfully",
             responsesSaved: 2
@@ -440,7 +447,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 startedAt: Date(),
                 completedAt: nil,
                 status: .inProgress,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             questionsCount: 4,
             questions: mockQuestions
@@ -487,7 +495,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 startedAt: Date(),
                 completedAt: nil,
                 status: .abandoned,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             message: "Test abandoned successfully",
             responsesSaved: 0
@@ -547,7 +556,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -595,7 +605,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
 
         // Dashboard shows active session
@@ -640,7 +651,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             correctAnswers: 2,
             accuracyPercentage: 100.0,
             completionTimeSeconds: 120,
-            completedAt: Date()
+            completedAt: Date(),
+            responseTimeFlags: nil
         )
         let completedSession = TestSession(
             id: sessionId,
@@ -648,7 +660,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: Date(),
             status: .completed,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let submitResponse = TestSubmitResponse(
             session: completedSession,
@@ -702,7 +715,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -759,7 +773,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
 
         // First refresh - session appears
@@ -854,7 +869,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 startedAt: Date(),
                 completedAt: nil,
                 status: .inProgress,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             questions: questions,
             totalQuestions: totalQuestions ?? questions.count

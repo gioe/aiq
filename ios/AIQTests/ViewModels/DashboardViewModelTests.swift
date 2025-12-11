@@ -68,7 +68,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -129,7 +130,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -165,7 +167,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -203,7 +206,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
 
         // Use reflection to set the property for testing
@@ -231,7 +235,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         sut.activeTestSession = mockSession
         sut.activeSessionQuestionsAnswered = 5
@@ -242,7 +247,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt,
             completedAt: nil,
             status: .abandoned,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockAbandonResponse = TestAbandonResponse(
             session: mockAbandonedSession,
@@ -300,7 +306,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         sut.activeTestSession = mockSession
         sut.activeSessionQuestionsAnswered = 3
@@ -335,7 +342,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         sut.setActiveTestSession(mockSession)
 
@@ -356,7 +364,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt,
             completedAt: nil,
             status: .abandoned,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockAbandonResponse = TestAbandonResponse(
             session: mockAbandonedSession,
@@ -388,7 +397,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date(),
             completedAt: nil,
             status: .inProgress,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         sut.setActiveTestSession(mockSession)
 
@@ -398,7 +408,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt,
             completedAt: nil,
             status: .abandoned,
-            questions: nil
+            questions: nil,
+            timeLimitExceeded: false
         )
         let mockAbandonResponse = TestAbandonResponse(
             session: mockAbandonedSession,

@@ -295,8 +295,8 @@ class TestTimerManager: ObservableObject {
 ---
 
 ### TS-011: Update API Client for Time Data
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Services/API/APIClient.swift`, `ios/AIQ/Services/API/TestService.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Models/TestSession.swift`, `ios/AIQ/Models/Question.swift`
 **Description:** Update iOS API client to include time data in submission requests.
 
 **Changes:**
@@ -305,9 +305,9 @@ class TestTimerManager: ObservableObject {
 - Handle `time_limit_exceeded` in response
 
 **Acceptance Criteria:**
-- [ ] Submission payload includes time_spent_seconds per response
-- [ ] API models match backend schemas
-- [ ] Response parsing handles new fields
+- [x] Submission payload includes time_spent_seconds per response
+- [x] API models match backend schemas
+- [x] Response parsing handles new fields
 
 ---
 
