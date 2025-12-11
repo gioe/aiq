@@ -328,7 +328,8 @@ struct TestResultsView: View {
             correctAnswers: 19,
             accuracyPercentage: 95.0,
             completionTimeSeconds: 842,
-            completedAt: Date()
+            completedAt: Date(),
+            responseTimeFlags: nil
         ),
         onDismiss: {}
     )
@@ -346,7 +347,8 @@ struct TestResultsView: View {
             correctAnswers: 14,
             accuracyPercentage: 70.0,
             completionTimeSeconds: 1023,
-            completedAt: Date()
+            completedAt: Date(),
+            responseTimeFlags: nil
         ),
         onDismiss: {}
     )
@@ -364,7 +366,8 @@ struct TestResultsView: View {
             correctAnswers: 9,
             accuracyPercentage: 45.0,
             completionTimeSeconds: 1523,
-            completedAt: Date()
+            completedAt: Date(),
+            responseTimeFlags: nil
         ),
         onDismiss: {}
     )

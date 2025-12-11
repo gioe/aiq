@@ -253,7 +253,8 @@ struct InProgressTestCard: View {
                 startedAt: Date().addingTimeInterval(-3600 * 2), // 2 hours ago
                 completedAt: nil,
                 status: .inProgress,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             questionsAnswered: 12,
             onResume: {
@@ -277,7 +278,8 @@ struct InProgressTestCard: View {
                 startedAt: Date().addingTimeInterval(-30), // 30 seconds ago
                 completedAt: nil,
                 status: .inProgress,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             questionsAnswered: 0,
             onResume: {
@@ -301,7 +303,8 @@ struct InProgressTestCard: View {
                 startedAt: Date().addingTimeInterval(-86400 * 3), // 3 days ago
                 completedAt: nil,
                 status: .inProgress,
-                questions: nil
+                questions: nil,
+                timeLimitExceeded: false
             ),
             questionsAnswered: 5,
             onResume: {
