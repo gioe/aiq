@@ -246,9 +246,9 @@ Optional longer explanation if needed.
 - `users` - User accounts with auth credentials
 - `questions` - AI-generated IQ test questions with metadata (type, difficulty, correct_answer)
 - `user_questions` - Junction table tracking which questions each user has seen (prevents repetition)
-- `test_sessions` - Individual test attempts (tracks in_progress, completed, abandoned)
-- `responses` - User answers to specific questions
-- `test_results` - Calculated IQ scores and test metadata
+- `test_sessions` - Individual test attempts (tracks in_progress, completed, abandoned, time_limit_exceeded)
+- `responses` - User answers to specific questions (includes time_spent_seconds per question)
+- `test_results` - Calculated IQ scores, test metadata, and response_time_flags (anomaly analysis)
 
 **Key Query Pattern** (filtering unseen questions):
 ```sql
