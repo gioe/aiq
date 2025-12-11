@@ -182,6 +182,17 @@ class Question(Base):
     )  # IRT guessing parameter (c): lower asymptote (0.0-1.0)
     # Probability of correct answer by random guessing (e.g., 0.25 for 4-option multiple choice)
 
+    # Distractor Analysis (DA-001)
+    # Tracks selection statistics for each answer option to enable distractor quality analysis
+    distractor_stats = Column(
+        JSON, nullable=True
+    )  # Selection counts and quartile-based stats per answer option
+    # Format: {"option_text": {"count": 50, "top_q": 10, "bottom_q": 25}, ...}
+    # - count: total times this option was selected
+    # - top_q: selections by top quartile scorers (high ability)
+    # - bottom_q: selections by bottom quartile scorers (low ability)
+    # NULL for new questions; populated by DA-003 as responses are recorded
+
     # Recalibration tracking (EIC-001)
     # These fields track when difficulty labels are recalibrated based on empirical data
     original_difficulty_level = Column(
