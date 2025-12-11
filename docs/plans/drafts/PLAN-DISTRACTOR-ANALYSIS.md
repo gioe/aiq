@@ -72,7 +72,7 @@ def update_distractor_stats(db: Session, question_id: int, selected_answer: str)
 ---
 
 ### DA-004: Implement Quartile-Based Distractor Discrimination
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/distractor_analysis.py`
 **Description:** Add function to calculate selection rates by ability quartile for each option, enabling discrimination analysis.
 
@@ -89,10 +89,10 @@ def calculate_distractor_discrimination(
 ```
 
 **Acceptance Criteria:**
-- [ ] Correctly divides responses into quartiles by total test score
-- [ ] Calculates selection rate per option per quartile (top/bottom)
-- [ ] Returns `{"insufficient_data": True}` when < 40 responses
-- [ ] Joins Response with TestResult correctly
+- [x] Correctly divides responses into quartiles by total test score
+- [x] Calculates selection rate per option per quartile (top/bottom)
+- [x] Returns `{"insufficient_data": True}` when < 40 responses
+- [x] Uses stored quartile data from distractor_stats (populated by update_distractor_quartile_stats)
 
 ---
 
