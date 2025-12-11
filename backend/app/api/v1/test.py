@@ -29,6 +29,7 @@ from app.core.cache import invalidate_user_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
+from app.core.distractor_analysis import update_distractor_stats
 from app.core.question_utils import question_to_response
 from app.core.datetime_utils import ensure_timezone_aware
 
@@ -559,6 +560,20 @@ def submit_test(
         )
         db.add(response)
         response_count += 1
+
+        # DA-006: Update distractor statistics for multiple-choice questions
+        # This tracks selection frequency for each answer option
+        # Graceful degradation: failures are logged but don't block response recording
+        try:
+            update_distractor_stats(
+                db=db,
+                question_id=resp_item.question_id,
+                selected_answer=resp_item.user_answer.strip(),
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to update distractor stats for question {resp_item.question_id}: {e}"
+            )
 
     # Update test session status to completed
     completion_time = datetime.now(timezone.utc)

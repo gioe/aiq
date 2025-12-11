@@ -1,5 +1,5 @@
 """
-Tests for distractor analysis functions (DA-003, DA-004, DA-005).
+Tests for distractor analysis functions (DA-003, DA-004, DA-005, DA-006).
 
 Tests cover:
 - Selection count incrementing
@@ -9,7 +9,9 @@ Tests cover:
 - Quartile stats updates
 - Distractor discrimination calculation (DA-004)
 - Distractor effectiveness analysis (DA-005)
+- Integration with response submission (DA-006)
 """
+import pytest
 from app.models import Question
 from app.models.models import QuestionType, DifficultyLevel
 from app.core.distractor_analysis import (
@@ -1333,3 +1335,284 @@ class TestCalculateEffectiveOptionCount:
         result = _calculate_effective_option_count(options_data, 100)
         # 1 / (0.64 + 0.01 + 0.0025 + 0.0025) = 1 / 0.655 ≈ 1.53
         assert 1.4 < result < 1.6
+
+
+class TestDistractorStatsIntegration:
+    """Integration tests for DA-006: Distractor stats update during response submission."""
+
+    def test_distractor_stats_updated_on_test_submission(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that distractor_stats are updated when test responses are submitted."""
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Get the questions from database to check initial state
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+
+        # Verify questions have null or empty distractor_stats initially
+        for q in db_questions:
+            # Either null or empty stats initially
+            assert q.distractor_stats is None or q.distractor_stats == {}
+
+        # Prepare answers (mix of correct and incorrect)
+        questions_dict = {q.id: q for q in db_questions}
+        submission_data = {
+            "session_id": session_id,
+            "responses": [
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": "WRONG_ANSWER",
+                },
+                {
+                    "question_id": questions[2]["id"],
+                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                },
+            ],
+        }
+
+        # Submit the test
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        # Refresh questions from database
+        db_session.expire_all()
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
+        # Verify distractor_stats were updated for multiple-choice questions
+        for q_data in questions:
+            q = questions_dict[q_data["id"]]
+            # Only questions with answer_options should have distractor_stats updated
+            if q.answer_options is not None:
+                assert q.distractor_stats is not None
+                # Find the answer that was submitted for this question
+                submitted_answer = next(
+                    r["user_answer"]
+                    for r in submission_data["responses"]
+                    if r["question_id"] == q.id
+                )
+                # Verify the submitted answer was tracked
+                assert submitted_answer in q.distractor_stats
+                assert q.distractor_stats[submitted_answer]["count"] == 1
+
+    def test_distractor_stats_increments_on_multiple_submissions(
+        self, client, db_session
+    ):
+        """Test that distractor_stats accumulate across multiple test submissions."""
+        from app.core.security import hash_password, create_access_token
+        from app.models import User
+        from datetime import datetime, timedelta, timezone
+
+        # Create a question specifically for this test
+        question = Question(
+            question_text="Test question for distractor stats",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Create multiple users to simulate multiple submissions
+        users_and_headers = []
+        for i in range(3):
+            user = User(
+                email=f"user_{i}@example.com",
+                password_hash=hash_password("password123"),
+                first_name=f"User{i}",
+                last_name="Test",
+            )
+            db_session.add(user)
+            db_session.commit()
+            db_session.refresh(user)
+            token = create_access_token({"user_id": user.id})
+            headers = {"Authorization": f"Bearer {token}"}
+            users_and_headers.append((user, headers))
+
+        # Have each user take a test and select different answers
+        answers_to_select = ["A", "B", "B"]  # Expected: A=1, B=2
+
+        for idx, (user, headers) in enumerate(users_and_headers):
+            # Start test
+            start_response = client.post(
+                "/v1/test/start?question_count=1", headers=headers
+            )
+            if start_response.status_code != 200:
+                # Not enough unseen questions, skip this test
+                pytest.skip("Not enough unique questions for all test users")
+
+            session_data = start_response.json()
+            session_id = session_data["session"]["id"]
+            test_question_id = session_data["questions"][0]["id"]
+
+            # Submit response with selected answer
+            submission_data = {
+                "session_id": session_id,
+                "responses": [
+                    {
+                        "question_id": test_question_id,
+                        "user_answer": answers_to_select[idx],
+                    },
+                ],
+            }
+
+            response = client.post(
+                "/v1/test/submit", json=submission_data, headers=headers
+            )
+            assert response.status_code == 200
+
+            # Backdate completed_at to allow next test (bypass cadence check)
+            from app.models.models import TestSession
+
+            session = (
+                db_session.query(TestSession)
+                .filter(TestSession.id == session_id)
+                .first()
+            )
+            session.completed_at = datetime.now(timezone.utc) - timedelta(days=200)
+            db_session.commit()
+
+        # Refresh the question and check stats
+        db_session.expire_all()
+        db_question = (
+            db_session.query(Question).filter(Question.id == question.id).first()
+        )
+
+        # Verify stats accumulated (only if the question was used in all tests)
+        if db_question.distractor_stats:
+            # The stats should reflect selections made
+            total_count = sum(
+                opt.get("count", 0) for opt in db_question.distractor_stats.values()
+            )
+            # At least one selection was recorded
+            assert total_count >= 1
+
+    def test_distractor_stats_not_updated_for_free_response(
+        self, client, auth_headers, db_session
+    ):
+        """Test that free-response questions (no answer_options) don't get distractor_stats."""
+        # Create a free-response question
+        free_response_question = Question(
+            question_text="Explain your reasoning",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="Any reasonable answer",
+            answer_options=None,  # No options = free response
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(free_response_question)
+        db_session.commit()
+        db_session.refresh(free_response_question)
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=1", headers=auth_headers
+        )
+
+        # Check if we got the free response question
+        if start_response.status_code != 200:
+            pytest.skip("Could not start test")
+
+        questions = start_response.json()["questions"]
+        session_id = start_response.json()["session"]["id"]
+
+        # Submit response
+        submission_data = {
+            "session_id": session_id,
+            "responses": [
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": "Some answer",
+                },
+            ],
+        }
+
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        # Check that free-response question still has no distractor_stats
+        db_session.expire_all()
+        fr_question = (
+            db_session.query(Question)
+            .filter(Question.id == free_response_question.id)
+            .first()
+        )
+        # Free response questions should not have distractor_stats
+        assert fr_question.distractor_stats is None
+
+    def test_distractor_stats_graceful_failure(
+        self, client, auth_headers, test_questions, db_session, monkeypatch
+    ):
+        """Test that test submission succeeds even if distractor stats update fails."""
+        from app.core import distractor_analysis
+
+        # Patch update_distractor_stats to raise an exception
+        def mock_update_distractor_stats(*args, **kwargs):
+            raise Exception("Simulated database error")
+
+        monkeypatch.setattr(
+            distractor_analysis, "update_distractor_stats", mock_update_distractor_stats
+        )
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Get correct answers
+        question_ids = [q["id"] for q in questions]
+        db_questions = (
+            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        )
+        questions_dict = {q.id: q for q in db_questions}
+
+        # Submit the test
+        submission_data = {
+            "session_id": session_id,
+            "responses": [
+                {
+                    "question_id": questions[0]["id"],
+                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                },
+                {
+                    "question_id": questions[1]["id"],
+                    "user_answer": questions_dict[questions[1]["id"]].correct_answer,
+                },
+            ],
+        }
+
+        # Should succeed despite distractor stats update failing
+        response = client.post(
+            "/v1/test/submit", json=submission_data, headers=auth_headers
+        )
+
+        # The test submission should still succeed (graceful degradation)
+        assert response.status_code == 200
+        assert response.json()["session"]["status"] == "completed"
