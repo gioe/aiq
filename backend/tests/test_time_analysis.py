@@ -2,7 +2,10 @@
 Unit tests for response time analysis functions (TS-006, TS-007, TS-012).
 
 Tests cover:
-- analyze_speed_accuracy() function
+- analyze_response_times() function (TS-004)
+- Anomaly detection threshold logic
+- get_session_time_summary() helper function
+- analyze_speed_accuracy() function (TS-006)
 - Point-biserial correlation calculation
 - Interpretation logic
 - get_aggregate_response_time_analytics() function (TS-007)
@@ -10,13 +13,668 @@ Tests cover:
 """
 
 from app.core.time_analysis import (
+    analyze_response_times,
+    get_session_time_summary,
+    _create_empty_analysis,
     analyze_speed_accuracy,
     _calculate_point_biserial_correlation,
     _interpret_speed_accuracy,
     _create_empty_speed_accuracy_result,
     get_aggregate_response_time_analytics,
     _create_empty_aggregate_analytics,
+    # Threshold constants for testing
+    MIN_RESPONSE_TIME_SECONDS,
+    MIN_HARD_RESPONSE_TIME_SECONDS,
+    MAX_RESPONSE_TIME_SECONDS,
+    MIN_AVERAGE_TIME_SECONDS,
 )
+
+
+# =============================================================================
+# ANALYZE RESPONSE TIMES TESTS (TS-004, TS-012)
+# =============================================================================
+
+
+class TestAnalyzeResponseTimes:
+    """Tests for the analyze_response_times function."""
+
+    def test_no_responses_returns_empty_analysis(self, db_session):
+        """Test that no responses returns empty analysis with no_responses flag."""
+        # Use a non-existent session ID
+        result = analyze_response_times(db_session, session_id=99999)
+
+        assert result["total_time_seconds"] == 0
+        assert result["mean_time_per_question"] is None
+        assert result["median_time_per_question"] is None
+        assert result["std_time_per_question"] is None
+        assert result["response_count"] == 0
+        assert result["responses_without_time"] == 0
+        assert result["anomalies"] == []
+        assert "no_responses" in result["flags"]
+        assert result["validity_concern"] is False
+        assert result["rapid_response_count"] == 0
+        assert result["extended_response_count"] == 0
+
+    def test_basic_time_statistics(self, db_session, test_user, test_questions):
+        """Test basic time statistics calculation (mean, median, std)."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        # Create a test session
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with known time values
+        # Times: 20, 30, 40, 50, 60 -> Mean: 40, Median: 40
+        time_values = [20, 30, 40, 50, 60]
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["total_time_seconds"] == 200  # Sum of times
+        assert result["mean_time_per_question"] == 40.0
+        assert result["median_time_per_question"] == 40.0
+        assert result["std_time_per_question"] is not None
+        assert result["response_count"] == 5
+        assert result["responses_without_time"] == 0
+
+    def test_detects_too_fast_responses(self, db_session, test_user, test_questions):
+        """Test that responses under 3 seconds are flagged as too_fast."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses - some too fast (<3s), some normal
+        time_values = [
+            1,
+            2,
+            30,
+            35,
+            40,
+        ]  # First two are too fast (<MIN_RESPONSE_TIME_SECONDS)
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        # Should detect 2 rapid responses
+        assert result["rapid_response_count"] == 2
+        assert len(result["anomalies"]) >= 2
+
+        # Check anomaly types
+        too_fast_anomalies = [
+            a for a in result["anomalies"] if a["anomaly_type"] == "too_fast"
+        ]
+        assert len(too_fast_anomalies) == 2
+
+        # Verify anomaly details
+        for anomaly in too_fast_anomalies:
+            assert anomaly["time_seconds"] < MIN_RESPONSE_TIME_SECONDS
+            assert "question_id" in anomaly
+            assert "difficulty" in anomaly
+
+    def test_detects_too_fast_hard_questions(self, db_session, test_user):
+        """Test that hard questions answered in <5s are flagged as too_fast_hard."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+
+        # Create a hard question
+        hard_question = Question(
+            question_text="Hard question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="A",
+            is_active=True,
+        )
+        db_session.add(hard_question)
+        db_session.commit()
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Answer hard question in 4 seconds (>3 but <5 for hard questions)
+        response = Response(
+            test_session_id=session.id,
+            user_id=test_user.id,
+            question_id=hard_question.id,
+            user_answer="A",
+            is_correct=True,
+            time_spent_seconds=4,  # Between MIN_RESPONSE_TIME and MIN_HARD_RESPONSE_TIME
+        )
+        db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        # Should flag as too_fast_hard
+        assert result["rapid_response_count"] == 1
+        assert len(result["anomalies"]) == 1
+        assert result["anomalies"][0]["anomaly_type"] == "too_fast_hard"
+        assert result["anomalies"][0]["difficulty"] == "hard"
+
+    def test_detects_too_slow_responses(self, db_session, test_user, test_questions):
+        """Test that responses over 5 minutes (300s) are flagged as too_slow."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses - one too slow (>300s), others normal
+        time_values = [30, 40, 50, 301, 350]  # Last two are too slow
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        # Should detect 2 extended responses
+        assert result["extended_response_count"] == 2
+
+        # Check anomaly types
+        too_slow_anomalies = [
+            a for a in result["anomalies"] if a["anomaly_type"] == "too_slow"
+        ]
+        assert len(too_slow_anomalies) == 2
+
+        # Verify anomaly details
+        for anomaly in too_slow_anomalies:
+            assert anomaly["time_seconds"] > MAX_RESPONSE_TIME_SECONDS
+
+    def test_flags_rushed_session(self, db_session, test_user, test_questions):
+        """Test that sessions with average time <15s are flagged as rushed."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with very fast times (all above 3s to avoid too_fast)
+        # but averaging below 15s to trigger rushed_session flag
+        time_values = [10, 12, 11, 13, 14]  # Average: 12s < MIN_AVERAGE_TIME_SECONDS
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert "rushed_session" in result["flags"]
+        assert result["validity_concern"] is True
+        assert result["mean_time_per_question"] < MIN_AVERAGE_TIME_SECONDS
+
+    def test_flags_multiple_rapid_responses(
+        self, db_session, test_user, test_questions
+    ):
+        """Test that sessions with >20% rapid responses get multiple_rapid_responses flag."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add 10 responses, 3 too fast (30% > 20% threshold)
+        time_values = [1, 2, 1, 30, 30, 30, 30, 30, 30, 30]  # 3 rapid, 7 normal
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["rapid_response_count"] == 3
+        assert "multiple_rapid_responses" in result["flags"]
+        assert result["validity_concern"] is True
+
+    def test_flags_multiple_extended_times(self, db_session, test_user, test_questions):
+        """Test that sessions with >10% extended times get multiple_extended_times flag."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add 10 responses, 2 too slow (20% > 10% threshold)
+        time_values = [30, 30, 30, 30, 30, 30, 30, 30, 305, 310]  # 8 normal, 2 extended
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["extended_response_count"] == 2
+        assert "multiple_extended_times" in result["flags"]
+
+    def test_validity_concern_with_many_extended(
+        self, db_session, test_user, test_questions
+    ):
+        """Test that >3 extended responses triggers validity concern."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add 20 responses, 4 too slow (>3 triggers validity concern regardless of %)
+        time_values = [30] * 16 + [305, 310, 315, 320]  # 16 normal, 4 extended
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["extended_response_count"] == 4
+        # Validity concern because extended_count > 3
+        assert result["validity_concern"] is True
+
+    def test_handles_missing_time_data(self, db_session, test_user, test_questions):
+        """Test analysis with some responses missing time data."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add mix of responses with and without time data
+        # 3 with time, 2 without
+        for i in range(3):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+            db_session.add(response)
+
+        for i in range(2):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[(i + 3) % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=None,  # No time data
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["response_count"] == 3
+        assert result["responses_without_time"] == 2
+        assert result["mean_time_per_question"] == 30.0  # Only from responses with time
+
+    def test_no_time_data_at_all(self, db_session, test_user, test_questions):
+        """Test analysis when all responses are missing time data."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses without time data
+        for i in range(3):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=None,  # No time data
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["total_time_seconds"] == 0
+        assert result["mean_time_per_question"] is None
+        assert result["response_count"] == 0
+        assert result["responses_without_time"] == 3
+        assert "no_time_data" in result["flags"]
+        assert result["validity_concern"] is False
+
+    def test_flags_incomplete_time_data(self, db_session, test_user, test_questions):
+        """Test that >50% missing time data triggers incomplete_time_data flag."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # 2 with time, 3 without (60% missing > 50% threshold)
+        for i in range(2):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+            db_session.add(response)
+
+        for i in range(3):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[(i + 2) % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=None,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["responses_without_time"] == 3
+        assert "incomplete_time_data" in result["flags"]
+
+    def test_single_response_no_std(self, db_session, test_user, test_questions):
+        """Test that single response doesn't calculate std deviation."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Single response
+        response = Response(
+            test_session_id=session.id,
+            user_id=test_user.id,
+            question_id=test_questions[0].id,
+            user_answer="test",
+            is_correct=True,
+            time_spent_seconds=30,
+        )
+        db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        assert result["response_count"] == 1
+        assert result["mean_time_per_question"] == 30.0
+        assert result["median_time_per_question"] == 30.0
+        assert (
+            result["std_time_per_question"] is None
+        )  # Can't calculate std with 1 item
+
+    def test_z_score_calculation(self, db_session, test_user, test_questions):
+        """Test that z-scores are calculated for anomalies when std is available."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add responses with one outlier
+        time_values = [30, 30, 30, 30, 1]  # Last one is a fast outlier
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        # The anomaly should have a z-score
+        assert len(result["anomalies"]) == 1
+        assert result["anomalies"][0]["z_score"] is not None
+        assert (
+            result["anomalies"][0]["z_score"] < 0
+        )  # Negative z-score for fast response
+
+    def test_exactly_threshold_values(self, db_session, test_user, test_questions):
+        """Test edge cases at exactly the threshold values."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Test exactly at MIN_RESPONSE_TIME_SECONDS (3)
+        # and exactly at MAX_RESPONSE_TIME_SECONDS (300)
+        time_values = [
+            MIN_RESPONSE_TIME_SECONDS,  # Exactly 3 - should NOT be flagged
+            MAX_RESPONSE_TIME_SECONDS,  # Exactly 300 - should NOT be flagged
+            MIN_RESPONSE_TIME_SECONDS - 1,  # 2 - should be flagged too_fast
+            MAX_RESPONSE_TIME_SECONDS + 1,  # 301 - should be flagged too_slow
+        ]
+        for i, time_val in enumerate(time_values):
+            response = Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="test",
+                is_correct=True,
+                time_spent_seconds=time_val,
+            )
+            db_session.add(response)
+        db_session.commit()
+
+        result = analyze_response_times(db_session, session_id=session.id)
+
+        # Should have exactly 2 anomalies (one too_fast, one too_slow)
+        assert len(result["anomalies"]) == 2
+        anomaly_types = {a["anomaly_type"] for a in result["anomalies"]}
+        assert "too_fast" in anomaly_types
+        assert "too_slow" in anomaly_types
+
+
+class TestCreateEmptyAnalysis:
+    """Tests for the _create_empty_analysis helper function."""
+
+    def test_creates_correct_structure(self):
+        """Test that empty analysis has all expected fields with correct defaults."""
+        result = _create_empty_analysis()
+
+        assert result["total_time_seconds"] == 0
+        assert result["mean_time_per_question"] is None
+        assert result["median_time_per_question"] is None
+        assert result["std_time_per_question"] is None
+        assert result["response_count"] == 0
+        assert result["responses_without_time"] == 0
+        assert result["anomalies"] == []
+        assert "no_responses" in result["flags"]
+        assert result["validity_concern"] is False
+        assert result["rapid_response_count"] == 0
+        assert result["extended_response_count"] == 0
+
+
+class TestGetSessionTimeSummary:
+    """Tests for the get_session_time_summary helper function."""
+
+    def test_creates_summary_from_full_analysis(self):
+        """Test that summary extracts correct fields from full analysis."""
+        full_analysis = {
+            "total_time_seconds": 600,
+            "mean_time_per_question": 30.0,
+            "median_time_per_question": 28.0,
+            "std_time_per_question": 5.5,
+            "response_count": 20,
+            "responses_without_time": 0,
+            "anomalies": [
+                {
+                    "question_id": 1,
+                    "time_seconds": 2,
+                    "anomaly_type": "too_fast",
+                    "z_score": -2.5,
+                    "difficulty": "easy",
+                }
+            ],
+            "flags": ["rushed_session", "multiple_rapid_responses"],
+            "validity_concern": True,
+            "rapid_response_count": 5,
+            "extended_response_count": 1,
+        }
+
+        summary = get_session_time_summary(full_analysis)
+
+        assert summary["rapid_responses"] == 5
+        assert summary["extended_times"] == 1
+        assert summary["rushed_session"] is True
+        assert summary["validity_concern"] is True
+        assert summary["mean_time"] == 30.0
+        assert summary["flags"] == ["rushed_session", "multiple_rapid_responses"]
+
+    def test_handles_empty_analysis(self):
+        """Test summary creation from empty analysis."""
+        empty_analysis = _create_empty_analysis()
+        summary = get_session_time_summary(empty_analysis)
+
+        assert summary["rapid_responses"] == 0
+        assert summary["extended_times"] == 0
+        assert summary["rushed_session"] is False
+        assert summary["validity_concern"] is False
+        assert summary["mean_time"] is None
+        assert "no_responses" in summary["flags"]
+
+    def test_handles_missing_keys_gracefully(self):
+        """Test that summary handles partial/malformed analysis."""
+        partial_analysis = {
+            "flags": [],
+        }
+
+        summary = get_session_time_summary(partial_analysis)
+
+        assert summary["rapid_responses"] == 0
+        assert summary["extended_times"] == 0
+        assert summary["rushed_session"] is False
+        assert summary["validity_concern"] is False
+        assert summary["mean_time"] is None
+
+
+# =============================================================================
+# THRESHOLD CONSTANTS TESTS
+# =============================================================================
+
+
+class TestThresholdConstants:
+    """Tests to verify threshold constants are set correctly."""
+
+    def test_threshold_values(self):
+        """Verify threshold constants match documented values."""
+        assert MIN_RESPONSE_TIME_SECONDS == 3
+        assert MIN_HARD_RESPONSE_TIME_SECONDS == 5
+        assert MAX_RESPONSE_TIME_SECONDS == 300  # 5 minutes
+        assert MIN_AVERAGE_TIME_SECONDS == 15
 
 
 class TestAnalyzeSpeedAccuracy:
