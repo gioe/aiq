@@ -176,6 +176,7 @@ This document describes the technical architecture, component design, data model
 - `GET /v1/admin/generation-runs/{run_id}` - Get detailed run information
 - `GET /v1/admin/questions/calibration-health` - View difficulty label calibration status
 - `POST /v1/admin/questions/recalibrate` - Trigger difficulty label recalibration based on empirical data
+- `GET /v1/admin/analytics/response-times` - Aggregate response time analytics
 
 **Test Submission Approach:**
 - Batch submission (all answers submitted together)
@@ -296,6 +297,7 @@ test_sessions
 - completed_at (nullable)
 - status (enum: in_progress, completed, abandoned)
 - composition_metadata (JSON) - Test composition details (difficulty/type distribution)
+- time_limit_exceeded (boolean, default=False) - Flag for over-time submissions (30-minute limit)
 ```
 
 #### Responses
@@ -308,6 +310,7 @@ responses
 - user_answer
 - is_correct (boolean)
 - answered_at
+- time_spent_seconds (int, nullable) - Time spent on individual question
 ```
 
 #### Test_Results
@@ -326,6 +329,8 @@ test_results
 - standard_error (float, nullable)
 - ci_lower (int, nullable)
 - ci_upper (int, nullable)
+# Response time analysis
+- response_time_flags (JSON, nullable) - Anomaly analysis summary (validity concerns, rapid/extended responses)
 ```
 
 #### Question_Generation_Runs
