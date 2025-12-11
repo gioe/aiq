@@ -50,8 +50,8 @@ distractor_stats = Column(JSON, nullable=True)
 ---
 
 ### DA-003: Implement Distractor Stat Update Function
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/distractor_analysis.py` (new file)
+**Status:** [x] Complete
+**Files:** `backend/app/core/distractor_analysis.py` (new file), `backend/tests/test_distractor_analysis.py` (new file)
 **Description:** Create core function to update distractor selection counts when a response is recorded.
 
 **Implementation:**
@@ -64,10 +64,10 @@ def update_distractor_stats(db: Session, question_id: int, selected_answer: str)
 ```
 
 **Acceptance Criteria:**
-- [ ] Function initializes distractor_stats if null
-- [ ] Correctly increments count for selected option
-- [ ] Handles missing/invalid options gracefully
-- [ ] Thread-safe for concurrent updates
+- [x] Function initializes distractor_stats if null
+- [x] Correctly increments count for selected option
+- [x] Handles missing/invalid options gracefully
+- [x] Thread-safe for concurrent updates
 
 ---
 
