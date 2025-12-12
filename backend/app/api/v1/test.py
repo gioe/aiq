@@ -35,6 +35,12 @@ from app.core.distractor_analysis import (
 )
 from app.core.question_utils import question_to_response
 from app.core.datetime_utils import ensure_timezone_aware
+from app.core.validity_analysis import (
+    calculate_person_fit_heuristic,
+    check_response_time_plausibility,
+    count_guttman_errors,
+    assess_session_validity,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -628,6 +634,95 @@ def submit_test(
             f"Failed to analyze response times for session {test_session.id}: {e}"
         )
 
+    # CD-007: Run validity analysis to detect aberrant response patterns
+    # This combines person-fit, response time plausibility, and Guttman error checks
+    # to identify potential cheating or invalid test-taking behavior
+    validity_status = "valid"
+    validity_flags = None
+    validity_checked_at = None
+
+    try:
+        # Prepare data for validity analysis
+        # Person-fit needs: (is_correct, difficulty_level) tuples
+        person_fit_data = [
+            (
+                resp_item.user_answer.strip().lower()
+                == questions_dict.get(resp_item.question_id).correct_answer.strip().lower(),  # type: ignore[call-overload,union-attr]
+                questions_dict.get(resp_item.question_id).difficulty_level or "medium",  # type: ignore[call-overload,union-attr]
+            )
+            for resp_item in submission.responses
+            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
+        ]
+
+        # Time plausibility needs: dicts with time_seconds, is_correct, difficulty
+        time_check_data = [
+            {
+                "time_seconds": resp_item.time_spent_seconds,
+                "is_correct": (
+                    resp_item.user_answer.strip().lower()
+                    == questions_dict.get(resp_item.question_id).correct_answer.strip().lower()  # type: ignore[call-overload,union-attr]
+                ),
+                "difficulty": questions_dict.get(resp_item.question_id).difficulty_level or "medium",  # type: ignore[call-overload,union-attr]
+            }
+            for resp_item in submission.responses
+            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
+        ]
+
+        # Guttman check needs: (is_correct, empirical_difficulty) tuples
+        # empirical_difficulty is p-value (proportion correct), higher = easier
+        guttman_data = [
+            (
+                resp_item.user_answer.strip().lower()
+                == questions_dict.get(resp_item.question_id).correct_answer.strip().lower(),  # type: ignore[call-overload,union-attr]
+                questions_dict.get(resp_item.question_id).empirical_difficulty,  # type: ignore[call-overload,union-attr]
+            )
+            for resp_item in submission.responses
+            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
+            and questions_dict.get(resp_item.question_id).empirical_difficulty is not None  # type: ignore[call-overload,union-attr]
+        ]
+
+        # Run individual validity checks
+        person_fit_result = calculate_person_fit_heuristic(
+            responses=person_fit_data, total_score=correct_count
+        )
+        time_check_result = check_response_time_plausibility(responses=time_check_data)
+        guttman_result = count_guttman_errors(responses=guttman_data)
+
+        # Combine into overall validity assessment
+        validity_assessment = assess_session_validity(
+            person_fit=person_fit_result,
+            time_check=time_check_result,
+            guttman_check=guttman_result,
+        )
+
+        # Extract results for storage
+        validity_status = validity_assessment["validity_status"]
+        validity_flags = (
+            validity_assessment["flags"] if validity_assessment["flags"] else None
+        )
+        validity_checked_at = datetime.now(timezone.utc)
+
+        # Log validity assessment results
+        if validity_status != "valid":
+            logger.warning(
+                f"Test session {test_session.id} validity assessment: "
+                f"status={validity_status}, severity={validity_assessment['severity_score']}, "
+                f"flags={validity_flags}"
+            )
+        else:
+            logger.info(
+                f"Test session {test_session.id} passed validity checks: "
+                f"confidence={validity_assessment['confidence']}"
+            )
+
+    except Exception as e:
+        # Validity check failures should not block test submission (graceful degradation)
+        # Log the error but continue with default "valid" status
+        logger.error(
+            f"Failed to run validity analysis for session {test_session.id}: {e}",
+            exc_info=True,
+        )
+
     # Create TestResult record
     from app.models.models import TestResult
 
@@ -641,6 +736,10 @@ def submit_test(
         completion_time_seconds=completion_time_seconds,
         completed_at=completion_time,
         response_time_flags=response_time_flags,  # TS-005: Store anomaly flags
+        # CD-007: Store validity analysis results
+        validity_status=validity_status,
+        validity_flags=validity_flags,
+        validity_checked_at=validity_checked_at,
     )
     db.add(test_result)
 
