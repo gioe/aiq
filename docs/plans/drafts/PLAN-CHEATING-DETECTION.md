@@ -379,7 +379,7 @@ def assess_session_validity(
 ---
 
 ### CD-015: Add Integration Tests for Validity Endpoints
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_validity_endpoints.py` (new file)
 **Description:** Create integration tests for validity API endpoints.
 
@@ -391,10 +391,10 @@ def assess_session_validity(
 - Test authentication requirements
 
 **Acceptance Criteria:**
-- [ ] Tests both endpoints
-- [ ] Tests authentication requirements
-- [ ] Tests with known data patterns
-- [ ] Verifies response matches schema
+- [x] Tests both endpoints
+- [x] Tests authentication requirements
+- [x] Tests with known data patterns
+- [x] Verifies response matches schema
 
 ---
 
