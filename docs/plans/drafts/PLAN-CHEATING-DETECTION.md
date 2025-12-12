@@ -315,7 +315,7 @@ def assess_session_validity(
 ---
 
 ### CD-012: Add Unit Tests for Response Time Plausibility
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_validity_analysis.py`
 **Description:** Create unit tests for response time plausibility checks.
 
@@ -329,10 +329,10 @@ def assess_session_validity(
 - Combination of multiple flags
 
 **Acceptance Criteria:**
-- [ ] Tests cover each flag type independently
-- [ ] Tests cover flag combinations
-- [ ] Tests verify severity classifications
-- [ ] Tests cover threshold boundaries (3s, 10s, 300s, 7200s)
+- [x] Tests cover each flag type independently
+- [x] Tests cover flag combinations
+- [x] Tests verify severity classifications
+- [x] Tests cover threshold boundaries (3s, 10s, 300s, 7200s)
 
 ---
 
