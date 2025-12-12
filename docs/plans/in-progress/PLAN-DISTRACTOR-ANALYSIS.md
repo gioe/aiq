@@ -302,8 +302,8 @@ Created `backend/tests/test_distractor_endpoints.py` with 21 integration tests c
 ---
 
 ### DA-013: Handle Edge Cases in Analysis
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/distractor_analysis.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/distractor_analysis.py`, `backend/tests/test_distractor_analysis.py`
 **Description:** Ensure all edge cases are properly handled in the analysis functions.
 
 **Edge Cases:**
@@ -312,11 +312,23 @@ Created `backend/tests/test_distractor_endpoints.py` with 21 integration tests c
 3. Option format variations (text, numbers) - normalize for storage
 4. Very new questions - return "insufficient_data" status
 
+**Implementation Notes:**
+Verified existing implementation handles all edge cases. Added `TestEdgeCases` class with 15 comprehensive tests:
+- 5-option and 6-option question analysis
+- Numeric option keys (1, 2, 3, 4)
+- Mixed format options (text and numbers)
+- Whitespace normalization in selected answers
+- Insufficient data handling for new questions
+- Threshold boundary conditions (exactly at min_responses)
+- Non-existent question graceful failures
+- Stats preservation when updating single options
+- Case sensitivity verification
+
 **Acceptance Criteria:**
-- [ ] Free-response questions excluded from analysis
-- [ ] Variable option counts handled dynamically
-- [ ] Consistent handling regardless of option format
-- [ ] Clear insufficient_data response for new questions
+- [x] Free-response questions excluded from analysis
+- [x] Variable option counts handled dynamically
+- [x] Consistent handling regardless of option format
+- [x] Clear insufficient_data response for new questions
 
 ## Database Changes
 

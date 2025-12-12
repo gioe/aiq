@@ -88,6 +88,15 @@ def update_distractor_stats(
     # Handle both cases where answer could be the option key ("A") or option text
     normalized_answer = str(selected_answer).strip()
 
+    # Validate that the selected answer is a valid option key
+    # This helps catch data quality issues (e.g., frontend sending wrong values)
+    if normalized_answer not in question.answer_options:
+        logger.warning(
+            f"Invalid option '{normalized_answer}' selected for question {question_id}. "
+            f"Valid options: {list(question.answer_options.keys())}"
+        )
+        return False
+
     # Initialize stats for this option if not present
     if normalized_answer not in current_stats:
         current_stats[normalized_answer] = {
@@ -163,6 +172,14 @@ def update_distractor_quartile_stats(
     # Get current stats
     current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}  # type: ignore[assignment]
     normalized_answer = str(selected_answer).strip()
+
+    # Validate that the selected answer is a valid option key
+    if normalized_answer not in question.answer_options:
+        logger.warning(
+            f"Invalid option '{normalized_answer}' for quartile stats on question {question_id}. "
+            f"Valid options: {list(question.answer_options.keys())}"
+        )
+        return False
 
     # Initialize stats for this option if not present
     if normalized_answer not in current_stats:

@@ -1364,21 +1364,51 @@ class TestDistractorStatsIntegration:
             assert q.distractor_stats is None or q.distractor_stats == {}
 
         # Prepare answers (mix of correct and incorrect)
+        # Note: We need to use valid option KEYS, not the answer text
         questions_dict = {q.id: q for q in db_questions}
+
+        def get_first_option_key(q):
+            """Get first valid option key from question's answer_options."""
+            if q.answer_options:
+                return list(q.answer_options.keys())[0]
+            return "A"  # fallback
+
+        def get_wrong_option_key(q):
+            """Get a wrong option key (not the correct answer key)."""
+            if not q.answer_options:
+                return "B"
+            # Find the key that maps to correct_answer
+            correct_key = None
+            for key, value in q.answer_options.items():
+                if value == q.correct_answer or key == q.correct_answer:
+                    correct_key = key
+                    break
+            # Return a different key
+            for key in q.answer_options.keys():
+                if key != correct_key:
+                    return key
+            return list(q.answer_options.keys())[0]
+
+        q0 = questions_dict[questions[0]["id"]]
+        q1 = questions_dict[questions[1]["id"]]
+        q2 = questions_dict[questions[2]["id"]]
+
         submission_data = {
             "session_id": session_id,
             "responses": [
                 {
                     "question_id": questions[0]["id"],
-                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                    "user_answer": get_first_option_key(q0),  # Use valid option key
                 },
                 {
                     "question_id": questions[1]["id"],
-                    "user_answer": "WRONG_ANSWER",
+                    "user_answer": get_wrong_option_key(
+                        q1
+                    ),  # Use valid wrong option key
                 },
                 {
                     "question_id": questions[2]["id"],
-                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                    "user_answer": get_first_option_key(q2),  # Use valid option key
                 },
             ],
         }
@@ -2997,3 +3027,556 @@ class TestGetBulkDistractorSummary:
         result = get_bulk_distractor_summary(db_session, min_responses=100)
         assert result["total_questions_analyzed"] == 0
         assert result["questions_below_threshold"] == 1
+
+
+class TestEdgeCases:
+    """
+    Tests for edge case handling in distractor analysis (DA-013).
+
+    Covers:
+    1. Free-response questions (no distractors) - skip entirely
+    2. Variable option counts (4, 5, or 6 options) - handle dynamically
+    3. Option format variations (text, numbers) - normalize for storage
+    4. Very new questions - return "insufficient_data" status
+    """
+
+    def test_five_option_question_analysis(self, db_session):
+        """Test that 5-option questions are analyzed correctly."""
+        question = Question(
+            question_text="5-option question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={
+                "A": "Option A",
+                "B": "Option B",
+                "C": "Option C",
+                "D": "Option D",
+                "E": "Option E",
+            },
+            distractor_stats={
+                "A": {"count": 30, "top_q": 15, "bottom_q": 5},
+                "B": {"count": 20, "top_q": 3, "bottom_q": 10},
+                "C": {"count": 20, "top_q": 4, "bottom_q": 8},
+                "D": {"count": 15, "top_q": 2, "bottom_q": 7},
+                "E": {"count": 15, "top_q": 1, "bottom_q": 10},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        assert result["total_responses"] == 100
+        assert len(result["options"]) == 5
+        # Verify all 5 options are analyzed
+        for opt in ["A", "B", "C", "D", "E"]:
+            assert opt in result["options"]
+
+    def test_six_option_question_analysis(self, db_session):
+        """Test that 6-option questions are analyzed correctly."""
+        question = Question(
+            question_text="6-option question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="A",
+            answer_options={
+                "A": "Option A",
+                "B": "Option B",
+                "C": "Option C",
+                "D": "Option D",
+                "E": "Option E",
+                "F": "Option F",
+            },
+            distractor_stats={
+                "A": {"count": 25, "top_q": 12, "bottom_q": 4},
+                "B": {"count": 15, "top_q": 2, "bottom_q": 8},
+                "C": {"count": 15, "top_q": 3, "bottom_q": 7},
+                "D": {"count": 15, "top_q": 2, "bottom_q": 6},
+                "E": {"count": 15, "top_q": 3, "bottom_q": 5},
+                "F": {"count": 15, "top_q": 3, "bottom_q": 5},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        assert result["total_responses"] == 100
+        assert len(result["options"]) == 6
+        # Verify all 6 options are analyzed
+        for opt in ["A", "B", "C", "D", "E", "F"]:
+            assert opt in result["options"]
+        # With 6 options, effective option count can be higher
+        assert result["summary"]["effective_option_count"] <= 6.0
+
+    def test_numeric_option_keys(self, db_session):
+        """Test that numeric option keys (1, 2, 3, 4) are handled correctly."""
+        question = Question(
+            question_text="Numeric options question",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="1",
+            answer_options={"1": "42", "2": "43", "3": "44", "4": "45"},
+            distractor_stats={
+                "1": {"count": 40, "top_q": 20, "bottom_q": 5},
+                "2": {"count": 20, "top_q": 3, "bottom_q": 10},
+                "3": {"count": 25, "top_q": 4, "bottom_q": 12},
+                "4": {"count": 15, "top_q": 3, "bottom_q": 8},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        assert result["correct_answer"] == "1"
+        assert result["options"]["1"]["is_correct"] is True
+        assert result["options"]["2"]["is_correct"] is False
+        assert result["options"]["3"]["is_correct"] is False
+        assert result["options"]["4"]["is_correct"] is False
+
+    def test_mixed_format_options(self, db_session):
+        """Test options with mixed text/number content are handled correctly."""
+        question = Question(
+            question_text="Mixed format question",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={
+                "A": "Answer 1: Yes",
+                "B": "Answer 2: No",
+                "C": "42",
+                "D": "None of the above",
+            },
+            distractor_stats={
+                "A": {"count": 30, "top_q": 15, "bottom_q": 5},
+                "B": {"count": 25, "top_q": 5, "bottom_q": 12},
+                "C": {"count": 25, "top_q": 7, "bottom_q": 10},
+                "D": {"count": 20, "top_q": 3, "bottom_q": 8},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        assert result["total_responses"] == 100
+        assert len(result["options"]) == 4
+
+    def test_whitespace_in_selected_answer_normalized(self, db_session):
+        """Test that whitespace in selected answers is normalized."""
+        question = Question(
+            question_text="Whitespace test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Update with whitespace-padded answer
+        result = update_distractor_stats(db_session, question.id, "  B  ")
+
+        assert result is True
+        # Check that whitespace is stripped
+        assert "B" in question.distractor_stats
+        assert question.distractor_stats["B"]["count"] == 1
+
+    def test_whitespace_in_quartile_update_normalized(self, db_session):
+        """Test that whitespace in quartile updates is normalized."""
+        question = Question(
+            question_text="Quartile whitespace test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Update with whitespace-padded answer
+        result = update_distractor_quartile_stats(
+            db_session, question.id, " A ", is_top_quartile=True
+        )
+
+        assert result is True
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["top_q"] == 1
+
+    def test_very_new_question_insufficient_data(self, db_session):
+        """Test that very new questions with 0 responses return insufficient_data."""
+        question = Question(
+            question_text="Brand new question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats=None,  # No stats yet
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert result.get("insufficient_data") is True
+        assert result["total_responses"] == 0
+        assert result["min_required"] == 50
+
+    def test_question_with_few_responses_insufficient_data(self, db_session):
+        """Test that questions with only a few responses return insufficient_data."""
+        question = Question(
+            question_text="Low response question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats={
+                "A": {"count": 5, "top_q": 2, "bottom_q": 1},
+                "B": {"count": 3, "top_q": 1, "bottom_q": 1},
+                "C": {"count": 2, "top_q": 0, "bottom_q": 1},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert result.get("insufficient_data") is True
+        assert result["total_responses"] == 10  # 5 + 3 + 2
+        assert result["min_required"] == 50
+
+    def test_question_at_threshold_boundary(self, db_session):
+        """Test question with exactly min_responses threshold."""
+        question = Question(
+            question_text="Boundary test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats={
+                "A": {"count": 30, "top_q": 10, "bottom_q": 5},
+                "B": {"count": 12, "top_q": 3, "bottom_q": 6},
+                "C": {"count": 8, "top_q": 2, "bottom_q": 4},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # With exactly 50 responses at threshold of 50, should be analyzed
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        assert result["total_responses"] == 50
+
+    def test_discrimination_analysis_with_five_options(self, db_session):
+        """Test discrimination calculation works with 5 options."""
+        question = Question(
+            question_text="5-option discrimination test",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={
+                "A": "Option A",
+                "B": "Option B",
+                "C": "Option C",
+                "D": "Option D",
+                "E": "Option E",
+            },
+            distractor_stats={
+                "A": {"count": 30, "top_q": 15, "bottom_q": 5},  # Correct answer
+                "B": {"count": 20, "top_q": 3, "bottom_q": 10},  # Good distractor
+                "C": {"count": 20, "top_q": 4, "bottom_q": 8},  # Good distractor
+                "D": {"count": 15, "top_q": 1, "bottom_q": 8},  # Good distractor
+                "E": {"count": 15, "top_q": 2, "bottom_q": 9},  # Good distractor
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = calculate_distractor_discrimination(
+            db_session, question.id, min_responses=40
+        )
+
+        assert not result.get("insufficient_data")
+        assert len(result["options"]) == 5
+        # Verify discrimination indices are calculated for all options
+        for opt in ["A", "B", "C", "D", "E"]:
+            assert "discrimination_index" in result["options"][opt]
+
+    def test_effective_option_count_with_six_options(self, db_session):
+        """Test effective option count calculation with 6 options."""
+        question = Question(
+            question_text="6-option effective count test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="A",
+            answer_options={
+                "A": "Option A",
+                "B": "Option B",
+                "C": "Option C",
+                "D": "Option D",
+                "E": "Option E",
+                "F": "Option F",
+            },
+            # Equal distribution: effective_option_count should be 6.0
+            distractor_stats={
+                "A": {"count": 10, "top_q": 3, "bottom_q": 3},
+                "B": {"count": 10, "top_q": 3, "bottom_q": 3},
+                "C": {"count": 10, "top_q": 3, "bottom_q": 3},
+                "D": {"count": 10, "top_q": 2, "bottom_q": 2},
+                "E": {"count": 10, "top_q": 2, "bottom_q": 2},
+                "F": {"count": 10, "top_q": 2, "bottom_q": 2},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        result = analyze_distractor_effectiveness(
+            db_session, question.id, min_responses=50
+        )
+
+        assert not result.get("insufficient_data")
+        # With perfectly equal distribution across 6 options, effective_option_count = 6.0
+        assert result["summary"]["effective_option_count"] == 6.0
+
+    def test_empty_selected_answer_rejected(self, db_session):
+        """Test that empty selected answers are rejected gracefully."""
+        question = Question(
+            question_text="Empty answer test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Test empty string - rejected early
+        result = update_distractor_stats(db_session, question.id, "")
+        assert result is False
+        assert question.distractor_stats is None
+
+        # Test whitespace-only string - passes 'if not selected_answer' check but
+        # after strip becomes "" which is not a valid option key
+        result = update_distractor_stats(db_session, question.id, "   ")
+        assert result is False  # Rejected because "" is not a valid option
+        assert question.distractor_stats is None
+
+    def test_nonexistent_question_graceful_failure(self, db_session):
+        """Test that operations on non-existent questions fail gracefully."""
+        # Test update_distractor_stats
+        result = update_distractor_stats(db_session, 99999, "A")
+        assert result is False
+
+        # Test update_distractor_quartile_stats
+        result = update_distractor_quartile_stats(
+            db_session, 99999, "A", is_top_quartile=True
+        )
+        assert result is False
+
+        # Test calculate_distractor_discrimination
+        result = calculate_distractor_discrimination(db_session, 99999)
+        assert result.get("insufficient_data") is True
+        assert result["total_responses"] == 0
+
+        # Test analyze_distractor_effectiveness
+        result = analyze_distractor_effectiveness(db_session, 99999)
+        assert result.get("insufficient_data") is True
+
+    def test_update_stats_preserves_other_options(self, db_session):
+        """Test that updating one option preserves stats for other options."""
+        question = Question(
+            question_text="Preservation test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats={
+                "A": {"count": 10, "top_q": 5, "bottom_q": 2},
+                "B": {"count": 8, "top_q": 3, "bottom_q": 4},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Update option C
+        result = update_distractor_stats(db_session, question.id, "C")
+
+        assert result is True
+        # Verify A and B stats are preserved
+        assert question.distractor_stats["A"]["count"] == 10
+        assert question.distractor_stats["A"]["top_q"] == 5
+        assert question.distractor_stats["A"]["bottom_q"] == 2
+        assert question.distractor_stats["B"]["count"] == 8
+        assert question.distractor_stats["B"]["top_q"] == 3
+        assert question.distractor_stats["B"]["bottom_q"] == 4
+        # And C is added
+        assert question.distractor_stats["C"]["count"] == 1
+
+    def test_option_key_case_sensitivity(self, db_session):
+        """Test that option keys are case-sensitive - lowercase rejected if not valid."""
+        question = Question(
+            question_text="Case sensitivity test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # Lowercase 'a' is NOT a valid option (only 'A' is), so it should be rejected
+        result = update_distractor_stats(db_session, question.id, "a")
+        assert result is False
+
+        # Uppercase 'A' is valid
+        result = update_distractor_stats(db_session, question.id, "A")
+        assert result is True
+
+        # Only 'A' should be in stats (lowercase was rejected)
+        assert "a" not in question.distractor_stats
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["count"] == 1
+
+    def test_invalid_option_key_rejected(self, db_session):
+        """Test that selecting a non-existent option is rejected with warning."""
+        question = Question(
+            question_text="Invalid option test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # 'Z' is not a valid option
+        result = update_distractor_stats(db_session, question.id, "Z")
+        assert result is False
+        # No stats should be created
+        assert question.distractor_stats is None
+
+        # Now select a valid option
+        result = update_distractor_stats(db_session, question.id, "A")
+        assert result is True
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["count"] == 1
+
+        # Try another invalid option - stats should remain unchanged
+        result = update_distractor_stats(db_session, question.id, "X")
+        assert result is False
+        assert "X" not in question.distractor_stats
+        assert question.distractor_stats["A"]["count"] == 1  # Unchanged
+
+    def test_invalid_option_key_rejected_quartile_update(self, db_session):
+        """Test that invalid option keys are rejected in quartile updates."""
+        question = Question(
+            question_text="Invalid quartile option test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # 'Z' is not a valid option
+        result = update_distractor_quartile_stats(
+            db_session, question.id, "Z", is_top_quartile=True
+        )
+        assert result is False
+        assert question.distractor_stats is None
+
+        # Valid option should work
+        result = update_distractor_quartile_stats(
+            db_session, question.id, "A", is_top_quartile=True
+        )
+        assert result is True
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["top_q"] == 1
+
+    def test_numeric_invalid_option_rejected(self, db_session):
+        """Test that numeric options outside valid range are rejected."""
+        question = Question(
+            question_text="Numeric options question",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="1",
+            answer_options={"1": "42", "2": "43", "3": "44", "4": "45"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # '5' is not a valid option (only 1-4)
+        result = update_distractor_stats(db_session, question.id, "5")
+        assert result is False
+
+        # '0' is also invalid
+        result = update_distractor_stats(db_session, question.id, "0")
+        assert result is False
+
+        # Valid numeric key should work
+        result = update_distractor_stats(db_session, question.id, "2")
+        assert result is True
+        assert "2" in question.distractor_stats
