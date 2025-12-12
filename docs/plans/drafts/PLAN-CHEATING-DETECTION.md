@@ -40,15 +40,15 @@ validity_checked_at = Column(DateTime, nullable=True)
 ---
 
 ### CD-002: Create Database Migration for Validity Fields
-**Status:** [ ] Not Started
-**Files:** `backend/alembic/versions/xxx_add_validity_fields_to_test_results.py`
+**Status:** [x] Complete
+**Files:** `backend/alembic/versions/58757aab56ca_add_validity_fields_to_test_results_for_.py`
 **Description:** Create Alembic migration to add validity tracking columns to the test_results table.
 
 **Acceptance Criteria:**
-- [ ] Migration file created with proper up/down operations
-- [ ] Migration applies successfully to test database
-- [ ] Rollback works correctly
-- [ ] Existing test results default to validity_status="valid"
+- [x] Migration file created with proper up/down operations
+- [x] Migration applies successfully to test database
+- [x] Rollback works correctly
+- [x] Existing test results default to validity_status="valid"
 
 ---
 
