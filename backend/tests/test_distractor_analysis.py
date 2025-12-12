@@ -1364,21 +1364,51 @@ class TestDistractorStatsIntegration:
             assert q.distractor_stats is None or q.distractor_stats == {}
 
         # Prepare answers (mix of correct and incorrect)
+        # Note: We need to use valid option KEYS, not the answer text
         questions_dict = {q.id: q for q in db_questions}
+
+        def get_first_option_key(q):
+            """Get first valid option key from question's answer_options."""
+            if q.answer_options:
+                return list(q.answer_options.keys())[0]
+            return "A"  # fallback
+
+        def get_wrong_option_key(q):
+            """Get a wrong option key (not the correct answer key)."""
+            if not q.answer_options:
+                return "B"
+            # Find the key that maps to correct_answer
+            correct_key = None
+            for key, value in q.answer_options.items():
+                if value == q.correct_answer or key == q.correct_answer:
+                    correct_key = key
+                    break
+            # Return a different key
+            for key in q.answer_options.keys():
+                if key != correct_key:
+                    return key
+            return list(q.answer_options.keys())[0]
+
+        q0 = questions_dict[questions[0]["id"]]
+        q1 = questions_dict[questions[1]["id"]]
+        q2 = questions_dict[questions[2]["id"]]
+
         submission_data = {
             "session_id": session_id,
             "responses": [
                 {
                     "question_id": questions[0]["id"],
-                    "user_answer": questions_dict[questions[0]["id"]].correct_answer,
+                    "user_answer": get_first_option_key(q0),  # Use valid option key
                 },
                 {
                     "question_id": questions[1]["id"],
-                    "user_answer": "WRONG_ANSWER",
+                    "user_answer": get_wrong_option_key(
+                        q1
+                    ),  # Use valid wrong option key
                 },
                 {
                     "question_id": questions[2]["id"],
-                    "user_answer": questions_dict[questions[2]["id"]].correct_answer,
+                    "user_answer": get_first_option_key(q2),  # Use valid option key
                 },
             ],
         }
@@ -3368,20 +3398,16 @@ class TestEdgeCases:
         db_session.commit()
         db_session.refresh(question)
 
-        # Test empty string
+        # Test empty string - rejected early
         result = update_distractor_stats(db_session, question.id, "")
         assert result is False
         assert question.distractor_stats is None
 
-        # Test None-like string after strip
+        # Test whitespace-only string - passes 'if not selected_answer' check but
+        # after strip becomes "" which is not a valid option key
         result = update_distractor_stats(db_session, question.id, "   ")
-        # Empty after strip should be rejected
-        # Note: Current implementation strips and checks if empty, but since
-        # we check `if not selected_answer` before strip, "   " passes the check
-        # Let's verify the current behavior
-        db_session.refresh(question)
-        # The whitespace-only answer creates a key with empty string after strip
-        # This is edge case behavior - verify current implementation
+        assert result is False  # Rejected because "" is not a valid option
+        assert question.distractor_stats is None
 
     def test_nonexistent_question_graceful_failure(self, db_session):
         """Test that operations on non-existent questions fail gracefully."""
@@ -3437,7 +3463,7 @@ class TestEdgeCases:
         assert question.distractor_stats["C"]["count"] == 1
 
     def test_option_key_case_sensitivity(self, db_session):
-        """Test that option keys are case-sensitive."""
+        """Test that option keys are case-sensitive - lowercase rejected if not valid."""
         question = Question(
             question_text="Case sensitivity test",
             question_type=QuestionType.PATTERN,
@@ -3451,16 +3477,106 @@ class TestEdgeCases:
         db_session.commit()
         db_session.refresh(question)
 
-        # Update with lowercase - should be stored as separate key
+        # Lowercase 'a' is NOT a valid option (only 'A' is), so it should be rejected
         result = update_distractor_stats(db_session, question.id, "a")
-        assert result is True
+        assert result is False
 
-        # Update with uppercase
+        # Uppercase 'A' is valid
         result = update_distractor_stats(db_session, question.id, "A")
         assert result is True
 
-        # Both should be stored separately (case-sensitive)
-        assert "a" in question.distractor_stats
+        # Only 'A' should be in stats (lowercase was rejected)
+        assert "a" not in question.distractor_stats
         assert "A" in question.distractor_stats
-        assert question.distractor_stats["a"]["count"] == 1
         assert question.distractor_stats["A"]["count"] == 1
+
+    def test_invalid_option_key_rejected(self, db_session):
+        """Test that selecting a non-existent option is rejected with warning."""
+        question = Question(
+            question_text="Invalid option test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B", "C": "Option C"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # 'Z' is not a valid option
+        result = update_distractor_stats(db_session, question.id, "Z")
+        assert result is False
+        # No stats should be created
+        assert question.distractor_stats is None
+
+        # Now select a valid option
+        result = update_distractor_stats(db_session, question.id, "A")
+        assert result is True
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["count"] == 1
+
+        # Try another invalid option - stats should remain unchanged
+        result = update_distractor_stats(db_session, question.id, "X")
+        assert result is False
+        assert "X" not in question.distractor_stats
+        assert question.distractor_stats["A"]["count"] == 1  # Unchanged
+
+    def test_invalid_option_key_rejected_quartile_update(self, db_session):
+        """Test that invalid option keys are rejected in quartile updates."""
+        question = Question(
+            question_text="Invalid quartile option test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "Option A", "B": "Option B"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # 'Z' is not a valid option
+        result = update_distractor_quartile_stats(
+            db_session, question.id, "Z", is_top_quartile=True
+        )
+        assert result is False
+        assert question.distractor_stats is None
+
+        # Valid option should work
+        result = update_distractor_quartile_stats(
+            db_session, question.id, "A", is_top_quartile=True
+        )
+        assert result is True
+        assert "A" in question.distractor_stats
+        assert question.distractor_stats["A"]["top_q"] == 1
+
+    def test_numeric_invalid_option_rejected(self, db_session):
+        """Test that numeric options outside valid range are rejected."""
+        question = Question(
+            question_text="Numeric options question",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="1",
+            answer_options={"1": "42", "2": "43", "3": "44", "4": "45"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        # '5' is not a valid option (only 1-4)
+        result = update_distractor_stats(db_session, question.id, "5")
+        assert result is False
+
+        # '0' is also invalid
+        result = update_distractor_stats(db_session, question.id, "0")
+        assert result is False
+
+        # Valid numeric key should work
+        result = update_distractor_stats(db_session, question.id, "2")
+        assert result is True
+        assert "2" in question.distractor_stats
