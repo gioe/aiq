@@ -2347,19 +2347,18 @@ async def get_validity_report(
             seven_day_results = results
         else:
             # Filter in memory using the eagerly-loaded test_session relationship
-            # Handle both timezone-aware and timezone-naive datetime comparisons
-            seven_day_results = []
-            for r in results:
-                if r.test_session and r.test_session.completed_at:
-                    completed_at = r.test_session.completed_at
-                    # Make comparison compatible with both tz-aware and tz-naive
-                    if completed_at.tzinfo is None:
-                        # DB returned naive datetime, compare with naive
-                        date_threshold = seven_days_ago.replace(tzinfo=None)
-                    else:
-                        date_threshold = seven_days_ago
-                    if completed_at >= date_threshold:
-                        seven_day_results.append(r)
+            # Normalize to naive UTC for comparison (handles SQLite naive vs PostgreSQL aware)
+            seven_days_ago_naive = seven_days_ago.replace(tzinfo=None)
+            seven_day_results = [
+                r
+                for r in results
+                if r.test_session
+                and r.test_session.completed_at
+                and (
+                    r.test_session.completed_at.replace(tzinfo=None)
+                    >= seven_days_ago_naive
+                )
+            ]
 
         seven_day_total = len(seven_day_results)
         seven_day_invalid = sum(
