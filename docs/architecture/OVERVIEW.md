@@ -177,6 +177,8 @@ This document describes the technical architecture, component design, data model
 - `GET /v1/admin/questions/calibration-health` - View difficulty label calibration status
 - `POST /v1/admin/questions/recalibrate` - Trigger difficulty label recalibration based on empirical data
 - `GET /v1/admin/analytics/response-times` - Aggregate response time analytics
+- `GET /v1/admin/questions/{id}/distractor-analysis` - Distractor effectiveness analysis for single question
+- `GET /v1/admin/questions/distractor-summary` - Bulk distractor analysis across all questions
 
 **Test Submission Approach:**
 - Batch submission (all answers submitted together)
@@ -273,6 +275,8 @@ questions
 # Difficulty calibration tracking
 - original_difficulty_level (enum, nullable) - Arbiter's original judgment before recalibration
 - difficulty_recalibrated_at (datetime, nullable) - Timestamp of most recent recalibration
+# Distractor analysis
+- distractor_stats (JSON, nullable) - Selection counts and quartile stats per option
 ```
 
 #### User_Questions (Junction Table)
