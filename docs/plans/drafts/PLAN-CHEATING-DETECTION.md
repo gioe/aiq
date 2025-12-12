@@ -53,7 +53,7 @@ validity_checked_at = Column(DateTime, nullable=True)
 ---
 
 ### CD-003: Implement Person-Fit Heuristic Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/validity_analysis.py` (new file)
 **Description:** Create function to calculate heuristic person-fit based on difficulty-response patterns. This detects when someone gets unexpected questions right/wrong given their overall score.
 
@@ -70,11 +70,11 @@ def calculate_person_fit_heuristic(
 ```
 
 **Acceptance Criteria:**
-- [ ] Function calculates expected correct rates by difficulty level
-- [ ] Counts unexpected correct answers (hard questions right when expected wrong)
-- [ ] Counts unexpected incorrect answers (easy questions wrong when expected right)
-- [ ] Returns fit_ratio and fit_flag classification
-- [ ] Flags "aberrant" when fit_ratio > 0.25
+- [x] Function calculates expected correct rates by difficulty level
+- [x] Counts unexpected correct answers (hard questions right when expected wrong)
+- [x] Counts unexpected incorrect answers (easy questions wrong when expected right)
+- [x] Returns fit_ratio and fit_flag classification
+- [x] Flags "aberrant" when fit_ratio > 0.25
 
 ---
 
