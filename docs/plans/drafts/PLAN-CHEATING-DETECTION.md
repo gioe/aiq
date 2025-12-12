@@ -197,7 +197,7 @@ def assess_session_validity(
 ---
 
 ### CD-008: Create Validity Report Pydantic Schemas
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/schemas/validity.py` (new file)
 **Description:** Create Pydantic models for validity analysis API responses.
 
@@ -208,10 +208,10 @@ def assess_session_validity(
 - `ValidityTrendResponse`: Validity trends over time
 
 **Acceptance Criteria:**
-- [ ] All response fields properly typed with constraints
-- [ ] Enums for validity_status (valid, suspect, invalid)
-- [ ] Enums for severity levels (high, medium, low)
-- [ ] Examples included in schema for API docs
+- [x] All response fields properly typed with constraints
+- [x] Enums for validity_status (valid, suspect, invalid)
+- [x] Enums for severity levels (high, medium, low)
+- [x] Examples included in schema for API docs
 
 ---
 
