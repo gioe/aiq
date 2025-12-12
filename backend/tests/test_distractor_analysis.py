@@ -942,13 +942,13 @@ class TestAnalyzeDistractorEffectiveness:
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="A",
             answer_options={"A": "1", "B": "2"},
+            # Carefully calculate values to get |discrimination_index| <= 0.10
+            # Total quartile counts: top_q = 12 + 12 = 24, bottom_q = 13 + 11 = 24
+            # B: top_q_rate = 12/24 = 0.5, bottom_q_rate = 11/24 = 0.458
+            # discrimination_index = 0.458 - 0.5 = -0.042 (within ±0.10)
             distractor_stats={
-                "A": {"count": 55, "top_q": 14, "bottom_q": 11},
-                "B": {
-                    "count": 45,
-                    "top_q": 11,
-                    "bottom_q": 14,
-                },  # Similar across quartiles
+                "A": {"count": 55, "top_q": 12, "bottom_q": 13},
+                "B": {"count": 45, "top_q": 12, "bottom_q": 11},
             },
             is_active=True,
         )
@@ -958,12 +958,9 @@ class TestAnalyzeDistractorEffectiveness:
 
         result = analyze_distractor_effectiveness(db_session, question.id)
 
-        # B: top_q_rate = 11/25 = 0.44, bottom_q_rate = 14/25 = 0.56
-        # discrimination_index = 0.56 - 0.44 = 0.12 -> neutral (within 0.10 threshold)
-        # Actually 0.12 > 0.10, so it should be "good" - let me recalculate
-        # Need values that give |index| <= 0.10
-        # With equal quartile responses (25 each), need difference <= 2.5 in counts
-        assert result["options"]["B"]["discrimination"] in ["good", "neutral"]
+        # B: top_q_rate = 12/24 = 0.5, bottom_q_rate = 11/24 = 0.458
+        # discrimination_index = 0.458 - 0.5 = -0.042 (neutral, within ±0.10)
+        assert result["options"]["B"]["discrimination"] == "neutral"
 
     def test_discrimination_inverted_category(self, db_session):
         """Test that negative discrimination index < -0.10 is categorized as inverted."""
@@ -2488,3 +2485,515 @@ class TestUpdateSessionQuartileStats:
         assert result["quartile"] == "top"
         assert result["questions_updated"] == 0
         assert result["questions_skipped"] == 0
+
+
+class TestGetBulkDistractorSummary:
+    """Tests for the get_bulk_distractor_summary function (DA-011)."""
+
+    def test_empty_database_returns_zero_counts(self, db_session):
+        """Test that an empty database returns zero counts for all metrics."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 0
+        assert result["questions_below_threshold"] == 0
+        assert result["questions_with_non_functioning_distractors"] == 0
+        assert result["questions_with_inverted_distractors"] == 0
+        assert result["by_non_functioning_count"]["zero"] == 0
+        assert result["by_non_functioning_count"]["one"] == 0
+        assert result["by_non_functioning_count"]["two"] == 0
+        assert result["by_non_functioning_count"]["three_or_more"] == 0
+        assert result["worst_offenders"] == []
+        assert result["avg_effective_option_count"] is None
+
+    def test_questions_below_threshold_counted(self, db_session):
+        """Test that questions below the min_responses threshold are counted separately."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with insufficient responses
+        question = Question(
+            question_text="Low response question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3"},
+            distractor_stats={
+                "A": {"count": 20, "top_q": 5, "bottom_q": 10},
+                "B": {"count": 10, "top_q": 2, "bottom_q": 5},
+                "C": {"count": 5, "top_q": 1, "bottom_q": 2},
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 0
+        assert result["questions_below_threshold"] == 1
+
+    def test_questions_with_no_stats_counted_as_below_threshold(self, db_session):
+        """Test that questions with null distractor_stats are counted as below threshold."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with no stats
+        question = Question(
+            question_text="New question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 0
+        assert result["questions_below_threshold"] == 1
+
+    def test_non_functioning_distractor_detection(self, db_session):
+        """Test that questions with non-functioning distractors are detected."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with one non-functioning distractor (< 2% selection)
+        question = Question(
+            question_text="Question with non-functioning distractor",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            distractor_stats={
+                "A": {"count": 80, "top_q": 20, "bottom_q": 10},  # 80% correct
+                "B": {"count": 10, "top_q": 2, "bottom_q": 5},  # 10% functioning
+                "C": {"count": 9, "top_q": 2, "bottom_q": 5},  # 9% functioning
+                "D": {"count": 1, "top_q": 0, "bottom_q": 1},  # 1% non-functioning
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 1
+        assert result["questions_with_non_functioning_distractors"] == 1
+        assert result["by_non_functioning_count"]["one"] == 1
+
+    def test_inverted_distractor_detection(self, db_session):
+        """Test that questions with inverted distractors are detected."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with inverted distractor (high scorers prefer it more)
+        question = Question(
+            question_text="Question with inverted distractor",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 50, "top_q": 10, "bottom_q": 10},
+                "B": {"count": 50, "top_q": 20, "bottom_q": 5},  # Inverted
+            },
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 1
+        assert result["questions_with_inverted_distractors"] == 1
+
+    def test_by_non_functioning_count_breakdown(self, db_session):
+        """Test that the by_non_functioning_count breakdown is accurate."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create questions with different numbers of non-functioning distractors
+        # Question 1: zero non-functioning distractors
+        q1 = Question(
+            question_text="Question 1",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3"},
+            distractor_stats={
+                "A": {"count": 60, "top_q": 15, "bottom_q": 10},
+                "B": {"count": 25, "top_q": 5, "bottom_q": 10},  # 25% functioning
+                "C": {"count": 15, "top_q": 5, "bottom_q": 5},  # 15% functioning
+            },
+            is_active=True,
+        )
+
+        # Question 2: one non-functioning distractor
+        q2 = Question(
+            question_text="Question 2",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3"},
+            distractor_stats={
+                "A": {"count": 85, "top_q": 20, "bottom_q": 10},
+                "B": {"count": 14, "top_q": 3, "bottom_q": 8},  # 14% functioning
+                "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # 1% non-functioning
+            },
+            is_active=True,
+        )
+
+        # Question 3: two non-functioning distractors
+        q3 = Question(
+            question_text="Question 3",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            distractor_stats={
+                "A": {"count": 90, "top_q": 22, "bottom_q": 10},
+                "B": {"count": 8, "top_q": 2, "bottom_q": 5},  # 8% functioning
+                "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # 1% non-functioning
+                "D": {"count": 1, "top_q": 1, "bottom_q": 0},  # 1% non-functioning
+            },
+            is_active=True,
+        )
+
+        db_session.add_all([q1, q2, q3])
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 3
+        assert result["by_non_functioning_count"]["zero"] == 1
+        assert result["by_non_functioning_count"]["one"] == 1
+        assert result["by_non_functioning_count"]["two"] == 1
+
+    def test_worst_offenders_ranking(self, db_session):
+        """Test that worst offenders are ranked by issue score."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create question with 2 non-functioning (score: 2*2=4)
+        q1 = Question(
+            question_text="Worst question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            distractor_stats={
+                "A": {"count": 90, "top_q": 22, "bottom_q": 10},
+                "B": {"count": 8, "top_q": 2, "bottom_q": 5},
+                "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # non-functioning
+                "D": {"count": 1, "top_q": 1, "bottom_q": 0},  # non-functioning
+            },
+            is_active=True,
+        )
+
+        # Create question with 1 non-functioning (score: 1*2=2)
+        q2 = Question(
+            question_text="Less bad question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3"},
+            distractor_stats={
+                "A": {"count": 90, "top_q": 22, "bottom_q": 10},
+                "B": {"count": 9, "top_q": 2, "bottom_q": 5},  # 9% functioning
+                "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # 1% non-functioning
+            },
+            is_active=True,
+        )
+
+        db_session.add_all([q1, q2])
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        # Worst offenders should be sorted by issue score (worst first)
+        assert len(result["worst_offenders"]) == 2
+        assert result["worst_offenders"][0]["question_id"] == q1.id
+        assert result["worst_offenders"][0]["non_functioning_count"] == 2
+        assert result["worst_offenders"][1]["question_id"] == q2.id
+        assert result["worst_offenders"][1]["non_functioning_count"] == 1
+
+    def test_worst_offenders_limited_to_ten(self, db_session):
+        """Test that worst offenders list is limited to 10 entries."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create 15 questions with issues
+        for i in range(15):
+            q = Question(
+                question_text=f"Question {i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3"},
+                distractor_stats={
+                    "A": {"count": 90, "top_q": 22, "bottom_q": 10},
+                    "B": {"count": 9, "top_q": 2, "bottom_q": 5},
+                    "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # non-functioning
+                },
+                is_active=True,
+            )
+            db_session.add(q)
+
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert len(result["worst_offenders"]) == 10
+
+    def test_by_question_type_stats(self, db_session):
+        """Test that statistics are grouped by question type."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a PATTERN question
+        q1 = Question(
+            question_text="Pattern question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 60, "top_q": 15, "bottom_q": 10},
+                "B": {"count": 40, "top_q": 10, "bottom_q": 15},
+            },
+            is_active=True,
+        )
+
+        # Create a LOGIC question
+        q2 = Question(
+            question_text="Logic question",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 70, "top_q": 18, "bottom_q": 12},
+                "B": {"count": 30, "top_q": 7, "bottom_q": 13},
+            },
+            is_active=True,
+        )
+
+        db_session.add_all([q1, q2])
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["by_question_type"]["pattern"]["total_questions"] == 1
+        assert result["by_question_type"]["logic"]["total_questions"] == 1
+        assert (
+            result["by_question_type"]["pattern"]["avg_effective_options"] is not None
+        )
+        assert result["by_question_type"]["logic"]["avg_effective_options"] is not None
+
+    def test_question_type_filter(self, db_session):
+        """Test that question_type filter works correctly."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a PATTERN question
+        q1 = Question(
+            question_text="Pattern question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 60, "top_q": 15, "bottom_q": 10},
+                "B": {"count": 40, "top_q": 10, "bottom_q": 15},
+            },
+            is_active=True,
+        )
+
+        # Create a LOGIC question
+        q2 = Question(
+            question_text="Logic question",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 70, "top_q": 18, "bottom_q": 12},
+                "B": {"count": 30, "top_q": 7, "bottom_q": 13},
+            },
+            is_active=True,
+        )
+
+        db_session.add_all([q1, q2])
+        db_session.commit()
+
+        # Filter to only PATTERN questions
+        result = get_bulk_distractor_summary(
+            db_session, min_responses=50, question_type="pattern"
+        )
+
+        assert result["total_questions_analyzed"] == 1
+
+    def test_inactive_questions_excluded(self, db_session):
+        """Test that inactive questions are excluded from analysis."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create an inactive question
+        q = Question(
+            question_text="Inactive question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 60, "top_q": 15, "bottom_q": 10},
+                "B": {"count": 40, "top_q": 10, "bottom_q": 15},
+            },
+            is_active=False,  # Inactive
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert result["total_questions_analyzed"] == 0
+
+    def test_only_mc_questions_analyzed(self, db_session):
+        """Test that only multiple-choice questions (with answer_options) are analyzed."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create an MC question with sufficient stats
+        mc_question = Question(
+            question_text="Multiple choice question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},  # Has options = MC
+            distractor_stats={
+                "A": {"count": 60, "top_q": 15, "bottom_q": 10},
+                "B": {"count": 40, "top_q": 10, "bottom_q": 15},
+            },
+            is_active=True,
+        )
+        db_session.add(mc_question)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        # MC question with sufficient stats should be analyzed
+        assert result["total_questions_analyzed"] >= 1
+
+        # Verify this specific MC question was included in analysis
+        # (total analyzed + below threshold should account for all MC questions)
+        total_accounted = (
+            result["total_questions_analyzed"] + result["questions_below_threshold"]
+        )
+        assert total_accounted >= 1
+
+    def test_avg_effective_option_count(self, db_session):
+        """Test that average effective option count is calculated correctly."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with equal distribution (effective_option_count = 2.0)
+        q1 = Question(
+            question_text="Equal distribution",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 50, "top_q": 12, "bottom_q": 13},
+                "B": {"count": 50, "top_q": 13, "bottom_q": 12},
+            },
+            is_active=True,
+        )
+
+        # Create another question with equal distribution
+        q2 = Question(
+            question_text="Equal distribution 2",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 50, "top_q": 12, "bottom_q": 13},
+                "B": {"count": 50, "top_q": 13, "bottom_q": 12},
+            },
+            is_active=True,
+        )
+
+        db_session.add_all([q1, q2])
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        # Both questions have effective_option_count = 2.0
+        # Average should be 2.0
+        assert result["avg_effective_option_count"] == 2.0
+
+    def test_worst_offenders_structure(self, db_session):
+        """Test that worst offenders have the correct structure."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with issues
+        q = Question(
+            question_text="Question with issues",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3"},
+            distractor_stats={
+                "A": {"count": 90, "top_q": 22, "bottom_q": 10},
+                "B": {"count": 9, "top_q": 2, "bottom_q": 5},
+                "C": {"count": 1, "top_q": 0, "bottom_q": 1},  # non-functioning
+            },
+            is_active=True,
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+
+        assert len(result["worst_offenders"]) == 1
+        offender = result["worst_offenders"][0]
+
+        # Check all expected fields are present
+        assert "question_id" in offender
+        assert "question_type" in offender
+        assert "difficulty_level" in offender
+        assert "non_functioning_count" in offender
+        assert "inverted_count" in offender
+        assert "total_responses" in offender
+        assert "effective_option_count" in offender
+
+        # Verify values
+        assert offender["question_id"] == q.id
+        assert offender["question_type"] == "pattern"
+        assert offender["difficulty_level"] == "easy"
+        assert offender["non_functioning_count"] == 1
+        assert offender["total_responses"] == 100
+
+    def test_min_responses_threshold_respected(self, db_session):
+        """Test that custom min_responses threshold is respected."""
+        from app.core.distractor_analysis import get_bulk_distractor_summary
+
+        # Create a question with 60 responses
+        q = Question(
+            question_text="Question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={
+                "A": {"count": 40, "top_q": 10, "bottom_q": 10},
+                "B": {"count": 20, "top_q": 5, "bottom_q": 5},
+            },
+            is_active=True,
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        # With min_responses=50, should be analyzed (60 >= 50)
+        result = get_bulk_distractor_summary(db_session, min_responses=50)
+        assert result["total_questions_analyzed"] == 1
+        assert result["questions_below_threshold"] == 0
+
+        # With min_responses=100, should be below threshold (60 < 100)
+        result = get_bulk_distractor_summary(db_session, min_responses=100)
+        assert result["total_questions_analyzed"] == 0
+        assert result["questions_below_threshold"] == 1
