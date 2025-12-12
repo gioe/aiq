@@ -2646,3 +2646,336 @@ class TestRecalibrateQuestions:
         assert "reason" in skip_q
         assert "assigned_difficulty" in skip_q
         assert "severity" in skip_q or skip_q.get("severity") is None
+
+
+# =============================================================================
+# DISTRACTOR ANALYSIS ENDPOINT TESTS (DA-008)
+# =============================================================================
+
+
+@pytest.fixture
+def distractor_analysis_question(db_session):
+    """Create a question with distractor stats for testing."""
+    from app.models.models import Question, QuestionType, DifficultyLevel
+
+    question = Question(
+        question_text="What is the next number in the sequence: 2, 4, 8, 16, ?",
+        question_type=QuestionType.PATTERN,
+        difficulty_level=DifficultyLevel.MEDIUM,
+        correct_answer="B",
+        answer_options={
+            "A": "24",
+            "B": "32",
+            "C": "20",
+            "D": "64",
+        },
+        distractor_stats={
+            "A": {"count": 25, "top_q": 5, "bottom_q": 15},  # functioning, good disc.
+            "B": {"count": 150, "top_q": 50, "bottom_q": 20},  # correct answer
+            "C": {"count": 3, "top_q": 1, "bottom_q": 1},  # non-functioning
+            "D": {"count": 22, "top_q": 14, "bottom_q": 4},  # inverted discrimination
+        },
+        is_active=True,
+    )
+    db_session.add(question)
+    db_session.commit()
+    db_session.refresh(question)
+    return question
+
+
+@pytest.fixture
+def distractor_insufficient_data_question(db_session):
+    """Create a question with insufficient distractor stats for testing."""
+    from app.models.models import Question, QuestionType, DifficultyLevel
+
+    question = Question(
+        question_text="Which pattern comes next?",
+        question_type=QuestionType.PATTERN,
+        difficulty_level=DifficultyLevel.EASY,
+        correct_answer="A",
+        answer_options={
+            "A": "Square",
+            "B": "Circle",
+            "C": "Triangle",
+            "D": "Hexagon",
+        },
+        distractor_stats={
+            "A": {"count": 10, "top_q": 2, "bottom_q": 3},
+            "B": {"count": 5, "top_q": 1, "bottom_q": 2},
+        },
+        is_active=True,
+    )
+    db_session.add(question)
+    db_session.commit()
+    db_session.refresh(question)
+    return question
+
+
+@pytest.fixture
+def free_response_question(db_session):
+    """Create a free-response question (no answer_options) for testing."""
+    from app.models.models import Question, QuestionType, DifficultyLevel
+
+    question = Question(
+        question_text="Describe the pattern you see.",
+        question_type=QuestionType.VERBAL,
+        difficulty_level=DifficultyLevel.HARD,
+        correct_answer="The pattern shows increasing complexity",
+        answer_options=None,  # Free-response question
+        is_active=True,
+    )
+    db_session.add(question)
+    db_session.commit()
+    db_session.refresh(question)
+    return question
+
+
+class TestDistractorAnalysisEndpoint:
+    """Tests for GET /v1/admin/questions/{id}/distractor-analysis endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_success(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test successful distractor analysis with full data."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify basic structure
+        assert data["question_id"] == distractor_analysis_question.id
+        assert "What is the next number" in data["question_text"]
+        assert data["total_responses"] == 200  # 25 + 150 + 3 + 22
+        assert data["correct_answer"] == "B"
+
+        # Verify options are present
+        assert len(data["options"]) == 4
+
+        # Verify summary structure
+        assert "summary" in data
+        summary = data["summary"]
+        assert "functioning_distractors" in summary
+        assert "weak_distractors" in summary
+        assert "non_functioning_distractors" in summary
+        assert "inverted_distractors" in summary
+        assert "effective_option_count" in summary
+        assert "guessing_probability" in summary
+
+        # Verify recommendations are present (should have some for non-functioning distractor)
+        assert "recommendations" in data
+        assert isinstance(data["recommendations"], list)
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_options_detail(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that option analysis contains correct details."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Find option B (correct answer)
+        option_b = next((o for o in data["options"] if o["option_key"] == "B"), None)
+        assert option_b is not None
+        assert option_b["is_correct"] is True
+        assert option_b["selection_rate"] > 0.5  # Majority selected correct answer
+        assert "status" in option_b
+        assert "discrimination" in option_b
+        assert "discrimination_index" in option_b
+        assert "top_quartile_rate" in option_b
+        assert "bottom_quartile_rate" in option_b
+
+        # Find option C (non-functioning - only 3 selections)
+        option_c = next((o for o in data["options"] if o["option_key"] == "C"), None)
+        assert option_c is not None
+        assert option_c["is_correct"] is False
+        assert option_c["selection_rate"] < 0.02  # Less than 2% threshold
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_insufficient_data(
+        self,
+        client,
+        db_session,
+        admin_token_headers,
+        distractor_insufficient_data_question,
+    ):
+        """Test distractor analysis with insufficient data returns proper response."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_insufficient_data_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return empty options due to insufficient data
+        assert data["question_id"] == distractor_insufficient_data_question.id
+        assert len(data["options"]) == 0
+        assert data["total_responses"] == 15  # 10 + 5
+
+        # Recommendations should indicate insufficient data
+        assert len(data["recommendations"]) > 0
+        assert "Insufficient data" in data["recommendations"][0]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_question_not_found(self, client, admin_token_headers):
+        """Test 404 response when question doesn't exist."""
+        response = client.get(
+            "/v1/admin/questions/99999/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_free_response_question(
+        self, client, db_session, admin_token_headers, free_response_question
+    ):
+        """Test 400 response for free-response questions."""
+        response = client.get(
+            f"/v1/admin/questions/{free_response_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 400
+        assert "not a multiple-choice" in response.json()["detail"].lower()
+
+    def test_distractor_analysis_no_auth(self, client, distractor_analysis_question):
+        """Test that request without admin token is rejected."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis"
+        )
+
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_invalid_token(
+        self, client, distractor_analysis_question
+    ):
+        """Test that request with invalid admin token is rejected."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "")
+    def test_distractor_analysis_token_not_configured(
+        self, client, admin_token_headers, distractor_analysis_question
+    ):
+        """Test error when admin token is not configured on server."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 500
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_custom_min_responses(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that min_responses parameter is respected."""
+        # Request with high threshold that the question won't meet
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis"
+            "?min_responses=500",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return insufficient data response
+        assert len(data["options"]) == 0
+        assert "Insufficient data" in data["recommendations"][0]
+        assert "500" in data["recommendations"][0]  # The threshold is mentioned
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_response_schema(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that response matches the expected schema exactly."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Top-level required fields
+        required_fields = [
+            "question_id",
+            "question_text",
+            "total_responses",
+            "correct_answer",
+            "options",
+            "summary",
+            "recommendations",
+        ]
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+
+        # Option required fields
+        if len(data["options"]) > 0:
+            option = data["options"][0]
+            option_fields = [
+                "option_key",
+                "is_correct",
+                "selection_rate",
+                "status",
+                "discrimination",
+                "discrimination_index",
+                "top_quartile_rate",
+                "bottom_quartile_rate",
+            ]
+            for field in option_fields:
+                assert field in option, f"Missing option field: {field}"
+
+        # Summary required fields
+        summary_fields = [
+            "functioning_distractors",
+            "weak_distractors",
+            "non_functioning_distractors",
+            "inverted_distractors",
+            "effective_option_count",
+            "guessing_probability",
+        ]
+        for field in summary_fields:
+            assert field in data["summary"], f"Missing summary field: {field}"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_analysis_status_values(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that status values are valid enum values."""
+        response = client.get(
+            f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        valid_statuses = {"functioning", "weak", "non-functioning"}
+        valid_discriminations = {"good", "neutral", "inverted"}
+
+        for option in data["options"]:
+            assert (
+                option["status"] in valid_statuses
+            ), f"Invalid status: {option['status']}"
+            assert (
+                option["discrimination"] in valid_discriminations
+            ), f"Invalid discrimination: {option['discrimination']}"

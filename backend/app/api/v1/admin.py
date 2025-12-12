@@ -50,6 +50,15 @@ from app.schemas.response_time_analytics import (
     ByQuestionTypeStats,
     AnomalySummary,
 )
+from app.core.distractor_analysis import analyze_distractor_effectiveness
+from app.schemas.distractor_analysis import (
+    DistractorAnalysisResponse,
+    DistractorOptionAnalysis,
+    DistractorSummary,
+    DistractorStatus,
+    DistractorDiscrimination,
+)
+from app.models import Question
 
 router = APIRouter()
 
@@ -1474,4 +1483,180 @@ async def get_response_time_analytics(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve response time analytics: {str(e)}",
+        )
+
+
+# =============================================================================
+# DISTRACTOR ANALYSIS ENDPOINT (DA-008)
+# =============================================================================
+
+
+@router.get(
+    "/questions/{question_id}/distractor-analysis",
+    response_model=DistractorAnalysisResponse,
+    responses={
+        404: {"description": "Question not found"},
+        400: {"description": "Question is not a multiple-choice question"},
+    },
+)
+async def get_distractor_analysis(
+    question_id: int,
+    min_responses: int = Query(
+        50,
+        ge=1,
+        le=1000,
+        description="Minimum responses required for analysis",
+    ),
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Get detailed distractor analysis for a single question.
+
+    Analyzes the effectiveness of each answer option (distractor) for a
+    multiple-choice question. This helps identify non-functioning distractors
+    (rarely selected) and inverted distractors (high scorers prefer them).
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Status Classifications:**
+    - Functioning: Selected by >=5% of respondents (good distractor)
+    - Weak: Selected by 2-5% of respondents (marginal)
+    - Non-functioning: Selected by <2% of respondents (not attracting anyone)
+
+    **Discrimination Classifications:**
+    - Good: Bottom quartile selects more than top (positive index > 0.10)
+    - Neutral: Similar selection rates across ability levels (|index| <= 0.10)
+    - Inverted: Top quartile selects more than bottom (index < -0.10)
+      This is problematic as it suggests high-ability test-takers are attracted
+      to the "wrong" answer.
+
+    **Effective Option Count:**
+    Calculated using the inverse Simpson index. A value of 4.0 for a 4-option
+    question means all options are selected equally. A value of 1.0 means
+    essentially only one option is ever selected.
+
+    Args:
+        question_id: The unique identifier of the question to analyze
+        min_responses: Minimum number of responses required for analysis (default: 50)
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        DistractorAnalysisResponse with detailed analysis for each option
+
+    Raises:
+        HTTPException 404: If the question is not found
+        HTTPException 400: If the question is not a multiple-choice question
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/questions/123/distractor-analysis?min_responses=50" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    try:
+        # First check if question exists
+        question = db.query(Question).filter(Question.id == question_id).first()
+
+        if question is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Question with ID {question_id} not found",
+            )
+
+        # Check if question has answer options (is multiple-choice)
+        if question.answer_options is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Question {question_id} is not a multiple-choice question "
+                "(no answer_options available)",
+            )
+
+        # Get distractor analysis from core function
+        analysis = analyze_distractor_effectiveness(
+            db, question_id, min_responses=min_responses
+        )
+
+        # Handle insufficient data case
+        if analysis.get("insufficient_data"):
+            # Return a valid response but with minimal data
+            # Note: We still return DistractorAnalysisResponse format but with empty
+            # options and recommendations, or we could return a union type
+            # For API consistency, return a response with empty data and a note
+            return DistractorAnalysisResponse(
+                question_id=question_id,
+                question_text=str(question.question_text),
+                total_responses=analysis.get("total_responses", 0),
+                correct_answer=str(question.correct_answer)
+                if question.correct_answer
+                else None,
+                options=[],
+                summary=DistractorSummary(
+                    functioning_distractors=0,
+                    weak_distractors=0,
+                    non_functioning_distractors=0,
+                    inverted_distractors=0,
+                    effective_option_count=0.0,
+                    guessing_probability=0.0,
+                ),
+                recommendations=[
+                    f"Insufficient data for analysis. "
+                    f"Have {analysis.get('total_responses', 0)} responses, "
+                    f"need at least {analysis.get('min_required', min_responses)}."
+                ],
+            )
+
+        # Build options analysis list
+        options_list = []
+        for option_key, option_data in analysis["options"].items():
+            options_list.append(
+                DistractorOptionAnalysis(
+                    option_key=option_key,
+                    is_correct=option_data["is_correct"],
+                    selection_rate=option_data["selection_rate"],
+                    status=DistractorStatus(option_data["status"]),
+                    discrimination=DistractorDiscrimination(
+                        option_data["discrimination"]
+                    ),
+                    discrimination_index=option_data["discrimination_index"],
+                    top_quartile_rate=option_data["top_quartile_rate"],
+                    bottom_quartile_rate=option_data["bottom_quartile_rate"],
+                )
+            )
+
+        # Sort options by key for consistent ordering
+        options_list.sort(key=lambda x: x.option_key)
+
+        # Calculate guessing probability from effective option count
+        effective_options = analysis["summary"]["effective_option_count"]
+        guessing_prob = (1.0 / effective_options) if effective_options > 0 else 0.0
+
+        summary = DistractorSummary(
+            functioning_distractors=analysis["summary"]["functioning_distractors"],
+            weak_distractors=analysis["summary"]["weak_distractors"],
+            non_functioning_distractors=analysis["summary"][
+                "non_functioning_distractors"
+            ],
+            inverted_distractors=analysis["summary"]["inverted_distractors"],
+            effective_option_count=analysis["summary"]["effective_option_count"],
+            guessing_probability=round(guessing_prob, 4),
+        )
+
+        return DistractorAnalysisResponse(
+            question_id=question_id,
+            question_text=str(question.question_text),
+            total_responses=analysis["total_responses"],
+            correct_answer=analysis.get("correct_answer"),
+            options=options_list,
+            summary=summary,
+            recommendations=analysis.get("recommendations", []),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve distractor analysis: {str(e)}",
         )
