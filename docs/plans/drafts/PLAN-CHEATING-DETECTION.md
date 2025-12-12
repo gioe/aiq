@@ -315,7 +315,7 @@ def assess_session_validity(
 ---
 
 ### CD-012: Add Unit Tests for Response Time Plausibility
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_validity_analysis.py`
 **Description:** Create unit tests for response time plausibility checks.
 
@@ -329,15 +329,15 @@ def assess_session_validity(
 - Combination of multiple flags
 
 **Acceptance Criteria:**
-- [ ] Tests cover each flag type independently
-- [ ] Tests cover flag combinations
-- [ ] Tests verify severity classifications
-- [ ] Tests cover threshold boundaries (3s, 10s, 300s, 7200s)
+- [x] Tests cover each flag type independently
+- [x] Tests cover flag combinations
+- [x] Tests verify severity classifications
+- [x] Tests cover threshold boundaries (3s, 10s, 300s, 7200s)
 
 ---
 
 ### CD-013: Add Unit Tests for Guttman Error Detection
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_validity_analysis.py`
 **Description:** Create unit tests for Guttman error counting function.
 
@@ -350,10 +350,10 @@ def assess_session_validity(
 - All items incorrect: no errors possible
 
 **Acceptance Criteria:**
-- [ ] Tests cover perfect patterns
-- [ ] Tests cover aberrant patterns
-- [ ] Tests cover elevated patterns
-- [ ] Tests handle edge cases
+- [x] Tests cover perfect patterns
+- [x] Tests cover aberrant patterns
+- [x] Tests cover elevated patterns
+- [x] Tests handle edge cases
 
 ---
 
