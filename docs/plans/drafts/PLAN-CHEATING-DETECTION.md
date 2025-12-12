@@ -358,7 +358,7 @@ def assess_session_validity(
 ---
 
 ### CD-014: Add Unit Tests for Session Validity Assessment
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_validity_analysis.py`
 **Description:** Create unit tests for combined validity assessment.
 
@@ -370,11 +370,11 @@ def assess_session_validity(
 - Confidence calculation verification
 
 **Acceptance Criteria:**
-- [ ] Tests cover valid outcome
-- [ ] Tests cover suspect outcome
-- [ ] Tests cover invalid outcome
-- [ ] Tests verify severity score calculation
-- [ ] Tests verify confidence calculation
+- [x] Tests cover valid outcome
+- [x] Tests cover suspect outcome
+- [x] Tests cover invalid outcome
+- [x] Tests verify severity score calculation
+- [x] Tests verify confidence calculation
 
 ---
 

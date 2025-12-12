@@ -5,13 +5,14 @@ This module contains unit tests for:
 - CD-011: Person-fit heuristic function
 - CD-012: Response time plausibility checks
 - CD-013: Guttman error detection
-- CD-014: Session validity assessment (to be added)
+- CD-014: Session validity assessment
 """
 
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
     check_response_time_plausibility,
     count_guttman_errors,
+    assess_session_validity,
     FIT_RATIO_ABERRANT_THRESHOLD,
     RAPID_RESPONSE_THRESHOLD_SECONDS,
     RAPID_RESPONSE_COUNT_THRESHOLD,
@@ -22,6 +23,12 @@ from app.core.validity_analysis import (
     TOTAL_TIME_EXCESSIVE_SECONDS,
     GUTTMAN_ERROR_ABERRANT_THRESHOLD,
     GUTTMAN_ERROR_ELEVATED_THRESHOLD,
+    SEVERITY_PERSON_FIT_ABERRANT,
+    SEVERITY_TIME_FLAG_HIGH,
+    SEVERITY_GUTTMAN_HIGH,
+    SEVERITY_GUTTMAN_ELEVATED,
+    SEVERITY_THRESHOLD_INVALID,
+    SEVERITY_THRESHOLD_SUSPECT,
 )
 
 
@@ -2388,3 +2395,1027 @@ class TestCountGuttmanErrors:
             "elevated_errors",
             "high_errors_aberrant",
         ]
+
+
+class TestAssessSessionValidity:
+    """Tests for the combined session validity assessment function (CD-014).
+
+    This function aggregates results from person-fit analysis, response time
+    plausibility checks, and Guttman error detection to produce a single
+    validity status and confidence score.
+
+    Test cases cover:
+    - Valid sessions (all checks pass)
+    - Suspect sessions (severity >= 2, < 4)
+    - Invalid sessions (severity >= 4)
+    - Severity score calculation
+    - Confidence calculation
+    - Flag aggregation
+    """
+
+    # =========================================================================
+    # Helper Functions for Creating Mock Check Results
+    # =========================================================================
+
+    def _create_normal_person_fit(self) -> dict:
+        """Create a normal person-fit result with no aberrant flags."""
+        return {
+            "fit_flag": "normal",
+            "fit_ratio": 0.10,
+            "unexpected_correct": 0,
+            "unexpected_incorrect": 0,
+            "total_responses": 20,
+            "score_percentile": "medium",
+            "by_difficulty": {},
+            "details": "Response pattern is consistent with expected performance.",
+        }
+
+    def _create_aberrant_person_fit(self) -> dict:
+        """Create an aberrant person-fit result."""
+        return {
+            "fit_flag": "aberrant",
+            "fit_ratio": 0.35,
+            "unexpected_correct": 5,
+            "unexpected_incorrect": 2,
+            "total_responses": 20,
+            "score_percentile": "low",
+            "by_difficulty": {},
+            "details": "Response pattern shows aberrant behavior.",
+        }
+
+    def _create_normal_time_check(self) -> dict:
+        """Create a normal time check result with no flags."""
+        return {
+            "flags": [],
+            "validity_concern": False,
+            "total_time_seconds": 1200.0,
+            "rapid_response_count": 0,
+            "extended_pause_count": 0,
+            "fast_hard_correct_count": 0,
+            "statistics": {
+                "mean_time": 60.0,
+                "min_time": 30.0,
+                "max_time": 120.0,
+                "total_responses": 20,
+            },
+            "details": "Response times appear normal.",
+        }
+
+    def _create_time_check_with_high_severity(
+        self, flag_type: str = "multiple_rapid_responses"
+    ) -> dict:
+        """Create a time check result with a high-severity flag."""
+        return {
+            "flags": [
+                {
+                    "type": flag_type,
+                    "severity": "high",
+                    "count": 3,
+                    "details": f"High severity flag: {flag_type}",
+                }
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 200.0,
+            "rapid_response_count": 3 if flag_type == "multiple_rapid_responses" else 0,
+            "extended_pause_count": 0,
+            "fast_hard_correct_count": 2
+            if flag_type == "suspiciously_fast_on_hard"
+            else 0,
+            "statistics": {
+                "mean_time": 10.0,
+                "min_time": 1.0,
+                "max_time": 30.0,
+                "total_responses": 20,
+            },
+            "details": f"High severity concern detected: {flag_type}.",
+        }
+
+    def _create_time_check_with_medium_severity(self) -> dict:
+        """Create a time check result with a medium-severity flag."""
+        return {
+            "flags": [
+                {
+                    "type": "extended_pauses",
+                    "severity": "medium",
+                    "count": 2,
+                    "details": "2 response(s) took over 5 minutes.",
+                }
+            ],
+            "validity_concern": False,
+            "total_time_seconds": 1500.0,
+            "rapid_response_count": 0,
+            "extended_pause_count": 2,
+            "fast_hard_correct_count": 0,
+            "statistics": {
+                "mean_time": 75.0,
+                "min_time": 30.0,
+                "max_time": 400.0,
+                "total_responses": 20,
+            },
+            "details": "Medium severity concern detected: extended_pauses.",
+        }
+
+    def _create_normal_guttman_check(self) -> dict:
+        """Create a normal Guttman check result."""
+        return {
+            "error_count": 2,
+            "max_possible_errors": 20,
+            "error_rate": 0.10,
+            "interpretation": "normal",
+            "total_responses": 20,
+            "correct_count": 10,
+            "incorrect_count": 10,
+            "details": "Normal Guttman pattern.",
+        }
+
+    def _create_elevated_guttman_check(self) -> dict:
+        """Create a Guttman check result with elevated errors."""
+        return {
+            "error_count": 5,
+            "max_possible_errors": 20,
+            "error_rate": 0.25,
+            "interpretation": "elevated_errors",
+            "total_responses": 20,
+            "correct_count": 10,
+            "incorrect_count": 10,
+            "details": "Elevated Guttman error rate detected.",
+        }
+
+    def _create_aberrant_guttman_check(self) -> dict:
+        """Create a Guttman check result with high/aberrant errors."""
+        return {
+            "error_count": 8,
+            "max_possible_errors": 20,
+            "error_rate": 0.40,
+            "interpretation": "high_errors_aberrant",
+            "total_responses": 20,
+            "correct_count": 10,
+            "incorrect_count": 10,
+            "details": "High Guttman error rate detected. Strong aberrant pattern.",
+        }
+
+    # =========================================================================
+    # Valid Sessions - All Checks Pass
+    # =========================================================================
+
+    def test_all_checks_pass_valid_status(self):
+        """Test that session is valid when all checks pass with no flags.
+
+        Severity score should be 0, status should be "valid", confidence 1.0.
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"
+        assert result["severity_score"] == 0
+        assert result["confidence"] == 1.0
+        assert result["flags"] == []
+        assert len(result["flag_details"]) == 0
+        assert result["components"]["person_fit"] == "normal"
+        assert result["components"]["time_check"] is False
+        assert result["components"]["guttman_check"] == "normal"
+
+    def test_valid_with_no_concerns_details_message(self):
+        """Test that valid session has appropriate details message."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "VALID" in result["details"]
+        assert "no validity concerns" in result["details"].lower()
+
+    # =========================================================================
+    # Valid Sessions with Minor (Medium Severity) Flags
+    # =========================================================================
+
+    def test_valid_with_medium_severity_time_flag(self):
+        """Test that medium-severity flags don't affect validity status.
+
+        Medium severity flags (like extended_pauses) contribute 0 points.
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_medium_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"
+        assert result["severity_score"] == 0  # Medium flags don't add severity
+        assert "extended_pauses" in result["flags"]
+        assert len(result["flag_details"]) == 1
+        assert result["flag_details"][0]["severity"] == "medium"
+
+    def test_valid_with_elevated_guttman_errors(self):
+        """Test that elevated Guttman errors result in severity 1 (still valid).
+
+        Elevated Guttman errors contribute +1 severity, which is below suspect threshold.
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"
+        assert result["severity_score"] == SEVERITY_GUTTMAN_ELEVATED  # 1
+        assert "elevated_guttman_errors" in result["flags"]
+        # Confidence should be reduced but still high
+        assert result["confidence"] == 0.85  # 1.0 - (1 * 0.15)
+
+    def test_valid_with_minor_flags_details_message(self):
+        """Test that valid session with minor flags has appropriate details."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_medium_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "VALID" in result["details"]
+        assert (
+            "minor flags" in result["details"].lower()
+            or "extended_pauses" in result["details"]
+        )
+
+    # =========================================================================
+    # Suspect Sessions - Severity >= 2, < 4
+    # =========================================================================
+
+    def test_suspect_with_aberrant_person_fit(self):
+        """Test that aberrant person-fit alone results in suspect status.
+
+        Aberrant person-fit contributes +2 severity, reaching suspect threshold.
+        """
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "suspect"
+        assert result["severity_score"] == SEVERITY_PERSON_FIT_ABERRANT  # 2
+        assert "aberrant_response_pattern" in result["flags"]
+        assert result["components"]["person_fit"] == "aberrant"
+
+    def test_suspect_with_single_high_severity_time_flag(self):
+        """Test that one high-severity time flag results in suspect status.
+
+        Each high-severity time flag contributes +2 severity.
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_high_severity(
+            "multiple_rapid_responses"
+        )
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "suspect"
+        assert result["severity_score"] == SEVERITY_TIME_FLAG_HIGH  # 2
+        assert "multiple_rapid_responses" in result["flags"]
+        assert result["components"]["time_check"] is True
+
+    def test_suspect_with_high_guttman_errors(self):
+        """Test that high Guttman errors alone results in suspect status.
+
+        High Guttman errors contribute +2 severity.
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "suspect"
+        assert result["severity_score"] == SEVERITY_GUTTMAN_HIGH  # 2
+        assert "high_guttman_errors" in result["flags"]
+        assert result["components"]["guttman_check"] == "high_errors_aberrant"
+
+    def test_suspect_with_elevated_guttman_plus_medium_time(self):
+        """Test combination that results in severity 1 (still valid, not suspect).
+
+        Elevated Guttman (+1) + medium time flag (+0) = 1 (valid).
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_medium_severity()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"  # 1 is below suspect threshold
+        assert result["severity_score"] == 1
+
+    def test_suspect_severity_3_boundary(self):
+        """Test severity score of 3 (still suspect, not invalid).
+
+        Aberrant person-fit (+2) + elevated Guttman (+1) = 3.
+        """
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "suspect"
+        assert result["severity_score"] == 3  # 2 + 1
+
+    def test_suspect_details_message(self):
+        """Test that suspect session has appropriate details message."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "SUSPECT" in result["details"]
+        assert "review" in result["details"].lower()
+
+    # =========================================================================
+    # Invalid Sessions - Severity >= 4
+    # =========================================================================
+
+    def test_invalid_with_aberrant_person_fit_and_high_time(self):
+        """Test that aberrant person-fit + high time flag = invalid.
+
+        Aberrant person-fit (+2) + high time flag (+2) = 4 (invalid).
+        """
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_time_check_with_high_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "invalid"
+        assert result["severity_score"] == 4  # 2 + 2
+        assert "aberrant_response_pattern" in result["flags"]
+        assert "multiple_rapid_responses" in result["flags"]
+
+    def test_invalid_with_aberrant_person_fit_and_high_guttman(self):
+        """Test that aberrant person-fit + high Guttman errors = invalid.
+
+        Aberrant person-fit (+2) + high Guttman (+2) = 4 (invalid).
+        """
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "invalid"
+        assert result["severity_score"] == 4  # 2 + 2
+        assert "aberrant_response_pattern" in result["flags"]
+        assert "high_guttman_errors" in result["flags"]
+
+    def test_invalid_with_two_high_severity_time_flags(self):
+        """Test that two high-severity time flags = invalid.
+
+        2 high time flags = 2 + 2 = 4 (invalid).
+        """
+        person_fit = self._create_normal_person_fit()
+        time_check = {
+            "flags": [
+                {
+                    "type": "multiple_rapid_responses",
+                    "severity": "high",
+                    "count": 3,
+                    "details": "Rapid responses detected.",
+                },
+                {
+                    "type": "suspiciously_fast_on_hard",
+                    "severity": "high",
+                    "count": 2,
+                    "details": "Fast correct on hard questions.",
+                },
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 150.0,
+            "rapid_response_count": 3,
+            "extended_pause_count": 0,
+            "fast_hard_correct_count": 2,
+            "statistics": {
+                "mean_time": 7.5,
+                "min_time": 1.0,
+                "max_time": 20.0,
+                "total_responses": 20,
+            },
+            "details": "Multiple high severity concerns.",
+        }
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "invalid"
+        assert result["severity_score"] == 4  # 2 + 2
+        assert "multiple_rapid_responses" in result["flags"]
+        assert "suspiciously_fast_on_hard" in result["flags"]
+
+    def test_invalid_with_all_checks_aberrant(self):
+        """Test extreme case: all checks aberrant = very high severity.
+
+        Aberrant person-fit (+2) + 2 high time flags (+4) + high Guttman (+2) = 8.
+        """
+        person_fit = self._create_aberrant_person_fit()
+        time_check = {
+            "flags": [
+                {
+                    "type": "multiple_rapid_responses",
+                    "severity": "high",
+                    "count": 3,
+                    "details": "...",
+                },
+                {
+                    "type": "total_time_too_fast",
+                    "severity": "high",
+                    "count": 1,
+                    "details": "...",
+                },
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 100.0,
+            "rapid_response_count": 5,
+            "extended_pause_count": 0,
+            "fast_hard_correct_count": 0,
+            "statistics": {
+                "mean_time": 5.0,
+                "min_time": 1.0,
+                "max_time": 15.0,
+                "total_responses": 20,
+            },
+            "details": "...",
+        }
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "invalid"
+        assert result["severity_score"] == 8  # 2 + 2 + 2 + 2
+        assert result["confidence"] == 0.0  # 1.0 - (8 * 0.15) = -0.2 -> clamped to 0.0
+
+    def test_invalid_details_message(self):
+        """Test that invalid session has appropriate details message."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_time_check_with_high_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "INVALID" in result["details"]
+        assert (
+            "admin review" in result["details"].lower()
+            or "review" in result["details"].lower()
+        )
+
+    # =========================================================================
+    # Severity Score Calculation Tests
+    # =========================================================================
+
+    def test_severity_score_person_fit_aberrant(self):
+        """Verify aberrant person-fit contributes +2 to severity."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == SEVERITY_PERSON_FIT_ABERRANT
+
+    def test_severity_score_high_time_flag(self):
+        """Verify each high-severity time flag contributes +2 to severity."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_high_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == SEVERITY_TIME_FLAG_HIGH
+
+    def test_severity_score_guttman_high(self):
+        """Verify high Guttman errors contribute +2 to severity."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == SEVERITY_GUTTMAN_HIGH
+
+    def test_severity_score_guttman_elevated(self):
+        """Verify elevated Guttman errors contribute +1 to severity."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == SEVERITY_GUTTMAN_ELEVATED
+
+    def test_severity_score_medium_time_flag_no_contribution(self):
+        """Verify medium-severity time flags contribute 0 to severity."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_medium_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == 0
+
+    def test_severity_score_cumulative(self):
+        """Verify severity scores accumulate correctly from all sources."""
+        person_fit = self._create_aberrant_person_fit()  # +2
+        time_check = {
+            "flags": [
+                {
+                    "type": "multiple_rapid_responses",
+                    "severity": "high",
+                    "count": 3,
+                    "details": "...",
+                },  # +2
+                {
+                    "type": "extended_pauses",
+                    "severity": "medium",
+                    "count": 1,
+                    "details": "...",
+                },  # +0
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 1000.0,
+            "rapid_response_count": 3,
+            "extended_pause_count": 1,
+            "fast_hard_correct_count": 0,
+            "statistics": {
+                "mean_time": 50.0,
+                "min_time": 1.0,
+                "max_time": 400.0,
+                "total_responses": 20,
+            },
+            "details": "...",
+        }
+        guttman_check = self._create_elevated_guttman_check()  # +1
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == 5  # 2 + 2 + 0 + 1
+
+    # =========================================================================
+    # Confidence Calculation Tests
+    # =========================================================================
+
+    def test_confidence_calculation_zero_severity(self):
+        """Verify confidence is 1.0 when severity is 0."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["confidence"] == 1.0
+
+    def test_confidence_calculation_severity_1(self):
+        """Verify confidence is 0.85 when severity is 1."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == 1
+        assert result["confidence"] == 0.85  # 1.0 - (1 * 0.15)
+
+    def test_confidence_calculation_severity_2(self):
+        """Verify confidence is 0.70 when severity is 2."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == 2
+        assert result["confidence"] == 0.7  # 1.0 - (2 * 0.15)
+
+    def test_confidence_calculation_severity_4(self):
+        """Verify confidence is 0.40 when severity is 4."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_time_check_with_high_severity()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["severity_score"] == 4
+        assert result["confidence"] == 0.4  # 1.0 - (4 * 0.15)
+
+    def test_confidence_clamped_at_zero(self):
+        """Verify confidence is clamped to 0.0 for very high severity scores.
+
+        At severity >= 7, confidence would go negative without clamping.
+        """
+        person_fit = self._create_aberrant_person_fit()  # +2
+        time_check = {
+            "flags": [
+                {
+                    "type": "multiple_rapid_responses",
+                    "severity": "high",
+                    "count": 3,
+                    "details": "...",
+                },  # +2
+                {
+                    "type": "suspiciously_fast_on_hard",
+                    "severity": "high",
+                    "count": 2,
+                    "details": "...",
+                },  # +2
+                {
+                    "type": "total_time_too_fast",
+                    "severity": "high",
+                    "count": 1,
+                    "details": "...",
+                },  # +2
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 100.0,
+            "rapid_response_count": 5,
+            "extended_pause_count": 0,
+            "fast_hard_correct_count": 2,
+            "statistics": {
+                "mean_time": 5.0,
+                "min_time": 1.0,
+                "max_time": 15.0,
+                "total_responses": 20,
+            },
+            "details": "...",
+        }
+        guttman_check = self._create_aberrant_guttman_check()  # +2
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        # Severity = 2 + 2 + 2 + 2 + 2 = 10
+        # Confidence = 1.0 - (10 * 0.15) = -0.5 -> clamped to 0.0
+        assert result["severity_score"] == 10
+        assert result["confidence"] == 0.0
+
+    # =========================================================================
+    # Flag Aggregation Tests
+    # =========================================================================
+
+    def test_flags_empty_when_all_normal(self):
+        """Verify flags list is empty when all checks are normal."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["flags"] == []
+        assert result["flag_details"] == []
+
+    def test_flags_include_aberrant_person_fit(self):
+        """Verify aberrant_response_pattern flag is added for aberrant person-fit."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "aberrant_response_pattern" in result["flags"]
+        flag_detail = next(
+            f
+            for f in result["flag_details"]
+            if f["type"] == "aberrant_response_pattern"
+        )
+        assert flag_detail["severity"] == "high"
+        assert flag_detail["source"] == "person_fit"
+
+    def test_flags_include_time_check_flags(self):
+        """Verify all time check flags are aggregated."""
+        person_fit = self._create_normal_person_fit()
+        time_check = {
+            "flags": [
+                {
+                    "type": "multiple_rapid_responses",
+                    "severity": "high",
+                    "count": 3,
+                    "details": "...",
+                },
+                {
+                    "type": "extended_pauses",
+                    "severity": "medium",
+                    "count": 1,
+                    "details": "...",
+                },
+            ],
+            "validity_concern": True,
+            "total_time_seconds": 1000.0,
+            "rapid_response_count": 3,
+            "extended_pause_count": 1,
+            "fast_hard_correct_count": 0,
+            "statistics": {
+                "mean_time": 50.0,
+                "min_time": 1.0,
+                "max_time": 400.0,
+                "total_responses": 20,
+            },
+            "details": "...",
+        }
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "multiple_rapid_responses" in result["flags"]
+        assert "extended_pauses" in result["flags"]
+        assert len(result["flag_details"]) == 2
+
+    def test_flags_include_high_guttman_errors(self):
+        """Verify high_guttman_errors flag is added for aberrant Guttman check."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "high_guttman_errors" in result["flags"]
+        flag_detail = next(
+            f for f in result["flag_details"] if f["type"] == "high_guttman_errors"
+        )
+        assert flag_detail["severity"] == "high"
+        assert flag_detail["source"] == "guttman_check"
+
+    def test_flags_include_elevated_guttman_errors(self):
+        """Verify elevated_guttman_errors flag is added for elevated Guttman check."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "elevated_guttman_errors" in result["flags"]
+        flag_detail = next(
+            f for f in result["flag_details"] if f["type"] == "elevated_guttman_errors"
+        )
+        assert flag_detail["severity"] == "medium"
+        assert flag_detail["source"] == "guttman_check"
+
+    def test_flag_details_include_error_rate_for_guttman(self):
+        """Verify flag_details include error_rate for Guttman flags."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        flag_detail = next(
+            f for f in result["flag_details"] if f["type"] == "high_guttman_errors"
+        )
+        assert "error_rate" in flag_detail
+        assert flag_detail["error_rate"] == 0.40
+
+    def test_flag_details_include_count_for_time_flags(self):
+        """Verify flag_details include count for time flags."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_time_check_with_high_severity(
+            "multiple_rapid_responses"
+        )
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        flag_detail = next(
+            f for f in result["flag_details"] if f["type"] == "multiple_rapid_responses"
+        )
+        assert "count" in flag_detail
+        assert flag_detail["count"] == 3
+
+    # =========================================================================
+    # Components Summary Tests
+    # =========================================================================
+
+    def test_components_summary_all_normal(self):
+        """Verify components summary reflects all normal checks."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["components"]["person_fit"] == "normal"
+        assert result["components"]["time_check"] is False  # No validity concern
+        assert result["components"]["guttman_check"] == "normal"
+
+    def test_components_summary_all_aberrant(self):
+        """Verify components summary reflects all aberrant checks."""
+        person_fit = self._create_aberrant_person_fit()
+        time_check = self._create_time_check_with_high_severity()
+        guttman_check = self._create_aberrant_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["components"]["person_fit"] == "aberrant"
+        assert result["components"]["time_check"] is True  # Has validity concern
+        assert result["components"]["guttman_check"] == "high_errors_aberrant"
+
+    def test_components_summary_mixed(self):
+        """Verify components summary correctly represents mixed results."""
+        person_fit = self._create_normal_person_fit()
+        time_check = (
+            self._create_time_check_with_medium_severity()
+        )  # No validity_concern
+        guttman_check = self._create_elevated_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["components"]["person_fit"] == "normal"
+        assert result["components"]["time_check"] is False
+        assert result["components"]["guttman_check"] == "elevated_errors"
+
+    # =========================================================================
+    # Output Structure Tests
+    # =========================================================================
+
+    def test_output_structure_complete(self):
+        """Verify output contains all required fields."""
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        # Check all required fields are present
+        assert "validity_status" in result
+        assert "severity_score" in result
+        assert "confidence" in result
+        assert "flags" in result
+        assert "flag_details" in result
+        assert "components" in result
+        assert "details" in result
+
+        # Check components structure
+        assert "person_fit" in result["components"]
+        assert "time_check" in result["components"]
+        assert "guttman_check" in result["components"]
+
+    def test_validity_status_is_valid_enum_value(self):
+        """Verify validity_status is always one of expected values."""
+        test_cases = [
+            (
+                self._create_normal_person_fit(),
+                self._create_normal_time_check(),
+                self._create_normal_guttman_check(),
+            ),
+            (
+                self._create_aberrant_person_fit(),
+                self._create_normal_time_check(),
+                self._create_normal_guttman_check(),
+            ),
+            (
+                self._create_aberrant_person_fit(),
+                self._create_time_check_with_high_severity(),
+                self._create_normal_guttman_check(),
+            ),
+        ]
+
+        valid_statuses = {"valid", "suspect", "invalid"}
+
+        for person_fit, time_check, guttman_check in test_cases:
+            result = assess_session_validity(person_fit, time_check, guttman_check)
+            assert result["validity_status"] in valid_statuses
+
+    def test_severity_score_is_non_negative_integer(self):
+        """Verify severity_score is always a non-negative integer."""
+        test_cases = [
+            (
+                self._create_normal_person_fit(),
+                self._create_normal_time_check(),
+                self._create_normal_guttman_check(),
+            ),
+            (
+                self._create_aberrant_person_fit(),
+                self._create_time_check_with_high_severity(),
+                self._create_aberrant_guttman_check(),
+            ),
+        ]
+
+        for person_fit, time_check, guttman_check in test_cases:
+            result = assess_session_validity(person_fit, time_check, guttman_check)
+            assert isinstance(result["severity_score"], int)
+            assert result["severity_score"] >= 0
+
+    def test_confidence_is_bounded_float(self):
+        """Verify confidence is a float between 0.0 and 1.0."""
+        test_cases = [
+            (
+                self._create_normal_person_fit(),
+                self._create_normal_time_check(),
+                self._create_normal_guttman_check(),
+            ),
+            (
+                self._create_aberrant_person_fit(),
+                self._create_time_check_with_high_severity(),
+                self._create_aberrant_guttman_check(),
+            ),
+        ]
+
+        for person_fit, time_check, guttman_check in test_cases:
+            result = assess_session_validity(person_fit, time_check, guttman_check)
+            assert isinstance(result["confidence"], float)
+            assert 0.0 <= result["confidence"] <= 1.0
+
+    # =========================================================================
+    # Threshold Constants Verification
+    # =========================================================================
+
+    def test_threshold_constants_accessible(self):
+        """Verify severity threshold constants are exported and have expected values."""
+        assert SEVERITY_PERSON_FIT_ABERRANT == 2
+        assert SEVERITY_TIME_FLAG_HIGH == 2
+        assert SEVERITY_GUTTMAN_HIGH == 2
+        assert SEVERITY_GUTTMAN_ELEVATED == 1
+        assert SEVERITY_THRESHOLD_INVALID == 4
+        assert SEVERITY_THRESHOLD_SUSPECT == 2
+
+    def test_status_thresholds_correctness(self):
+        """Verify status determination matches documented thresholds."""
+        # severity >= 4: invalid
+        # severity >= 2: suspect
+        # severity < 2: valid
+
+        person_fit = self._create_normal_person_fit()
+        time_check = self._create_normal_time_check()
+
+        # Severity 0 -> valid
+        guttman_check = self._create_normal_guttman_check()
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+        assert result["severity_score"] == 0
+        assert result["validity_status"] == "valid"
+
+        # Severity 1 -> valid
+        guttman_check = self._create_elevated_guttman_check()
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+        assert result["severity_score"] == 1
+        assert result["validity_status"] == "valid"
+
+        # Severity 2 -> suspect
+        person_fit = self._create_aberrant_person_fit()
+        guttman_check = self._create_normal_guttman_check()
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+        assert result["severity_score"] == 2
+        assert result["validity_status"] == "suspect"
+
+        # Severity 4 -> invalid
+        time_check = self._create_time_check_with_high_severity()
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+        assert result["severity_score"] == 4
+        assert result["validity_status"] == "invalid"
+
+    # =========================================================================
+    # Edge Cases
+    # =========================================================================
+
+    def test_empty_time_flags_handled(self):
+        """Verify empty time check flags are handled gracefully."""
+        person_fit = self._create_normal_person_fit()
+        time_check = {"flags": [], "validity_concern": False, "details": ""}
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"
+        assert result["severity_score"] == 0
+
+    def test_missing_optional_fields_handled(self):
+        """Verify missing optional fields in check results are handled gracefully."""
+        # Minimal person_fit result
+        person_fit = {"fit_flag": "normal"}
+        # Minimal time_check result
+        time_check = {"flags": [], "validity_concern": False}
+        # Minimal guttman_check result
+        guttman_check = {"interpretation": "normal"}
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert result["validity_status"] == "valid"
+        assert result["severity_score"] == 0
+
+    def test_unknown_time_flag_type_handled(self):
+        """Verify unknown time flag types are included but don't break processing."""
+        person_fit = self._create_normal_person_fit()
+        time_check = {
+            "flags": [
+                {
+                    "type": "unknown_flag_type",
+                    "severity": "medium",
+                    "count": 1,
+                    "details": "Unknown flag.",
+                },
+            ],
+            "validity_concern": False,
+            "details": "...",
+        }
+        guttman_check = self._create_normal_guttman_check()
+
+        result = assess_session_validity(person_fit, time_check, guttman_check)
+
+        assert "unknown_flag_type" in result["flags"]
+        # Medium severity doesn't add to score
+        assert result["severity_score"] == 0
