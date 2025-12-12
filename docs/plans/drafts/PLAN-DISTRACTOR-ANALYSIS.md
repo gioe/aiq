@@ -166,8 +166,8 @@ def analyze_distractor_effectiveness(
 ---
 
 ### DA-008: Create Single Question Distractor Analysis Endpoint
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/admin.py` (or new `question_analytics.py`)
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/distractor_analysis.py`, `backend/tests/test_admin.py`
 **Description:** Create admin endpoint to get detailed distractor analysis for a single question.
 
 **Endpoint:** `GET /v1/admin/questions/{id}/distractor-analysis`
@@ -190,11 +190,11 @@ def analyze_distractor_effectiveness(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Returns 404 for non-existent question
-- [ ] Returns proper response schema
-- [ ] Handles insufficient data case
-- [ ] Includes recommendations when issues found
+- [x] Endpoint requires admin authentication
+- [x] Returns 404 for non-existent question
+- [x] Returns proper response schema
+- [x] Handles insufficient data case
+- [x] Includes recommendations when issues found
 
 ---
 
