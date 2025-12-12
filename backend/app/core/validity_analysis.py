@@ -53,6 +53,44 @@ EXPECTED_DEVIATION_THRESHOLD = 0.30
 FIT_RATIO_ABERRANT_THRESHOLD = 0.25
 
 
+# =============================================================================
+# RESPONSE TIME PLAUSIBILITY THRESHOLDS (CD-004)
+# =============================================================================
+#
+# These thresholds define what constitutes implausible response times that may
+# indicate cheating (pre-known answers, answer key) or random clicking.
+#
+# Reference:
+#   - docs/methodology/gaps/CHEATING-DETECTION.md
+#   - docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-004)
+
+# Minimum time in seconds to read and answer a question legitimately
+# Responses faster than this are suspicious (random clicking, pre-known answers)
+RAPID_RESPONSE_THRESHOLD_SECONDS = 3
+
+# Count of rapid responses needed to flag (3+ is concerning)
+RAPID_RESPONSE_COUNT_THRESHOLD = 3
+
+# Maximum time in seconds for a legitimately fast correct answer on hard questions
+# Correct hard answers this fast suggest prior knowledge of answers
+FAST_HARD_CORRECT_THRESHOLD_SECONDS = 10
+
+# Count of fast correct hard answers needed to flag
+FAST_HARD_CORRECT_COUNT_THRESHOLD = 2
+
+# Maximum time in seconds for a single response before flagging as extended pause
+# May indicate looking up answers or leaving and returning
+EXTENDED_PAUSE_THRESHOLD_SECONDS = 300  # 5 minutes
+
+# Minimum total test time in seconds (test should take reasonable time)
+# A full test completed faster than this is suspicious
+TOTAL_TIME_TOO_FAST_SECONDS = 300  # 5 minutes
+
+# Maximum reasonable total test time in seconds
+# Test taking longer than this may indicate extended looking-up or distraction
+TOTAL_TIME_EXCESSIVE_SECONDS = 7200  # 2 hours
+
+
 def calculate_person_fit_heuristic(
     responses: List[Tuple[bool, str]], total_score: int
 ) -> Dict[str, Any]:
@@ -263,4 +301,293 @@ def _create_empty_person_fit_result() -> Dict[str, Any]:
             },
         },
         "details": "No responses to analyze.",
+    }
+
+
+# =============================================================================
+# RESPONSE TIME PLAUSIBILITY CHECK (CD-004)
+# =============================================================================
+
+
+def check_response_time_plausibility(responses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Analyze response times for plausibility patterns indicating cheating or random clicking.
+
+    This function examines per-question response times to identify patterns that
+    suggest invalid test-taking behavior, such as:
+    - Rapid clicking through questions without reading
+    - Suspiciously fast correct answers on hard questions (prior knowledge)
+    - Extended pauses that may indicate looking up answers
+    - Overall test completion time anomalies
+
+    Args:
+        responses: List of response dictionaries, each containing:
+            - time_seconds: float or int, time spent on the question in seconds
+            - is_correct: bool, whether the answer was correct
+            - difficulty: str, difficulty level ("easy", "medium", "hard")
+              OR difficulty_level: str (alternative key name)
+
+    Returns:
+        Dictionary containing response time analysis:
+        {
+            "flags": [
+                {
+                    "type": str,      # Flag identifier
+                    "severity": str,  # "high" or "medium"
+                    "count": int,     # Number of occurrences (where applicable)
+                    "details": str    # Human-readable explanation
+                },
+                ...
+            ],
+            "validity_concern": bool,     # True if any high-severity flags
+            "total_time_seconds": float,  # Sum of all response times
+            "rapid_response_count": int,  # Responses < 3 seconds
+            "extended_pause_count": int,  # Responses > 300 seconds
+            "fast_hard_correct_count": int,  # Correct hard < 10 seconds
+            "statistics": {
+                "mean_time": float,       # Average response time
+                "min_time": float,        # Fastest response
+                "max_time": float,        # Slowest response
+                "total_responses": int    # Number of responses analyzed
+            },
+            "details": str                # Overall summary
+        }
+
+    Flag Types and Severity:
+        High Severity (strong validity concern):
+        - multiple_rapid_responses: 3+ responses < 3 seconds each
+        - suspiciously_fast_on_hard: 2+ correct hard questions < 10 seconds
+        - total_time_too_fast: Total test < 300 seconds
+
+        Medium Severity (noteworthy but less concerning):
+        - extended_pauses: Any response > 300 seconds
+        - total_time_excessive: Total test > 7200 seconds
+
+    Edge Cases Handled:
+        - Empty response list: Returns no flags with zero counts
+        - Missing time data: Skips responses without time, notes in details
+        - Missing difficulty data: Uses "medium" as fallback for fast-hard check
+
+    Reference:
+        docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-004)
+    """
+    # Handle edge case: empty responses
+    if not responses:
+        logger.info("Response time check skipped: no responses provided")
+        return _create_empty_time_check_result()
+
+    flags: List[Dict[str, Any]] = []
+    response_times: List[float] = []
+    rapid_response_count = 0
+    extended_pause_count = 0
+    fast_hard_correct_count = 0
+    missing_time_count = 0
+
+    # Process each response
+    for response in responses:
+        # Extract time (handle both possible key names)
+        time_seconds = response.get("time_seconds")
+        if time_seconds is None:
+            time_seconds = response.get("time_spent_seconds")
+
+        # Skip responses without time data
+        if time_seconds is None:
+            missing_time_count += 1
+            continue
+
+        # Convert to float for calculations
+        try:
+            time_seconds = float(time_seconds)
+        except (ValueError, TypeError):
+            missing_time_count += 1
+            continue
+
+        response_times.append(time_seconds)
+
+        # Check for rapid response (< 3 seconds)
+        if time_seconds < RAPID_RESPONSE_THRESHOLD_SECONDS:
+            rapid_response_count += 1
+
+        # Check for extended pause (> 300 seconds)
+        if time_seconds > EXTENDED_PAUSE_THRESHOLD_SECONDS:
+            extended_pause_count += 1
+
+        # Check for fast correct answer on hard question
+        is_correct = response.get("is_correct", False)
+        difficulty = response.get("difficulty") or response.get(
+            "difficulty_level", "medium"
+        )
+        if isinstance(difficulty, str):
+            difficulty = difficulty.lower()
+
+        if (
+            is_correct
+            and difficulty == "hard"
+            and time_seconds < FAST_HARD_CORRECT_THRESHOLD_SECONDS
+        ):
+            fast_hard_correct_count += 1
+
+    # Handle edge case: no valid time data
+    if not response_times:
+        logger.info(
+            f"Response time check skipped: no valid time data "
+            f"({missing_time_count} responses missing time)"
+        )
+        return _create_empty_time_check_result(
+            details=f"No valid response time data available. "
+            f"{missing_time_count} response(s) missing time information."
+        )
+
+    # Calculate statistics
+    total_time_seconds = sum(response_times)
+    mean_time = total_time_seconds / len(response_times)
+    min_time = min(response_times)
+    max_time = max(response_times)
+
+    # Generate flags based on thresholds
+
+    # Flag: Multiple rapid responses (high severity)
+    if rapid_response_count >= RAPID_RESPONSE_COUNT_THRESHOLD:
+        flags.append(
+            {
+                "type": "multiple_rapid_responses",
+                "severity": "high",
+                "count": rapid_response_count,
+                "details": (
+                    f"{rapid_response_count} responses completed in under "
+                    f"{RAPID_RESPONSE_THRESHOLD_SECONDS} seconds each, "
+                    "suggesting random clicking or pre-known answers."
+                ),
+            }
+        )
+
+    # Flag: Suspiciously fast on hard questions (high severity)
+    if fast_hard_correct_count >= FAST_HARD_CORRECT_COUNT_THRESHOLD:
+        flags.append(
+            {
+                "type": "suspiciously_fast_on_hard",
+                "severity": "high",
+                "count": fast_hard_correct_count,
+                "details": (
+                    f"{fast_hard_correct_count} hard questions answered correctly "
+                    f"in under {FAST_HARD_CORRECT_THRESHOLD_SECONDS} seconds each, "
+                    "suggesting prior knowledge of answers."
+                ),
+            }
+        )
+
+    # Flag: Extended pauses (medium severity)
+    if extended_pause_count > 0:
+        flags.append(
+            {
+                "type": "extended_pauses",
+                "severity": "medium",
+                "count": extended_pause_count,
+                "details": (
+                    f"{extended_pause_count} response(s) took over "
+                    f"{EXTENDED_PAUSE_THRESHOLD_SECONDS // 60} minutes, "
+                    "possibly indicating answer lookup or distraction."
+                ),
+            }
+        )
+
+    # Flag: Total time too fast (high severity)
+    if total_time_seconds < TOTAL_TIME_TOO_FAST_SECONDS:
+        flags.append(
+            {
+                "type": "total_time_too_fast",
+                "severity": "high",
+                "count": 1,
+                "details": (
+                    f"Total test time of {total_time_seconds:.0f} seconds "
+                    f"({total_time_seconds / 60:.1f} minutes) is below the minimum "
+                    f"expected time of {TOTAL_TIME_TOO_FAST_SECONDS // 60} minutes."
+                ),
+            }
+        )
+
+    # Flag: Total time excessive (medium severity)
+    if total_time_seconds > TOTAL_TIME_EXCESSIVE_SECONDS:
+        flags.append(
+            {
+                "type": "total_time_excessive",
+                "severity": "medium",
+                "count": 1,
+                "details": (
+                    f"Total test time of {total_time_seconds:.0f} seconds "
+                    f"({total_time_seconds / 60:.1f} minutes) exceeds the maximum "
+                    f"expected time of {TOTAL_TIME_EXCESSIVE_SECONDS // 60} minutes."
+                ),
+            }
+        )
+
+    # Determine if there's a high-severity validity concern
+    validity_concern = any(flag["severity"] == "high" for flag in flags)
+
+    # Generate overall details message
+    if not flags:
+        details = (
+            f"Response times appear normal. "
+            f"Total time: {total_time_seconds / 60:.1f} minutes, "
+            f"average per question: {mean_time:.1f} seconds."
+        )
+    else:
+        flag_summary = ", ".join(f["type"] for f in flags)
+        severity_level = "High" if validity_concern else "Medium"
+        details = (
+            f"{severity_level} severity concern(s) detected: {flag_summary}. "
+            f"Total time: {total_time_seconds / 60:.1f} minutes, "
+            f"average per question: {mean_time:.1f} seconds."
+        )
+
+    logger.info(
+        f"Response time analysis: total={total_time_seconds:.0f}s, "
+        f"mean={mean_time:.1f}s, rapid={rapid_response_count}, "
+        f"pauses={extended_pause_count}, fast_hard={fast_hard_correct_count}, "
+        f"flags={len(flags)}, validity_concern={validity_concern}"
+    )
+
+    return {
+        "flags": flags,
+        "validity_concern": validity_concern,
+        "total_time_seconds": round(total_time_seconds, 1),
+        "rapid_response_count": rapid_response_count,
+        "extended_pause_count": extended_pause_count,
+        "fast_hard_correct_count": fast_hard_correct_count,
+        "statistics": {
+            "mean_time": round(mean_time, 1),
+            "min_time": round(min_time, 1),
+            "max_time": round(max_time, 1),
+            "total_responses": len(response_times),
+        },
+        "details": details,
+    }
+
+
+def _create_empty_time_check_result(
+    details: str = "No responses to analyze.",
+) -> Dict[str, Any]:
+    """
+    Create an empty response time check result for sessions with no valid time data.
+
+    Args:
+        details: Custom details message explaining why the result is empty.
+
+    Returns:
+        Empty analysis dictionary with all fields set to default values.
+    """
+    return {
+        "flags": [],
+        "validity_concern": False,
+        "total_time_seconds": 0.0,
+        "rapid_response_count": 0,
+        "extended_pause_count": 0,
+        "fast_hard_correct_count": 0,
+        "statistics": {
+            "mean_time": 0.0,
+            "min_time": 0.0,
+            "max_time": 0.0,
+            "total_responses": 0,
+        },
+        "details": details,
     }
