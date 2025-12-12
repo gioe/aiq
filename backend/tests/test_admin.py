@@ -2979,3 +2979,259 @@ class TestDistractorAnalysisEndpoint:
             assert (
                 option["discrimination"] in valid_discriminations
             ), f"Invalid discrimination: {option['discrimination']}"
+
+
+# =============================================================================
+# DISTRACTOR SUMMARY ENDPOINT TESTS (DA-009)
+# =============================================================================
+
+
+class TestDistractorSummaryEndpoint:
+    """Tests for GET /v1/admin/questions/distractor-summary endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_success(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test successful bulk distractor summary retrieval."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify required fields present
+        required_fields = [
+            "total_questions_analyzed",
+            "questions_with_non_functioning_distractors",
+            "questions_with_inverted_distractors",
+            "non_functioning_rate",
+            "inverted_rate",
+            "by_non_functioning_count",
+            "worst_offenders",
+            "by_question_type",
+            "avg_effective_option_count",
+            "questions_below_threshold",
+        ]
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_response_schema(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that response matches expected schema structure."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify by_non_functioning_count structure
+        nf_count = data["by_non_functioning_count"]
+        assert "zero" in nf_count
+        assert "one" in nf_count
+        assert "two" in nf_count
+        assert "three_or_more" in nf_count
+
+        # All values should be non-negative integers
+        for key, value in nf_count.items():
+            assert isinstance(value, int)
+            assert value >= 0
+
+        # Verify by_question_type structure
+        by_type = data["by_question_type"]
+        assert isinstance(by_type, dict)
+        # Should contain all question types
+        valid_types = {"pattern", "logic", "spatial", "math", "verbal", "memory"}
+        for qt in valid_types:
+            assert qt in by_type, f"Missing question type: {qt}"
+            assert "total_questions" in by_type[qt]
+            assert "questions_with_issues" in by_type[qt]
+            assert "avg_effective_options" in by_type[qt]
+
+        # Verify rates are valid
+        assert 0.0 <= data["non_functioning_rate"] <= 1.0
+        assert 0.0 <= data["inverted_rate"] <= 1.0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_includes_analyzed_question(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that the fixture question appears in the summary."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary?min_responses=50",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # The fixture has 200 responses which exceeds threshold of 50
+        # It should be included in the analysis
+        assert data["total_questions_analyzed"] >= 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_worst_offenders_structure(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test worst offenders list structure."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        worst_offenders = data["worst_offenders"]
+        assert isinstance(worst_offenders, list)
+        assert len(worst_offenders) <= 10  # Max 10 offenders
+
+        # Verify structure of each offender
+        for offender in worst_offenders:
+            required_fields = [
+                "question_id",
+                "question_type",
+                "difficulty_level",
+                "non_functioning_count",
+                "inverted_count",
+                "total_responses",
+                "effective_option_count",
+            ]
+            for field in required_fields:
+                assert field in offender, f"Missing offender field: {field}"
+
+            # Verify types
+            assert isinstance(offender["question_id"], int)
+            assert isinstance(offender["non_functioning_count"], int)
+            assert isinstance(offender["inverted_count"], int)
+            assert isinstance(offender["total_responses"], int)
+            assert isinstance(offender["effective_option_count"], (int, float))
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_with_question_type_filter(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test filtering by question type."""
+        # Filter by the type of the fixture question
+        response = client.get(
+            "/v1/admin/questions/distractor-summary?question_type=pattern",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Response should still have all the required fields
+        assert "total_questions_analyzed" in data
+        assert "by_question_type" in data
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_with_min_responses_filter(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test filtering by minimum response count."""
+        # High threshold - fixture has 200 responses
+        response = client.get(
+            "/v1/admin/questions/distractor-summary?min_responses=500",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # With threshold of 500, the fixture with 200 responses should be below threshold
+        # and total_questions_analyzed should be 0 (or less than with lower threshold)
+        assert data["questions_below_threshold"] >= 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_without_auth(self, client, db_session):
+        """Test that endpoint requires admin authentication."""
+        response = client.get("/v1/admin/questions/distractor-summary")
+
+        assert response.status_code == 422  # Missing header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_invalid_auth(self, client, db_session):
+        """Test that endpoint rejects invalid admin token."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+
+        assert response.status_code == 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_empty_dataset(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test behavior with no questions meeting threshold."""
+        # Use high threshold (max allowed is 1000) to ensure no questions qualify
+        # The fixture has 200 responses so 1000 will exclude it
+        response = client.get(
+            "/v1/admin/questions/distractor-summary?min_responses=1000",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return valid response with zeros (or low counts since fixture has 200)
+        # When threshold is 1000 and fixture has 200, it won't be analyzed
+        assert data["total_questions_analyzed"] == 0
+        assert data["questions_with_non_functioning_distractors"] == 0
+        assert data["questions_with_inverted_distractors"] == 0
+        assert data["non_functioning_rate"] == 0.0
+        assert data["inverted_rate"] == 0.0
+        assert data["worst_offenders"] == []
+        assert data["avg_effective_option_count"] is None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_invalid_question_type(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test behavior with invalid question type filter."""
+        # Invalid question type should be handled gracefully
+        response = client.get(
+            "/v1/admin/questions/distractor-summary?question_type=invalid_type",
+            headers=admin_token_headers,
+        )
+
+        # Should still succeed - just returns results without filtering
+        assert response.status_code == 200
+        data = response.json()
+        assert "total_questions_analyzed" in data
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_distractor_summary_totals_consistent(
+        self, client, db_session, admin_token_headers, distractor_analysis_question
+    ):
+        """Test that breakdown totals are consistent with overall totals."""
+        response = client.get(
+            "/v1/admin/questions/distractor-summary",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Sum of by_non_functioning_count should equal total_questions_analyzed
+        nf_count = data["by_non_functioning_count"]
+        nf_sum = (
+            nf_count["zero"]
+            + nf_count["one"]
+            + nf_count["two"]
+            + nf_count["three_or_more"]
+        )
+        assert nf_sum == data["total_questions_analyzed"]
+
+        # Sum of by_question_type total_questions should equal total_questions_analyzed
+        by_type_sum = sum(
+            stats["total_questions"] for stats in data["by_question_type"].values()
+        )
+        assert by_type_sum == data["total_questions_analyzed"]

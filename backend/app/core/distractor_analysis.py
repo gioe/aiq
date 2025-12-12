@@ -556,6 +556,199 @@ def _calculate_effective_option_count(
     return 1.0 / sum_squared
 
 
+def get_bulk_distractor_summary(
+    db: Session,
+    min_responses: int = 50,
+    question_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generate aggregate distractor statistics across all multiple-choice questions.
+
+    Analyzes all questions with sufficient response data and produces a summary
+    report identifying questions with non-functioning or inverted distractors.
+
+    Args:
+        db: Database session
+        min_responses: Minimum responses required for inclusion (default: 50)
+        question_type: Optional filter by question type
+
+    Returns:
+        Dictionary with aggregate statistics:
+        {
+            "total_questions_analyzed": int,
+            "questions_below_threshold": int,
+            "questions_with_non_functioning_distractors": int,
+            "questions_with_inverted_distractors": int,
+            "by_non_functioning_count": {
+                "zero": int,
+                "one": int,
+                "two": int,
+                "three_or_more": int,
+            },
+            "worst_offenders": [...],  # Top 10 most problematic questions
+            "by_question_type": {...},  # Stats grouped by type
+            "avg_effective_option_count": float,
+        }
+    """
+    from app.models.models import QuestionType
+
+    # Build base query for multiple-choice questions only
+    query = db.query(Question).filter(
+        Question.is_active == True,  # noqa: E712
+        Question.answer_options.isnot(None),  # Only MC questions
+    )
+
+    # Apply question type filter if provided
+    if question_type:
+        try:
+            qt_enum = QuestionType(question_type.lower())
+            query = query.filter(Question.question_type == qt_enum)
+        except ValueError:
+            logger.warning(f"Invalid question_type filter: {question_type}")
+
+    questions = query.all()
+
+    # Initialize counters
+    total_analyzed = 0
+    below_threshold = 0
+    with_non_functioning = 0
+    with_inverted = 0
+
+    # Track by non-functioning count
+    by_nf_count = {
+        "zero": 0,
+        "one": 0,
+        "two": 0,
+        "three_or_more": 0,
+    }
+
+    # Track by question type
+    by_type: Dict[str, Dict[str, Any]] = {}
+    for qt in QuestionType:
+        by_type[qt.value] = {
+            "total_questions": 0,
+            "questions_with_issues": 0,
+            "effective_options_sum": 0.0,
+        }
+
+    # Track worst offenders
+    worst_offenders: list[Dict[str, Any]] = []
+    effective_options_sum = 0.0
+
+    for question in questions:
+        # Get distractor stats
+        stats = question.distractor_stats
+        if not stats:
+            below_threshold += 1
+            continue
+
+        # Calculate total responses
+        total_responses = sum(opt.get("count", 0) for opt in stats.values())
+        if total_responses < min_responses:
+            below_threshold += 1
+            continue
+
+        # This question qualifies for analysis
+        total_analyzed += 1
+
+        # Get full analysis for this question
+        analysis = analyze_distractor_effectiveness(
+            db, int(question.id), min_responses  # type: ignore[arg-type]
+        )
+
+        if analysis.get("insufficient_data"):
+            # Shouldn't happen but handle gracefully
+            continue
+
+        summary = analysis.get("summary", {})
+        nf_count = summary.get("non_functioning_distractors", 0)
+        inv_count = summary.get("inverted_distractors", 0)
+        eff_options = summary.get("effective_option_count", 0.0)
+
+        effective_options_sum += eff_options
+
+        # Update non-functioning breakdown
+        if nf_count == 0:
+            by_nf_count["zero"] += 1
+        elif nf_count == 1:
+            by_nf_count["one"] += 1
+        elif nf_count == 2:
+            by_nf_count["two"] += 1
+        else:
+            by_nf_count["three_or_more"] += 1
+
+        # Update aggregate counters
+        if nf_count > 0:
+            with_non_functioning += 1
+        if inv_count > 0:
+            with_inverted += 1
+
+        # Update by-type stats
+        q_type = (
+            str(question.question_type.value) if question.question_type else "unknown"
+        )
+        if q_type in by_type:
+            by_type[q_type]["total_questions"] += 1
+            by_type[q_type]["effective_options_sum"] += eff_options
+            if nf_count > 0 or inv_count > 0:
+                by_type[q_type]["questions_with_issues"] += 1
+
+        # Track for worst offenders (questions with most issues)
+        issue_score = nf_count * 2 + inv_count  # Weight non-functioning higher
+        if issue_score > 0:
+            worst_offenders.append(
+                {
+                    "question_id": question.id,
+                    "question_type": q_type,
+                    "difficulty_level": (
+                        question.difficulty_level.value
+                        if question.difficulty_level
+                        else "unknown"
+                    ),
+                    "non_functioning_count": nf_count,
+                    "inverted_count": inv_count,
+                    "total_responses": total_responses,
+                    "effective_option_count": eff_options,
+                    "issue_score": issue_score,
+                }
+            )
+
+    # Sort worst offenders by issue score (desc), then by total_responses (desc)
+    worst_offenders.sort(key=lambda x: (-x["issue_score"], -x["total_responses"]))
+    top_10_offenders = worst_offenders[:10]
+
+    # Remove the sorting key from final output
+    for offender in top_10_offenders:
+        del offender["issue_score"]
+
+    # Calculate averages for by_type stats
+    for q_type, type_stats in by_type.items():
+        if type_stats["total_questions"] > 0:
+            type_stats["avg_effective_options"] = round(
+                type_stats["effective_options_sum"] / type_stats["total_questions"], 2
+            )
+        else:
+            type_stats["avg_effective_options"] = None
+        # Remove the sum field from output
+        del type_stats["effective_options_sum"]
+
+    # Calculate overall average effective option count
+    avg_effective = (
+        round(effective_options_sum / total_analyzed, 2) if total_analyzed > 0 else None
+    )
+
+    return {
+        "total_questions_analyzed": total_analyzed,
+        "questions_below_threshold": below_threshold,
+        "questions_with_non_functioning_distractors": with_non_functioning,
+        "questions_with_inverted_distractors": with_inverted,
+        "by_non_functioning_count": by_nf_count,
+        "worst_offenders": top_10_offenders,
+        "by_question_type": by_type,
+        "avg_effective_option_count": avg_effective,
+    }
+
+
 def get_distractor_stats(
     db: Session,
     question_id: int,

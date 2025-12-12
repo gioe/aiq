@@ -50,13 +50,19 @@ from app.schemas.response_time_analytics import (
     ByQuestionTypeStats,
     AnomalySummary,
 )
-from app.core.distractor_analysis import analyze_distractor_effectiveness
+from app.core.distractor_analysis import (
+    analyze_distractor_effectiveness,
+    get_bulk_distractor_summary,
+)
 from app.schemas.distractor_analysis import (
     DistractorAnalysisResponse,
     DistractorOptionAnalysis,
     DistractorSummary,
     DistractorStatus,
     DistractorDiscrimination,
+    DistractorSummaryResponse,
+    NonFunctioningCountBreakdown,
+    WorstOffenderQuestion,
 )
 from app.models import Question
 
@@ -1659,4 +1665,141 @@ async def get_distractor_analysis(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve distractor analysis: {str(e)}",
+        )
+
+
+# =============================================================================
+# BULK DISTRACTOR SUMMARY ENDPOINT (DA-009)
+# =============================================================================
+
+
+@router.get(
+    "/questions/distractor-summary",
+    response_model=DistractorSummaryResponse,
+)
+async def get_distractor_summary(
+    min_responses: int = Query(
+        50,
+        ge=1,
+        le=1000,
+        description="Minimum responses required for analysis",
+    ),
+    question_type: Optional[str] = Query(
+        None,
+        description="Filter by question type (pattern, logic, spatial, math, verbal, memory)",
+    ),
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Get aggregate distractor analysis statistics across all questions.
+
+    Provides a summary of distractor effectiveness across all multiple-choice
+    questions with sufficient response data. This helps identify systemic
+    issues with question quality and prioritize question improvements.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Summary Statistics:**
+    - Total questions analyzed (meeting minimum response threshold)
+    - Questions with non-functioning distractors (selected by <2%)
+    - Questions with inverted distractors (high scorers prefer wrong answers)
+
+    **Breakdown by Non-Functioning Count:**
+    - How many questions have 0, 1, 2, or 3+ non-functioning distractors
+
+    **Worst Offenders:**
+    - Top 10 questions with the most distractor issues, sorted by severity
+    - Severity is calculated as: (non_functioning * 2) + inverted
+
+    **By Question Type:**
+    - Stats grouped by question type (pattern, logic, spatial, etc.)
+    - Helps identify if certain question types have more distractor issues
+
+    Args:
+        min_responses: Minimum number of responses required for analysis (default: 50)
+        question_type: Optional filter by question type
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        DistractorSummaryResponse with aggregate statistics
+
+    Example:
+        ```
+        # Get summary for all questions
+        curl "https://api.example.com/v1/admin/questions/distractor-summary" \
+          -H "X-Admin-Token: your-admin-token"
+
+        # Filter by question type
+        curl "https://api.example.com/v1/admin/questions/distractor-summary?question_type=pattern" \
+          -H "X-Admin-Token: your-admin-token"
+
+        # Increase minimum response threshold
+        curl "https://api.example.com/v1/admin/questions/distractor-summary?min_responses=100" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    try:
+        # Get bulk summary from core function
+        summary = get_bulk_distractor_summary(
+            db, min_responses=min_responses, question_type=question_type
+        )
+
+        # Calculate rates
+        total = summary["total_questions_analyzed"]
+        non_functioning_rate = (
+            round(summary["questions_with_non_functioning_distractors"] / total, 4)
+            if total > 0
+            else 0.0
+        )
+        inverted_rate = (
+            round(summary["questions_with_inverted_distractors"] / total, 4)
+            if total > 0
+            else 0.0
+        )
+
+        # Convert worst offenders to schema objects
+        worst_offenders = [
+            WorstOffenderQuestion(
+                question_id=q["question_id"],
+                question_type=q["question_type"],
+                difficulty_level=q["difficulty_level"],
+                non_functioning_count=q["non_functioning_count"],
+                inverted_count=q["inverted_count"],
+                total_responses=q["total_responses"],
+                effective_option_count=q["effective_option_count"],
+            )
+            for q in summary["worst_offenders"]
+        ]
+
+        # Build breakdown model
+        by_nf_count = NonFunctioningCountBreakdown(
+            zero=summary["by_non_functioning_count"]["zero"],
+            one=summary["by_non_functioning_count"]["one"],
+            two=summary["by_non_functioning_count"]["two"],
+            three_or_more=summary["by_non_functioning_count"]["three_or_more"],
+        )
+
+        return DistractorSummaryResponse(
+            total_questions_analyzed=summary["total_questions_analyzed"],
+            questions_with_non_functioning_distractors=summary[
+                "questions_with_non_functioning_distractors"
+            ],
+            questions_with_inverted_distractors=summary[
+                "questions_with_inverted_distractors"
+            ],
+            non_functioning_rate=non_functioning_rate,
+            inverted_rate=inverted_rate,
+            by_non_functioning_count=by_nf_count,
+            worst_offenders=worst_offenders,
+            by_question_type=summary["by_question_type"],
+            avg_effective_option_count=summary["avg_effective_option_count"],
+            questions_below_threshold=summary["questions_below_threshold"],
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve distractor summary: {str(e)}",
         )
