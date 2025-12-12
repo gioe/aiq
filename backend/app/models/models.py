@@ -377,6 +377,29 @@ class TestResult(Base):
     # Example: {"rapid_responses": 2, "extended_times": 1, "rushed_session": false, "validity_concern": false}
     # Populated by analyze_response_times() in time_analysis.py after test submission
 
+    # Cheating detection / validity analysis (CD-001)
+    # These fields store results of validity checks performed after test submission
+    validity_status = Column(
+        String(20), default="valid", nullable=False
+    )  # Overall validity: "valid", "suspect", or "invalid"
+    # Determined by combining person-fit, Guttman error, and response time analyses
+    # "valid" = no significant concerns
+    # "suspect" = moderate concerns, flagged for admin review
+    # "invalid" = high severity concerns, requires human review before trust
+
+    validity_flags = Column(
+        JSON, nullable=True
+    )  # List of detected validity flags with details
+    # Example: ["aberrant_response_pattern", "multiple_rapid_responses", "high_guttman_errors"]
+    # Each flag represents a specific type of aberrant behavior detected
+    # NULL indicates no validity checks have been run (pre-CD implementation sessions)
+
+    validity_checked_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Timestamp when validity assessment was performed
+    # NULL indicates validity has not been checked yet
+    # Used to track when checks were run and for potential re-analysis
+
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")
