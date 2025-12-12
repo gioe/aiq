@@ -3556,3 +3556,400 @@ class TestSessionValidityEndpoint:
 
         # Check confidence is in valid range
         assert 0.0 <= data["confidence"] <= 1.0
+
+
+# =============================================================================
+# VALIDITY SUMMARY REPORT ENDPOINT TESTS (CD-010)
+# =============================================================================
+
+
+class TestValiditySummaryReport:
+    """Tests for GET /v1/admin/validity-report endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_empty(self, client, db_session, admin_token_headers):
+        """Test validity report with no test sessions."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify structure
+        assert "summary" in data
+        assert "by_flag_type" in data
+        assert "trends" in data
+        assert "action_needed" in data
+        assert "period_days" in data
+        assert "generated_at" in data
+
+        # Verify summary with empty data
+        assert data["summary"]["total_sessions_analyzed"] == 0
+        assert data["summary"]["valid"] == 0
+        assert data["summary"]["suspect"] == 0
+        assert data["summary"]["invalid"] == 0
+
+        # Verify trends with no data
+        assert data["trends"]["invalid_rate_7d"] == 0.0
+        assert data["trends"]["invalid_rate_30d"] == 0.0
+
+        # Verify no action needed
+        assert data["action_needed"] == []
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_with_data(
+        self,
+        client,
+        db_session,
+        admin_token_headers,
+        validity_test_session,
+        suspect_validity_test_session,
+    ):
+        """Test validity report with sessions having different validity statuses."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have 2 sessions analyzed (1 valid, 1 suspect)
+        assert data["summary"]["total_sessions_analyzed"] == 2
+        assert data["summary"]["valid"] == 1
+        assert data["summary"]["suspect"] == 1
+        assert data["summary"]["invalid"] == 0
+
+        # Action needed should include the suspect session
+        assert len(data["action_needed"]) >= 1
+
+        # Find the suspect session in action_needed
+        suspect_session = next(
+            (s for s in data["action_needed"] if s["validity_status"] == "suspect"),
+            None,
+        )
+        assert suspect_session is not None
+        assert "multiple_rapid_responses" in suspect_session["flags"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_custom_days(
+        self, client, db_session, admin_token_headers, validity_test_session
+    ):
+        """Test validity report with custom days parameter."""
+        response = client.get(
+            "/v1/admin/validity-report?days=7",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify period_days reflects the custom value
+        assert data["period_days"] == 7
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_status_filter(
+        self,
+        client,
+        db_session,
+        admin_token_headers,
+        validity_test_session,
+        suspect_validity_test_session,
+    ):
+        """Test validity report with status filter."""
+        # Filter by valid status only
+        response = client.get(
+            "/v1/admin/validity-report?status=valid",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only include valid sessions
+        assert data["summary"]["valid"] == 1
+        assert data["summary"]["suspect"] == 0
+        assert data["summary"]["invalid"] == 0
+        assert data["summary"]["total_sessions_analyzed"] == 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_flag_breakdown(
+        self, client, db_session, admin_token_headers, suspect_validity_test_session
+    ):
+        """Test that flag type breakdown is correctly calculated."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify by_flag_type structure
+        by_flag_type = data["by_flag_type"]
+        assert "aberrant_response_pattern" in by_flag_type
+        assert "multiple_rapid_responses" in by_flag_type
+        assert "suspiciously_fast_on_hard" in by_flag_type
+        assert "extended_pauses" in by_flag_type
+        assert "total_time_too_fast" in by_flag_type
+        assert "total_time_excessive" in by_flag_type
+        assert "high_guttman_errors" in by_flag_type
+        assert "elevated_guttman_errors" in by_flag_type
+
+        # The suspect session has multiple_rapid_responses flag
+        assert by_flag_type["multiple_rapid_responses"] == 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_trend_calculation(
+        self,
+        client,
+        db_session,
+        admin_token_headers,
+        validity_test_session,
+        suspect_validity_test_session,
+    ):
+        """Test that trend calculation works correctly."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify trends structure
+        trends = data["trends"]
+        assert "invalid_rate_7d" in trends
+        assert "invalid_rate_30d" in trends
+        assert "suspect_rate_7d" in trends
+        assert "suspect_rate_30d" in trends
+        assert "trend" in trends
+
+        # Trend should be one of the valid values
+        assert trends["trend"] in ["improving", "stable", "worsening"]
+
+        # Rates should be valid percentages (0.0 to 1.0)
+        assert 0.0 <= trends["invalid_rate_7d"] <= 1.0
+        assert 0.0 <= trends["invalid_rate_30d"] <= 1.0
+        assert 0.0 <= trends["suspect_rate_7d"] <= 1.0
+        assert 0.0 <= trends["suspect_rate_30d"] <= 1.0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_action_needed_sorted(
+        self,
+        client,
+        db_session,
+        admin_token_headers,
+        suspect_validity_test_session,
+    ):
+        """Test that action_needed is sorted by severity score."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        action_needed = data["action_needed"]
+        if len(action_needed) >= 2:
+            # Verify sorted by severity_score descending
+            for i in range(len(action_needed) - 1):
+                assert (
+                    action_needed[i]["severity_score"]
+                    >= action_needed[i + 1]["severity_score"]
+                )
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_session_needing_review_structure(
+        self, client, db_session, admin_token_headers, suspect_validity_test_session
+    ):
+        """Test structure of sessions needing review."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have at least one session needing review
+        assert len(data["action_needed"]) >= 1
+
+        # Check structure of first session
+        session = data["action_needed"][0]
+        assert "session_id" in session
+        assert "user_id" in session
+        assert "validity_status" in session
+        assert "severity_score" in session
+        assert "flags" in session
+        assert "completed_at" in session
+
+        # Verify types
+        assert isinstance(session["session_id"], int)
+        assert isinstance(session["user_id"], int)
+        assert session["validity_status"] in ["invalid", "suspect"]
+        assert isinstance(session["severity_score"], int)
+        assert isinstance(session["flags"], list)
+
+    def test_validity_report_no_auth(self, client, db_session):
+        """Test that endpoint requires admin authentication."""
+        response = client.get("/v1/admin/validity-report")
+
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_invalid_auth(self, client, db_session):
+        """Test that endpoint rejects invalid admin token."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "")
+    def test_validity_report_token_not_configured(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test error when admin token is not configured on server."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 500
+        assert "not configured" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_invalid_days_parameter(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test validation of days parameter."""
+        # Below minimum (1)
+        response = client.get(
+            "/v1/admin/validity-report?days=0",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+        # Above maximum (365)
+        response = client.get(
+            "/v1/admin/validity-report?days=366",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_response_schema(
+        self, client, db_session, admin_token_headers, validity_test_session
+    ):
+        """Test that response matches the expected schema."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Top-level required fields
+        required_fields = [
+            "summary",
+            "by_flag_type",
+            "trends",
+            "action_needed",
+            "period_days",
+            "generated_at",
+        ]
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+
+        # Summary required fields
+        summary_fields = [
+            "total_sessions_analyzed",
+            "valid",
+            "suspect",
+            "invalid",
+        ]
+        for field in summary_fields:
+            assert field in data["summary"], f"Missing summary field: {field}"
+
+        # Trends required fields
+        trends_fields = [
+            "invalid_rate_7d",
+            "invalid_rate_30d",
+            "suspect_rate_7d",
+            "suspect_rate_30d",
+            "trend",
+        ]
+        for field in trends_fields:
+            assert field in data["trends"], f"Missing trends field: {field}"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_excludes_valid_from_action_needed(
+        self, client, db_session, admin_token_headers, validity_test_session
+    ):
+        """Test that valid sessions are not included in action_needed."""
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # The validity_test_session has status "valid"
+        # It should not appear in action_needed
+        for session in data["action_needed"]:
+            assert session["validity_status"] != "valid"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_validity_report_action_needed_limit(
+        self, client, db_session, admin_token_headers, test_user, test_questions
+    ):
+        """Test that action_needed is limited to 50 sessions."""
+        from app.models.models import TestSession, TestResult, TestStatus
+        from datetime import datetime, timezone
+
+        # Create 55 suspect sessions
+        for i in range(55):
+            session = TestSession(
+                user_id=test_user.id,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=100,
+                total_questions=5,
+                correct_answers=3,
+                completion_time_seconds=300,
+                validity_status="suspect",
+                validity_flags=[
+                    {"type": "multiple_rapid_responses", "severity": "medium"}
+                ],
+                validity_checked_at=datetime.now(timezone.utc),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/validity-report",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should be limited to 50 sessions
+        assert len(data["action_needed"]) <= 50
