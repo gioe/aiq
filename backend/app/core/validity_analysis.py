@@ -54,6 +54,27 @@ FIT_RATIO_ABERRANT_THRESHOLD = 0.25
 
 
 # =============================================================================
+# GUTTMAN ERROR DETECTION THRESHOLDS (CD-005)
+# =============================================================================
+#
+# Guttman errors occur when a test-taker answers a harder item correctly but
+# an easier item incorrectly. In a "perfect" Guttman pattern, a person would
+# answer all items up to their ability level correctly and all items above
+# that level incorrectly. Deviations from this pattern suggest aberrant
+# responding (random guessing, cheating, carelessness, or fatigue).
+#
+# Reference:
+#   - Guttman scaling and person-fit analysis in psychometrics
+#   - docs/methodology/gaps/CHEATING-DETECTION.md
+
+# Error rate threshold for high concern (aberrant responding)
+GUTTMAN_ERROR_ABERRANT_THRESHOLD = 0.30
+
+# Error rate threshold for elevated concern (noteworthy but not definitive)
+GUTTMAN_ERROR_ELEVATED_THRESHOLD = 0.20
+
+
+# =============================================================================
 # RESPONSE TIME PLAUSIBILITY THRESHOLDS (CD-004)
 # =============================================================================
 #
@@ -589,5 +610,238 @@ def _create_empty_time_check_result(
             "max_time": 0.0,
             "total_responses": 0,
         },
+        "details": details,
+    }
+
+
+# =============================================================================
+# GUTTMAN ERROR DETECTION (CD-005)
+# =============================================================================
+
+
+def count_guttman_errors(responses: List[Tuple[bool, float]]) -> Dict[str, Any]:
+    """
+    Count Guttman-type errors in a response pattern.
+
+    A Guttman error occurs when a test-taker answers a harder item correctly
+    but an easier item incorrectly. In an ideal "scalogram" or "Guttman pattern,"
+    a person's responses would form a perfect step function: all items up to
+    their ability level are correct, and all items above that level are incorrect.
+
+    Deviations from this pattern (Guttman errors) can indicate:
+    - Random guessing
+    - Cheating (prior knowledge of specific hard items)
+    - Carelessness on easy items
+    - Fatigue or loss of focus
+
+    Args:
+        responses: List of tuples containing (is_correct, empirical_difficulty)
+            where is_correct is a boolean indicating if the answer was correct,
+            and empirical_difficulty is the item's p-value (proportion of
+            test-takers who answered correctly). Higher p-value = easier item.
+
+    Returns:
+        Dictionary containing Guttman error analysis:
+        {
+            "error_count": int,        # Number of Guttman errors detected
+            "max_possible_errors": int, # Maximum possible errors for this pattern
+            "error_rate": float,       # error_count / max_possible_errors (0.0-1.0)
+            "interpretation": str,     # "normal", "elevated_errors", or "high_errors_aberrant"
+            "total_responses": int,    # Number of responses analyzed
+            "correct_count": int,      # Number of correct responses
+            "incorrect_count": int,    # Number of incorrect responses
+            "details": str             # Human-readable explanation
+        }
+
+    Interpretation Thresholds:
+        - error_rate > 0.30: "high_errors_aberrant" (strong validity concern)
+        - error_rate > 0.20: "elevated_errors" (noteworthy but less concerning)
+        - error_rate <= 0.20: "normal" (expected pattern)
+
+    Edge Cases Handled:
+        - Empty response list: Returns normal with zero counts
+        - Single item: Returns normal (no pairs to compare)
+        - All items correct: Returns normal (no errors possible)
+        - All items incorrect: Returns normal (no errors possible)
+        - Items with identical difficulty: Not compared (no clear harder/easier)
+
+    Algorithm:
+        1. Sort items by empirical difficulty (descending, so easier items first)
+        2. For each pair of items (i, j) where item i is easier than item j:
+           - If item i is incorrect AND item j is correct, count as error
+        3. Calculate error_rate = errors / max_possible_errors
+        4. max_possible_errors = correct_count * incorrect_count
+
+    Reference:
+        docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-005)
+    """
+    # Handle edge case: empty responses
+    if not responses:
+        logger.info("Guttman error check skipped: no responses provided")
+        return _create_empty_guttman_result()
+
+    # Handle edge case: single item
+    if len(responses) == 1:
+        logger.info("Guttman error check skipped: single item, no pairs to compare")
+        return _create_empty_guttman_result(
+            total_responses=1,
+            correct_count=1 if responses[0][0] else 0,
+            incorrect_count=0 if responses[0][0] else 1,
+            details="Single item response; no pairs available for Guttman analysis.",
+        )
+
+    # Filter out responses with invalid difficulty values
+    valid_responses = []
+    for is_correct, difficulty in responses:
+        if difficulty is not None:
+            try:
+                difficulty_float = float(difficulty)
+                valid_responses.append((is_correct, difficulty_float))
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"Skipping response with invalid difficulty: {difficulty}"
+                )
+                continue
+
+    # Handle edge case: no valid difficulty data
+    if len(valid_responses) < 2:
+        logger.info(
+            f"Guttman error check skipped: insufficient valid difficulty data "
+            f"({len(valid_responses)} items with valid difficulty)"
+        )
+        return _create_empty_guttman_result(
+            total_responses=len(responses),
+            details="Insufficient items with valid difficulty data for Guttman analysis.",
+        )
+
+    # Sort by empirical difficulty (descending: easier items first)
+    # Higher p-value = easier (more people got it right)
+    sorted_responses = sorted(valid_responses, key=lambda x: x[1], reverse=True)
+
+    # Count correct and incorrect responses
+    correct_count = sum(1 for is_correct, _ in sorted_responses if is_correct)
+    incorrect_count = len(sorted_responses) - correct_count
+
+    # Handle edge cases: all correct or all incorrect
+    if correct_count == 0 or incorrect_count == 0:
+        interpretation = "normal"
+        if correct_count == 0:
+            details = "All items incorrect; no Guttman errors possible."
+        else:
+            details = "All items correct; no Guttman errors possible."
+
+        logger.info(
+            f"Guttman error check: correct={correct_count}, "
+            f"incorrect={incorrect_count}, interpretation={interpretation}"
+        )
+
+        return {
+            "error_count": 0,
+            "max_possible_errors": 0,
+            "error_rate": 0.0,
+            "interpretation": interpretation,
+            "total_responses": len(sorted_responses),
+            "correct_count": correct_count,
+            "incorrect_count": incorrect_count,
+            "details": details,
+        }
+
+    # Count Guttman errors
+    # An error occurs when an easier item is incorrect AND a harder item is correct
+    error_count = 0
+
+    # Compare each pair: for each incorrect easy item and correct hard item
+    for i, (is_correct_i, difficulty_i) in enumerate(sorted_responses):
+        for j, (is_correct_j, difficulty_j) in enumerate(sorted_responses):
+            # Skip if same item or difficulties are equal
+            if i >= j or difficulty_i == difficulty_j:
+                continue
+
+            # Item i is easier (higher p-value, appears earlier in sorted list)
+            # Item j is harder (lower p-value, appears later in sorted list)
+            # Error: easier item wrong, harder item correct
+            if not is_correct_i and is_correct_j:
+                error_count += 1
+
+    # Calculate maximum possible errors
+    # Maximum errors = number of correct * number of incorrect
+    # (each correct item could theoretically be paired with each incorrect item)
+    max_possible_errors = correct_count * incorrect_count
+
+    # Calculate error rate
+    error_rate = error_count / max_possible_errors if max_possible_errors > 0 else 0.0
+
+    # Determine interpretation
+    if error_rate > GUTTMAN_ERROR_ABERRANT_THRESHOLD:
+        interpretation = "high_errors_aberrant"
+    elif error_rate > GUTTMAN_ERROR_ELEVATED_THRESHOLD:
+        interpretation = "elevated_errors"
+    else:
+        interpretation = "normal"
+
+    # Generate details message
+    if interpretation == "high_errors_aberrant":
+        details = (
+            f"High Guttman error rate detected: {error_count} errors out of "
+            f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
+            f"This pattern strongly suggests aberrant responding - harder items "
+            f"answered correctly while easier items missed."
+        )
+    elif interpretation == "elevated_errors":
+        details = (
+            f"Elevated Guttman error rate: {error_count} errors out of "
+            f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
+            f"Pattern shows some unexpected reversals in difficulty-correctness relationship."
+        )
+    else:
+        details = (
+            f"Normal Guttman pattern: {error_count} errors out of "
+            f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
+            f"Response pattern is consistent with expected difficulty ordering."
+        )
+
+    logger.info(
+        f"Guttman error analysis: errors={error_count}/{max_possible_errors}, "
+        f"rate={error_rate:.3f}, interpretation={interpretation}"
+    )
+
+    return {
+        "error_count": error_count,
+        "max_possible_errors": max_possible_errors,
+        "error_rate": round(error_rate, 3),
+        "interpretation": interpretation,
+        "total_responses": len(sorted_responses),
+        "correct_count": correct_count,
+        "incorrect_count": incorrect_count,
+        "details": details,
+    }
+
+
+def _create_empty_guttman_result(
+    total_responses: int = 0,
+    correct_count: int = 0,
+    incorrect_count: int = 0,
+    details: str = "No responses to analyze.",
+) -> Dict[str, Any]:
+    """
+    Create an empty Guttman error result for sessions with insufficient data.
+
+    Args:
+        total_responses: Number of responses in the session.
+        correct_count: Number of correct responses.
+        incorrect_count: Number of incorrect responses.
+        details: Custom details message explaining why the result is empty.
+
+    Returns:
+        Empty analysis dictionary with all fields set to default values.
+    """
+    return {
+        "error_count": 0,
+        "max_possible_errors": 0,
+        "error_rate": 0.0,
+        "interpretation": "normal",
+        "total_responses": total_responses,
+        "correct_count": correct_count,
+        "incorrect_count": incorrect_count,
         "details": details,
     }
