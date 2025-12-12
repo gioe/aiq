@@ -249,7 +249,7 @@ def assess_session_validity(
 ---
 
 ### CD-010: Create Validity Summary Report Endpoint
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/admin.py`, `backend/app/core/validity_analysis.py`
 **Description:** Create admin endpoint for aggregate validity statistics across all sessions.
 
@@ -285,11 +285,11 @@ def assess_session_validity(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Correctly aggregates status counts
-- [ ] Calculates flag type breakdowns
-- [ ] Calculates trend comparison (7-day vs 30-day)
-- [ ] Lists sessions needing review (invalid/suspect)
+- [x] Endpoint requires admin authentication
+- [x] Correctly aggregates status counts
+- [x] Calculates flag type breakdowns
+- [x] Calculates trend comparison (7-day vs 30-day)
+- [x] Lists sessions needing review (invalid/suspect)
 
 ---
 
