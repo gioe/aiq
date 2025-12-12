@@ -845,3 +845,231 @@ def _create_empty_guttman_result(
         "incorrect_count": incorrect_count,
         "details": details,
     }
+
+
+# =============================================================================
+# SESSION VALIDITY ASSESSMENT (CD-006)
+# =============================================================================
+#
+# Severity scoring weights for combining multiple validity checks into
+# an overall assessment. Higher severity scores indicate more concerning
+# patterns that warrant review.
+#
+# Reference:
+#   - docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-006)
+
+# Severity points for aberrant person-fit pattern
+SEVERITY_PERSON_FIT_ABERRANT = 2
+
+# Severity points for each high-severity time flag
+SEVERITY_TIME_FLAG_HIGH = 2
+
+# Severity points for high Guttman error rate
+SEVERITY_GUTTMAN_HIGH = 2
+
+# Severity points for elevated Guttman error rate
+SEVERITY_GUTTMAN_ELEVATED = 1
+
+# Threshold for "invalid" status determination
+SEVERITY_THRESHOLD_INVALID = 4
+
+# Threshold for "suspect" status determination
+SEVERITY_THRESHOLD_SUSPECT = 2
+
+
+def assess_session_validity(
+    person_fit: Dict[str, Any],
+    time_check: Dict[str, Any],
+    guttman_check: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Combine all validity checks into an overall session assessment.
+
+    This function aggregates results from person-fit analysis, response time
+    plausibility checks, and Guttman error detection to produce a single
+    validity status and confidence score for a test session.
+
+    Args:
+        person_fit: Result dictionary from calculate_person_fit_heuristic()
+            containing at least:
+            - fit_flag: str ("normal" or "aberrant")
+            - details: str (explanation)
+        time_check: Result dictionary from check_response_time_plausibility()
+            containing at least:
+            - flags: List[Dict] (each with "type", "severity", "details")
+            - validity_concern: bool
+            - details: str
+        guttman_check: Result dictionary from count_guttman_errors()
+            containing at least:
+            - interpretation: str ("normal", "elevated_errors", or "high_errors_aberrant")
+            - details: str
+
+    Returns:
+        Dictionary containing combined validity assessment:
+        {
+            "validity_status": str,      # "valid", "suspect", or "invalid"
+            "severity_score": int,       # Combined severity score (0+)
+            "confidence": float,         # Confidence in validity (0.0-1.0)
+            "flags": List[str],          # All flag types detected
+            "flag_details": List[Dict],  # Detailed flag information
+            "components": {              # Individual check summaries
+                "person_fit": str,       # "normal" or "aberrant"
+                "time_check": bool,      # True if high-severity concern
+                "guttman_check": str     # Interpretation string
+            },
+            "details": str               # Overall summary explanation
+        }
+
+    Severity Scoring:
+        - Aberrant person-fit: +2 points
+        - Each high-severity time flag: +2 points
+        - High Guttman errors: +2 points
+        - Elevated Guttman errors: +1 point
+
+    Status Determination:
+        - severity_score >= 4: "invalid" (strong concern, requires review)
+        - severity_score >= 2: "suspect" (moderate concern, may need review)
+        - severity_score < 2: "valid" (normal pattern, no concern)
+
+    Confidence Calculation:
+        - confidence = max(0.0, 1.0 - (severity_score * 0.15))
+        - Higher severity scores result in lower confidence
+        - Minimum confidence is 0.0 for very high severity scores
+
+    Reference:
+        docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-006)
+    """
+    severity_score = 0
+    flags: List[str] = []
+    flag_details: List[Dict[str, Any]] = []
+
+    # Process person-fit results
+    person_fit_status = person_fit.get("fit_flag", "normal")
+    if person_fit_status == "aberrant":
+        severity_score += SEVERITY_PERSON_FIT_ABERRANT
+        flags.append("aberrant_response_pattern")
+        flag_details.append(
+            {
+                "type": "aberrant_response_pattern",
+                "severity": "high",
+                "source": "person_fit",
+                "details": person_fit.get(
+                    "details", "Aberrant response pattern detected."
+                ),
+            }
+        )
+
+    # Process time check results
+    time_check_flags = time_check.get("flags", [])
+    for time_flag in time_check_flags:
+        flag_type = time_flag.get("type", "unknown_time_flag")
+        flag_severity = time_flag.get("severity", "medium")
+
+        flags.append(flag_type)
+        flag_details.append(
+            {
+                "type": flag_type,
+                "severity": flag_severity,
+                "source": "time_check",
+                "details": time_flag.get("details", ""),
+                "count": time_flag.get("count"),
+            }
+        )
+
+        # Only high-severity time flags contribute to severity score
+        if flag_severity == "high":
+            severity_score += SEVERITY_TIME_FLAG_HIGH
+
+    # Process Guttman check results
+    guttman_interpretation = guttman_check.get("interpretation", "normal")
+    if guttman_interpretation == "high_errors_aberrant":
+        severity_score += SEVERITY_GUTTMAN_HIGH
+        flags.append("high_guttman_errors")
+        flag_details.append(
+            {
+                "type": "high_guttman_errors",
+                "severity": "high",
+                "source": "guttman_check",
+                "details": guttman_check.get(
+                    "details", "High Guttman error rate detected."
+                ),
+                "error_rate": guttman_check.get("error_rate"),
+            }
+        )
+    elif guttman_interpretation == "elevated_errors":
+        severity_score += SEVERITY_GUTTMAN_ELEVATED
+        flags.append("elevated_guttman_errors")
+        flag_details.append(
+            {
+                "type": "elevated_guttman_errors",
+                "severity": "medium",
+                "source": "guttman_check",
+                "details": guttman_check.get(
+                    "details", "Elevated Guttman error rate detected."
+                ),
+                "error_rate": guttman_check.get("error_rate"),
+            }
+        )
+
+    # Determine validity status based on severity score
+    if severity_score >= SEVERITY_THRESHOLD_INVALID:
+        validity_status = "invalid"
+    elif severity_score >= SEVERITY_THRESHOLD_SUSPECT:
+        validity_status = "suspect"
+    else:
+        validity_status = "valid"
+
+    # Calculate confidence score (inverse of severity)
+    # Each point of severity reduces confidence by 15%
+    confidence = max(0.0, 1.0 - (severity_score * 0.15))
+    confidence = round(confidence, 2)
+
+    # Build components summary
+    components = {
+        "person_fit": person_fit_status,
+        "time_check": time_check.get("validity_concern", False),
+        "guttman_check": guttman_interpretation,
+    }
+
+    # Generate overall details message
+    if validity_status == "invalid":
+        details = (
+            f"Session flagged as INVALID with severity score {severity_score}. "
+            f"Multiple significant validity concerns detected: {', '.join(flags)}. "
+            "This session requires admin review before results can be considered valid."
+        )
+    elif validity_status == "suspect":
+        details = (
+            f"Session flagged as SUSPECT with severity score {severity_score}. "
+            f"Validity concerns detected: {', '.join(flags)}. "
+            "Manual review recommended to confirm test validity."
+        )
+    else:
+        if flags:
+            # Valid but with minor flags
+            details = (
+                f"Session is VALID with minor flags ({', '.join(flags)}). "
+                f"Severity score {severity_score} is within acceptable range. "
+                "No immediate review required."
+            )
+        else:
+            details = (
+                "Session is VALID with no validity concerns detected. "
+                "All checks (person-fit, response time, Guttman pattern) passed."
+            )
+
+    logger.info(
+        f"Session validity assessment: status={validity_status}, "
+        f"severity={severity_score}, confidence={confidence}, "
+        f"flags={len(flags)}"
+    )
+
+    return {
+        "validity_status": validity_status,
+        "severity_score": severity_score,
+        "confidence": confidence,
+        "flags": flags,
+        "flag_details": flag_details,
+        "components": components,
+        "details": details,
+    }
