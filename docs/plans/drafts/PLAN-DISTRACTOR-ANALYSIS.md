@@ -227,8 +227,8 @@ def analyze_distractor_effectiveness(
 ---
 
 ### DA-010: Create Pydantic Response Schemas
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/question_analytics.py` (new or existing)
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/distractor_analysis.py`
 **Description:** Create Pydantic models for distractor analysis API responses.
 
 **Schemas Needed:**
@@ -236,10 +236,16 @@ def analyze_distractor_effectiveness(
 - `DistractorAnalysisResponse`
 - `DistractorSummaryResponse`
 
+**Implementation Notes:**
+Schemas were implemented as part of DA-008 and DA-009 in `backend/app/schemas/distractor_analysis.py`. The file includes:
+- Enums: `DistractorStatus`, `DistractorDiscrimination`
+- Single question analysis: `DistractorOptionAnalysis`, `DistractorSummary`, `DistractorAnalysisResponse`, `InsufficientDataResponse`
+- Bulk summary: `NonFunctioningCountBreakdown`, `QuestionTypeDistractorStats`, `WorstOffenderQuestion`, `DistractorSummaryResponse`
+
 **Acceptance Criteria:**
-- [ ] All response fields properly typed
-- [ ] Validation for enum fields (status, discrimination)
-- [ ] Examples included in schema for docs
+- [x] All response fields properly typed (with Field constraints: ge, le, etc.)
+- [x] Validation for enum fields (status, discrimination) via `DistractorStatus` and `DistractorDiscrimination` enums
+- [x] Examples included in schema for docs via `json_schema_extra` in Config class
 
 ---
 
