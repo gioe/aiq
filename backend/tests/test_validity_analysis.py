@@ -3825,6 +3825,32 @@ class TestEdgeCaseHandling:
         assert info["used_difficulty_fallback"] is True  # 2 items without empirical
         assert info["missing_time_data_count"] == 1  # 1 item without time
 
+    def test_invalid_session_status_treated_as_completed(self):
+        """Verify invalid session_status is handled safely and treated as completed."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+
+        responses = [
+            {"is_correct": True, "difficulty_level": "easy", "time_seconds": 30.0},
+            {"is_correct": False, "difficulty_level": "medium", "time_seconds": 25.0},
+            {"is_correct": True, "difficulty_level": "hard", "time_seconds": 40.0},
+            {"is_correct": True, "difficulty_level": "easy", "time_seconds": 20.0},
+            {"is_correct": False, "difficulty_level": "hard", "time_seconds": 35.0},
+        ]
+
+        # Pass an invalid session_status
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=responses,
+            session_status="invalid_status_xyz",
+        )
+
+        # Should NOT return abandoned result - should process as completed
+        assert result.get("is_abandoned") is not True
+        # Should have processed the responses and returned a validity assessment
+        assert "validity_status" in result
+        assert result["validity_status"] in ["valid", "suspect", "invalid"]
+
 
 class TestShortTestBoundaryConditions:
     """Tests for boundary conditions around short test threshold (CD-016)."""

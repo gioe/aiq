@@ -1349,6 +1349,10 @@ def should_skip_revalidation(
     return False
 
 
+# Valid session statuses (matching TestStatus enum in models)
+VALID_SESSION_STATUSES = {"in_progress", "completed", "abandoned"}
+
+
 def run_validity_analysis_with_edge_case_handling(
     responses: List[Dict[str, Any]],
     session_status: str = "completed",
@@ -1374,7 +1378,7 @@ def run_validity_analysis_with_edge_case_handling(
             - difficulty_level: str ("easy", "medium", "hard")
             - empirical_difficulty: float | None (p-value)
             - time_seconds: float | None
-        session_status: Status of the test session ("completed", "abandoned", etc.)
+        session_status: Status of the test session ("completed", "abandoned", "in_progress")
         existing_validity_status: Current validity status if re-validating
         existing_validity_checked_at: Timestamp of previous validation
         force_revalidate: If True, forces re-validation
@@ -1382,6 +1386,13 @@ def run_validity_analysis_with_edge_case_handling(
     Returns:
         Dictionary containing full validity assessment with edge case info
     """
+    # Validate session_status to prevent unexpected behavior
+    if session_status not in VALID_SESSION_STATUSES:
+        logger.warning(
+            f"Unknown session_status '{session_status}', treating as 'completed'"
+        )
+        session_status = "completed"
+
     # CD-016: Check for idempotent re-validation
     if should_skip_revalidation(
         existing_validity_status, existing_validity_checked_at, force_revalidate
