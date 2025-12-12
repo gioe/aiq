@@ -2409,21 +2409,14 @@ async def get_validity_report(
         )
 
         # Get sessions needing review (invalid or suspect)
-        # Sort by severity score (from validity_flags count/severity)
-        review_query = (
-            db.query(TestResult, TestSession)
-            .join(TestSession, TestResult.test_session_id == TestSession.id)
-            .filter(TestSession.completed_at >= period_start)
-            .filter(TestSession.completed_at <= now)
-            .filter(TestResult.validity_status.in_(["invalid", "suspect"]))
-            .order_by(desc(TestSession.completed_at))
-            .limit(50)
-        )
+        # Filter from already-fetched results to avoid redundant database query
+        sessions_needing_review = [
+            r for r in results if r.validity_status in ["invalid", "suspect"]
+        ]
 
-        review_results = review_query.all()
-
+        # Build action_needed list with severity scores
         action_needed: list[SessionNeedingReview] = []
-        for test_result, test_session in review_results:
+        for test_result in sessions_needing_review:
             flags_list_review: list[dict[str, Any]] = test_result.validity_flags or []  # type: ignore[assignment]
             flag_types = [f.get("type", "") for f in flags_list_review]
 
@@ -2436,6 +2429,8 @@ async def get_validity_report(
                 elif flag_severity == "medium":
                     severity_score += 1
 
+            # Use eagerly-loaded test_session relationship
+            test_session = test_result.test_session
             action_needed.append(
                 SessionNeedingReview(
                     session_id=int(test_session.id),  # type: ignore[arg-type]
@@ -2449,8 +2444,9 @@ async def get_validity_report(
                 )
             )
 
-        # Sort action_needed by severity_score descending
+        # Sort by severity_score descending, then limit to 50
         action_needed.sort(key=lambda x: x.severity_score, reverse=True)
+        action_needed = action_needed[:50]
 
         return ValiditySummaryResponse(
             summary=summary,
