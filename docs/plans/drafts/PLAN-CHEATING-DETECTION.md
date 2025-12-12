@@ -113,7 +113,7 @@ def check_response_time_plausibility(
 ---
 
 ### CD-005: Implement Guttman Error Detection
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/validity_analysis.py`
 **Description:** Create function to count Guttman-type errors where harder items are answered correctly while easier items are missed. High error rates suggest aberrant responding.
 
@@ -134,11 +134,11 @@ def count_guttman_errors(
 - error_rate <= 0.20: "normal"
 
 **Acceptance Criteria:**
-- [ ] Correctly sorts items by difficulty
-- [ ] Counts pairs where harder item correct but easier item incorrect
-- [ ] Calculates error rate as errors / max_possible_errors
-- [ ] Returns interpretation classification
-- [ ] Handles empty or single-item response lists gracefully
+- [x] Correctly sorts items by difficulty
+- [x] Counts pairs where harder item correct but easier item incorrect
+- [x] Calculates error rate as errors / max_possible_errors
+- [x] Returns interpretation classification
+- [x] Handles empty or single-item response lists gracefully
 
 ---
 
