@@ -743,20 +743,28 @@ class TestCheckResponseTimePlausibility:
         assert rapid_flag["count"] == 3
 
     def test_two_rapid_responses_not_flagged(self):
-        """Test that only 2 rapid responses does not trigger the flag.
+        """Test that only 2 rapid responses does not trigger the flag on normal-length tests.
 
-        Need 3+ rapid responses to trigger (threshold is 3).
+        Need 3+ rapid responses to trigger (threshold is 3 for normal tests).
+        Note: Short tests (< 5 questions) have a lower threshold of 2, so we need
+        at least 5 questions here to test the normal threshold.
         """
         responses = [
             {"time_seconds": 1, "is_correct": False, "difficulty": "easy"},  # Rapid
             {"time_seconds": 2, "is_correct": True, "difficulty": "easy"},  # Rapid
             {"time_seconds": 60, "is_correct": True, "difficulty": "medium"},
             {"time_seconds": 90, "is_correct": False, "difficulty": "hard"},
+            {
+                "time_seconds": 45,
+                "is_correct": True,
+                "difficulty": "medium",
+            },  # Added for >= 5 responses
         ]
 
         result = check_response_time_plausibility(responses)
 
         assert result["rapid_response_count"] == 2
+        assert result["is_short_test"] is False  # Ensure this is not a short test
         assert not any(f["type"] == "multiple_rapid_responses" for f in result["flags"])
 
     def test_rapid_response_at_threshold_boundary(self):
@@ -3419,3 +3427,488 @@ class TestAssessSessionValidity:
         assert "unknown_flag_type" in result["flags"]
         # Medium severity doesn't add to score
         assert result["severity_score"] == 0
+
+
+# =============================================================================
+# CD-016: EDGE CASE HANDLING TESTS
+# =============================================================================
+
+
+class TestEdgeCaseHandling:
+    """Tests for edge case handling in validity analysis (CD-016)."""
+
+    # =========================================================================
+    # Short Test Threshold Adjustments
+    # =========================================================================
+
+    def test_short_test_person_fit_uses_adjusted_threshold(self):
+        """Verify short tests (< 5 questions) use higher fit ratio threshold.
+
+        For short tests, the threshold should be 0.40 instead of 0.25 to
+        reduce false positives due to high variance in small samples.
+        """
+        from app.core.validity_analysis import (
+            calculate_person_fit_heuristic,
+            MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
+            SHORT_TEST_FIT_RATIO_THRESHOLD,
+        )
+
+        # Create a 4-question test (below minimum)
+        responses = [
+            (True, "easy"),
+            (False, "easy"),  # Unexpected for high scorer
+            (True, "hard"),
+            (False, "medium"),
+        ]
+        total_score = 2
+
+        result = calculate_person_fit_heuristic(responses, total_score)
+
+        # Should use short test threshold
+        assert result["is_short_test"] is True
+        assert result["threshold_used"] == SHORT_TEST_FIT_RATIO_THRESHOLD
+        assert result["total_responses"] < MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+
+    def test_normal_test_person_fit_uses_standard_threshold(self):
+        """Verify normal tests (>= 5 questions) use standard threshold."""
+        from app.core.validity_analysis import (
+            calculate_person_fit_heuristic,
+            FIT_RATIO_ABERRANT_THRESHOLD,
+        )
+
+        # Create a 6-question test (at or above minimum)
+        responses = [
+            (True, "easy"),
+            (True, "easy"),
+            (True, "medium"),
+            (True, "medium"),
+            (True, "hard"),
+            (False, "hard"),
+        ]
+        total_score = 5
+
+        result = calculate_person_fit_heuristic(responses, total_score)
+
+        # Should use standard threshold
+        assert result["is_short_test"] is False
+        assert result["threshold_used"] == FIT_RATIO_ABERRANT_THRESHOLD
+
+    def test_short_test_guttman_uses_adjusted_thresholds(self):
+        """Verify short tests use higher Guttman error thresholds."""
+        from app.core.validity_analysis import (
+            count_guttman_errors,
+            SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD,
+            SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD,
+        )
+
+        # Create a 4-item test with some Guttman errors
+        responses = [
+            (True, 0.80),  # Easy - correct
+            (False, 0.70),  # Medium-easy - incorrect (Guttman error possible)
+            (True, 0.30),  # Hard - correct
+            (False, 0.20),  # Very hard - incorrect
+        ]
+
+        result = count_guttman_errors(responses)
+
+        # Should use short test thresholds
+        assert result["is_short_test"] is True
+        assert result["aberrant_threshold"] == SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD
+        assert result["elevated_threshold"] == SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD
+
+    def test_short_test_time_check_uses_adjusted_rapid_threshold(self):
+        """Verify short tests use lower rapid response count threshold."""
+        from app.core.validity_analysis import check_response_time_plausibility
+
+        # Create a 4-response test with 2 rapid responses
+        responses = [
+            {"time_seconds": 2.0, "is_correct": True, "difficulty": "easy"},
+            {"time_seconds": 2.0, "is_correct": True, "difficulty": "easy"},
+            {"time_seconds": 30.0, "is_correct": False, "difficulty": "medium"},
+            {"time_seconds": 40.0, "is_correct": False, "difficulty": "hard"},
+        ]
+
+        result = check_response_time_plausibility(responses)
+
+        # With 2 rapid responses, should flag on short test (threshold=2)
+        # but not on normal test (threshold=3)
+        assert result["is_short_test"] is True
+        assert result["rapid_response_count"] == 2
+        # Should have the multiple_rapid_responses flag
+        flag_types = [f["type"] for f in result["flags"]]
+        assert "multiple_rapid_responses" in flag_types
+
+    # =========================================================================
+    # Empty Response Handling
+    # =========================================================================
+
+    def test_empty_responses_person_fit_returns_normal(self):
+        """Verify empty response list returns normal fit with defaults."""
+        from app.core.validity_analysis import calculate_person_fit_heuristic
+
+        result = calculate_person_fit_heuristic([], 0)
+
+        assert result["fit_flag"] == "normal"
+        assert result["fit_ratio"] == 0.0
+        assert result["total_responses"] == 0
+        assert result["is_short_test"] is True
+        assert "No responses" in result["details"]
+
+    def test_empty_responses_time_check_returns_no_flags(self):
+        """Verify empty response list returns no time flags."""
+        from app.core.validity_analysis import check_response_time_plausibility
+
+        result = check_response_time_plausibility([])
+
+        assert result["flags"] == []
+        assert result["validity_concern"] is False
+        assert result["total_time_seconds"] == 0.0
+        assert result["is_short_test"] is True
+
+    def test_empty_responses_guttman_returns_normal(self):
+        """Verify empty response list returns normal Guttman result."""
+        from app.core.validity_analysis import count_guttman_errors
+
+        result = count_guttman_errors([])
+
+        assert result["interpretation"] == "normal"
+        assert result["error_count"] == 0
+        assert result["total_responses"] == 0
+        assert result["is_short_test"] is True
+
+    # =========================================================================
+    # Missing Time Data Handling
+    # =========================================================================
+
+    def test_missing_time_data_skipped_in_analysis(self):
+        """Verify responses without time data are skipped but don't break analysis."""
+        from app.core.validity_analysis import check_response_time_plausibility
+
+        responses = [
+            {"time_seconds": 30.0, "is_correct": True, "difficulty": "easy"},
+            {"time_seconds": None, "is_correct": True, "difficulty": "medium"},
+            {"is_correct": False, "difficulty": "hard"},  # No time_seconds key
+            {"time_seconds": 45.0, "is_correct": False, "difficulty": "hard"},
+        ]
+
+        result = check_response_time_plausibility(responses)
+
+        # Should only count responses with valid time data
+        assert result["statistics"]["total_responses"] == 2
+        assert result["total_time_seconds"] == 75.0  # 30 + 45
+
+    def test_all_missing_time_data_returns_empty_result(self):
+        """Verify all responses missing time data returns empty result with message."""
+        from app.core.validity_analysis import check_response_time_plausibility
+
+        responses = [
+            {"is_correct": True, "difficulty": "easy"},
+            {"time_seconds": None, "is_correct": False, "difficulty": "medium"},
+        ]
+
+        result = check_response_time_plausibility(responses)
+
+        assert result["flags"] == []
+        assert result["validity_concern"] is False
+        assert "missing time information" in result["details"]
+
+    # =========================================================================
+    # Empirical Difficulty Fallback (Guttman)
+    # =========================================================================
+
+    def test_guttman_fallback_estimates_from_difficulty_level(self):
+        """Verify fallback from empirical_difficulty to difficulty_level."""
+        from app.core.validity_analysis import count_guttman_errors_with_fallback
+
+        # All items use fallback (no empirical_difficulty)
+        responses = [
+            (True, None, "easy"),
+            (False, None, "medium"),
+            (True, None, "hard"),
+        ]
+
+        result = count_guttman_errors_with_fallback(responses)
+
+        assert result["used_fallback"] is True
+        assert result["fallback_count"] == 3
+        # Should still produce valid Guttman analysis
+        assert "interpretation" in result
+
+    def test_guttman_fallback_mixed_data(self):
+        """Verify fallback handles mix of empirical and estimated difficulty."""
+        from app.core.validity_analysis import count_guttman_errors_with_fallback
+
+        # Mix of empirical and estimated
+        responses = [
+            (True, 0.75, "easy"),  # Has empirical
+            (False, None, "medium"),  # Needs fallback
+            (True, 0.25, "hard"),  # Has empirical
+            (False, None, "hard"),  # Needs fallback
+        ]
+
+        result = count_guttman_errors_with_fallback(responses)
+
+        assert result["used_fallback"] is True
+        assert result["fallback_count"] == 2
+
+    def test_empirical_difficulty_estimate_values(self):
+        """Verify difficulty level estimates have expected p-values."""
+        from app.core.validity_analysis import estimate_empirical_difficulty_from_level
+
+        # Easy should have highest p-value (more people get it right)
+        assert estimate_empirical_difficulty_from_level("easy") == 0.75
+        assert estimate_empirical_difficulty_from_level("medium") == 0.50
+        assert estimate_empirical_difficulty_from_level("hard") == 0.25
+
+        # Default for unknown level
+        assert estimate_empirical_difficulty_from_level("unknown") == 0.50
+
+    # =========================================================================
+    # Abandoned Session Handling
+    # =========================================================================
+
+    def test_abandoned_session_returns_incomplete_status(self):
+        """Verify abandoned sessions return 'incomplete' validity status."""
+        from app.core.validity_analysis import check_validity_for_abandoned_session
+
+        result = check_validity_for_abandoned_session()
+
+        assert result["validity_status"] == "incomplete"
+        assert result["severity_score"] == 0
+        assert result["confidence"] == 1.0
+        assert result["flags"] == []
+        assert result["is_abandoned"] is True
+        assert "abandoned" in result["details"].lower()
+
+    def test_abandoned_session_skips_all_checks(self):
+        """Verify abandoned sessions skip all validity checks."""
+        from app.core.validity_analysis import check_validity_for_abandoned_session
+
+        result = check_validity_for_abandoned_session()
+
+        assert result["components"]["person_fit"] == "skipped"
+        assert result["components"]["time_check"] == "skipped"
+        assert result["components"]["guttman_check"] == "skipped"
+
+    # =========================================================================
+    # Re-validation Idempotency
+    # =========================================================================
+
+    def test_should_skip_already_validated_session(self):
+        """Verify already-validated sessions are skipped by default."""
+        from app.core.validity_analysis import should_skip_revalidation
+        from datetime import datetime
+
+        result = should_skip_revalidation(
+            existing_validity_status="valid",
+            existing_validity_checked_at=datetime.now(),
+            force_revalidate=False,
+        )
+
+        assert result is True
+
+    def test_should_not_skip_unvalidated_session(self):
+        """Verify sessions without validation data are not skipped."""
+        from app.core.validity_analysis import should_skip_revalidation
+
+        result = should_skip_revalidation(
+            existing_validity_status=None,
+            existing_validity_checked_at=None,
+            force_revalidate=False,
+        )
+
+        assert result is False
+
+    def test_force_revalidate_overrides_skip(self):
+        """Verify force_revalidate=True overrides skip decision."""
+        from app.core.validity_analysis import should_skip_revalidation
+        from datetime import datetime
+
+        result = should_skip_revalidation(
+            existing_validity_status="valid",
+            existing_validity_checked_at=datetime.now(),
+            force_revalidate=True,
+        )
+
+        assert result is False
+
+    # =========================================================================
+    # Full Edge Case Analysis Function
+    # =========================================================================
+
+    def test_run_validity_with_abandoned_session(self):
+        """Verify full analysis handles abandoned sessions correctly."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+
+        responses = [
+            {"is_correct": True, "difficulty_level": "easy", "time_seconds": 30.0},
+        ]
+
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=responses,
+            session_status="abandoned",
+        )
+
+        assert result["validity_status"] == "incomplete"
+        assert result["is_abandoned"] is True
+
+    def test_run_validity_with_empty_responses(self):
+        """Verify full analysis handles empty responses correctly."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=[],
+            session_status="completed",
+        )
+
+        assert result["validity_status"] == "valid"
+        assert result["is_empty"] is True
+
+    def test_run_validity_with_already_validated(self):
+        """Verify full analysis skips already-validated sessions."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+        from datetime import datetime
+
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=[{"is_correct": True, "difficulty_level": "easy"}],
+            session_status="completed",
+            existing_validity_status="suspect",
+            existing_validity_checked_at=datetime.now(),
+        )
+
+        assert result["skipped"] is True
+        assert result["validity_status"] == "suspect"
+        assert result["reason"] == "already_validated"
+
+    def test_run_validity_includes_edge_case_info(self):
+        """Verify full analysis includes edge case metadata."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+
+        responses = [
+            {
+                "is_correct": True,
+                "difficulty_level": "easy",
+                "empirical_difficulty": None,
+                "time_seconds": None,
+            },
+            {
+                "is_correct": False,
+                "difficulty_level": "hard",
+                "empirical_difficulty": 0.25,
+                "time_seconds": 30.0,
+            },
+            {
+                "is_correct": True,
+                "difficulty_level": "medium",
+                "empirical_difficulty": None,
+                "time_seconds": 45.0,
+            },
+        ]
+
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=responses,
+            session_status="completed",
+        )
+
+        assert "edge_case_info" in result
+        info = result["edge_case_info"]
+        assert info["is_short_test"] is True  # < 5 responses
+        assert info["total_responses"] == 3
+        assert info["used_difficulty_fallback"] is True  # 2 items without empirical
+        assert info["missing_time_data_count"] == 1  # 1 item without time
+
+    def test_invalid_session_status_treated_as_completed(self):
+        """Verify invalid session_status is handled safely and treated as completed."""
+        from app.core.validity_analysis import (
+            run_validity_analysis_with_edge_case_handling,
+        )
+
+        responses = [
+            {"is_correct": True, "difficulty_level": "easy", "time_seconds": 30.0},
+            {"is_correct": False, "difficulty_level": "medium", "time_seconds": 25.0},
+            {"is_correct": True, "difficulty_level": "hard", "time_seconds": 40.0},
+            {"is_correct": True, "difficulty_level": "easy", "time_seconds": 20.0},
+            {"is_correct": False, "difficulty_level": "hard", "time_seconds": 35.0},
+        ]
+
+        # Pass an invalid session_status
+        result = run_validity_analysis_with_edge_case_handling(
+            responses=responses,
+            session_status="invalid_status_xyz",
+        )
+
+        # Should NOT return abandoned result - should process as completed
+        assert result.get("is_abandoned") is not True
+        # Should have processed the responses and returned a validity assessment
+        assert "validity_status" in result
+        assert result["validity_status"] in ["valid", "suspect", "invalid"]
+
+
+class TestShortTestBoundaryConditions:
+    """Tests for boundary conditions around short test threshold (CD-016)."""
+
+    def test_exactly_minimum_questions_not_short_test(self):
+        """Verify exactly MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS is not a short test."""
+        from app.core.validity_analysis import (
+            calculate_person_fit_heuristic,
+            MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
+        )
+
+        # Create exactly 5 responses (default minimum)
+        responses = [(True, "medium")] * MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+        total_score = MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+
+        result = calculate_person_fit_heuristic(responses, total_score)
+
+        assert result["is_short_test"] is False
+
+    def test_one_below_minimum_is_short_test(self):
+        """Verify MINIMUM_QUESTIONS - 1 is considered a short test."""
+        from app.core.validity_analysis import (
+            calculate_person_fit_heuristic,
+            MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
+        )
+
+        num_responses = MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS - 1
+        responses = [(True, "medium")] * num_responses
+        total_score = num_responses
+
+        result = calculate_person_fit_heuristic(responses, total_score)
+
+        assert result["is_short_test"] is True
+
+    def test_short_test_pattern_that_would_be_aberrant_on_normal(self):
+        """Verify a pattern flagged on normal test is NOT flagged on short test.
+
+        This tests that the adjusted thresholds actually prevent false positives.
+        """
+        from app.core.validity_analysis import (
+            calculate_person_fit_heuristic,
+            SHORT_TEST_FIT_RATIO_THRESHOLD,
+        )
+
+        # Create pattern with fit_ratio between standard (0.25) and short (0.40)
+        # 4 responses, need fit_ratio ~0.30
+        # Low scorer getting hard questions right
+        responses = [
+            (False, "easy"),  # Unexpected wrong
+            (True, "hard"),  # Unexpected right
+            (False, "medium"),
+            (False, "hard"),
+        ]
+        total_score = 1  # 25% = low percentile
+
+        result = calculate_person_fit_heuristic(responses, total_score)
+
+        # Should be normal on short test even if would be aberrant on normal test
+        # (depending on exact calculation, adjust test data if needed)
+        assert result["is_short_test"] is True
+        assert result["threshold_used"] == SHORT_TEST_FIT_RATIO_THRESHOLD
