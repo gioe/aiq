@@ -8,7 +8,7 @@ from typing import Optional, Literal, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, asc
 
 from app.core import settings
@@ -2279,8 +2279,10 @@ async def get_validity_report(
         seven_days_ago = now - timedelta(days=7)
 
         # Build base query for test results with validity data in the period
+        # Use joinedload to eagerly load TestSession for in-memory filtering
         base_query = (
             db.query(TestResult)
+            .options(joinedload(TestResult.test_session))
             .join(TestSession, TestResult.test_session_id == TestSession.id)
             .filter(TestSession.completed_at >= period_start)
             .filter(TestSession.completed_at <= now)
@@ -2338,14 +2340,26 @@ async def get_validity_report(
         )
 
         # Calculate trend data (7-day vs full period)
-        # Get 7-day results for comparison
-        seven_day_results = (
-            db.query(TestResult)
-            .join(TestSession, TestResult.test_session_id == TestSession.id)
-            .filter(TestSession.completed_at >= seven_days_ago)
-            .filter(TestSession.completed_at <= now)
-            .all()
-        )
+        # Filter from already-fetched results to avoid redundant database query
+        # TestSession is eagerly loaded via joinedload for in-memory filtering
+        if days <= 7:
+            # If period is 7 days or less, 7-day and full period are the same
+            seven_day_results = results
+        else:
+            # Filter in memory using the eagerly-loaded test_session relationship
+            # Handle both timezone-aware and timezone-naive datetime comparisons
+            seven_day_results = []
+            for r in results:
+                if r.test_session and r.test_session.completed_at:
+                    completed_at = r.test_session.completed_at
+                    # Make comparison compatible with both tz-aware and tz-naive
+                    if completed_at.tzinfo is None:
+                        # DB returned naive datetime, compare with naive
+                        date_threshold = seven_days_ago.replace(tzinfo=None)
+                    else:
+                        date_threshold = seven_days_ago
+                    if completed_at >= date_threshold:
+                        seven_day_results.append(r)
 
         seven_day_total = len(seven_day_results)
         seven_day_invalid = sum(
