@@ -44,7 +44,11 @@ Each component has its own README with quick start guides:
 
 Detailed plans for major features:
 
-- [Empirical Calibration](./plans/EMPIRICAL_CALIBRATION.md) - Item calibration implementation
+### Complete
+- [Empirical Calibration](../backend/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md) - Difficulty label validation and recalibration based on empirical p-values ✅
+- [Distractor Analysis](./plans/complete/PLAN-DISTRACTOR-ANALYSIS.md) - Multiple-choice distractor effectiveness analysis ✅
+
+### In Progress
 - [Question Generation Tracking](./plans/QUESTION_GENERATION_TRACKING.md) - Question metrics system
 - [In-Progress Test Detection](./plans/IN_PROGRESS_TEST.md) - Active session handling
 - [Reusable Components](./plans/REUSABLE_COMPONENTS.md) - Future tooling extraction
