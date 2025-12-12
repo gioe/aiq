@@ -143,7 +143,7 @@ def count_guttman_errors(
 ---
 
 ### CD-006: Implement Session Validity Assessment
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/validity_analysis.py`
 **Description:** Create main function that combines all validity checks into an overall session assessment.
 
@@ -172,11 +172,11 @@ def assess_session_validity(
 - severity_score < 2: "valid"
 
 **Acceptance Criteria:**
-- [ ] Correctly aggregates flags from all three checks
-- [ ] Calculates severity score based on weights
-- [ ] Returns appropriate status classification
-- [ ] Returns confidence score (inverse of severity)
-- [ ] Returns all flags in a flat list
+- [x] Correctly aggregates flags from all three checks
+- [x] Calculates severity score based on weights
+- [x] Returns appropriate status classification
+- [x] Returns confidence score (inverse of severity)
+- [x] Returns all flags in a flat list
 
 ---
 
