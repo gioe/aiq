@@ -1,5 +1,8 @@
 # Question Generation Tracking Plan
 
+**Status**: ✅ Complete
+**Completed**: 2025-12-11
+
 ## Overview
 
 This plan adds database persistence for question-service execution metrics, enabling historical trend analysis, provider performance comparison, and quality monitoring of the AI question generation pipeline.
@@ -269,7 +272,7 @@ CREATE INDEX ix_qgr_overall_success ON question_generation_runs(overall_success_
   - Include example requests/responses
   - Document authentication requirements
 
-- [ ] **QGT-016**: Update CLAUDE.md
+- [x] **QGT-016**: Update CLAUDE.md
   - Add `QGT` prefix to task registry
   - Document new table in schema section
   - Add troubleshooting guidance

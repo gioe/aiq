@@ -266,16 +266,34 @@ LIMIT N
 - `test_results` → `test_sessions` (one-to-one)
 - `user_questions` → `users`, `questions` (junction table with composite unique constraint)
 
-## Question Generation Service (Phase 6 - Not Yet Implemented)
+**Operational Tables**:
+- `question_generation_runs` - Metrics from question-service execution runs (status, timing, success rates, provider breakdowns, error summaries). Used for monitoring generation pipeline health and optimizing provider selection.
+
+## Question Generation Service
 
 **Architecture**:
-- Multi-LLM generation (OpenAI, Anthropic, Google, xAi)
+- Multi-LLM generation (OpenAI, Anthropic, Google, xAI)
 - Specialized arbiter models per question type (configurable via YAML/JSON)
 - Question types: pattern_recognition, logical_reasoning, spatial_reasoning, mathematical, verbal_reasoning, memory
-- Deduplication checking against existing questions
-- Scheduled execution (not continuous)
+- Deduplication checking against existing questions (exact and semantic)
+- Scheduled execution via Railway cron jobs
+- Metrics reporting to backend via `RunReporter` class
 
-**Configuration**: Arbiter model mappings will be configurable to leverage different LLM strengths per question type based on benchmark performance.
+**Configuration**: Arbiter model mappings configurable to leverage different LLM strengths per question type based on benchmark performance.
+
+**Metrics Tracking**: Generation runs report metrics to `POST /v1/admin/generation-runs` including:
+- Execution timing (duration, start/end times)
+- Success rates (generation, evaluation, overall)
+- Provider-specific breakdowns (questions generated, API calls, failures)
+- Arbiter scores (avg, min, max)
+- Deduplication stats (exact vs semantic duplicates)
+- Error classification (by category and severity)
+
+**Admin API Endpoints**:
+- `POST /v1/admin/generation-runs` - Record a generation run (service-to-service auth via `X-Service-Key`)
+- `GET /v1/admin/generation-runs` - List runs with filtering/pagination
+- `GET /v1/admin/generation-runs/{id}` - Get detailed run info
+- `GET /v1/admin/generation-runs/stats` - Aggregate statistics over time period
 
 ## Environment Setup
 
@@ -334,6 +352,11 @@ open AIQ.xcodeproj  # Select your development team in project settings
 - Format: `P{phase}-{sequence}`
 - Reference in commits, PRs, and discussions
 
+**Feature-Specific Task Prefixes**:
+- `QGT` - Question Generation Tracking (metrics persistence for generation runs)
+- `DA` - Distractor Analysis (question distractor effectiveness tracking)
+- `EIC` - Empirical Item Calibration (difficulty calibration based on user responses)
+
 **Current Status** (see PLAN.md for details):
 - ✅ Phase 1: Foundation & Infrastructure (complete)
 - ✅ Phase 2: Backend API - Core Functionality (complete)
@@ -390,6 +413,13 @@ open AIQ.xcodeproj  # Select your development team in project settings
 - "Test already in progress" error when starting test: Check dashboard for active session, use Resume or Abandon
 - Active session check slow: Check backend `/v1/test/active` endpoint performance, verify 2-min cache TTL
 - Dashboard not showing in-progress test: Verify backend session status, check cache invalidation after operations
+
+**Question generation tracking issues**:
+- Metrics not being recorded: Check `BACKEND_API_URL` and `QS_SERVICE_KEY` env vars in question-service
+- Service key auth failing: Verify `X-Service-Key` header matches backend's expected key
+- Run stuck in "running" status: Generation job may have crashed; check question-service logs
+- Missing provider metrics: Ensure `MetricsTracker` is properly recording generation events
+- Query generation runs: `GET /v1/admin/generation-runs?status=failed` to find failed runs
 
 ## Additional Documentation
 
