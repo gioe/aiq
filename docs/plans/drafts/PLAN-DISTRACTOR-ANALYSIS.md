@@ -148,15 +148,20 @@ def analyze_distractor_effectiveness(
 ---
 
 ### DA-007: Update Quartile Stats After Test Completion
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/test.py` (test completion endpoint)
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/test.py`, `backend/app/core/distractor_analysis.py`, `backend/tests/test_distractor_analysis.py`
 **Description:** After test completion (when total score is known), update quartile-based statistics for all questions in the session.
 
+**Implementation:**
+- `determine_score_quartile()`: Determines if user is in top/bottom/middle quartile based on historical test scores
+- `update_session_quartile_stats()`: Batch updates quartile stats for all responses in a session
+- Integrated into `submit_test` endpoint after test result calculation
+
 **Acceptance Criteria:**
-- [ ] Quartile stats updated after test result is calculated
-- [ ] Uses test score to determine quartile membership
-- [ ] Efficiently batch-updates all questions in session
-- [ ] Graceful handling if stats update fails
+- [x] Quartile stats updated after test result is calculated
+- [x] Uses test score to determine quartile membership (compares to historical results with similar question count)
+- [x] Efficiently batch-updates all questions in session
+- [x] Graceful handling if stats update fails (logged as warning, doesn't block submission)
 
 ---
 

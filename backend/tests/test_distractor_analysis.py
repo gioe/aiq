@@ -1,5 +1,5 @@
 """
-Tests for distractor analysis functions (DA-003, DA-004, DA-005, DA-006).
+Tests for distractor analysis functions (DA-003, DA-004, DA-005, DA-006, DA-007).
 
 Tests cover:
 - Selection count incrementing
@@ -10,6 +10,7 @@ Tests cover:
 - Distractor discrimination calculation (DA-004)
 - Distractor effectiveness analysis (DA-005)
 - Integration with response submission (DA-006)
+- Quartile stats update after test completion (DA-007)
 """
 import pytest
 from app.models import Question
@@ -21,6 +22,8 @@ from app.core.distractor_analysis import (
     calculate_distractor_discrimination,
     analyze_distractor_effectiveness,
     _calculate_effective_option_count,
+    determine_score_quartile,
+    update_session_quartile_stats,
 )
 
 
@@ -1616,3 +1619,872 @@ class TestDistractorStatsIntegration:
         # The test submission should still succeed (graceful degradation)
         assert response.status_code == 200
         assert response.json()["session"]["status"] == "completed"
+
+
+class TestDetermineScoreQuartile:
+    """Tests for the determine_score_quartile function (DA-007)."""
+
+    def test_insufficient_historical_data(self, db_session):
+        """Test that insufficient_data is returned when insufficient historical data exists."""
+        # With no historical data, should return insufficient_data
+        result = determine_score_quartile(
+            db_session,
+            correct_answers=10,
+            total_questions=20,
+            min_historical_results=10,
+        )
+
+        assert result["quartile"] == "insufficient_data"
+        assert result["is_top"] is None
+        assert result["historical_count"] < 10
+
+    def test_top_quartile_determination(self, db_session):
+        """Test that high scores are correctly identified as top quartile."""
+        from app.models.models import TestResult, TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        # Create a test user
+        user = User(
+            email="quartile_test@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results with varying scores
+        # Scores: 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
+        # 25th percentile threshold: 5 results at indices 0-4, threshold ~9
+        # 75th percentile threshold: 15 results at indices 0-14, threshold ~19
+        for i in range(20):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            test_result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,  # Scores from 5 to 24
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(test_result)
+
+        db_session.commit()
+
+        # Score of 22 should be in top quartile (>= 75th percentile)
+        result = determine_score_quartile(
+            db_session,
+            correct_answers=22,
+            total_questions=20,
+            min_historical_results=10,
+        )
+
+        assert result["quartile"] == "top"
+        assert result["is_top"] is True
+
+    def test_bottom_quartile_determination(self, db_session):
+        """Test that low scores are correctly identified as bottom quartile."""
+        from app.models.models import TestResult, TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        # Create a test user
+        user = User(
+            email="quartile_bottom@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results
+        for i in range(20):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            test_result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(test_result)
+
+        db_session.commit()
+
+        # Score of 6 should be in bottom quartile (<= 25th percentile)
+        result = determine_score_quartile(
+            db_session,
+            correct_answers=6,
+            total_questions=20,
+            min_historical_results=10,
+        )
+
+        assert result["quartile"] == "bottom"
+        assert result["is_top"] is False
+
+    def test_middle_quartile_returns_middle(self, db_session):
+        """Test that middle scores return middle quartile."""
+        from app.models.models import TestResult, TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="quartile_middle@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results
+        for i in range(20):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            test_result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(test_result)
+
+        db_session.commit()
+
+        # Score of 14 should be in middle (not top or bottom quartile)
+        result = determine_score_quartile(
+            db_session,
+            correct_answers=14,
+            total_questions=20,
+            min_historical_results=10,
+        )
+
+        assert result["quartile"] == "middle"
+        assert result["is_top"] is None
+
+    def test_filters_by_question_count(self, db_session):
+        """Test that only tests with similar question count are considered."""
+        from app.models.models import TestResult, TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="quartile_filter@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 15 historical test results with 20 questions
+        for i in range(15):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            test_result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,  # These should be considered
+                correct_answers=10 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(test_result)
+
+        # Create 10 historical test results with 50 questions (different length)
+        for i in range(10):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            test_result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=50,  # These should NOT be considered
+                correct_answers=30 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(test_result)
+
+        db_session.commit()
+
+        # When checking a 20-question test, should only use 20-question historical data
+        # 20 * 0.8 = 16, 20 * 1.2 = 24, so only 20-question tests match
+        result = determine_score_quartile(
+            db_session,
+            correct_answers=24,  # High score among 20-question tests
+            total_questions=20,
+            min_historical_results=10,
+        )
+
+        # Should be top quartile among 20-question tests
+        assert result["quartile"] == "top"
+        assert result["is_top"] is True
+
+
+class TestUpdateSessionQuartileStats:
+    """Tests for the update_session_quartile_stats function (DA-007)."""
+
+    def test_insufficient_historical_data_returns_early(self, db_session):
+        """Test that function returns gracefully when insufficient historical data."""
+        from app.models.models import TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_quartile@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create a test session
+        session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        # No historical data exists
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=session.id,
+            correct_answers=15,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "insufficient_data"
+        assert result["questions_updated"] == 0
+
+    def test_middle_quartile_skips_update(self, db_session):
+        """Test that middle quartile scores don't update distractor stats."""
+        from app.models.models import TestResult, TestSession, TestStatus, Response
+        from app.models import User, Question
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_middle@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results to establish quartiles
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session with middle score
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Create a question and response for this session
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={"B": {"count": 10, "top_q": 0, "bottom_q": 0}},
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=user.id,
+            question_id=question.id,
+            user_answer="B",
+            is_correct=False,
+            answered_at=datetime.now(timezone.utc),
+        )
+        db_session.add(response)
+        db_session.commit()
+
+        # Score of 14 is in middle quartile
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=14,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "middle"
+        assert result["questions_updated"] == 0
+
+        # Verify question's quartile stats were NOT updated
+        db_session.refresh(question)
+        assert question.distractor_stats["B"]["top_q"] == 0
+        assert question.distractor_stats["B"]["bottom_q"] == 0
+
+    def test_top_quartile_updates_stats(self, db_session):
+        """Test that top quartile scores update top_q for each response."""
+        from app.models.models import TestResult, TestSession, TestStatus, Response
+        from app.models import User, Question
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_top@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session with high score (top quartile)
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Create question and response
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={"B": {"count": 10, "top_q": 5, "bottom_q": 3}},
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=user.id,
+            question_id=question.id,
+            user_answer="B",
+            is_correct=False,
+            answered_at=datetime.now(timezone.utc),
+        )
+        db_session.add(response)
+        db_session.commit()
+
+        # Score of 22 is in top quartile
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=22,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "top"
+        assert result["questions_updated"] == 1
+
+        # Verify question's top_q was incremented
+        db_session.refresh(question)
+        assert question.distractor_stats["B"]["top_q"] == 6  # Was 5, now 6
+        assert question.distractor_stats["B"]["bottom_q"] == 3  # Unchanged
+
+    def test_bottom_quartile_updates_stats(self, db_session):
+        """Test that bottom quartile scores update bottom_q for each response."""
+        from app.models.models import TestResult, TestSession, TestStatus, Response
+        from app.models import User, Question
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_bottom@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 20 historical test results
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session with low score (bottom quartile)
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Create question and response
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={"B": {"count": 10, "top_q": 5, "bottom_q": 3}},
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+        db_session.refresh(question)
+
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=user.id,
+            question_id=question.id,
+            user_answer="B",
+            is_correct=False,
+            answered_at=datetime.now(timezone.utc),
+        )
+        db_session.add(response)
+        db_session.commit()
+
+        # Score of 6 is in bottom quartile
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=6,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "bottom"
+        assert result["questions_updated"] == 1
+
+        # Verify question's bottom_q was incremented
+        db_session.refresh(question)
+        assert question.distractor_stats["B"]["top_q"] == 5  # Unchanged
+        assert question.distractor_stats["B"]["bottom_q"] == 4  # Was 3, now 4
+
+    def test_multiple_responses_updated(self, db_session):
+        """Test that all responses in a session are updated."""
+        from app.models.models import TestResult, TestSession, TestStatus, Response
+        from app.models import User, Question
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_multi@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create historical data
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session with top quartile score
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Create multiple questions and responses
+        questions = []
+        for i in range(3):
+            q = Question(
+                question_text=f"Test question {i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2"},
+                distractor_stats={"B": {"count": 10, "top_q": 0, "bottom_q": 0}},
+                is_active=True,
+            )
+            db_session.add(q)
+            questions.append(q)
+
+        db_session.commit()
+
+        for q in questions:
+            db_session.refresh(q)
+            response = Response(
+                test_session_id=test_session.id,
+                user_id=user.id,
+                question_id=q.id,
+                user_answer="B",
+                is_correct=False,
+                answered_at=datetime.now(timezone.utc),
+            )
+            db_session.add(response)
+
+        db_session.commit()
+
+        # Update quartile stats with top quartile score
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=22,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "top"
+        assert result["questions_updated"] == 3
+
+        # Verify all questions were updated
+        for q in questions:
+            db_session.refresh(q)
+            assert q.distractor_stats["B"]["top_q"] == 1
+
+    def test_free_response_questions_skipped(self, db_session):
+        """Test that free-response questions are skipped during quartile update."""
+        from app.models.models import TestResult, TestSession, TestStatus, Response
+        from app.models import User, Question
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_free@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create historical data
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Create one MC question and one free-response question
+        mc_question = Question(
+            question_text="MC question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            distractor_stats={"B": {"count": 10, "top_q": 0, "bottom_q": 0}},
+            is_active=True,
+        )
+        free_response = Question(
+            question_text="Free response question",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="Open-ended",
+            answer_options=None,  # Free response
+            distractor_stats=None,
+            is_active=True,
+        )
+        db_session.add(mc_question)
+        db_session.add(free_response)
+        db_session.commit()
+        db_session.refresh(mc_question)
+        db_session.refresh(free_response)
+
+        # Create responses for both questions
+        response1 = Response(
+            test_session_id=test_session.id,
+            user_id=user.id,
+            question_id=mc_question.id,
+            user_answer="B",
+            is_correct=False,
+            answered_at=datetime.now(timezone.utc),
+        )
+        response2 = Response(
+            test_session_id=test_session.id,
+            user_id=user.id,
+            question_id=free_response.id,
+            user_answer="Some answer",
+            is_correct=True,
+            answered_at=datetime.now(timezone.utc),
+        )
+        db_session.add(response1)
+        db_session.add(response2)
+        db_session.commit()
+
+        # Update with top quartile score
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=22,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "top"
+        assert result["questions_updated"] == 1  # Only MC question updated
+        assert result["questions_skipped"] == 1  # Free response skipped
+
+        # Verify MC question was updated
+        db_session.refresh(mc_question)
+        assert mc_question.distractor_stats["B"]["top_q"] == 1
+
+        # Verify free response still has no stats
+        db_session.refresh(free_response)
+        assert free_response.distractor_stats is None
+
+    def test_no_responses_for_session(self, db_session):
+        """Test handling when session has no responses."""
+        from app.models.models import TestResult, TestSession, TestStatus
+        from app.models import User
+        from app.core.security import hash_password
+        from datetime import datetime, timezone
+
+        user = User(
+            email="session_empty@example.com",
+            password_hash=hash_password("password123"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create historical data
+        for i in range(20):
+            s = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(s)
+            db_session.commit()
+            db_session.refresh(s)
+
+            r = TestResult(
+                test_session_id=s.id,
+                user_id=user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=5 + i,
+                completion_time_seconds=600,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db_session.add(r)
+
+        db_session.commit()
+
+        # Create a new session with NO responses
+        test_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(test_session)
+        db_session.commit()
+        db_session.refresh(test_session)
+
+        # Should handle gracefully
+        result = update_session_quartile_stats(
+            db_session,
+            test_session_id=test_session.id,
+            correct_answers=22,
+            total_questions=20,
+        )
+
+        assert result["quartile"] == "top"
+        assert result["questions_updated"] == 0
+        assert result["questions_skipped"] == 0
