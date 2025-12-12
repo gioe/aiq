@@ -696,9 +696,13 @@ def submit_test(
         )
 
         # Extract results for storage
+        # Store flag_details instead of flags for richer diagnostics
+        # flag_details includes type, severity, source, details, and additional context
         validity_status = validity_assessment["validity_status"]
         validity_flags = (
-            validity_assessment["flags"] if validity_assessment["flags"] else None
+            validity_assessment["flag_details"]
+            if validity_assessment["flag_details"]
+            else None
         )
         validity_checked_at = datetime.now(timezone.utc)
 
@@ -707,7 +711,7 @@ def submit_test(
             logger.warning(
                 f"Test session {test_session.id} validity assessment: "
                 f"status={validity_status}, severity={validity_assessment['severity_score']}, "
-                f"flags={validity_flags}"
+                f"flags={[f['type'] for f in validity_assessment['flag_details']]}"
             )
         else:
             logger.info(
