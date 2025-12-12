@@ -3235,3 +3235,324 @@ class TestDistractorSummaryEndpoint:
             stats["total_questions"] for stats in data["by_question_type"].values()
         )
         assert by_type_sum == data["total_questions_analyzed"]
+
+
+# =============================================================================
+# SESSION VALIDITY ENDPOINT TESTS (CD-009)
+# =============================================================================
+
+
+@pytest.fixture
+def validity_test_session(db_session, test_user, test_questions):
+    """
+    Create a test session with stored validity data for testing the
+    session validity endpoint.
+    """
+    from app.models.models import TestSession, TestResult, Response, TestStatus
+    from datetime import datetime, timezone
+
+    # Create a test session
+    test_session = TestSession(
+        user_id=test_user.id,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        status=TestStatus.COMPLETED,
+    )
+    db_session.add(test_session)
+    db_session.flush()  # Get the session ID
+
+    # Create some responses
+    for i, question in enumerate(test_questions[:5]):
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=test_user.id,
+            question_id=question.id,
+            user_answer="A" if i < 3 else "B",
+            is_correct=(i < 3),  # First 3 correct, last 2 incorrect
+            time_spent_seconds=30 + (i * 10),  # 30, 40, 50, 60, 70 seconds
+        )
+        db_session.add(response)
+
+    # Create test result with stored validity data
+    test_result = TestResult(
+        test_session_id=test_session.id,
+        user_id=test_user.id,
+        iq_score=110,
+        total_questions=5,
+        correct_answers=3,
+        completion_time_seconds=280,
+        validity_status="valid",
+        validity_flags=None,
+        validity_checked_at=datetime.now(timezone.utc),
+    )
+    db_session.add(test_result)
+    db_session.commit()
+    db_session.refresh(test_session)
+
+    return test_session
+
+
+@pytest.fixture
+def suspect_validity_test_session(db_session, test_user, test_questions):
+    """
+    Create a test session with suspect validity status and flags.
+    """
+    from app.models.models import TestSession, TestResult, Response, TestStatus
+    from datetime import datetime, timezone
+
+    # Create a test session
+    test_session = TestSession(
+        user_id=test_user.id,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        status=TestStatus.COMPLETED,
+    )
+    db_session.add(test_session)
+    db_session.flush()
+
+    # Create responses with suspicious timing (rapid responses)
+    for i, question in enumerate(test_questions[:5]):
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=test_user.id,
+            question_id=question.id,
+            user_answer="A",
+            is_correct=True,
+            time_spent_seconds=2 if i < 3 else 30,  # 3 rapid responses
+        )
+        db_session.add(response)
+
+    # Create test result with suspect validity
+    test_result = TestResult(
+        test_session_id=test_session.id,
+        user_id=test_user.id,
+        iq_score=120,
+        total_questions=5,
+        correct_answers=5,
+        completion_time_seconds=100,
+        validity_status="suspect",
+        validity_flags=[
+            {
+                "type": "multiple_rapid_responses",
+                "severity": "high",
+                "source": "time_check",
+                "details": "3 responses completed in under 3 seconds each.",
+                "count": 3,
+            }
+        ],
+        validity_checked_at=datetime.now(timezone.utc),
+    )
+    db_session.add(test_result)
+    db_session.commit()
+    db_session.refresh(test_session)
+
+    return test_session
+
+
+@pytest.fixture
+def unchecked_validity_test_session(db_session, test_user, test_questions):
+    """
+    Create a test session without validity data (simulates pre-CD-007 sessions).
+    """
+    from app.models.models import TestSession, TestResult, Response, TestStatus
+    from datetime import datetime, timezone
+
+    # Create a test session
+    test_session = TestSession(
+        user_id=test_user.id,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        status=TestStatus.COMPLETED,
+    )
+    db_session.add(test_session)
+    db_session.flush()
+
+    # Create responses
+    for i, question in enumerate(test_questions[:5]):
+        response = Response(
+            test_session_id=test_session.id,
+            user_id=test_user.id,
+            question_id=question.id,
+            user_answer="A" if i < 2 else "B",
+            is_correct=(i < 2),
+            time_spent_seconds=45,
+        )
+        db_session.add(response)
+
+    # Create test result WITHOUT validity data (pre-CD-007 simulation)
+    test_result = TestResult(
+        test_session_id=test_session.id,
+        user_id=test_user.id,
+        iq_score=95,
+        total_questions=5,
+        correct_answers=2,
+        completion_time_seconds=225,
+        validity_status="valid",  # Default
+        validity_flags=None,
+        validity_checked_at=None,  # Key: not checked yet
+    )
+    db_session.add(test_result)
+    db_session.commit()
+    db_session.refresh(test_session)
+
+    return test_session
+
+
+class TestSessionValidityEndpoint:
+    """Tests for GET /v1/admin/sessions/{session_id}/validity endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_with_stored_data(
+        self, client, db_session, admin_token_headers, validity_test_session
+    ):
+        """Test getting validity for a session with stored validity data."""
+        response = client.get(
+            f"/v1/admin/sessions/{validity_test_session.id}/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["session_id"] == validity_test_session.id
+        assert data["validity_status"] == "valid"
+        assert data["severity_score"] == 0
+        assert data["confidence"] == 1.0
+        assert data["flags"] == []
+        assert data["flag_details"] == []
+        assert data["completed_at"] is not None
+        assert data["validity_checked_at"] is not None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_with_suspect_status(
+        self, client, db_session, admin_token_headers, suspect_validity_test_session
+    ):
+        """Test getting validity for a session with suspect status and flags."""
+        response = client.get(
+            f"/v1/admin/sessions/{suspect_validity_test_session.id}/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["session_id"] == suspect_validity_test_session.id
+        assert data["validity_status"] == "suspect"
+        assert data["severity_score"] == 2  # 1 high-severity flag = 2 points
+        assert len(data["flags"]) == 1
+        assert "multiple_rapid_responses" in data["flags"]
+        assert len(data["flag_details"]) == 1
+        assert data["flag_details"][0]["type"] == "multiple_rapid_responses"
+        assert data["flag_details"][0]["severity"] == "high"
+        assert data["flag_details"][0]["source"] == "time_check"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_on_demand(
+        self, client, db_session, admin_token_headers, unchecked_validity_test_session
+    ):
+        """Test on-demand validity analysis for sessions without stored data."""
+        response = client.get(
+            f"/v1/admin/sessions/{unchecked_validity_test_session.id}/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["session_id"] == unchecked_validity_test_session.id
+        # On-demand analysis should return a status
+        assert data["validity_status"] in ["valid", "suspect", "invalid"]
+        assert "severity_score" in data
+        assert "confidence" in data
+        assert "flags" in data
+        assert "flag_details" in data
+        # On-demand analysis includes full details
+        assert data["details"] is not None
+        assert "person_fit" in data["details"]
+        assert "time_check" in data["details"]
+        assert "guttman_check" in data["details"]
+        # Not stored
+        assert data["validity_checked_at"] is None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_not_found(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test getting validity for a non-existent session."""
+        response = client.get(
+            "/v1/admin/sessions/999999/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_requires_auth(self, client, db_session):
+        """Test that the endpoint requires admin authentication."""
+        response = client.get("/v1/admin/sessions/1/validity")
+
+        assert response.status_code == 422  # Missing required header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_invalid_token(
+        self, client, db_session, validity_test_session
+    ):
+        """Test that the endpoint rejects invalid admin tokens."""
+        response = client.get(
+            f"/v1/admin/sessions/{validity_test_session.id}/validity",
+            headers={"X-Admin-Token": "invalid-token"},
+        )
+
+        assert response.status_code == 401
+        assert "invalid" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", None)
+    def test_get_session_validity_token_not_configured(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test behavior when admin token is not configured on server."""
+        response = client.get(
+            "/v1/admin/sessions/1/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 500
+        assert "not configured" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_get_session_validity_response_schema(
+        self, client, db_session, admin_token_headers, validity_test_session
+    ):
+        """Test that the response matches the expected schema."""
+        response = client.get(
+            f"/v1/admin/sessions/{validity_test_session.id}/validity",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check required fields
+        assert "session_id" in data
+        assert "user_id" in data
+        assert "validity_status" in data
+        assert "severity_score" in data
+        assert "confidence" in data
+        assert "flags" in data
+        assert "flag_details" in data
+
+        # Check types
+        assert isinstance(data["session_id"], int)
+        assert isinstance(data["user_id"], int)
+        assert isinstance(data["validity_status"], str)
+        assert isinstance(data["severity_score"], int)
+        assert isinstance(data["confidence"], float)
+        assert isinstance(data["flags"], list)
+        assert isinstance(data["flag_details"], list)
+
+        # Check validity_status is a valid enum value
+        assert data["validity_status"] in ["valid", "suspect", "invalid"]
+
+        # Check confidence is in valid range
+        assert 0.0 <= data["confidence"] <= 1.0

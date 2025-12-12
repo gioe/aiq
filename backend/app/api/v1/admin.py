@@ -64,7 +64,25 @@ from app.schemas.distractor_analysis import (
     NonFunctioningCountBreakdown,
     WorstOffenderQuestion,
 )
-from app.models import Question
+from app.schemas.validity import (
+    SessionValidityResponse,
+    ValidityFlag,
+    ValidityDetails,
+    PersonFitDetails,
+    TimeCheckDetails,
+    TimeCheckStatistics,
+    GuttmanCheckDetails,
+    ValidityStatus,
+    SeverityLevel as ValiditySeverityLevel,
+    FlagSource,
+)
+from app.core.validity_analysis import (
+    calculate_person_fit_heuristic,
+    check_response_time_plausibility,
+    count_guttman_errors,
+    assess_session_validity,
+)
+from app.models import Question, TestSession, TestResult, Response
 
 router = APIRouter()
 
@@ -1803,3 +1821,377 @@ async def get_distractor_summary(
             status_code=500,
             detail=f"Failed to retrieve distractor summary: {str(e)}",
         )
+
+
+# =============================================================================
+# SESSION VALIDITY ENDPOINT (CD-009)
+# =============================================================================
+
+
+@router.get(
+    "/sessions/{session_id}/validity",
+    response_model=SessionValidityResponse,
+    responses={
+        404: {"description": "Test session not found"},
+    },
+)
+async def get_session_validity(
+    session_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Get detailed validity analysis for a single test session.
+
+    Returns the validity assessment for a specific test session, including
+    the overall validity status, severity score, confidence level, and
+    detailed breakdown of each validity check component.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Validity Status:**
+    - `valid`: No significant concerns, session is valid
+    - `suspect`: Moderate concerns, may need manual review
+    - `invalid`: Strong concerns, requires admin review
+
+    **Severity Score:**
+    Combined score from all validity checks:
+    - Aberrant person-fit: +2 points
+    - High-severity time flags: +2 points each
+    - High Guttman errors: +2 points
+    - Elevated Guttman errors: +1 point
+
+    **Confidence:**
+    Inverse of severity (1.0 = fully confident, decreases by 0.15 per severity point)
+
+    **On-Demand Analysis:**
+    If the session has not been validity-checked yet (sessions from before CD-007),
+    validity analysis will be performed on-demand and the result will be returned
+    (but not stored).
+
+    Args:
+        session_id: The test session ID to analyze
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        SessionValidityResponse with full validity breakdown
+
+    Raises:
+        HTTPException 404: If the test session is not found
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/sessions/123/validity" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    try:
+        # Get test session
+        test_session = (
+            db.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+
+        if test_session is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Test session with ID {session_id} not found",
+            )
+
+        # Get test result (which contains stored validity data)
+        test_result = (
+            db.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        # Check if we need to run validity analysis on-demand
+        # This handles sessions completed before CD-007 was implemented
+        if test_result is not None and test_result.validity_checked_at is not None:
+            # Use stored validity data
+            return _build_validity_response_from_stored_data(
+                session_id=session_id,
+                user_id=int(test_session.user_id),  # type: ignore[arg-type]
+                test_result=test_result,
+                test_session=test_session,
+            )
+        else:
+            # Run validity analysis on-demand
+            return _run_validity_analysis_on_demand(
+                session_id=session_id,
+                test_session=test_session,
+                test_result=test_result,
+                db=db,
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve session validity: {str(e)}",
+        )
+
+
+def _build_validity_response_from_stored_data(
+    session_id: int,
+    user_id: int,
+    test_result: TestResult,
+    test_session: TestSession,
+) -> SessionValidityResponse:
+    """
+    Build SessionValidityResponse from stored validity data in TestResult.
+
+    Args:
+        session_id: The test session ID
+        user_id: The user ID who took the test
+        test_result: The TestResult record containing stored validity data
+        test_session: The TestSession record
+
+    Returns:
+        SessionValidityResponse built from stored data
+    """
+    # Extract stored values
+    validity_status = test_result.validity_status or "valid"
+    stored_flags: list[dict[str, Any]] = test_result.validity_flags or []  # type: ignore[assignment]
+
+    # Convert stored flag details to ValidityFlag objects
+    flag_details: list[ValidityFlag] = []
+    flag_types: list[str] = []
+
+    for flag_data in stored_flags:
+        flag_type = flag_data.get("type", "unknown")
+        flag_types.append(flag_type)
+
+        # Map severity string to enum
+        severity_str = flag_data.get("severity", "medium")
+        severity = ValiditySeverityLevel.MEDIUM
+        if severity_str == "high":
+            severity = ValiditySeverityLevel.HIGH
+        elif severity_str == "low":
+            severity = ValiditySeverityLevel.LOW
+
+        # Map source string to enum
+        source_str = flag_data.get("source", "time_check")
+        source = FlagSource.TIME_CHECK
+        if source_str == "person_fit":
+            source = FlagSource.PERSON_FIT
+        elif source_str == "guttman_check":
+            source = FlagSource.GUTTMAN_CHECK
+
+        flag_details.append(
+            ValidityFlag(
+                type=flag_type,
+                severity=severity,
+                source=source,
+                details=flag_data.get("details", ""),
+                count=flag_data.get("count"),
+                error_rate=flag_data.get("error_rate"),
+            )
+        )
+
+    # Calculate severity score from flags
+    severity_score = 0
+    for flag in flag_details:
+        if flag.severity == ValiditySeverityLevel.HIGH:
+            severity_score += 2
+        elif flag.severity == ValiditySeverityLevel.MEDIUM:
+            severity_score += 1
+
+    # Calculate confidence (inverse of severity)
+    confidence = max(0.0, 1.0 - (severity_score * 0.15))
+
+    return SessionValidityResponse(
+        session_id=session_id,
+        user_id=user_id,
+        validity_status=ValidityStatus(validity_status),
+        severity_score=severity_score,
+        confidence=round(confidence, 2),
+        flags=flag_types,
+        flag_details=flag_details,
+        details=None,  # Full details require re-running analysis
+        completed_at=test_session.completed_at,  # type: ignore[arg-type]
+        validity_checked_at=test_result.validity_checked_at,  # type: ignore[arg-type]
+    )
+
+
+def _run_validity_analysis_on_demand(
+    session_id: int,
+    test_session: TestSession,
+    test_result: Optional[TestResult],
+    db: Session,
+) -> SessionValidityResponse:
+    """
+    Run validity analysis on-demand for sessions without stored validity data.
+
+    This handles sessions completed before CD-007 was implemented, running
+    the full validity analysis pipeline and returning the results.
+
+    Args:
+        session_id: The test session ID
+        test_session: The TestSession record
+        test_result: The TestResult record (may be None for abandoned sessions)
+        db: Database session
+
+    Returns:
+        SessionValidityResponse with fresh analysis results
+    """
+    # Get responses for this session
+    responses = db.query(Response).filter(Response.test_session_id == session_id).all()
+
+    if not responses:
+        # Session with no responses - return empty validity
+        return SessionValidityResponse(
+            session_id=session_id,
+            user_id=int(test_session.user_id),  # type: ignore[arg-type]
+            validity_status=ValidityStatus.VALID,
+            severity_score=0,
+            confidence=1.0,
+            flags=[],
+            flag_details=[],
+            details=None,
+            completed_at=test_session.completed_at,  # type: ignore[arg-type]
+            validity_checked_at=None,
+        )
+
+    # Get questions for difficulty data
+    question_ids = [r.question_id for r in responses]
+    questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+    questions_dict = {q.id: q for q in questions}
+
+    # Calculate correct count for person-fit analysis
+    correct_count = sum(1 for r in responses if r.is_correct)
+
+    # Prepare person-fit data: (is_correct, difficulty_level) tuples
+    person_fit_data: list[tuple[bool, str]] = [
+        (
+            bool(r.is_correct),  # type: ignore[arg-type]
+            str(questions_dict[r.question_id].difficulty_level.value)  # type: ignore[union-attr]
+            if r.question_id in questions_dict
+            and questions_dict[r.question_id].difficulty_level is not None
+            else "medium",
+        )
+        for r in responses
+        if r.question_id in questions_dict
+    ]
+
+    # Prepare time check data
+    time_check_data = [
+        {
+            "time_seconds": r.time_spent_seconds,
+            "is_correct": r.is_correct,
+            "difficulty": str(questions_dict[r.question_id].difficulty_level.value)  # type: ignore[union-attr]
+            if r.question_id in questions_dict
+            and questions_dict[r.question_id].difficulty_level is not None
+            else "medium",
+        }
+        for r in responses
+        if r.question_id in questions_dict
+    ]
+
+    # Prepare Guttman data: (is_correct, empirical_difficulty) tuples
+    guttman_data: list[tuple[bool, float]] = [
+        (
+            bool(r.is_correct),  # type: ignore[arg-type]
+            float(questions_dict[r.question_id].empirical_difficulty),  # type: ignore[arg-type]
+        )
+        for r in responses
+        if r.question_id in questions_dict
+        and questions_dict[r.question_id].empirical_difficulty is not None
+    ]
+
+    # Run validity checks
+    person_fit_result = calculate_person_fit_heuristic(
+        responses=person_fit_data, total_score=correct_count
+    )
+    time_check_result = check_response_time_plausibility(responses=time_check_data)
+    guttman_result = count_guttman_errors(responses=guttman_data)
+
+    # Combine into overall assessment
+    validity_assessment = assess_session_validity(
+        person_fit=person_fit_result,
+        time_check=time_check_result,
+        guttman_check=guttman_result,
+    )
+
+    # Build ValidityFlag objects from assessment
+    flag_details: list[ValidityFlag] = []
+    for flag_data in validity_assessment["flag_details"]:
+        flag_type = flag_data.get("type", "unknown")
+
+        # Map severity string to enum
+        severity_str = flag_data.get("severity", "medium")
+        severity = ValiditySeverityLevel.MEDIUM
+        if severity_str == "high":
+            severity = ValiditySeverityLevel.HIGH
+        elif severity_str == "low":
+            severity = ValiditySeverityLevel.LOW
+
+        # Map source string to enum
+        source_str = flag_data.get("source", "time_check")
+        source = FlagSource.TIME_CHECK
+        if source_str == "person_fit":
+            source = FlagSource.PERSON_FIT
+        elif source_str == "guttman_check":
+            source = FlagSource.GUTTMAN_CHECK
+
+        flag_details.append(
+            ValidityFlag(
+                type=flag_type,
+                severity=severity,
+                source=source,
+                details=flag_data.get("details", ""),
+                count=flag_data.get("count"),
+                error_rate=flag_data.get("error_rate"),
+            )
+        )
+
+    # Build ValidityDetails with full breakdown from all three checks
+    details = ValidityDetails(
+        person_fit=PersonFitDetails(
+            fit_ratio=person_fit_result["fit_ratio"],
+            fit_flag=person_fit_result["fit_flag"],
+            unexpected_correct=person_fit_result["unexpected_correct"],
+            unexpected_incorrect=person_fit_result["unexpected_incorrect"],
+            total_responses=person_fit_result["total_responses"],
+            score_percentile=person_fit_result["score_percentile"],
+            details=person_fit_result["details"],
+        ),
+        time_check=TimeCheckDetails(
+            validity_concern=time_check_result["validity_concern"],
+            total_time_seconds=time_check_result["total_time_seconds"],
+            rapid_response_count=time_check_result["rapid_response_count"],
+            extended_pause_count=time_check_result["extended_pause_count"],
+            fast_hard_correct_count=time_check_result["fast_hard_correct_count"],
+            statistics=TimeCheckStatistics(
+                mean_time=time_check_result["statistics"]["mean_time"],
+                min_time=time_check_result["statistics"]["min_time"],
+                max_time=time_check_result["statistics"]["max_time"],
+                total_responses=time_check_result["statistics"]["total_responses"],
+            ),
+            details=time_check_result["details"],
+        ),
+        guttman_check=GuttmanCheckDetails(
+            error_count=guttman_result["error_count"],
+            max_possible_errors=guttman_result["max_possible_errors"],
+            error_rate=guttman_result["error_rate"],
+            interpretation=guttman_result["interpretation"],
+            total_responses=guttman_result["total_responses"],
+            correct_count=guttman_result["correct_count"],
+            incorrect_count=guttman_result["incorrect_count"],
+            details=guttman_result["details"],
+        ),
+    )
+
+    return SessionValidityResponse(
+        session_id=session_id,
+        user_id=int(test_session.user_id),  # type: ignore[arg-type]
+        validity_status=ValidityStatus(validity_assessment["validity_status"]),
+        severity_score=validity_assessment["severity_score"],
+        confidence=validity_assessment["confidence"],
+        flags=validity_assessment["flags"],
+        flag_details=flag_details,
+        details=details,
+        completed_at=test_session.completed_at,  # type: ignore[arg-type]
+        validity_checked_at=None,  # Not stored since this is on-demand
+    )
