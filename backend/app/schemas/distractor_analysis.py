@@ -254,3 +254,191 @@ class InsufficientDataResponse(BaseModel):
                 "insufficient_data": True,
             }
         }
+
+
+# =============================================================================
+# Bulk Distractor Summary (DA-009)
+# =============================================================================
+
+
+class NonFunctioningCountBreakdown(BaseModel):
+    """Breakdown of questions by number of non-functioning distractors."""
+
+    zero: int = Field(
+        ...,
+        ge=0,
+        description="Questions with 0 non-functioning distractors",
+    )
+    one: int = Field(
+        ...,
+        ge=0,
+        description="Questions with 1 non-functioning distractor",
+    )
+    two: int = Field(
+        ...,
+        ge=0,
+        description="Questions with 2 non-functioning distractors",
+    )
+    three_or_more: int = Field(
+        ...,
+        ge=0,
+        description="Questions with 3+ non-functioning distractors",
+    )
+
+
+class QuestionTypeDistractorStats(BaseModel):
+    """Distractor statistics for a specific question type."""
+
+    total_questions: int = Field(
+        ...,
+        ge=0,
+        description="Total questions analyzed of this type",
+    )
+    questions_with_issues: int = Field(
+        ...,
+        ge=0,
+        description="Questions with at least one non-functioning or inverted distractor",
+    )
+    avg_effective_options: Optional[float] = Field(
+        None,
+        description="Average effective option count across questions of this type",
+    )
+
+
+class WorstOffenderQuestion(BaseModel):
+    """A question with the most distractor issues."""
+
+    question_id: int = Field(
+        ...,
+        description="Unique identifier of the question",
+    )
+    question_type: str = Field(
+        ...,
+        description="Type of the question (pattern, logic, spatial, etc.)",
+    )
+    difficulty_level: str = Field(
+        ...,
+        description="Assigned difficulty level (easy, medium, hard)",
+    )
+    non_functioning_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of non-functioning distractors",
+    )
+    inverted_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of inverted distractors",
+    )
+    total_responses: int = Field(
+        ...,
+        ge=0,
+        description="Total number of responses for this question",
+    )
+    effective_option_count: float = Field(
+        ...,
+        ge=0.0,
+        description="Effective number of options (inverse Simpson index)",
+    )
+
+
+class DistractorSummaryResponse(BaseModel):
+    """
+    Response schema for GET /v1/admin/questions/distractor-summary.
+
+    Provides aggregate distractor effectiveness statistics across all
+    multiple-choice questions with sufficient response data.
+    """
+
+    total_questions_analyzed: int = Field(
+        ...,
+        ge=0,
+        description="Total multiple-choice questions with sufficient data for analysis",
+    )
+    questions_with_non_functioning_distractors: int = Field(
+        ...,
+        ge=0,
+        description="Questions with at least one non-functioning distractor (<2% selection)",
+    )
+    questions_with_inverted_distractors: int = Field(
+        ...,
+        ge=0,
+        description="Questions with at least one inverted distractor (high scorers prefer)",
+    )
+    non_functioning_rate: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Proportion of questions with non-functioning distractors",
+    )
+    inverted_rate: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Proportion of questions with inverted distractors",
+    )
+    by_non_functioning_count: NonFunctioningCountBreakdown = Field(
+        ...,
+        description="Breakdown of questions by number of non-functioning distractors",
+    )
+    worst_offenders: List[WorstOffenderQuestion] = Field(
+        ...,
+        description="Top 10 questions with most distractor issues (sorted by severity)",
+    )
+    by_question_type: dict = Field(
+        ...,
+        description="Distractor statistics grouped by question type",
+    )
+    avg_effective_option_count: Optional[float] = Field(
+        None,
+        description="Average effective option count across all analyzed questions",
+    )
+    questions_below_threshold: int = Field(
+        ...,
+        ge=0,
+        description="Questions with insufficient responses for analysis",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "total_questions_analyzed": 450,
+                "questions_with_non_functioning_distractors": 67,
+                "questions_with_inverted_distractors": 12,
+                "non_functioning_rate": 0.149,
+                "inverted_rate": 0.027,
+                "by_non_functioning_count": {
+                    "zero": 383,
+                    "one": 52,
+                    "two": 12,
+                    "three_or_more": 3,
+                },
+                "worst_offenders": [
+                    {
+                        "question_id": 123,
+                        "question_type": "pattern",
+                        "difficulty_level": "medium",
+                        "non_functioning_count": 3,
+                        "inverted_count": 1,
+                        "total_responses": 156,
+                        "effective_option_count": 1.2,
+                    }
+                ],
+                "by_question_type": {
+                    "pattern": {
+                        "total_questions": 100,
+                        "questions_with_issues": 15,
+                        "avg_effective_options": 3.2,
+                    },
+                    "logic": {
+                        "total_questions": 80,
+                        "questions_with_issues": 10,
+                        "avg_effective_options": 3.4,
+                    },
+                },
+                "avg_effective_option_count": 3.1,
+                "questions_below_threshold": 25,
+            }
+        }

@@ -199,8 +199,8 @@ def analyze_distractor_effectiveness(
 ---
 
 ### DA-009: Create Bulk Distractor Summary Endpoint
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/endpoints/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/core/distractor_analysis.py`, `backend/app/schemas/distractor_analysis.py`, `backend/tests/test_admin.py`
 **Description:** Create admin endpoint for bulk distractor analysis across all questions.
 
 **Endpoint:** `GET /v1/admin/questions/distractor-summary`
@@ -218,11 +218,11 @@ def analyze_distractor_effectiveness(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Filters to only multiple-choice questions
-- [ ] Identifies worst offenders (most non-functioning distractors)
-- [ ] Groups statistics by question type
-- [ ] Handles empty dataset gracefully
+- [x] Endpoint requires admin authentication
+- [x] Filters to only multiple-choice questions
+- [x] Identifies worst offenders (most non-functioning distractors)
+- [x] Groups statistics by question type
+- [x] Handles empty dataset gracefully
 
 ---
 
