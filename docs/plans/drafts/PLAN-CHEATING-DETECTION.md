@@ -399,8 +399,8 @@ def assess_session_validity(
 ---
 
 ### CD-016: Handle Edge Cases in Validity Analysis
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/validity_analysis.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/validity_analysis.py`, `backend/tests/test_validity_analysis.py`
 **Description:** Ensure all edge cases are properly handled in validity analysis functions.
 
 **Edge Cases:**
@@ -411,13 +411,24 @@ def assess_session_validity(
 5. Partial test submissions (abandoned)
 6. Already-validated sessions (skip re-validation)
 
+**Implementation Summary:**
+- Added `MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS` constant (default: 5)
+- Added adjusted thresholds for short tests (`SHORT_TEST_*` constants)
+- Added `estimate_empirical_difficulty_from_level()` for Guttman fallback
+- Added `count_guttman_errors_with_fallback()` function
+- Added `check_validity_for_abandoned_session()` function
+- Added `should_skip_revalidation()` function
+- Added `run_validity_analysis_with_edge_case_handling()` entry point function
+- Added `is_short_test` and `threshold_used` fields to results
+- Added 27 new unit tests in `TestEdgeCaseHandling` and `TestShortTestBoundaryConditions`
+
 **Acceptance Criteria:**
-- [ ] Empty response lists handled gracefully
-- [ ] Missing time data skips time plausibility check
-- [ ] Missing difficulty uses difficulty_level fallback for Guttman
-- [ ] Short tests use adjusted thresholds
-- [ ] Abandoned sessions handled appropriately
-- [ ] Re-validation is idempotent
+- [x] Empty response lists handled gracefully
+- [x] Missing time data skips time plausibility check
+- [x] Missing difficulty uses difficulty_level fallback for Guttman
+- [x] Short tests use adjusted thresholds
+- [x] Abandoned sessions handled appropriately
+- [x] Re-validation is idempotent
 
 ---
 

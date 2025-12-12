@@ -112,6 +112,68 @@ TOTAL_TIME_TOO_FAST_SECONDS = 300  # 5 minutes
 TOTAL_TIME_EXCESSIVE_SECONDS = 7200  # 2 hours
 
 
+# =============================================================================
+# SHORT TEST THRESHOLDS (CD-016)
+# =============================================================================
+#
+# Adjusted thresholds for very short tests (< 5 questions) where statistical
+# methods have reduced reliability due to small sample sizes.
+#
+# Reference:
+#   - docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-016)
+
+# Minimum number of questions for full validity analysis
+# Tests with fewer questions use adjusted thresholds
+MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS = 5
+
+# For short tests, we require more extreme patterns before flagging
+# This reduces false positives when sample size is small
+SHORT_TEST_FIT_RATIO_THRESHOLD = 0.40  # Higher threshold for short tests
+SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD = 0.45  # Higher threshold
+SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD = 0.30  # Higher threshold
+
+# Minimum rapid responses for short tests (proportionally adjusted)
+SHORT_TEST_RAPID_RESPONSE_COUNT_THRESHOLD = 2  # Lower absolute count
+
+
+# =============================================================================
+# EMPIRICAL DIFFICULTY FALLBACK (CD-016)
+# =============================================================================
+#
+# When empirical difficulty (p-value from historical data) is not available,
+# we can estimate it from the categorical difficulty_level. These estimates
+# are based on typical item difficulty distributions in IQ tests.
+#
+# Reference:
+#   - docs/plans/drafts/PLAN-CHEATING-DETECTION.md (CD-016)
+
+# Estimated p-values (proportion correct) for each difficulty level
+# Higher values = easier (more people get it right)
+DIFFICULTY_LEVEL_TO_ESTIMATED_P_VALUE = {
+    "easy": 0.75,  # ~75% of test-takers get easy items correct
+    "medium": 0.50,  # ~50% of test-takers get medium items correct
+    "hard": 0.25,  # ~25% of test-takers get hard items correct
+}
+
+
+def estimate_empirical_difficulty_from_level(difficulty_level: str) -> float:
+    """
+    Estimate empirical difficulty (p-value) from categorical difficulty level.
+
+    This fallback is used when empirical_difficulty has not been calculated
+    from historical response data. The estimates are based on typical item
+    difficulty distributions in standardized tests.
+
+    Args:
+        difficulty_level: Categorical difficulty ("easy", "medium", "hard")
+
+    Returns:
+        Estimated p-value (0.0-1.0), where higher = easier
+    """
+    level = difficulty_level.lower() if isinstance(difficulty_level, str) else "medium"
+    return DIFFICULTY_LEVEL_TO_ESTIMATED_P_VALUE.get(level, 0.50)
+
+
 def calculate_person_fit_heuristic(
     responses: List[Tuple[bool, str]], total_score: int
 ) -> Dict[str, Any]:
@@ -234,27 +296,37 @@ def calculate_person_fit_heuristic(
     total_unexpected = unexpected_correct + unexpected_incorrect
     fit_ratio = total_unexpected / total_responses if total_responses > 0 else 0.0
 
+    # CD-016: Use adjusted threshold for short tests (< 5 questions)
+    # Short tests have higher variance, so we require more extreme patterns
+    is_short_test = total_responses < MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+    threshold = (
+        SHORT_TEST_FIT_RATIO_THRESHOLD
+        if is_short_test
+        else FIT_RATIO_ABERRANT_THRESHOLD
+    )
+
     # Determine fit flag
-    fit_flag = "aberrant" if fit_ratio >= FIT_RATIO_ABERRANT_THRESHOLD else "normal"
+    fit_flag = "aberrant" if fit_ratio >= threshold else "normal"
 
     # Generate details message
+    short_test_note = " (short test - adjusted threshold)" if is_short_test else ""
     if fit_flag == "aberrant":
         details = (
             f"Response pattern shows {total_unexpected} unexpected answers "
             f"({unexpected_correct} unexpected correct on hard, "
             f"{unexpected_incorrect} unexpected incorrect on easy). "
-            f"Fit ratio {fit_ratio:.2f} exceeds threshold {FIT_RATIO_ABERRANT_THRESHOLD}."
+            f"Fit ratio {fit_ratio:.2f} exceeds threshold {threshold}{short_test_note}."
         )
     else:
         details = (
             f"Response pattern is consistent with expected performance. "
-            f"Fit ratio {fit_ratio:.2f} is within normal range."
+            f"Fit ratio {fit_ratio:.2f} is within normal range{short_test_note}."
         )
 
     logger.info(
         f"Person-fit analysis: score={total_score}/{total_responses}, "
         f"percentile={score_percentile}, fit_ratio={fit_ratio:.3f}, "
-        f"fit_flag={fit_flag}"
+        f"fit_flag={fit_flag}, short_test={is_short_test}"
     )
 
     return {
@@ -266,6 +338,8 @@ def calculate_person_fit_heuristic(
         "score_percentile": score_percentile,
         "by_difficulty": by_difficulty,
         "details": details,
+        "is_short_test": is_short_test,  # CD-016: Track short test status
+        "threshold_used": threshold,  # CD-016: Track which threshold was applied
     }
 
 
@@ -322,6 +396,8 @@ def _create_empty_person_fit_result() -> Dict[str, Any]:
             },
         },
         "details": "No responses to analyze.",
+        "is_short_test": True,  # CD-016: Empty is considered short
+        "threshold_used": SHORT_TEST_FIT_RATIO_THRESHOLD,  # CD-016
     }
 
 
@@ -465,10 +541,22 @@ def check_response_time_plausibility(responses: List[Dict[str, Any]]) -> Dict[st
     min_time = min(response_times)
     max_time = max(response_times)
 
+    # CD-016: Determine if this is a short test
+    total_responses = len(response_times)
+    is_short_test = total_responses < MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+
+    # CD-016: Adjust rapid response threshold for short tests
+    # For short tests, use lower absolute count but still flag if pattern is extreme
+    rapid_threshold = (
+        SHORT_TEST_RAPID_RESPONSE_COUNT_THRESHOLD
+        if is_short_test
+        else RAPID_RESPONSE_COUNT_THRESHOLD
+    )
+
     # Generate flags based on thresholds
 
     # Flag: Multiple rapid responses (high severity)
-    if rapid_response_count >= RAPID_RESPONSE_COUNT_THRESHOLD:
+    if rapid_response_count >= rapid_threshold:
         flags.append(
             {
                 "type": "multiple_rapid_responses",
@@ -565,7 +653,8 @@ def check_response_time_plausibility(responses: List[Dict[str, Any]]) -> Dict[st
         f"Response time analysis: total={total_time_seconds:.0f}s, "
         f"mean={mean_time:.1f}s, rapid={rapid_response_count}, "
         f"pauses={extended_pause_count}, fast_hard={fast_hard_correct_count}, "
-        f"flags={len(flags)}, validity_concern={validity_concern}"
+        f"flags={len(flags)}, validity_concern={validity_concern}, "
+        f"short_test={is_short_test}"
     )
 
     return {
@@ -579,9 +668,10 @@ def check_response_time_plausibility(responses: List[Dict[str, Any]]) -> Dict[st
             "mean_time": round(mean_time, 1),
             "min_time": round(min_time, 1),
             "max_time": round(max_time, 1),
-            "total_responses": len(response_times),
+            "total_responses": total_responses,
         },
         "details": details,
+        "is_short_test": is_short_test,  # CD-016: Track short test status
     }
 
 
@@ -611,6 +701,7 @@ def _create_empty_time_check_result(
             "total_responses": 0,
         },
         "details": details,
+        "is_short_test": True,  # CD-016: Empty is considered short
     }
 
 
@@ -771,38 +862,55 @@ def count_guttman_errors(responses: List[Tuple[bool, float]]) -> Dict[str, Any]:
     # Calculate error rate
     error_rate = error_count / max_possible_errors if max_possible_errors > 0 else 0.0
 
+    # CD-016: Use adjusted thresholds for short tests (< 5 items)
+    # Short tests have higher variance, so require more extreme patterns
+    is_short_test = len(sorted_responses) < MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS
+    aberrant_threshold = (
+        SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD
+        if is_short_test
+        else GUTTMAN_ERROR_ABERRANT_THRESHOLD
+    )
+    elevated_threshold = (
+        SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD
+        if is_short_test
+        else GUTTMAN_ERROR_ELEVATED_THRESHOLD
+    )
+
     # Determine interpretation
-    if error_rate > GUTTMAN_ERROR_ABERRANT_THRESHOLD:
+    if error_rate > aberrant_threshold:
         interpretation = "high_errors_aberrant"
-    elif error_rate > GUTTMAN_ERROR_ELEVATED_THRESHOLD:
+    elif error_rate > elevated_threshold:
         interpretation = "elevated_errors"
     else:
         interpretation = "normal"
 
     # Generate details message
+    short_test_note = " (short test - adjusted threshold)" if is_short_test else ""
     if interpretation == "high_errors_aberrant":
         details = (
             f"High Guttman error rate detected: {error_count} errors out of "
             f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
             f"This pattern strongly suggests aberrant responding - harder items "
-            f"answered correctly while easier items missed."
+            f"answered correctly while easier items missed{short_test_note}."
         )
     elif interpretation == "elevated_errors":
         details = (
             f"Elevated Guttman error rate: {error_count} errors out of "
             f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
-            f"Pattern shows some unexpected reversals in difficulty-correctness relationship."
+            f"Pattern shows some unexpected reversals in difficulty-correctness "
+            f"relationship{short_test_note}."
         )
     else:
         details = (
             f"Normal Guttman pattern: {error_count} errors out of "
             f"{max_possible_errors} possible pairs ({error_rate:.1%}). "
-            f"Response pattern is consistent with expected difficulty ordering."
+            f"Response pattern is consistent with expected difficulty ordering{short_test_note}."
         )
 
     logger.info(
         f"Guttman error analysis: errors={error_count}/{max_possible_errors}, "
-        f"rate={error_rate:.3f}, interpretation={interpretation}"
+        f"rate={error_rate:.3f}, interpretation={interpretation}, "
+        f"short_test={is_short_test}"
     )
 
     return {
@@ -814,6 +922,9 @@ def count_guttman_errors(responses: List[Tuple[bool, float]]) -> Dict[str, Any]:
         "correct_count": correct_count,
         "incorrect_count": incorrect_count,
         "details": details,
+        "is_short_test": is_short_test,  # CD-016: Track short test status
+        "aberrant_threshold": aberrant_threshold,  # CD-016: Track threshold used
+        "elevated_threshold": elevated_threshold,  # CD-016: Track threshold used
     }
 
 
@@ -844,6 +955,9 @@ def _create_empty_guttman_result(
         "correct_count": correct_count,
         "incorrect_count": incorrect_count,
         "details": details,
+        "is_short_test": True,  # CD-016: Empty/insufficient data is considered short
+        "aberrant_threshold": SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD,  # CD-016
+        "elevated_threshold": SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD,  # CD-016
     }
 
 
@@ -1073,3 +1187,284 @@ def assess_session_validity(
         "components": components,
         "details": details,
     }
+
+
+# =============================================================================
+# EDGE CASE HANDLING FUNCTIONS (CD-016)
+# =============================================================================
+
+
+def count_guttman_errors_with_fallback(
+    responses: List[Tuple[bool, float | None, str | None]],
+) -> Dict[str, Any]:
+    """
+    Count Guttman errors with fallback from empirical_difficulty to difficulty_level.
+
+    This function handles the case where some or all questions lack empirical
+    difficulty values. When empirical_difficulty is None, it estimates the value
+    from the categorical difficulty_level using predefined p-value estimates.
+
+    Args:
+        responses: List of tuples containing:
+            (is_correct, empirical_difficulty, difficulty_level)
+            where:
+            - is_correct: bool indicating if answer was correct
+            - empirical_difficulty: float p-value (0.0-1.0) or None
+            - difficulty_level: str ("easy", "medium", "hard") or None
+
+    Returns:
+        Same dictionary as count_guttman_errors(), plus:
+        - used_fallback: bool indicating if fallback was used for any items
+
+    Edge Cases Handled:
+        - empirical_difficulty is None: Uses estimated value from difficulty_level
+        - Both empirical_difficulty and difficulty_level are None: Uses 0.5 default
+        - All items use fallback: Logs warning about reduced reliability
+    """
+    if not responses:
+        result = _create_empty_guttman_result()
+        result["used_fallback"] = False
+        return result
+
+    # Convert responses to (is_correct, difficulty_value) tuples
+    # using fallback when empirical_difficulty is missing
+    converted_responses: List[Tuple[bool, float]] = []
+    fallback_count = 0
+
+    for is_correct, empirical_diff, diff_level in responses:
+        if empirical_diff is not None:
+            try:
+                difficulty_value = float(empirical_diff)
+            except (ValueError, TypeError):
+                # Invalid empirical_difficulty, use fallback
+                difficulty_value = estimate_empirical_difficulty_from_level(
+                    diff_level or "medium"
+                )
+                fallback_count += 1
+        else:
+            # No empirical difficulty, use fallback from difficulty_level
+            difficulty_value = estimate_empirical_difficulty_from_level(
+                diff_level or "medium"
+            )
+            fallback_count += 1
+
+        converted_responses.append((is_correct, difficulty_value))
+
+    # Log if all items used fallback (reduced reliability)
+    if fallback_count == len(responses):
+        logger.warning(
+            f"Guttman analysis: all {len(responses)} items used fallback difficulty "
+            "estimates. Results may have reduced reliability."
+        )
+    elif fallback_count > 0:
+        logger.info(
+            f"Guttman analysis: {fallback_count}/{len(responses)} items used "
+            "fallback difficulty estimates."
+        )
+
+    # Run standard Guttman analysis with converted data
+    result = count_guttman_errors(converted_responses)
+    result["used_fallback"] = fallback_count > 0
+    result["fallback_count"] = fallback_count
+
+    return result
+
+
+def check_validity_for_abandoned_session() -> Dict[str, Any]:
+    """
+    Create a validity result for an abandoned test session.
+
+    Abandoned sessions (not completed, marked as abandoned) are handled specially:
+    - They are not flagged as invalid for cheating
+    - The validity status is set to "incomplete" (a neutral status)
+    - No flags are generated since the test was not completed
+
+    Returns:
+        Dictionary with validity assessment for abandoned session:
+        {
+            "validity_status": "incomplete",
+            "severity_score": 0,
+            "confidence": 1.0,
+            "flags": [],
+            "flag_details": [],
+            "components": {...},
+            "details": "Session was abandoned before completion.",
+            "is_abandoned": True
+        }
+    """
+    logger.info("Validity check skipped: session was abandoned before completion")
+
+    return {
+        "validity_status": "incomplete",
+        "severity_score": 0,
+        "confidence": 1.0,
+        "flags": [],
+        "flag_details": [],
+        "components": {
+            "person_fit": "skipped",
+            "time_check": "skipped",
+            "guttman_check": "skipped",
+        },
+        "details": "Session was abandoned before completion. "
+        "Validity checks are not applicable to incomplete sessions.",
+        "is_abandoned": True,
+    }
+
+
+def should_skip_revalidation(
+    existing_validity_status: str | None,
+    existing_validity_checked_at: Any | None,
+    force_revalidate: bool = False,
+) -> bool:
+    """
+    Check whether to skip re-validation of an already-validated session.
+
+    For idempotency, sessions that have already been validated should not
+    be re-validated unless explicitly requested. This prevents unnecessary
+    work and ensures consistent results.
+
+    Args:
+        existing_validity_status: Current validity_status from the TestResult
+        existing_validity_checked_at: Timestamp of previous validation
+        force_revalidate: If True, forces re-validation even if already done
+
+    Returns:
+        True if validation should be skipped, False if validation should proceed
+    """
+    if force_revalidate:
+        logger.info("Re-validation forced via force_revalidate flag")
+        return False
+
+    # Skip if already validated (has a status and timestamp)
+    if (
+        existing_validity_status is not None
+        and existing_validity_checked_at is not None
+    ):
+        logger.info(
+            f"Skipping re-validation: session already validated with "
+            f"status='{existing_validity_status}' at {existing_validity_checked_at}"
+        )
+        return True
+
+    return False
+
+
+def run_validity_analysis_with_edge_case_handling(
+    responses: List[Dict[str, Any]],
+    session_status: str = "completed",
+    existing_validity_status: str | None = None,
+    existing_validity_checked_at: Any | None = None,
+    force_revalidate: bool = False,
+) -> Dict[str, Any]:
+    """
+    Run full validity analysis with comprehensive edge case handling.
+
+    This function is the recommended entry point for validity analysis as it
+    handles all edge cases defined in CD-016:
+    - Empty response lists
+    - Missing time data
+    - Missing empirical difficulty (with fallback)
+    - Short tests (< 5 questions)
+    - Abandoned sessions
+    - Re-validation idempotency
+
+    Args:
+        responses: List of response dictionaries, each containing:
+            - is_correct: bool
+            - difficulty_level: str ("easy", "medium", "hard")
+            - empirical_difficulty: float | None (p-value)
+            - time_seconds: float | None
+        session_status: Status of the test session ("completed", "abandoned", etc.)
+        existing_validity_status: Current validity status if re-validating
+        existing_validity_checked_at: Timestamp of previous validation
+        force_revalidate: If True, forces re-validation
+
+    Returns:
+        Dictionary containing full validity assessment with edge case info
+    """
+    # CD-016: Check for idempotent re-validation
+    if should_skip_revalidation(
+        existing_validity_status, existing_validity_checked_at, force_revalidate
+    ):
+        return {
+            "validity_status": existing_validity_status,
+            "skipped": True,
+            "reason": "already_validated",
+            "details": f"Session already validated with status '{existing_validity_status}'",
+        }
+
+    # CD-016: Handle abandoned sessions
+    if session_status == "abandoned":
+        return check_validity_for_abandoned_session()
+
+    # CD-016: Handle empty responses
+    if not responses:
+        logger.info("Validity analysis skipped: no responses provided")
+        return {
+            "validity_status": "valid",
+            "severity_score": 0,
+            "confidence": 1.0,
+            "flags": [],
+            "flag_details": [],
+            "components": {
+                "person_fit": "skipped",
+                "time_check": "skipped",
+                "guttman_check": "skipped",
+            },
+            "details": "No responses to analyze. Session marked as valid by default.",
+            "is_empty": True,
+        }
+
+    # Prepare data for each check
+    # Person-fit needs: (is_correct, difficulty_level)
+    person_fit_data = [
+        (r.get("is_correct", False), r.get("difficulty_level") or "medium")
+        for r in responses
+    ]
+    total_score = sum(1 for r in responses if r.get("is_correct", False))
+
+    # Time check needs: dicts with time_seconds, is_correct, difficulty
+    # CD-016: Skip responses without time data
+    time_check_data = [
+        {
+            "time_seconds": r.get("time_seconds"),
+            "is_correct": r.get("is_correct", False),
+            "difficulty": r.get("difficulty_level") or "medium",
+        }
+        for r in responses
+    ]
+
+    # Guttman check needs: (is_correct, empirical_difficulty, difficulty_level)
+    # CD-016: Uses fallback when empirical_difficulty is missing
+    guttman_data = [
+        (
+            r.get("is_correct", False),
+            r.get("empirical_difficulty"),
+            r.get("difficulty_level"),
+        )
+        for r in responses
+    ]
+
+    # Run individual checks
+    person_fit_result = calculate_person_fit_heuristic(person_fit_data, total_score)
+    time_check_result = check_response_time_plausibility(time_check_data)
+    guttman_result = count_guttman_errors_with_fallback(guttman_data)
+
+    # Combine into overall assessment
+    result = assess_session_validity(
+        person_fit=person_fit_result,
+        time_check=time_check_result,
+        guttman_check=guttman_result,
+    )
+
+    # Add edge case metadata
+    result["edge_case_info"] = {
+        "is_short_test": len(responses) < MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
+        "total_responses": len(responses),
+        "used_difficulty_fallback": guttman_result.get("used_fallback", False),
+        "missing_time_data_count": sum(
+            1 for r in responses if r.get("time_seconds") is None
+        ),
+    }
+
+    return result
