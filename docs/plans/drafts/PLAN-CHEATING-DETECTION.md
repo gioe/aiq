@@ -181,18 +181,18 @@ def assess_session_validity(
 ---
 
 ### CD-007: Integrate Validity Checks into Test Submission
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py`
 **Description:** Call validity analysis functions after test submission and store results in the TestResult record.
 
 **Integration Point:** After `calculate_score()` and before returning result to user.
 
 **Acceptance Criteria:**
-- [ ] Validity checks run synchronously after score calculation
-- [ ] Results stored in TestResult validity fields
-- [ ] `validity_checked_at` timestamp set
-- [ ] Validity check failures do not block test submission (graceful degradation)
-- [ ] Appropriate logging for validity results
+- [x] Validity checks run synchronously after score calculation
+- [x] Results stored in TestResult validity fields
+- [x] `validity_checked_at` timestamp set
+- [x] Validity check failures do not block test submission (graceful degradation)
+- [x] Appropriate logging for validity results
 
 ---
 
