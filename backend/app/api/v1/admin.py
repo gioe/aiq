@@ -8,7 +8,7 @@ from typing import Optional, Literal, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, asc
 
 from app.core import settings
@@ -75,6 +75,11 @@ from app.schemas.validity import (
     ValidityStatus,
     SeverityLevel as ValiditySeverityLevel,
     FlagSource,
+    ValiditySummaryResponse,
+    ValidityStatusCounts,
+    FlagTypeBreakdown,
+    ValidityTrend,
+    SessionNeedingReview,
 )
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
@@ -2195,3 +2200,265 @@ def _run_validity_analysis_on_demand(
         completed_at=test_session.completed_at,  # type: ignore[arg-type]
         validity_checked_at=None,  # Not stored since this is on-demand
     )
+
+
+# =============================================================================
+# VALIDITY SUMMARY REPORT ENDPOINT (CD-010)
+# =============================================================================
+
+
+@router.get(
+    "/validity-report",
+    response_model=ValiditySummaryResponse,
+)
+async def get_validity_report(
+    days: int = Query(
+        30,
+        ge=1,
+        le=365,
+        description="Number of days to analyze (default: 30)",
+    ),
+    status: Optional[ValidityStatus] = Query(
+        None,
+        description="Filter by validity status (valid, suspect, invalid)",
+    ),
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Get aggregate validity statistics across all test sessions.
+
+    Returns a comprehensive summary of validity analysis results including
+    status breakdowns, flag type counts, trend comparisons, and a list of
+    sessions requiring admin review.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Summary Statistics:**
+    - Total sessions analyzed in the period
+    - Count by validity status (valid, suspect, invalid)
+
+    **Flag Type Breakdown:**
+    - Count of each flag type detected across sessions
+    - Helps identify most common validity concerns
+
+    **Trend Analysis:**
+    - Compares invalid/suspect rates between last 7 days and full period
+    - Trend indicator: "improving", "stable", or "worsening"
+
+    **Action Needed:**
+    - List of sessions with invalid or suspect status needing review
+    - Sorted by severity score (most severe first)
+    - Limited to top 50 sessions to keep response manageable
+
+    Args:
+        days: Number of days to analyze (default: 30, max: 365)
+        status: Optional filter by validity status
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        ValiditySummaryResponse with aggregate validity statistics
+
+    Example:
+        ```
+        # Get 30-day validity report
+        curl "https://api.example.com/v1/admin/validity-report" \
+          -H "X-Admin-Token: your-admin-token"
+
+        # Get 7-day report for invalid sessions only
+        curl "https://api.example.com/v1/admin/validity-report?days=7&status=invalid" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    try:
+        from datetime import timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        period_start = now - timedelta(days=days)
+        seven_days_ago = now - timedelta(days=7)
+
+        # Build base query for test results with validity data in the period
+        # Use joinedload to eagerly load TestSession for in-memory filtering
+        base_query = (
+            db.query(TestResult)
+            .options(joinedload(TestResult.test_session))
+            .join(TestSession, TestResult.test_session_id == TestSession.id)
+            .filter(TestSession.completed_at >= period_start)
+            .filter(TestSession.completed_at <= now)
+        )
+
+        # Apply status filter if provided
+        if status is not None:
+            base_query = base_query.filter(TestResult.validity_status == status.value)
+
+        # Get all test results in the period
+        results = base_query.all()
+
+        # Calculate status counts
+        total_sessions = len(results)
+        valid_count = sum(1 for r in results if r.validity_status == "valid")
+        suspect_count = sum(1 for r in results if r.validity_status == "suspect")
+        invalid_count = sum(1 for r in results if r.validity_status == "invalid")
+
+        # Build status counts
+        summary = ValidityStatusCounts(
+            total_sessions_analyzed=total_sessions,
+            valid=valid_count,
+            suspect=suspect_count,
+            invalid=invalid_count,
+        )
+
+        # Count flag types from validity_flags JSON field
+        flag_counts: Dict[str, int] = {
+            "aberrant_response_pattern": 0,
+            "multiple_rapid_responses": 0,
+            "suspiciously_fast_on_hard": 0,
+            "extended_pauses": 0,
+            "total_time_too_fast": 0,
+            "total_time_excessive": 0,
+            "high_guttman_errors": 0,
+            "elevated_guttman_errors": 0,
+        }
+
+        for result in results:
+            flags_list: list[dict[str, Any]] = result.validity_flags or []  # type: ignore[assignment]
+            for flag_data in flags_list:
+                flag_type = flag_data.get("type", "")
+                if flag_type in flag_counts:
+                    flag_counts[flag_type] += 1
+
+        by_flag_type = FlagTypeBreakdown(
+            aberrant_response_pattern=flag_counts["aberrant_response_pattern"],
+            multiple_rapid_responses=flag_counts["multiple_rapid_responses"],
+            suspiciously_fast_on_hard=flag_counts["suspiciously_fast_on_hard"],
+            extended_pauses=flag_counts["extended_pauses"],
+            total_time_too_fast=flag_counts["total_time_too_fast"],
+            total_time_excessive=flag_counts["total_time_excessive"],
+            high_guttman_errors=flag_counts["high_guttman_errors"],
+            elevated_guttman_errors=flag_counts["elevated_guttman_errors"],
+        )
+
+        # Calculate trend data (7-day vs full period)
+        # Filter from already-fetched results to avoid redundant database query
+        # TestSession is eagerly loaded via joinedload for in-memory filtering
+        if days <= 7:
+            # If period is 7 days or less, 7-day and full period are the same
+            seven_day_results = results
+        else:
+            # Filter in memory using the eagerly-loaded test_session relationship
+            # Normalize to naive UTC for comparison (handles SQLite naive vs PostgreSQL aware)
+            seven_days_ago_naive = seven_days_ago.replace(tzinfo=None)
+            seven_day_results = [
+                r
+                for r in results
+                if r.test_session
+                and r.test_session.completed_at
+                and (
+                    r.test_session.completed_at.replace(tzinfo=None)
+                    >= seven_days_ago_naive
+                )
+            ]
+
+        seven_day_total = len(seven_day_results)
+        seven_day_invalid = sum(
+            1 for r in seven_day_results if r.validity_status == "invalid"
+        )
+        seven_day_suspect = sum(
+            1 for r in seven_day_results if r.validity_status == "suspect"
+        )
+
+        # Calculate rates
+        invalid_rate_7d = (
+            round(seven_day_invalid / seven_day_total, 4)
+            if seven_day_total > 0
+            else 0.0
+        )
+        invalid_rate_30d = (
+            round(invalid_count / total_sessions, 4) if total_sessions > 0 else 0.0
+        )
+        suspect_rate_7d = (
+            round(seven_day_suspect / seven_day_total, 4)
+            if seven_day_total > 0
+            else 0.0
+        )
+        suspect_rate_30d = (
+            round(suspect_count / total_sessions, 4) if total_sessions > 0 else 0.0
+        )
+
+        # Determine trend direction based on combined invalid + suspect rates
+        # Lower rates = improving, higher rates = worsening
+        combined_rate_7d = invalid_rate_7d + suspect_rate_7d
+        combined_rate_30d = invalid_rate_30d + suspect_rate_30d
+
+        # Use 2% threshold for meaningful change
+        threshold = 0.02
+        if combined_rate_7d < combined_rate_30d - threshold:
+            trend = "improving"
+        elif combined_rate_7d > combined_rate_30d + threshold:
+            trend = "worsening"
+        else:
+            trend = "stable"
+
+        trends = ValidityTrend(
+            invalid_rate_7d=invalid_rate_7d,
+            invalid_rate_30d=invalid_rate_30d,
+            suspect_rate_7d=suspect_rate_7d,
+            suspect_rate_30d=suspect_rate_30d,
+            trend=trend,
+        )
+
+        # Get sessions needing review (invalid or suspect)
+        # Filter from already-fetched results to avoid redundant database query
+        sessions_needing_review = [
+            r for r in results if r.validity_status in ["invalid", "suspect"]
+        ]
+
+        # Build action_needed list with severity scores
+        action_needed: list[SessionNeedingReview] = []
+        for test_result in sessions_needing_review:
+            flags_list_review: list[dict[str, Any]] = test_result.validity_flags or []  # type: ignore[assignment]
+            flag_types = [f.get("type", "") for f in flags_list_review]
+
+            # Calculate severity score from flags
+            severity_score = 0
+            for flag_data in flags_list_review:
+                flag_severity = flag_data.get("severity", "medium")
+                if flag_severity == "high":
+                    severity_score += 2
+                elif flag_severity == "medium":
+                    severity_score += 1
+
+            # Use eagerly-loaded test_session relationship
+            test_session = test_result.test_session
+            action_needed.append(
+                SessionNeedingReview(
+                    session_id=int(test_session.id),  # type: ignore[arg-type]
+                    user_id=int(test_session.user_id),  # type: ignore[arg-type]
+                    validity_status=ValidityStatus(
+                        test_result.validity_status or "valid"
+                    ),
+                    severity_score=severity_score,
+                    flags=flag_types,
+                    completed_at=test_session.completed_at,  # type: ignore[arg-type]
+                )
+            )
+
+        # Sort by severity_score descending, then limit to 50
+        action_needed.sort(key=lambda x: x.severity_score, reverse=True)
+        action_needed = action_needed[:50]
+
+        return ValiditySummaryResponse(
+            summary=summary,
+            by_flag_type=by_flag_type,
+            trends=trends,
+            action_needed=action_needed,
+            period_days=days,
+            generated_at=now,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate validity report: {str(e)}",
+        )
