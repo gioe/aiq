@@ -216,7 +216,7 @@ def assess_session_validity(
 ---
 
 ### CD-009: Create Single Session Validity Endpoint
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/validity.py`
 **Description:** Create admin endpoint to get detailed validity analysis for a single test session.
 
@@ -241,10 +241,10 @@ def assess_session_validity(
 ```
 
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Returns 404 for non-existent session
-- [ ] Returns full validity breakdown
-- [ ] Handles sessions without validity data (runs check on demand)
+- [x] Endpoint requires admin authentication
+- [x] Returns 404 for non-existent session
+- [x] Returns full validity breakdown
+- [x] Handles sessions without validity data (runs check on demand)
 
 ---
 
