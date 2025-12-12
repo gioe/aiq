@@ -250,8 +250,8 @@ Schemas were implemented as part of DA-008 and DA-009 in `backend/app/schemas/di
 ---
 
 ### DA-011: Add Unit Tests for Core Distractor Functions
-**Status:** [ ] Not Started
-**Files:** `backend/tests/test_distractor_analysis.py` (new)
+**Status:** [x] Complete
+**Files:** `backend/tests/test_distractor_analysis.py`
 **Description:** Create unit tests for all core distractor analysis functions.
 
 **Test Cases:**
@@ -263,11 +263,24 @@ Schemas were implemented as part of DA-008 and DA-009 in `backend/app/schemas/di
 - Edge case: all responses to same option
 - Edge case: exactly equal distribution
 
+**Implementation Notes:**
+Extended the existing test file (2490 lines) with comprehensive unit tests covering:
+- `TestUpdateDistractorStats` (9 tests): Initialization, incrementing, whitespace handling, free-response skip
+- `TestUpdateDistractorQuartileStats` (5 tests): Top/bottom quartile updates, initialization
+- `TestGetDistractorStats` (4 tests): Retrieval, empty stats, quartile data detection
+- `TestCalculateDistractorDiscrimination` (13 tests): Insufficient data, rate calculations, boundary tests
+- `TestAnalyzeDistractorEffectiveness` (18 tests): Status thresholds, discrimination categories, recommendations
+- `TestCalculateEffectiveOptionCount` (5 tests): Equal/skewed distributions, edge cases
+- `TestDetermineScoreQuartile` (5 tests): Quartile determination, filtering
+- `TestUpdateSessionQuartileStats` (7 tests): Batch updates, free-response handling
+- `TestGetBulkDistractorSummary` (15 tests): New tests for bulk summary function
+- `TestDistractorStatsIntegration` (4 tests): End-to-end integration tests
+
 **Acceptance Criteria:**
-- [ ] All core functions have unit tests
-- [ ] Boundary conditions tested
-- [ ] Edge cases covered
-- [ ] Tests pass in CI
+- [x] All core functions have unit tests
+- [x] Boundary conditions tested
+- [x] Edge cases covered
+- [x] Tests pass in CI
 
 ---
 
