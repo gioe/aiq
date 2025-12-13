@@ -49,7 +49,7 @@ from app.core.analytics import (
 from app.core.security import hash_password
 
 # Use SQLite in-memory database for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_response_matrix.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
