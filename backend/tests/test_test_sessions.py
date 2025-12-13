@@ -999,3 +999,173 @@ class TestSubmitTestWithTimeData:
         assert response_times[questions[0]["id"]] == 45
         assert response_times[questions[1]["id"]] is None
         assert response_times[questions[2]["id"]] == 30
+
+
+class TestSubmitTestWithDomainScores:
+    """Integration tests for test submission with domain score calculation (DW-003)."""
+
+    def test_submit_calculates_and_stores_domain_scores(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that domain scores are calculated and persisted in TestResult."""
+        from app.models.models import TestResult
+
+        # Start a test with 4 questions (covers 4 domains: pattern, logic, math, verbal)
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Map questions to their domains for verification
+        # Based on conftest.py: pattern, logic, math, verbal
+        question_domains = {}
+        for q in questions:
+            # Find the matching question in test_questions to get the domain
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    question_domains[q["id"]] = tq.question_type.value
+                    break
+
+        # Submit test with known correct/incorrect answers
+        # We need to find which answer is correct for each question
+        responses = []
+        for i, q in enumerate(questions):
+            # Get the correct answer from test_questions
+            correct_answer = None
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    correct_answer = tq.correct_answer
+                    break
+
+            # Alternate: answer correctly for first two, incorrectly for last two
+            if i < 2:
+                # Answer correctly
+                responses.append(
+                    {"question_id": q["id"], "user_answer": correct_answer}
+                )
+            else:
+                # Answer incorrectly (use first option which may or may not be correct)
+                # Use a wrong answer by picking an option that's not the correct one
+                wrong_answer = None
+                for opt in q["answer_options"]:
+                    if opt != correct_answer:
+                        wrong_answer = opt
+                        break
+                responses.append(
+                    {"question_id": q["id"], "user_answer": wrong_answer or "wrong"}
+                )
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["status"] == "completed"
+
+        # Verify domain scores were stored in the database
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        assert test_result is not None
+        assert test_result.domain_scores is not None
+
+        domain_scores = test_result.domain_scores
+
+        # Verify structure: should have all 6 question types as keys
+        expected_domains = [
+            "pattern",
+            "logic",
+            "spatial",
+            "math",
+            "verbal",
+            "memory",
+        ]
+        for domain in expected_domains:
+            assert domain in domain_scores, f"Domain '{domain}' not in domain_scores"
+            assert "correct" in domain_scores[domain]
+            assert "total" in domain_scores[domain]
+            assert "pct" in domain_scores[domain]
+
+        # Verify domains that had questions have proper counts
+        # The test has 4 questions covering 4 domains, each domain has 1 question
+        domains_with_questions = set(question_domains.values())
+        for domain in domains_with_questions:
+            assert (
+                domain_scores[domain]["total"] == 1
+            ), f"Domain {domain} should have 1 question"
+
+        # Verify domains without questions have zero total
+        for domain in expected_domains:
+            if domain not in domains_with_questions:
+                assert (
+                    domain_scores[domain]["total"] == 0
+                ), f"Domain {domain} should have 0 questions"
+                assert (
+                    domain_scores[domain]["pct"] is None
+                ), f"Domain {domain} should have pct=None"
+
+    def test_submit_with_varying_question_distribution(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test domain scores work correctly with varying question distribution."""
+        from app.models.models import TestResult
+
+        # Start a test with just 2 questions (only 2 domains will be covered)
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Answer both correctly
+        responses = []
+        for q in questions:
+            # Get correct answer
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+
+        # Verify domain scores
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        assert test_result.domain_scores is not None
+        domain_scores = test_result.domain_scores
+
+        # Count how many domains have questions
+        domains_with_questions = sum(
+            1 for d in domain_scores.values() if d["total"] > 0
+        )
+        assert domains_with_questions == 2, "Only 2 domains should have questions"
+
+        # Verify domains with questions have 100% correct (answered correctly)
+        for domain_data in domain_scores.values():
+            if domain_data["total"] > 0:
+                assert (
+                    domain_data["pct"] == 100.0
+                ), "All answered questions should be correct"

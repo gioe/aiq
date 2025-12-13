@@ -22,7 +22,11 @@ from app.schemas.responses import (
     TestResultResponse,
 )
 from app.core.auth import get_current_user
-from app.core.scoring import calculate_iq_score, iq_to_percentile
+from app.core.scoring import (
+    calculate_iq_score,
+    iq_to_percentile,
+    calculate_domain_scores,
+)
 from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
@@ -532,6 +536,9 @@ def submit_test(
     # Process each response and track correct answers
     response_count = 0
     correct_count = 0
+    response_objects: list[
+        Response
+    ] = []  # DW-003: Collect responses for domain scoring
 
     for resp_item in submission.responses:
         # Validate user_answer is not empty
@@ -568,6 +575,7 @@ def submit_test(
             time_spent_seconds=resp_item.time_spent_seconds,  # TS-003: Store per-question time
         )
         db.add(response)
+        response_objects.append(response)  # DW-003: Collect for domain scoring
         response_count += 1
 
         # DA-006: Update distractor statistics for multiple-choice questions
@@ -614,6 +622,10 @@ def submit_test(
 
     # Calculate percentile rank
     percentile = iq_to_percentile(score_result.iq_score)
+
+    # DW-003: Calculate domain-specific performance breakdown
+    # This provides per-domain subscores for cognitive domain analysis
+    domain_scores = calculate_domain_scores(response_objects, questions_dict)  # type: ignore[arg-type]
 
     # TS-005: Run response time anomaly detection
     # This analysis runs after scoring to detect timing patterns that may indicate
@@ -740,6 +752,7 @@ def submit_test(
         completion_time_seconds=completion_time_seconds,
         completed_at=completion_time,
         response_time_flags=response_time_flags,  # TS-005: Store anomaly flags
+        domain_scores=domain_scores,  # DW-003: Store per-domain performance breakdown
         # CD-007: Store validity analysis results
         validity_status=validity_status,
         validity_flags=validity_flags,
