@@ -74,15 +74,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests verify parsing
 
 ### DW-006: Implement iOS Domain Visualization Component
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/Test/TestResultView.swift`, new component file if needed
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Views/Test/DomainScoresView.swift`
 **Description:** Create a visualization component to display domain performance breakdown (bar chart recommended).
 **Acceptance Criteria:**
-- [ ] Domain visualization component displays all 6 domains
-- [ ] Shows domain name and percentage score
-- [ ] Visual indicator (bar width or fill) represents score
-- [ ] Accessible to VoiceOver users
-- [ ] Handles missing domains gracefully
+- [x] Domain visualization component displays all 6 domains
+- [x] Shows domain name and percentage score
+- [x] Visual indicator (bar width or fill) represents score
+- [x] Accessible to VoiceOver users
+- [x] Handles missing domains gracefully
 
 ### DW-007: Integrate Domain Display into Test Result View
 **Status:** [ ] Not Started
