@@ -64,14 +64,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] API docs reflect new field
 
 ### DW-005: Create iOS Domain Scores Model
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `ios/AIQ/Models/TestResult.swift` (or appropriate model file)
 **Description:** Update iOS data models to parse and store domain scores from API response.
 **Acceptance Criteria:**
-- [ ] `DomainScore` struct with `correct`, `total`, `pct` fields
-- [ ] `TestResult` model includes `domainScores: [String: DomainScore]?`
-- [ ] Codable implementation handles the nested JSON structure
-- [ ] Unit tests verify parsing
+- [x] `DomainScore` struct with `correct`, `total`, `pct` fields
+- [x] `TestResult` model includes `domainScores: [String: DomainScore]?`
+- [x] Codable implementation handles the nested JSON structure
+- [x] Unit tests verify parsing
 
 ### DW-006: Implement iOS Domain Visualization Component
 **Status:** [ ] Not Started

@@ -101,6 +101,7 @@
 		F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3129F8CF191C5693FFD770D4 /* LoginViewModelTests.swift */; };
 		F7480280BCE683D14926BD93 /* NotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6487DD574F26453779E268 /* NotificationSettingsViewModel.swift */; };
 		FB3D1D04F6A27722E71C7F97 /* QuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 830D779DEE0CF101CA007C56 /* QuestionCardView.swift */; };
+		DW005001A /* TestResultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DW005001B /* TestResultTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -203,6 +204,7 @@
 		TS009003B /* TimeWarningBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeWarningBanner.swift; sourceTree = "<group>"; };
 		C8406052CBAD0F63C70A944A /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
 		D3EBC6D9606506F04F52D555 /* BaseViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewModelTests.swift; sourceTree = "<group>"; };
+		DW005001B /* TestResultTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultTests.swift; sourceTree = "<group>"; };
 		D54F75CF7CCF4C117C790432 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
 		D588304008C2CFF98967110F /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D5F42C32E420524BE19718FA /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
@@ -391,10 +393,19 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		DW005001C /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				DW005001B /* TestResultTests.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		63ED0BA88638364748F7C3FC /* AIQTests */ = {
 			isa = PBXGroup;
 			children = (
 				1AEF30A82EDB95FA0080F75D /* Integration */,
+				DW005001C /* Models */,
 				055F17F3D066294DB72A2006 /* Mocks */,
 				0CF338C0D0FFA2CB33019FFF /* ViewModels */,
 			);
@@ -620,6 +631,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4BF3606C1AA521EF723F09E3 /* BaseViewModelTests.swift in Sources */,
+				DW005001A /* TestResultTests.swift in Sources */,
 				1AEF30972EDB93690080F75D /* MockLocalAnswerStorage.swift in Sources */,
 				F09F453DD0F5E046CF0F68C2 /* LoginViewModelTests.swift in Sources */,
 				348117B474C84837E6D632E6 /* MockAuthManager.swift in Sources */,
