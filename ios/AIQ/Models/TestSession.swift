@@ -94,6 +94,7 @@ struct SubmittedTestResult: Codable, Equatable {
     let completionTimeSeconds: Int?
     let completedAt: Date
     let responseTimeFlags: ResponseTimeFlags?
+    let domainScores: [String: DomainScore]?
 
     var accuracy: Double {
         accuracyPercentage / 100.0
@@ -150,6 +151,7 @@ struct SubmittedTestResult: Codable, Equatable {
         case completionTimeSeconds = "completion_time_seconds"
         case completedAt = "completed_at"
         case responseTimeFlags = "response_time_flags"
+        case domainScores = "domain_scores"
     }
 }
 

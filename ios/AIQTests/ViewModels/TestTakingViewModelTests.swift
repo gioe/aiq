@@ -540,7 +540,8 @@ final class TestTakingViewModelTests: XCTestCase {
         accuracyPercentage: Double = 50.0,
         completionTimeSeconds: Int? = 600,
         completedAt: Date = Date(),
-        responseTimeFlags: ResponseTimeFlags? = nil
+        responseTimeFlags: ResponseTimeFlags? = nil,
+        domainScores: [String: DomainScore]? = nil
     ) -> SubmittedTestResult {
         SubmittedTestResult(
             id: id,
@@ -553,7 +554,8 @@ final class TestTakingViewModelTests: XCTestCase {
             accuracyPercentage: accuracyPercentage,
             completionTimeSeconds: completionTimeSeconds,
             completedAt: completedAt,
-            responseTimeFlags: responseTimeFlags
+            responseTimeFlags: responseTimeFlags,
+            domainScores: domainScores
         )
     }
 
