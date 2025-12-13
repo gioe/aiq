@@ -422,6 +422,15 @@ class TestResult(Base):
     # Migration path: When admin user management is added, add FK constraint and
     # migrate existing 0 values to appropriate admin user IDs
 
+    # Domain-specific subscores (DW-001)
+    # Stores per-domain performance breakdown for cognitive domain analysis
+    domain_scores = Column(JSON, nullable=True)  # Per-domain performance breakdown
+    # Format: {"pattern": {"correct": 3, "total": 4, "pct": 75.0}, "logic": {...}, ...}
+    # - correct: number of questions answered correctly in this domain
+    # - total: total number of questions in this domain
+    # - pct: percentage score (correct/total * 100), None if total is 0
+    # NULL for pre-DW test results; populated by DW-003 during test submission
+
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")
