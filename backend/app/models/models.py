@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     UniqueConstraint,
     Index,
+    CheckConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSON
@@ -416,13 +417,22 @@ class TestResult(Base):
     validity_overridden_by = Column(
         Integer, nullable=True
     )  # Admin user ID who performed the override
+    # Values: 0 = token-based auth (current implementation), NULL = no override
     # Note: Not a foreign key since admin identity may be external to users table
-    # In current implementation this is token-based auth, so stores a placeholder
-    # Future: could reference admin_users table when admin user management is added
+    # Migration path: When admin user management is added, add FK constraint and
+    # migrate existing 0 values to appropriate admin user IDs
 
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")
+
+    # Table-level constraints
+    __table_args__ = (
+        CheckConstraint(
+            "validity_overridden_by IS NULL OR validity_overridden_by >= 0",
+            name="ck_test_results_validity_overridden_by_non_negative",
+        ),
+    )
 
 
 class QuestionGenerationRun(Base):
