@@ -33,15 +33,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Migration applies without errors
 
 ### DW-002: Implement calculate_domain_scores Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/scoring.py`
 **Description:** Create a function that calculates per-domain performance breakdown from responses.
 **Acceptance Criteria:**
-- [ ] Function signature: `calculate_domain_scores(responses: List[Response], questions: Dict[int, Question]) -> Dict[str, Dict]`
-- [ ] Returns dict with keys for each QuestionType
-- [ ] Each domain entry contains: `correct`, `total`, `pct` (percentage)
-- [ ] Handles domains with zero questions gracefully (pct=None)
-- [ ] Unit tests cover all question types and edge cases
+- [x] Function signature: `calculate_domain_scores(responses: List[Response], questions: Dict[int, Question]) -> Dict[str, Dict]`
+- [x] Returns dict with keys for each QuestionType
+- [x] Each domain entry contains: `correct`, `total`, `pct` (percentage)
+- [x] Handles domains with zero questions gracefully (pct=None)
+- [x] Unit tests cover all question types and edge cases
 
 ### DW-003: Integrate Domain Scores into Test Submission
 **Status:** [ ] Not Started
