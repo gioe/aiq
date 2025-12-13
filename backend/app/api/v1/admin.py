@@ -1,8 +1,9 @@
 """
 Admin operations endpoints.
 """
+import logging
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Literal, Dict, Any
 
@@ -80,6 +81,8 @@ from app.schemas.validity import (
     FlagTypeBreakdown,
     ValidityTrend,
     SessionNeedingReview,
+    ValidityOverrideRequest,
+    ValidityOverrideResponse,
 )
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
@@ -88,6 +91,9 @@ from app.core.validity_analysis import (
     assess_session_validity,
 )
 from app.models import Question, TestSession, TestResult, Response
+
+# Configure logger for admin operations
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -2461,4 +2467,145 @@ async def get_validity_report(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate validity report: {str(e)}",
+        )
+
+
+# =============================================================================
+# VALIDITY OVERRIDE ENDPOINT (CD-017)
+# =============================================================================
+
+
+@router.patch(
+    "/sessions/{session_id}/validity",
+    response_model=ValidityOverrideResponse,
+    responses={
+        404: {"description": "Test session not found"},
+    },
+)
+async def override_session_validity(
+    session_id: int,
+    request: ValidityOverrideRequest,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Override the validity status of a test session after admin review.
+
+    Allows administrators to manually change the validity assessment for a
+    session after investigating the flags. This is essential for handling
+    false positives (legitimate sessions incorrectly flagged) and false
+    negatives (invalid sessions that passed automatic checks).
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Important Notes:**
+    - A reason must be provided (minimum 10 characters) for audit purposes
+    - The previous validity status is preserved for audit trail
+    - Override timestamp and admin placeholder are recorded
+    - All override actions are logged for security monitoring
+
+    **Use Cases:**
+    - Clearing a false positive: User was flagged for rapid responses but
+      review confirms they're a fast reader with consistent test history
+    - Marking a false negative: Session passed checks but investigation
+      reveals the account was shared or test was taken inappropriately
+    - Downgrading after investigation: Session was flagged as "invalid"
+      but evidence suggests only moderate concern ("suspect")
+
+    Args:
+        session_id: The test session ID to update
+        request: Override request with new status and reason
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        ValidityOverrideResponse confirming the update
+
+    Raises:
+        HTTPException 404: If the test session is not found
+
+    Example:
+        ```
+        curl -X PATCH "https://api.example.com/v1/admin/sessions/123/validity" \
+          -H "X-Admin-Token: your-admin-token" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "validity_status": "valid",
+            "override_reason": "Manual review confirmed legitimate pattern. User has consistent test history and rapid responses were on very easy questions."
+          }'
+        ```
+    """
+    try:
+        # Get test session
+        test_session = (
+            db.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+
+        if test_session is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Test session with ID {session_id} not found",
+            )
+
+        # Get test result
+        test_result = (
+            db.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        if test_result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Test result for session {session_id} not found. "
+                "Cannot override validity for sessions without results.",
+            )
+
+        # Store previous status for response and logging
+        previous_status = test_result.validity_status or "valid"
+
+        # Set override timestamp
+        override_time = datetime.now(timezone.utc)
+
+        # Update the test result
+        # Note: Using placeholder admin_id since current auth is token-based
+        # In future, when admin user management is added, this would be the admin user ID
+        admin_placeholder_id = 0
+
+        test_result.validity_status = request.validity_status.value  # type: ignore[assignment]
+        test_result.validity_override_reason = request.override_reason  # type: ignore[assignment]
+        test_result.validity_overridden_at = override_time  # type: ignore[assignment]
+        test_result.validity_overridden_by = admin_placeholder_id  # type: ignore[assignment]
+
+        # Commit changes
+        db.commit()
+        db.refresh(test_result)
+
+        # Log the override action for security monitoring
+        logger.info(
+            "Admin validity override performed: "
+            f"session_id={session_id}, "
+            f"user_id={test_session.user_id}, "
+            f"previous_status={previous_status}, "
+            f"new_status={request.validity_status.value}, "
+            f"reason_length={len(request.override_reason)}"
+        )
+
+        return ValidityOverrideResponse(
+            session_id=session_id,
+            previous_status=ValidityStatus(previous_status),
+            new_status=request.validity_status,
+            override_reason=request.override_reason,
+            overridden_by=admin_placeholder_id,
+            overridden_at=override_time,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to override validity for session {session_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to override session validity: {str(e)}",
         )
