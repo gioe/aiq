@@ -982,3 +982,349 @@ class TestGetValidityReport:
         # Valid sessions should not appear in action_needed
         for session in data["action_needed"]:
             assert session["validity_status"] != "valid"
+
+
+# =============================================================================
+# PATCH /v1/admin/sessions/{session_id}/validity TESTS (CD-017)
+# =============================================================================
+
+
+class TestOverrideSessionValidity:
+    """Integration tests for PATCH /v1/admin/sessions/{session_id}/validity endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_suspect_to_valid(
+        self, client, db_session, admin_headers, suspect_session_with_rapid_responses
+    ):
+        """Test overriding a suspect session to valid after admin review."""
+        session_id = suspect_session_with_rapid_responses.id
+
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Manual review confirmed legitimate pattern. User is a fast reader with consistent test history.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response structure
+        assert data["session_id"] == session_id
+        assert data["previous_status"] == "suspect"
+        assert data["new_status"] == "valid"
+        assert data["override_reason"] == override_data["override_reason"]
+        assert data["overridden_by"] == 0  # Placeholder for token-based auth
+        assert data["overridden_at"] is not None
+
+        # Verify database was updated
+        result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        db_session.refresh(result)
+        assert result.validity_status == "valid"
+        assert result.validity_override_reason == override_data["override_reason"]
+        assert result.validity_overridden_at is not None
+        assert result.validity_overridden_by == 0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_invalid_to_suspect(
+        self, client, db_session, admin_headers, invalid_session_with_multiple_flags
+    ):
+        """Test downgrading an invalid session to suspect after investigation."""
+        session_id = invalid_session_with_multiple_flags.id
+
+        override_data = {
+            "validity_status": "suspect",
+            "override_reason": "Investigation shows some flags may be false positives. Downgrading to suspect for continued monitoring.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["previous_status"] == "invalid"
+        assert data["new_status"] == "suspect"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_valid_to_invalid(
+        self, client, db_session, admin_headers, valid_session_with_normal_pattern
+    ):
+        """Test upgrading a valid session to invalid (false negative case)."""
+        session_id = valid_session_with_normal_pattern.id
+
+        override_data = {
+            "validity_status": "invalid",
+            "override_reason": "Investigation revealed account was shared during test. Marking as invalid per policy.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["previous_status"] == "valid"
+        assert data["new_status"] == "invalid"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_session_not_found(self, client, db_session, admin_headers):
+        """Test 404 response for non-existent session."""
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Testing non-existent session behavior.",
+        }
+
+        response = client.patch(
+            "/v1/admin/sessions/999999/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_session_without_result(
+        self, client, db_session, admin_headers, test_user
+    ):
+        """Test 404 response for session without a test result."""
+        # Create session without a result
+        session = TestSession(
+            user_id=test_user.id,
+            started_at=datetime.now(timezone.utc),
+            status=TestStatus.IN_PROGRESS,  # Not completed, no result
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Testing session without result behavior.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session.id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 404
+        assert "result" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_requires_auth(self, client, db_session):
+        """Test that endpoint requires authentication header."""
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Testing auth requirement.",
+        }
+
+        response = client.patch(
+            "/v1/admin/sessions/1/validity",
+            json=override_data,
+        )
+
+        # Missing header results in 422 (validation error for required header)
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_invalid_auth(
+        self, client, db_session, valid_session_with_normal_pattern
+    ):
+        """Test 401 response for invalid admin token."""
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Testing invalid auth behavior.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{valid_session_with_normal_pattern.id}/validity",
+            json=override_data,
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+
+        assert response.status_code == 401
+        assert "invalid" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_reason_too_short(
+        self, client, db_session, admin_headers, valid_session_with_normal_pattern
+    ):
+        """Test validation error for override reason less than 10 characters."""
+        override_data = {
+            "validity_status": "invalid",
+            "override_reason": "Too short",  # 9 characters, need >= 10
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{valid_session_with_normal_pattern.id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422
+        # Pydantic should reject reason < 10 chars
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_missing_reason(
+        self, client, db_session, admin_headers, valid_session_with_normal_pattern
+    ):
+        """Test validation error when override reason is missing."""
+        override_data = {
+            "validity_status": "invalid",
+            # Missing override_reason
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{valid_session_with_normal_pattern.id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_invalid_status_value(
+        self, client, db_session, admin_headers, valid_session_with_normal_pattern
+    ):
+        """Test validation error for invalid validity status value."""
+        override_data = {
+            "validity_status": "unknown_status",  # Not in enum
+            "override_reason": "Testing invalid status value.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{valid_session_with_normal_pattern.id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 422
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_same_status_allowed(
+        self, client, db_session, admin_headers, suspect_session_with_rapid_responses
+    ):
+        """Test that overriding to the same status is allowed (for audit trail)."""
+        session_id = suspect_session_with_rapid_responses.id
+
+        override_data = {
+            "validity_status": "suspect",  # Same as current status
+            "override_reason": "Reviewed but confirmed original assessment is correct. Documenting review for audit trail.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Status remains the same but override is recorded
+        assert data["previous_status"] == "suspect"
+        assert data["new_status"] == "suspect"
+        assert data["override_reason"] == override_data["override_reason"]
+        assert data["overridden_at"] is not None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_updates_existing_override(
+        self, client, db_session, admin_headers, suspect_session_with_rapid_responses
+    ):
+        """Test that a second override updates the previous override."""
+        session_id = suspect_session_with_rapid_responses.id
+
+        # First override
+        first_override = {
+            "validity_status": "valid",
+            "override_reason": "First review: confirmed legitimate pattern.",
+        }
+        response1 = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=first_override,
+            headers=admin_headers,
+        )
+        assert response1.status_code == 200
+
+        # Second override (change back)
+        second_override = {
+            "validity_status": "suspect",
+            "override_reason": "Second review: new evidence requires reverting to suspect status.",
+        }
+        response2 = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=second_override,
+            headers=admin_headers,
+        )
+
+        assert response2.status_code == 200
+        data = response2.json()
+
+        # Previous status should be from the first override
+        assert data["previous_status"] == "valid"
+        assert data["new_status"] == "suspect"
+        assert data["override_reason"] == second_override["override_reason"]
+
+        # Database should have the latest override
+        result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        db_session.refresh(result)
+        assert result.validity_status == "suspect"
+        assert result.validity_override_reason == second_override["override_reason"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_override_preserves_original_flags(
+        self, client, db_session, admin_headers, suspect_session_with_rapid_responses
+    ):
+        """Test that override preserves the original validity flags."""
+        session_id = suspect_session_with_rapid_responses.id
+
+        # Get original flags
+        result_before = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        original_flags = result_before.validity_flags
+
+        override_data = {
+            "validity_status": "valid",
+            "override_reason": "Manual review confirmed legitimate pattern despite rapid response flags.",
+        }
+
+        response = client.patch(
+            f"/v1/admin/sessions/{session_id}/validity",
+            json=override_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+
+        # Verify flags are preserved
+        result_after = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        db_session.refresh(result_after)
+        assert result_after.validity_flags == original_flags

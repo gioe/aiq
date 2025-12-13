@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     UniqueConstraint,
     Index,
+    CheckConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSON
@@ -400,9 +401,38 @@ class TestResult(Base):
     # NULL indicates validity has not been checked yet
     # Used to track when checks were run and for potential re-analysis
 
+    # Admin override fields (CD-017)
+    # These fields track when an admin manually overrides validity status after review
+    validity_override_reason = Column(
+        Text, nullable=True
+    )  # Required explanation when admin overrides validity status
+    # Must be at least 10 characters per API validation
+    # Provides audit trail for why original assessment was changed
+
+    validity_overridden_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Timestamp when admin override was performed
+    # NULL indicates no override has occurred (original assessment stands)
+
+    validity_overridden_by = Column(
+        Integer, nullable=True
+    )  # Admin user ID who performed the override
+    # Values: 0 = token-based auth (current implementation), NULL = no override
+    # Note: Not a foreign key since admin identity may be external to users table
+    # Migration path: When admin user management is added, add FK constraint and
+    # migrate existing 0 values to appropriate admin user IDs
+
     # Relationships
     test_session = relationship("TestSession", back_populates="test_result")
     user = relationship("User", back_populates="test_results")
+
+    # Table-level constraints
+    __table_args__ = (
+        CheckConstraint(
+            "validity_overridden_by IS NULL OR validity_overridden_by >= 0",
+            name="ck_test_results_validity_overridden_by_non_negative",
+        ),
+    )
 
 
 class QuestionGenerationRun(Base):

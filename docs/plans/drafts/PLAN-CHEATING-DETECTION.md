@@ -433,8 +433,8 @@ def assess_session_validity(
 ---
 
 ### CD-017: Add Admin Override Capability
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/validity.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/validity.py`, `backend/app/models/models.py`
 **Description:** Allow admins to manually override validity status after review.
 
 **Endpoint:** `PATCH /v1/admin/sessions/{id}/validity`
@@ -447,11 +447,21 @@ def assess_session_validity(
 }
 ```
 
+**Implementation Summary:**
+- Added `validity_override_reason`, `validity_overridden_at`, `validity_overridden_by` fields to TestResult model
+- Created Alembic migration for new fields
+- Implemented PATCH endpoint with admin token authentication
+- Validates override reason (min 10 chars) for audit trail
+- Stores previous and new status with timestamp
+- Logs all override actions for security monitoring
+- Returns ValidityOverrideResponse with full details
+- Added 13 integration tests covering all scenarios
+
 **Acceptance Criteria:**
-- [ ] Endpoint requires admin authentication
-- [ ] Stores override status and reason
-- [ ] Logs admin override action
-- [ ] Returns updated validity status
+- [x] Endpoint requires admin authentication
+- [x] Stores override status and reason
+- [x] Logs admin override action
+- [x] Returns updated validity status
 
 ---
 
