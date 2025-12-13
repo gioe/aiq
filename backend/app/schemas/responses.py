@@ -67,6 +67,10 @@ class TestResultResponse(BaseModel):
         None,
         description="Summary of response time anomalies (rapid responses, extended times, validity concerns)",
     )
+    domain_scores: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="Per-domain performance breakdown with correct, total, and pct for each cognitive domain",
+    )
 
     class Config:
         """Pydantic config."""

@@ -54,14 +54,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Integration test verifies domain scores are persisted
 
 ### DW-004: Update Test Result API Response Schema
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/test.py`, `backend/app/api/v1/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/responses.py`, `backend/app/api/v1/test.py`
 **Description:** Add domain_scores to the test result response schema and ensure it's returned in API responses.
 **Acceptance Criteria:**
-- [ ] `TestResultResponse` schema includes `domain_scores: Optional[Dict]`
-- [ ] Test result endpoints return domain_scores
-- [ ] Existing tests pass with schema changes
-- [ ] API docs reflect new field
+- [x] `TestResultResponse` schema includes `domain_scores: Optional[Dict]`
+- [x] Test result endpoints return domain_scores
+- [x] Existing tests pass with schema changes
+- [x] API docs reflect new field
 
 ### DW-005: Create iOS Domain Scores Model
 **Status:** [ ] Not Started
