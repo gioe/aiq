@@ -175,6 +175,7 @@ def build_test_result_response(test_result) -> TestResultResponse:
         completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
         completed_at=test_result.completed_at,  # type: ignore[arg-type]
         response_time_flags=test_result.response_time_flags,  # type: ignore[arg-type]
+        domain_scores=test_result.domain_scores,  # type: ignore[arg-type]
     )
 
 
