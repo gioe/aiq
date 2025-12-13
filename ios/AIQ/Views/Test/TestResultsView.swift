@@ -21,6 +21,14 @@ struct TestResultsView: View {
                         )
                     }
 
+                    // Domain scores breakdown
+                    if result.domainScores != nil {
+                        DomainScoresBreakdownView(
+                            domainScores: result.domainScores,
+                            showAnimation: showAnimation
+                        )
+                    }
+
                     // Performance metrics
                     metricsGrid
 
@@ -329,7 +337,15 @@ struct TestResultsView: View {
             accuracyPercentage: 95.0,
             completionTimeSeconds: 842,
             completedAt: Date(),
-            responseTimeFlags: nil
+            responseTimeFlags: nil,
+            domainScores: [
+                "pattern": DomainScore(correct: 4, total: 4, pct: 100.0),
+                "logic": DomainScore(correct: 3, total: 3, pct: 100.0),
+                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0),
+                "math": DomainScore(correct: 4, total: 4, pct: 100.0),
+                "verbal": DomainScore(correct: 3, total: 3, pct: 100.0),
+                "memory": DomainScore(correct: 2, total: 3, pct: 66.7)
+            ]
         ),
         onDismiss: {}
     )
@@ -348,7 +364,15 @@ struct TestResultsView: View {
             accuracyPercentage: 70.0,
             completionTimeSeconds: 1023,
             completedAt: Date(),
-            responseTimeFlags: nil
+            responseTimeFlags: nil,
+            domainScores: [
+                "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
+                "logic": DomainScore(correct: 2, total: 3, pct: 66.7),
+                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7),
+                "math": DomainScore(correct: 3, total: 4, pct: 75.0),
+                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7),
+                "memory": DomainScore(correct: 2, total: 3, pct: 66.7)
+            ]
         ),
         onDismiss: {}
     )
@@ -367,7 +391,35 @@ struct TestResultsView: View {
             accuracyPercentage: 45.0,
             completionTimeSeconds: 1523,
             completedAt: Date(),
-            responseTimeFlags: nil
+            responseTimeFlags: nil,
+            domainScores: [
+                "pattern": DomainScore(correct: 1, total: 4, pct: 25.0),
+                "logic": DomainScore(correct: 2, total: 3, pct: 66.7),
+                "spatial": DomainScore(correct: 1, total: 3, pct: 33.3),
+                "math": DomainScore(correct: 2, total: 4, pct: 50.0),
+                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7),
+                "memory": DomainScore(correct: 1, total: 3, pct: 33.3)
+            ]
+        ),
+        onDismiss: {}
+    )
+}
+
+#Preview("No Domain Scores") {
+    TestResultsView(
+        result: SubmittedTestResult(
+            id: 4,
+            testSessionId: 126,
+            userId: 1,
+            iqScore: 100,
+            percentileRank: 50.0,
+            totalQuestions: 20,
+            correctAnswers: 12,
+            accuracyPercentage: 60.0,
+            completionTimeSeconds: 900,
+            completedAt: Date(),
+            responseTimeFlags: nil,
+            domainScores: nil
         ),
         onDismiss: {}
     )
