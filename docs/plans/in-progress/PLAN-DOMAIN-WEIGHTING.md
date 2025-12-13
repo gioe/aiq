@@ -44,14 +44,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests cover all question types and edge cases
 
 ### DW-003: Integrate Domain Scores into Test Submission
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py`
 **Description:** Call `calculate_domain_scores` during test submission and store results in TestResult.
 **Acceptance Criteria:**
-- [ ] Domain scores calculated after responses are processed
-- [ ] Domain scores stored in TestResult.domain_scores
-- [ ] Works correctly for tests with varying question distribution
-- [ ] Integration test verifies domain scores are persisted
+- [x] Domain scores calculated after responses are processed
+- [x] Domain scores stored in TestResult.domain_scores
+- [x] Works correctly for tests with varying question distribution
+- [x] Integration test verifies domain scores are persisted
 
 ### DW-004: Update Test Result API Response Schema
 **Status:** [ ] Not Started
