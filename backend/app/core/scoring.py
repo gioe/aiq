@@ -39,9 +39,12 @@ Current algorithm acceptable for MVP but will be replaced with
 scientifically validated approach once sufficient user data available.
 """
 
-from typing import Protocol
+from typing import Protocol, List, Dict, Any, TYPE_CHECKING
 from dataclasses import dataclass
 from scipy.stats import norm
+
+if TYPE_CHECKING:
+    from app.models.models import Response, Question
 
 
 @dataclass
@@ -231,3 +234,85 @@ def calculate_iq_score(correct_answers: int, total_questions: int) -> TestScore:
         IQ Score: 107
     """
     return _default_strategy.calculate_iq_score(correct_answers, total_questions)
+
+
+def calculate_domain_scores(
+    responses: List["Response"], questions: Dict[int, "Question"]
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Calculate per-domain performance breakdown from test responses.
+
+    This function groups responses by their question's domain (question_type)
+    and calculates correctness statistics for each domain.
+
+    Args:
+        responses: List of Response objects from a completed test session.
+            Each response must have question_id and is_correct attributes.
+        questions: Dictionary mapping question_id to Question objects.
+            Each Question must have a question_type attribute (QuestionType enum).
+
+    Returns:
+        Dictionary with domain names as keys (from QuestionType enum values).
+        Each domain entry contains:
+        - correct (int): Number of questions answered correctly in this domain
+        - total (int): Total number of questions in this domain
+        - pct (float | None): Percentage score (correct/total * 100), rounded to 1 decimal.
+            None if total is 0 (domain had no questions in this test).
+
+    Example:
+        >>> domain_scores = calculate_domain_scores(responses, questions)
+        >>> print(domain_scores)
+        {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 2, "total": 3, "pct": 66.7},
+            "spatial": {"correct": 2, "total": 3, "pct": 66.7},
+            "math": {"correct": 3, "total": 4, "pct": 75.0},
+            "verbal": {"correct": 3, "total": 3, "pct": 100.0},
+            "memory": {"correct": 2, "total": 3, "pct": 66.7}
+        }
+
+    Note:
+        Domains with zero questions will have {"correct": 0, "total": 0, "pct": None}.
+        This can happen when a test doesn't include questions from all domains.
+    """
+    # Import here to avoid circular imports
+    from app.models.models import QuestionType
+
+    # Initialize counters for each domain
+    domain_stats: Dict[str, Dict[str, int]] = {}
+    for qt in QuestionType:
+        domain_stats[qt.value] = {"correct": 0, "total": 0}
+
+    # Aggregate responses by domain
+    for response in responses:
+        # question_id is int at runtime despite SQLAlchemy Column typing
+        question_id: int = response.question_id  # type: ignore[assignment]
+        question = questions.get(question_id)
+        if question is None:
+            # Skip responses for questions not in our dictionary
+            # This shouldn't happen in normal operation but handles edge cases
+            continue
+
+        domain_name = question.question_type.value
+        domain_stats[domain_name]["total"] += 1
+        if response.is_correct:
+            domain_stats[domain_name]["correct"] += 1
+
+    # Calculate percentages
+    result: Dict[str, Dict[str, Any]] = {}
+    for domain_key, stats in domain_stats.items():
+        correct = stats["correct"]
+        total = stats["total"]
+
+        if total > 0:
+            pct = round((correct / total) * 100, 1)
+        else:
+            pct = None
+
+        result[domain_key] = {
+            "correct": correct,
+            "total": total,
+            "pct": pct,
+        }
+
+    return result
