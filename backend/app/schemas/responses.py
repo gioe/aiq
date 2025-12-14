@@ -69,7 +69,15 @@ class TestResultResponse(BaseModel):
     )
     domain_scores: Optional[Dict[str, Dict[str, Any]]] = Field(
         None,
-        description="Per-domain performance breakdown with correct, total, and pct for each cognitive domain",
+        description="Per-domain performance breakdown with correct, total, pct, and percentile for each cognitive domain",
+    )
+    strongest_domain: Optional[str] = Field(
+        None,
+        description="Name of the highest-scoring cognitive domain",
+    )
+    weakest_domain: Optional[str] = Field(
+        None,
+        description="Name of the lowest-scoring cognitive domain",
     )
 
     class Config:

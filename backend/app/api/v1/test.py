@@ -27,10 +27,13 @@ from app.core.scoring import (
     calculate_weighted_iq_score,
     iq_to_percentile,
     calculate_domain_scores,
+    calculate_all_domain_percentiles,
+    get_strongest_weakest_domains,
 )
 from app.core.system_config import (
     is_weighted_scoring_enabled,
     get_domain_weights,
+    get_domain_population_stats,
 )
 from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
@@ -151,15 +154,20 @@ def verify_session_in_progress(test_session: TestSession) -> None:
         )
 
 
-def build_test_result_response(test_result) -> TestResultResponse:
+def build_test_result_response(
+    test_result, db: Optional[Session] = None
+) -> TestResultResponse:
     """
     Build a TestResultResponse from a TestResult model.
 
     Args:
         test_result: TestResult model instance
+        db: Optional database session for fetching population stats.
+            If provided, domain percentiles will be calculated.
 
     Returns:
-        TestResultResponse with calculated accuracy percentage
+        TestResultResponse with calculated accuracy percentage, domain percentiles,
+        and strongest/weakest domain identification.
     """
     accuracy_percentage: float = (
         (float(test_result.correct_answers) / float(test_result.total_questions))
@@ -167,6 +175,29 @@ def build_test_result_response(test_result) -> TestResultResponse:
         if test_result.total_questions > 0
         else 0.0
     )
+
+    # DW-016: Calculate domain percentiles and identify strongest/weakest domains
+    domain_scores = test_result.domain_scores
+    strongest_domain: Optional[str] = None
+    weakest_domain: Optional[str] = None
+
+    if domain_scores:
+        # Get strongest and weakest domains based on accuracy
+        domain_analysis = get_strongest_weakest_domains(domain_scores)
+        strongest_domain = domain_analysis.get("strongest_domain")
+        weakest_domain = domain_analysis.get("weakest_domain")
+
+        # Calculate domain percentiles if we have population stats
+        if db is not None:
+            population_stats = get_domain_population_stats(db)
+            if population_stats:
+                domain_percentiles = calculate_all_domain_percentiles(
+                    domain_scores, population_stats
+                )
+                # Enrich domain_scores with percentile data
+                for domain, percentile in domain_percentiles.items():
+                    if domain in domain_scores:
+                        domain_scores[domain]["percentile"] = percentile
 
     return TestResultResponse(
         id=test_result.id,  # type: ignore[arg-type]
@@ -180,7 +211,9 @@ def build_test_result_response(test_result) -> TestResultResponse:
         completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
         completed_at=test_result.completed_at,  # type: ignore[arg-type]
         response_time_flags=test_result.response_time_flags,  # type: ignore[arg-type]
-        domain_scores=test_result.domain_scores,  # type: ignore[arg-type]
+        domain_scores=domain_scores,  # type: ignore[arg-type]
+        strongest_domain=strongest_domain,
+        weakest_domain=weakest_domain,
     )
 
 
@@ -832,8 +865,8 @@ def submit_test(
     # Invalidate user's cached data after test submission
     invalidate_user_cache(int(current_user.id))  # type: ignore[arg-type]
 
-    # Build response with test result
-    result_response = build_test_result_response(test_result)
+    # Build response with test result (pass db for domain percentile calculation)
+    result_response = build_test_result_response(test_result, db=db)
 
     return SubmitTestResponse(
         session=TestSessionResponse.model_validate(test_session),
@@ -877,7 +910,7 @@ def get_test_result(
             status_code=403, detail="Not authorized to access this test result"
         )
 
-    return build_test_result_response(test_result)
+    return build_test_result_response(test_result, db=db)
 
 
 @router.get("/history", response_model=list[TestResultResponse])
@@ -907,5 +940,7 @@ def get_test_history(
         .all()
     )
 
-    # Convert to response format
-    return [build_test_result_response(test_result) for test_result in test_results]
+    # Convert to response format (pass db for domain percentile calculation)
+    return [
+        build_test_result_response(test_result, db=db) for test_result in test_results
+    ]
