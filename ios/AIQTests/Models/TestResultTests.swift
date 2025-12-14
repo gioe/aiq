@@ -40,18 +40,18 @@ final class TestResultTests: XCTestCase {
     }
 
     func testDomainScorePercentageFormatted() {
-        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.5)
+        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.5, percentile: nil)
         XCTAssertEqual(scoreWithPct.percentageFormatted, "76%")
 
-        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil)
+        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil, percentile: nil)
         XCTAssertEqual(scoreWithNullPct.percentageFormatted, "N/A")
     }
 
     func testDomainScoreAccuracy() {
-        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.0)
+        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil)
         XCTAssertEqual(scoreWithPct.accuracy, 0.75)
 
-        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil)
+        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil, percentile: nil)
         XCTAssertNil(scoreWithNullPct.accuracy)
     }
 
@@ -226,12 +226,12 @@ final class TestResultTests: XCTestCase {
 
     func testStrongestWeakestExcludesDomainsWithZeroQuestions() {
         let domainScores: [String: DomainScore] = [
-            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "logic": DomainScore(correct: 0, total: 0, pct: nil), // No questions
-            "spatial": DomainScore(correct: 2, total: 4, pct: 50.0),
-            "math": DomainScore(correct: 4, total: 4, pct: 100.0),
-            "verbal": DomainScore(correct: 1, total: 4, pct: 25.0),
-            "memory": DomainScore(correct: 0, total: 0, pct: nil) // No questions
+            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "logic": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil), // No questions
+            "spatial": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
+            "math": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: nil),
+            "verbal": DomainScore(correct: 1, total: 4, pct: 25.0, percentile: nil),
+            "memory": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil) // No questions
         ]
 
         let result = TestResult(
@@ -259,12 +259,12 @@ final class TestResultTests: XCTestCase {
 
     private func createTestResultWithDomainScores() -> TestResult {
         let domainScores: [String: DomainScore] = [
-            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "logic": DomainScore(correct: 2, total: 3, pct: 66.67),
-            "spatial": DomainScore(correct: 2, total: 3, pct: 66.67),
-            "math": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0),
-            "memory": DomainScore(correct: 1, total: 3, pct: 33.33)
+            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "logic": DomainScore(correct: 2, total: 3, pct: 66.67, percentile: nil),
+            "spatial": DomainScore(correct: 2, total: 3, pct: 66.67, percentile: nil),
+            "math": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: nil),
+            "memory": DomainScore(correct: 1, total: 3, pct: 33.33, percentile: nil)
         ]
 
         return TestResult(
