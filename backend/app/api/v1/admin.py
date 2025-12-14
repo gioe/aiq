@@ -5,7 +5,7 @@ import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Literal, Dict, Any
+from typing import Optional, Literal, Dict, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
@@ -55,6 +55,11 @@ from app.core.distractor_analysis import (
     analyze_distractor_effectiveness,
     get_bulk_distractor_summary,
 )
+from app.core.analytics import (
+    build_response_matrix,
+    calculate_g_loadings,
+    InsufficientSampleError,
+)
 from app.schemas.distractor_analysis import (
     DistractorAnalysisResponse,
     DistractorOptionAnalysis,
@@ -83,6 +88,12 @@ from app.schemas.validity import (
     SessionNeedingReview,
     ValidityOverrideRequest,
     ValidityOverrideResponse,
+)
+from app.schemas.factor_analysis import (
+    FactorAnalysisResponse,
+    ReliabilityMetrics,
+    FactorAnalysisRecommendation,
+    InsufficientSampleResponse,
 )
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
@@ -2608,4 +2619,261 @@ async def override_session_validity(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to override session validity: {str(e)}",
+        )
+
+
+# =============================================================================
+# Factor Analysis Endpoints (DW-011)
+# =============================================================================
+
+
+MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS = 500
+
+
+def _generate_recommendations(
+    g_loadings: Dict[str, float],
+    variance_explained: float,
+    cronbachs_alpha: float,
+    sample_size: int,
+) -> List[FactorAnalysisRecommendation]:
+    """
+    Generate recommendations based on factor analysis results.
+
+    Args:
+        g_loadings: Dictionary mapping domain names to g-loading values.
+        variance_explained: Proportion of variance explained by g-factor.
+        cronbachs_alpha: Cronbach's alpha reliability coefficient.
+        sample_size: Number of sessions used in analysis.
+
+    Returns:
+        List of recommendations.
+    """
+    recommendations: List[FactorAnalysisRecommendation] = []
+
+    # Sample size recommendations
+    if sample_size < 1000:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="sample_size",
+                message=f"Current sample size ({sample_size}) is adequate but larger samples "
+                "provide more stable factor loading estimates. Consider rerunning after "
+                "reaching 1000+ sessions.",
+                severity="info",
+            )
+        )
+
+    # Reliability recommendations
+    if cronbachs_alpha < 0.6:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="reliability",
+                message=f"Cronbach's alpha ({cronbachs_alpha:.2f}) is below acceptable threshold. "
+                "This suggests the items may not be measuring a coherent construct. "
+                "Review question quality and consider removing poorly-performing items.",
+                severity="critical",
+            )
+        )
+    elif cronbachs_alpha < 0.7:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="reliability",
+                message=f"Cronbach's alpha ({cronbachs_alpha:.2f}) is questionable. "
+                "Consider reviewing items with low item-total correlations.",
+                severity="warning",
+            )
+        )
+    elif cronbachs_alpha >= 0.8:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="reliability",
+                message=f"Cronbach's alpha ({cronbachs_alpha:.2f}) indicates good internal consistency.",
+                severity="info",
+            )
+        )
+
+    # Variance explained recommendations
+    if variance_explained < 0.20:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="variance",
+                message=f"Variance explained ({variance_explained:.1%}) is low. "
+                "A single g-factor may not adequately capture the test's structure. "
+                "Consider a multi-factor model.",
+                severity="warning",
+            )
+        )
+    elif variance_explained >= 0.40:
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="variance",
+                message=f"Variance explained ({variance_explained:.1%}) indicates a strong g-factor. "
+                "The test items are well-suited for measuring general cognitive ability.",
+                severity="info",
+            )
+        )
+
+    # Loading-based recommendations
+    if g_loadings:
+        sorted_loadings = sorted(g_loadings.items(), key=lambda x: x[1], reverse=True)
+        highest_domain, highest_loading = sorted_loadings[0]
+        lowest_domain, lowest_loading = sorted_loadings[-1]
+
+        recommendations.append(
+            FactorAnalysisRecommendation(
+                category="loadings",
+                message=f"Highest g-loading: {highest_domain} ({highest_loading:.2f}). "
+                f"Lowest g-loading: {lowest_domain} ({lowest_loading:.2f}). "
+                "Consider weighting domains proportionally to their g-loadings for IQ scoring.",
+                severity="info",
+            )
+        )
+
+        # Flag domains with very low loadings
+        low_loading_domains = [
+            domain for domain, loading in g_loadings.items() if loading < 0.3
+        ]
+        if low_loading_domains:
+            recommendations.append(
+                FactorAnalysisRecommendation(
+                    category="loadings",
+                    message=f"Domains with low g-loadings (<0.30): {', '.join(low_loading_domains)}. "
+                    "These domains may be measuring something distinct from general intelligence. "
+                    "Consider reviewing or reducing their weight in composite scoring.",
+                    severity="warning",
+                )
+            )
+
+    return recommendations
+
+
+@router.get(
+    "/analytics/factor-analysis",
+    response_model=FactorAnalysisResponse,
+    responses={
+        400: {"model": InsufficientSampleResponse},
+        401: {"description": "Invalid admin token"},
+    },
+)
+async def get_factor_analysis(
+    _: bool = Depends(verify_admin_token),
+    db: Session = Depends(get_db),
+    min_responses_per_question: int = Query(
+        default=30,
+        ge=10,
+        le=200,
+        description="Minimum responses per question for inclusion",
+    ),
+):
+    """
+    Perform factor analysis to calculate empirical g-loadings per domain.
+
+    This endpoint runs a factor analysis on all completed test sessions to
+    determine how strongly each cognitive domain correlates with general
+    intelligence (g). Results can be used to inform weighted scoring.
+
+    **Requirements:**
+    - Minimum 500 completed test sessions
+    - Questions must have at least min_responses_per_question responses
+
+    **Returns:**
+    - g_loadings: Correlation of each domain with the g-factor (0-1)
+    - variance_explained: How much variance the g-factor explains
+    - reliability: Cronbach's alpha for internal consistency
+    - recommendations: Actionable insights based on the results
+
+    **Interpretation:**
+    - Higher g-loadings indicate stronger correlation with general intelligence
+    - Variance explained > 40% suggests a strong general factor
+    - Cronbach's alpha >= 0.7 indicates acceptable reliability
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    try:
+        # Build the response matrix from completed test sessions
+        response_matrix = build_response_matrix(
+            db=db,
+            min_responses_per_question=min_responses_per_question,
+            min_questions_per_session=10,
+        )
+
+        # Check if we have enough data
+        if response_matrix is None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "insufficient_sample",
+                    "message": "No completed test sessions with sufficient data found.",
+                    "sample_size": 0,
+                    "minimum_required": MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS,
+                    "recommendation": "At least 500 completed test sessions are needed "
+                    "before factor analysis can be performed.",
+                },
+            )
+
+        # Check if sample size meets minimum requirement
+        if response_matrix.n_users < MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS:
+            shortfall = (
+                MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS - response_matrix.n_users
+            )
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "insufficient_sample",
+                    "message": f"Sample size ({response_matrix.n_users}) is below minimum "
+                    f"({MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS}) required for reliable factor analysis.",
+                    "sample_size": response_matrix.n_users,
+                    "minimum_required": MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS,
+                    "recommendation": f"Approximately {shortfall} more completed test sessions "
+                    "are needed before factor analysis can be performed.",
+                },
+            )
+
+        # Calculate g-loadings
+        g_result = calculate_g_loadings(
+            response_matrix=response_matrix,
+            min_sample_size=100,  # Internal check, we've already verified 500+
+            min_variance_per_item=0.01,
+        )
+
+        # Generate recommendations
+        recommendations = _generate_recommendations(
+            g_loadings=g_result.domain_loadings,
+            variance_explained=g_result.variance_explained,
+            cronbachs_alpha=g_result.cronbachs_alpha,
+            sample_size=g_result.sample_size,
+        )
+
+        return FactorAnalysisResponse(
+            analysis_date=datetime.now(timezone.utc),
+            sample_size=g_result.sample_size,
+            n_items=g_result.n_items,
+            g_loadings=g_result.domain_loadings,
+            variance_explained=g_result.variance_explained,
+            reliability=ReliabilityMetrics(
+                cronbachs_alpha=g_result.cronbachs_alpha,
+            ),
+            recommendations=recommendations,
+            warnings=g_result.analysis_warnings,
+        )
+
+    except InsufficientSampleError as e:
+        shortfall = e.minimum_required - e.sample_size
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "insufficient_sample",
+                "message": str(e),
+                "sample_size": e.sample_size,
+                "minimum_required": e.minimum_required,
+                "recommendation": f"Approximately {shortfall} more valid items are needed "
+                "before factor analysis can be performed.",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Factor analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to perform factor analysis: {str(e)}",
         )
