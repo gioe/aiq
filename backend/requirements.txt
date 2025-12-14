@@ -8,6 +8,7 @@ python-dotenv==1.0.0
 
 # Statistical/Mathematical
 scipy==1.16.3
+scikit-learn==1.8.0
 factor-analyzer==0.5.1
 
 # FastAPI and server (will be used in later phases)
