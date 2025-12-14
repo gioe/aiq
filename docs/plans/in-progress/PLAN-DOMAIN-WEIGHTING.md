@@ -175,15 +175,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit and integration tests
 
 ### DW-015: Implement Domain Percentile Calculation
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/scoring.py` or `backend/app/core/analytics.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/scoring.py`
 **Description:** Calculate percentile rankings for domain scores based on population statistics.
 **Acceptance Criteria:**
-- [ ] Function calculates domain percentile from accuracy
-- [ ] Uses population mean and SD for each domain
-- [ ] Returns percentile (0-100)
-- [ ] Population stats stored in SystemConfig
-- [ ] Unit tests verify percentile calculations
+- [x] Function calculates domain percentile from accuracy
+- [x] Uses population mean and SD for each domain
+- [x] Returns percentile (0-100)
+- [x] Population stats stored in SystemConfig
+- [x] Unit tests verify percentile calculations
 
 ### DW-016: Add Domain Percentiles to API Response
 **Status:** [ ] Not Started

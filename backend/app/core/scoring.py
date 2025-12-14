@@ -353,6 +353,212 @@ def calculate_weighted_iq_score(
     )
 
 
+def calculate_domain_percentile(
+    accuracy: float,
+    mean_accuracy: float,
+    sd_accuracy: float,
+) -> float:
+    """
+    Calculate percentile ranking for a domain accuracy score.
+
+    Converts a domain accuracy score to a percentile rank based on the
+    population mean and standard deviation for that domain. Uses the
+    normal distribution CDF to compute what percentage of the population
+    scores below the given accuracy.
+
+    Args:
+        accuracy: The domain accuracy (0.0 to 1.0) to convert to percentile.
+        mean_accuracy: Population mean accuracy for this domain (0.0 to 1.0).
+        sd_accuracy: Population standard deviation of accuracy for this domain.
+            Must be positive.
+
+    Returns:
+        Percentile rank (0-100), rounded to 1 decimal place.
+        A percentile of 75 means the score is higher than 75% of the population.
+
+    Raises:
+        ValueError: If sd_accuracy is not positive.
+
+    Example:
+        >>> # If population mean is 65% with SD of 18%
+        >>> calculate_domain_percentile(0.75, 0.65, 0.18)
+        71.1  # 75% accuracy is at the 71st percentile for this domain
+
+        >>> # Average performance equals 50th percentile
+        >>> calculate_domain_percentile(0.65, 0.65, 0.18)
+        50.0
+
+    Note:
+        The accuracy, mean_accuracy, and sd_accuracy should all be in the same
+        scale (typically 0-1 as fractions, not 0-100 as percentages).
+    """
+    if sd_accuracy <= 0:
+        raise ValueError("sd_accuracy must be positive")
+
+    # Calculate z-score: number of standard deviations from mean
+    z_score = (accuracy - mean_accuracy) / sd_accuracy
+
+    # Convert z-score to percentile using cumulative distribution function
+    percentile = norm.cdf(z_score) * 100
+
+    # Round to 1 decimal place
+    return round(percentile, 1)
+
+
+def calculate_all_domain_percentiles(
+    domain_scores: Dict[str, Dict[str, Any]],
+    population_stats: Optional[Dict[str, Dict[str, float]]] = None,
+) -> Dict[str, Optional[float]]:
+    """
+    Calculate percentile rankings for all domains in a test result.
+
+    For each domain that has questions and population statistics available,
+    computes the percentile ranking based on the user's accuracy compared
+    to the population.
+
+    Args:
+        domain_scores: Dictionary of domain performance from calculate_domain_scores.
+            Each domain entry should have:
+            - correct (int): Number of correct answers
+            - total (int): Total questions in domain
+            - pct (float | None): Percentage score
+        population_stats: Dictionary mapping domain names to their population
+            statistics. Each domain entry should have:
+            - mean_accuracy (float): Population mean accuracy (0-1)
+            - sd_accuracy (float): Population standard deviation (0-1)
+            If None or missing for a domain, percentile won't be calculated.
+
+    Returns:
+        Dictionary mapping domain names to percentile ranks (0-100).
+        Returns None for domains that:
+        - Have no questions in the test (total=0)
+        - Don't have population statistics available
+        - Have invalid population statistics (sd <= 0)
+
+    Example:
+        >>> domain_scores = {
+        ...     "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        ...     "logic": {"correct": 2, "total": 3, "pct": 66.7},
+        ...     "spatial": {"correct": 0, "total": 0, "pct": None},
+        ... }
+        >>> population_stats = {
+        ...     "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+        ...     "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+        ... }
+        >>> percentiles = calculate_all_domain_percentiles(domain_scores, population_stats)
+        >>> print(percentiles)
+        {"pattern": 71.1, "logic": 63.0, "spatial": None}
+
+    Note:
+        Domain percentiles should be interpreted as "this user scored higher
+        than X% of the population in this domain."
+    """
+    result: Dict[str, Optional[float]] = {}
+
+    for domain, scores in domain_scores.items():
+        total = scores.get("total", 0)
+        pct = scores.get("pct")
+
+        # Skip domains with no questions
+        if total == 0 or pct is None:
+            result[domain] = None
+            continue
+
+        # Skip if no population stats available
+        if population_stats is None:
+            result[domain] = None
+            continue
+
+        domain_stats = population_stats.get(domain)
+        if domain_stats is None:
+            result[domain] = None
+            continue
+
+        mean_accuracy = domain_stats.get("mean_accuracy")
+        sd_accuracy = domain_stats.get("sd_accuracy")
+
+        # Skip if stats are invalid
+        if mean_accuracy is None or sd_accuracy is None or sd_accuracy <= 0:
+            result[domain] = None
+            continue
+
+        # Convert percentage to fraction (pct is 0-100, accuracy should be 0-1)
+        accuracy = pct / 100.0
+
+        try:
+            percentile = calculate_domain_percentile(
+                accuracy, mean_accuracy, sd_accuracy
+            )
+            result[domain] = percentile
+        except ValueError:
+            result[domain] = None
+
+    return result
+
+
+def get_strongest_weakest_domains(
+    domain_scores: Dict[str, Dict[str, Any]],
+) -> Dict[str, Optional[str]]:
+    """
+    Identify the strongest and weakest domains based on accuracy.
+
+    Analyzes domain scores to find which domain the user performed best
+    and worst in. Only considers domains that have questions in the test.
+
+    Args:
+        domain_scores: Dictionary of domain performance from calculate_domain_scores.
+            Each domain entry should have:
+            - correct (int): Number of correct answers
+            - total (int): Total questions in domain
+            - pct (float | None): Percentage score
+
+    Returns:
+        Dictionary with:
+        - strongest_domain (str | None): Name of highest-scoring domain
+        - weakest_domain (str | None): Name of lowest-scoring domain
+        Returns None for both if no domains have questions.
+
+    Example:
+        >>> domain_scores = {
+        ...     "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        ...     "logic": {"correct": 2, "total": 4, "pct": 50.0},
+        ...     "spatial": {"correct": 4, "total": 4, "pct": 100.0},
+        ... }
+        >>> result = get_strongest_weakest_domains(domain_scores)
+        >>> print(result)
+        {"strongest_domain": "spatial", "weakest_domain": "logic"}
+
+    Note:
+        In case of ties, the domain that appears first is selected.
+    """
+    strongest: Optional[str] = None
+    weakest: Optional[str] = None
+    highest_pct: Optional[float] = None
+    lowest_pct: Optional[float] = None
+
+    for domain, scores in domain_scores.items():
+        pct = scores.get("pct")
+
+        # Skip domains with no questions
+        if pct is None:
+            continue
+
+        # Update strongest
+        if highest_pct is None or pct > highest_pct:
+            highest_pct = pct
+            strongest = domain
+
+        # Update weakest
+        if lowest_pct is None or pct < lowest_pct:
+            lowest_pct = pct
+            weakest = domain
+
+    return {
+        "strongest_domain": strongest,
+        "weakest_domain": weakest,
+    }
+
+
 def calculate_domain_scores(
     responses: List["Response"], questions: Dict[int, "Question"]
 ) -> Dict[str, Dict[str, Any]]:
