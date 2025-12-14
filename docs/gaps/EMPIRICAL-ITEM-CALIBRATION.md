@@ -1,8 +1,5 @@
 # Empirical Item Calibration
 
-**Status:** ✅ ADDRESSED - Implementation complete (2025-12-08)
-**Implementation Plan:** `doc\,//plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
-
 ## Problem Statement
 
 AIQ assigns difficulty labels (easy, medium, hard) to questions based on AI arbiter judgment during question generation. These labels are **not validated against actual user performance data**. This creates a fundamental methodological problem: a question labeled "hard" might actually be easy for real users, and vice versa.

@@ -3,7 +3,7 @@
 **Status:** ✅ COMPLETE
 **Completed:** 2025-12-12
 
-**Source:** docs/methodology/gaps/CHEATING-DETECTION.md
+**Source:** docs/gaps/CHEATING-DETECTION.md
 **Task Prefix:** CD
 **Generated:** 2025-12-12
 

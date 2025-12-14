@@ -1,6 +1,6 @@
 # Implementation Plan: Distractor Analysis
 
-**Source:** docs/methodology/gaps/DISTRACTOR-ANALYSIS.md
+**Source:** docs/gaps/DISTRACTOR-ANALYSIS.md
 **Task Prefix:** DA
 **Generated:** 2025-12-11
 

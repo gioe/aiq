@@ -2,7 +2,7 @@
 
 **Status:** ✅ **COMPLETE**
 **Completed:** 2025-12-11
-**Source:** docs/methodology/gaps/TIME-STANDARDIZATION.md
+**Source:** docs/gaps/TIME-STANDARDIZATION.md
 **Task Prefix:** TS
 **Generated:** 2025-12-08
 
