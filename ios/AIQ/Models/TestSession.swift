@@ -95,6 +95,10 @@ struct SubmittedTestResult: Codable, Equatable {
     let completedAt: Date
     let responseTimeFlags: ResponseTimeFlags?
     let domainScores: [String: DomainScore]?
+    /// The cognitive domain with the highest percentile score
+    let strongestDomain: String?
+    /// The cognitive domain with the lowest percentile score
+    let weakestDomain: String?
 
     var accuracy: Double {
         accuracyPercentage / 100.0
@@ -152,6 +156,8 @@ struct SubmittedTestResult: Codable, Equatable {
         case completedAt = "completed_at"
         case responseTimeFlags = "response_time_flags"
         case domainScores = "domain_scores"
+        case strongestDomain = "strongest_domain"
+        case weakestDomain = "weakest_domain"
     }
 }
 

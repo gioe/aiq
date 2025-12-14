@@ -1,10 +1,13 @@
 import Foundation
+import SwiftUI
 
 /// Represents performance breakdown for a single cognitive domain.
 struct DomainScore: Codable, Equatable {
     let correct: Int
     let total: Int
     let pct: Double?
+    /// Percentile rank (0-100) compared to population, available when population stats are configured
+    let percentile: Double?
 
     /// Formatted percentage string (e.g., "75%")
     var percentageFormatted: String {
@@ -16,6 +19,84 @@ struct DomainScore: Codable, Equatable {
     var accuracy: Double? {
         guard let percentage = pct else { return nil }
         return percentage / 100.0
+    }
+
+    /// Formatted percentile string (e.g., "71st")
+    var percentileFormatted: String? {
+        guard let percentile else { return nil }
+        let rounded = Int(round(percentile))
+        let suffix = ordinalSuffix(for: rounded)
+        return "\(rounded)\(suffix)"
+    }
+
+    /// Description for accessibility (e.g., "71st percentile")
+    var percentileDescription: String? {
+        guard let formatted = percentileFormatted else { return nil }
+        return "\(formatted) percentile"
+    }
+
+    /// Performance level based on percentile
+    var performanceLevel: PerformanceLevel? {
+        guard let percentile else { return nil }
+        switch percentile {
+        case 0 ..< 25:
+            return .needsWork
+        case 25 ..< 50:
+            return .belowAverage
+        case 50 ..< 75:
+            return .average
+        case 75 ..< 90:
+            return .good
+        case 90...:
+            return .excellent
+        default:
+            return nil
+        }
+    }
+
+    private func ordinalSuffix(for number: Int) -> String {
+        let ones = number % 10
+        let tens = (number % 100) / 10
+
+        if tens == 1 {
+            return "th"
+        }
+
+        switch ones {
+        case 1: return "st"
+        case 2: return "nd"
+        case 3: return "rd"
+        default: return "th"
+        }
+    }
+}
+
+/// Performance level categories for domain scores
+enum PerformanceLevel {
+    case needsWork // < 25th percentile
+    case belowAverage // 25-50th percentile
+    case average // 50-75th percentile
+    case good // 75-90th percentile
+    case excellent // >= 90th percentile
+
+    var displayName: String {
+        switch self {
+        case .needsWork: "Needs Work"
+        case .belowAverage: "Below Average"
+        case .average: "Average"
+        case .good: "Good"
+        case .excellent: "Excellent"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .needsWork: ColorPalette.performanceNeedsWork
+        case .belowAverage: ColorPalette.performanceBelowAverage
+        case .average: ColorPalette.performanceAverage
+        case .good: ColorPalette.performanceGood
+        case .excellent: ColorPalette.performanceExcellent
+        }
     }
 }
 

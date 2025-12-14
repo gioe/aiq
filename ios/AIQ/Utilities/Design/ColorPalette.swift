@@ -98,4 +98,21 @@ enum ColorPalette {
 
     /// Color for time/duration stats
     static let statPurple = Color.purple
+
+    // MARK: - Performance Level Colors
+
+    /// Color for excellent performance (>= 90th percentile)
+    static let performanceExcellent = Color.green
+
+    /// Color for good performance (75-90th percentile)
+    static let performanceGood = Color.teal
+
+    /// Color for average performance (50-75th percentile)
+    static let performanceAverage = Color.blue
+
+    /// Color for below average performance (25-50th percentile)
+    static let performanceBelowAverage = Color.orange
+
+    /// Color for needs work performance (< 25th percentile)
+    static let performanceNeedsWork = Color.red
 }
