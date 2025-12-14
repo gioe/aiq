@@ -24,9 +24,7 @@ struct DomainScore: Codable, Equatable {
     /// Formatted percentile string (e.g., "71st")
     var percentileFormatted: String? {
         guard let percentile else { return nil }
-        let rounded = Int(round(percentile))
-        let suffix = ordinalSuffix(for: rounded)
-        return "\(rounded)\(suffix)"
+        return Int(round(percentile)).ordinalString
     }
 
     /// Description for accessibility (e.g., "71st percentile")
@@ -51,22 +49,6 @@ struct DomainScore: Codable, Equatable {
             return .excellent
         default:
             return nil
-        }
-    }
-
-    private func ordinalSuffix(for number: Int) -> String {
-        let ones = number % 10
-        let tens = (number % 100) / 10
-
-        if tens == 1 {
-            return "th"
-        }
-
-        switch ones {
-        case 1: return "st"
-        case 2: return "nd"
-        case 3: return "rd"
-        default: return "th"
         }
     }
 }
@@ -162,24 +144,7 @@ struct TestResult: Codable, Identifiable, Equatable {
     /// Detailed percentile description (e.g., "84th percentile")
     var percentileDescription: String? {
         guard let percentile = percentileRank else { return nil }
-        let ordinal = ordinalSuffix(for: Int(round(percentile)))
-        return "\(Int(round(percentile)))\(ordinal) percentile"
-    }
-
-    private func ordinalSuffix(for number: Int) -> String {
-        let ones = number % 10
-        let tens = (number % 100) / 10
-
-        if tens == 1 {
-            return "th"
-        }
-
-        switch ones {
-        case 1: return "st"
-        case 2: return "nd"
-        case 3: return "rd"
-        default: return "th"
-        }
+        return "\(Int(round(percentile)).ordinalString) percentile"
     }
 
     enum CodingKeys: String, CodingKey {

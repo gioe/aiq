@@ -28,6 +28,7 @@
 		22CFA102A085208C5A02A0E3 /* TestDetailView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC34CF425BCF0769C9BDCD9 /* TestDetailView+Helpers.swift */; };
 		243E6FADFA76EE5B97002024 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6521BFC6112CCF91F2B0CB52 /* User.swift */; };
 		26CF5D1A1AA7C5B77A244EE6 /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */; };
+		INT3XT00001234567890ABCE /* Int+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = INT3XT00001234567890ABCD /* Int+Extensions.swift */; };
 		2B6037CB6F9A0E3A3DD13B9E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473678EF6D55B9C2E25ED72D /* EmptyStateView.swift */; };
 		2C397E2E8437DE9B2E7EDC0E /* TestResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E187E84003BCA98C5744EB /* TestResultsView.swift */; };
 		2C95FEDE80C248AF74AFA03D /* NetworkLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2663855F834DC8669ED571A /* NetworkLogger.swift */; };
@@ -186,6 +187,7 @@
 		838E36535E4A65E426992EAE /* TestProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestProgressView.swift; sourceTree = "<group>"; };
 		86E43C061ABEE2ECA98EAFF1 /* TestSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSession.swift; sourceTree = "<group>"; };
 		89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
+		INT3XT00001234567890ABCD /* Int+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Int+Extensions.swift"; sourceTree = "<group>"; };
 		8E7BCB4CC05FA692DC3EE511 /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		9991BD48AC67777078326042 /* AIQTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AIQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9AA15DF43B47008B21D0BCF9 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
@@ -459,6 +461,7 @@
 			isa = PBXGroup;
 			children = (
 				89F7CBB463D9BFE8517D7F21 /* Date+Extensions.swift */,
+				INT3XT00001234567890ABCD /* Int+Extensions.swift */,
 				B5417B4CD26041562A41E46B /* String+Extensions.swift */,
 				5261BFE90E4BE297C8F4D661 /* View+Extensions.swift */,
 			);
@@ -675,6 +678,7 @@
 				8157ADA4E6ECBAC294EF3847 /* DashboardViewModel.swift in Sources */,
 				46F689D5209ADA4F3C0619C6 /* DataCache.swift in Sources */,
 				26CF5D1A1AA7C5B77A244EE6 /* Date+Extensions.swift in Sources */,
+				INT3XT00001234567890ABCE /* Int+Extensions.swift in Sources */,
 				2B6037CB6F9A0E3A3DD13B9E /* EmptyStateView.swift in Sources */,
 				6E1EB0DAAF8F6606D18C1BCE /* ErrorBanner.swift in Sources */,
 				B9ED84EC51137DEBAAED6983 /* ErrorView.swift in Sources */,
