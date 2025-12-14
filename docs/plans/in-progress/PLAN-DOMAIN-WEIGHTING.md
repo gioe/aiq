@@ -129,15 +129,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests with simulated data verify expected loadings
 
 ### DW-011: Create Factor Analysis Admin Endpoint
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/schemas/factor_analysis.py`
 **Description:** Create admin endpoint to trigger and view factor analysis results.
 **Acceptance Criteria:**
-- [ ] `GET /v1/admin/analytics/factor-analysis` endpoint
-- [ ] Returns: analysis_date, sample_size, g_loadings, variance_explained, reliability
-- [ ] Requires admin authentication
-- [ ] Returns 400 if sample size < 500
-- [ ] Includes recommendations based on loadings
+- [x] `GET /v1/admin/analytics/factor-analysis` endpoint
+- [x] Returns: analysis_date, sample_size, g_loadings, variance_explained, reliability
+- [x] Requires admin authentication
+- [x] Returns 400 if sample size < 500
+- [x] Includes recommendations based on loadings
 
 ### DW-012: Add SystemConfig Table for Weights Storage
 **Status:** [ ] Not Started
