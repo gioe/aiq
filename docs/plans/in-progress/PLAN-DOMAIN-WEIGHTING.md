@@ -118,15 +118,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests with mock data
 
 ### DW-010: Implement calculate_g_loadings Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/analytics.py`
 **Description:** Implement factor analysis to calculate empirical g-loadings per domain.
 **Acceptance Criteria:**
-- [ ] Uses FactorAnalyzer with n_factors=1
-- [ ] Returns dict mapping domain to g-loading
-- [ ] Handles insufficient sample size gracefully
-- [ ] Returns variance explained and Cronbach's alpha
-- [ ] Unit tests with simulated data verify expected loadings
+- [x] Uses PCA with n_components=1 (sklearn-compatible alternative to FactorAnalyzer)
+- [x] Returns dict mapping domain to g-loading
+- [x] Handles insufficient sample size gracefully
+- [x] Returns variance explained and Cronbach's alpha
+- [x] Unit tests with simulated data verify expected loadings
 
 ### DW-011: Create Factor Analysis Admin Endpoint
 **Status:** [ ] Not Started
