@@ -751,17 +751,10 @@ def calculate_g_loadings(
     pca = PCA(n_components=1)
     pca.fit(standardized_matrix)
 
-    # Get the principal component scores
-    pc_scores = pca.transform(standardized_matrix)[:, 0]
-
-    # Calculate factor loadings as correlations between items and PC1
-    # This is the standard way to compute factor loadings from PCA
-    loadings = np.zeros(n_valid_items)
-    for i in range(n_valid_items):
-        # Correlation between item i and the first principal component
-        item_values = standardized_matrix[:, i]
-        corr = np.corrcoef(item_values, pc_scores)[0, 1]
-        loadings[i] = corr if not np.isnan(corr) else 0.0
+    # Calculate factor loadings using standard formula:
+    # loading = eigenvector * sqrt(eigenvalue)
+    # This is mathematically equivalent to correlations with PC1 but vectorized
+    loadings = pca.components_[0] * np.sqrt(pca.explained_variance_[0])
 
     # Get variance explained by PC1
     variance_explained = float(pca.explained_variance_ratio_[0])
