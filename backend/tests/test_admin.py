@@ -3953,3 +3953,316 @@ class TestValiditySummaryReport:
 
         # Should be limited to 50 sessions
         assert len(data["action_needed"]) <= 50
+
+
+# =============================================================================
+# Factor Analysis Endpoint Tests (DW-011)
+# =============================================================================
+
+
+class TestFactorAnalysisEndpoint:
+    """Tests for GET /v1/admin/analytics/factor-analysis endpoint."""
+
+    @pytest.fixture
+    def admin_token_headers(self):
+        """Create admin token headers for authentication."""
+        return {"X-Admin-Token": "test-admin-token"}
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_requires_auth(self, client):
+        """Test that factor analysis endpoint requires admin token."""
+        # No headers
+        response = client.get("/v1/admin/analytics/factor-analysis")
+        assert response.status_code == 422  # Missing header
+
+        # Wrong header
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_insufficient_data_no_sessions(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test error response when no completed sessions exist."""
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert detail["error"] == "insufficient_sample"
+        assert detail["sample_size"] == 0
+        assert detail["minimum_required"] == 500
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_insufficient_sample_below_500(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test error response when sample size is below 500."""
+        from app.models.models import (
+            TestSession,
+            Response,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+        from datetime import datetime, timezone
+
+        # Create our own questions to ensure proper response counts
+        questions = []
+        for i in range(15):  # 15 questions
+            q = Question(
+                question_text=f"Test question {i}",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2"},
+                correct_answer="A",
+                is_active=True,
+            )
+            db_session.add(q)
+            questions.append(q)
+        db_session.flush()
+
+        # Create 100 completed test sessions (below the 500 minimum)
+        for i in range(100):
+            session = TestSession(
+                user_id=test_user.id,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Add responses for each question
+            for q in questions:
+                resp = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=q.id,
+                    user_answer="A" if i % 2 == 0 else "B",
+                    is_correct=(i % 2 == 0),
+                    time_spent_seconds=10,
+                )
+                db_session.add(resp)
+
+        db_session.commit()
+
+        # Use min_responses_per_question=10 to ensure our questions are included
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis?min_responses_per_question=10",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert detail["error"] == "insufficient_sample"
+        assert detail["sample_size"] == 100
+        assert detail["minimum_required"] == 500
+        assert "400" in detail["recommendation"]  # Should mention ~400 more needed
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_success_with_sufficient_data(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test successful factor analysis with 500+ completed sessions."""
+        from app.models.models import (
+            TestSession,
+            Response,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+        from datetime import datetime, timezone
+        import random
+
+        # Create questions of different types with varying difficulties
+        question_type_enums = [
+            QuestionType.PATTERN,
+            QuestionType.LOGIC,
+            QuestionType.SPATIAL,
+            QuestionType.MATH,
+            QuestionType.VERBAL,
+            QuestionType.MEMORY,
+        ]
+        questions = []
+        for i, q_type in enumerate(question_type_enums):
+            for j in range(10):  # 10 questions per type = 60 total
+                q = Question(
+                    question_text=f"Question {q_type.value}_{j}",
+                    question_type=q_type,
+                    difficulty_level=DifficultyLevel.MEDIUM,
+                    answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                    correct_answer="A",
+                    is_active=True,
+                )
+                db_session.add(q)
+                questions.append(q)
+        db_session.flush()
+
+        # Create 550 completed test sessions
+        random.seed(42)  # For reproducibility
+        for i in range(550):
+            session = TestSession(
+                user_id=test_user.id,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Add responses for each question with some variance
+            for q in questions:
+                # Simulate varying difficulty: harder questions have lower accuracy
+                base_accuracy = 0.6
+                is_correct = random.random() < base_accuracy
+                resp = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=q.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=10 + random.randint(-5, 15),
+                )
+                db_session.add(resp)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response structure
+        assert "analysis_date" in data
+        assert "sample_size" in data
+        assert "n_items" in data
+        assert "g_loadings" in data
+        assert "variance_explained" in data
+        assert "reliability" in data
+        assert "recommendations" in data
+        assert "warnings" in data
+
+        # Verify sample size is reported correctly
+        assert data["sample_size"] >= 500
+
+        # Verify g_loadings contains domain entries
+        assert len(data["g_loadings"]) > 0
+
+        # Verify variance explained is between 0 and 1
+        assert 0 <= data["variance_explained"] <= 1
+
+        # Verify reliability metrics
+        # Note: Cronbach's alpha can be slightly negative with random data
+        # In practice, values range from -1 to 1, with negative values indicating
+        # items don't correlate well (expected with random test data)
+        assert "cronbachs_alpha" in data["reliability"]
+        assert -1 <= data["reliability"]["cronbachs_alpha"] <= 1
+
+        # Verify recommendations structure
+        if data["recommendations"]:
+            rec = data["recommendations"][0]
+            assert "category" in rec
+            assert "message" in rec
+            assert "severity" in rec
+            assert rec["severity"] in ["info", "warning", "critical"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_custom_min_responses(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test factor analysis with custom min_responses_per_question parameter."""
+        from app.models.models import (
+            TestSession,
+            Response,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+        from datetime import datetime, timezone
+        import random
+
+        # Create questions
+        questions = []
+        for i in range(20):
+            q = Question(
+                question_text=f"Question_{i}",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+            )
+            db_session.add(q)
+            questions.append(q)
+        db_session.flush()
+
+        # Create 600 sessions
+        random.seed(42)
+        for i in range(600):
+            session = TestSession(
+                user_id=test_user.id,
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            for q in questions:
+                is_correct = random.random() < 0.6
+                resp = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=q.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=15,
+                )
+                db_session.add(resp)
+
+        db_session.commit()
+
+        # Request with custom min_responses_per_question
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis?min_responses_per_question=50",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sample_size"] >= 500
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_factor_analysis_min_responses_validation(
+        self, client, admin_token_headers
+    ):
+        """Test that min_responses_per_question has proper validation."""
+        # Too low
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis?min_responses_per_question=5",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
+
+        # Too high
+        response = client.get(
+            "/v1/admin/analytics/factor-analysis?min_responses_per_question=500",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 422
