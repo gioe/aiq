@@ -140,14 +140,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Includes recommendations based on loadings
 
 ### DW-012: Add SystemConfig Table for Weights Storage
-**Status:** [ ] Not Started
-**Files:** `backend/app/models/models.py`, new migration file
+**Status:** [x] Complete
+**Files:** `backend/app/models/models.py`, `backend/alembic/versions/3d1083182af7_add_system_config_table.py`, `backend/app/core/system_config.py`, `backend/tests/test_system_config.py`
 **Description:** Create SystemConfig table to store domain weights and other system-level configuration.
 **Acceptance Criteria:**
-- [ ] SystemConfig model with key, value (JSON), updated_at columns
-- [ ] Migration creates table
-- [ ] Helper functions for get/set config values
-- [ ] Supports `domain_weights` key
+- [x] SystemConfig model with key, value (JSON), updated_at columns
+- [x] Migration creates table
+- [x] Helper functions for get/set config values
+- [x] Supports `domain_weights` key
 
 ### Phase 3: Weighted Scoring (After Validation)
 
