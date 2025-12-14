@@ -163,15 +163,16 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests verify weighted calculations
 
 ### DW-014: Add Weighted Scoring Toggle
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/scoring.py`, `backend/app/api/v1/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/scoring.py`, `backend/app/api/v1/test.py`, `backend/app/api/v1/admin.py`, `backend/app/schemas/scoring_config.py`
 **Description:** Add ability to enable/disable weighted scoring via SystemConfig.
 **Acceptance Criteria:**
-- [ ] Config key `use_weighted_scoring` controls scoring method
-- [ ] When enabled, uses weighted calculation
-- [ ] When disabled, uses equal weights
-- [ ] Admin endpoint to toggle setting
-- [ ] Both scores can be calculated for A/B comparison
+- [x] Config key `use_weighted_scoring` controls scoring method
+- [x] When enabled, uses weighted calculation
+- [x] When disabled, uses equal weights
+- [x] Admin endpoint to toggle setting
+- [x] Both scores can be calculated for A/B comparison
+- [x] Unit and integration tests
 
 ### DW-015: Implement Domain Percentile Calculation
 **Status:** [ ] Not Started
