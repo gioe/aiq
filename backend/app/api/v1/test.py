@@ -155,7 +155,9 @@ def verify_session_in_progress(test_session: TestSession) -> None:
 
 
 def build_test_result_response(
-    test_result, db: Optional[Session] = None
+    test_result,
+    db: Optional[Session] = None,
+    population_stats: Optional[dict[str, dict[str, float]]] = None,
 ) -> TestResultResponse:
     """
     Build a TestResultResponse from a TestResult model.
@@ -163,7 +165,9 @@ def build_test_result_response(
     Args:
         test_result: TestResult model instance
         db: Optional database session for fetching population stats.
-            If provided, domain percentiles will be calculated.
+            If provided and population_stats is None, stats will be fetched.
+        population_stats: Optional pre-fetched population stats. Pass this when
+            building multiple responses to avoid N+1 queries.
 
     Returns:
         TestResultResponse with calculated accuracy percentage, domain percentiles,
@@ -187,17 +191,19 @@ def build_test_result_response(
         strongest_domain = domain_analysis.get("strongest_domain")
         weakest_domain = domain_analysis.get("weakest_domain")
 
-        # Calculate domain percentiles if we have population stats
-        if db is not None:
+        # Fetch population stats if not provided and db is available
+        if population_stats is None and db is not None:
             population_stats = get_domain_population_stats(db)
-            if population_stats:
-                domain_percentiles = calculate_all_domain_percentiles(
-                    domain_scores, population_stats
-                )
-                # Enrich domain_scores with percentile data
-                for domain, percentile in domain_percentiles.items():
-                    if domain in domain_scores:
-                        domain_scores[domain]["percentile"] = percentile
+
+        # Calculate domain percentiles if we have population stats
+        if population_stats:
+            domain_percentiles = calculate_all_domain_percentiles(
+                domain_scores, population_stats
+            )
+            # Enrich domain_scores with percentile data
+            for domain, percentile in domain_percentiles.items():
+                if domain in domain_scores:
+                    domain_scores[domain]["percentile"] = percentile
 
     return TestResultResponse(
         id=test_result.id,  # type: ignore[arg-type]
@@ -940,7 +946,11 @@ def get_test_history(
         .all()
     )
 
-    # Convert to response format (pass db for domain percentile calculation)
+    # Pre-fetch population stats once to avoid N+1 queries
+    population_stats = get_domain_population_stats(db)
+
+    # Convert to response format (pass pre-fetched stats to avoid N+1 queries)
     return [
-        build_test_result_response(test_result, db=db) for test_result in test_results
+        build_test_result_response(test_result, population_stats=population_stats)
+        for test_result in test_results
     ]
