@@ -2,17 +2,17 @@
 description: Generate technical implementation plan from a gap analysis document
 args:
   - name: gap_file
-    description: Name of the gap file from /docs/psychometric-methodology/gaps/ (e.g., EMPIRICAL-ITEM-CALIBRATION.md)
+    description: Name of the gap file from /docs/gaps/ (e.g., EMPIRICAL-ITEM-CALIBRATION.md)
     required: true
 ---
 
 You are generating a technical implementation plan based on a gap analysis document.
 
-**Gap File**: docs/psychometric-methodology/gaps/{{gap_file}}
+**Gap File**: docs/gaps/{{gap_file}}
 
 Follow these steps:
 
-1. **Read the gap analysis document** at `docs/methodology/gaps/{{gap_file}}`
+1. **Read the gap analysis document** at `docs/gaps/{{gap_file}}`
 
 2. **Derive a task prefix** from the gap file name:
    - Extract initials from the filename (e.g., EMPIRICAL-ITEM-CALIBRATION.md → EIC)
@@ -34,7 +34,7 @@ Follow these steps:
    ```markdown
    # Implementation Plan: [Title from gap document]
 
-   **Source:** docs/methodology/gaps/{{gap_file}}
+   **Source:** docs/gaps/{{gap_file}}
    **Task Prefix:** {PREFIX}
    **Generated:** {current date}
 
@@ -94,18 +94,10 @@ Follow these steps:
    ```
 
 5. **Output the plan** as a markdown file. Save to:
-   `docs/plans/drafts/PLAN-{{gap_file}}`
+   `docs/plans/in-progress/PLAN-{{gap_file}}`
 
    For example, if the input is `EMPIRICAL-ITEM-CALIBRATION.md`, output to:
-   `docs/plans/drafts/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
-
-6. **Delete the gap file** after successfully creating the plan:
-   ```bash
-   rm docs/methodology/gaps/{{gap_file}}
-   ```
-   This prevents regenerating plans for gaps that have already been converted.
-
-7. **Update the gaps INDEX.md** to remove the deleted gap from the table and add it to the Implementation Status section with a link to the new plan.
+   `docs/plans/in-progress/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
 
 **Important Guidelines:**
 - Each task gets a unique ID with the derived prefix (e.g., EIC-001, EIC-002)
@@ -115,6 +107,7 @@ Follow these steps:
 - Preserve technical details from the Solution Requirements section
 - Maintain the recommended implementation order from the gap document
 - Include specific function signatures where provided in the gap document
+- Include tests in the same task as implementation
 - Reference line numbers from the gap document where applicable
 
 Begin by reading the gap analysis document.
