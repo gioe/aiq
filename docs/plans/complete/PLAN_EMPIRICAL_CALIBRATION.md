@@ -1,6 +1,6 @@
 # Implementation Plan: Empirical Item Calibration
 
-**Source:** docs/psychometric-methodology/gaps/EMPIRICAL-ITEM-CALIBRATION.md
+**Source:** docs/gaps/EMPIRICAL-ITEM-CALIBRATION.md
 **Task Prefix:** EIC
 **Generated:** 2025-12-07
 **Status:** ✅ COMPLETE (2025-12-08)

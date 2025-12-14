@@ -1,7 +1,7 @@
 # Empirical Item Calibration
 
 **Status:** ✅ ADDRESSED - Implementation complete (2025-12-08)
-**Implementation Plan:** `backend/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
+**Implementation Plan:** `doc\,//plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
 
 ## Problem Statement
 
