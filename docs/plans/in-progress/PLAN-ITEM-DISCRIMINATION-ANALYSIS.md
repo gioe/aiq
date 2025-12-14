@@ -61,7 +61,7 @@ quality_flag_updated_at = Column(DateTime(timezone=True), nullable=True)
 ---
 
 ### IDA-003: Implement Auto-Flag Function for Negative Discrimination
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Add function to automatically flag questions with negative discrimination after sufficient responses have accumulated. This function should be called after `update_question_statistics()` completes.
 
@@ -96,14 +96,14 @@ def auto_flag_problematic_questions(
 ```
 
 **Acceptance Criteria:**
-- [ ] Function flags questions with `discrimination < 0` and `response_count >= 50`
-- [ ] Sets `quality_flag = "under_review"` (not "deactivated")
-- [ ] Sets `quality_flag_reason` with discrimination value
-- [ ] Sets `quality_flag_updated_at` timestamp
-- [ ] Does not re-flag already flagged questions
-- [ ] Returns list of newly flagged questions
-- [ ] Logs warning for each flagged question
-- [ ] Unit tests cover boundary cases (discrimination = 0, exactly 50 responses)
+- [x] Function flags questions with `discrimination < 0` and `response_count >= 50`
+- [x] Sets `quality_flag = "under_review"` (not "deactivated")
+- [x] Sets `quality_flag_reason` with discrimination value
+- [x] Sets `quality_flag_updated_at` timestamp
+- [x] Does not re-flag already flagged questions
+- [x] Returns list of newly flagged questions
+- [x] Logs warning for each flagged question
+- [x] Unit tests cover boundary cases (discrimination = 0, exactly 50 responses)
 
 ---
 

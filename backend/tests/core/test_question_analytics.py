@@ -34,6 +34,7 @@ from app.models.models import Question, QuestionType, DifficultyLevel
 from app.core.question_analytics import (
     validate_difficulty_labels,
     recalibrate_questions,
+    auto_flag_problematic_questions,
     DIFFICULTY_RANGES,
     SEVERITY_ORDER,
     _get_suggested_difficulty_label,
@@ -70,6 +71,8 @@ def create_test_question(
     empirical_difficulty: float | None,
     response_count: int,
     is_active: bool = True,
+    discrimination: float | None = None,
+    quality_flag: str = "normal",
 ) -> Question:
     """
     Helper to create a test question with specified parameters.
@@ -86,6 +89,8 @@ def create_test_question(
         is_active=is_active,
         empirical_difficulty=empirical_difficulty,
         response_count=response_count,
+        discrimination=discrimination,
+        quality_flag=quality_flag,
     )
     db_session.add(question)
     db_session.commit()
@@ -1620,3 +1625,475 @@ class TestSeverityOrderConstant:
         assert SEVERITY_ORDER["minor"] < SEVERITY_ORDER["major"]
         assert SEVERITY_ORDER["major"] < SEVERITY_ORDER["severe"]
         assert SEVERITY_ORDER["minor"] < SEVERITY_ORDER["severe"]
+
+
+# =============================================================================
+# AUTO-FLAG PROBLEMATIC QUESTIONS TESTS (IDA-003)
+# =============================================================================
+
+
+class TestAutoFlagNegativeDiscrimination:
+    """Tests for auto_flag_problematic_questions() with negative discrimination."""
+
+    def test_flags_question_with_negative_discrimination(self, db_session):
+        """Question with negative discrimination and >= 50 responses is flagged."""
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 1
+        assert result[0]["question_id"] == question.id
+        assert result[0]["discrimination"] == -0.15
+        assert result[0]["response_count"] == 60
+        assert result[0]["previous_flag"] == "normal"
+        assert result[0]["new_flag"] == "under_review"
+        assert "Negative discrimination: -0.150" in result[0]["reason"]
+
+        # Verify database was updated
+        db_session.expire_all()
+        question_after = (
+            db_session.query(Question).filter(Question.id == question.id).first()
+        )
+        assert question_after.quality_flag == "under_review"
+        assert "Negative discrimination" in question_after.quality_flag_reason
+        assert question_after.quality_flag_updated_at is not None
+
+    def test_does_not_flag_positive_discrimination(self, db_session):
+        """Question with positive discrimination is not flagged."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=0.25,  # Positive discrimination
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+    def test_does_not_flag_zero_discrimination(self, db_session):
+        """Question with exactly 0.0 discrimination is not flagged (threshold is < 0)."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=0.0,  # Exactly zero
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+
+class TestAutoFlagResponseCountThreshold:
+    """Tests for minimum response count requirement in auto-flagging."""
+
+    def test_does_not_flag_insufficient_responses(self, db_session):
+        """Question with negative discrimination but < 50 responses is not flagged."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=49,  # One below threshold
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+    def test_flags_exactly_50_responses(self, db_session):
+        """Question with exactly 50 responses and negative discrimination is flagged."""
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=50,  # Exactly at threshold
+            discrimination=-0.10,
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 1
+        assert result[0]["question_id"] == question.id
+
+    def test_custom_min_responses_threshold(self, db_session):
+        """Custom min_responses parameter is respected."""
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=30,  # Below default 50 but meets custom threshold
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        # With default min_responses=50, should not flag
+        result_default = auto_flag_problematic_questions(db_session, min_responses=50)
+        assert len(result_default) == 0
+
+        # With custom min_responses=30, should flag
+        result_custom = auto_flag_problematic_questions(db_session, min_responses=30)
+        assert len(result_custom) == 1
+        assert result_custom[0]["question_id"] == question.id
+
+
+class TestAutoFlagAlreadyFlagged:
+    """Tests for handling already-flagged questions."""
+
+    def test_does_not_reflag_under_review_questions(self, db_session):
+        """Question already flagged as 'under_review' is not re-flagged."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.20,
+            quality_flag="under_review",  # Already flagged
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+    def test_does_not_reflag_deactivated_questions(self, db_session):
+        """Question already 'deactivated' is not re-flagged."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.25,
+            quality_flag="deactivated",  # Already deactivated
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+
+class TestAutoFlagInactiveQuestions:
+    """Tests for handling inactive questions."""
+
+    def test_does_not_flag_inactive_questions(self, db_session):
+        """Inactive questions are not flagged even with negative discrimination."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+            is_active=False,  # Inactive
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+
+class TestAutoFlagNullDiscrimination:
+    """Tests for handling questions with NULL discrimination."""
+
+    def test_does_not_flag_null_discrimination(self, db_session):
+        """Question with NULL discrimination is not flagged."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=None,  # No discrimination calculated yet
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 0
+
+
+class TestAutoFlagCustomThreshold:
+    """Tests for custom discrimination threshold."""
+
+    def test_custom_discrimination_threshold(self, db_session):
+        """Custom discrimination_threshold parameter is respected."""
+        q1 = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=0.15,  # Positive but low
+            quality_flag="normal",
+        )
+        q2 = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.05,  # Slightly negative
+            quality_flag="normal",
+        )
+
+        # Default threshold (0.0) - only negative is flagged
+        result_default = auto_flag_problematic_questions(db_session)
+        assert len(result_default) == 1
+        assert result_default[0]["question_id"] == q2.id
+
+        # Reset for next test
+        db_session.query(Question).filter(Question.id == q2.id).update(
+            {"quality_flag": "normal", "quality_flag_reason": None}
+        )
+        db_session.commit()
+
+        # Custom threshold (0.20) - both should be flagged
+        result_custom = auto_flag_problematic_questions(
+            db_session, discrimination_threshold=0.20
+        )
+        flagged_ids = [r["question_id"] for r in result_custom]
+        assert len(result_custom) == 2
+        assert q1.id in flagged_ids
+        assert q2.id in flagged_ids
+
+
+class TestAutoFlagMultipleQuestions:
+    """Tests for flagging multiple questions at once."""
+
+    def test_flags_multiple_problematic_questions(self, db_session):
+        """Multiple questions with negative discrimination are all flagged."""
+        q1 = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            empirical_difficulty=0.80,
+            response_count=100,
+            discrimination=-0.10,
+            quality_flag="normal",
+        )
+        q2 = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=75,
+            discrimination=-0.25,
+            quality_flag="normal",
+        )
+        q3 = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.HARD,
+            empirical_difficulty=0.25,
+            response_count=50,
+            discrimination=-0.05,
+            quality_flag="normal",
+        )
+        # This one should NOT be flagged (positive discrimination)
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.55,
+            response_count=80,
+            discrimination=0.35,
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 3
+        flagged_ids = [r["question_id"] for r in result]
+        assert q1.id in flagged_ids
+        assert q2.id in flagged_ids
+        assert q3.id in flagged_ids
+
+    def test_mixed_eligibility(self, db_session):
+        """Only eligible questions are flagged in a mixed set."""
+        # Eligible: negative discrimination, >= 50 responses, normal flag, active
+        q_eligible = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+        # Not eligible: positive discrimination
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=0.30,
+            quality_flag="normal",
+        )
+        # Not eligible: insufficient responses
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=40,
+            discrimination=-0.20,
+            quality_flag="normal",
+        )
+        # Not eligible: already flagged
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=70,
+            discrimination=-0.18,
+            quality_flag="under_review",
+        )
+        # Not eligible: inactive
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=80,
+            discrimination=-0.12,
+            quality_flag="normal",
+            is_active=False,
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 1
+        assert result[0]["question_id"] == q_eligible.id
+
+
+class TestAutoFlagReturnStructure:
+    """Tests for the return structure of auto_flag_problematic_questions()."""
+
+    def test_return_structure(self, db_session):
+        """Verify return structure contains all required fields."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert len(result) == 1
+        flagged = result[0]
+
+        # Verify all required fields are present
+        assert "question_id" in flagged
+        assert "discrimination" in flagged
+        assert "response_count" in flagged
+        assert "previous_flag" in flagged
+        assert "new_flag" in flagged
+        assert "reason" in flagged
+
+        # Verify types
+        assert isinstance(flagged["question_id"], int)
+        assert isinstance(flagged["discrimination"], float)
+        assert isinstance(flagged["response_count"], int)
+        assert isinstance(flagged["previous_flag"], str)
+        assert isinstance(flagged["new_flag"], str)
+        assert isinstance(flagged["reason"], str)
+
+    def test_empty_return_when_no_questions_flagged(self, db_session):
+        """Returns empty list when no questions meet flagging criteria."""
+        # Create only good questions
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=0.35,  # Good discrimination
+            quality_flag="normal",
+        )
+
+        result = auto_flag_problematic_questions(db_session)
+
+        assert result == []
+        assert isinstance(result, list)
+
+
+class TestAutoFlagDatabaseUpdates:
+    """Tests for database updates during auto-flagging."""
+
+    def test_quality_flag_updated_at_set(self, db_session):
+        """quality_flag_updated_at timestamp is set when flagging."""
+        from datetime import datetime, timezone
+
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        before_flag = datetime.now(timezone.utc)
+        auto_flag_problematic_questions(db_session)
+        after_flag = datetime.now(timezone.utc)
+
+        db_session.expire_all()
+        question_after = (
+            db_session.query(Question).filter(Question.id == question.id).first()
+        )
+
+        assert question_after.quality_flag_updated_at is not None
+        # Handle SQLite returning naive datetime
+        updated_at = question_after.quality_flag_updated_at
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        assert before_flag <= updated_at <= after_flag
+
+    def test_quality_flag_reason_format(self, db_session):
+        """quality_flag_reason contains properly formatted discrimination value."""
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.157,  # Test precision
+            quality_flag="normal",
+        )
+
+        auto_flag_problematic_questions(db_session)
+
+        db_session.expire_all()
+        question_after = (
+            db_session.query(Question).filter(Question.id == question.id).first()
+        )
+
+        # Should be formatted to 3 decimal places
+        assert question_after.quality_flag_reason == "Negative discrimination: -0.157"
+
+    def test_changes_committed_to_database(self, db_session):
+        """Verify changes are committed and persist."""
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.50,
+            response_count=60,
+            discrimination=-0.15,
+            quality_flag="normal",
+        )
+
+        auto_flag_problematic_questions(db_session)
+
+        # Clear session cache and re-query
+        db_session.expire_all()
+        question_after = (
+            db_session.query(Question).filter(Question.id == question.id).first()
+        )
+
+        assert question_after.quality_flag == "under_review"
+        assert question_after.quality_flag_reason is not None
+        assert question_after.quality_flag_updated_at is not None

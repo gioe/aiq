@@ -705,6 +705,105 @@ def validate_difficulty_labels(
 SEVERITY_ORDER = {"minor": 0, "major": 1, "severe": 2}
 
 
+# =============================================================================
+# ITEM DISCRIMINATION ANALYSIS - AUTO-FLAGGING (IDA-003)
+# =============================================================================
+
+
+def auto_flag_problematic_questions(
+    db: Session,
+    min_responses: int = 50,
+    discrimination_threshold: float = 0.0,
+) -> List[Dict]:
+    """
+    Automatically flag questions with discrimination below threshold.
+
+    This function identifies questions with negative discrimination values that
+    have accumulated sufficient response data. Negative discrimination indicates
+    that high-ability test-takers are more likely to get the question wrong,
+    which actively harms test validity.
+
+    Questions meeting the criteria are soft-flagged as "under_review" rather than
+    immediately deactivated, allowing admin review before permanent action.
+
+    Args:
+        db: Database session
+        min_responses: Minimum responses required before taking action (default: 50)
+        discrimination_threshold: Flag if discrimination < this value (default: 0.0)
+
+    Returns:
+        List of flagged questions with details:
+        [
+            {
+                "question_id": int,
+                "discrimination": float,
+                "response_count": int,
+                "previous_flag": str,
+                "new_flag": str,
+                "reason": str
+            }
+        ]
+
+    Reference:
+        docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md (IDA-003)
+        docs/gaps/ITEM-DISCRIMINATION-ANALYSIS.md
+    """
+    # Query for questions that:
+    # 1. Have sufficient responses (>= min_responses)
+    # 2. Have negative discrimination (< discrimination_threshold)
+    # 3. Are not already flagged (quality_flag == "normal")
+    # 4. Have a calculated discrimination value (not NULL)
+    questions_to_flag = (
+        db.query(Question)
+        .filter(
+            Question.response_count >= min_responses,
+            Question.discrimination < discrimination_threshold,
+            Question.discrimination.isnot(None),  # Must have discrimination data
+            Question.quality_flag == "normal",  # Not already flagged
+            Question.is_active == True,  # noqa: E712
+        )
+        .all()
+    )
+
+    flagged_questions = []
+    now = datetime.now(timezone.utc)
+
+    for question in questions_to_flag:
+        previous_flag = question.quality_flag
+        reason = f"Negative discrimination: {question.discrimination:.3f}"
+
+        # Update question with quality flag
+        question.quality_flag = "under_review"  # type: ignore
+        question.quality_flag_reason = reason  # type: ignore
+        question.quality_flag_updated_at = now  # type: ignore
+
+        logger.warning(
+            f"Question {question.id} flagged for review: {reason} "
+            f"(response_count={question.response_count})"
+        )
+
+        flagged_questions.append(
+            {
+                "question_id": question.id,
+                "discrimination": question.discrimination,
+                "response_count": question.response_count,
+                "previous_flag": previous_flag,
+                "new_flag": "under_review",
+                "reason": reason,
+            }
+        )
+
+    # Commit changes if any questions were flagged
+    if flagged_questions:
+        db.commit()
+        logger.info(
+            f"Auto-flagged {len(flagged_questions)} questions with "
+            f"discrimination < {discrimination_threshold}"
+        )
+
+    return flagged_questions
+
+
 def recalibrate_questions(
     db: Session,
     min_responses: int = 100,
