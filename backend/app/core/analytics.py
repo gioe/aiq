@@ -762,6 +762,11 @@ def calculate_g_loadings(
     # Calculate Cronbach's alpha for the full matrix
     cronbachs_alpha = calculate_cronbachs_alpha(matrix)
 
+    # Create lookup from original index to position in valid_indices (O(1) lookup)
+    valid_idx_to_pos: Dict[int, int] = {
+        int(idx): i for i, idx in enumerate(valid_indices)
+    }
+
     # Map loadings back to original question IDs
     item_loadings: Dict[int, float] = {}
     for i, valid_idx in enumerate(valid_indices):
@@ -777,11 +782,9 @@ def calculate_g_loadings(
         # Get loadings for items in this domain that passed the filter
         domain_item_loadings = []
         for idx in indices:
-            if idx in valid_indices:
-                # Find position in valid_indices
-                pos = np.where(valid_indices == idx)[0]
-                if len(pos) > 0:
-                    domain_item_loadings.append(abs(loadings[pos[0]]))
+            if idx in valid_idx_to_pos:
+                pos = valid_idx_to_pos[idx]
+                domain_item_loadings.append(abs(loadings[pos]))
 
         if domain_item_loadings:
             domain_loadings[domain] = float(np.mean(domain_item_loadings))
