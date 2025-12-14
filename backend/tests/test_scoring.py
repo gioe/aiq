@@ -11,6 +11,9 @@ from app.core.scoring import (
     TestScore,
     calculate_domain_scores,
     calculate_weighted_iq_score,
+    calculate_domain_percentile,
+    calculate_all_domain_percentiles,
+    get_strongest_weakest_domains,
 )
 from app.models.models import QuestionType
 
@@ -754,3 +757,409 @@ class TestCalculateWeightedIQScore:
         assert hasattr(result, "correct_answers")
         assert hasattr(result, "total_questions")
         assert hasattr(result, "accuracy_percentage")
+
+
+class TestCalculateDomainPercentile:
+    """Tests for calculate_domain_percentile function."""
+
+    def test_mean_accuracy_equals_50th_percentile(self):
+        """Test that mean accuracy yields 50th percentile."""
+        result = calculate_domain_percentile(
+            accuracy=0.65, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        assert result == 50.0
+
+    def test_one_sd_above_mean(self):
+        """Test accuracy one SD above mean yields ~84th percentile."""
+        result = calculate_domain_percentile(
+            accuracy=0.83, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        # One SD above mean should be ~84.1 percentile
+        assert 83.5 <= result <= 84.5
+
+    def test_one_sd_below_mean(self):
+        """Test accuracy one SD below mean yields ~16th percentile."""
+        result = calculate_domain_percentile(
+            accuracy=0.47, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        # One SD below mean should be ~15.9 percentile
+        assert 15.5 <= result <= 16.5
+
+    def test_two_sd_above_mean(self):
+        """Test accuracy two SD above mean yields ~97.7th percentile."""
+        result = calculate_domain_percentile(
+            accuracy=1.0, mean_accuracy=0.64, sd_accuracy=0.18
+        )
+        # Two SD above mean should be ~97.7 percentile
+        assert result >= 97.0
+
+    def test_perfect_accuracy(self):
+        """Test 100% accuracy percentile."""
+        result = calculate_domain_percentile(
+            accuracy=1.0, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        # Should be very high percentile
+        assert result > 95.0
+
+    def test_zero_accuracy(self):
+        """Test 0% accuracy percentile."""
+        result = calculate_domain_percentile(
+            accuracy=0.0, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        # Should be very low percentile
+        assert result < 1.0
+
+    def test_different_sd_values(self):
+        """Test with different standard deviation values."""
+        # Narrower distribution (smaller SD)
+        result_narrow = calculate_domain_percentile(
+            accuracy=0.75, mean_accuracy=0.65, sd_accuracy=0.10
+        )
+        # Wider distribution (larger SD)
+        result_wide = calculate_domain_percentile(
+            accuracy=0.75, mean_accuracy=0.65, sd_accuracy=0.25
+        )
+
+        # Same distance from mean, but narrower SD means more extreme percentile
+        assert result_narrow > result_wide
+
+    def test_negative_sd_raises_error(self):
+        """Test that negative SD raises ValueError."""
+        with pytest.raises(ValueError, match="sd_accuracy must be positive"):
+            calculate_domain_percentile(
+                accuracy=0.75, mean_accuracy=0.65, sd_accuracy=-0.18
+            )
+
+    def test_zero_sd_raises_error(self):
+        """Test that zero SD raises ValueError."""
+        with pytest.raises(ValueError, match="sd_accuracy must be positive"):
+            calculate_domain_percentile(
+                accuracy=0.75, mean_accuracy=0.65, sd_accuracy=0.0
+            )
+
+    def test_returns_float_rounded_to_one_decimal(self):
+        """Test that result is rounded to 1 decimal place."""
+        result = calculate_domain_percentile(
+            accuracy=0.72, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        # Check it's rounded to 1 decimal
+        assert result == round(result, 1)
+
+    def test_extreme_high_accuracy(self):
+        """Test percentile for accuracy far above mean."""
+        result = calculate_domain_percentile(
+            accuracy=1.0, mean_accuracy=0.50, sd_accuracy=0.15
+        )
+        # Should be extremely high percentile
+        assert result > 99.0
+
+    def test_known_calculation(self):
+        """Test with known values to verify calculation."""
+        # 75% accuracy, 65% mean, 18% SD
+        # z-score = (0.75 - 0.65) / 0.18 = 0.556
+        # norm.cdf(0.556) * 100 ≈ 71.1
+        result = calculate_domain_percentile(
+            accuracy=0.75, mean_accuracy=0.65, sd_accuracy=0.18
+        )
+        assert 70.5 <= result <= 71.5
+
+
+class TestCalculateAllDomainPercentiles:
+    """Tests for calculate_all_domain_percentiles function."""
+
+    def test_all_domains_with_stats(self):
+        """Test percentiles for all domains when stats are available."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+            "spatial": {"correct": 4, "total": 4, "pct": 100.0},
+            "math": {"correct": 2, "total": 4, "pct": 50.0},
+            "verbal": {"correct": 3, "total": 4, "pct": 75.0},
+            "memory": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+            "spatial": {"mean_accuracy": 0.55, "sd_accuracy": 0.22},
+            "math": {"mean_accuracy": 0.58, "sd_accuracy": 0.19},
+            "verbal": {"mean_accuracy": 0.62, "sd_accuracy": 0.17},
+            "memory": {"mean_accuracy": 0.50, "sd_accuracy": 0.21},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        # All domains should have percentiles
+        for domain in domain_scores:
+            assert result[domain] is not None
+            assert 0.0 <= result[domain] <= 100.0
+
+    def test_no_population_stats(self):
+        """Test that None is returned when population stats are missing."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, None)
+
+        # All should be None
+        assert result["pattern"] is None
+        assert result["logic"] is None
+
+    def test_missing_domain_stats(self):
+        """Test domains without stats return None."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            # logic stats missing
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        assert result["pattern"] is not None
+        assert result["logic"] is None
+
+    def test_empty_domain_returns_none(self):
+        """Test that domains with no questions return None."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        assert result["pattern"] is not None
+        assert result["logic"] is None
+
+    def test_invalid_sd_returns_none(self):
+        """Test that invalid SD (<=0) returns None."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.0},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        assert result["pattern"] is None
+
+    def test_missing_mean_in_stats(self):
+        """Test that missing mean_accuracy returns None."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        }
+        population_stats = {
+            "pattern": {"sd_accuracy": 0.18},  # mean_accuracy missing
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        assert result["pattern"] is None
+
+    def test_missing_sd_in_stats(self):
+        """Test that missing sd_accuracy returns None."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65},  # sd_accuracy missing
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        assert result["pattern"] is None
+
+    def test_above_average_performance(self):
+        """Test percentile for above-average performance."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        # 100% accuracy should be well above 50th percentile
+        assert result["pattern"] > 90.0
+
+    def test_below_average_performance(self):
+        """Test percentile for below-average performance."""
+        domain_scores = {
+            "pattern": {"correct": 1, "total": 4, "pct": 25.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        # 25% accuracy should be well below 50th percentile
+        assert result["pattern"] < 10.0
+
+    def test_average_performance(self):
+        """Test percentile for exactly average performance."""
+        domain_scores = {
+            "pattern": {"correct": 65, "total": 100, "pct": 65.0},
+        }
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+        }
+
+        result = calculate_all_domain_percentiles(domain_scores, population_stats)
+
+        # 65% accuracy with 65% mean should be 50th percentile
+        assert result["pattern"] == 50.0
+
+    def test_empty_domain_scores(self):
+        """Test with empty domain_scores dict."""
+        result = calculate_all_domain_percentiles(
+            {}, {"pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18}}
+        )
+        assert result == {}
+
+
+class TestGetStrongestWeakestDomains:
+    """Tests for get_strongest_weakest_domains function."""
+
+    def test_clear_strongest_and_weakest(self):
+        """Test with clear strongest and weakest domains."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+            "spatial": {"correct": 3, "total": 4, "pct": 75.0},
+            "math": {"correct": 1, "total": 4, "pct": 25.0},
+            "verbal": {"correct": 3, "total": 4, "pct": 75.0},
+            "memory": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert result["strongest_domain"] == "pattern"
+        assert result["weakest_domain"] == "math"
+
+    def test_single_domain(self):
+        """Test with only one domain having questions."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        # When only one domain, it's both strongest and weakest
+        assert result["strongest_domain"] == "pattern"
+        assert result["weakest_domain"] == "pattern"
+
+    def test_no_domains_with_questions(self):
+        """Test with no domains having questions."""
+        domain_scores = {
+            "pattern": {"correct": 0, "total": 0, "pct": None},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert result["strongest_domain"] is None
+        assert result["weakest_domain"] is None
+
+    def test_all_same_score(self):
+        """Test when all domains have the same score."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 3, "total": 4, "pct": 75.0},
+            "spatial": {"correct": 3, "total": 4, "pct": 75.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        # Both should be set (first domain in iteration)
+        assert result["strongest_domain"] is not None
+        assert result["weakest_domain"] is not None
+
+    def test_two_domains_tied_for_strongest(self):
+        """Test when two domains tie for strongest."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 4, "total": 4, "pct": 100.0},
+            "spatial": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        # Should have a strongest (first one encountered)
+        assert result["strongest_domain"] in ["pattern", "logic"]
+        assert result["weakest_domain"] == "spatial"
+
+    def test_two_domains_tied_for_weakest(self):
+        """Test when two domains tie for weakest."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 1, "total": 4, "pct": 25.0},
+            "spatial": {"correct": 1, "total": 4, "pct": 25.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert result["strongest_domain"] == "pattern"
+        # Should have a weakest (first one encountered)
+        assert result["weakest_domain"] in ["logic", "spatial"]
+
+    def test_perfect_and_zero_scores(self):
+        """Test with perfect (100%) and zero (0%) scores."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 0, "total": 4, "pct": 0.0},
+            "spatial": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert result["strongest_domain"] == "pattern"
+        assert result["weakest_domain"] == "logic"
+
+    def test_empty_dict(self):
+        """Test with empty domain_scores dict."""
+        result = get_strongest_weakest_domains({})
+
+        assert result["strongest_domain"] is None
+        assert result["weakest_domain"] is None
+
+    def test_skips_none_pct(self):
+        """Test that domains with None pct are skipped."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 1, "total": 4, "pct": 25.0},
+        }
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert result["strongest_domain"] == "pattern"
+        assert result["weakest_domain"] == "spatial"
+
+    def test_returns_dict_with_correct_keys(self):
+        """Test that result has the expected keys."""
+        domain_scores = {"pattern": {"correct": 3, "total": 4, "pct": 75.0}}
+
+        result = get_strongest_weakest_domains(domain_scores)
+
+        assert "strongest_domain" in result
+        assert "weakest_domain" in result
+        assert len(result) == 2
