@@ -545,3 +545,29 @@ class QuestionGenerationRun(Base):
         Index("ix_qgr_environment", "environment"),
         Index("ix_qgr_overall_success", "overall_success_rate"),
     )
+
+
+class SystemConfig(Base):
+    """
+    System-level configuration storage for domain weights and other settings.
+
+    This table provides a key-value store for system-wide configuration that
+    needs to persist across deployments and be accessible from the database.
+    Uses JSON values for flexibility in storing different data structures.
+
+    Common keys:
+    - domain_weights: {"pattern": 0.20, "logic": 0.18, ...}
+    - use_weighted_scoring: {"enabled": false}
+    - domain_population_stats: {"pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18}, ...}
+    """
+
+    __tablename__ = "system_config"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(JSON, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
