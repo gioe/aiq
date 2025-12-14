@@ -206,12 +206,48 @@ class Question(Base):
     )  # Timestamp of most recent recalibration
     # NULL indicates the question has never been recalibrated
 
+    # Item Discrimination Analysis - Quality Tracking (IDA-001)
+    # These fields support soft-flagging of questions with poor discrimination
+    # to prevent problematic questions from appearing in tests while allowing
+    # admin review before permanent deactivation.
+
+    quality_flag = Column(
+        String(20), default="normal", nullable=False
+    )  # Quality status: "normal", "under_review", "deactivated"
+    # - "normal": Question is in good standing, eligible for test composition
+    # - "under_review": Question has negative discrimination, excluded from tests
+    #   until admin review determines if it should be deactivated or cleared
+    # - "deactivated": Question permanently removed from test pool
+    # Automatically set to "under_review" when discrimination < 0 and
+    # response_count >= 50 (see IDA-003, IDA-004)
+
+    quality_flag_reason = Column(
+        String(255), nullable=True
+    )  # Human-readable reason for current flag status
+    # Example: "Negative discrimination: -0.15" or "Admin review: ambiguous wording"
+    # NULL when quality_flag is "normal" (no reason needed)
+
+    quality_flag_updated_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Timestamp when quality_flag was last updated
+    # NULL for questions that have never been flagged (always "normal")
+    # Used for audit trail and to identify recently flagged questions
+
     # Relationships
     responses = relationship("Response", back_populates="question")
     user_questions = relationship("UserQuestion", back_populates="question")
 
-    # Indexes
-    __table_args__ = (Index("ix_questions_type", "question_type"),)
+    # Indexes and Constraints
+    __table_args__ = (
+        Index("ix_questions_type", "question_type"),
+        Index(
+            "ix_questions_quality_flag", "quality_flag"
+        ),  # IDA-001: For filtering by quality status
+        CheckConstraint(
+            "quality_flag IN ('normal', 'under_review', 'deactivated')",
+            name="ck_questions_quality_flag_valid",
+        ),  # IDA-001: Validates quality_flag values
+    )
 
 
 class UserQuestion(Base):
