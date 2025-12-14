@@ -29,7 +29,8 @@ class ReliabilityMetrics(BaseModel):
 
     cronbachs_alpha: float = Field(
         ...,
-        description="Cronbach's alpha reliability coefficient (0-1). Values >= 0.7 are acceptable.",
+        description="Cronbach's alpha reliability coefficient (-1 to 1). "
+        "Negative values indicate poor item correlation. Values >= 0.7 are acceptable.",
     )
 
 
