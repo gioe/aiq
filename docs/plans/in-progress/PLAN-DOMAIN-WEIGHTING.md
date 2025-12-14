@@ -106,16 +106,16 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] No dependency conflicts
 
 ### DW-009: Implement Response Matrix Builder
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/analytics.py` (new file)
+**Status:** [x] Complete
+**Files:** `backend/app/core/analytics.py`
 **Description:** Create function to build response matrix (users × items) for factor analysis.
 **Acceptance Criteria:**
-- [ ] Function extracts all responses from test sessions
-- [ ] Builds numpy array with users as rows, questions as columns
-- [ ] Values are 0 (incorrect) or 1 (correct)
-- [ ] Returns question_domains list in same order as columns
-- [ ] Filters to completed sessions only
-- [ ] Unit tests with mock data
+- [x] Function extracts all responses from test sessions
+- [x] Builds numpy array with users as rows, questions as columns
+- [x] Values are 0 (incorrect) or 1 (correct)
+- [x] Returns question_domains list in same order as columns
+- [x] Filters to completed sessions only
+- [x] Unit tests with mock data
 
 ### DW-010: Implement calculate_g_loadings Function
 **Status:** [ ] Not Started
