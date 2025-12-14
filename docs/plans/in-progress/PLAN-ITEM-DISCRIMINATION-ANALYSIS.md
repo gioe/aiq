@@ -47,16 +47,16 @@ quality_flag_updated_at = Column(DateTime(timezone=True), nullable=True)
 ---
 
 ### IDA-002: Create Database Migration for Quality Flag Fields
-**Status:** [ ] Not Started
-**Files:** `backend/alembic/versions/` (new migration file)
+**Status:** [x] Complete
+**Files:** `backend/alembic/versions/1d81eef57099_add_quality_flag_fields_to_questions_.py`
 **Description:** Create Alembic migration to add quality flag columns to the questions table.
 
 **Acceptance Criteria:**
-- [ ] Migration file created with proper up/down operations
-- [ ] Migration applies successfully to test database
-- [ ] Rollback works correctly
-- [ ] Existing questions default to quality_flag="normal"
-- [ ] Index added on quality_flag column for query performance
+- [x] Migration file created with proper up/down operations
+- [x] Migration applies successfully to test database
+- [x] Rollback works correctly
+- [x] Existing questions default to quality_flag="normal"
+- [x] Index added on quality_flag column for query performance
 
 ---
 
