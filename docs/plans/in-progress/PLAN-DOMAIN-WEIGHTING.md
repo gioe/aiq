@@ -196,14 +196,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Falls back gracefully when stats unavailable
 
 ### DW-017: Update iOS to Display Domain Percentiles
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/Test/TestResultView.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Models/TestResult.swift`, `ios/AIQ/Models/TestSession.swift`, `ios/AIQ/Utilities/Design/ColorPalette.swift`, `ios/AIQ/Views/Test/DomainScoresView.swift`, `ios/AIQ/Views/Test/TestResultsView.swift`
 **Description:** Enhance domain visualization to show percentile rankings.
 **Acceptance Criteria:**
-- [ ] Percentile displayed alongside percentage
-- [ ] Strongest/weakest domain highlighted with messaging
-- [ ] Color coding indicates performance level
-- [ ] Accessible descriptions for percentiles
+- [x] Percentile displayed alongside percentage (badge next to score + description below bar)
+- [x] Strongest/weakest domain highlighted with messaging (domain highlights section with icons)
+- [x] Color coding indicates performance level (5 levels: excellent, good, average, below average, needs work)
+- [x] Accessible descriptions for percentiles (VoiceOver labels include percentile and performance level)
 
 ## Database Changes
 
