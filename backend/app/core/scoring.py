@@ -39,7 +39,7 @@ Current algorithm acceptable for MVP but will be replaced with
 scientifically validated approach once sufficient user data available.
 """
 
-from typing import Protocol, List, Dict, Any, TYPE_CHECKING
+from typing import Protocol, List, Dict, Any, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from scipy.stats import norm
 
@@ -234,6 +234,123 @@ def calculate_iq_score(correct_answers: int, total_questions: int) -> TestScore:
         IQ Score: 107
     """
     return _default_strategy.calculate_iq_score(correct_answers, total_questions)
+
+
+def calculate_weighted_iq_score(
+    domain_scores: Dict[str, Dict[str, Any]],
+    weights: Optional[Dict[str, float]] = None,
+) -> TestScore:
+    """
+    Calculate IQ score using weighted domain accuracy.
+
+    This function calculates a weighted composite accuracy across domains,
+    then applies the standard IQ transformation formula.
+
+    The weighting allows domains with higher g-loadings (correlations with
+    general intelligence) to contribute more to the final score.
+
+    Args:
+        domain_scores: Dictionary of domain performance. Each domain entry should have:
+            - correct (int): Number of correct answers
+            - total (int): Total questions in domain
+            - pct (float | None): Percentage score (optional, will be recalculated)
+        weights: Optional dictionary mapping domain names to weights (0-1).
+            Weights should ideally sum to 1.0 but will be normalized if they don't.
+            If None, equal weights are used for all domains with questions.
+
+    Returns:
+        TestScore with:
+            - iq_score: Calculated IQ using weighted accuracy
+            - correct_answers: Total correct across all domains
+            - total_questions: Total questions across all domains
+            - accuracy_percentage: Weighted accuracy as percentage
+
+    Example:
+        >>> domain_scores = {
+        ...     "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+        ...     "logic": {"correct": 2, "total": 4, "pct": 50.0},
+        ...     "spatial": {"correct": 1, "total": 2, "pct": 50.0},
+        ...     "math": {"correct": 3, "total": 3, "pct": 100.0},
+        ...     "verbal": {"correct": 2, "total": 3, "pct": 66.7},
+        ...     "memory": {"correct": 2, "total": 4, "pct": 50.0}
+        ... }
+        >>> weights = {
+        ...     "pattern": 0.20, "logic": 0.18, "spatial": 0.16,
+        ...     "math": 0.17, "verbal": 0.15, "memory": 0.14
+        ... }
+        >>> score = calculate_weighted_iq_score(domain_scores, weights)
+        >>> print(score.iq_score)
+        104  # Example output based on weighted accuracy
+
+    Note:
+        - Domains with total=0 are excluded from calculation
+        - If no weights provided, equal weights used for domains present in the test
+        - If weights provided but missing a domain, that domain uses weight 0
+        - The IQ formula is: 100 + ((weighted_accuracy - 0.5) * 30)
+    """
+    # Calculate totals for raw stats
+    total_correct = 0
+    total_questions = 0
+
+    # Collect domains that have questions (non-zero total)
+    active_domains: Dict[str, float] = {}  # domain -> accuracy
+
+    for domain, stats in domain_scores.items():
+        total = stats.get("total", 0)
+        correct = stats.get("correct", 0)
+        total_correct += correct
+        total_questions += total
+
+        if total > 0:
+            accuracy = correct / total
+            active_domains[domain] = accuracy
+
+    # Handle edge case: no questions answered
+    if total_questions == 0 or not active_domains:
+        return TestScore(
+            iq_score=100,  # Default to average
+            correct_answers=0,
+            total_questions=0,
+            accuracy_percentage=0.0,
+        )
+
+    # Determine weights to use
+    if weights is None:
+        # Equal weights for all active domains
+        equal_weight = 1.0 / len(active_domains)
+        effective_weights = {domain: equal_weight for domain in active_domains}
+    else:
+        # Use provided weights (only for domains in the test)
+        effective_weights = {}
+        for domain in active_domains:
+            effective_weights[domain] = weights.get(domain, 0.0)
+
+    # Normalize weights to sum to 1.0 (handles partial tests and ensures proper scaling)
+    weight_sum = sum(effective_weights.values())
+    if weight_sum > 0:
+        effective_weights = {
+            domain: w / weight_sum for domain, w in effective_weights.items()
+        }
+    else:
+        # Fallback to equal weights if all specified weights are 0
+        equal_weight = 1.0 / len(active_domains)
+        effective_weights = {domain: equal_weight for domain in active_domains}
+
+    # Calculate weighted accuracy
+    weighted_accuracy = sum(
+        effective_weights[domain] * active_domains[domain] for domain in active_domains
+    )
+
+    # Apply IQ transformation formula: IQ = 100 + ((accuracy - 0.5) * 30)
+    iq_score_raw = 100 + ((weighted_accuracy - 0.5) * 30)
+    iq_score = round(iq_score_raw)
+
+    return TestScore(
+        iq_score=iq_score,
+        correct_answers=total_correct,
+        total_questions=total_questions,
+        accuracy_percentage=round(weighted_accuracy * 100, 2),
+    )
 
 
 def calculate_domain_scores(

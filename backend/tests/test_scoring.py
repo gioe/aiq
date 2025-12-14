@@ -10,6 +10,7 @@ from app.core.scoring import (
     set_scoring_strategy,
     TestScore,
     calculate_domain_scores,
+    calculate_weighted_iq_score,
 )
 from app.models.models import QuestionType
 
@@ -477,3 +478,279 @@ class TestCalculateDomainScores:
         assert result["pattern"]["correct"] == 7
         assert result["pattern"]["total"] == 10
         assert result["pattern"]["pct"] == 70.0
+
+
+class TestCalculateWeightedIQScore:
+    """Tests for calculate_weighted_iq_score function."""
+
+    def test_equal_weights_50_percent(self):
+        """Test with 50% accuracy across all domains using equal weights."""
+        domain_scores = {
+            "pattern": {"correct": 2, "total": 4, "pct": 50.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+            "spatial": {"correct": 2, "total": 4, "pct": 50.0},
+            "math": {"correct": 2, "total": 4, "pct": 50.0},
+            "verbal": {"correct": 2, "total": 4, "pct": 50.0},
+            "memory": {"correct": 2, "total": 4, "pct": 50.0},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # 50% accuracy → IQ 100
+        assert result.iq_score == 100
+        assert result.correct_answers == 12
+        assert result.total_questions == 24
+        assert result.accuracy_percentage == 50.0
+
+    def test_equal_weights_100_percent(self):
+        """Test with perfect score using equal weights."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 4, "total": 4, "pct": 100.0},
+            "spatial": {"correct": 4, "total": 4, "pct": 100.0},
+            "math": {"correct": 4, "total": 4, "pct": 100.0},
+            "verbal": {"correct": 4, "total": 4, "pct": 100.0},
+            "memory": {"correct": 4, "total": 4, "pct": 100.0},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # 100% accuracy → IQ 115
+        assert result.iq_score == 115
+        assert result.correct_answers == 24
+        assert result.total_questions == 24
+        assert result.accuracy_percentage == 100.0
+
+    def test_equal_weights_0_percent(self):
+        """Test with zero score using equal weights."""
+        domain_scores = {
+            "pattern": {"correct": 0, "total": 4, "pct": 0.0},
+            "logic": {"correct": 0, "total": 4, "pct": 0.0},
+            "spatial": {"correct": 0, "total": 4, "pct": 0.0},
+            "math": {"correct": 0, "total": 4, "pct": 0.0},
+            "verbal": {"correct": 0, "total": 4, "pct": 0.0},
+            "memory": {"correct": 0, "total": 4, "pct": 0.0},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # 0% accuracy → IQ 85
+        assert result.iq_score == 85
+        assert result.correct_answers == 0
+        assert result.total_questions == 24
+        assert result.accuracy_percentage == 0.0
+
+    def test_weighted_calculation(self):
+        """Test weighted calculation with explicit weights."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},  # 100% accuracy
+            "logic": {"correct": 0, "total": 4, "pct": 0.0},  # 0% accuracy
+            "spatial": {"correct": 0, "total": 0, "pct": None},  # No questions
+            "math": {"correct": 0, "total": 0, "pct": None},  # No questions
+            "verbal": {"correct": 0, "total": 0, "pct": None},  # No questions
+            "memory": {"correct": 0, "total": 0, "pct": None},  # No questions
+        }
+
+        # Give pattern 75% weight, logic 25% weight
+        weights = {
+            "pattern": 0.75,
+            "logic": 0.25,
+            "spatial": 0.0,
+            "math": 0.0,
+            "verbal": 0.0,
+            "memory": 0.0,
+        }
+
+        result = calculate_weighted_iq_score(domain_scores, weights)
+
+        # Weighted accuracy: 0.75 * 1.0 + 0.25 * 0.0 = 0.75
+        # IQ: 100 + (0.75 - 0.5) * 30 = 100 + 7.5 = 107.5 → 108
+        assert result.iq_score == 108
+        assert result.correct_answers == 4
+        assert result.total_questions == 8
+        assert result.accuracy_percentage == 75.0
+
+    def test_weight_normalization(self):
+        """Test that weights are normalized when they don't sum to 1.0."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},  # 100%
+            "logic": {"correct": 0, "total": 4, "pct": 0.0},  # 0%
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        # Weights sum to 0.5, should be normalized to sum to 1.0
+        weights = {
+            "pattern": 0.3,  # Normalizes to 0.6
+            "logic": 0.2,  # Normalizes to 0.4
+        }
+
+        result = calculate_weighted_iq_score(domain_scores, weights)
+
+        # Normalized weights: pattern=0.6, logic=0.4
+        # Weighted accuracy: 0.6 * 1.0 + 0.4 * 0.0 = 0.6
+        # IQ: 100 + (0.6 - 0.5) * 30 = 100 + 3 = 103
+        assert result.iq_score == 103
+        assert result.accuracy_percentage == 60.0
+
+    def test_partial_test_only_some_domains(self):
+        """Test with a partial test that only has some domains."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+            "spatial": {"correct": 0, "total": 0, "pct": None},  # Not in test
+            "math": {"correct": 0, "total": 0, "pct": None},  # Not in test
+            "verbal": {"correct": 0, "total": 0, "pct": None},  # Not in test
+            "memory": {"correct": 0, "total": 0, "pct": None},  # Not in test
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # Only pattern and logic count, equal weights: (0.75 + 0.50) / 2 = 0.625
+        # IQ: 100 + (0.625 - 0.5) * 30 = 100 + 3.75 = 103.75 → 104
+        assert result.iq_score == 104
+        assert result.correct_answers == 5
+        assert result.total_questions == 8
+        assert result.accuracy_percentage == 62.5
+
+    def test_empty_domain_scores(self):
+        """Test with no questions answered."""
+        domain_scores = {
+            "pattern": {"correct": 0, "total": 0, "pct": None},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # Default to IQ 100 when no questions
+        assert result.iq_score == 100
+        assert result.correct_answers == 0
+        assert result.total_questions == 0
+        assert result.accuracy_percentage == 0.0
+
+    def test_weights_with_missing_domain_fallback(self):
+        """Test that missing weights default to 0."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 2, "total": 4, "pct": 50.0},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        # Only provide weight for pattern, logic gets 0
+        weights = {"pattern": 1.0}
+
+        result = calculate_weighted_iq_score(domain_scores, weights)
+
+        # Only pattern contributes (weight normalized to 1.0)
+        # Weighted accuracy: 1.0 * 1.0 = 1.0
+        # IQ: 100 + (1.0 - 0.5) * 30 = 115
+        assert result.iq_score == 115
+        assert result.accuracy_percentage == 100.0
+
+    def test_all_weights_zero_falls_back_to_equal(self):
+        """Test that all-zero weights fall back to equal weights."""
+        domain_scores = {
+            "pattern": {"correct": 4, "total": 4, "pct": 100.0},
+            "logic": {"correct": 0, "total": 4, "pct": 0.0},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        # All zero weights
+        weights = {
+            "pattern": 0.0,
+            "logic": 0.0,
+        }
+
+        result = calculate_weighted_iq_score(domain_scores, weights)
+
+        # Falls back to equal weights: (1.0 + 0.0) / 2 = 0.5
+        # IQ: 100 + (0.5 - 0.5) * 30 = 100
+        assert result.iq_score == 100
+        assert result.accuracy_percentage == 50.0
+
+    def test_single_domain_test(self):
+        """Test with only one domain in the test."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        # Only pattern: accuracy = 0.75
+        # IQ: 100 + (0.75 - 0.5) * 30 = 107.5 → 108
+        assert result.iq_score == 108
+        assert result.correct_answers == 3
+        assert result.total_questions == 4
+        assert result.accuracy_percentage == 75.0
+
+    def test_realistic_weighted_scoring(self):
+        """Test with realistic domain weights based on g-loadings."""
+        domain_scores = {
+            "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+            "logic": {"correct": 3, "total": 4, "pct": 75.0},
+            "spatial": {"correct": 2, "total": 3, "pct": 66.7},
+            "math": {"correct": 3, "total": 4, "pct": 75.0},
+            "verbal": {"correct": 2, "total": 3, "pct": 66.7},
+            "memory": {"correct": 2, "total": 3, "pct": 66.7},
+        }
+
+        # Weights based on typical g-loadings
+        weights = {
+            "pattern": 0.20,
+            "logic": 0.18,
+            "spatial": 0.16,
+            "math": 0.17,
+            "verbal": 0.15,
+            "memory": 0.14,
+        }
+
+        result = calculate_weighted_iq_score(domain_scores, weights)
+
+        # Weighted accuracy calculation:
+        # pattern: 0.20 * 0.75 = 0.150
+        # logic: 0.18 * 0.75 = 0.135
+        # spatial: 0.16 * 0.667 = 0.107
+        # math: 0.17 * 0.75 = 0.128
+        # verbal: 0.15 * 0.667 = 0.100
+        # memory: 0.14 * 0.667 = 0.093
+        # Total: ~0.713
+        # IQ: 100 + (0.713 - 0.5) * 30 ≈ 106.4 → 106
+        assert result.iq_score in [106, 107]  # Allow for rounding differences
+        assert result.correct_answers == 15
+        assert result.total_questions == 21
+
+    def test_returns_test_score_dataclass(self):
+        """Test that function returns TestScore dataclass."""
+        domain_scores = {
+            "pattern": {"correct": 2, "total": 4, "pct": 50.0},
+            "logic": {"correct": 0, "total": 0, "pct": None},
+            "spatial": {"correct": 0, "total": 0, "pct": None},
+            "math": {"correct": 0, "total": 0, "pct": None},
+            "verbal": {"correct": 0, "total": 0, "pct": None},
+            "memory": {"correct": 0, "total": 0, "pct": None},
+        }
+
+        result = calculate_weighted_iq_score(domain_scores)
+
+        assert isinstance(result, TestScore)
+        assert hasattr(result, "iq_score")
+        assert hasattr(result, "correct_answers")
+        assert hasattr(result, "total_questions")
+        assert hasattr(result, "accuracy_percentage")
