@@ -186,14 +186,14 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 - [x] Unit tests verify percentile calculations
 
 ### DW-016: Add Domain Percentiles to API Response
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/test.py`, `backend/app/api/v1/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/responses.py`, `backend/app/api/v1/test.py`, `backend/tests/test_test_sessions.py`
 **Description:** Include domain percentiles in test result API response.
 **Acceptance Criteria:**
-- [ ] Each domain entry includes `percentile` field
-- [ ] Response includes `strongest_domain` and `weakest_domain`
-- [ ] Percentiles calculated when population stats available
-- [ ] Falls back gracefully when stats unavailable
+- [x] Each domain entry includes `percentile` field
+- [x] Response includes `strongest_domain` and `weakest_domain`
+- [x] Percentiles calculated when population stats available
+- [x] Falls back gracefully when stats unavailable
 
 ### DW-017: Update iOS to Display Domain Percentiles
 **Status:** [ ] Not Started

@@ -1169,3 +1169,284 @@ class TestSubmitTestWithDomainScores:
                 assert (
                     domain_data["pct"] == 100.0
                 ), "All answered questions should be correct"
+
+
+class TestDomainPercentilesInAPIResponse:
+    """Integration tests for domain percentiles in API response (DW-016)."""
+
+    def test_response_includes_strongest_weakest_domains(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that API response includes strongest and weakest domain identification."""
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit with varying correctness to create clear strongest/weakest
+        responses = []
+        for i, q in enumerate(questions):
+            # Get correct answer
+            correct_answer = None
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    correct_answer = tq.correct_answer
+                    break
+
+            # Answer first 2 correctly, last 2 incorrectly
+            if i < 2:
+                responses.append(
+                    {"question_id": q["id"], "user_answer": correct_answer}
+                )
+            else:
+                wrong_answer = None
+                for opt in q["answer_options"]:
+                    if opt != correct_answer:
+                        wrong_answer = opt
+                        break
+                responses.append(
+                    {"question_id": q["id"], "user_answer": wrong_answer or "wrong"}
+                )
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify new API fields are present in the result
+        result = data["result"]
+        assert "strongest_domain" in result
+        assert "weakest_domain" in result
+
+        # With 4 questions across different domains, we should have identified domains
+        # (unless all domains had same performance, in which case they could be same)
+        assert (
+            result["strongest_domain"] is not None
+            or result["weakest_domain"] is not None
+        )
+
+    def test_response_domain_scores_includes_percentile_when_stats_configured(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that domain percentiles are included when population stats are configured."""
+        from app.core.system_config import set_domain_population_stats
+
+        # Configure population stats for domains
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+            "spatial": {"mean_accuracy": 0.55, "sd_accuracy": 0.22},
+            "math": {"mean_accuracy": 0.62, "sd_accuracy": 0.19},
+            "verbal": {"mean_accuracy": 0.68, "sd_accuracy": 0.17},
+            "memory": {"mean_accuracy": 0.58, "sd_accuracy": 0.21},
+        }
+        set_domain_population_stats(db_session, population_stats)
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit all correct answers
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check domain_scores in result includes percentile field
+        result = data["result"]
+        domain_scores = result["domain_scores"]
+
+        # Find domains that had questions
+        for domain, scores in domain_scores.items():
+            if scores["total"] > 0:
+                # Should have percentile when population stats are configured
+                assert "percentile" in scores, f"Domain {domain} should have percentile"
+                # Percentile should be a valid number (0-100)
+                assert scores["percentile"] is not None
+                assert 0 <= scores["percentile"] <= 100
+
+    def test_response_domain_percentiles_graceful_fallback_no_stats(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that domain percentiles gracefully fall back when no population stats."""
+        from app.core.system_config import delete_config
+
+        # Ensure no population stats are configured
+        delete_config(db_session, "domain_population_stats")
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit answers
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Request should succeed even without population stats
+        result = data["result"]
+        assert "domain_scores" in result
+        assert "strongest_domain" in result
+        assert "weakest_domain" in result
+
+    def test_get_result_includes_domain_percentiles(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that GET /test/results/{id} includes domain percentiles."""
+        from app.core.system_config import set_domain_population_stats
+
+        # Configure population stats
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+            "spatial": {"mean_accuracy": 0.55, "sd_accuracy": 0.22},
+            "math": {"mean_accuracy": 0.62, "sd_accuracy": 0.19},
+            "verbal": {"mean_accuracy": 0.68, "sd_accuracy": 0.17},
+            "memory": {"mean_accuracy": 0.58, "sd_accuracy": 0.21},
+        }
+        set_domain_population_stats(db_session, population_stats)
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        submit_response = client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
+        assert submit_response.status_code == 200
+        result_id = submit_response.json()["result"]["id"]
+
+        # Now retrieve the result via GET endpoint
+        get_response = client.get(f"/v1/test/results/{result_id}", headers=auth_headers)
+        assert get_response.status_code == 200
+        result = get_response.json()
+
+        # Should include domain percentiles, strongest/weakest
+        assert "domain_scores" in result
+        assert "strongest_domain" in result
+        assert "weakest_domain" in result
+
+        # Domains with questions should have percentiles
+        for domain, scores in result["domain_scores"].items():
+            if scores["total"] > 0:
+                assert "percentile" in scores
+
+    def test_get_history_includes_domain_percentiles(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that GET /test/history includes domain percentiles for each result."""
+        from app.core.system_config import set_domain_population_stats
+
+        # Configure population stats
+        population_stats = {
+            "pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18},
+            "logic": {"mean_accuracy": 0.60, "sd_accuracy": 0.20},
+            "spatial": {"mean_accuracy": 0.55, "sd_accuracy": 0.22},
+            "math": {"mean_accuracy": 0.62, "sd_accuracy": 0.19},
+            "verbal": {"mean_accuracy": 0.68, "sd_accuracy": 0.17},
+            "memory": {"mean_accuracy": 0.58, "sd_accuracy": 0.21},
+        }
+        set_domain_population_stats(db_session, population_stats)
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        submit_response = client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
+        assert submit_response.status_code == 200
+
+        # Get history
+        history_response = client.get("/v1/test/history", headers=auth_headers)
+        assert history_response.status_code == 200
+        history = history_response.json()
+
+        assert len(history) > 0
+
+        # Each result should have domain info
+        for result in history:
+            assert "domain_scores" in result
+            assert "strongest_domain" in result
+            assert "weakest_domain" in result
