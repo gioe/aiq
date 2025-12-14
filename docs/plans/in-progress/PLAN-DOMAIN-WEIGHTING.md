@@ -152,15 +152,15 @@ This implementation adds domain-specific subscores to AIQ test results, enabling
 ### Phase 3: Weighted Scoring (After Validation)
 
 ### DW-013: Implement calculate_weighted_iq_score Function
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/scoring.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/scoring.py`, `backend/tests/test_scoring.py`
 **Description:** Create weighted scoring function that uses domain weights.
 **Acceptance Criteria:**
-- [ ] Function accepts domain_scores and weights
-- [ ] Calculates weighted accuracy
-- [ ] Applies IQ transformation (100 + (accuracy - 0.5) * 30)
-- [ ] Falls back to equal weights if no weights configured
-- [ ] Unit tests verify weighted calculations
+- [x] Function accepts domain_scores and weights
+- [x] Calculates weighted accuracy
+- [x] Applies IQ transformation (100 + (accuracy - 0.5) * 30)
+- [x] Falls back to equal weights if no weights configured
+- [x] Unit tests verify weighted calculations
 
 ### DW-014: Add Weighted Scoring Toggle
 **Status:** [ ] Not Started
