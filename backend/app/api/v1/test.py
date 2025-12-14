@@ -24,8 +24,13 @@ from app.schemas.responses import (
 from app.core.auth import get_current_user
 from app.core.scoring import (
     calculate_iq_score,
+    calculate_weighted_iq_score,
     iq_to_percentile,
     calculate_domain_scores,
+)
+from app.core.system_config import (
+    is_weighted_scoring_enabled,
+    get_domain_weights,
 )
 from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
@@ -616,17 +621,40 @@ def submit_test(
             f"({completion_time_seconds}s)"
         )
 
-    # Calculate IQ score using scoring module
-    score_result = calculate_iq_score(
-        correct_answers=correct_count, total_questions=response_count
-    )
+    # DW-003: Calculate domain-specific performance breakdown
+    # This provides per-domain subscores for cognitive domain analysis
+    # Calculated first as it's needed for weighted scoring
+    domain_scores = calculate_domain_scores(response_objects, questions_dict)  # type: ignore[arg-type]
+
+    # DW-014: Calculate IQ score using weighted or equal weights based on config
+    # When weighted scoring is enabled and domain weights are configured,
+    # use the weighted scoring function which applies domain-specific weights
+    # reflecting each domain's correlation with general intelligence (g-loading)
+    use_weighted = is_weighted_scoring_enabled(db)
+    domain_weights = get_domain_weights(db) if use_weighted else None
+
+    if use_weighted and domain_weights:
+        # Use weighted scoring with configured domain weights
+        score_result = calculate_weighted_iq_score(
+            domain_scores=domain_scores,
+            weights=domain_weights,
+        )
+        logger.info(
+            f"Test session {test_session.id}: Using weighted scoring with weights={domain_weights}"
+        )
+    else:
+        # Use standard equal-weight scoring
+        score_result = calculate_iq_score(
+            correct_answers=correct_count, total_questions=response_count
+        )
+        if use_weighted and not domain_weights:
+            logger.warning(
+                f"Test session {test_session.id}: Weighted scoring enabled but no weights configured, "
+                "falling back to equal weights"
+            )
 
     # Calculate percentile rank
     percentile = iq_to_percentile(score_result.iq_score)
-
-    # DW-003: Calculate domain-specific performance breakdown
-    # This provides per-domain subscores for cognitive domain analysis
-    domain_scores = calculate_domain_scores(response_objects, questions_dict)  # type: ignore[arg-type]
 
     # TS-005: Run response time anomaly detection
     # This analysis runs after scoring to detect timing patterns that may indicate
