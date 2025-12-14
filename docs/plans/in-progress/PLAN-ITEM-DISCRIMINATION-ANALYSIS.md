@@ -108,7 +108,7 @@ def auto_flag_problematic_questions(
 ---
 
 ### IDA-004: Integrate Auto-Flag into Statistics Update
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/question_analytics.py`
 **Description:** Modify `update_question_statistics()` to call auto-flag check after updating discrimination values. This ensures problematic questions are flagged in real-time as data accumulates.
 
@@ -126,12 +126,12 @@ if response_count >= 50 and discrimination < 0:
 ```
 
 **Acceptance Criteria:**
-- [ ] Questions with negative discrimination are flagged automatically
-- [ ] Flagging only occurs when response_count >= 50
-- [ ] Warning logged for each auto-flagged question
-- [ ] Timestamp recorded when flag is set
-- [ ] Reason includes the actual discrimination value
-- [ ] Integration test verifies flagging after test completion
+- [x] Questions with negative discrimination are flagged automatically
+- [x] Flagging only occurs when response_count >= 50
+- [x] Warning logged for each auto-flagged question
+- [x] Timestamp recorded when flag is set
+- [x] Reason includes the actual discrimination value
+- [x] Integration test verifies flagging after test completion
 
 ---
 
