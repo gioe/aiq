@@ -488,6 +488,325 @@ def get_domain_column_indices(
     return domain_indices
 
 
+@dataclass
+class GLoadingResult:
+    """
+    Result of g-loading factor analysis.
+
+    Attributes:
+        domain_loadings: Dictionary mapping domain names to their g-loading values.
+            Higher loadings indicate stronger correlation with general intelligence.
+        item_loadings: Dictionary mapping question IDs to their individual g-loadings.
+        variance_explained: Proportion of total variance explained by the g-factor (0-1).
+        cronbachs_alpha: Reliability coefficient (0-1). Values > 0.7 are considered acceptable.
+        sample_size: Number of sessions/users used in the analysis.
+        n_items: Number of questions/items used in the analysis.
+        analysis_warnings: List of any warnings generated during analysis.
+    """
+
+    domain_loadings: Dict[str, float]
+    item_loadings: Dict[int, float]
+    variance_explained: float
+    cronbachs_alpha: float
+    sample_size: int
+    n_items: int
+    analysis_warnings: List[str]
+
+
+class InsufficientSampleError(Exception):
+    """Raised when sample size is insufficient for factor analysis."""
+
+    def __init__(self, message: str, sample_size: int, minimum_required: int):
+        """
+        Initialize the InsufficientSampleError.
+
+        Args:
+            message: Human-readable error message.
+            sample_size: The actual sample size that was provided.
+            minimum_required: The minimum sample size required for analysis.
+        """
+        super().__init__(message)
+        self.sample_size = sample_size
+        self.minimum_required = minimum_required
+
+
+def calculate_cronbachs_alpha(matrix: "NDArray[np.int8]") -> float:
+    """
+    Calculate Cronbach's alpha reliability coefficient.
+
+    Cronbach's alpha measures internal consistency - how closely related
+    a set of items are as a group. Values range from 0 to 1, with higher
+    values indicating better reliability.
+
+    Interpretation guidelines:
+        - α ≥ 0.9: Excellent
+        - 0.8 ≤ α < 0.9: Good
+        - 0.7 ≤ α < 0.8: Acceptable
+        - 0.6 ≤ α < 0.7: Questionable
+        - α < 0.6: Poor
+
+    Args:
+        matrix: Response matrix (users × items) with binary values (0/1).
+
+    Returns:
+        Cronbach's alpha coefficient.
+
+    Notes:
+        Formula: α = (k / (k-1)) * (1 - Σvar(items) / var(total))
+        where k is the number of items.
+    """
+    n_items = matrix.shape[1]
+
+    if n_items < 2:
+        return 0.0
+
+    # Calculate item variances
+    item_variances = np.var(matrix, axis=0, ddof=1)
+
+    # Calculate total score variance
+    total_scores = np.sum(matrix, axis=1)
+    total_variance = np.var(total_scores, ddof=1)
+
+    if total_variance == 0:
+        return 0.0
+
+    # Cronbach's alpha formula
+    alpha = (n_items / (n_items - 1)) * (1 - np.sum(item_variances) / total_variance)
+
+    return float(alpha)
+
+
+def _calculate_kmo(matrix: "NDArray[np.float64]") -> Tuple[np.ndarray, float]:
+    """
+    Calculate Kaiser-Meyer-Olkin (KMO) measure of sampling adequacy.
+
+    KMO tests whether the partial correlations among variables are small,
+    indicating that factor analysis is likely to be appropriate.
+
+    Args:
+        matrix: Data matrix (samples × features).
+
+    Returns:
+        Tuple of (per-item KMO values, overall KMO value).
+
+    Interpretation:
+        - KMO >= 0.9: Marvelous
+        - 0.8 <= KMO < 0.9: Meritorious
+        - 0.7 <= KMO < 0.8: Middling
+        - 0.6 <= KMO < 0.7: Mediocre
+        - 0.5 <= KMO < 0.6: Miserable
+        - KMO < 0.5: Unacceptable
+    """
+    # Compute correlation matrix
+    corr_matrix = np.corrcoef(matrix, rowvar=False)
+
+    # Handle potential numerical issues
+    corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+
+    # Compute partial correlation matrix
+    try:
+        inv_corr = np.linalg.pinv(corr_matrix)
+        # Partial correlation: -r_ij / sqrt(r_ii * r_jj)
+        diag_inv = np.diag(inv_corr)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            partial_corr = -inv_corr / np.sqrt(np.outer(diag_inv, diag_inv))
+        np.fill_diagonal(partial_corr, 0)
+        partial_corr = np.nan_to_num(partial_corr, nan=0.0)
+    except np.linalg.LinAlgError:
+        # If inversion fails, return low KMO
+        n_vars = matrix.shape[1]
+        return np.zeros(n_vars), 0.0
+
+    # Calculate KMO
+    # Sum of squared correlations (excluding diagonal)
+    np.fill_diagonal(corr_matrix, 0)
+    r_squared_sum = np.sum(corr_matrix**2)
+
+    # Sum of squared partial correlations
+    p_squared_sum = np.sum(partial_corr**2)
+
+    # Overall KMO
+    if r_squared_sum + p_squared_sum == 0:
+        kmo_model = 0.0
+    else:
+        kmo_model = r_squared_sum / (r_squared_sum + p_squared_sum)
+
+    # Per-item KMO
+    r_squared_per_item = np.sum(corr_matrix**2, axis=1)
+    p_squared_per_item = np.sum(partial_corr**2, axis=1)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        kmo_per_item = r_squared_per_item / (r_squared_per_item + p_squared_per_item)
+    kmo_per_item = np.nan_to_num(kmo_per_item, nan=0.0)
+
+    return kmo_per_item, float(kmo_model)
+
+
+def calculate_g_loadings(
+    response_matrix: ResponseMatrixResult,
+    min_sample_size: int = 100,
+    min_variance_per_item: float = 0.01,
+) -> GLoadingResult:
+    """
+    Calculate empirical g-loadings per domain using principal component analysis.
+
+    Performs single-factor extraction using PCA to identify the general
+    intelligence factor (g) and computes how strongly each domain loads onto
+    this factor. Higher loadings indicate the domain is more strongly
+    associated with general cognitive ability.
+
+    Args:
+        response_matrix: ResponseMatrixResult from build_response_matrix.
+        min_sample_size: Minimum number of sessions required for analysis.
+            Factor analysis requires adequate sample size for stable estimates.
+            Default is 100 (conservative minimum).
+        min_variance_per_item: Minimum variance threshold for including an item.
+            Items with very low variance (nearly all correct or all incorrect)
+            provide little discriminating information. Default is 0.01.
+
+    Returns:
+        GLoadingResult containing domain loadings, item loadings, variance
+        explained, Cronbach's alpha, and analysis metadata.
+
+    Raises:
+        InsufficientSampleError: If sample size is below min_sample_size.
+
+    Notes:
+        - Uses PCA with 1 component to extract the g-factor.
+        - Factor loadings are computed as correlations between items and
+          the first principal component.
+        - Domain loadings are computed as the mean absolute loading of items
+          in that domain.
+        - Items with zero variance are excluded from analysis.
+
+    Example:
+        >>> result = build_response_matrix(db, min_responses_per_question=50)
+        >>> if result is not None and result.n_users >= 100:
+        ...     g_result = calculate_g_loadings(result)
+        ...     print(f"Pattern loading: {g_result.domain_loadings['pattern']:.3f}")
+        ...     print(f"Variance explained: {g_result.variance_explained:.1%}")
+    """
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
+    matrix = response_matrix.matrix
+    n_users = response_matrix.n_users
+    n_items = response_matrix.n_items
+
+    warnings: List[str] = []
+
+    # Check minimum sample size
+    if n_users < min_sample_size:
+        raise InsufficientSampleError(
+            f"Sample size ({n_users}) is below minimum ({min_sample_size}) "
+            "required for reliable factor analysis.",
+            sample_size=n_users,
+            minimum_required=min_sample_size,
+        )
+
+    # Filter out items with zero or near-zero variance
+    item_variances = np.var(matrix.astype(np.float64), axis=0)
+    valid_items_mask = item_variances >= min_variance_per_item
+    n_valid_items = int(np.sum(valid_items_mask))
+
+    if n_valid_items < 3:
+        raise InsufficientSampleError(
+            f"Only {n_valid_items} items have sufficient variance for analysis. "
+            "At least 3 items are required.",
+            sample_size=n_users,
+            minimum_required=min_sample_size,
+        )
+
+    # Create filtered matrix
+    filtered_matrix = matrix[:, valid_items_mask].astype(np.float64)
+    valid_indices = np.where(valid_items_mask)[0]
+
+    if n_valid_items < n_items:
+        excluded_count = n_items - n_valid_items
+        warnings.append(
+            f"{excluded_count} items excluded due to insufficient variance."
+        )
+
+    # Check KMO (Kaiser-Meyer-Olkin) measure of sampling adequacy
+    try:
+        kmo_per_item, kmo_model = _calculate_kmo(filtered_matrix)
+        if kmo_model < 0.5:
+            warnings.append(
+                f"KMO measure ({kmo_model:.3f}) is below 0.5, indicating the data "
+                "may not be suitable for factor analysis."
+            )
+        elif kmo_model < 0.6:
+            warnings.append(
+                f"KMO measure ({kmo_model:.3f}) is marginal. Results should be "
+                "interpreted with caution."
+            )
+    except Exception as e:
+        warnings.append(f"Could not calculate KMO measure: {str(e)}")
+
+    # Standardize the data for PCA
+    scaler = StandardScaler()
+    standardized_matrix = scaler.fit_transform(filtered_matrix)
+
+    # Perform PCA with 1 component (the g-factor)
+    pca = PCA(n_components=1)
+    pca.fit(standardized_matrix)
+
+    # Get the principal component scores
+    pc_scores = pca.transform(standardized_matrix)[:, 0]
+
+    # Calculate factor loadings as correlations between items and PC1
+    # This is the standard way to compute factor loadings from PCA
+    loadings = np.zeros(n_valid_items)
+    for i in range(n_valid_items):
+        # Correlation between item i and the first principal component
+        item_values = standardized_matrix[:, i]
+        corr = np.corrcoef(item_values, pc_scores)[0, 1]
+        loadings[i] = corr if not np.isnan(corr) else 0.0
+
+    # Get variance explained by PC1
+    variance_explained = float(pca.explained_variance_ratio_[0])
+
+    # Calculate Cronbach's alpha for the full matrix
+    cronbachs_alpha = calculate_cronbachs_alpha(matrix)
+
+    # Map loadings back to original question IDs
+    item_loadings: Dict[int, float] = {}
+    for i, valid_idx in enumerate(valid_indices):
+        question_id = response_matrix.question_ids[valid_idx]
+        # Use absolute value of loading (sign is arbitrary in factor analysis)
+        item_loadings[question_id] = float(abs(loadings[i]))
+
+    # Calculate domain loadings (mean of item loadings per domain)
+    domain_indices = get_domain_column_indices(response_matrix.question_domains)
+    domain_loadings: Dict[str, float] = {}
+
+    for domain, indices in domain_indices.items():
+        # Get loadings for items in this domain that passed the filter
+        domain_item_loadings = []
+        for idx in indices:
+            if idx in valid_indices:
+                # Find position in valid_indices
+                pos = np.where(valid_indices == idx)[0]
+                if len(pos) > 0:
+                    domain_item_loadings.append(abs(loadings[pos[0]]))
+
+        if domain_item_loadings:
+            domain_loadings[domain] = float(np.mean(domain_item_loadings))
+        else:
+            domain_loadings[domain] = 0.0
+            warnings.append(f"Domain '{domain}' has no valid items; loading set to 0.")
+
+    return GLoadingResult(
+        domain_loadings=domain_loadings,
+        item_loadings=item_loadings,
+        variance_explained=variance_explained,
+        cronbachs_alpha=cronbachs_alpha,
+        sample_size=n_users,
+        n_items=n_valid_items,
+        analysis_warnings=warnings,
+    )
+
+
 def get_response_matrix_stats(result: ResponseMatrixResult) -> Dict[str, Any]:
     """
     Get descriptive statistics for a response matrix.
