@@ -73,28 +73,11 @@ extension TestResultsView {
 
     func percentileDescription(_ percentileRank: Double?) -> String? {
         guard let percentile = percentileRank else { return nil }
-        let ordinal = ordinalSuffix(for: Int(round(percentile)))
-        return "\(Int(round(percentile)))\(ordinal) percentile"
+        return "\(Int(round(percentile)).ordinalString) percentile"
     }
 
     func percentileContextText(_ percentileRank: Double?) -> String {
         guard let percentile = percentileRank else { return "many" }
         return String(format: "%.0f%%", percentile)
-    }
-
-    func ordinalSuffix(for number: Int) -> String {
-        let ones = number % 10
-        let tens = (number % 100) / 10
-
-        if tens == 1 {
-            return "th"
-        }
-
-        switch ones {
-        case 1: return "st"
-        case 2: return "nd"
-        case 3: return "rd"
-        default: return "th"
-        }
     }
 }

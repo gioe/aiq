@@ -40,19 +40,228 @@ final class TestResultTests: XCTestCase {
     }
 
     func testDomainScorePercentageFormatted() {
-        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.5)
+        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.5, percentile: nil)
         XCTAssertEqual(scoreWithPct.percentageFormatted, "76%")
 
-        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil)
+        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil, percentile: nil)
         XCTAssertEqual(scoreWithNullPct.percentageFormatted, "N/A")
     }
 
     func testDomainScoreAccuracy() {
-        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.0)
+        let scoreWithPct = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil)
         XCTAssertEqual(scoreWithPct.accuracy, 0.75)
 
-        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil)
+        let scoreWithNullPct = DomainScore(correct: 0, total: 0, pct: nil, percentile: nil)
         XCTAssertNil(scoreWithNullPct.accuracy)
+    }
+
+    // MARK: - DomainScore Percentile Tests
+
+    func testDomainScorePercentileFormatted() {
+        // Test ordinal suffixes
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 1.0).percentileFormatted,
+            "1st"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 2.0).percentileFormatted,
+            "2nd"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 3.0).percentileFormatted,
+            "3rd"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 4.0).percentileFormatted,
+            "4th"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 11.0).percentileFormatted,
+            "11th"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 12.0).percentileFormatted,
+            "12th"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 13.0).percentileFormatted,
+            "13th"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 21.0).percentileFormatted,
+            "21st"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 22.0).percentileFormatted,
+            "22nd"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 23.0).percentileFormatted,
+            "23rd"
+        )
+        XCTAssertEqual(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 71.5).percentileFormatted,
+            "72nd" // Rounds to nearest integer
+        )
+
+        // Test nil percentile
+        XCTAssertNil(
+            DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil).percentileFormatted
+        )
+    }
+
+    func testDomainScorePercentileDescription() {
+        let score = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 71.0)
+        XCTAssertEqual(score.percentileDescription, "71st percentile")
+
+        let scoreNil = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil)
+        XCTAssertNil(scoreNil.percentileDescription)
+    }
+
+    // MARK: - PerformanceLevel Tests
+
+    func testDomainScorePerformanceLevelExcellent() {
+        // >= 90th percentile
+        let score90 = DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 90.0)
+        XCTAssertEqual(score90.performanceLevel, .excellent)
+
+        let score95 = DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 95.0)
+        XCTAssertEqual(score95.performanceLevel, .excellent)
+
+        let score99 = DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 99.0)
+        XCTAssertEqual(score99.performanceLevel, .excellent)
+    }
+
+    func testDomainScorePerformanceLevelGood() {
+        // 75-90th percentile
+        let score75 = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 75.0)
+        XCTAssertEqual(score75.performanceLevel, .good)
+
+        let score85 = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 85.0)
+        XCTAssertEqual(score85.performanceLevel, .good)
+
+        let score89 = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 89.9)
+        XCTAssertEqual(score89.performanceLevel, .good)
+    }
+
+    func testDomainScorePerformanceLevelAverage() {
+        // 50-75th percentile
+        let score50 = DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 50.0)
+        XCTAssertEqual(score50.performanceLevel, .average)
+
+        let score60 = DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 60.0)
+        XCTAssertEqual(score60.performanceLevel, .average)
+
+        let score74 = DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 74.9)
+        XCTAssertEqual(score74.performanceLevel, .average)
+    }
+
+    func testDomainScorePerformanceLevelBelowAverage() {
+        // 25-50th percentile
+        let score25 = DomainScore(correct: 1, total: 4, pct: 25.0, percentile: 25.0)
+        XCTAssertEqual(score25.performanceLevel, .belowAverage)
+
+        let score35 = DomainScore(correct: 1, total: 4, pct: 25.0, percentile: 35.0)
+        XCTAssertEqual(score35.performanceLevel, .belowAverage)
+
+        let score49 = DomainScore(correct: 1, total: 4, pct: 25.0, percentile: 49.9)
+        XCTAssertEqual(score49.performanceLevel, .belowAverage)
+    }
+
+    func testDomainScorePerformanceLevelNeedsWork() {
+        // < 25th percentile
+        let score0 = DomainScore(correct: 0, total: 4, pct: 0.0, percentile: 0.0)
+        XCTAssertEqual(score0.performanceLevel, .needsWork)
+
+        let score10 = DomainScore(correct: 0, total: 4, pct: 0.0, percentile: 10.0)
+        XCTAssertEqual(score10.performanceLevel, .needsWork)
+
+        let score24 = DomainScore(correct: 0, total: 4, pct: 0.0, percentile: 24.9)
+        XCTAssertEqual(score24.performanceLevel, .needsWork)
+    }
+
+    func testDomainScorePerformanceLevelNilWhenNoPercentile() {
+        let score = DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil)
+        XCTAssertNil(score.performanceLevel)
+    }
+
+    func testPerformanceLevelDisplayNames() {
+        XCTAssertEqual(PerformanceLevel.excellent.displayName, "Excellent")
+        XCTAssertEqual(PerformanceLevel.good.displayName, "Good")
+        XCTAssertEqual(PerformanceLevel.average.displayName, "Average")
+        XCTAssertEqual(PerformanceLevel.belowAverage.displayName, "Below Average")
+        XCTAssertEqual(PerformanceLevel.needsWork.displayName, "Needs Work")
+    }
+
+    func testPerformanceLevelColors() {
+        // Verify colors are assigned (not nil)
+        XCTAssertNotNil(PerformanceLevel.excellent.color)
+        XCTAssertNotNil(PerformanceLevel.good.color)
+        XCTAssertNotNil(PerformanceLevel.average.color)
+        XCTAssertNotNil(PerformanceLevel.belowAverage.color)
+        XCTAssertNotNil(PerformanceLevel.needsWork.color)
+
+        // Verify colors match ColorPalette
+        XCTAssertEqual(PerformanceLevel.excellent.color, ColorPalette.performanceExcellent)
+        XCTAssertEqual(PerformanceLevel.good.color, ColorPalette.performanceGood)
+        XCTAssertEqual(PerformanceLevel.average.color, ColorPalette.performanceAverage)
+        XCTAssertEqual(PerformanceLevel.belowAverage.color, ColorPalette.performanceBelowAverage)
+        XCTAssertEqual(PerformanceLevel.needsWork.color, ColorPalette.performanceNeedsWork)
+    }
+
+    // MARK: - DomainScore Decoding with Percentile Tests
+
+    func testDomainScoreDecodingWithPercentile() throws {
+        let json = """
+        {
+            "correct": 3,
+            "total": 4,
+            "pct": 75.0,
+            "percentile": 71.5
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
+
+        XCTAssertEqual(domainScore.correct, 3)
+        XCTAssertEqual(domainScore.total, 4)
+        XCTAssertEqual(domainScore.pct, 75.0)
+        XCTAssertEqual(domainScore.percentile, 71.5)
+    }
+
+    func testDomainScoreDecodingWithNullPercentile() throws {
+        let json = """
+        {
+            "correct": 3,
+            "total": 4,
+            "pct": 75.0,
+            "percentile": null
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
+
+        XCTAssertEqual(domainScore.pct, 75.0)
+        XCTAssertNil(domainScore.percentile)
+    }
+
+    func testDomainScoreDecodingWithoutPercentileField() throws {
+        // Backward compatibility - percentile field may not be present
+        let json = """
+        {
+            "correct": 3,
+            "total": 4,
+            "pct": 75.0
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
+
+        XCTAssertEqual(domainScore.pct, 75.0)
+        XCTAssertNil(domainScore.percentile)
     }
 
     // MARK: - TestResult Domain Scores Decoding Tests
@@ -226,12 +435,12 @@ final class TestResultTests: XCTestCase {
 
     func testStrongestWeakestExcludesDomainsWithZeroQuestions() {
         let domainScores: [String: DomainScore] = [
-            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "logic": DomainScore(correct: 0, total: 0, pct: nil), // No questions
-            "spatial": DomainScore(correct: 2, total: 4, pct: 50.0),
-            "math": DomainScore(correct: 4, total: 4, pct: 100.0),
-            "verbal": DomainScore(correct: 1, total: 4, pct: 25.0),
-            "memory": DomainScore(correct: 0, total: 0, pct: nil) // No questions
+            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "logic": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil), // No questions
+            "spatial": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
+            "math": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: nil),
+            "verbal": DomainScore(correct: 1, total: 4, pct: 25.0, percentile: nil),
+            "memory": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil) // No questions
         ]
 
         let result = TestResult(
@@ -259,12 +468,12 @@ final class TestResultTests: XCTestCase {
 
     private func createTestResultWithDomainScores() -> TestResult {
         let domainScores: [String: DomainScore] = [
-            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "logic": DomainScore(correct: 2, total: 3, pct: 66.67),
-            "spatial": DomainScore(correct: 2, total: 3, pct: 66.67),
-            "math": DomainScore(correct: 3, total: 4, pct: 75.0),
-            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0),
-            "memory": DomainScore(correct: 1, total: 3, pct: 33.33)
+            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "logic": DomainScore(correct: 2, total: 3, pct: 66.67, percentile: nil),
+            "spatial": DomainScore(correct: 2, total: 3, pct: 66.67, percentile: nil),
+            "math": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: nil),
+            "memory": DomainScore(correct: 1, total: 3, pct: 33.33, percentile: nil)
         ]
 
         return TestResult(

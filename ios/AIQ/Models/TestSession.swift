@@ -95,6 +95,10 @@ struct SubmittedTestResult: Codable, Equatable {
     let completedAt: Date
     let responseTimeFlags: ResponseTimeFlags?
     let domainScores: [String: DomainScore]?
+    /// The cognitive domain with the highest percentile score
+    let strongestDomain: String?
+    /// The cognitive domain with the lowest percentile score
+    let weakestDomain: String?
 
     var accuracy: Double {
         accuracyPercentage / 100.0
@@ -119,24 +123,7 @@ struct SubmittedTestResult: Codable, Equatable {
     /// Detailed percentile description (e.g., "84th percentile")
     var percentileDescription: String? {
         guard let percentile = percentileRank else { return nil }
-        let ordinal = ordinalSuffix(for: Int(round(percentile)))
-        return "\(Int(round(percentile)))\(ordinal) percentile"
-    }
-
-    private func ordinalSuffix(for number: Int) -> String {
-        let ones = number % 10
-        let tens = (number % 100) / 10
-
-        if tens == 1 {
-            return "th"
-        }
-
-        switch ones {
-        case 1: return "st"
-        case 2: return "nd"
-        case 3: return "rd"
-        default: return "th"
-        }
+        return "\(Int(round(percentile)).ordinalString) percentile"
     }
 
     enum CodingKeys: String, CodingKey {
@@ -152,6 +139,8 @@ struct SubmittedTestResult: Codable, Equatable {
         case completedAt = "completed_at"
         case responseTimeFlags = "response_time_flags"
         case domainScores = "domain_scores"
+        case strongestDomain = "strongest_domain"
+        case weakestDomain = "weakest_domain"
     }
 }
 

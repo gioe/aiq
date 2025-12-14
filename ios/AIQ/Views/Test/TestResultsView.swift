@@ -25,7 +25,9 @@ struct TestResultsView: View {
                     if result.domainScores != nil {
                         DomainScoresBreakdownView(
                             domainScores: result.domainScores,
-                            showAnimation: showAnimation
+                            showAnimation: showAnimation,
+                            strongestDomain: result.strongestDomain,
+                            weakestDomain: result.weakestDomain
                         )
                     }
 
@@ -324,7 +326,7 @@ struct TestResultsView: View {
 
 // MARK: - Preview
 
-#Preview("Excellent Score") {
+#Preview("Excellent Score - With Percentiles") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 1,
@@ -339,19 +341,21 @@ struct TestResultsView: View {
             completedAt: Date(),
             responseTimeFlags: nil,
             domainScores: [
-                "pattern": DomainScore(correct: 4, total: 4, pct: 100.0),
-                "logic": DomainScore(correct: 3, total: 3, pct: 100.0),
-                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0),
-                "math": DomainScore(correct: 4, total: 4, pct: 100.0),
-                "verbal": DomainScore(correct: 3, total: 3, pct: 100.0),
-                "memory": DomainScore(correct: 2, total: 3, pct: 66.7)
-            ]
+                "pattern": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 97.5),
+                "logic": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 95.0),
+                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 93.5),
+                "math": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 96.0),
+                "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 94.5),
+                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 55.0)
+            ],
+            strongestDomain: "pattern",
+            weakestDomain: "memory"
         ),
         onDismiss: {}
     )
 }
 
-#Preview("Average Score") {
+#Preview("Average Score - With Percentiles") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 2,
@@ -366,19 +370,21 @@ struct TestResultsView: View {
             completedAt: Date(),
             responseTimeFlags: nil,
             domainScores: [
-                "pattern": DomainScore(correct: 3, total: 4, pct: 75.0),
-                "logic": DomainScore(correct: 2, total: 3, pct: 66.7),
-                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7),
-                "math": DomainScore(correct: 3, total: 4, pct: 75.0),
-                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7),
-                "memory": DomainScore(correct: 2, total: 3, pct: 66.7)
-            ]
+                "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 71.0),
+                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 55.0),
+                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 52.0),
+                "math": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 68.0),
+                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 48.0),
+                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 50.0)
+            ],
+            strongestDomain: "pattern",
+            weakestDomain: "verbal"
         ),
         onDismiss: {}
     )
 }
 
-#Preview("Low Score") {
+#Preview("Low Score - Mixed Performance") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 3,
@@ -393,19 +399,21 @@ struct TestResultsView: View {
             completedAt: Date(),
             responseTimeFlags: nil,
             domainScores: [
-                "pattern": DomainScore(correct: 1, total: 4, pct: 25.0),
-                "logic": DomainScore(correct: 2, total: 3, pct: 66.7),
-                "spatial": DomainScore(correct: 1, total: 3, pct: 33.3),
-                "math": DomainScore(correct: 2, total: 4, pct: 50.0),
-                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7),
-                "memory": DomainScore(correct: 1, total: 3, pct: 33.3)
-            ]
+                "pattern": DomainScore(correct: 1, total: 4, pct: 25.0, percentile: 12.0),
+                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 45.0),
+                "spatial": DomainScore(correct: 1, total: 3, pct: 33.3, percentile: 18.0),
+                "math": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 32.0),
+                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 42.0),
+                "memory": DomainScore(correct: 1, total: 3, pct: 33.3, percentile: 22.0)
+            ],
+            strongestDomain: "logic",
+            weakestDomain: "pattern"
         ),
         onDismiss: {}
     )
 }
 
-#Preview("No Domain Scores") {
+#Preview("No Percentiles - Legacy Data") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 4,
@@ -419,7 +427,38 @@ struct TestResultsView: View {
             completionTimeSeconds: 900,
             completedAt: Date(),
             responseTimeFlags: nil,
-            domainScores: nil
+            domainScores: [
+                "pattern": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
+                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
+                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
+                "math": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
+                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
+                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil)
+            ],
+            strongestDomain: nil,
+            weakestDomain: nil
+        ),
+        onDismiss: {}
+    )
+}
+
+#Preview("No Domain Scores") {
+    TestResultsView(
+        result: SubmittedTestResult(
+            id: 5,
+            testSessionId: 127,
+            userId: 1,
+            iqScore: 100,
+            percentileRank: 50.0,
+            totalQuestions: 20,
+            correctAnswers: 12,
+            accuracyPercentage: 60.0,
+            completionTimeSeconds: 900,
+            completedAt: Date(),
+            responseTimeFlags: nil,
+            domainScores: nil,
+            strongestDomain: nil,
+            weakestDomain: nil
         ),
         onDismiss: {}
     )
