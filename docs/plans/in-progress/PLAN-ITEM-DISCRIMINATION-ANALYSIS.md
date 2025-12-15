@@ -583,3 +583,51 @@ The implementation follows a logical progression:
 6. Testing (IDA-011)
 
 Most tasks are small, with the medium tasks being the business logic functions that require careful implementation of the quality tier classification and report aggregation.
+
+---
+
+## Future Improvements (Deferred from PR #226 Review)
+
+These items were identified during code review and can be addressed in future iterations.
+
+### IDA-F001: Extract Magic Number for Comparison Tolerance
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** The `0.05` threshold used for determining "at average" comparisons is hardcoded in multiple places. Extract to a named constant for clarity.
+**Original Comment:** "The 0.05 threshold for 'at' comparison is reasonable but could be a named constant"
+
+### IDA-F002: Use DifficultyLevel Enum Instead of Hardcoded List
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Replace hardcoded `["easy", "medium", "hard"]` with iteration over `DifficultyLevel` enum for consistency.
+**Original Comment:** "Difficulty levels are hardcoded as strings when DifficultyLevel enum exists"
+
+### IDA-F003: Consider Database Aggregations for Large Datasets
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** For large question pools (10,000+), consider using SQL GROUP BY and AVG() instead of in-memory Python processing for better performance.
+**Original Comment:** "For large datasets, consider if database aggregations would be more efficient"
+
+### IDA-F004: Add Caching for Discrimination Report
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Add caching for `get_discrimination_report()` since this is expensive and discrimination data changes infrequently.
+**Original Comment:** "Consider adding caching for get_discrimination_report() since this is expensive and data changes infrequently"
+
+### IDA-F005: Add Logging Statements for Debugging
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** The logger is imported but never used. Add logging for report generation and flagged question counts.
+**Original Comment:** "Logger imported but never used... add logging for debugging"
+
+### IDA-F006: Remove or Document Unused QUALITY_TIER_THRESHOLDS Constant
+**Status:** [ ] Not Started
+**Source:** PR #226 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** `QUALITY_TIER_THRESHOLDS` is defined but never referenced by code. Either use it in `get_quality_tier()` or add a comment explaining it's for documentation purposes.
+**Original Comment:** "QUALITY_TIER_THRESHOLDS is defined but never used. The get_quality_tier() function hardcodes the thresholds instead of referencing this constant."
