@@ -20,7 +20,7 @@ from datetime import timedelta, timezone
 from datetime import datetime as dt
 from typing import Dict, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.models import DifficultyLevel, Question, QuestionType
@@ -170,6 +170,11 @@ def get_discrimination_report(
     - Questions requiring admin action
     - Recent trends
 
+    Performance note (IDA-F003):
+        For large question pools (10,000+), this function uses SQL GROUP BY
+        and AVG() aggregations instead of in-memory Python processing for
+        better performance and reduced memory usage.
+
     Args:
         db: Database session
         min_responses: Minimum responses required to include in report (default: 30)
@@ -185,96 +190,79 @@ def get_discrimination_report(
             "trends": {...}
         }
     """
-    # Query all active questions with sufficient responses and discrimination data
-    questions_with_data = (
-        db.query(Question)
-        .filter(
-            Question.is_active == True,  # noqa: E712
-            Question.response_count >= min_responses,
-            Question.discrimination.isnot(None),
-        )
-        .all()
-    )
+    # Base filter for all queries: active questions with sufficient responses
+    base_filter = [
+        Question.is_active == True,  # noqa: E712
+        Question.response_count >= min_responses,
+        Question.discrimination.isnot(None),
+    ]
 
-    # Initialize summary counts
+    # -------------------------------------------------------------------------
+    # SUMMARY COUNTS: Use SQL CASE/WHEN aggregation (IDA-F003)
+    # -------------------------------------------------------------------------
+    tier_count_query = db.query(
+        func.count(Question.id).label("total"),
+        func.sum(case((Question.discrimination >= 0.40, 1), else_=0)).label(
+            "excellent"
+        ),
+        func.sum(
+            case(
+                (
+                    (Question.discrimination >= 0.30)
+                    & (Question.discrimination < 0.40),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("good"),
+        func.sum(
+            case(
+                (
+                    (Question.discrimination >= 0.20)
+                    & (Question.discrimination < 0.30),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("acceptable"),
+        func.sum(
+            case(
+                (
+                    (Question.discrimination >= 0.10)
+                    & (Question.discrimination < 0.20),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("poor"),
+        func.sum(
+            case(
+                (
+                    (Question.discrimination >= 0.00)
+                    & (Question.discrimination < 0.10),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("very_poor"),
+        func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label("negative"),
+        func.avg(Question.discrimination).label("mean_discrimination"),
+    ).filter(*base_filter)
+
+    tier_result = tier_count_query.first()
+
+    # Extract values (handle None from empty results)
+    total = tier_result.total or 0
     tier_counts = {
-        "excellent": 0,
-        "good": 0,
-        "acceptable": 0,
-        "poor": 0,
-        "very_poor": 0,
-        "negative": 0,
+        "excellent": tier_result.excellent or 0,
+        "good": tier_result.good or 0,
+        "acceptable": tier_result.acceptable or 0,
+        "poor": tier_result.poor or 0,
+        "very_poor": tier_result.very_poor or 0,
+        "negative": tier_result.negative or 0,
     }
 
-    # Initialize by_difficulty breakdown
-    difficulty_stats: Dict[str, Dict] = {}
-    for level in DifficultyLevel:
-        difficulty_stats[level.value] = {
-            "discriminations": [],
-            "negative_count": 0,
-        }
-
-    # Initialize by_type breakdown
-    type_stats: Dict[str, Dict] = {}
-    for qtype in QuestionType:
-        type_stats[qtype.value] = {
-            "discriminations": [],
-            "negative_count": 0,
-        }
-
-    # Lists for action_needed
-    immediate_review: List[Dict] = []
-    monitor: List[Dict] = []
-
-    # Process each question
-    for question in questions_with_data:
-        # Cast to float - we filtered for non-null discrimination above
-        disc: float = float(question.discrimination)  # type: ignore[arg-type]
-        tier = get_quality_tier(disc)
-
-        # Update tier counts
-        if tier:
-            tier_counts[tier] += 1
-
-        # Update difficulty stats
-        diff_level = question.difficulty_level.value.lower()
-        if diff_level in difficulty_stats:
-            difficulty_stats[diff_level]["discriminations"].append(disc)
-            if disc < 0:
-                difficulty_stats[diff_level]["negative_count"] += 1
-
-        # Update type stats
-        q_type = question.question_type.value
-        if q_type in type_stats:
-            type_stats[q_type]["discriminations"].append(disc)
-            if disc < 0:
-                type_stats[q_type]["negative_count"] += 1
-
-        # Determine if action is needed
-        if disc < 0:
-            immediate_review.append(
-                {
-                    "question_id": question.id,
-                    "discrimination": disc,
-                    "response_count": question.response_count,
-                    "reason": "Negative discrimination: high scorers missing this question more than low scorers",
-                    "quality_flag": question.quality_flag,
-                }
-            )
-        elif disc < 0.10:  # very_poor tier
-            monitor.append(
-                {
-                    "question_id": question.id,
-                    "discrimination": disc,
-                    "response_count": question.response_count,
-                    "reason": "Very poor discrimination: not differentiating between ability levels",
-                    "quality_flag": question.quality_flag,
-                }
-            )
-
-    # Calculate total and percentages
-    total = len(questions_with_data)
-
+    # Calculate quality distribution percentages
     if total > 0:
         quality_distribution = {
             "excellent_pct": round((tier_counts["excellent"] / total) * 100, 1),
@@ -301,47 +289,140 @@ def get_discrimination_report(
             "problematic_pct": 0.0,
         }
 
-    # Build by_difficulty response
-    by_difficulty = {}
-    for level_name, stats in difficulty_stats.items():
-        discs = stats["discriminations"]
-        if discs:
-            mean_disc = sum(discs) / len(discs)
-        else:
-            mean_disc = 0.0
-        by_difficulty[level_name] = {
-            "mean_discrimination": round(mean_disc, 3),
-            "negative_count": stats["negative_count"],
-        }
+    # -------------------------------------------------------------------------
+    # BY_DIFFICULTY BREAKDOWN: Use SQL GROUP BY aggregation (IDA-F003)
+    # -------------------------------------------------------------------------
+    difficulty_query = (
+        db.query(
+            Question.difficulty_level,
+            func.avg(Question.discrimination).label("mean_discrimination"),
+            func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
+                "negative_count"
+            ),
+        )
+        .filter(*base_filter)
+        .group_by(Question.difficulty_level)
+    )
 
-    # Build by_type response
+    difficulty_results = {row[0]: row for row in difficulty_query.all()}
+
+    by_difficulty: Dict[str, Dict] = {}
+    for level in DifficultyLevel:
+        if level in difficulty_results:
+            row = difficulty_results[level]
+            by_difficulty[level.value] = {
+                "mean_discrimination": round(float(row.mean_discrimination or 0), 3),
+                "negative_count": row.negative_count or 0,
+            }
+        else:
+            by_difficulty[level.value] = {
+                "mean_discrimination": 0.0,
+                "negative_count": 0,
+            }
+
+    # -------------------------------------------------------------------------
+    # BY_TYPE BREAKDOWN: Use SQL GROUP BY aggregation (IDA-F003)
+    # -------------------------------------------------------------------------
+    type_query = (
+        db.query(
+            Question.question_type,
+            func.avg(Question.discrimination).label("mean_discrimination"),
+            func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
+                "negative_count"
+            ),
+        )
+        .filter(*base_filter)
+        .group_by(Question.question_type)
+    )
+
+    type_results = {row[0]: row for row in type_query.all()}
+
     by_type: Dict[str, Dict] = {}
-    for qtype_name, stats in type_stats.items():
-        discs = stats["discriminations"]
-        if discs:
-            mean_disc = sum(discs) / len(discs)
+    for qtype in QuestionType:
+        if qtype in type_results:
+            row = type_results[qtype]
+            by_type[qtype.value] = {
+                "mean_discrimination": round(float(row.mean_discrimination or 0), 3),
+                "negative_count": row.negative_count or 0,
+            }
         else:
-            mean_disc = 0.0
-        by_type[qtype_name] = {
-            "mean_discrimination": round(mean_disc, 3),
-            "negative_count": stats["negative_count"],
-        }
+            by_type[qtype.value] = {
+                "mean_discrimination": 0.0,
+                "negative_count": 0,
+            }
 
-    # Calculate trends
+    # -------------------------------------------------------------------------
+    # ACTION NEEDED: Query for questions requiring admin attention
+    # These lists are typically small, so fetching individual records is fine
+    # -------------------------------------------------------------------------
+    immediate_review: List[Dict] = []
+    monitor: List[Dict] = []
+
+    # Query questions with negative discrimination
+    negative_questions = (
+        db.query(
+            Question.id,
+            Question.discrimination,
+            Question.response_count,
+            Question.quality_flag,
+        )
+        .filter(
+            *base_filter,
+            Question.discrimination < 0.00,
+        )
+        .all()
+    )
+
+    for q in negative_questions:
+        immediate_review.append(
+            {
+                "question_id": q.id,
+                "discrimination": float(q.discrimination),
+                "response_count": q.response_count,
+                "reason": "Negative discrimination: high scorers missing this question more than low scorers",
+                "quality_flag": q.quality_flag,
+            }
+        )
+
+    # Query questions with very poor discrimination (0.0 <= r < 0.10)
+    very_poor_questions = (
+        db.query(
+            Question.id,
+            Question.discrimination,
+            Question.response_count,
+            Question.quality_flag,
+        )
+        .filter(
+            *base_filter,
+            Question.discrimination >= 0.00,
+            Question.discrimination < 0.10,
+        )
+        .all()
+    )
+
+    for q in very_poor_questions:
+        monitor.append(
+            {
+                "question_id": q.id,
+                "discrimination": float(q.discrimination),
+                "response_count": q.response_count,
+                "reason": "Very poor discrimination: not differentiating between ability levels",
+                "quality_flag": q.quality_flag,
+            }
+        )
+
+    # -------------------------------------------------------------------------
+    # TRENDS: Calculate recent statistics
+    # -------------------------------------------------------------------------
     now = dt.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
-    # Mean discrimination for all active questions with data
-    # Reuse questions_with_data from above (same filters) to avoid duplicate query
-    recent_discriminations = [
-        q.discrimination for q in questions_with_data if q.discrimination is not None
-    ]
-    if recent_discriminations:
-        mean_discrimination_30d = round(
-            sum(recent_discriminations) / len(recent_discriminations), 3
-        )
-    else:
-        mean_discrimination_30d = None
+    # Mean discrimination (use result from tier_count_query above)
+    mean_discrimination_30d = (
+        round(float(tier_result.mean_discrimination), 3)
+        if tier_result.mean_discrimination is not None
+        else None
+    )
 
     # Count questions newly flagged this week
     new_negative_this_week = (
