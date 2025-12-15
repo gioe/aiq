@@ -635,11 +635,20 @@ These items were identified during code review and can be addressed in future it
 - Added cache clearing fixtures to `test_discrimination_analysis.py` and `test_admin.py` for test isolation
 
 ### IDA-F005: Add Logging Statements for Debugging
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** The logger is imported but never used. Add logging for report generation and flagged question counts.
 **Original Comment:** "Logger imported but never used... add logging for debugging"
+
+**Implementation:**
+- Added info log at start of `get_discrimination_report()` with min_responses parameter
+- Added info log summarizing tier counts after computing summary statistics
+- Added warning log when `immediate_review` list contains questions with negative discrimination
+- Added info log when `monitor` list contains questions with very poor discrimination
+- Added debug log at start of `get_question_discrimination_detail()` for each lookup
+- Added warning log when question not found in detail lookup
+- Added debug log with question detail values after successful fetch
 
 ### IDA-F006: Remove or Document Unused QUALITY_TIER_THRESHOLDS Constant
 **Status:** [ ] Not Started
