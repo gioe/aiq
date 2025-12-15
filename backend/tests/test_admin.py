@@ -4266,3 +4266,369 @@ class TestFactorAnalysisEndpoint:
             headers=admin_token_headers,
         )
         assert response.status_code == 422
+
+
+# =============================================================================
+# DISCRIMINATION ANALYSIS ENDPOINT TESTS (IDA-009)
+# =============================================================================
+
+
+class TestDiscriminationReportEndpoint:
+    """Tests for GET /v1/admin/questions/discrimination-report endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_report_success(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test successful retrieval of discrimination report."""
+        # Create test questions with discrimination data
+        for i, disc in enumerate([0.45, 0.35, 0.25, 0.15, 0.05, -0.10]):
+            q = Question(
+                question_text=f"Test question {i}",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+                response_count=100,
+                discrimination=disc,
+                quality_flag="normal",
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/questions/discrimination-report?min_responses=30",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify response structure
+        assert "summary" in data
+        assert "quality_distribution" in data
+        assert "by_difficulty" in data
+        assert "by_type" in data
+        assert "action_needed" in data
+        assert "trends" in data
+
+        # Verify summary counts
+        summary = data["summary"]
+        assert summary["total_questions_with_data"] == 6
+        assert summary["excellent"] == 1  # 0.45
+        assert summary["good"] == 1  # 0.35
+        assert summary["acceptable"] == 1  # 0.25
+        assert summary["poor"] == 1  # 0.15
+        assert summary["very_poor"] == 1  # 0.05
+        assert summary["negative"] == 1  # -0.10
+
+        # Verify action_needed
+        action_needed = data["action_needed"]
+        assert "immediate_review" in action_needed
+        assert "monitor" in action_needed
+        assert len(action_needed["immediate_review"]) == 1  # negative discrimination
+        assert len(action_needed["monitor"]) == 1  # very_poor discrimination
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_report_empty_pool(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test discrimination report with no questions meeting criteria."""
+        # Create questions with insufficient response count
+        q = Question(
+            question_text="Low response question",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            response_count=10,  # Below min_responses threshold
+            discrimination=0.30,
+            quality_flag="normal",
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/questions/discrimination-report?min_responses=30",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["summary"]["total_questions_with_data"] == 0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_report_min_responses_filter(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that min_responses parameter filters correctly."""
+        # Create questions with varying response counts
+        for count in [25, 50, 100]:
+            q = Question(
+                question_text=f"Question with {count} responses",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+                response_count=count,
+                discrimination=0.30,
+                quality_flag="normal",
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        # With min_responses=30, should get 2 questions
+        response = client.get(
+            "/v1/admin/questions/discrimination-report?min_responses=30",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["summary"]["total_questions_with_data"] == 2
+
+        # With min_responses=75, should get only 1 question
+        response = client.get(
+            "/v1/admin/questions/discrimination-report?min_responses=75",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["summary"]["total_questions_with_data"] == 1
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_report_requires_admin_token(self, client):
+        """Test that endpoint requires admin authentication."""
+        response = client.get("/v1/admin/questions/discrimination-report")
+        assert response.status_code == 422  # Missing header
+
+        response = client.get(
+            "/v1/admin/questions/discrimination-report",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "")
+    def test_discrimination_report_admin_token_not_configured(
+        self, client, admin_token_headers
+    ):
+        """Test endpoint when admin token is not configured."""
+        response = client.get(
+            "/v1/admin/questions/discrimination-report",
+            headers=admin_token_headers,
+        )
+        assert response.status_code == 500
+        assert "not configured" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_report_by_difficulty_breakdown(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test discrimination breakdown by difficulty level."""
+        # Create questions at each difficulty level
+        for diff_level, disc in [
+            (DifficultyLevel.EASY, 0.25),
+            (DifficultyLevel.MEDIUM, 0.35),
+            (DifficultyLevel.HARD, 0.40),
+        ]:
+            q = Question(
+                question_text=f"{diff_level.value} question",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=diff_level,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+                response_count=50,
+                discrimination=disc,
+                quality_flag="normal",
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/questions/discrimination-report?min_responses=30",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        by_difficulty = response.json()["by_difficulty"]
+
+        assert "easy" in by_difficulty
+        assert "medium" in by_difficulty
+        assert "hard" in by_difficulty
+        assert by_difficulty["easy"]["mean_discrimination"] == 0.25
+        assert by_difficulty["medium"]["mean_discrimination"] == 0.35
+        assert by_difficulty["hard"]["mean_discrimination"] == 0.40
+
+
+class TestDiscriminationDetailEndpoint:
+    """Tests for GET /v1/admin/questions/{id}/discrimination-detail endpoint."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_success(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test successful retrieval of discrimination detail for a question."""
+        q = Question(
+            question_text="Test question for detail",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            response_count=100,
+            discrimination=0.42,
+            quality_flag="normal",
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            f"/v1/admin/questions/{q.id}/discrimination-detail",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["question_id"] == q.id
+        assert data["discrimination"] == 0.42
+        assert data["quality_tier"] == "excellent"
+        assert data["response_count"] == 100
+        assert data["quality_flag"] == "normal"
+        assert "percentile_rank" in data
+        assert "compared_to_type_avg" in data
+        assert "compared_to_difficulty_avg" in data
+        assert "history" in data
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_question_not_found(
+        self, client, admin_token_headers
+    ):
+        """Test 404 response for non-existent question."""
+        response = client.get(
+            "/v1/admin/questions/99999/discrimination-detail",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_no_discrimination_data(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test detail response when question has no discrimination data."""
+        q = Question(
+            question_text="Question without discrimination data",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            response_count=10,
+            discrimination=None,
+            quality_flag="normal",
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        response = client.get(
+            f"/v1/admin/questions/{q.id}/discrimination-detail",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["question_id"] == q.id
+        assert data["discrimination"] is None
+        assert data["quality_tier"] is None
+        assert data["percentile_rank"] is None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_requires_admin_token(self, client):
+        """Test that endpoint requires admin authentication."""
+        response = client.get("/v1/admin/questions/1/discrimination-detail")
+        assert response.status_code == 422  # Missing header
+
+        response = client.get(
+            "/v1/admin/questions/1/discrimination-detail",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_quality_tiers(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test all quality tier classifications are returned correctly."""
+        test_cases = [
+            (0.45, "excellent"),
+            (0.35, "good"),
+            (0.25, "acceptable"),
+            (0.15, "poor"),
+            (0.05, "very_poor"),
+            (-0.10, "negative"),
+        ]
+
+        for disc, expected_tier in test_cases:
+            q = Question(
+                question_text=f"Question with {expected_tier} discrimination",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+                response_count=50,
+                discrimination=disc,
+                quality_flag="normal",
+            )
+            db_session.add(q)
+            db_session.commit()
+
+            response = client.get(
+                f"/v1/admin/questions/{q.id}/discrimination-detail",
+                headers=admin_token_headers,
+            )
+
+            assert response.status_code == 200
+            assert response.json()["quality_tier"] == expected_tier
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_discrimination_detail_comparison_to_averages(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test comparison fields show above/below/at correctly."""
+        # Create several questions of same type and difficulty to establish average
+        for disc in [0.25, 0.30, 0.35, 0.40]:
+            q = Question(
+                question_text=f"Question with disc {disc}",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+                correct_answer="A",
+                is_active=True,
+                response_count=50,
+                discrimination=disc,
+                quality_flag="normal",
+            )
+            db_session.add(q)
+        db_session.commit()
+
+        # Get detail for the high-discrimination question (0.40)
+        high_q = (
+            db_session.query(Question).filter(Question.discrimination == 0.40).first()
+        )
+
+        response = client.get(
+            f"/v1/admin/questions/{high_q.id}/discrimination-detail",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Average is 0.325, so 0.40 should be "above"
+        assert data["compared_to_type_avg"] == "above"
+        assert data["compared_to_difficulty_avg"] == "above"
