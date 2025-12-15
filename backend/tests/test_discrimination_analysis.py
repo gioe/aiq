@@ -256,6 +256,7 @@ class TestCalculatePercentileRank:
         """Percentile calculated correctly with multiple questions."""
         # Create 10 questions with different discrimination values
         discriminations = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55]
+        total_questions = len(discriminations)
         for disc in discriminations:
             create_test_question(
                 db_session,
@@ -264,17 +265,23 @@ class TestCalculatePercentileRank:
                 discrimination=disc,
             )
 
-        # 0.30 should be at 50th percentile (5 below, 5 at or above)
+        # Test value 0.30: values below it are [0.10, 0.15, 0.20, 0.25]
+        values_below_030 = 4
+        expected_percentile_030 = int((values_below_030 / total_questions) * 100)
         percentile_30 = calculate_percentile_rank(db_session, 0.30)
-        assert percentile_30 == 40  # 4 values below 0.30 out of 10
+        assert percentile_30 == expected_percentile_030  # 4/10 = 40%
 
-        # 0.10 should be at 0th percentile (lowest)
+        # Test value 0.10: no values below it (lowest value)
+        values_below_010 = 0
+        expected_percentile_010 = int((values_below_010 / total_questions) * 100)
         percentile_10 = calculate_percentile_rank(db_session, 0.10)
-        assert percentile_10 == 0  # 0 values below 0.10
+        assert percentile_10 == expected_percentile_010  # 0/10 = 0%
 
-        # 0.55 should be at high percentile
+        # Test value 0.55: values below it are [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
+        values_below_055 = 9
+        expected_percentile_055 = int((values_below_055 / total_questions) * 100)
         percentile_55 = calculate_percentile_rank(db_session, 0.55)
-        assert percentile_55 == 90  # 9 values below 0.55 out of 10
+        assert percentile_55 == expected_percentile_055  # 9/10 = 90%
 
     def test_ignores_null_discrimination(self, db_session):
         """NULL discrimination values are ignored in calculation."""
@@ -306,8 +313,12 @@ class TestCalculatePercentileRank:
         )
 
         # Only 2 questions should be counted (the ones with discrimination)
+        # Test value 0.30: 1 question below (0.20), 1 at or above (0.40)
+        questions_with_data = 2
+        values_below_030 = 1
+        expected_percentile = int((values_below_030 / questions_with_data) * 100)
         percentile = calculate_percentile_rank(db_session, 0.30)
-        assert percentile == 50  # 1 below (0.20), 1 above (0.40) -> 50%
+        assert percentile == expected_percentile  # 1/2 = 50%
 
     def test_percentile_clamped_to_0_100(self, db_session):
         """Percentile is clamped to valid 0-100 range."""
@@ -454,22 +465,37 @@ class TestGetDiscriminationReport:
     def test_quality_distribution_percentages(self, db_session):
         """Quality distribution percentages calculated correctly."""
         # Create 10 questions with known distribution
-        # 2 excellent, 3 good, 2 acceptable, 1 poor, 1 very_poor, 1 negative
-        for disc in [0.45, 0.42]:  # 2 excellent
+        # Define the expected distribution for clarity
+        excellent_count = 2
+        good_count = 3
+        acceptable_count = 2
+        poor_count = 1
+        very_poor_count = 1
+        negative_count = 1
+        total_count = (
+            excellent_count
+            + good_count
+            + acceptable_count
+            + poor_count
+            + very_poor_count
+            + negative_count
+        )
+
+        for disc in [0.45, 0.42]:  # excellent
             create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.EASY,
                 response_count=50,
                 discrimination=disc,
             )
-        for disc in [0.35, 0.33, 0.31]:  # 3 good
+        for disc in [0.35, 0.33, 0.31]:  # good
             create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
                 discrimination=disc,
             )
-        for disc in [0.25, 0.22]:  # 2 acceptable
+        for disc in [0.25, 0.22]:  # acceptable
             create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
@@ -480,136 +506,160 @@ class TestGetDiscriminationReport:
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
-            discrimination=0.15,  # 1 poor
+            discrimination=0.15,  # poor
         )
         create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
-            discrimination=0.05,  # 1 very_poor
+            discrimination=0.05,  # very_poor
         )
         create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
-            discrimination=-0.10,  # 1 negative
+            discrimination=-0.10,  # negative
         )
 
         report = get_discrimination_report(db_session, min_responses=30)
 
-        # 2/10 = 20% excellent
-        assert report["quality_distribution"]["excellent_pct"] == pytest.approx(20.0)
-        # 3/10 = 30% good
-        assert report["quality_distribution"]["good_pct"] == pytest.approx(30.0)
-        # 2/10 = 20% acceptable
-        assert report["quality_distribution"]["acceptable_pct"] == pytest.approx(20.0)
-        # 3/10 = 30% problematic (poor + very_poor + negative)
-        assert report["quality_distribution"]["problematic_pct"] == pytest.approx(30.0)
+        # Calculate expected percentages
+        excellent_pct = (excellent_count / total_count) * 100  # 2/10 = 20%
+        good_pct = (good_count / total_count) * 100  # 3/10 = 30%
+        acceptable_pct = (acceptable_count / total_count) * 100  # 2/10 = 20%
+        problematic_pct = (
+            (poor_count + very_poor_count + negative_count) / total_count
+        ) * 100  # 3/10 = 30%
+
+        assert report["quality_distribution"]["excellent_pct"] == pytest.approx(
+            excellent_pct
+        )
+        assert report["quality_distribution"]["good_pct"] == pytest.approx(good_pct)
+        assert report["quality_distribution"]["acceptable_pct"] == pytest.approx(
+            acceptable_pct
+        )
+        assert report["quality_distribution"]["problematic_pct"] == pytest.approx(
+            problematic_pct
+        )
 
     def test_by_difficulty_breakdown(self, db_session):
         """By difficulty breakdown calculated correctly."""
+        # Define discrimination values for each difficulty level
+        easy_discriminations = [0.40, 0.30]
+        medium_discriminations = [0.25, -0.05]
+        hard_discriminations = [0.20]
+
         # Easy questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            response_count=50,
-            discrimination=0.40,
-        )
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            response_count=50,
-            discrimination=0.30,
-        )
+        for disc in easy_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                response_count=50,
+                discrimination=disc,
+            )
         # Medium questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=50,
-            discrimination=0.25,
-        )
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=50,
-            discrimination=-0.05,
-        )
+        for disc in medium_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
         # Hard questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.HARD,
-            response_count=50,
-            discrimination=0.20,
-        )
+        for disc in hard_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.HARD,
+                response_count=50,
+                discrimination=disc,
+            )
 
         report = get_discrimination_report(db_session, min_responses=30)
 
-        # Easy: mean = (0.40 + 0.30) / 2 = 0.35
+        # Calculate expected means
+        easy_mean = sum(easy_discriminations) / len(easy_discriminations)
+        medium_mean = sum(medium_discriminations) / len(medium_discriminations)
+        hard_mean = sum(hard_discriminations) / len(hard_discriminations)
+        medium_negative_count = sum(1 for d in medium_discriminations if d < 0)
+
         assert report["by_difficulty"]["easy"]["mean_discrimination"] == pytest.approx(
-            0.35
+            easy_mean  # (0.40 + 0.30) / 2 = 0.35
         )
         assert report["by_difficulty"]["easy"]["negative_count"] == 0
 
-        # Medium: mean = (0.25 + -0.05) / 2 = 0.10
         assert report["by_difficulty"]["medium"][
             "mean_discrimination"
-        ] == pytest.approx(0.10)
-        assert report["by_difficulty"]["medium"]["negative_count"] == 1
+        ] == pytest.approx(
+            medium_mean
+        )  # (0.25 + -0.05) / 2 = 0.10
+        assert (
+            report["by_difficulty"]["medium"]["negative_count"] == medium_negative_count
+        )
 
-        # Hard: mean = 0.20
         assert report["by_difficulty"]["hard"]["mean_discrimination"] == pytest.approx(
-            0.20
+            hard_mean  # 0.20 / 1 = 0.20
         )
         assert report["by_difficulty"]["hard"]["negative_count"] == 0
 
     def test_by_type_breakdown(self, db_session):
         """By question type breakdown calculated correctly."""
+        # Define discrimination values for each question type
+        pattern_discriminations = [0.40, 0.20]
+        logic_discriminations = [-0.10]
+        math_discriminations = [0.35]
+
         # Pattern questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            question_type=QuestionType.PATTERN,
-            response_count=50,
-            discrimination=0.40,
-        )
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            question_type=QuestionType.PATTERN,
-            response_count=50,
-            discrimination=0.20,
-        )
+        for disc in pattern_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                question_type=QuestionType.PATTERN,
+                response_count=50,
+                discrimination=disc,
+            )
         # Logic questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            question_type=QuestionType.LOGIC,
-            response_count=50,
-            discrimination=-0.10,
-        )
+        for disc in logic_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                question_type=QuestionType.LOGIC,
+                response_count=50,
+                discrimination=disc,
+            )
         # Math questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.HARD,
-            question_type=QuestionType.MATH,
-            response_count=50,
-            discrimination=0.35,
-        )
+        for disc in math_discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.HARD,
+                question_type=QuestionType.MATH,
+                response_count=50,
+                discrimination=disc,
+            )
 
         report = get_discrimination_report(db_session, min_responses=30)
 
-        # Pattern: mean = (0.40 + 0.20) / 2 = 0.30 (uses enum value "pattern")
+        # Calculate expected means and counts
+        pattern_mean = sum(pattern_discriminations) / len(pattern_discriminations)
+        logic_mean = sum(logic_discriminations) / len(logic_discriminations)
+        math_mean = sum(math_discriminations) / len(math_discriminations)
+        logic_negative_count = sum(1 for d in logic_discriminations if d < 0)
+
+        # Pattern: (0.40 + 0.20) / 2 = 0.30
         assert report["by_type"]["pattern"]["mean_discrimination"] == pytest.approx(
-            0.30
+            pattern_mean
         )
         assert report["by_type"]["pattern"]["negative_count"] == 0
 
-        # Logic: mean = -0.10 (uses enum value "logic")
-        assert report["by_type"]["logic"]["mean_discrimination"] == pytest.approx(-0.10)
-        assert report["by_type"]["logic"]["negative_count"] == 1
+        # Logic: -0.10 / 1 = -0.10
+        assert report["by_type"]["logic"]["mean_discrimination"] == pytest.approx(
+            logic_mean
+        )
+        assert report["by_type"]["logic"]["negative_count"] == logic_negative_count
 
-        # Math: mean = 0.35 (uses enum value "math")
-        assert report["by_type"]["math"]["mean_discrimination"] == pytest.approx(0.35)
+        # Math: 0.35 / 1 = 0.35
+        assert report["by_type"]["math"]["mean_discrimination"] == pytest.approx(
+            math_mean
+        )
         assert report["by_type"]["math"]["negative_count"] == 0
 
     def test_action_needed_immediate_review(self, db_session):
