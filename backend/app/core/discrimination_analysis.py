@@ -35,11 +35,11 @@ logger = logging.getLogger(__name__)
 # Quality tier thresholds based on psychometric standards
 # Reference: docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md
 QUALITY_TIER_THRESHOLDS = {
-    "excellent": 0.40,  # r > 0.40
-    "good": 0.30,  # r = 0.30-0.40
-    "acceptable": 0.20,  # r = 0.20-0.30
-    "poor": 0.10,  # r = 0.10-0.20
-    "very_poor": 0.00,  # r = 0.00-0.10
+    "excellent": 0.40,  # r >= 0.40
+    "good": 0.30,  # 0.30 <= r < 0.40
+    "acceptable": 0.20,  # 0.20 <= r < 0.30
+    "poor": 0.10,  # 0.10 <= r < 0.20
+    "very_poor": 0.00,  # 0.00 <= r < 0.10
     # r < 0.00 is "negative"
 }
 
@@ -49,11 +49,11 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
     Classify discrimination value into quality tier.
 
     Quality tiers follow psychometric standards for item discrimination:
-    - excellent: r > 0.40 (very good discrimination)
-    - good: r = 0.30-0.40 (good discrimination)
-    - acceptable: r = 0.20-0.30 (adequate discrimination)
-    - poor: r = 0.10-0.20 (poor discrimination)
-    - very_poor: r = 0.00-0.10 (very poor discrimination)
+    - excellent: r >= 0.40 (very good discrimination)
+    - good: 0.30 <= r < 0.40 (good discrimination)
+    - acceptable: 0.20 <= r < 0.30 (adequate discrimination)
+    - poor: 0.10 <= r < 0.20 (poor discrimination)
+    - very_poor: 0.00 <= r < 0.10 (very poor discrimination)
     - negative: r < 0.00 (problematic - high scorers miss more)
 
     Args:
@@ -65,6 +65,8 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
 
     Examples:
         >>> get_quality_tier(0.45)
+        'excellent'
+        >>> get_quality_tier(0.40)
         'excellent'
         >>> get_quality_tier(0.35)
         'good'
@@ -84,7 +86,7 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
         return "poor"
     elif discrimination < 0.30:
         return "acceptable"
-    elif discrimination <= 0.40:
+    elif discrimination < 0.40:
         return "good"
     else:
         return "excellent"
