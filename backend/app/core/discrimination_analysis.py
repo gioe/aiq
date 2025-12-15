@@ -326,18 +326,11 @@ def get_discrimination_report(
     now = dt.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
-    # Mean discrimination for questions updated in last 30 days
-    recent_questions = (
-        db.query(Question)
-        .filter(
-            Question.is_active == True,  # noqa: E712
-            Question.discrimination.isnot(None),
-            Question.response_count >= min_responses,
-        )
-        .all()
-    )
-
-    recent_discriminations = [q.discrimination for q in recent_questions]
+    # Mean discrimination for all active questions with data
+    # Reuse questions_with_data from above (same filters) to avoid duplicate query
+    recent_discriminations = [
+        q.discrimination for q in questions_with_data if q.discrimination is not None
+    ]
     if recent_discriminations:
         mean_discrimination_30d = round(
             sum(recent_discriminations) / len(recent_discriminations), 3
