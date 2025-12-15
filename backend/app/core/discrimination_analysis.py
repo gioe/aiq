@@ -228,6 +228,8 @@ def get_discrimination_report(
             "trends": {...}
         }
     """
+    logger.info(f"Generating discrimination report (min_responses={min_responses})")
+
     # Check cache first (IDA-F004)
     cache = get_cache()
     cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:min_responses={min_responses}"
@@ -307,6 +309,13 @@ def get_discrimination_report(
         "very_poor": tier_result.very_poor or 0,
         "negative": tier_result.negative or 0,
     }
+
+    logger.info(
+        f"Discrimination report summary: {total} questions with data "
+        f"(excellent={tier_counts['excellent']}, good={tier_counts['good']}, "
+        f"acceptable={tier_counts['acceptable']}, poor={tier_counts['poor']}, "
+        f"very_poor={tier_counts['very_poor']}, negative={tier_counts['negative']})"
+    )
 
     # Calculate quality distribution percentages
     if total > 0:
@@ -457,6 +466,18 @@ def get_discrimination_report(
             }
         )
 
+    # Log action_needed counts
+    if immediate_review:
+        logger.warning(
+            f"Discrimination report: {len(immediate_review)} questions need immediate review "
+            f"(negative discrimination)"
+        )
+    if monitor:
+        logger.info(
+            f"Discrimination report: {len(monitor)} questions flagged for monitoring "
+            f"(very poor discrimination)"
+        )
+
     # -------------------------------------------------------------------------
     # TRENDS: Calculate recent statistics
     # -------------------------------------------------------------------------
@@ -543,10 +564,13 @@ def get_question_discrimination_detail(
         Dictionary matching DiscriminationDetailResponse schema,
         or None if question not found
     """
+    logger.debug(f"Fetching discrimination detail for question {question_id}")
+
     # Fetch the question
     question = db.query(Question).filter(Question.id == question_id).first()
 
     if not question:
+        logger.warning(f"Question {question_id} not found for discrimination detail")
         return None
 
     # Cast to Optional[float] for type checker
@@ -556,6 +580,11 @@ def get_question_discrimination_detail(
     response_count = question.response_count or 0
     quality_tier = get_quality_tier(disc_value)
     quality_flag = question.quality_flag
+
+    logger.debug(
+        f"Question {question_id} discrimination detail: "
+        f"value={disc_value}, tier={quality_tier}, responses={response_count}, flag={quality_flag}"
+    )
 
     # Calculate percentile rank (only if discrimination exists)
     percentile_rank = None
