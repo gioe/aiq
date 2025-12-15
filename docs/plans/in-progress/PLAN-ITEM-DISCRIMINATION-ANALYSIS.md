@@ -663,11 +663,17 @@ These items were identified during code review and can be addressed in future it
 - All 58 discrimination analysis tests continue to pass, confirming behavioral equivalence
 
 ### IDA-F007: Add Error Handling for Quality Tier Enum Conversion
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #227 comment
-**Files:** `backend/app/api/v1/admin.py`
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_admin.py`
 **Description:** Add try-except around `QualityTier(detail_data["quality_tier"])` conversion to handle potential ValueError if invalid tier value is somehow present in the data.
 **Original Comment:** "The quality tier enum conversion could fail with a ValueError if the data contains an invalid tier value"
+
+**Implementation:**
+- Added try-except block around `QualityTier()` conversion in `get_discrimination_detail_endpoint()`
+- Catches `ValueError` and logs a warning with the invalid value and question ID
+- Falls back to `None` for `quality_tier` when conversion fails (safe since field is Optional)
+- Added test case `test_discrimination_detail_invalid_tier_value_handled_gracefully` that mocks an invalid tier value and verifies graceful handling
 
 ### IDA-F008: Improve Test Isolation with Batch Commits
 **Status:** [ ] Not Started

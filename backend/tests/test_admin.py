@@ -4643,6 +4643,44 @@ class TestDiscriminationDetailEndpoint:
         assert data["compared_to_type_avg"] == "above"
         assert data["compared_to_difficulty_avg"] == "above"
 
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.get_question_discrimination_detail")
+    def test_discrimination_detail_invalid_tier_value_handled_gracefully(
+        self, mock_get_detail, client, admin_token_headers
+    ):
+        """Test that invalid quality_tier value is handled gracefully (IDA-F007).
+
+        If the database somehow contains an invalid tier value (e.g., due to
+        data corruption or schema changes), the endpoint should log a warning
+        and return None for quality_tier rather than raising a ValueError.
+        """
+        # Mock the function to return data with an invalid quality_tier
+        mock_get_detail.return_value = {
+            "question_id": 123,
+            "discrimination": 0.35,
+            "quality_tier": "invalid_tier_value",  # Invalid enum value
+            "response_count": 100,
+            "compared_to_type_avg": "above",
+            "compared_to_difficulty_avg": "at",
+            "percentile_rank": 75,
+            "quality_flag": "normal",
+            "history": [],
+        }
+
+        response = client.get(
+            "/v1/admin/questions/123/discrimination-detail",
+            headers=admin_token_headers,
+        )
+
+        # Should succeed with quality_tier set to None
+        assert response.status_code == 200
+        data = response.json()
+        assert data["question_id"] == 123
+        assert data["discrimination"] == 0.35
+        assert data["quality_tier"] is None  # Invalid tier converted to None
+        assert data["response_count"] == 100
+        assert data["quality_flag"] == "normal"
+
 
 class TestQualityFlagManagementEndpoint:
     """Tests for PATCH /v1/admin/questions/{question_id}/quality-flag endpoint (IDA-010)."""
