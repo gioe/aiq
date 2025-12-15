@@ -598,7 +598,7 @@ These items were identified during code review and can be addressed in future it
 **Original Comment:** "The 0.05 threshold for 'at' comparison is reasonable but could be a named constant"
 
 ### IDA-F002: Use DifficultyLevel Enum Instead of Hardcoded List
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** Replace hardcoded `["easy", "medium", "hard"]` with iteration over `DifficultyLevel` enum for consistency.
