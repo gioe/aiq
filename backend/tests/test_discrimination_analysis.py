@@ -91,113 +91,160 @@ def create_test_question(
 
 
 class TestGetQualityTier:
-    """Unit tests for get_quality_tier() function."""
+    """Unit tests for get_quality_tier() function.
+
+    Uses parametrized tests for comprehensive boundary and range testing.
+    Test IDs are descriptive for easy identification in test output.
+    """
 
     def test_returns_none_for_none_discrimination(self):
         """None discrimination returns None tier."""
         assert get_quality_tier(None) is None
 
-    def test_negative_discrimination_returns_negative(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(-0.01, "negative", id="negative_just_below_zero"),
+            pytest.param(-0.15, "negative", id="negative_moderate"),
+            pytest.param(-0.50, "negative", id="negative_significant"),
+            pytest.param(-1.0, "negative", id="negative_extreme"),
+        ],
+    )
+    def test_negative_discrimination_returns_negative(
+        self, discrimination, expected_tier
+    ):
         """Negative discrimination values return 'negative' tier."""
-        assert get_quality_tier(-0.01) == "negative"
-        assert get_quality_tier(-0.15) == "negative"
-        assert get_quality_tier(-0.50) == "negative"
-        assert get_quality_tier(-1.0) == "negative"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_boundary_at_zero(self):
-        """Zero discrimination returns 'very_poor' (boundary test)."""
-        assert get_quality_tier(0.0) == "very_poor"
-
-    def test_very_poor_tier_range(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(0.0, "very_poor", id="very_poor_at_zero"),
+            pytest.param(0.05, "very_poor", id="very_poor_mid_range"),
+            pytest.param(0.09, "very_poor", id="very_poor_near_upper"),
+            pytest.param(0.099, "very_poor", id="very_poor_just_below_010"),
+        ],
+    )
+    def test_very_poor_tier_range(self, discrimination, expected_tier):
         """Values 0.00 <= r < 0.10 return 'very_poor'."""
-        assert get_quality_tier(0.0) == "very_poor"
-        assert get_quality_tier(0.05) == "very_poor"
-        assert get_quality_tier(0.09) == "very_poor"
-        assert get_quality_tier(0.099) == "very_poor"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_boundary_at_0_10(self):
-        """0.10 is the boundary between 'very_poor' and 'poor'."""
-        assert get_quality_tier(0.099) == "very_poor"
-        assert get_quality_tier(0.10) == "poor"
-
-    def test_poor_tier_range(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(0.10, "poor", id="poor_at_lower_bound"),
+            pytest.param(0.15, "poor", id="poor_mid_range"),
+            pytest.param(0.19, "poor", id="poor_near_upper"),
+            pytest.param(0.199, "poor", id="poor_just_below_020"),
+        ],
+    )
+    def test_poor_tier_range(self, discrimination, expected_tier):
         """Values 0.10 <= r < 0.20 return 'poor'."""
-        assert get_quality_tier(0.10) == "poor"
-        assert get_quality_tier(0.15) == "poor"
-        assert get_quality_tier(0.19) == "poor"
-        assert get_quality_tier(0.199) == "poor"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_boundary_at_0_20(self):
-        """0.20 is the boundary between 'poor' and 'acceptable'."""
-        assert get_quality_tier(0.199) == "poor"
-        assert get_quality_tier(0.20) == "acceptable"
-
-    def test_acceptable_tier_range(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(0.20, "acceptable", id="acceptable_at_lower_bound"),
+            pytest.param(0.25, "acceptable", id="acceptable_mid_range"),
+            pytest.param(0.29, "acceptable", id="acceptable_near_upper"),
+            pytest.param(0.299, "acceptable", id="acceptable_just_below_030"),
+        ],
+    )
+    def test_acceptable_tier_range(self, discrimination, expected_tier):
         """Values 0.20 <= r < 0.30 return 'acceptable'."""
-        assert get_quality_tier(0.20) == "acceptable"
-        assert get_quality_tier(0.25) == "acceptable"
-        assert get_quality_tier(0.29) == "acceptable"
-        assert get_quality_tier(0.299) == "acceptable"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_boundary_at_0_30(self):
-        """0.30 is the boundary between 'acceptable' and 'good'."""
-        assert get_quality_tier(0.299) == "acceptable"
-        assert get_quality_tier(0.30) == "good"
-
-    def test_good_tier_range(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(0.30, "good", id="good_at_lower_bound"),
+            pytest.param(0.35, "good", id="good_mid_range"),
+            pytest.param(0.39, "good", id="good_near_upper"),
+            pytest.param(0.399, "good", id="good_just_below_040"),
+        ],
+    )
+    def test_good_tier_range(self, discrimination, expected_tier):
         """Values 0.30 <= r < 0.40 return 'good'."""
-        assert get_quality_tier(0.30) == "good"
-        assert get_quality_tier(0.35) == "good"
-        assert get_quality_tier(0.39) == "good"
-        assert get_quality_tier(0.399) == "good"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_boundary_at_0_40(self):
-        """0.40 is the boundary between 'good' and 'excellent'."""
-        assert get_quality_tier(0.399) == "good"
-        assert get_quality_tier(0.40) == "excellent"
-
-    def test_excellent_tier_range(self):
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier",
+        [
+            pytest.param(0.40, "excellent", id="excellent_at_lower_bound"),
+            pytest.param(0.45, "excellent", id="excellent_mid_range"),
+            pytest.param(0.50, "excellent", id="excellent_moderate"),
+            pytest.param(0.75, "excellent", id="excellent_high"),
+            pytest.param(1.0, "excellent", id="excellent_maximum"),
+        ],
+    )
+    def test_excellent_tier_range(self, discrimination, expected_tier):
         """Values r >= 0.40 return 'excellent'."""
-        assert get_quality_tier(0.40) == "excellent"
-        assert get_quality_tier(0.45) == "excellent"
-        assert get_quality_tier(0.50) == "excellent"
-        assert get_quality_tier(0.75) == "excellent"
-        assert get_quality_tier(1.0) == "excellent"
+        assert get_quality_tier(discrimination) == expected_tier
 
-    def test_all_boundary_values(self):
-        """Test all tier boundary values in one test."""
-        # Below each boundary
-        assert get_quality_tier(-0.001) == "negative"
-        assert get_quality_tier(0.099) == "very_poor"
-        assert get_quality_tier(0.199) == "poor"
-        assert get_quality_tier(0.299) == "acceptable"
-        assert get_quality_tier(0.399) == "good"
-
-        # At each boundary (lower bound of tier)
-        assert get_quality_tier(0.0) == "very_poor"
-        assert get_quality_tier(0.10) == "poor"
-        assert get_quality_tier(0.20) == "acceptable"
-        assert get_quality_tier(0.30) == "good"
-        assert get_quality_tier(0.40) == "excellent"
+    @pytest.mark.parametrize(
+        "below_boundary,above_boundary,expected_below,expected_above",
+        [
+            pytest.param(
+                -0.001,
+                0.0,
+                "negative",
+                "very_poor",
+                id="boundary_negative_to_very_poor",
+            ),
+            pytest.param(
+                0.099, 0.10, "very_poor", "poor", id="boundary_very_poor_to_poor"
+            ),
+            pytest.param(
+                0.199, 0.20, "poor", "acceptable", id="boundary_poor_to_acceptable"
+            ),
+            pytest.param(
+                0.299, 0.30, "acceptable", "good", id="boundary_acceptable_to_good"
+            ),
+            pytest.param(
+                0.399, 0.40, "good", "excellent", id="boundary_good_to_excellent"
+            ),
+        ],
+    )
+    def test_tier_boundaries(
+        self, below_boundary, above_boundary, expected_below, expected_above
+    ):
+        """Test boundary values between adjacent quality tiers."""
+        assert get_quality_tier(below_boundary) == expected_below
+        assert get_quality_tier(above_boundary) == expected_above
 
 
 class TestQualityTierThresholdsConstant:
     """Tests for QUALITY_TIER_THRESHOLDS constant."""
 
-    def test_thresholds_values(self):
+    @pytest.mark.parametrize(
+        "tier,expected_threshold",
+        [
+            pytest.param("excellent", 0.40, id="excellent_threshold"),
+            pytest.param("good", 0.30, id="good_threshold"),
+            pytest.param("acceptable", 0.20, id="acceptable_threshold"),
+            pytest.param("poor", 0.10, id="poor_threshold"),
+            pytest.param("very_poor", 0.00, id="very_poor_threshold"),
+        ],
+    )
+    def test_threshold_value(self, tier, expected_threshold):
         """Verify QUALITY_TIER_THRESHOLDS match documentation."""
-        assert QUALITY_TIER_THRESHOLDS["excellent"] == pytest.approx(0.40)
-        assert QUALITY_TIER_THRESHOLDS["good"] == pytest.approx(0.30)
-        assert QUALITY_TIER_THRESHOLDS["acceptable"] == pytest.approx(0.20)
-        assert QUALITY_TIER_THRESHOLDS["poor"] == pytest.approx(0.10)
-        assert QUALITY_TIER_THRESHOLDS["very_poor"] == pytest.approx(0.00)
+        assert QUALITY_TIER_THRESHOLDS[tier] == pytest.approx(expected_threshold)
 
-    def test_thresholds_ordering(self):
+    @pytest.mark.parametrize(
+        "lower_tier,higher_tier",
+        [
+            pytest.param("very_poor", "poor", id="very_poor_less_than_poor"),
+            pytest.param("poor", "acceptable", id="poor_less_than_acceptable"),
+            pytest.param("acceptable", "good", id="acceptable_less_than_good"),
+            pytest.param("good", "excellent", id="good_less_than_excellent"),
+        ],
+    )
+    def test_threshold_ordering(self, lower_tier, higher_tier):
         """Verify thresholds are correctly ordered."""
-        assert QUALITY_TIER_THRESHOLDS["very_poor"] < QUALITY_TIER_THRESHOLDS["poor"]
-        assert QUALITY_TIER_THRESHOLDS["poor"] < QUALITY_TIER_THRESHOLDS["acceptable"]
-        assert QUALITY_TIER_THRESHOLDS["acceptable"] < QUALITY_TIER_THRESHOLDS["good"]
-        assert QUALITY_TIER_THRESHOLDS["good"] < QUALITY_TIER_THRESHOLDS["excellent"]
+        assert (
+            QUALITY_TIER_THRESHOLDS[lower_tier] < QUALITY_TIER_THRESHOLDS[higher_tier]
+        )
 
 
 # =============================================================================
@@ -213,44 +260,41 @@ class TestCalculatePercentileRank:
         percentile = calculate_percentile_rank(db_session, 0.35)
         assert percentile == 50
 
-    def test_single_question_same_value(self, db_session):
-        """Single question with same value returns 0 percentile."""
+    @pytest.mark.parametrize(
+        "existing_disc,query_disc,expected_percentile,description",
+        [
+            pytest.param(
+                0.35, 0.35, 0, "same value - no questions are lower", id="same_value"
+            ),
+            pytest.param(
+                0.20,
+                0.35,
+                100,
+                "query higher than existing - 100% are lower",
+                id="higher_value",
+            ),
+            pytest.param(
+                0.50,
+                0.35,
+                0,
+                "query lower than existing - 0% are lower",
+                id="lower_value",
+            ),
+        ],
+    )
+    def test_single_question_percentile(
+        self, db_session, existing_disc, query_disc, expected_percentile, description
+    ):
+        """Test percentile calculation with single existing question."""
         create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
-            discrimination=0.35,
+            discrimination=existing_disc,
         )
 
-        # Same value - no questions are lower
-        percentile = calculate_percentile_rank(db_session, 0.35)
-        assert percentile == 0
-
-    def test_single_question_higher_value(self, db_session):
-        """Higher discrimination than single existing question returns 100."""
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=50,
-            discrimination=0.20,
-        )
-
-        # 0.35 is higher than 0.20, so 100% of questions are lower
-        percentile = calculate_percentile_rank(db_session, 0.35)
-        assert percentile == 100
-
-    def test_single_question_lower_value(self, db_session):
-        """Lower discrimination than single existing question returns 0."""
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=50,
-            discrimination=0.50,
-        )
-
-        # 0.35 is lower than 0.50, so 0% of questions are lower
-        percentile = calculate_percentile_rank(db_session, 0.35)
-        assert percentile == 0
+        percentile = calculate_percentile_rank(db_session, query_disc)
+        assert percentile == expected_percentile, description
 
     def test_percentile_calculation_with_multiple_questions(self, db_session):
         """Percentile calculated correctly with multiple questions."""
@@ -886,80 +930,62 @@ class TestGetQuestionDiscriminationDetail:
         assert detail["compared_to_type_avg"] is None
         assert detail["compared_to_difficulty_avg"] is None
 
-    def test_type_average_comparison(self, db_session):
-        """Compares question to type average correctly."""
+    @pytest.mark.parametrize(
+        "comparison_discs,target_disc,question_type,expected_comparison",
+        [
+            pytest.param(
+                [0.30, 0.30],
+                0.40,
+                QuestionType.PATTERN,
+                "above",
+                id="above_avg_pattern",
+            ),
+            pytest.param(
+                [0.45],
+                0.20,
+                QuestionType.LOGIC,
+                "below",
+                id="below_avg_logic",
+            ),
+            pytest.param(
+                [0.30],
+                0.32,
+                QuestionType.MATH,
+                "at",
+                id="at_avg_math",
+            ),
+        ],
+    )
+    def test_type_average_comparison(
+        self,
+        db_session,
+        comparison_discs,
+        target_disc,
+        question_type,
+        expected_comparison,
+    ):
+        """Test type average comparison for above/below/at scenarios."""
         # Create comparison questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            question_type=QuestionType.PATTERN,
-            response_count=50,
-            discrimination=0.30,
-        )
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.HARD,
-            question_type=QuestionType.PATTERN,
-            response_count=50,
-            discrimination=0.30,
-        )
-        # Target question - above average (0.40 vs 0.30)
-        target_above = create_test_question(
+        for disc in comparison_discs:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                question_type=question_type,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        # Target question
+        target = create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
-            question_type=QuestionType.PATTERN,
+            question_type=question_type,
             response_count=50,
-            discrimination=0.40,
+            discrimination=target_disc,
         )
 
-        detail = get_question_discrimination_detail(db_session, target_above.id)
-        # 0.40 is above 0.30 average by 0.10 (> 0.05 threshold)
-        assert detail["compared_to_type_avg"] == "above"
-
-    def test_type_average_comparison_below(self, db_session):
-        """Detects when question is below type average."""
-        # Create comparison questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            question_type=QuestionType.LOGIC,
-            response_count=50,
-            discrimination=0.45,
-        )
-        # Target question - below average
-        target_below = create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            question_type=QuestionType.LOGIC,
-            response_count=50,
-            discrimination=0.20,
-        )
-
-        detail = get_question_discrimination_detail(db_session, target_below.id)
-        # 0.20 is below ~0.325 average (0.45 + 0.20 / 2)
-        assert detail["compared_to_type_avg"] == "below"
-
-    def test_type_average_comparison_at(self, db_session):
-        """Detects when question is at type average (within 0.05)."""
-        # Create comparison questions
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.EASY,
-            question_type=QuestionType.MATH,
-            response_count=50,
-            discrimination=0.30,
-        )
-        # Target question - at average
-        target_at = create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            question_type=QuestionType.MATH,
-            response_count=50,
-            discrimination=0.32,  # Within 0.05 of 0.31 average
-        )
-
-        detail = get_question_discrimination_detail(db_session, target_at.id)
-        assert detail["compared_to_type_avg"] == "at"
+        detail = get_question_discrimination_detail(db_session, target.id)
+        assert detail["compared_to_type_avg"] == expected_comparison
 
     def test_difficulty_average_comparison(self, db_session):
         """Compares question to difficulty average correctly."""
@@ -1119,70 +1145,69 @@ class TestEdgeCases:
         assert len(report["action_needed"]["immediate_review"]) == 0
         assert len(report["action_needed"]["monitor"]) == 1
 
-    def test_very_negative_discrimination(self, db_session):
-        """Handles extremely negative discrimination values."""
+    @pytest.mark.parametrize(
+        "discrimination,expected_tier,summary_field,in_immediate_review",
+        [
+            pytest.param(
+                -0.80, "negative", "negative", True, id="very_negative_discrimination"
+            ),
+            pytest.param(
+                0.90, "excellent", "excellent", False, id="very_high_discrimination"
+            ),
+        ],
+    )
+    def test_extreme_discrimination_values(
+        self,
+        db_session,
+        discrimination,
+        expected_tier,
+        summary_field,
+        in_immediate_review,
+    ):
+        """Handles extreme discrimination values correctly."""
         create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=100,
-            discrimination=-0.80,  # Very negative
+            discrimination=discrimination,
         )
 
-        tier = get_quality_tier(-0.80)
-        assert tier == "negative"
+        tier = get_quality_tier(discrimination)
+        assert tier == expected_tier
 
         report = get_discrimination_report(db_session, min_responses=30)
-        assert report["summary"]["negative"] == 1
-        assert len(report["action_needed"]["immediate_review"]) == 1
+        assert report["summary"][summary_field] == 1
+        if in_immediate_review:
+            assert len(report["action_needed"]["immediate_review"]) == 1
+        else:
+            assert len(report["action_needed"]["immediate_review"]) == 0
 
-    def test_very_high_discrimination(self, db_session):
-        """Handles very high discrimination values."""
-        create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=100,
-            discrimination=0.90,  # Very high
-        )
-
-        tier = get_quality_tier(0.90)
-        assert tier == "excellent"
-
-        report = get_discrimination_report(db_session, min_responses=30)
-        assert report["summary"]["excellent"] == 1
-
-    def test_mixed_quality_flags_in_detail(self, db_session):
+    @pytest.mark.parametrize(
+        "quality_flag,discrimination,difficulty_level",
+        [
+            pytest.param("normal", 0.35, DifficultyLevel.EASY, id="flag_normal"),
+            pytest.param(
+                "under_review", -0.15, DifficultyLevel.MEDIUM, id="flag_under_review"
+            ),
+            pytest.param(
+                "deactivated", -0.30, DifficultyLevel.HARD, id="flag_deactivated"
+            ),
+        ],
+    )
+    def test_quality_flag_in_detail(
+        self, db_session, quality_flag, discrimination, difficulty_level
+    ):
         """Detail correctly shows different quality flags."""
-        q_normal = create_test_question(
+        question = create_test_question(
             db_session,
-            difficulty_level=DifficultyLevel.EASY,
+            difficulty_level=difficulty_level,
             response_count=50,
-            discrimination=0.35,
-            quality_flag="normal",
-        )
-        q_review = create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.MEDIUM,
-            response_count=50,
-            discrimination=-0.15,
-            quality_flag="under_review",
-        )
-        q_deactivated = create_test_question(
-            db_session,
-            difficulty_level=DifficultyLevel.HARD,
-            response_count=50,
-            discrimination=-0.30,
-            quality_flag="deactivated",
+            discrimination=discrimination,
+            quality_flag=quality_flag,
         )
 
-        detail_normal = get_question_discrimination_detail(db_session, q_normal.id)
-        detail_review = get_question_discrimination_detail(db_session, q_review.id)
-        detail_deactivated = get_question_discrimination_detail(
-            db_session, q_deactivated.id
-        )
-
-        assert detail_normal["quality_flag"] == "normal"
-        assert detail_review["quality_flag"] == "under_review"
-        assert detail_deactivated["quality_flag"] == "deactivated"
+        detail = get_question_discrimination_detail(db_session, question.id)
+        assert detail["quality_flag"] == quality_flag
 
     def test_all_difficulty_levels_in_report(self, db_session):
         """Report includes all difficulty levels even with sparse data."""
