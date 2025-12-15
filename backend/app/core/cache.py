@@ -83,6 +83,24 @@ class SimpleCache:
             del self._cache[key]
         return len(expired_keys)
 
+    def delete_by_prefix(self, prefix: str) -> int:
+        """
+        Delete all keys matching the given prefix.
+
+        This provides a safe way to invalidate related cache entries without
+        exposing internal implementation details.
+
+        Args:
+            prefix: Key prefix to match
+
+        Returns:
+            Number of entries deleted
+        """
+        keys_to_delete = [k for k in list(self._cache.keys()) if k.startswith(prefix)]
+        for key in keys_to_delete:
+            del self._cache[key]
+        return len(keys_to_delete)
+
 
 # Global cache instance
 _cache = SimpleCache()

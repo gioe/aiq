@@ -52,22 +52,15 @@ def invalidate_discrimination_report_cache() -> None:
 
     The cache uses a prefix-based approach, so this clears all discrimination
     report entries regardless of the min_responses parameter used.
+
+    Note: In multi-worker deployments, cache invalidation only affects the current
+    worker. Other workers may serve stale data until TTL expires. For production,
+    consider using Redis with pub/sub for cross-worker invalidation.
     """
     cache = get_cache()
-    # Clear all keys matching the discrimination report prefix
-    # Note: In the current SimpleCache implementation, we need to iterate
-    # and find matching keys since it doesn't support pattern-based deletion.
-    keys_to_delete = [
-        key
-        for key in list(cache._cache.keys())
-        if key.startswith(DISCRIMINATION_REPORT_CACHE_PREFIX)
-    ]
-    for key in keys_to_delete:
-        cache.delete(key)
-    if keys_to_delete:
-        logger.info(
-            f"Invalidated {len(keys_to_delete)} discrimination report cache entries"
-        )
+    deleted_count = cache.delete_by_prefix(DISCRIMINATION_REPORT_CACHE_PREFIX)
+    if deleted_count > 0:
+        logger.info(f"Invalidated {deleted_count} discrimination report cache entries")
 
 
 # =============================================================================
