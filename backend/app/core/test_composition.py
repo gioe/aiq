@@ -29,6 +29,10 @@ def select_stratified_questions(
     - IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
     - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
 
+    Question Filtering (IDA-005):
+    - Excludes questions with is_active = False
+    - Excludes questions with quality_flag != "normal" (under_review, deactivated)
+
     Args:
         db: Database session
         user_id: User ID to filter out seen questions
@@ -96,8 +100,10 @@ def select_stratified_questions(
                 continue
 
             # Query for unseen questions of this difficulty and type
+            # Excludes flagged questions (IDA-005)
             query = db.query(Question).filter(
                 Question.is_active == True,  # noqa: E712
+                Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
                 Question.question_type == question_type,
             )
@@ -117,6 +123,7 @@ def select_stratified_questions(
 
             additional_query = db.query(Question).filter(
                 Question.is_active == True,  # noqa: E712
+                Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
             )
 
@@ -146,6 +153,7 @@ def select_stratified_questions(
 
         fallback_query = db.query(Question).filter(
             Question.is_active == True,  # noqa: E712
+            Question.quality_flag == "normal",  # IDA-005: Exclude flagged
         )
 
         if seen_question_ids:
