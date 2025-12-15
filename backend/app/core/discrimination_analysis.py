@@ -41,6 +41,13 @@ DISCRIMINATION_REPORT_CACHE_PREFIX = "discrimination_report"
 # so a longer TTL is acceptable. 5 minutes balances freshness with performance.
 DISCRIMINATION_REPORT_CACHE_TTL = 300  # seconds
 
+# Default limit for action_needed lists (IDA-F012)
+# Prevents excessive memory usage if many questions have poor discrimination.
+# In practice, these lists are typically small (< 20 items), but this limit
+# provides a safety net for edge cases. Admins can use the full report query
+# with pagination if they need to see all items.
+DEFAULT_ACTION_LIST_LIMIT = 100
+
 
 def invalidate_discrimination_report_cache() -> None:
     """
@@ -193,6 +200,7 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
 def get_discrimination_report(
     db: Session,
     min_responses: int = 30,
+    action_list_limit: int = DEFAULT_ACTION_LIST_LIMIT,
 ) -> Dict:
     """
     Generate comprehensive discrimination report for admin dashboard.
@@ -213,10 +221,14 @@ def get_discrimination_report(
         - IDA-F004: Results are cached for 5 minutes to reduce database load.
           Cache is invalidated when question statistics are updated or when
           admin quality flag changes occur.
+        - IDA-F012: The action_needed lists (immediate_review, monitor) have a
+          configurable LIMIT clause to prevent excessive memory usage. In practice
+          these lists are typically small, but the limit provides a safety net.
 
     Args:
         db: Database session
         min_responses: Minimum responses required to include in report (default: 30)
+        action_list_limit: Maximum items per action_needed list (default: 100)
 
     Returns:
         Dictionary matching DiscriminationReportResponse schema:
@@ -229,11 +241,17 @@ def get_discrimination_report(
             "trends": {...}
         }
     """
-    logger.info(f"Generating discrimination report (min_responses={min_responses})")
+    logger.info(
+        f"Generating discrimination report (min_responses={min_responses}, "
+        f"action_list_limit={action_list_limit})"
+    )
 
     # Check cache first (IDA-F004)
     cache = get_cache()
-    cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:min_responses={min_responses}"
+    cache_key = (
+        f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:"
+        f"min_responses={min_responses}:action_list_limit={action_list_limit}"
+    )
     cached_result = cache.get(cache_key)
     if cached_result is not None:
         logger.debug(f"Returning cached discrimination report (key={cache_key})")
@@ -408,13 +426,16 @@ def get_discrimination_report(
             }
 
     # -------------------------------------------------------------------------
-    # ACTION NEEDED: Query for questions requiring admin attention
-    # These lists are typically small, so fetching individual records is fine
+    # ACTION NEEDED: Query for questions requiring admin attention (IDA-F012)
+    # These lists are typically small, but we apply a LIMIT to prevent
+    # excessive memory usage if many questions have poor discrimination.
+    # Results are ordered by discrimination (worst first) so the most
+    # problematic questions appear at the top of the list.
     # -------------------------------------------------------------------------
     immediate_review: List[Dict] = []
     monitor: List[Dict] = []
 
-    # Query questions with negative discrimination
+    # Query questions with negative discrimination (most negative first)
     negative_questions = (
         db.query(
             Question.id,
@@ -426,6 +447,8 @@ def get_discrimination_report(
             *base_filter,
             Question.discrimination < 0.00,
         )
+        .order_by(Question.discrimination.asc())
+        .limit(action_list_limit)
         .all()
     )
 
@@ -440,7 +463,7 @@ def get_discrimination_report(
             }
         )
 
-    # Query questions with very poor discrimination (0.0 <= r < 0.10)
+    # Query questions with very poor discrimination (0.0 <= r < 0.10, lowest first)
     very_poor_questions = (
         db.query(
             Question.id,
@@ -453,6 +476,8 @@ def get_discrimination_report(
             Question.discrimination >= 0.00,
             Question.discrimination < 0.10,
         )
+        .order_by(Question.discrimination.asc())
+        .limit(action_list_limit)
         .all()
     )
 

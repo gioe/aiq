@@ -3295,6 +3295,12 @@ async def get_discrimination_report_endpoint(
         le=1000,
         description="Minimum responses required for a question to be included in the report",
     ),
+    action_list_limit: int = Query(
+        100,
+        ge=1,
+        le=1000,
+        description="Maximum items per action_needed list (immediate_review, monitor)",
+    ),
     db: Session = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
@@ -3325,6 +3331,9 @@ async def get_discrimination_report_endpoint(
 
     Args:
         min_responses: Minimum response count for question inclusion (default: 30)
+        action_list_limit: Maximum items per action_needed list (default: 100).
+            Results are ordered by discrimination (worst first) so the most
+            problematic questions appear at the top.
         db: Database session
         _: Admin token validation dependency
 
@@ -3333,12 +3342,14 @@ async def get_discrimination_report_endpoint(
 
     Example:
         ```
-        curl "https://api.example.com/v1/admin/questions/discrimination-report?min_responses=50" \
+        curl "https://api.example.com/v1/admin/questions/discrimination-report?min_responses=50&action_list_limit=25" \
           -H "X-Admin-Token: your-admin-token"
         ```
     """
     try:
-        report_data = get_discrimination_report(db, min_responses=min_responses)
+        report_data = get_discrimination_report(
+            db, min_responses=min_responses, action_list_limit=action_list_limit
+        )
 
         return DiscriminationReportResponse(
             summary=DiscriminationSummary(**report_data["summary"]),

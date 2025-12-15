@@ -856,6 +856,121 @@ class TestGetDiscriminationReport:
         # Only the recently flagged question should count
         assert report["trends"]["new_negative_this_week"] == 1
 
+    # -------------------------------------------------------------------------
+    # Action List LIMIT Tests (IDA-F012)
+    # -------------------------------------------------------------------------
+
+    def test_action_list_limit_immediate_review(self, db_session):
+        """action_list_limit parameter limits immediate_review list size."""
+        # Create 5 questions with negative discrimination
+        for i, disc in enumerate([-0.10, -0.20, -0.30, -0.40, -0.50]):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        # With limit=3, only get 3 questions
+        report = get_discrimination_report(
+            db_session, min_responses=30, action_list_limit=3
+        )
+        assert len(report["action_needed"]["immediate_review"]) == 3
+
+        # With default limit, get all 5
+        report_all = get_discrimination_report(db_session, min_responses=30)
+        assert len(report_all["action_needed"]["immediate_review"]) == 5
+
+    def test_action_list_limit_monitor(self, db_session):
+        """action_list_limit parameter limits monitor list size."""
+        # Create 5 questions with very poor discrimination (0.0 <= r < 0.10)
+        for i, disc in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        # With limit=2, only get 2 questions
+        report = get_discrimination_report(
+            db_session, min_responses=30, action_list_limit=2
+        )
+        assert len(report["action_needed"]["monitor"]) == 2
+
+        # With default limit, get all 5
+        report_all = get_discrimination_report(db_session, min_responses=30)
+        assert len(report_all["action_needed"]["monitor"]) == 5
+
+    def test_action_list_ordering_immediate_review(self, db_session):
+        """immediate_review list is ordered by discrimination (worst first)."""
+        # Create questions with varying negative discrimination (shuffled order)
+        discriminations = [-0.15, -0.35, -0.25, -0.05, -0.45]
+        for disc in discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        report = get_discrimination_report(db_session, min_responses=30)
+        immediate_review = report["action_needed"]["immediate_review"]
+
+        # Verify ordering: most negative first
+        assert len(immediate_review) == 5
+        disc_values = [item["discrimination"] for item in immediate_review]
+        assert disc_values == sorted(disc_values)  # ascending = most negative first
+        assert disc_values[0] == pytest.approx(-0.45)
+        assert disc_values[-1] == pytest.approx(-0.05)
+
+    def test_action_list_ordering_monitor(self, db_session):
+        """Monitor list is ordered by discrimination (lowest first)."""
+        # Create questions with varying very poor discrimination (shuffled order)
+        discriminations = [0.05, 0.02, 0.08, 0.01, 0.06]
+        for disc in discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        report = get_discrimination_report(db_session, min_responses=30)
+        monitor = report["action_needed"]["monitor"]
+
+        # Verify ordering: lowest discrimination first
+        assert len(monitor) == 5
+        disc_values = [item["discrimination"] for item in monitor]
+        assert disc_values == sorted(disc_values)  # ascending = lowest first
+        assert disc_values[0] == pytest.approx(0.01)
+        assert disc_values[-1] == pytest.approx(0.08)
+
+    def test_action_list_limit_with_ordering(self, db_session):
+        """With limit, gets worst items when list exceeds limit."""
+        # Create 5 questions with negative discrimination
+        discriminations = [-0.10, -0.50, -0.30, -0.20, -0.40]
+        for disc in discriminations:
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                response_count=50,
+                discrimination=disc,
+            )
+
+        # With limit=3, should get the 3 worst (most negative)
+        report = get_discrimination_report(
+            db_session, min_responses=30, action_list_limit=3
+        )
+        immediate_review = report["action_needed"]["immediate_review"]
+
+        assert len(immediate_review) == 3
+        disc_values = [item["discrimination"] for item in immediate_review]
+        # Should have -0.50, -0.40, -0.30 (the 3 most negative)
+        assert disc_values[0] == pytest.approx(-0.50)
+        assert disc_values[1] == pytest.approx(-0.40)
+        assert disc_values[2] == pytest.approx(-0.30)
+
 
 # =============================================================================
 # UNIT TESTS - GET_QUESTION_DISCRIMINATION_DETAIL
@@ -1281,8 +1396,9 @@ class TestDiscriminationReportCaching:
         get_discrimination_report(db_session, min_responses=30)
 
         # Verify cache has the expected key
+        # Cache key includes both min_responses and action_list_limit (IDA-F012)
         cache = get_cache()
-        cache_key = "discrimination_report:min_responses=30"
+        cache_key = "discrimination_report:min_responses=30:action_list_limit=100"
         cached_value = cache.get(cache_key)
 
         assert cached_value is not None
@@ -1331,10 +1447,16 @@ class TestDiscriminationReportCaching:
         # Call with min_responses=50
         get_discrimination_report(db_session, min_responses=50)
 
-        # Verify both cache keys exist
+        # Verify both cache keys exist (keys include action_list_limit, IDA-F012)
         cache = get_cache()
-        assert cache.get("discrimination_report:min_responses=30") is not None
-        assert cache.get("discrimination_report:min_responses=50") is not None
+        assert (
+            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
+            is not None
+        )
+        assert (
+            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
+            is not None
+        )
 
     def test_invalidate_clears_all_report_cache_entries(self, db_session):
         """invalidate_discrimination_report_cache() clears all cached reports."""
@@ -1350,17 +1472,29 @@ class TestDiscriminationReportCaching:
         get_discrimination_report(db_session, min_responses=30)
         get_discrimination_report(db_session, min_responses=50)
 
-        # Verify cache has entries
+        # Verify cache has entries (keys include action_list_limit, IDA-F012)
         cache = get_cache()
-        assert cache.get("discrimination_report:min_responses=30") is not None
-        assert cache.get("discrimination_report:min_responses=50") is not None
+        assert (
+            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
+            is not None
+        )
+        assert (
+            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
+            is not None
+        )
 
         # Invalidate cache
         invalidate_discrimination_report_cache()
 
         # Verify cache entries are cleared
-        assert cache.get("discrimination_report:min_responses=30") is None
-        assert cache.get("discrimination_report:min_responses=50") is None
+        assert (
+            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
+            is None
+        )
+        assert (
+            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
+            is None
+        )
 
     def test_invalidate_only_clears_discrimination_report_entries(self, db_session):
         """Invalidation only clears discrimination report cache, not other entries."""
@@ -1378,9 +1512,12 @@ class TestDiscriminationReportCaching:
         )
         get_discrimination_report(db_session, min_responses=30)
 
-        # Verify both entries exist
+        # Verify both entries exist (keys include action_list_limit, IDA-F012)
         assert cache.get("unrelated:key") is not None
-        assert cache.get("discrimination_report:min_responses=30") is not None
+        assert (
+            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
+            is not None
+        )
 
         # Invalidate discrimination cache
         invalidate_discrimination_report_cache()
@@ -1388,7 +1525,10 @@ class TestDiscriminationReportCaching:
         # Unrelated entry should still exist
         assert cache.get("unrelated:key") is not None
         # Discrimination report should be cleared
-        assert cache.get("discrimination_report:min_responses=30") is None
+        assert (
+            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
+            is None
+        )
 
     def test_fresh_report_after_invalidation(self, db_session):
         """After invalidation, fresh data is returned on next call."""

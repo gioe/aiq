@@ -734,11 +734,23 @@ These items were identified during code review and can be addressed in future it
 - All 85 tests continue to pass with cleaner, more maintainable parametrized structure
 
 ### IDA-F012: Add LIMIT Clause for Action Lists
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #232 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/app/api/v1/admin.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** The `immediate_review` and `monitor` lists query individual question records without a LIMIT clause. Consider adding a limit to prevent excessive memory usage if these lists grow large, and implement pagination for the admin UI if needed.
 **Original Comment:** "Lines 349-399: The `immediate_review` and `monitor` lists query individual question records. While the comment acknowledges 'these lists are typically small,' consider monitoring this in production: What's the expected maximum size of these lists? Should there be a `LIMIT` clause to prevent excessive memory usage? Would pagination be beneficial for the admin UI consuming these lists?"
+
+**Implementation:**
+- Added `DEFAULT_ACTION_LIST_LIMIT = 100` constant for configurable limit
+- Added `action_list_limit` parameter to `get_discrimination_report()` function
+- Applied LIMIT clause to both `immediate_review` and `monitor` queries
+- Added ORDER BY clause to return worst items first (most negative discrimination)
+- Updated cache key to include `action_list_limit` parameter
+- Added `action_list_limit` query parameter to admin endpoint (default: 100, max: 1000)
+- Updated endpoint docstring and example
+- Added 5 new tests: `test_action_list_limit_immediate_review`, `test_action_list_limit_monitor`, `test_action_list_ordering_immediate_review`, `test_action_list_ordering_monitor`, `test_action_list_limit_with_ordering`
+- Updated caching tests to use new cache key format
+- All 90 discrimination analysis tests pass
 
 ### IDA-F013: Add Performance Benchmark Documentation
 **Status:** [ ] Not Started
