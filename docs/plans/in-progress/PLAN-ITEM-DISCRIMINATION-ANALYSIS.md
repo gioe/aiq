@@ -780,11 +780,20 @@ These items were identified during code review and can be addressed in future it
 - Included caveat about actual performance varying based on environment
 
 ### IDA-F014: Verify Database Indexes for Query Performance
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #232 comment
-**Files:** `backend/alembic/versions/` (new migration)
+**Files:** `backend/alembic/versions/d2ab8f4e1c93_add_performance_indexes_for_discrimination.py`
 **Description:** Ensure database indexes exist for optimal performance with large datasets. Key columns: `questions.is_active`, `questions.response_count`, `questions.discrimination`, `questions.difficulty_level`, `questions.question_type`. Consider adding a migration to verify/add these indexes.
 **Original Comment:** "For optimal performance with large datasets, ensure database indexes exist on: `questions.is_active`, `questions.response_count`, `questions.discrimination`, `questions.difficulty_level` (for GROUP BY), `questions.question_type` (for GROUP BY). Consider adding a note in the docs or a migration to verify these indexes exist."
+
+**Implementation:**
+- Audited existing indexes: `ix_questions_is_active` and `ix_questions_type` already existed
+- Created migration `d2ab8f4e1c93` adding three new indexes:
+  - `ix_questions_response_count`: For filtering by `min_responses` threshold in `get_discrimination_report()`
+  - `ix_questions_discrimination`: For `ORDER BY`, `WHERE`, and aggregate queries on discrimination values
+  - `ix_questions_difficulty_level`: For `GROUP BY` queries in by_difficulty breakdown
+- All 166 discrimination-related tests pass
+- Migration supports both upgrade and downgrade operations
 
 ### IDA-F015: Add Database Error Handling for Report Generation
 **Status:** [ ] Not Started
