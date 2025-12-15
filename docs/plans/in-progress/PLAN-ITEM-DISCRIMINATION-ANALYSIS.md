@@ -651,11 +651,16 @@ These items were identified during code review and can be addressed in future it
 - Added debug log with question detail values after successful fetch
 
 ### IDA-F006: Remove or Document Unused QUALITY_TIER_THRESHOLDS Constant
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** `QUALITY_TIER_THRESHOLDS` is defined but never referenced by code. Either use it in `get_quality_tier()` or add a comment explaining it's for documentation purposes.
 **Original Comment:** "QUALITY_TIER_THRESHOLDS is defined but never used. The get_quality_tier() function hardcodes the thresholds instead of referencing this constant."
+
+**Implementation:**
+- Refactored `get_quality_tier()` to use `QUALITY_TIER_THRESHOLDS` constant instead of hardcoded values
+- Updated docstring to reference the constant
+- All 58 discrimination analysis tests continue to pass, confirming behavioral equivalence
 
 ### IDA-F007: Add Error Handling for Quality Tier Enum Conversion
 **Status:** [ ] Not Started
