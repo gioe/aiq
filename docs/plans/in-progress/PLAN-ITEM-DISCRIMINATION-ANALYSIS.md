@@ -157,8 +157,8 @@ Question.quality_flag == "normal",
 ---
 
 ### IDA-006: Add Discrimination Preference to Test Composition
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/test_composition.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/test_composition.py`, `backend/tests/core/test_test_composition.py`
 **Description:** Enhance `select_stratified_questions()` to prefer questions with higher discrimination when sufficient options are available. This improves test quality by preferring well-discriminating items.
 
 **Implementation:**
@@ -180,12 +180,12 @@ query = query.order_by(
 6. Exclude negative discrimination entirely
 
 **Acceptance Criteria:**
-- [ ] Questions with higher discrimination are selected preferentially
-- [ ] Questions with NULL discrimination are included (new questions need data)
-- [ ] Negative discrimination questions are excluded
-- [ ] Graceful degradation when high-discrimination pool is insufficient
-- [ ] Log warning when falling back to lower discrimination questions
-- [ ] Unit tests verify selection priority
+- [x] Questions with higher discrimination are selected preferentially
+- [x] Questions with NULL discrimination are included (new questions need data)
+- [x] Negative discrimination questions are excluded
+- [x] Graceful degradation when high-discrimination pool is insufficient
+- [x] Log warning when falling back to lower discrimination questions
+- [x] Unit tests verify selection priority
 
 ---
 

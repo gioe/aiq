@@ -8,12 +8,15 @@ Based on:
 - IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
 - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
 """
+import logging
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.models import Question, UserQuestion
 from app.models.models import QuestionType, DifficultyLevel
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def select_stratified_questions(
@@ -32,6 +35,18 @@ def select_stratified_questions(
     Question Filtering (IDA-005):
     - Excludes questions with is_active = False
     - Excludes questions with quality_flag != "normal" (under_review, deactivated)
+
+    Discrimination Preference (IDA-006):
+    Selection priority for questions within each stratum:
+    1. Exclude is_active = False
+    2. Exclude quality_flag != "normal"
+    3. Exclude negative discrimination (discrimination < 0)
+    4. Prefer discrimination >= 0.30 (good+)
+    5. Fall back to discrimination >= 0.20 (acceptable)
+    6. Fall back to any positive discrimination or NULL (new questions)
+
+    Questions are ordered by discrimination descending with NULLs last,
+    preferring high-discrimination items when available.
 
     Args:
         db: Database session
@@ -101,15 +116,22 @@ def select_stratified_questions(
 
             # Query for unseen questions of this difficulty and type
             # Excludes flagged questions (IDA-005)
+            # Excludes negative discrimination and prefers high discrimination (IDA-006)
             query = db.query(Question).filter(
                 Question.is_active == True,  # noqa: E712
                 Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
                 Question.question_type == question_type,
+                # IDA-006: Exclude negative discrimination, allow NULL (new questions)
+                or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
             )
 
             if seen_question_ids:
                 query = query.filter(~Question.id.in_(seen_question_ids))
+
+            # IDA-006: Order by discrimination descending (NULLs last)
+            # This prefers high-discrimination questions when available
+            query = query.order_by(Question.discrimination.desc().nullslast())
 
             questions = query.limit(domain_count).all()
 
@@ -125,6 +147,8 @@ def select_stratified_questions(
                 Question.is_active == True,  # noqa: E712
                 Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
+                # IDA-006: Exclude negative discrimination, allow NULL
+                or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
             )
 
             if seen_question_ids:
@@ -137,7 +161,34 @@ def select_stratified_questions(
                     ~Question.id.in_(already_selected_ids)
                 )
 
+            # IDA-006: Order by discrimination descending (NULLs last)
+            additional_query = additional_query.order_by(
+                Question.discrimination.desc().nullslast()
+            )
+
             additional_questions = additional_query.limit(additional_needed).all()
+
+            # IDA-006: Log warning when falling back to difficulty-level selection
+            if additional_questions:
+                avg_disc = sum(
+                    q.discrimination
+                    for q in additional_questions
+                    if q.discrimination is not None
+                ) / max(
+                    1,
+                    len(
+                        [
+                            q
+                            for q in additional_questions
+                            if q.discrimination is not None
+                        ]
+                    ),
+                )
+                logger.warning(
+                    f"Difficulty fallback: selected {len(additional_questions)} "
+                    f"additional questions for {difficulty.value} difficulty "
+                    f"(avg discrimination: {avg_disc:.3f})"
+                )
 
             difficulty_questions.extend(additional_questions)
 
@@ -154,6 +205,8 @@ def select_stratified_questions(
         fallback_query = db.query(Question).filter(
             Question.is_active == True,  # noqa: E712
             Question.quality_flag == "normal",  # IDA-005: Exclude flagged
+            # IDA-006: Exclude negative discrimination, allow NULL
+            or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
         )
 
         if seen_question_ids:
@@ -164,15 +217,35 @@ def select_stratified_questions(
                 ~Question.id.in_(already_selected_ids)
             )
 
+        # IDA-006: Order by discrimination descending (NULLs last)
+        fallback_query = fallback_query.order_by(
+            Question.discrimination.desc().nullslast()
+        )
+
         fallback_questions = fallback_query.limit(still_needed).all()
+
+        # IDA-006: Log warning when using final fallback
+        if fallback_questions:
+            avg_disc = sum(
+                q.discrimination
+                for q in fallback_questions
+                if q.discrimination is not None
+            ) / max(
+                1, len([q for q in fallback_questions if q.discrimination is not None])
+            )
+            logger.warning(
+                f"Final fallback: selected {len(fallback_questions)} additional "
+                f"questions (avg discrimination: {avg_disc:.3f})"
+            )
+
         selected_questions.extend(fallback_questions)
 
         # Track fallback questions in actual composition
         for q in fallback_questions:
-            difficulty = q.difficulty_level.value
+            diff_level = q.difficulty_level.value
             domain = q.question_type.value
-            actual_composition["difficulty"][difficulty] = (
-                actual_composition["difficulty"].get(difficulty, 0) + 1
+            actual_composition["difficulty"][diff_level] = (
+                actual_composition["difficulty"].get(diff_level, 0) + 1
             )
             actual_composition["domain"][domain] = (
                 actual_composition["domain"].get(domain, 0) + 1
