@@ -4582,6 +4582,8 @@ class TestDiscriminationDetailEndpoint:
             (-0.10, "negative"),
         ]
 
+        # Create all questions in a batch, then commit once (IDA-F008)
+        questions = []
         for disc, expected_tier in test_cases:
             q = Question(
                 question_text=f"Question with {expected_tier} discrimination",
@@ -4595,8 +4597,11 @@ class TestDiscriminationDetailEndpoint:
                 quality_flag="normal",
             )
             db_session.add(q)
-            db_session.commit()
+            questions.append((q, expected_tier))
+        db_session.commit()
 
+        # Verify each question's quality tier classification
+        for q, expected_tier in questions:
             response = client.get(
                 f"/v1/admin/questions/{q.id}/discrimination-detail",
                 headers=admin_token_headers,
