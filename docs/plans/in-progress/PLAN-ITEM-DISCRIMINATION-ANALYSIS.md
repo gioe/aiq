@@ -619,11 +619,20 @@ These items were identified during code review and can be addressed in future it
 - All 64 existing tests continue to pass, confirming behavioral equivalence
 
 ### IDA-F004: Add Caching for Discrimination Report
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/app/core/question_analytics.py`, `backend/app/api/v1/admin.py`
 **Description:** Add caching for `get_discrimination_report()` since this is expensive and discrimination data changes infrequently.
 **Original Comment:** "Consider adding caching for get_discrimination_report() since this is expensive and data changes infrequently"
+
+**Implementation:**
+- Added cache configuration constants (`DISCRIMINATION_REPORT_CACHE_PREFIX`, `DISCRIMINATION_REPORT_CACHE_TTL=300s`)
+- Added `invalidate_discrimination_report_cache()` function for cache invalidation
+- Modified `get_discrimination_report()` to check cache first and store results
+- Added cache invalidation call in `update_question_statistics()` after test submission
+- Added cache invalidation call in `update_quality_flag()` admin endpoint
+- Added 6 unit tests for caching functionality in `test_discrimination_analysis.py`
+- Added cache clearing fixtures to `test_discrimination_analysis.py` and `test_admin.py` for test isolation
 
 ### IDA-F005: Add Logging Statements for Debugging
 **Status:** [ ] Not Started
