@@ -591,7 +591,7 @@ Most tasks are small, with the medium tasks being the business logic functions t
 These items were identified during code review and can be addressed in future iterations.
 
 ### IDA-F001: Extract Magic Number for Comparison Tolerance
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** The `0.05` threshold used for determining "at average" comparisons is hardcoded in multiple places. Extract to a named constant for clarity.
