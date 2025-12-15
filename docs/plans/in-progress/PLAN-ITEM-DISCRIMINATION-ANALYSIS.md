@@ -796,11 +796,33 @@ These items were identified during code review and can be addressed in future it
 - Migration supports both upgrade and downgrade operations
 
 ### IDA-F015: Add Database Error Handling for Report Generation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #232 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** The code assumes database queries will succeed. Consider adding try-except handling for: database connection lost mid-query, query timeout with extremely large datasets, and `tier_result.first()` returning None unexpectedly. While the current `or 0` fallbacks are good, wrapping in try-except might provide better diagnostics in production.
 **Original Comment:** "The code assumes database queries will succeed. Consider what happens if: Database connection is lost mid-query, Query timeout occurs with extremely large datasets, `tier_result.first()` returns None unexpectedly. The current `or 0` fallbacks are good, but wrapping in try-except might provide better diagnostics in production."
+
+**Implementation:**
+- Created `DiscriminationAnalysisError` custom exception class for discrimination analysis errors
+  - Includes `message`, `original_error`, and `context` attributes for comprehensive debugging
+  - `_format_message()` method formats all error information into a single diagnostic string
+- Added try-except handling to `get_discrimination_report()`:
+  - Wraps all database operations in try block
+  - Catches `SQLAlchemyError` and wraps in `DiscriminationAnalysisError` with context
+  - Added `_get_empty_report()` helper function to handle unexpected None from `tier_result.first()`
+- Added try-except handling to `get_question_discrimination_detail()`:
+  - Wraps database operations in try block
+  - Re-raises `DiscriminationAnalysisError` from `calculate_percentile_rank()` without double-wrapping
+  - Catches other `SQLAlchemyError` and wraps with question_id context
+- Added try-except handling to `calculate_percentile_rank()`:
+  - Handles None from `total_count` and `lower_count` queries with warning logs
+  - Catches `SQLAlchemyError` and wraps with discrimination value context
+- Added 19 new tests for database error handling in `test_discrimination_analysis.py`:
+  - `TestDiscriminationAnalysisError` (4 tests): Error creation with various combinations of fields
+  - `TestGetEmptyReport` (7 tests): Validates empty report structure matches schema
+  - `TestDatabaseErrorHandling` (8 tests): Integration tests for error wrapping and propagation
+- Updated import in `admin.py` to include `DiscriminationAnalysisError` for explicit handling if needed
+- All 108 discrimination analysis tests pass
 
 ### IDA-F016: Add Integration Test for Cache Invalidation via API
 **Status:** [ ] Not Started
