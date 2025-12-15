@@ -705,11 +705,19 @@ These items were identified during code review and can be addressed in future it
 - All 58 tests continue to pass
 
 ### IDA-F010: Extract Magic Numbers in Test Assertions
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #229 comment
 **Files:** `backend/tests/test_discrimination_analysis.py`
 **Description:** Some percentage calculations use hardcoded values that require mental math to verify. Consider using helper variables for complex calculations.
 **Original Comment:** "Some percentage calculations use hardcoded values that require mental math to verify. Recommendation: For complex calculations, consider using helper variables."
+
+**Implementation:**
+- Refactored `test_quality_distribution_percentages` to define count variables (excellent_count, good_count, etc.) and compute percentages from them
+- Refactored `test_percentile_calculation_with_multiple_questions` to use total_questions and values_below_* variables for explicit percentile calculation
+- Refactored `test_ignores_null_discrimination` to use questions_with_data and values_below variables
+- Refactored `test_by_difficulty_breakdown` to define discrimination values as lists and compute means using sum()/len()
+- Refactored `test_by_type_breakdown` with the same pattern as by_difficulty
+- All 58 tests continue to pass
 
 ### IDA-F011: Consider Parametrized Tests for Boundary Testing
 **Status:** [ ] Not Started
