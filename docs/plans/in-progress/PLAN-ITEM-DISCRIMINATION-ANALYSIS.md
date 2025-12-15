@@ -276,7 +276,7 @@ class DiscriminationDetailResponse(BaseModel):
 ---
 
 ### IDA-008: Implement Discrimination Report Business Logic
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/discrimination_analysis.py` (new file)
 **Description:** Create business logic functions for generating discrimination reports. These functions will query the database and compute the statistics returned by the admin endpoints.
 
@@ -319,16 +319,16 @@ def calculate_percentile_rank(
 ```
 
 **Acceptance Criteria:**
-- [ ] `get_discrimination_report()` returns complete report matching schema
-- [ ] Report includes summary counts by quality tier
-- [ ] Report includes breakdown by difficulty level
-- [ ] Report includes breakdown by question type
-- [ ] Report includes action_needed lists (immediate_review, monitor)
-- [ ] Report includes 30-day trends
-- [ ] `get_question_discrimination_detail()` returns complete detail
-- [ ] Percentile rank calculated correctly
-- [ ] Comparison to type/difficulty averages calculated
-- [ ] Unit tests cover all functions
+- [x] `get_discrimination_report()` returns complete report matching schema
+- [x] Report includes summary counts by quality tier
+- [x] Report includes breakdown by difficulty level
+- [x] Report includes breakdown by question type
+- [x] Report includes action_needed lists (immediate_review, monitor)
+- [x] Report includes 30-day trends
+- [x] `get_question_discrimination_detail()` returns complete detail
+- [x] Percentile rank calculated correctly
+- [x] Comparison to type/difficulty averages calculated
+- [ ] Unit tests cover all functions (to be done in IDA-011)
 
 ---
 
