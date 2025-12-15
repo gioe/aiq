@@ -186,11 +186,11 @@ class TestQualityTierThresholdsConstant:
 
     def test_thresholds_values(self):
         """Verify QUALITY_TIER_THRESHOLDS match documentation."""
-        assert QUALITY_TIER_THRESHOLDS["excellent"] == 0.40
-        assert QUALITY_TIER_THRESHOLDS["good"] == 0.30
-        assert QUALITY_TIER_THRESHOLDS["acceptable"] == 0.20
-        assert QUALITY_TIER_THRESHOLDS["poor"] == 0.10
-        assert QUALITY_TIER_THRESHOLDS["very_poor"] == 0.00
+        assert QUALITY_TIER_THRESHOLDS["excellent"] == pytest.approx(0.40)
+        assert QUALITY_TIER_THRESHOLDS["good"] == pytest.approx(0.30)
+        assert QUALITY_TIER_THRESHOLDS["acceptable"] == pytest.approx(0.20)
+        assert QUALITY_TIER_THRESHOLDS["poor"] == pytest.approx(0.10)
+        assert QUALITY_TIER_THRESHOLDS["very_poor"] == pytest.approx(0.00)
 
     def test_thresholds_ordering(self):
         """Verify thresholds are correctly ordered."""
@@ -348,10 +348,10 @@ class TestGetDiscriminationReport:
         assert report["summary"]["negative"] == 0
 
         # Quality distribution should be all zeros
-        assert report["quality_distribution"]["excellent_pct"] == 0.0
-        assert report["quality_distribution"]["good_pct"] == 0.0
-        assert report["quality_distribution"]["acceptable_pct"] == 0.0
-        assert report["quality_distribution"]["problematic_pct"] == 0.0
+        assert report["quality_distribution"]["excellent_pct"] == pytest.approx(0.0)
+        assert report["quality_distribution"]["good_pct"] == pytest.approx(0.0)
+        assert report["quality_distribution"]["acceptable_pct"] == pytest.approx(0.0)
+        assert report["quality_distribution"]["problematic_pct"] == pytest.approx(0.0)
 
     def test_report_structure(self, db_session):
         """Verify report structure matches schema."""
@@ -498,13 +498,13 @@ class TestGetDiscriminationReport:
         report = get_discrimination_report(db_session, min_responses=30)
 
         # 2/10 = 20% excellent
-        assert report["quality_distribution"]["excellent_pct"] == 20.0
+        assert report["quality_distribution"]["excellent_pct"] == pytest.approx(20.0)
         # 3/10 = 30% good
-        assert report["quality_distribution"]["good_pct"] == 30.0
+        assert report["quality_distribution"]["good_pct"] == pytest.approx(30.0)
         # 2/10 = 20% acceptable
-        assert report["quality_distribution"]["acceptable_pct"] == 20.0
+        assert report["quality_distribution"]["acceptable_pct"] == pytest.approx(20.0)
         # 3/10 = 30% problematic (poor + very_poor + negative)
-        assert report["quality_distribution"]["problematic_pct"] == 30.0
+        assert report["quality_distribution"]["problematic_pct"] == pytest.approx(30.0)
 
     def test_by_difficulty_breakdown(self, db_session):
         """By difficulty breakdown calculated correctly."""
@@ -545,15 +545,21 @@ class TestGetDiscriminationReport:
         report = get_discrimination_report(db_session, min_responses=30)
 
         # Easy: mean = (0.40 + 0.30) / 2 = 0.35
-        assert report["by_difficulty"]["easy"]["mean_discrimination"] == 0.35
+        assert report["by_difficulty"]["easy"]["mean_discrimination"] == pytest.approx(
+            0.35
+        )
         assert report["by_difficulty"]["easy"]["negative_count"] == 0
 
         # Medium: mean = (0.25 + -0.05) / 2 = 0.10
-        assert report["by_difficulty"]["medium"]["mean_discrimination"] == 0.10
+        assert report["by_difficulty"]["medium"][
+            "mean_discrimination"
+        ] == pytest.approx(0.10)
         assert report["by_difficulty"]["medium"]["negative_count"] == 1
 
         # Hard: mean = 0.20
-        assert report["by_difficulty"]["hard"]["mean_discrimination"] == 0.20
+        assert report["by_difficulty"]["hard"]["mean_discrimination"] == pytest.approx(
+            0.20
+        )
         assert report["by_difficulty"]["hard"]["negative_count"] == 0
 
     def test_by_type_breakdown(self, db_session):
@@ -593,15 +599,17 @@ class TestGetDiscriminationReport:
         report = get_discrimination_report(db_session, min_responses=30)
 
         # Pattern: mean = (0.40 + 0.20) / 2 = 0.30 (uses enum value "pattern")
-        assert report["by_type"]["pattern"]["mean_discrimination"] == 0.30
+        assert report["by_type"]["pattern"]["mean_discrimination"] == pytest.approx(
+            0.30
+        )
         assert report["by_type"]["pattern"]["negative_count"] == 0
 
         # Logic: mean = -0.10 (uses enum value "logic")
-        assert report["by_type"]["logic"]["mean_discrimination"] == -0.10
+        assert report["by_type"]["logic"]["mean_discrimination"] == pytest.approx(-0.10)
         assert report["by_type"]["logic"]["negative_count"] == 1
 
         # Math: mean = 0.35 (uses enum value "math")
-        assert report["by_type"]["math"]["mean_discrimination"] == 0.35
+        assert report["by_type"]["math"]["mean_discrimination"] == pytest.approx(0.35)
         assert report["by_type"]["math"]["negative_count"] == 0
 
     def test_action_needed_immediate_review(self, db_session):
@@ -626,7 +634,7 @@ class TestGetDiscriminationReport:
         assert len(report["action_needed"]["immediate_review"]) == 1
         action_item = report["action_needed"]["immediate_review"][0]
         assert action_item["question_id"] == q_negative.id
-        assert action_item["discrimination"] == -0.15
+        assert action_item["discrimination"] == pytest.approx(-0.15)
         assert action_item["response_count"] == 50
         assert "Negative discrimination" in action_item["reason"]
         assert action_item["quality_flag"] == "under_review"
@@ -652,7 +660,7 @@ class TestGetDiscriminationReport:
         assert len(report["action_needed"]["monitor"]) == 1
         action_item = report["action_needed"]["monitor"][0]
         assert action_item["question_id"] == q_very_poor.id
-        assert action_item["discrimination"] == 0.05
+        assert action_item["discrimination"] == pytest.approx(0.05)
         assert "Very poor discrimination" in action_item["reason"]
 
     def test_min_responses_filter(self, db_session):
@@ -804,7 +812,7 @@ class TestGetQuestionDiscriminationDetail:
         detail = get_question_discrimination_detail(db_session, question.id)
 
         assert detail["question_id"] == question.id
-        assert detail["discrimination"] == 0.35
+        assert detail["discrimination"] == pytest.approx(0.35)
         assert detail["quality_tier"] == "good"
         assert detail["response_count"] == 75
         assert detail["quality_flag"] == "under_review"
@@ -1144,9 +1152,15 @@ class TestEdgeCases:
         assert "hard" in report["by_difficulty"]
 
         # Only easy should have data
-        assert report["by_difficulty"]["easy"]["mean_discrimination"] == 0.35
-        assert report["by_difficulty"]["medium"]["mean_discrimination"] == 0.0
-        assert report["by_difficulty"]["hard"]["mean_discrimination"] == 0.0
+        assert report["by_difficulty"]["easy"]["mean_discrimination"] == pytest.approx(
+            0.35
+        )
+        assert report["by_difficulty"]["medium"][
+            "mean_discrimination"
+        ] == pytest.approx(0.0)
+        assert report["by_difficulty"]["hard"]["mean_discrimination"] == pytest.approx(
+            0.0
+        )
 
     def test_all_question_types_in_report(self, db_session):
         """Report includes all question types even with sparse data."""

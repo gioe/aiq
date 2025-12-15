@@ -689,11 +689,20 @@ These items were identified during code review and can be addressed in future it
 - Pattern now matches the already-correct `test_discrimination_detail_comparison_to_averages` test
 
 ### IDA-F009: Use pytest.approx() for Floating-Point Comparisons
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #229 comment
 **Files:** `backend/tests/test_discrimination_analysis.py`
 **Description:** Direct equality comparisons with floats (e.g., `assert report["quality_distribution"]["excellent_pct"] == 20.0`) could become flaky. Use `pytest.approx()` for floating-point comparisons as a best practice.
 **Original Comment:** "Direct equality comparisons with floats... Recommendation: Use pytest.approx() for floating-point comparisons to avoid flakiness."
+
+**Implementation:**
+- Updated all floating-point equality comparisons in test_discrimination_analysis.py to use pytest.approx()
+- Covered quality distribution percentages (excellent_pct, good_pct, acceptable_pct, problematic_pct)
+- Covered mean discrimination values in by_difficulty and by_type breakdowns
+- Covered discrimination values in action_needed lists
+- Covered QUALITY_TIER_THRESHOLDS constant assertions
+- Covered question detail discrimination value assertions
+- All 58 tests continue to pass
 
 ### IDA-F010: Extract Magic Numbers in Test Assertions
 **Status:** [ ] Not Started
