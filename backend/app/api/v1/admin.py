@@ -121,6 +121,7 @@ from app.core.validity_analysis import (
 from app.core.discrimination_analysis import (
     get_discrimination_report,
     get_question_discrimination_detail,
+    invalidate_discrimination_report_cache,
 )
 from app.schemas.discrimination_analysis import (
     DiscriminationReportResponse,
@@ -3551,6 +3552,9 @@ async def update_quality_flag(
 
     db.commit()
     db.refresh(question)
+
+    # Invalidate discrimination report cache since quality flag changed (IDA-F004)
+    invalidate_discrimination_report_cache()
 
     logger.info(
         f"Quality flag updated for question {question_id}: "

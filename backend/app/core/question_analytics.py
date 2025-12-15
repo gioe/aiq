@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.models.models import DifficultyLevel, Question, Response, TestResult
+from app.core.discrimination_analysis import invalidate_discrimination_report_cache
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +312,9 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
     logger.info(
         f"Updated statistics for {len(results)} questions from session {session_id}"
     )
+
+    # Invalidate discrimination report cache since statistics have changed (IDA-F004)
+    invalidate_discrimination_report_cache()
 
     return results
 
