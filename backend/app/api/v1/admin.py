@@ -3451,3 +3451,120 @@ async def get_discrimination_detail_endpoint(
             status_code=500,
             detail=f"Failed to get discrimination detail: {str(e)}",
         )
+
+
+# Quality flag management schemas (IDA-010)
+class QualityFlagUpdateRequest(BaseModel):
+    """Request model for updating a question's quality flag."""
+
+    quality_flag: Literal["normal", "under_review", "deactivated"]
+    reason: Optional[str] = None
+
+
+class QualityFlagUpdateResponse(BaseModel):
+    """Response model for quality flag update."""
+
+    question_id: int
+    previous_flag: str
+    new_flag: str
+    reason: Optional[str]
+    updated_at: str
+
+
+@router.patch(
+    "/questions/{question_id}/quality-flag",
+    response_model=QualityFlagUpdateResponse,
+    responses={
+        404: {"description": "Question not found"},
+        422: {"description": "Validation error - reason required for deactivation"},
+    },
+)
+async def update_quality_flag(
+    question_id: int,
+    request: QualityFlagUpdateRequest,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""
+    Update the quality flag for a question.
+
+    Allows admins to manually manage question quality status. Questions can be:
+    - Set to "under_review" for further investigation
+    - Set to "deactivated" to permanently exclude from tests (requires reason)
+    - Set back to "normal" to return to active use
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **Flag Values:**
+    - `normal`: Question is active and eligible for test selection
+    - `under_review`: Question is temporarily excluded pending review
+    - `deactivated`: Question is permanently excluded from test selection
+
+    **Validation:**
+    - A reason is **required** when setting the flag to "deactivated"
+    - A reason is optional but recommended for "under_review"
+
+    Args:
+        question_id: The unique identifier of the question to update
+        request: The quality flag update request containing new flag and optional reason
+        db: Database session
+        _: Admin token validation dependency
+
+    Returns:
+        QualityFlagUpdateResponse with previous and new flag values
+
+    Raises:
+        HTTPException 404: If the question is not found
+        HTTPException 422: If reason is missing when deactivating
+
+    Example:
+        ```
+        curl -X PATCH "https://api.example.com/v1/admin/questions/123/quality-flag" \
+          -H "X-Admin-Token: your-admin-token" \
+          -H "Content-Type: application/json" \
+          -d '{"quality_flag": "deactivated", "reason": "Ambiguous wording confirmed by review"}'
+        ```
+    """
+    # Validate: reason is required when deactivating
+    if request.quality_flag == "deactivated" and not request.reason:
+        raise HTTPException(
+            status_code=422,
+            detail="Reason is required when setting quality_flag to 'deactivated'",
+        )
+
+    # Fetch the question
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Question with ID {question_id} not found",
+        )
+
+    # Store previous value for response
+    previous_flag: str = question.quality_flag  # type: ignore
+
+    # Update the quality flag fields
+    update_time = datetime.now(timezone.utc)
+    question.quality_flag = request.quality_flag  # type: ignore
+    question.quality_flag_reason = request.reason  # type: ignore
+    question.quality_flag_updated_at = update_time  # type: ignore
+
+    db.commit()
+    db.refresh(question)
+
+    logger.info(
+        f"Quality flag updated for question {question_id}: "
+        f"{previous_flag} -> {request.quality_flag}"
+        + (f" (reason: {request.reason})" if request.reason else "")
+    )
+
+    new_flag: str = question.quality_flag  # type: ignore
+    reason: Optional[str] = question.quality_flag_reason  # type: ignore
+
+    return QualityFlagUpdateResponse(
+        question_id=question_id,
+        previous_flag=previous_flag,
+        new_flag=new_flag,
+        reason=reason,
+        updated_at=update_time.isoformat(),
+    )

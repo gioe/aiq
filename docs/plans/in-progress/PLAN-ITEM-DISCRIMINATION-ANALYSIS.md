@@ -373,8 +373,8 @@ async def get_discrimination_detail_endpoint(
 ---
 
 ### IDA-010: Add Admin Endpoint for Quality Flag Management
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_admin.py`
 **Description:** Add admin endpoint to manually update quality flags on questions. This allows admins to review flagged questions and either deactivate them or clear the flag.
 
 **Implementation:**
@@ -404,13 +404,13 @@ async def update_quality_flag(
 ```
 
 **Acceptance Criteria:**
-- [ ] PATCH endpoint allows changing quality_flag
-- [ ] Reason is required when setting flag to "deactivated"
-- [ ] Updates `quality_flag_updated_at` timestamp
-- [ ] Returns previous and new flag values
-- [ ] 404 returned for non-existent question
-- [ ] Validates flag value is one of allowed values
-- [ ] Integration test verifies flag updates
+- [x] PATCH endpoint allows changing quality_flag
+- [x] Reason is required when setting flag to "deactivated"
+- [x] Updates `quality_flag_updated_at` timestamp
+- [x] Returns previous and new flag values
+- [x] 404 returned for non-existent question
+- [x] Validates flag value is one of allowed values
+- [x] Integration test verifies flag updates
 
 ---
 
