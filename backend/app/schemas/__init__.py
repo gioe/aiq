@@ -76,6 +76,21 @@ from .validity import (
     ValidityOverrideRequest,
     ValidityOverrideResponse,
 )
+from .discrimination_analysis import (
+    QualityTier,
+    QualityFlagStatus,
+    DiscriminationSummary,
+    QualityDistribution,
+    DifficultyDiscrimination,
+    TypeDiscrimination,
+    ActionNeededQuestion,
+    DiscriminationTrends,
+    DiscriminationReportResponse,
+    DiscriminationDetailHistory,
+    DiscriminationDetailResponse,
+    QualityFlagUpdateRequest,
+    QualityFlagUpdateResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -142,4 +157,18 @@ __all__ = [
     "ValidityTrendResponse",
     "ValidityOverrideRequest",
     "ValidityOverrideResponse",
+    # Discrimination analysis schemas (IDA-007)
+    "QualityTier",
+    "QualityFlagStatus",
+    "DiscriminationSummary",
+    "QualityDistribution",
+    "DifficultyDiscrimination",
+    "TypeDiscrimination",
+    "ActionNeededQuestion",
+    "DiscriminationTrends",
+    "DiscriminationReportResponse",
+    "DiscriminationDetailHistory",
+    "DiscriminationDetailResponse",
+    "QualityFlagUpdateRequest",
+    "QualityFlagUpdateResponse",
 ]
