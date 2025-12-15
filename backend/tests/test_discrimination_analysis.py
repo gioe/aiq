@@ -18,12 +18,8 @@ Reference:
     docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md (IDA-011)
 """
 
-import pytest
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.models import Base
 from app.models.models import Question, QuestionType, DifficultyLevel
 
 from app.core.discrimination_analysis import (
@@ -35,31 +31,7 @@ from app.core.discrimination_analysis import (
 )
 
 
-# Admin headers fixture
-ADMIN_HEADERS = {"X-Admin-Token": "test-admin-token"}
-
-
-# Use SQLite in-memory database for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_discrimination_analysis.db"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-@pytest.fixture(scope="function")
-def db_session():
-    """
-    Create a fresh database session for each test.
-    """
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+# Note: db_session fixture is inherited from conftest.py
 
 
 def create_test_question(
