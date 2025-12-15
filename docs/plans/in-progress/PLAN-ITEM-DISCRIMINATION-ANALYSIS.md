@@ -673,3 +673,31 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/tests/test_discrimination_analysis.py`
 **Description:** Several test classes have repetitive test methods that could be parametrized. For example, `TestGetQualityTier` has many similar tests for different ranges. Current approach is more readable but parametrization would be more compact.
 **Original Comment:** "Several test classes have repetitive test methods that could be parametrized... Trade-off: Current approach is more readable for boundary testing; parametrization would be more compact. This is a style choice."
+
+### IDA-F012: Add LIMIT Clause for Action Lists
+**Status:** [ ] Not Started
+**Source:** PR #232 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** The `immediate_review` and `monitor` lists query individual question records without a LIMIT clause. Consider adding a limit to prevent excessive memory usage if these lists grow large, and implement pagination for the admin UI if needed.
+**Original Comment:** "Lines 349-399: The `immediate_review` and `monitor` lists query individual question records. While the comment acknowledges 'these lists are typically small,' consider monitoring this in production: What's the expected maximum size of these lists? Should there be a `LIMIT` clause to prevent excessive memory usage? Would pagination be beneficial for the admin UI consuming these lists?"
+
+### IDA-F013: Add Performance Benchmark Documentation
+**Status:** [ ] Not Started
+**Source:** PR #232 comment
+**Files:** `docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md`
+**Description:** Document the expected performance improvement from IDA-F003 SQL aggregation refactoring. Include expected speedup (5-10x for 10,000+ questions), memory usage reduction, and any benchmark results if available.
+**Original Comment:** "The plan file update in `PLAN-ITEM-DISCRIMINATION-ANALYSIS.md` marks IDA-F003 as complete, but the implementation details only mention what was changed, not the **performance impact**. Suggestion: Add a note about: Expected performance improvement (e.g., '2-5x faster for 10,000+ questions'), Memory usage reduction, Any benchmark results if available"
+
+### IDA-F014: Verify Database Indexes for Query Performance
+**Status:** [ ] Not Started
+**Source:** PR #232 comment
+**Files:** `backend/alembic/versions/` (new migration)
+**Description:** Ensure database indexes exist for optimal performance with large datasets. Key columns: `questions.is_active`, `questions.response_count`, `questions.discrimination`, `questions.difficulty_level`, `questions.question_type`. Consider adding a migration to verify/add these indexes.
+**Original Comment:** "For optimal performance with large datasets, ensure database indexes exist on: `questions.is_active`, `questions.response_count`, `questions.discrimination`, `questions.difficulty_level` (for GROUP BY), `questions.question_type` (for GROUP BY). Consider adding a note in the docs or a migration to verify these indexes exist."
+
+### IDA-F015: Add Database Error Handling for Report Generation
+**Status:** [ ] Not Started
+**Source:** PR #232 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** The code assumes database queries will succeed. Consider adding try-except handling for: database connection lost mid-query, query timeout with extremely large datasets, and `tier_result.first()` returning None unexpectedly. While the current `or 0` fallbacks are good, wrapping in try-except might provide better diagnostics in production.
+**Original Comment:** "The code assumes database queries will succeed. Consider what happens if: Database connection is lost mid-query, Query timeout occurs with extremely large datasets, `tier_result.first()` returns None unexpectedly. The current `or 0` fallbacks are good, but wrapping in try-except might provide better diagnostics in production."
