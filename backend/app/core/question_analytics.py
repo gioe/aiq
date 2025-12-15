@@ -264,6 +264,22 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
                 f"responses={response_count}"
             )
 
+            # Auto-flag check for negative discrimination (IDA-004)
+            # Flag questions with negative discrimination once they have sufficient data
+            # This ensures problematic questions are flagged in real-time as data accumulates
+            if (
+                response_count >= 50
+                and discrimination < 0
+                and question.quality_flag == "normal"
+            ):
+                question.quality_flag = "under_review"  # type: ignore
+                question.quality_flag_reason = f"Negative discrimination: {discrimination:.3f}"  # type: ignore
+                question.quality_flag_updated_at = datetime.now(timezone.utc)  # type: ignore
+                logger.warning(
+                    f"Question {question_id} flagged: negative discrimination "
+                    f"{discrimination:.3f}"
+                )
+
             # Real-time drift detection logging (EIC-007)
             # Log warning when question has sufficient data and empirical difficulty
             # falls outside expected range for assigned difficulty label
