@@ -328,7 +328,7 @@ def calculate_percentile_rank(
 - [x] `get_question_discrimination_detail()` returns complete detail
 - [x] Percentile rank calculated correctly
 - [x] Comparison to type/difficulty averages calculated
-- [ ] Unit tests cover all functions (to be done in IDA-011)
+- [x] Unit tests cover all functions (implemented in IDA-011)
 
 ---
 
@@ -415,7 +415,7 @@ async def update_quality_flag(
 ---
 
 ### IDA-011: Add Tests for Discrimination Analysis
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_discrimination_analysis.py` (new file)
 **Description:** Comprehensive test suite for discrimination analysis functionality.
 
@@ -438,14 +438,14 @@ async def update_quality_flag(
    - Discrimination exactly at threshold (0.0)
 
 **Acceptance Criteria:**
-- [ ] Unit tests for `auto_flag_problematic_questions()`
-- [ ] Unit tests for `get_quality_tier()`
-- [ ] Unit tests for `get_discrimination_report()`
-- [ ] Integration test for auto-flag during statistics update
-- [ ] Integration test for test composition exclusion
-- [ ] Integration test for admin endpoints
-- [ ] Edge case tests for boundary conditions
-- [ ] All tests pass
+- [x] Unit tests for `auto_flag_problematic_questions()` (covered in test_question_analytics.py)
+- [x] Unit tests for `get_quality_tier()` (13 tests for all boundary values)
+- [x] Unit tests for `get_discrimination_report()` (12 tests including structure, counts, distributions)
+- [x] Integration test for auto-flag during statistics update (covered in test_question_analytics.py)
+- [x] Integration test for test composition exclusion (covered via existing tests)
+- [x] Integration test for admin endpoints (admin endpoint tests in test_admin.py)
+- [x] Edge case tests for boundary conditions (10 edge case tests)
+- [x] All tests pass (52 tests total)
 
 ---
 
@@ -645,3 +645,24 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/tests/test_admin.py`
 **Description:** The `test_discrimination_detail_quality_tiers` test creates questions in a loop with individual commits. Consider batch commits or enhanced test isolation.
 **Original Comment:** "The test creates 6 questions in a loop and commits after each one. This could interact with other tests running concurrently."
+
+### IDA-F009: Use pytest.approx() for Floating-Point Comparisons
+**Status:** [ ] Not Started
+**Source:** PR #229 comment
+**Files:** `backend/tests/test_discrimination_analysis.py`
+**Description:** Direct equality comparisons with floats (e.g., `assert report["quality_distribution"]["excellent_pct"] == 20.0`) could become flaky. Use `pytest.approx()` for floating-point comparisons as a best practice.
+**Original Comment:** "Direct equality comparisons with floats... Recommendation: Use pytest.approx() for floating-point comparisons to avoid flakiness."
+
+### IDA-F010: Extract Magic Numbers in Test Assertions
+**Status:** [ ] Not Started
+**Source:** PR #229 comment
+**Files:** `backend/tests/test_discrimination_analysis.py`
+**Description:** Some percentage calculations use hardcoded values that require mental math to verify. Consider using helper variables for complex calculations.
+**Original Comment:** "Some percentage calculations use hardcoded values that require mental math to verify. Recommendation: For complex calculations, consider using helper variables."
+
+### IDA-F011: Consider Parametrized Tests for Boundary Testing
+**Status:** [ ] Not Started
+**Source:** PR #229 comment
+**Files:** `backend/tests/test_discrimination_analysis.py`
+**Description:** Several test classes have repetitive test methods that could be parametrized. For example, `TestGetQualityTier` has many similar tests for different ranges. Current approach is more readable but parametrization would be more compact.
+**Original Comment:** "Several test classes have repetitive test methods that could be parametrized... Trade-off: Current approach is more readable for boundary testing; parametrization would be more compact. This is a style choice."
