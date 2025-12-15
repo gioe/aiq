@@ -23,7 +23,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.models import Question, QuestionType
+from app.models.models import DifficultyLevel, Question, QuestionType
 
 logger = logging.getLogger(__name__)
 
@@ -208,8 +208,8 @@ def get_discrimination_report(
 
     # Initialize by_difficulty breakdown
     difficulty_stats: Dict[str, Dict] = {}
-    for level in ["easy", "medium", "hard"]:
-        difficulty_stats[level] = {
+    for level in DifficultyLevel:
+        difficulty_stats[level.value] = {
             "discriminations": [],
             "negative_count": 0,
         }
@@ -303,13 +303,13 @@ def get_discrimination_report(
 
     # Build by_difficulty response
     by_difficulty = {}
-    for level, stats in difficulty_stats.items():
+    for level_name, stats in difficulty_stats.items():
         discs = stats["discriminations"]
         if discs:
             mean_disc = sum(discs) / len(discs)
         else:
             mean_disc = 0.0
-        by_difficulty[level] = {
+        by_difficulty[level_name] = {
             "mean_discrimination": round(mean_disc, 3),
             "negative_count": stats["negative_count"],
         }
