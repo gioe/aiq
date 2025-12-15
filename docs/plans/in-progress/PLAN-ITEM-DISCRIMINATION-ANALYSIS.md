@@ -676,11 +676,17 @@ These items were identified during code review and can be addressed in future it
 - Added test case `test_discrimination_detail_invalid_tier_value_handled_gracefully` that mocks an invalid tier value and verifies graceful handling
 
 ### IDA-F008: Improve Test Isolation with Batch Commits
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #227 comment
 **Files:** `backend/tests/test_admin.py`
 **Description:** The `test_discrimination_detail_quality_tiers` test creates questions in a loop with individual commits. Consider batch commits or enhanced test isolation.
 **Original Comment:** "The test creates 6 questions in a loop and commits after each one. This could interact with other tests running concurrently."
+
+**Implementation:**
+- Refactored `test_discrimination_detail_quality_tiers` to collect all questions in a list first
+- Changed from committing after each question creation to a single batch commit
+- Assertions now loop over the pre-created questions after the batch commit
+- Pattern now matches the already-correct `test_discrimination_detail_comparison_to_averages` test
 
 ### IDA-F009: Use pytest.approx() for Floating-Point Comparisons
 **Status:** [ ] Not Started
