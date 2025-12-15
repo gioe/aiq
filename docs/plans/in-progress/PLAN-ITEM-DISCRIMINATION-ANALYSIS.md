@@ -710,3 +710,17 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** The code assumes database queries will succeed. Consider adding try-except handling for: database connection lost mid-query, query timeout with extremely large datasets, and `tier_result.first()` returning None unexpectedly. While the current `or 0` fallbacks are good, wrapping in try-except might provide better diagnostics in production.
 **Original Comment:** "The code assumes database queries will succeed. Consider what happens if: Database connection is lost mid-query, Query timeout occurs with extremely large datasets, `tier_result.first()` returns None unexpectedly. The current `or 0` fallbacks are good, but wrapping in try-except might provide better diagnostics in production."
+
+### IDA-F016: Add Integration Test for Cache Invalidation via API
+**Status:** [ ] Not Started
+**Source:** PR #233 comment
+**Files:** `backend/tests/test_admin.py`
+**Description:** Add an integration test confirming that calling the `/v1/admin/questions/{id}/quality-flag` endpoint actually invalidates the cache, and subsequent calls to `/v1/admin/discrimination-report` return fresh data.
+**Original Comment:** "While unit tests verify cache behavior in isolation, there's no integration test confirming that: 1. Calling the `/v1/admin/questions/{id}/quality-flag` endpoint actually invalidates the cache. 2. Subsequent calls to `/v1/admin/discrimination-report` return fresh data."
+
+### IDA-F017: Use cache_key() Helper for Future-Proof Cache Keys
+**Status:** [ ] Not Started
+**Source:** PR #233 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Consider using the `cache_key()` helper function from `app/core/cache.py` for automatic parameter hashing instead of manually constructing the cache key. This would automatically account for any new parameters without manual key format updates.
+**Original Comment:** "If additional parameters are added to `get_discrimination_report()` in the future (e.g., `max_responses`, `question_type_filter`), the cache key won't account for them unless explicitly updated. Consider using the `cache_key()` helper function for automatic parameter hashing."
