@@ -3425,10 +3425,17 @@ async def get_discrimination_detail_endpoint(
                 detail=f"Question with ID {question_id} not found",
             )
 
-        # Convert quality_tier string to enum if present
+        # Convert quality_tier string to enum if present (IDA-F007)
         quality_tier_enum = None
         if detail_data["quality_tier"]:
-            quality_tier_enum = QualityTier(detail_data["quality_tier"])
+            try:
+                quality_tier_enum = QualityTier(detail_data["quality_tier"])
+            except ValueError:
+                logger.warning(
+                    f"Invalid quality_tier value '{detail_data['quality_tier']}' "
+                    f"for question {question_id}, defaulting to None"
+                )
+                quality_tier_enum = None
 
         return DiscriminationDetailResponse(
             question_id=detail_data["question_id"],
