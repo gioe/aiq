@@ -136,8 +136,8 @@ if response_count >= 50 and discrimination < 0:
 ---
 
 ### IDA-005: Update Test Composition to Exclude Flagged Questions
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/test_composition.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/test_composition.py`, `backend/tests/core/test_test_composition.py`
 **Description:** Modify `select_stratified_questions()` to exclude questions with `quality_flag` of "under_review" or "deactivated". This ensures problematic questions stop appearing in new tests.
 
 **Implementation:**
@@ -148,11 +148,11 @@ Question.quality_flag == "normal",
 ```
 
 **Acceptance Criteria:**
-- [ ] Questions with `quality_flag = "under_review"` are excluded from test composition
-- [ ] Questions with `quality_flag = "deactivated"` are excluded from test composition
-- [ ] Questions with `quality_flag = "normal"` continue to be selected
-- [ ] Fallback logic still works when pool is reduced
-- [ ] Unit test verifies flagged questions are not selected
+- [x] Questions with `quality_flag = "under_review"` are excluded from test composition
+- [x] Questions with `quality_flag = "deactivated"` are excluded from test composition
+- [x] Questions with `quality_flag = "normal"` continue to be selected
+- [x] Fallback logic still works when pool is reduced
+- [x] Unit test verifies flagged questions are not selected
 
 ---
 
