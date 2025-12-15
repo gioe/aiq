@@ -190,7 +190,7 @@ query = query.order_by(
 ---
 
 ### IDA-007: Create Pydantic Schemas for Discrimination Report
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/schemas/discrimination_analysis.py` (new file)
 **Description:** Create Pydantic schemas for the discrimination report endpoints.
 
@@ -268,10 +268,10 @@ class DiscriminationDetailResponse(BaseModel):
 ```
 
 **Acceptance Criteria:**
-- [ ] All response schemas defined with proper types
-- [ ] Enums defined for quality tiers
-- [ ] Schemas match gap document response format
-- [ ] Optional fields properly marked
+- [x] All response schemas defined with proper types
+- [x] Enums defined for quality tiers
+- [x] Schemas match gap document response format
+- [x] Optional fields properly marked
 
 ---
 
