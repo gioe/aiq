@@ -586,7 +586,7 @@ Most tasks are small, with the medium tasks being the business logic functions t
 
 ---
 
-## Future Improvements (Deferred from PR #226 Review)
+## Future Improvements (Deferred from PR Reviews)
 
 These items were identified during code review and can be addressed in future iterations.
 
@@ -631,3 +631,17 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** `QUALITY_TIER_THRESHOLDS` is defined but never referenced by code. Either use it in `get_quality_tier()` or add a comment explaining it's for documentation purposes.
 **Original Comment:** "QUALITY_TIER_THRESHOLDS is defined but never used. The get_quality_tier() function hardcodes the thresholds instead of referencing this constant."
+
+### IDA-F007: Add Error Handling for Quality Tier Enum Conversion
+**Status:** [ ] Not Started
+**Source:** PR #227 comment
+**Files:** `backend/app/api/v1/admin.py`
+**Description:** Add try-except around `QualityTier(detail_data["quality_tier"])` conversion to handle potential ValueError if invalid tier value is somehow present in the data.
+**Original Comment:** "The quality tier enum conversion could fail with a ValueError if the data contains an invalid tier value"
+
+### IDA-F008: Improve Test Isolation with Batch Commits
+**Status:** [ ] Not Started
+**Source:** PR #227 comment
+**Files:** `backend/tests/test_admin.py`
+**Description:** The `test_discrimination_detail_quality_tiers` test creates questions in a loop with individual commits. Consider batch commits or enhanced test isolation.
+**Original Comment:** "The test creates 6 questions in a loop and commits after each one. This could interact with other tests running concurrently."
