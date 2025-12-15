@@ -720,11 +720,18 @@ These items were identified during code review and can be addressed in future it
 - All 58 tests continue to pass
 
 ### IDA-F011: Consider Parametrized Tests for Boundary Testing
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #229 comment
 **Files:** `backend/tests/test_discrimination_analysis.py`
 **Description:** Several test classes have repetitive test methods that could be parametrized. For example, `TestGetQualityTier` has many similar tests for different ranges. Current approach is more readable but parametrization would be more compact.
 **Original Comment:** "Several test classes have repetitive test methods that could be parametrized... Trade-off: Current approach is more readable for boundary testing; parametrization would be more compact. This is a style choice."
+
+**Implementation:**
+- Converted `TestCalculatePercentileRank` single-question tests (`test_single_question_same_value`, `test_single_question_higher_value`, `test_single_question_lower_value`) into single parametrized test `test_single_question_percentile` with 3 test cases
+- Converted `TestGetQuestionDiscriminationDetail` type average comparison tests (`test_type_average_comparison`, `test_type_average_comparison_below`, `test_type_average_comparison_at`) into single parametrized test with 3 test cases for above/below/at scenarios
+- Converted `TestEdgeCases` extreme discrimination tests (`test_very_negative_discrimination`, `test_very_high_discrimination`) into single parametrized test `test_extreme_discrimination_values` with 2 test cases
+- Converted `TestEdgeCases` mixed quality flags test into parametrized `test_quality_flag_in_detail` with 3 test cases for normal/under_review/deactivated flags
+- All 85 tests continue to pass with cleaner, more maintainable parametrized structure
 
 ### IDA-F012: Add LIMIT Clause for Action Lists
 **Status:** [ ] Not Started
