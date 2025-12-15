@@ -333,8 +333,8 @@ def calculate_percentile_rank(
 ---
 
 ### IDA-009: Add Admin Endpoints for Discrimination Report
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_admin.py`
 **Description:** Add admin API endpoints for discrimination analysis reporting.
 
 **Implementation:**
@@ -363,12 +363,12 @@ async def get_discrimination_detail_endpoint(
 ```
 
 **Acceptance Criteria:**
-- [ ] `GET /v1/admin/questions/discrimination-report` returns full report
-- [ ] `GET /v1/admin/questions/{id}/discrimination-detail` returns question detail
-- [ ] Both endpoints require admin token authentication
-- [ ] min_responses parameter works on report endpoint
-- [ ] 404 returned for non-existent question_id
-- [ ] Integration tests verify endpoint responses
+- [x] `GET /v1/admin/questions/discrimination-report` returns full report
+- [x] `GET /v1/admin/questions/{id}/discrimination-detail` returns question detail
+- [x] Both endpoints require admin token authentication
+- [x] min_responses parameter works on report endpoint
+- [x] 404 returned for non-existent question_id
+- [x] Integration tests verify endpoint responses
 
 ---
 
