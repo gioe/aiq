@@ -88,7 +88,8 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
     """
     Classify discrimination value into quality tier.
 
-    Quality tiers follow psychometric standards for item discrimination:
+    Quality tiers follow psychometric standards for item discrimination,
+    using thresholds defined in QUALITY_TIER_THRESHOLDS:
     - excellent: r >= 0.40 (very good discrimination)
     - good: 0.30 <= r < 0.40 (good discrimination)
     - acceptable: 0.20 <= r < 0.30 (adequate discrimination)
@@ -118,15 +119,15 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
     if discrimination is None:
         return None
 
-    if discrimination < 0.00:
+    if discrimination < QUALITY_TIER_THRESHOLDS["very_poor"]:
         return "negative"
-    elif discrimination < 0.10:
+    elif discrimination < QUALITY_TIER_THRESHOLDS["poor"]:
         return "very_poor"
-    elif discrimination < 0.20:
+    elif discrimination < QUALITY_TIER_THRESHOLDS["acceptable"]:
         return "poor"
-    elif discrimination < 0.30:
+    elif discrimination < QUALITY_TIER_THRESHOLDS["good"]:
         return "acceptable"
-    elif discrimination < 0.40:
+    elif discrimination < QUALITY_TIER_THRESHOLDS["excellent"]:
         return "good"
     else:
         return "excellent"
