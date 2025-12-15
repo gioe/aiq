@@ -4632,3 +4632,313 @@ class TestDiscriminationDetailEndpoint:
         # Average is 0.325, so 0.40 should be "above"
         assert data["compared_to_type_avg"] == "above"
         assert data["compared_to_difficulty_avg"] == "above"
+
+
+class TestQualityFlagManagementEndpoint:
+    """Tests for PATCH /v1/admin/questions/{question_id}/quality-flag endpoint (IDA-010)."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_to_under_review(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test successfully setting quality flag to under_review."""
+        # Create a question with normal flag
+        question = Question(
+            question_text="Test question for flag update",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "under_review",
+                "reason": "Negative discrimination detected by auto-flag",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["question_id"] == question.id
+        assert data["previous_flag"] == "normal"
+        assert data["new_flag"] == "under_review"
+        assert data["reason"] == "Negative discrimination detected by auto-flag"
+        assert "updated_at" in data
+
+        # Verify database was updated
+        db_session.refresh(question)
+        assert question.quality_flag == "under_review"
+        assert (
+            question.quality_flag_reason
+            == "Negative discrimination detected by auto-flag"
+        )
+        assert question.quality_flag_updated_at is not None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_to_deactivated_with_reason(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test successfully setting quality flag to deactivated with required reason."""
+        question = Question(
+            question_text="Question to deactivate",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.HARD,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="B",
+            is_active=True,
+            quality_flag="under_review",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "deactivated",
+                "reason": "Confirmed ambiguous wording after admin review",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["previous_flag"] == "under_review"
+        assert data["new_flag"] == "deactivated"
+        assert data["reason"] == "Confirmed ambiguous wording after admin review"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_deactivated_requires_reason(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that setting quality flag to deactivated without reason fails."""
+        question = Question(
+            question_text="Question without reason test",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="C",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "deactivated",
+                # No reason provided
+            },
+        )
+
+        assert response.status_code == 422
+        assert "Reason is required" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_back_to_normal(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test returning a flagged question back to normal status."""
+        question = Question(
+            question_text="Question to return to normal",
+            question_type=QuestionType.SPATIAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="D",
+            is_active=True,
+            quality_flag="under_review",
+            quality_flag_reason="Investigating low discrimination",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "normal",
+                "reason": "Admin review completed - discrimination improved",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["previous_flag"] == "under_review"
+        assert data["new_flag"] == "normal"
+
+        # Verify reason is updated
+        db_session.refresh(question)
+        assert question.quality_flag == "normal"
+        assert (
+            question.quality_flag_reason
+            == "Admin review completed - discrimination improved"
+        )
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_question_not_found(self, client, admin_token_headers):
+        """Test that 404 is returned for non-existent question."""
+        response = client.patch(
+            "/v1/admin/questions/999999/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "under_review",
+            },
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_requires_admin_token(self, client, db_session):
+        """Test that endpoint requires admin token authentication."""
+        question = Question(
+            question_text="Question for auth test",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        # No admin token header
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            json={"quality_flag": "under_review"},
+        )
+
+        assert response.status_code == 422  # Missing header
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_invalid_token(self, client, db_session):
+        """Test that invalid admin token is rejected."""
+        question = Question(
+            question_text="Question for invalid token test",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.EASY,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="B",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers={"X-Admin-Token": "wrong-token"},
+            json={"quality_flag": "under_review"},
+        )
+
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_invalid_flag_value(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that invalid quality flag values are rejected."""
+        question = Question(
+            question_text="Question for invalid flag test",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.HARD,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="C",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "invalid_flag",
+            },
+        )
+
+        assert response.status_code == 422  # Pydantic validation error
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_under_review_without_reason(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that under_review can be set without reason (reason is optional)."""
+        question = Question(
+            question_text="Question for optional reason test",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="A",
+            is_active=True,
+            quality_flag="normal",
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "under_review",
+                # No reason - should be allowed for under_review
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["new_flag"] == "under_review"
+        assert data["reason"] is None
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_update_quality_flag_persists_timestamp(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that quality_flag_updated_at timestamp is properly set."""
+        question = Question(
+            question_text="Question for timestamp test",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.EASY,
+            answer_options={"A": "opt1", "B": "opt2", "C": "opt3", "D": "opt4"},
+            correct_answer="D",
+            is_active=True,
+            quality_flag="normal",
+            quality_flag_updated_at=None,  # No previous timestamp
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.patch(
+            f"/v1/admin/questions/{question.id}/quality-flag",
+            headers=admin_token_headers,
+            json={
+                "quality_flag": "under_review",
+                "reason": "Testing timestamp",
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify timestamp was set
+        db_session.refresh(question)
+        assert question.quality_flag_updated_at is not None
+
+        # Verify response contains ISO formatted timestamp
+        data = response.json()
+        assert "updated_at" in data
+        assert "T" in data["updated_at"]  # ISO format includes T separator
