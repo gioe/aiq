@@ -43,6 +43,11 @@ QUALITY_TIER_THRESHOLDS = {
     # r < 0.00 is "negative"
 }
 
+# Tolerance for "at average" comparisons (IDA-F001)
+# When comparing a question's discrimination to the type or difficulty average,
+# values within this tolerance are considered "at" average rather than above/below.
+COMPARISON_TOLERANCE = 0.05
+
 
 def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
     """
@@ -438,7 +443,7 @@ def get_question_discrimination_detail(
         if type_avg_result is not None:
             type_avg = float(type_avg_result)
             diff = disc_value - type_avg
-            if abs(diff) < 0.05:
+            if abs(diff) < COMPARISON_TOLERANCE:
                 compared_to_type_avg = "at"
             elif diff > 0:
                 compared_to_type_avg = "above"
@@ -461,7 +466,7 @@ def get_question_discrimination_detail(
         if difficulty_avg_result is not None:
             difficulty_avg = float(difficulty_avg_result)
             diff = disc_value - difficulty_avg
-            if abs(diff) < 0.05:
+            if abs(diff) < COMPARISON_TOLERANCE:
                 compared_to_difficulty_avg = "at"
             elif diff > 0:
                 compared_to_difficulty_avg = "above"
