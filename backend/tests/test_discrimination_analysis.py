@@ -20,6 +20,9 @@ Reference:
 
 from datetime import datetime, timezone, timedelta
 
+import pytest
+
+from app.core.cache import get_cache
 from app.models.models import Question, QuestionType, DifficultyLevel
 
 from app.core.discrimination_analysis import (
@@ -27,11 +30,21 @@ from app.core.discrimination_analysis import (
     calculate_percentile_rank,
     get_discrimination_report,
     get_question_discrimination_detail,
+    invalidate_discrimination_report_cache,
     QUALITY_TIER_THRESHOLDS,
 )
 
 
 # Note: db_session fixture is inherited from conftest.py
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_before_test():
+    """Clear the cache before each test to ensure test isolation."""
+    get_cache().clear()
+    yield
+    # Also clear after test for good measure
+    get_cache().clear()
 
 
 def create_test_question(
@@ -1155,3 +1168,168 @@ class TestEdgeCases:
         assert "verbal" in report["by_type"]
         assert "spatial" in report["by_type"]
         assert "memory" in report["by_type"]
+
+
+# =============================================================================
+# UNIT TESTS - CACHING (IDA-F004)
+# =============================================================================
+
+
+class TestDiscriminationReportCaching:
+    """Tests for discrimination report caching functionality (IDA-F004)."""
+
+    def test_report_is_cached_on_first_call(self, db_session):
+        """Report is stored in cache after first call."""
+        # Create test data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # First call should generate and cache the report
+        get_discrimination_report(db_session, min_responses=30)
+
+        # Verify cache has the expected key
+        cache = get_cache()
+        cache_key = "discrimination_report:min_responses=30"
+        cached_value = cache.get(cache_key)
+
+        assert cached_value is not None
+        assert cached_value["summary"]["total_questions_with_data"] == 1
+
+    def test_cached_report_returned_on_subsequent_calls(self, db_session):
+        """Subsequent calls return cached report without hitting database."""
+        # Create test data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # First call
+        get_discrimination_report(db_session, min_responses=30)
+
+        # Manually add another question (simulating database change)
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            response_count=50,
+            discrimination=0.45,
+        )
+
+        # Second call should return cached value (still showing 1 question)
+        report2 = get_discrimination_report(db_session, min_responses=30)
+
+        # Should be same count because it's returning cached value
+        assert report2["summary"]["total_questions_with_data"] == 1
+
+    def test_different_min_responses_creates_different_cache_keys(self, db_session):
+        """Different min_responses parameters use different cache keys."""
+        # Create test data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # Call with min_responses=30
+        get_discrimination_report(db_session, min_responses=30)
+
+        # Call with min_responses=50
+        get_discrimination_report(db_session, min_responses=50)
+
+        # Verify both cache keys exist
+        cache = get_cache()
+        assert cache.get("discrimination_report:min_responses=30") is not None
+        assert cache.get("discrimination_report:min_responses=50") is not None
+
+    def test_invalidate_clears_all_report_cache_entries(self, db_session):
+        """invalidate_discrimination_report_cache() clears all cached reports."""
+        # Create test data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # Generate reports with different min_responses
+        get_discrimination_report(db_session, min_responses=30)
+        get_discrimination_report(db_session, min_responses=50)
+
+        # Verify cache has entries
+        cache = get_cache()
+        assert cache.get("discrimination_report:min_responses=30") is not None
+        assert cache.get("discrimination_report:min_responses=50") is not None
+
+        # Invalidate cache
+        invalidate_discrimination_report_cache()
+
+        # Verify cache entries are cleared
+        assert cache.get("discrimination_report:min_responses=30") is None
+        assert cache.get("discrimination_report:min_responses=50") is None
+
+    def test_invalidate_only_clears_discrimination_report_entries(self, db_session):
+        """Invalidation only clears discrimination report cache, not other entries."""
+        cache = get_cache()
+
+        # Add some unrelated cache entry
+        cache.set("unrelated:key", {"data": "value"}, ttl=300)
+
+        # Generate and cache a discrimination report
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+        get_discrimination_report(db_session, min_responses=30)
+
+        # Verify both entries exist
+        assert cache.get("unrelated:key") is not None
+        assert cache.get("discrimination_report:min_responses=30") is not None
+
+        # Invalidate discrimination cache
+        invalidate_discrimination_report_cache()
+
+        # Unrelated entry should still exist
+        assert cache.get("unrelated:key") is not None
+        # Discrimination report should be cleared
+        assert cache.get("discrimination_report:min_responses=30") is None
+
+    def test_fresh_report_after_invalidation(self, db_session):
+        """After invalidation, fresh data is returned on next call."""
+        # Create initial test data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # First call - should have 1 question
+        report1 = get_discrimination_report(db_session, min_responses=30)
+        assert report1["summary"]["total_questions_with_data"] == 1
+
+        # Add another question
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            response_count=50,
+            discrimination=0.45,
+        )
+
+        # Without invalidation, still returns cached (1 question)
+        report2 = get_discrimination_report(db_session, min_responses=30)
+        assert report2["summary"]["total_questions_with_data"] == 1
+
+        # Invalidate cache
+        invalidate_discrimination_report_cache()
+
+        # Now should return fresh data with 2 questions
+        report3 = get_discrimination_report(db_session, min_responses=30)
+        assert report3["summary"]["total_questions_with_data"] == 2

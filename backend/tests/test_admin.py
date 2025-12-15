@@ -4,8 +4,18 @@ Tests for admin API endpoints.
 import pytest
 from unittest.mock import patch
 
+from app.core.cache import get_cache
 from app.models import QuestionGenerationRun, GenerationRunStatus, Question
 from app.models.models import QuestionType, DifficultyLevel
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_before_test():
+    """Clear the cache before each test to ensure test isolation (IDA-F004)."""
+    get_cache().clear()
+    yield
+    # Also clear after test for good measure
+    get_cache().clear()
 
 
 @pytest.fixture

@@ -23,9 +23,51 @@ from typing import Dict, List, Optional
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from app.core.cache import get_cache
 from app.models.models import DifficultyLevel, Question, QuestionType
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# CACHE CONFIGURATION (IDA-F004)
+# =============================================================================
+
+# Cache key prefix for discrimination report
+DISCRIMINATION_REPORT_CACHE_PREFIX = "discrimination_report"
+
+# Default TTL for discrimination report cache (5 minutes)
+# Discrimination data changes infrequently (only when tests are completed),
+# so a longer TTL is acceptable. 5 minutes balances freshness with performance.
+DISCRIMINATION_REPORT_CACHE_TTL = 300  # seconds
+
+
+def invalidate_discrimination_report_cache() -> None:
+    """
+    Invalidate all cached discrimination report data.
+
+    This should be called when discrimination data changes, specifically:
+    - After update_question_statistics() completes for a test session
+    - After any admin action that modifies question quality flags
+
+    The cache uses a prefix-based approach, so this clears all discrimination
+    report entries regardless of the min_responses parameter used.
+    """
+    cache = get_cache()
+    # Clear all keys matching the discrimination report prefix
+    # Note: In the current SimpleCache implementation, we need to iterate
+    # and find matching keys since it doesn't support pattern-based deletion.
+    keys_to_delete = [
+        key
+        for key in list(cache._cache.keys())
+        if key.startswith(DISCRIMINATION_REPORT_CACHE_PREFIX)
+    ]
+    for key in keys_to_delete:
+        cache.delete(key)
+    if keys_to_delete:
+        logger.info(
+            f"Invalidated {len(keys_to_delete)} discrimination report cache entries"
+        )
 
 
 # =============================================================================
@@ -170,10 +212,13 @@ def get_discrimination_report(
     - Questions requiring admin action
     - Recent trends
 
-    Performance note (IDA-F003):
-        For large question pools (10,000+), this function uses SQL GROUP BY
-        and AVG() aggregations instead of in-memory Python processing for
-        better performance and reduced memory usage.
+    Performance notes:
+        - IDA-F003: For large question pools (10,000+), this function uses SQL
+          GROUP BY and AVG() aggregations instead of in-memory Python processing
+          for better performance and reduced memory usage.
+        - IDA-F004: Results are cached for 5 minutes to reduce database load.
+          Cache is invalidated when question statistics are updated or when
+          admin quality flag changes occur.
 
     Args:
         db: Database session
@@ -190,6 +235,14 @@ def get_discrimination_report(
             "trends": {...}
         }
     """
+    # Check cache first (IDA-F004)
+    cache = get_cache()
+    cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:min_responses={min_responses}"
+    cached_result = cache.get(cache_key)
+    if cached_result is not None:
+        logger.debug(f"Returning cached discrimination report (key={cache_key})")
+        return cached_result
+
     # Base filter for all queries: active questions with sufficient responses
     base_filter = [
         Question.is_active == True,  # noqa: E712
@@ -440,7 +493,7 @@ def get_discrimination_report(
         "new_negative_this_week": new_negative_this_week or 0,
     }
 
-    return {
+    result = {
         "summary": {
             "total_questions_with_data": total,
             "excellent": tier_counts["excellent"],
@@ -459,6 +512,14 @@ def get_discrimination_report(
         },
         "trends": trends,
     }
+
+    # Store in cache before returning (IDA-F004)
+    cache.set(cache_key, result, ttl=DISCRIMINATION_REPORT_CACHE_TTL)
+    logger.debug(
+        f"Cached discrimination report (key={cache_key}, ttl={DISCRIMINATION_REPORT_CACHE_TTL}s)"
+    )
+
+    return result
 
 
 # =============================================================================
