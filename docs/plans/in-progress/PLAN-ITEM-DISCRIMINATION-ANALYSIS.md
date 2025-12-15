@@ -605,11 +605,18 @@ These items were identified during code review and can be addressed in future it
 **Original Comment:** "Difficulty levels are hardcoded as strings when DifficultyLevel enum exists"
 
 ### IDA-F003: Consider Database Aggregations for Large Datasets
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #226 comment
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** For large question pools (10,000+), consider using SQL GROUP BY and AVG() instead of in-memory Python processing for better performance.
 **Original Comment:** "For large datasets, consider if database aggregations would be more efficient"
+
+**Implementation:**
+- Replaced in-memory tier counting with SQL CASE/WHEN aggregation
+- Replaced in-memory by_difficulty breakdown with SQL GROUP BY and AVG()
+- Replaced in-memory by_type breakdown with SQL GROUP BY and AVG()
+- Reused mean_discrimination calculation from tier_count_query instead of iterating lists
+- All 64 existing tests continue to pass, confirming behavioral equivalence
 
 ### IDA-F004: Add Caching for Discrimination Report
 **Status:** [ ] Not Started
