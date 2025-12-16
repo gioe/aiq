@@ -2360,14 +2360,21 @@ class TestGenerateReliabilityRecommendations:
             "cronbachs_alpha": None,
             "num_sessions": 50,
             "error": "Insufficient data: 50 sessions (minimum required: 100)",
+            "insufficient_data": True,
             "item_total_correlations": {},
         }
         test_retest_result = {
             "test_retest_r": None,
             "error": None,
+            "insufficient_data": False,
             "num_retest_pairs": 0,
         }
-        split_half_result = {"spearman_brown_r": None, "error": None, "num_sessions": 0}
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+            "num_sessions": 0,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2386,15 +2393,21 @@ class TestGenerateReliabilityRecommendations:
         alpha_result = {
             "cronbachs_alpha": 0.78,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
         test_retest_result = {
             "test_retest_r": None,
             "num_retest_pairs": 15,
             "error": "Insufficient data: 15 retest pairs (minimum required: 30)",
+            "insufficient_data": True,
             "score_change_stats": {},
         }
-        split_half_result = {"spearman_brown_r": 0.80, "error": None}
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2411,16 +2424,22 @@ class TestGenerateReliabilityRecommendations:
         alpha_result = {
             "cronbachs_alpha": 0.78,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
         test_retest_result = {
             "test_retest_r": 0.65,
             "num_retest_pairs": 45,
             "error": None,
+            "insufficient_data": False,
             "meets_threshold": True,
             "score_change_stats": {"practice_effect": 2.0},
         }
-        split_half_result = {"spearman_brown_r": 0.80, "error": None}
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2438,6 +2457,7 @@ class TestGenerateReliabilityRecommendations:
         alpha_result = {
             "cronbachs_alpha": 0.65,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {
                 1: 0.45,
                 2: -0.15,  # Negative
@@ -2445,8 +2465,16 @@ class TestGenerateReliabilityRecommendations:
                 4: -0.05,  # Negative
             },
         }
-        test_retest_result = {"test_retest_r": None, "error": None}
-        split_half_result = {"spearman_brown_r": None, "error": None}
+        test_retest_result = {
+            "test_retest_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2464,10 +2492,19 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "poor",
             "meets_threshold": False,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
-        test_retest_result = {"test_retest_r": None, "error": None}
-        split_half_result = {"spearman_brown_r": None, "error": None}
+        test_retest_result = {
+            "test_retest_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2485,6 +2522,7 @@ class TestGenerateReliabilityRecommendations:
         alpha_result = {
             "cronbachs_alpha": None,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
         test_retest_result = {
@@ -2492,9 +2530,14 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "poor",
             "meets_threshold": False,
             "error": None,
+            "insufficient_data": False,
             "score_change_stats": {},
         }
-        split_half_result = {"spearman_brown_r": None, "error": None}
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2511,15 +2554,21 @@ class TestGenerateReliabilityRecommendations:
         alpha_result = {
             "cronbachs_alpha": None,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
         test_retest_result = {
             "test_retest_r": 0.75,
             "meets_threshold": True,
             "error": None,
+            "insufficient_data": False,
             "score_change_stats": {"practice_effect": 8.5},  # Large effect
         }
-        split_half_result = {"spearman_brown_r": None, "error": None}
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2538,16 +2587,22 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "poor",
             "meets_threshold": False,
             "error": None,
+            "insufficient_data": False,
             "item_total_correlations": {},
         }
         test_retest_result = {
             "test_retest_r": 0.75,  # Above threshold
             "num_retest_pairs": 45,  # Below 100 - low priority
             "error": None,
+            "insufficient_data": False,
             "meets_threshold": True,
             "score_change_stats": {"practice_effect": 2.0},
         }
-        split_half_result = {"spearman_brown_r": None, "error": None}
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+        }
 
         recommendations = generate_reliability_recommendations(
             alpha_result, test_retest_result, split_half_result
@@ -2564,6 +2619,7 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "good",
             "meets_threshold": True,
             "error": None,
+            "insufficient_data": False,
             "num_sessions": 150,
             "item_total_correlations": {1: 0.45, 2: 0.52, 3: 0.38},  # All positive
         }
@@ -2572,6 +2628,7 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "good",
             "meets_threshold": True,
             "error": None,
+            "insufficient_data": False,
             "num_retest_pairs": 120,
             "score_change_stats": {"practice_effect": 2.0},  # Small effect
         }
@@ -2580,6 +2637,7 @@ class TestGenerateReliabilityRecommendations:
             "interpretation": "good",
             "meets_threshold": True,
             "error": None,
+            "insufficient_data": False,
             "num_sessions": 150,
         }
 
@@ -3184,3 +3242,253 @@ class TestGetReliabilityHistory:
         history = get_reliability_history(db_session)
         assert len(history) == 1
         assert history[0]["details"] is None
+
+
+# =============================================================================
+# STRUCTURED ERROR INDICATOR TESTS (RE-FI-014)
+# =============================================================================
+
+
+class TestInsufficientDataIndicator:
+    """
+    Tests for the structured insufficient_data indicator (RE-FI-014).
+
+    These tests verify that the insufficient_data boolean field is correctly
+    set in calculation results, replacing fragile string matching for error
+    detection.
+    """
+
+    def test_alpha_insufficient_data_true_when_below_min_sessions(self, db_session):
+        """Cronbach's alpha sets insufficient_data=True when sessions < min."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create only 50 sessions (below 100 minimum)
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(5)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Should set insufficient_data indicator
+        assert result["insufficient_data"] is True
+        assert result["error"] is not None
+        assert "Insufficient" in result["error"]
+        assert result["cronbachs_alpha"] is None
+
+    def test_alpha_insufficient_data_false_when_sufficient_sessions(self, db_session):
+        """Cronbach's alpha sets insufficient_data=False when data is sufficient."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 sessions (above 100 minimum)
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Should not set insufficient_data indicator
+        assert result["insufficient_data"] is False
+        assert result["error"] is None
+        assert result["cronbachs_alpha"] is not None
+
+    def test_test_retest_insufficient_data_true_when_below_min_pairs(self, db_session):
+        """Test-retest sets insufficient_data=True when pairs < min."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create only 10 retest pairs (below 30 minimum)
+        for i in range(10):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # First test
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+            # Second test (retest)
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time,
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Should set insufficient_data indicator
+        assert result["insufficient_data"] is True
+        assert result["error"] is not None
+        assert "Insufficient" in result["error"]
+        assert result["test_retest_r"] is None
+
+    def test_test_retest_insufficient_data_false_when_sufficient_pairs(
+        self, db_session
+    ):
+        """Test-retest sets insufficient_data=False when data is sufficient."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 40 retest pairs (above 30 minimum)
+        for i in range(40):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # First test
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+            # Second test (retest)
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time,
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Should not set insufficient_data indicator
+        assert result["insufficient_data"] is False
+        assert result["error"] is None
+        assert result["test_retest_r"] is not None
+
+    def test_split_half_insufficient_data_true_when_below_min_sessions(
+        self, db_session
+    ):
+        """Split-half sets insufficient_data=True when sessions < min."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create only 50 sessions (below 100 minimum)
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should set insufficient_data indicator
+        assert result["insufficient_data"] is True
+        assert result["error"] is not None
+        assert "Insufficient" in result["error"]
+        assert result["spearman_brown_r"] is None
+
+    def test_split_half_insufficient_data_false_when_sufficient_sessions(
+        self, db_session
+    ):
+        """Split-half sets insufficient_data=False when data is sufficient."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 sessions (above 100 minimum)
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should not set insufficient_data indicator
+        assert result["insufficient_data"] is False
+        assert result["error"] is None
+        assert result["spearman_brown_r"] is not None
+
+    def test_recommendations_use_insufficient_data_indicator(self):
+        """Recommendations function uses insufficient_data field, not string matching."""
+        # Test that the function triggers recommendations when insufficient_data=True
+        # even if the error message doesn't contain "Insufficient"
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "num_sessions": 50,
+            "error": "Not enough data (some other error message format)",
+            "insufficient_data": True,  # This should trigger the recommendation
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": None,
+            "error": None,
+            "insufficient_data": False,
+            "num_retest_pairs": 0,
+        }
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+            "num_sessions": 0,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should generate data_collection recommendation based on insufficient_data flag
+        data_collection = [
+            r for r in recommendations if r["category"] == "data_collection"
+        ]
+        assert len(data_collection) >= 1
+        assert "alpha" in data_collection[0]["message"].lower()
+
+    def test_recommendations_ignore_error_string_without_indicator(self):
+        """Recommendations don't trigger on error strings without insufficient_data flag."""
+        # Error string contains "Insufficient" but insufficient_data=False
+        # This tests that we use the structured indicator, not string matching
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "num_sessions": 0,
+            "error": "Insufficient something (old format)",
+            "insufficient_data": False,  # Explicitly false despite error string
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": None,
+            "error": None,
+            "insufficient_data": False,
+            "num_retest_pairs": 0,
+        }
+        split_half_result = {
+            "spearman_brown_r": None,
+            "error": None,
+            "insufficient_data": False,
+            "num_sessions": 0,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should NOT generate data_collection recommendation since insufficient_data=False
+        data_collection = [
+            r for r in recommendations if r["category"] == "data_collection"
+        ]
+        assert len(data_collection) == 0
+
+    def test_all_metrics_set_insufficient_data_field(self, db_session):
+        """All three metrics include insufficient_data field in results."""
+        # Empty database should have insufficient data for all metrics
+        alpha = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        test_retest = calculate_test_retest_reliability(db_session, min_pairs=30)
+        split_half = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # All should have the insufficient_data field
+        assert "insufficient_data" in alpha
+        assert "insufficient_data" in test_retest
+        assert "insufficient_data" in split_half
+
+        # All should be True (empty database)
+        assert alpha["insufficient_data"] is True
+        assert test_retest["insufficient_data"] is True
+        assert split_half["insufficient_data"] is True

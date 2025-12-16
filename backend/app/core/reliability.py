@@ -353,6 +353,7 @@ def calculate_cronbachs_alpha(
         "meets_threshold": False,
         "item_total_correlations": {},
         "error": None,
+        "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
     # Get count of completed test sessions
@@ -369,6 +370,7 @@ def calculate_cronbachs_alpha(
             f"Insufficient data: {completed_sessions_count} sessions "
             f"(minimum required: {min_sessions})"
         )
+        result["insufficient_data"] = True
         logger.info(
             f"Cronbach's alpha calculation skipped: only {completed_sessions_count} "
             f"completed sessions (need {min_sessions})"
@@ -425,6 +427,7 @@ def calculate_cronbachs_alpha(
             f"Insufficient items: only {len(eligible_questions)} questions appear "
             f"in enough sessions (need at least 2)"
         )
+        result["insufficient_data"] = True
         logger.warning(
             f"Cronbach's alpha: not enough common questions. "
             f"Only {len(eligible_questions)} questions appear in >= "
@@ -462,6 +465,7 @@ def calculate_cronbachs_alpha(
             f"Insufficient complete sessions: {len(eligible_sessions)} sessions "
             f"with enough common questions (minimum required: {min_sessions})"
         )
+        result["insufficient_data"] = True
         return result
 
     result["num_sessions"] = len(eligible_sessions)
@@ -813,6 +817,7 @@ def calculate_test_retest_reliability(
             "practice_effect": None,
         },
         "error": None,
+        "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
     # Get consecutive test pairs
@@ -824,6 +829,7 @@ def calculate_test_retest_reliability(
             f"Insufficient data: {len(pairs)} retest pairs "
             f"(minimum required: {min_pairs})"
         )
+        result["insufficient_data"] = True
         logger.info(
             f"Test-retest reliability calculation skipped: only {len(pairs)} "
             f"retest pairs (need {min_pairs})"
@@ -978,6 +984,7 @@ def calculate_split_half_reliability(
         "interpretation": None,
         "meets_threshold": False,
         "error": None,
+        "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
     # Get count of completed test sessions
@@ -994,6 +1001,7 @@ def calculate_split_half_reliability(
             f"Insufficient data: {completed_sessions_count} sessions "
             f"(minimum required: {min_sessions})"
         )
+        result["insufficient_data"] = True
         logger.info(
             f"Split-half reliability calculation skipped: only {completed_sessions_count} "
             f"completed sessions (need {min_sessions})"
@@ -1052,6 +1060,7 @@ def calculate_split_half_reliability(
             f"Insufficient items: only {len(eligible_questions)} questions appear "
             f"in enough sessions (need at least 4 for split-half)"
         )
+        result["insufficient_data"] = True
         logger.warning(
             f"Split-half reliability: not enough common questions. "
             f"Only {len(eligible_questions)} questions appear in >= "
@@ -1107,6 +1116,7 @@ def calculate_split_half_reliability(
             f"Insufficient complete sessions: {sessions_used} sessions "
             f"with enough questions for split-half (minimum required: {min_sessions})"
         )
+        result["insufficient_data"] = True
         return result
 
     result["num_sessions"] = sessions_used
@@ -1225,7 +1235,8 @@ def generate_reliability_recommendations(
     # ==========================================================================
 
     # Check for insufficient Cronbach's alpha data
-    if alpha_result.get("error") and "Insufficient" in alpha_result.get("error", ""):
+    # Use structured insufficient_data indicator for robust control flow
+    if alpha_result.get("insufficient_data", False):
         num_sessions = alpha_result.get("num_sessions", 0)
         recommendations.append(
             {
@@ -1239,9 +1250,8 @@ def generate_reliability_recommendations(
         )
 
     # Check for insufficient test-retest data
-    if test_retest_result.get("error") and "Insufficient" in test_retest_result.get(
-        "error", ""
-    ):
+    # Use structured insufficient_data indicator for robust control flow
+    if test_retest_result.get("insufficient_data", False):
         num_pairs = test_retest_result.get("num_retest_pairs", 0)
         recommendations.append(
             {
@@ -1271,9 +1281,8 @@ def generate_reliability_recommendations(
         )
 
     # Check for insufficient split-half data
-    if split_half_result.get("error") and "Insufficient" in split_half_result.get(
-        "error", ""
-    ):
+    # Use structured insufficient_data indicator for robust control flow
+    if split_half_result.get("insufficient_data", False):
         num_sessions = split_half_result.get("num_sessions", 0)
         recommendations.append(
             {
