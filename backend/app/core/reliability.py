@@ -4,7 +4,7 @@ Reliability estimation metrics for psychometric validation.
 This module implements reliability calculations for AIQ's test assessment system:
 - Cronbach's alpha (internal consistency) - RE-002
 - Test-retest reliability - RE-003
-- Split-half reliability (future: RE-004)
+- Split-half reliability (odd-even split with Spearman-Brown correction) - RE-004
 
 Reliability is fundamental to psychometric validity - without it, we cannot
 establish confidence intervals, calculate Standard Error of Measurement,
@@ -473,6 +473,25 @@ def get_negative_item_correlations(
 
 
 # =============================================================================
+# SPLIT-HALF RELIABILITY THRESHOLDS (RE-004)
+# =============================================================================
+# Standard thresholds for split-half reliability interpretation.
+# Uses same thresholds as Cronbach's alpha since both measure internal consistency.
+
+SPLIT_HALF_THRESHOLDS = {
+    "excellent": 0.90,  # r ≥ 0.90: Excellent reliability
+    "good": 0.80,  # r ≥ 0.80: Good reliability
+    "acceptable": 0.70,  # r ≥ 0.70: Acceptable reliability
+    "questionable": 0.60,  # r ≥ 0.60: Questionable reliability
+    "poor": 0.50,  # r ≥ 0.50: Poor reliability
+    # r < 0.50: Unacceptable
+}
+
+# Minimum target for AIQ's split-half reliability (Spearman-Brown corrected)
+AIQ_SPLIT_HALF_THRESHOLD = 0.70
+
+
+# =============================================================================
 # TEST-RETEST RELIABILITY CALCULATION (RE-003)
 # =============================================================================
 
@@ -711,6 +730,289 @@ def calculate_test_retest_reliability(
         f"Test-retest reliability calculated: r = {r:.4f} ({result['interpretation']}) "
         f"from {len(pairs)} pairs. Mean interval: {result['mean_interval_days']} days. "
         f"Practice effect: {mean_change:.2f} points. Meets threshold: {result['meets_threshold']}"
+    )
+
+    return result
+
+
+# =============================================================================
+# SPLIT-HALF RELIABILITY CALCULATION (RE-004)
+# =============================================================================
+
+
+def _get_split_half_interpretation(r: float) -> str:
+    """
+    Get interpretation string for a split-half reliability value.
+
+    Uses the Spearman-Brown corrected value for interpretation.
+
+    Args:
+        r: Split-half reliability coefficient (Spearman-Brown corrected)
+
+    Returns:
+        Interpretation: "excellent", "good", "acceptable", "questionable",
+                       "poor", or "unacceptable"
+    """
+    if r >= SPLIT_HALF_THRESHOLDS["excellent"]:
+        return "excellent"
+    elif r >= SPLIT_HALF_THRESHOLDS["good"]:
+        return "good"
+    elif r >= SPLIT_HALF_THRESHOLDS["acceptable"]:
+        return "acceptable"
+    elif r >= SPLIT_HALF_THRESHOLDS["questionable"]:
+        return "questionable"
+    elif r >= SPLIT_HALF_THRESHOLDS["poor"]:
+        return "poor"
+    else:
+        return "unacceptable"
+
+
+def _apply_spearman_brown_correction(r_half: float) -> float:
+    """
+    Apply the Spearman-Brown prophecy formula to estimate full-test reliability.
+
+    The Spearman-Brown formula corrects the correlation between two test halves
+    to estimate what the reliability would be for the full-length test.
+
+    Formula:
+        r_full = (2 × r_half) / (1 + r_half)
+
+    Args:
+        r_half: Correlation between the two test halves
+
+    Returns:
+        Estimated full-test reliability coefficient
+    """
+    if r_half <= -1.0:
+        # Avoid division by zero or negative denominator
+        return -1.0
+
+    r_full = (2 * r_half) / (1 + r_half)
+
+    # Clamp to valid range
+    return max(-1.0, min(1.0, r_full))
+
+
+def calculate_split_half_reliability(
+    db: Session,
+    min_sessions: int = 100,
+) -> Dict:
+    """
+    Calculate split-half reliability using odd-even split.
+
+    Split-half reliability measures internal consistency by splitting each test
+    into two halves and correlating performance on each half. This implementation
+    uses the odd-even split method, where odd-numbered items form one half and
+    even-numbered items form the other.
+
+    The raw correlation between halves underestimates full-test reliability
+    (since each half is only half as long), so we apply the Spearman-Brown
+    correction to estimate what the reliability would be for the full test.
+
+    Spearman-Brown formula:
+        r_full = (2 × r_half) / (1 + r_half)
+
+    Args:
+        db: Database session
+        min_sessions: Minimum completed sessions required for calculation
+
+    Returns:
+        {
+            "split_half_r": float or None,  # Raw correlation between halves
+            "spearman_brown_r": float or None,  # Corrected full-test reliability
+            "num_sessions": int,
+            "num_items": int,
+            "odd_items": int,  # Number of items in odd half
+            "even_items": int,  # Number of items in even half
+            "interpretation": str or None,  # Based on Spearman-Brown corrected value
+            "meets_threshold": bool,  # spearman_brown_r >= 0.70
+            "error": str or None  # Present if calculation failed
+        }
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-004)
+        IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+    """
+    result: Dict = {
+        "split_half_r": None,
+        "spearman_brown_r": None,
+        "num_sessions": 0,
+        "num_items": 0,
+        "odd_items": 0,
+        "even_items": 0,
+        "interpretation": None,
+        "meets_threshold": False,
+        "error": None,
+    }
+
+    # Get count of completed test sessions
+    completed_sessions_count = (
+        db.query(func.count(TestSession.id))
+        .filter(TestSession.status == TestStatus.COMPLETED)
+        .scalar()
+    ) or 0
+
+    result["num_sessions"] = completed_sessions_count
+
+    if completed_sessions_count < min_sessions:
+        result["error"] = (
+            f"Insufficient data: {completed_sessions_count} sessions "
+            f"(minimum required: {min_sessions})"
+        )
+        logger.info(
+            f"Split-half reliability calculation skipped: only {completed_sessions_count} "
+            f"completed sessions (need {min_sessions})"
+        )
+        return result
+
+    # Build item-response data structure
+    # Step 1: Get all responses from completed sessions with question order
+    responses = (
+        db.query(
+            Response.test_session_id,
+            Response.question_id,
+            Response.is_correct,
+        )
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(TestSession.status == TestStatus.COMPLETED)
+        .order_by(
+            Response.test_session_id, Response.id
+        )  # Order by response ID within session
+        .all()
+    )
+
+    if not responses:
+        result["error"] = "No responses found for completed sessions"
+        return result
+
+    # Step 2: Build data structures
+    # session_responses: {session_id: [(question_id, is_correct), ...]} - ordered list
+    session_responses: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
+    # question_sessions: {question_id: set of session_ids}
+    question_sessions: Dict[int, set] = defaultdict(set)
+
+    for resp in responses:
+        session_id = resp.test_session_id
+        question_id = resp.question_id
+        is_correct = 1 if resp.is_correct else 0
+
+        session_responses[session_id].append((question_id, is_correct))
+        question_sessions[question_id].add(session_id)
+
+    # Step 3: Filter to questions that appear in enough sessions
+    # Use questions that appear in at least 30% of sessions as a heuristic
+    min_question_appearances = max(30, int(completed_sessions_count * 0.30))
+
+    eligible_questions = set(
+        q_id
+        for q_id, sessions in question_sessions.items()
+        if len(sessions) >= min_question_appearances
+    )
+
+    if len(eligible_questions) < 4:
+        result["error"] = (
+            f"Insufficient items: only {len(eligible_questions)} questions appear "
+            f"in enough sessions (need at least 4 for split-half)"
+        )
+        logger.warning(
+            f"Split-half reliability: not enough common questions. "
+            f"Only {len(eligible_questions)} questions appear in >= "
+            f"{min_question_appearances} sessions"
+        )
+        return result
+
+    result["num_items"] = len(eligible_questions)
+
+    # Step 4: Build the split-half data
+    # For each session, split responses into odd and even halves based on order
+    # Only include sessions that have at least 4 eligible questions
+    odd_half_scores: List[float] = []
+    even_half_scores: List[float] = []
+    sessions_used = 0
+
+    for session_id, resp_list in session_responses.items():
+        # Filter to only eligible questions while preserving order
+        eligible_responses = [
+            (q_id, is_correct)
+            for q_id, is_correct in resp_list
+            if q_id in eligible_questions
+        ]
+
+        # Need at least 4 questions for meaningful split (2 odd, 2 even)
+        if len(eligible_responses) < 4:
+            continue
+
+        # Split by position: odd positions (1st, 3rd, 5th...) and even (2nd, 4th, 6th...)
+        # Using 0-based indexing: indices 0, 2, 4... are "odd items" (1st, 3rd, 5th)
+        odd_correct = sum(
+            is_correct
+            for i, (_, is_correct) in enumerate(eligible_responses)
+            if i % 2 == 0
+        )
+        even_correct = sum(
+            is_correct
+            for i, (_, is_correct) in enumerate(eligible_responses)
+            if i % 2 == 1
+        )
+
+        odd_total = sum(1 for i in range(len(eligible_responses)) if i % 2 == 0)
+        even_total = sum(1 for i in range(len(eligible_responses)) if i % 2 == 1)
+
+        # Convert to proportions (0.0 to 1.0) to normalize for different test lengths
+        odd_half_scores.append(odd_correct / odd_total if odd_total > 0 else 0.0)
+        even_half_scores.append(even_correct / even_total if even_total > 0 else 0.0)
+        sessions_used += 1
+
+    if sessions_used < min_sessions:
+        result["num_sessions"] = sessions_used
+        result["error"] = (
+            f"Insufficient complete sessions: {sessions_used} sessions "
+            f"with enough questions for split-half (minimum required: {min_sessions})"
+        )
+        return result
+
+    result["num_sessions"] = sessions_used
+
+    # Calculate typical split sizes (from first valid session)
+    for session_id, resp_list in session_responses.items():
+        eligible_responses = [
+            (q_id, is_correct)
+            for q_id, is_correct in resp_list
+            if q_id in eligible_questions
+        ]
+        if len(eligible_responses) >= 4:
+            result["odd_items"] = sum(
+                1 for i in range(len(eligible_responses)) if i % 2 == 0
+            )
+            result["even_items"] = sum(
+                1 for i in range(len(eligible_responses)) if i % 2 == 1
+            )
+            break
+
+    # Step 5: Calculate correlation between halves
+    r_half = _calculate_pearson_correlation(odd_half_scores, even_half_scores)
+
+    if r_half is None:
+        result["error"] = (
+            "Could not calculate correlation between halves "
+            "(zero variance in one or both halves)"
+        )
+        return result
+
+    result["split_half_r"] = round(r_half, 4)
+
+    # Step 6: Apply Spearman-Brown correction
+    r_full = _apply_spearman_brown_correction(r_half)
+
+    result["spearman_brown_r"] = round(r_full, 4)
+    result["interpretation"] = _get_split_half_interpretation(r_full)
+    result["meets_threshold"] = r_full >= AIQ_SPLIT_HALF_THRESHOLD
+
+    logger.info(
+        f"Split-half reliability calculated: r_half = {r_half:.4f}, "
+        f"Spearman-Brown r = {r_full:.4f} ({result['interpretation']}) "
+        f"from {sessions_used} sessions and {len(eligible_questions)} items. "
+        f"Meets threshold: {result['meets_threshold']}"
     )
 
     return result
