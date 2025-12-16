@@ -1,8 +1,9 @@
 """
-Unit tests for Cronbach's alpha reliability calculation (RE-002).
+Unit tests for reliability estimation (RE-002, RE-003).
 
-Tests the reliability estimation module that calculates internal consistency
-coefficients for psychometric validation.
+Tests the reliability estimation module that calculates:
+- Cronbach's alpha (internal consistency) - RE-002
+- Test-retest reliability - RE-003
 
 Test Categories:
 - Cronbach's alpha calculation with known datasets
@@ -10,9 +11,12 @@ Test Categories:
 - Edge cases (insufficient data, zero variance)
 - Item-total correlations
 - Negative/problematic item identification
+- Test-retest correlation calculation
+- Interval filtering
+- Practice effect calculation
 
 Reference:
-    docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-002)
+    docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md
 """
 
 import pytest
@@ -37,6 +41,12 @@ from app.core.reliability import (
     _calculate_item_total_correlation,
     ALPHA_THRESHOLDS,
     AIQ_ALPHA_THRESHOLD,
+    calculate_test_retest_reliability,
+    _get_test_retest_interpretation,
+    _calculate_pearson_correlation,
+    TEST_RETEST_THRESHOLDS,
+    AIQ_TEST_RETEST_THRESHOLD,
+    MIN_RETEST_PAIRS,
 )
 
 # Use SQLite in-memory database for tests (no file artifacts)
@@ -748,3 +758,856 @@ class TestResponseStructure:
             assert isinstance(result["interpretation"], str)
             assert isinstance(result["meets_threshold"], bool)
             assert isinstance(result["item_total_correlations"], dict)
+
+
+# =============================================================================
+# TEST-RETEST RELIABILITY TESTS (RE-003)
+# =============================================================================
+
+
+def create_completed_test_with_score(
+    db_session,
+    user: User,
+    questions: list,
+    iq_score: int,
+    completed_at,
+) -> TestSession:
+    """
+    Create a completed test session with a specific IQ score and completion time.
+
+    This helper is used for test-retest reliability tests where we need
+    to control the IQ score and completion timestamp.
+    """
+    # Create test session
+    session = TestSession(
+        user_id=user.id,
+        status=TestStatus.COMPLETED,
+        completed_at=completed_at,
+    )
+    db_session.add(session)
+    db_session.commit()
+    db_session.refresh(session)
+
+    # Create responses (all correct for simplicity)
+    for question in questions:
+        response = Response(
+            test_session_id=session.id,
+            user_id=user.id,
+            question_id=question.id,
+            user_answer="A",
+            is_correct=True,
+        )
+        db_session.add(response)
+
+    # Create test result with specified score
+    test_result = TestResult(
+        test_session_id=session.id,
+        user_id=user.id,
+        iq_score=iq_score,
+        total_questions=len(questions),
+        correct_answers=len(questions),
+        completed_at=completed_at,
+    )
+    db_session.add(test_result)
+
+    db_session.commit()
+    return session
+
+
+class TestPearsonCorrelation:
+    """Tests for Pearson correlation calculation."""
+
+    def test_perfect_positive_correlation(self):
+        """Perfect positive correlation returns r = 1.0."""
+        x = [1.0, 2.0, 3.0, 4.0, 5.0]
+        y = [10.0, 20.0, 30.0, 40.0, 50.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is not None
+        assert abs(r - 1.0) < 0.0001
+
+    def test_perfect_negative_correlation(self):
+        """Perfect negative correlation returns r = -1.0."""
+        x = [1.0, 2.0, 3.0, 4.0, 5.0]
+        y = [50.0, 40.0, 30.0, 20.0, 10.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is not None
+        assert abs(r - (-1.0)) < 0.0001
+
+    def test_no_correlation(self):
+        """Uncorrelated data returns r near 0."""
+        # Perfectly uncorrelated data
+        x = [1.0, 2.0, 3.0, 4.0, 5.0]
+        y = [3.0, 1.0, 5.0, 2.0, 4.0]  # Scrambled, no linear relationship
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is not None
+        # With this specific scrambling, correlation should be low
+        assert abs(r) < 0.5
+
+    def test_moderate_positive_correlation(self):
+        """Moderate positive correlation."""
+        x = [100.0, 110.0, 95.0, 105.0, 115.0]
+        y = [98.0, 112.0, 97.0, 103.0, 118.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is not None
+        assert r > 0.8  # Should be strong positive
+
+    def test_insufficient_data_single_value(self):
+        """Returns None with single value."""
+        x = [100.0]
+        y = [105.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is None
+
+    def test_insufficient_data_empty(self):
+        """Returns None with empty lists."""
+        r = _calculate_pearson_correlation([], [])
+
+        assert r is None
+
+    def test_mismatched_lengths(self):
+        """Returns None with mismatched lengths."""
+        x = [1.0, 2.0, 3.0]
+        y = [1.0, 2.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is None
+
+    def test_zero_variance_x(self):
+        """Returns None when x has zero variance."""
+        x = [100.0, 100.0, 100.0, 100.0]
+        y = [90.0, 100.0, 110.0, 120.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is None
+
+    def test_zero_variance_y(self):
+        """Returns None when y has zero variance."""
+        x = [90.0, 100.0, 110.0, 120.0]
+        y = [100.0, 100.0, 100.0, 100.0]
+
+        r = _calculate_pearson_correlation(x, y)
+
+        assert r is None
+
+
+class TestTestRetestInterpretation:
+    """Tests for test-retest interpretation thresholds."""
+
+    def test_excellent_threshold(self):
+        """Correlation r > 0.90 is interpreted as 'excellent'."""
+        assert _get_test_retest_interpretation(0.91) == "excellent"
+        assert _get_test_retest_interpretation(0.95) == "excellent"
+        assert _get_test_retest_interpretation(1.0) == "excellent"
+
+    def test_good_threshold(self):
+        """Correlation r > 0.70 and <= 0.90 is interpreted as 'good'."""
+        assert _get_test_retest_interpretation(0.71) == "good"
+        assert _get_test_retest_interpretation(0.80) == "good"
+        assert _get_test_retest_interpretation(0.90) == "good"
+
+    def test_acceptable_threshold(self):
+        """Correlation r > 0.50 and <= 0.70 is interpreted as 'acceptable'."""
+        assert _get_test_retest_interpretation(0.51) == "acceptable"
+        assert _get_test_retest_interpretation(0.60) == "acceptable"
+        assert _get_test_retest_interpretation(0.70) == "acceptable"
+
+    def test_poor_threshold(self):
+        """Correlation r <= 0.50 is interpreted as 'poor'."""
+        assert _get_test_retest_interpretation(0.50) == "poor"
+        assert _get_test_retest_interpretation(0.40) == "poor"
+        assert _get_test_retest_interpretation(0.0) == "poor"
+        assert _get_test_retest_interpretation(-0.5) == "poor"
+
+    def test_threshold_constants_exist(self):
+        """Verify TEST_RETEST_THRESHOLDS constants are defined correctly."""
+        assert TEST_RETEST_THRESHOLDS["excellent"] == 0.90
+        assert TEST_RETEST_THRESHOLDS["good"] == 0.70
+        assert TEST_RETEST_THRESHOLDS["acceptable"] == 0.50
+
+    def test_aiq_test_retest_threshold_constant(self):
+        """Verify AIQ target threshold is set correctly."""
+        assert AIQ_TEST_RETEST_THRESHOLD == 0.50
+
+    def test_min_retest_pairs_constant(self):
+        """Verify minimum retest pairs constant is set correctly."""
+        assert MIN_RETEST_PAIRS == 30
+
+
+class TestTestRetestInsufficientData:
+    """Tests for test-retest handling of insufficient data."""
+
+    def test_no_test_results(self, db_session):
+        """Returns error when no test results exist."""
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["test_retest_r"] is None
+        assert result["num_retest_pairs"] == 0
+        assert result["error"] is not None
+        assert "Insufficient data" in result["error"]
+        assert result["meets_threshold"] is False
+
+    def test_below_min_pairs_threshold(self, db_session):
+        """Returns error when retest pairs are below minimum threshold."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 20 users with 2 tests each = 20 pairs (below 30)
+        for i in range(20):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # First test
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+            # Second test (14 days later - within interval)
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=16),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["test_retest_r"] is None
+        assert result["num_retest_pairs"] == 20
+        assert result["error"] is not None
+        assert "Insufficient data: 20 retest pairs" in result["error"]
+
+    def test_custom_min_pairs(self, db_session):
+        """Respects custom min_pairs parameter."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 20 users with 2 tests each
+        for i in range(20):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=16),
+            )
+
+        # With min_pairs=30, should fail
+        result_30 = calculate_test_retest_reliability(db_session, min_pairs=30)
+        assert result_30["error"] is not None
+
+        # With min_pairs=15, should succeed
+        result_15 = calculate_test_retest_reliability(db_session, min_pairs=15)
+        assert result_15["error"] is None
+        assert result_15["test_retest_r"] is not None
+
+    def test_only_single_tests_per_user(self, db_session):
+        """Returns error when users only have single tests (no retest pairs)."""
+        from datetime import datetime, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 50 users each with only 1 test
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=datetime.now(timezone.utc),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["test_retest_r"] is None
+        assert result["num_retest_pairs"] == 0
+        assert result["error"] is not None
+
+
+class TestTestRetestIntervalFiltering:
+    """Tests for test-retest interval filtering."""
+
+    def test_excludes_tests_below_min_interval(self, db_session):
+        """Tests closer than min_interval_days are excluded."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 40 users with tests 3 days apart (below default 7-day minimum)
+        for i in range(40):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=10),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=7),  # 3 days later
+            )
+
+        result = calculate_test_retest_reliability(
+            db_session, min_interval_days=7, min_pairs=30
+        )
+
+        # All pairs should be excluded (3-day interval < 7-day minimum)
+        assert result["num_retest_pairs"] == 0
+        assert result["error"] is not None
+
+    def test_excludes_tests_above_max_interval(self, db_session):
+        """Tests farther than max_interval_days are excluded."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 40 users with tests 200 days apart (above default 180-day maximum)
+        for i in range(40):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=220),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=20),  # 200 days later
+            )
+
+        result = calculate_test_retest_reliability(
+            db_session, max_interval_days=180, min_pairs=30
+        )
+
+        # All pairs should be excluded (200-day interval > 180-day maximum)
+        assert result["num_retest_pairs"] == 0
+        assert result["error"] is not None
+
+    def test_includes_tests_within_interval(self, db_session):
+        """Tests within min/max interval are included."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 35 users with tests 30 days apart (within 7-180 day range)
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=30),  # 30 days later
+            )
+
+        result = calculate_test_retest_reliability(
+            db_session, min_interval_days=7, max_interval_days=180, min_pairs=30
+        )
+
+        assert result["num_retest_pairs"] == 35
+        assert result["error"] is None
+
+    def test_custom_interval_range(self, db_session):
+        """Respects custom interval range parameters."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 35 users with tests 5 days apart
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=10),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=5),  # 5 days later
+            )
+
+        # With default 7-day minimum, should fail
+        result_default = calculate_test_retest_reliability(db_session, min_pairs=30)
+        assert result_default["num_retest_pairs"] == 0
+
+        # With custom 3-day minimum, should succeed
+        result_custom = calculate_test_retest_reliability(
+            db_session, min_interval_days=3, min_pairs=30
+        )
+        assert result_custom["num_retest_pairs"] == 35
+
+
+class TestTestRetestCalculation:
+    """Tests for test-retest reliability calculation."""
+
+    def test_calculates_correlation_with_valid_data(self, db_session):
+        """Calculates test-retest correlation when sufficient valid data exists."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 35 users with 2 tests each, with correlated scores
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # First score based on user index
+            score1 = 80 + i * 2  # 80 to 148
+
+            # Second score correlated with first (add small noise)
+            noise = (i % 5) - 2  # -2 to 2
+            score2 = score1 + noise + 2  # Small practice effect
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Should successfully calculate correlation
+        assert result["test_retest_r"] is not None
+        assert result["error"] is None
+        assert result["num_retest_pairs"] == 35
+        assert result["interpretation"] is not None
+        # Scores are highly correlated
+        assert result["test_retest_r"] > 0.9
+
+    def test_result_structure(self, db_session):
+        """Verify result contains all required fields."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Verify all required fields are present
+        assert "test_retest_r" in result
+        assert "num_retest_pairs" in result
+        assert "mean_interval_days" in result
+        assert "interpretation" in result
+        assert "meets_threshold" in result
+        assert "score_change_stats" in result
+        assert "error" in result
+
+        # Verify score_change_stats structure
+        assert "mean_change" in result["score_change_stats"]
+        assert "std_change" in result["score_change_stats"]
+        assert "practice_effect" in result["score_change_stats"]
+
+    def test_meets_threshold_true_when_r_high(self, db_session):
+        """meets_threshold is True when r > 0.50."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create highly correlated test pairs
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            score1 = 80 + i * 2
+            score2 = score1 + 2  # Perfect correlation with offset
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["test_retest_r"] is not None
+        assert result["test_retest_r"] > 0.50
+        assert result["meets_threshold"] is True
+
+    def test_meets_threshold_false_when_r_low(self, db_session):
+        """meets_threshold is False when r <= 0.50."""
+        from datetime import datetime, timedelta, timezone
+        import random
+
+        random.seed(789)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create uncorrelated test pairs (random scores)
+        for i in range(40):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            score1 = random.randint(80, 120)
+            score2 = random.randint(80, 120)  # Independent of score1
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # With random scores, correlation should be near 0 (might be slightly positive/negative)
+        # The key test is that meets_threshold reflects the threshold correctly
+        if (
+            result["test_retest_r"] is not None
+            and result["test_retest_r"] <= AIQ_TEST_RETEST_THRESHOLD
+        ):
+            assert result["meets_threshold"] is False
+
+
+class TestTestRetestPracticeEffect:
+    """Tests for practice effect calculation."""
+
+    def test_positive_practice_effect(self, db_session):
+        """Calculates positive practice effect when scores improve."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create pairs where second score is always 5 points higher (with variance)
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # Add variance to scores while maintaining +5 practice effect
+            score1 = 90 + i  # 90 to 124
+            score2 = score1 + 5  # Always +5 higher
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["score_change_stats"]["practice_effect"] == 5.0
+        assert result["score_change_stats"]["mean_change"] == 5.0
+
+    def test_negative_practice_effect(self, db_session):
+        """Calculates negative practice effect when scores decrease."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create pairs where second score is always 5 points lower (with variance)
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # Add variance to scores while maintaining -5 regression
+            score1 = 100 + i  # 100 to 134
+            score2 = score1 - 5  # Always -5 lower
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["score_change_stats"]["practice_effect"] == -5.0
+        assert result["score_change_stats"]["mean_change"] == -5.0
+
+    def test_std_change_calculated(self, db_session):
+        """Standard deviation of score changes is calculated."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create pairs with varying score changes
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # Add variance to score1 to ensure valid correlation calculation
+            score1 = 90 + i  # 90 to 124
+            # Vary the change: 0, 2, 4, 6, 8, 0, 2, ...
+            change = (i % 5) * 2
+            score2 = score1 + change
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score1,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        assert result["score_change_stats"]["std_change"] is not None
+        assert result["score_change_stats"]["std_change"] > 0  # Should have variance
+
+
+class TestTestRetestMeanInterval:
+    """Tests for mean interval calculation."""
+
+    def test_mean_interval_calculated(self, db_session):
+        """Mean interval in days is calculated correctly."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create pairs all with 30-day intervals
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=30),  # 30 days later
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Mean interval should be 30 days
+        assert result["mean_interval_days"] == 30.0
+
+    def test_mean_interval_with_varied_intervals(self, db_session):
+        """Mean interval calculated correctly with varying intervals."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 15 pairs with 14-day intervals and 15 pairs with 28-day intervals
+        for i in range(15):
+            user = create_test_user(db_session, f"user_short_{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=16),  # 14 days later
+            )
+
+        for i in range(20):
+            user = create_test_user(db_session, f"user_long_{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=102 + i,
+                completed_at=base_time - timedelta(days=32),  # 28 days later
+            )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # Mean interval should be between 14 and 28
+        # (15 * 14 + 20 * 28) / 35 = (210 + 560) / 35 = 22
+        assert result["mean_interval_days"] is not None
+        assert 20 < result["mean_interval_days"] < 24
+
+
+class TestTestRetestMultipleTestsPerUser:
+    """Tests for handling users with more than 2 tests."""
+
+    def test_multiple_tests_creates_multiple_pairs(self, db_session):
+        """Users with 3+ tests create multiple consecutive pairs."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 12 users with 4 tests each = 36 pairs (3 pairs per user)
+        for i in range(12):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # Four tests at 30-day intervals
+            for j in range(4):
+                create_completed_test_with_score(
+                    db_session,
+                    user,
+                    questions,
+                    iq_score=100 + i + j,
+                    completed_at=base_time - timedelta(days=120 - j * 30),
+                )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # 12 users × 3 pairs each = 36 pairs
+        assert result["num_retest_pairs"] == 36
+        assert result["error"] is None
+
+    def test_only_consecutive_pairs_used(self, db_session):
+        """Only consecutive test pairs are used, not all combinations."""
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create 18 users with 3 tests each = 36 pairs (2 pairs per user)
+        # If we used all combinations, it would be 3 pairs per user
+        for i in range(18):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # Three tests at 30-day intervals
+            for j in range(3):
+                create_completed_test_with_score(
+                    db_session,
+                    user,
+                    questions,
+                    iq_score=100 + i + j,
+                    completed_at=base_time - timedelta(days=90 - j * 30),
+                )
+
+        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+
+        # 18 users × 2 consecutive pairs each = 36 pairs
+        assert result["num_retest_pairs"] == 36
