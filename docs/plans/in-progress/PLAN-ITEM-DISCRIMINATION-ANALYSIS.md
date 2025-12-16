@@ -837,3 +837,24 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** Consider using the `cache_key()` helper function from `app/core/cache.py` for automatic parameter hashing instead of manually constructing the cache key. This would automatically account for any new parameters without manual key format updates.
 **Original Comment:** "If additional parameters are added to `get_discrimination_report()` in the future (e.g., `max_responses`, `question_type_filter`), the cache key won't account for them unless explicitly updated. Consider using the `cache_key()` helper function for automatic parameter hashing."
+
+### IDA-F018: Add Short-Lived Error Cache for Transient Database Failures
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Consider caching a fallback empty report for a short duration (e.g., 30 seconds) when transient database errors occur, to prevent thundering herd issues during database incidents. Current behavior of failing fast is defensible, but short-lived error caching could improve production resilience.
+**Original Comment:** "When a SQLAlchemyError occurs, the function raises an exception without caching anything. On transient errors (timeouts, connection drops), this means every retry hits the database again. Should transient errors trigger a short-lived cache entry (e.g., 30 seconds) with a fallback empty report?"
+
+### IDA-F019: Use Structured Dict for Error Context in DiscriminationAnalysisError
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Consider changing the `context` field from a freeform string to a dictionary for better integration with production monitoring tools (Sentry, Datadog). This would make it easier to parse, filter, and aggregate errors by specific parameter values.
+**Original Comment:** "The context field is currently a freeform string. Consider making it a dictionary for structured logging: `context: Optional[Dict[str, Any]] = None`. Benefits: Easier to parse in production monitoring tools, can filter/aggregate errors by specific parameter values, more consistent than string formatting."
+
+### IDA-F020: Address Potential Double Logging in Error Paths
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Both `calculate_percentile_rank()` and `get_question_discrimination_detail()` log errors. When `calculate_percentile_rank()` is called from `get_question_discrimination_detail()`, duplicate log entries may appear. Consider whether having context from both levels is helpful or if it creates noise in production logs.
+**Original Comment:** "Both calculate_percentile_rank() and get_question_discrimination_detail() log errors. If calculate_percentile_rank() is called from get_question_discrimination_detail(), you might see duplicate log entries. Not a blocker - having context from both levels can be helpful. Just be aware this could create noise in production logs."
