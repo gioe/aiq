@@ -2122,3 +2122,107 @@ class TestErrorCaching:
 
             # Should have hit the database
             assert mock_query.call_count > 0
+
+
+# =============================================================================
+# LOGGING BEHAVIOR TESTS (IDA-F020)
+# =============================================================================
+
+
+class TestLoggingBehavior:
+    """Tests for logging behavior to avoid duplicate log entries (IDA-F020).
+
+    These tests verify that:
+    1. Inner functions (calculate_percentile_rank) log at DEBUG level
+    2. Outer functions (get_question_discrimination_detail) log at ERROR level
+    3. When an inner function error propagates, we don't get duplicate ERROR logs
+
+    Note: These tests use mock.patch on the logger to capture log calls directly,
+    since pytest's caplog fixture may not capture logs when handlers are configured
+    elsewhere (e.g., in app configuration).
+    """
+
+    def test_calculate_percentile_rank_logs_at_debug_level(self, db_session):
+        """Test that calculate_percentile_rank logs errors at DEBUG level."""
+        # Patch the logger in the discrimination_analysis module
+        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+            with patch.object(
+                db_session, "query", side_effect=SQLAlchemyError("test error")
+            ):
+                with pytest.raises(DiscriminationAnalysisError):
+                    calculate_percentile_rank(db_session, discrimination=0.35)
+
+            # Should have logged at DEBUG level (not ERROR)
+            assert mock_logger.debug.call_count == 1
+            debug_call_args = mock_logger.debug.call_args
+            assert "percentile rank" in debug_call_args[0][0].lower()
+
+            # Should NOT have logged at ERROR level
+            assert mock_logger.error.call_count == 0
+
+    def test_get_question_discrimination_detail_logs_at_error_level(self, db_session):
+        """Test that get_question_discrimination_detail logs errors at ERROR level."""
+        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+            with patch.object(
+                db_session, "query", side_effect=SQLAlchemyError("direct db error")
+            ):
+                with pytest.raises(DiscriminationAnalysisError):
+                    get_question_discrimination_detail(db_session, question_id=999)
+
+            # Should have logged at ERROR level
+            assert mock_logger.error.call_count == 1
+            error_call_args = mock_logger.error.call_args
+            assert "discrimination detail" in error_call_args[0][0].lower()
+
+    def test_no_duplicate_error_logs_when_percentile_fails(self, db_session):
+        """Test that we don't get duplicate ERROR logs when percentile calc fails.
+
+        When calculate_percentile_rank fails and the error propagates through
+        get_question_discrimination_detail, we should only see:
+        - 0 ERROR logs from get_question_discrimination_detail (it re-raises without logging)
+        """
+        # Create a question first so we can get to the percentile calculation
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+            # Mock calculate_percentile_rank to raise DiscriminationAnalysisError
+            # (simulating what happens when it catches a SQLAlchemyError)
+            with patch(
+                "app.core.discrimination_analysis.calculate_percentile_rank",
+                side_effect=DiscriminationAnalysisError(
+                    message="Percentile calculation failed",
+                    context={"discrimination": 0.35},
+                ),
+            ):
+                with pytest.raises(DiscriminationAnalysisError):
+                    get_question_discrimination_detail(
+                        db_session, question_id=question.id
+                    )
+
+            # Should NOT have any ERROR logs because DiscriminationAnalysisError
+            # is re-raised without logging
+            assert mock_logger.error.call_count == 0, (
+                f"Expected 0 ERROR logs but got {mock_logger.error.call_count}: "
+                f"{mock_logger.error.call_args_list}"
+            )
+
+    def test_error_log_count_for_direct_db_error(self, db_session):
+        """Test that direct database errors produce exactly one ERROR log."""
+        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+            with patch.object(
+                db_session,
+                "query",
+                side_effect=OperationalError("connection lost", None, None),
+            ):
+                with pytest.raises(DiscriminationAnalysisError):
+                    get_question_discrimination_detail(db_session, question_id=123)
+
+            # Should have exactly 1 ERROR log from discrimination_analysis
+            assert (
+                mock_logger.error.call_count == 1
+            ), f"Expected exactly 1 ERROR log but got {mock_logger.error.call_count}"

@@ -291,7 +291,10 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
         return max(0, min(100, percentile))
 
     except SQLAlchemyError as e:
-        logger.error(
+        # IDA-F020: Log at DEBUG level to avoid duplicate ERROR entries
+        # when this function is called from get_question_discrimination_detail().
+        # The caller logs at ERROR level with full context.
+        logger.debug(
             f"Database error during percentile rank calculation: {e}",
             exc_info=True,
         )
@@ -911,9 +914,13 @@ def get_question_discrimination_detail(
         }
 
     except DiscriminationAnalysisError:
-        # Re-raise our custom error from calculate_percentile_rank
+        # IDA-F020: Re-raise without logging to avoid duplicate ERROR entries.
+        # The error was already logged at DEBUG level by calculate_percentile_rank().
+        # We log at ERROR level below only for direct SQLAlchemyErrors in this function.
         raise
     except SQLAlchemyError as e:
+        # IDA-F020: Log at ERROR level only for direct database errors in this function.
+        # Errors from calculate_percentile_rank() are handled above (re-raised without logging).
         logger.error(
             f"Database error fetching discrimination detail for question {question_id}: {e}",
             exc_info=True,
