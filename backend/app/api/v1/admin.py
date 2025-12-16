@@ -141,10 +141,13 @@ from app.schemas.reliability import (
     TestRetestMetrics,
     SplitHalfMetrics,
     ReliabilityRecommendation,
+    ReliabilityHistoryItem,
+    ReliabilityHistoryResponse,
 )
 from app.core.reliability import (
     get_reliability_report,
     store_reliability_metric,
+    get_reliability_history,
 )
 from app.models import Question, TestSession, TestResult, Response
 
@@ -3790,4 +3793,87 @@ async def get_reliability_report_endpoint(
         raise HTTPException(
             status_code=500,
             detail="Failed to generate reliability report. Please try again later.",
+        )
+
+
+# =============================================================================
+# RE-009: Reliability History Endpoint
+# =============================================================================
+
+
+@router.get(
+    "/reliability/history",
+    response_model=ReliabilityHistoryResponse,
+    responses={
+        401: {"description": "Invalid admin token"},
+    },
+)
+async def get_reliability_history_endpoint(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+    metric_type: Optional[str] = Query(
+        default=None,
+        description="Filter by metric type: cronbachs_alpha, test_retest, split_half",
+    ),
+    days: int = Query(
+        default=90,
+        ge=1,
+        le=365,
+        description="Number of days of history to retrieve (1-365)",
+    ),
+) -> ReliabilityHistoryResponse:
+    """
+    Get historical reliability metrics for trend analysis.
+
+    Returns stored reliability metrics from the database, optionally filtered
+    by metric type and time period. Metrics are ordered by calculated_at DESC
+    (most recent first).
+
+    **Use cases:**
+    - Track how reliability metrics change over time as more data is collected
+    - Compare reliability across different time periods
+    - Monitor the impact of item removals or additions on reliability
+
+    **Query parameters:**
+    - `metric_type`: Optional filter to retrieve only one type of metric
+      (cronbachs_alpha, test_retest, or split_half)
+    - `days`: Number of days of history to retrieve (default: 90, max: 365)
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    try:
+        # Get historical metrics using the core function
+        metrics = get_reliability_history(
+            db=db,
+            metric_type=metric_type,
+            days=days,
+        )
+
+        # Transform to response schema
+        history_items = [
+            ReliabilityHistoryItem(
+                id=m["id"],
+                metric_type=m["metric_type"],
+                value=m["value"],
+                sample_size=m["sample_size"],
+                calculated_at=m["calculated_at"],
+                details=m["details"],
+            )
+            for m in metrics
+        ]
+
+        return ReliabilityHistoryResponse(
+            metrics=history_items,
+            total_count=len(history_items),
+        )
+
+    except ValueError as e:
+        # Known validation errors - safe to expose
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Log full error details but return generic message to client
+        logger.error(f"Failed to retrieve reliability history: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve reliability history. Please try again later.",
         )
