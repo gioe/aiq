@@ -387,8 +387,8 @@ async def get_reliability_report_endpoint(
 ---
 
 ### RE-009: Add Admin Endpoint for Reliability History
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_reliability_endpoint.py`
 **Description:** Add admin API endpoint to retrieve historical reliability metrics for trend analysis.
 
 **Implementation:**
@@ -421,11 +421,11 @@ async def get_reliability_history_endpoint(
 ```
 
 **Acceptance Criteria:**
-- [ ] `GET /v1/admin/reliability/history` returns historical metrics
-- [ ] Supports filtering by metric_type
-- [ ] Supports configurable days parameter
-- [ ] Requires admin token authentication
-- [ ] Integration tests verify endpoint responses
+- [x] `GET /v1/admin/reliability/history` returns historical metrics
+- [x] Supports filtering by metric_type
+- [x] Supports configurable days parameter
+- [x] Requires admin token authentication
+- [x] Integration tests verify endpoint responses
 
 ---
 
