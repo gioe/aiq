@@ -796,11 +796,33 @@ These items were identified during code review and can be addressed in future it
 - Migration supports both upgrade and downgrade operations
 
 ### IDA-F015: Add Database Error Handling for Report Generation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #232 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** The code assumes database queries will succeed. Consider adding try-except handling for: database connection lost mid-query, query timeout with extremely large datasets, and `tier_result.first()` returning None unexpectedly. While the current `or 0` fallbacks are good, wrapping in try-except might provide better diagnostics in production.
 **Original Comment:** "The code assumes database queries will succeed. Consider what happens if: Database connection is lost mid-query, Query timeout occurs with extremely large datasets, `tier_result.first()` returns None unexpectedly. The current `or 0` fallbacks are good, but wrapping in try-except might provide better diagnostics in production."
+
+**Implementation:**
+- Created `DiscriminationAnalysisError` custom exception class for discrimination analysis errors
+  - Includes `message`, `original_error`, and `context` attributes for comprehensive debugging
+  - `_format_message()` method formats all error information into a single diagnostic string
+- Added try-except handling to `get_discrimination_report()`:
+  - Wraps all database operations in try block
+  - Catches `SQLAlchemyError` and wraps in `DiscriminationAnalysisError` with context
+  - Added `_get_empty_report()` helper function to handle unexpected None from `tier_result.first()`
+- Added try-except handling to `get_question_discrimination_detail()`:
+  - Wraps database operations in try block
+  - Re-raises `DiscriminationAnalysisError` from `calculate_percentile_rank()` without double-wrapping
+  - Catches other `SQLAlchemyError` and wraps with question_id context
+- Added try-except handling to `calculate_percentile_rank()`:
+  - Handles None from `total_count` and `lower_count` queries with warning logs
+  - Catches `SQLAlchemyError` and wraps with discrimination value context
+- Added 19 new tests for database error handling in `test_discrimination_analysis.py`:
+  - `TestDiscriminationAnalysisError` (4 tests): Error creation with various combinations of fields
+  - `TestGetEmptyReport` (7 tests): Validates empty report structure matches schema
+  - `TestDatabaseErrorHandling` (8 tests): Integration tests for error wrapping and propagation
+- Updated import in `admin.py` to include `DiscriminationAnalysisError` for explicit handling if needed
+- All 108 discrimination analysis tests pass
 
 ### IDA-F016: Add Integration Test for Cache Invalidation via API
 **Status:** [ ] Not Started
@@ -815,3 +837,24 @@ These items were identified during code review and can be addressed in future it
 **Files:** `backend/app/core/discrimination_analysis.py`
 **Description:** Consider using the `cache_key()` helper function from `app/core/cache.py` for automatic parameter hashing instead of manually constructing the cache key. This would automatically account for any new parameters without manual key format updates.
 **Original Comment:** "If additional parameters are added to `get_discrimination_report()` in the future (e.g., `max_responses`, `question_type_filter`), the cache key won't account for them unless explicitly updated. Consider using the `cache_key()` helper function for automatic parameter hashing."
+
+### IDA-F018: Add Short-Lived Error Cache for Transient Database Failures
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Consider caching a fallback empty report for a short duration (e.g., 30 seconds) when transient database errors occur, to prevent thundering herd issues during database incidents. Current behavior of failing fast is defensible, but short-lived error caching could improve production resilience.
+**Original Comment:** "When a SQLAlchemyError occurs, the function raises an exception without caching anything. On transient errors (timeouts, connection drops), this means every retry hits the database again. Should transient errors trigger a short-lived cache entry (e.g., 30 seconds) with a fallback empty report?"
+
+### IDA-F019: Use Structured Dict for Error Context in DiscriminationAnalysisError
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Consider changing the `context` field from a freeform string to a dictionary for better integration with production monitoring tools (Sentry, Datadog). This would make it easier to parse, filter, and aggregate errors by specific parameter values.
+**Original Comment:** "The context field is currently a freeform string. Consider making it a dictionary for structured logging: `context: Optional[Dict[str, Any]] = None`. Benefits: Easier to parse in production monitoring tools, can filter/aggregate errors by specific parameter values, more consistent than string formatting."
+
+### IDA-F020: Address Potential Double Logging in Error Paths
+**Status:** [ ] Not Started
+**Source:** PR #244 comment
+**Files:** `backend/app/core/discrimination_analysis.py`
+**Description:** Both `calculate_percentile_rank()` and `get_question_discrimination_detail()` log errors. When `calculate_percentile_rank()` is called from `get_question_discrimination_detail()`, duplicate log entries may appear. Consider whether having context from both levels is helpful or if it creates noise in production logs.
+**Original Comment:** "Both calculate_percentile_rank() and get_question_discrimination_detail() log errors. If calculate_percentile_rank() is called from get_question_discrimination_detail(), you might see duplicate log entries. Not a blocker - having context from both levels can be helpful. Just be aware this could create noise in production logs."

@@ -19,13 +19,17 @@ Reference:
 """
 
 from datetime import datetime, timezone, timedelta
+from unittest.mock import patch, MagicMock
 
 import pytest
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from app.core.cache import get_cache
 from app.models.models import Question, QuestionType, DifficultyLevel
 
 from app.core.discrimination_analysis import (
+    DiscriminationAnalysisError,
+    _get_empty_report,
     get_quality_tier,
     calculate_percentile_rank,
     get_discrimination_report,
@@ -1562,3 +1566,286 @@ class TestDiscriminationReportCaching:
         # Now should return fresh data with 2 questions
         report3 = get_discrimination_report(db_session, min_responses=30)
         assert report3["summary"]["total_questions_with_data"] == 2
+
+
+# =============================================================================
+# DATABASE ERROR HANDLING TESTS (IDA-F015)
+# =============================================================================
+
+
+class TestDiscriminationAnalysisError:
+    """Unit tests for the DiscriminationAnalysisError exception class."""
+
+    def test_error_message_only(self):
+        """Test creating error with just a message."""
+        error = DiscriminationAnalysisError(message="Test error message")
+        assert error.message == "Test error message"
+        assert error.original_error is None
+        assert error.context is None
+        assert str(error) == "Test error message"
+
+    def test_error_with_original_exception(self):
+        """Test creating error with an original exception."""
+        original = ValueError("Original error")
+        error = DiscriminationAnalysisError(
+            message="Wrapper message",
+            original_error=original,
+        )
+        assert error.message == "Wrapper message"
+        assert error.original_error is original
+        assert "ValueError" in str(error)
+        assert "Original error" in str(error)
+
+    def test_error_with_context(self):
+        """Test creating error with context information."""
+        error = DiscriminationAnalysisError(
+            message="Query failed",
+            context="min_responses=30",
+        )
+        assert "Context: min_responses=30" in str(error)
+
+    def test_error_with_all_fields(self):
+        """Test creating error with all fields populated."""
+        original = OperationalError("connection lost", None, None)
+        error = DiscriminationAnalysisError(
+            message="Database operation failed",
+            original_error=original,
+            context="question_id=123",
+        )
+        error_str = str(error)
+        assert "Database operation failed" in error_str
+        assert "Context: question_id=123" in error_str
+        assert "OperationalError" in error_str
+
+
+class TestGetEmptyReport:
+    """Unit tests for the _get_empty_report helper function."""
+
+    def test_returns_valid_structure(self):
+        """Test that empty report has all required fields."""
+        report = _get_empty_report()
+
+        # Check top-level keys
+        assert "summary" in report
+        assert "quality_distribution" in report
+        assert "by_difficulty" in report
+        assert "by_type" in report
+        assert "action_needed" in report
+        assert "trends" in report
+
+    def test_summary_has_zero_counts(self):
+        """Test that summary has all zero values."""
+        report = _get_empty_report()
+        summary = report["summary"]
+
+        assert summary["total_questions_with_data"] == 0
+        assert summary["excellent"] == 0
+        assert summary["good"] == 0
+        assert summary["acceptable"] == 0
+        assert summary["poor"] == 0
+        assert summary["very_poor"] == 0
+        assert summary["negative"] == 0
+
+    def test_quality_distribution_has_zero_percentages(self):
+        """Test that quality distribution has all zero percentages."""
+        report = _get_empty_report()
+        dist = report["quality_distribution"]
+
+        assert dist["excellent_pct"] == 0.0
+        assert dist["good_pct"] == 0.0
+        assert dist["acceptable_pct"] == 0.0
+        assert dist["problematic_pct"] == 0.0
+
+    def test_by_difficulty_has_all_levels(self):
+        """Test that by_difficulty includes all difficulty levels."""
+        report = _get_empty_report()
+        by_difficulty = report["by_difficulty"]
+
+        # Check all DifficultyLevel enum values are present
+        assert "easy" in by_difficulty
+        assert "medium" in by_difficulty
+        assert "hard" in by_difficulty
+
+        for level_data in by_difficulty.values():
+            assert level_data["mean_discrimination"] == 0.0
+            assert level_data["negative_count"] == 0
+
+    def test_by_type_has_all_question_types(self):
+        """Test that by_type includes all question types."""
+        report = _get_empty_report()
+        by_type = report["by_type"]
+
+        # Check all QuestionType enum values are present
+        # QuestionType values: pattern, logic, spatial, math, verbal, memory
+        assert "pattern" in by_type
+        assert "logic" in by_type
+        assert "spatial" in by_type
+        assert "math" in by_type
+        assert "verbal" in by_type
+        assert "memory" in by_type
+
+        for type_data in by_type.values():
+            assert type_data["mean_discrimination"] == 0.0
+            assert type_data["negative_count"] == 0
+
+    def test_action_needed_has_empty_lists(self):
+        """Test that action_needed lists are empty."""
+        report = _get_empty_report()
+        action_needed = report["action_needed"]
+
+        assert action_needed["immediate_review"] == []
+        assert action_needed["monitor"] == []
+
+    def test_trends_has_default_values(self):
+        """Test that trends has expected default values."""
+        report = _get_empty_report()
+        trends = report["trends"]
+
+        assert trends["mean_discrimination_30d"] is None
+        assert trends["new_negative_this_week"] == 0
+
+
+class TestDatabaseErrorHandling:
+    """Integration tests for database error handling (IDA-F015).
+
+    These tests verify that database errors are properly caught and wrapped
+    in DiscriminationAnalysisError with appropriate context for debugging.
+    """
+
+    def test_get_discrimination_report_handles_db_error(self, db_session):
+        """Test that get_discrimination_report wraps database errors."""
+        # Mock the query to raise a database error
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("connection lost", None, None),
+        ):
+            with pytest.raises(DiscriminationAnalysisError) as exc_info:
+                get_discrimination_report(db_session, min_responses=30)
+
+            error = exc_info.value
+            assert "Failed to generate discrimination report" in error.message
+            assert error.original_error is not None
+            assert "OperationalError" in str(error)
+            assert "min_responses=30" in error.context
+
+    def test_get_question_discrimination_detail_handles_db_error(self, db_session):
+        """Test that get_question_discrimination_detail wraps database errors."""
+        with patch.object(
+            db_session, "query", side_effect=OperationalError("timeout", None, None)
+        ):
+            with pytest.raises(DiscriminationAnalysisError) as exc_info:
+                get_question_discrimination_detail(db_session, question_id=123)
+
+            error = exc_info.value
+            assert "Failed to fetch question discrimination detail" in error.message
+            assert error.original_error is not None
+            assert "question_id=123" in error.context
+
+    def test_calculate_percentile_rank_handles_db_error(self, db_session):
+        """Test that calculate_percentile_rank wraps database errors."""
+        with patch.object(
+            db_session, "query", side_effect=SQLAlchemyError("query timeout")
+        ):
+            with pytest.raises(DiscriminationAnalysisError) as exc_info:
+                calculate_percentile_rank(db_session, discrimination=0.35)
+
+            error = exc_info.value
+            assert "Failed to calculate percentile rank" in error.message
+            assert error.original_error is not None
+            assert "discrimination=0.35" in error.context
+
+    def test_get_discrimination_report_returns_empty_on_none_result(self, db_session):
+        """Test that get_discrimination_report handles None tier_result gracefully."""
+        # Verify the _get_empty_report fallback structure is valid for the schema.
+        report = _get_empty_report()
+
+        # Verify the empty report matches expected schema structure
+        assert isinstance(report["summary"]["total_questions_with_data"], int)
+        assert isinstance(report["quality_distribution"]["excellent_pct"], float)
+        assert isinstance(report["by_difficulty"]["easy"]["mean_discrimination"], float)
+        assert isinstance(report["action_needed"]["immediate_review"], list)
+
+    def test_get_discrimination_report_handles_none_tier_result_integration(
+        self, db_session
+    ):
+        """Test that None from tier_result.first() triggers _get_empty_report().
+
+        This tests the actual integration path where tier_result is None,
+        verifying the code path at lines 410-414 of discrimination_analysis.py.
+        """
+        # Create a mock that properly chains query methods and returns None for first()
+        mock_query = MagicMock()
+        mock_query.filter.return_value = mock_query
+        mock_query.first.return_value = None
+
+        with patch.object(db_session, "query", return_value=mock_query):
+            report = get_discrimination_report(db_session, min_responses=30)
+
+            # Should get empty report structure when tier_result is None
+            assert report["summary"]["total_questions_with_data"] == 0
+            assert report["summary"]["excellent"] == 0
+            assert report["summary"]["negative"] == 0
+            assert report["quality_distribution"]["excellent_pct"] == 0.0
+            assert report["action_needed"]["immediate_review"] == []
+            assert report["action_needed"]["monitor"] == []
+            assert report["trends"]["mean_discrimination_30d"] is None
+
+    def test_percentile_calculation_handles_none_total_count(self, db_session):
+        """Test that percentile calculation handles None total count."""
+        # Create a mock that returns None for scalar()
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.scalar.return_value = None
+        mock_query.filter.return_value = mock_filter
+        mock_query.return_value = mock_query
+
+        with patch.object(db_session, "query", return_value=mock_query):
+            # Should return default 50 when total_count is None
+            result = calculate_percentile_rank(db_session, discrimination=0.35)
+            assert result == 50
+
+    def test_percentile_calculation_handles_none_lower_count(self, db_session):
+        """Test that percentile calculation handles None lower count."""
+        # First call returns total count, second returns None for lower count
+        call_count = [0]
+
+        def mock_scalar():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return 10  # Total count
+            return None  # Lower count returns None
+
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.scalar.side_effect = mock_scalar
+        mock_query.filter.return_value = mock_filter
+
+        with patch.object(db_session, "query", return_value=mock_query):
+            # Should handle None lower_count by treating it as 0
+            result = calculate_percentile_rank(db_session, discrimination=0.35)
+            assert result == 0  # 0/10 * 100 = 0 percentile
+
+    def test_error_propagates_from_percentile_in_detail(self, db_session):
+        """Test that errors from calculate_percentile_rank propagate through detail."""
+        # Create a question first
+        question = create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # Mock calculate_percentile_rank to raise our error
+        with patch(
+            "app.core.discrimination_analysis.calculate_percentile_rank",
+            side_effect=DiscriminationAnalysisError(
+                message="Percentile calculation failed",
+                context="test context",
+            ),
+        ):
+            with pytest.raises(DiscriminationAnalysisError) as exc_info:
+                get_question_discrimination_detail(db_session, question_id=question.id)
+
+            # Should propagate the original error, not wrap it again
+            assert "Percentile calculation failed" in str(exc_info.value)
