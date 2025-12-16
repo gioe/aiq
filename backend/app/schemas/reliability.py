@@ -44,6 +44,14 @@ class OverallStatus(str, Enum):
     INSUFFICIENT_DATA = "insufficient_data"
 
 
+class MetricType(str, Enum):
+    """Type of reliability metric stored in the database."""
+
+    CRONBACHS_ALPHA = "cronbachs_alpha"
+    TEST_RETEST = "test_retest"
+    SPLIT_HALF = "split_half"
+
+
 # =============================================================================
 # Internal Consistency (Cronbach's Alpha) Schemas
 # =============================================================================
@@ -63,7 +71,7 @@ class InternalConsistencyMetrics(BaseModel):
         le=1.0,
         description="Cronbach's alpha coefficient (0.0-1.0). None if insufficient data.",
     )
-    interpretation: Optional[str] = Field(
+    interpretation: Optional[ReliabilityInterpretation] = Field(
         None,
         description="Interpretation of alpha value: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), poor (<0.70)",
     )
@@ -110,7 +118,7 @@ class TestRetestMetrics(BaseModel):
         le=1.0,
         description="Pearson correlation coefficient between test and retest scores. None if insufficient data.",
     )
-    interpretation: Optional[str] = Field(
+    interpretation: Optional[ReliabilityInterpretation] = Field(
         None,
         description="Interpretation of correlation: excellent (>0.90), good (>0.70), acceptable (>0.50), poor (<=0.50)",
     )
@@ -191,7 +199,7 @@ class ReliabilityRecommendation(BaseModel):
     data collection status.
     """
 
-    category: str = Field(
+    category: RecommendationCategory = Field(
         ...,
         description="Recommendation category: data_collection, item_review, threshold_warning",
     )
@@ -199,7 +207,7 @@ class ReliabilityRecommendation(BaseModel):
         ...,
         description="Human-readable recommendation message",
     )
-    priority: str = Field(
+    priority: RecommendationPriority = Field(
         ...,
         description="Priority level: high, medium, low",
     )
@@ -231,7 +239,7 @@ class ReliabilityReportResponse(BaseModel):
         ...,
         description="Split-half reliability metrics with Spearman-Brown correction",
     )
-    overall_status: str = Field(
+    overall_status: OverallStatus = Field(
         ...,
         description="Overall reliability status: excellent, acceptable, needs_attention, insufficient_data",
     )
@@ -303,7 +311,7 @@ class ReliabilityHistoryItem(BaseModel):
         ...,
         description="Unique identifier of the reliability metric record",
     )
-    metric_type: str = Field(
+    metric_type: MetricType = Field(
         ...,
         description="Type of reliability metric: cronbachs_alpha, test_retest, split_half",
     )

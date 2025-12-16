@@ -740,11 +740,20 @@ Items identified during code review that can be addressed in future iterations:
 ---
 
 ### RE-FI-009: Use Enum Types in Reliability Schema Fields
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #254 comment
 **Files:** `backend/app/schemas/reliability.py`
 **Description:** Use the defined enum types (`ReliabilityInterpretation`, `RecommendationCategory`, `RecommendationPriority`, `OverallStatus`) directly in schema fields instead of `str` for stronger type safety, better API validation, and improved OpenAPI documentation.
 **Original Comment:** "Consider using the `ReliabilityInterpretation` enum type directly for stronger type safety... API validation will reject invalid values automatically, Better OpenAPI documentation with allowed values"
+**Implementation Notes:** Updated the following schema fields to use enum types:
+- `InternalConsistencyMetrics.interpretation`: `ReliabilityInterpretation`
+- `TestRetestMetrics.interpretation`: `ReliabilityInterpretation`
+- `ReliabilityRecommendation.category`: `RecommendationCategory`
+- `ReliabilityRecommendation.priority`: `RecommendationPriority`
+- `ReliabilityReportResponse.overall_status`: `OverallStatus`
+- `ReliabilityHistoryItem.metric_type`: `MetricType` (new enum added)
+
+The str-based enums ensure JSON serialization remains unchanged. All 175 reliability tests pass.
 
 ---
 
