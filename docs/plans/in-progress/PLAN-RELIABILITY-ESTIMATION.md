@@ -800,11 +800,16 @@ The validators raise `ValidationError` with descriptive messages explaining the 
 ---
 
 ### RE-FI-013: Document Inconsistent Threshold Comparison Behavior
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Add comment explaining why test-retest threshold uses `<=` (inclusive) while alpha and split-half use `<` (exclusive) for threshold warnings, or standardize to `<` for consistency.
 **Original Comment:** "Is the inclusive comparison (`<=`) for test-retest intentional? If intentional, add a comment explaining why"
+**Implementation Notes:** Standardized threshold comparison behavior across all three reliability metrics:
+- Changed test-retest `meets_threshold` from `r > threshold` to `r >= threshold` (matching alpha and split-half)
+- Changed test-retest warning from `r <= threshold` to `r < threshold` (matching alpha and split-half)
+- Added inline comments documenting the consistent pattern
+- The consistent pattern is now: `meets_threshold` uses `>=` (inclusive), warnings use `<` (exclusive)
 
 ---
 
