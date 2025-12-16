@@ -714,11 +714,14 @@ Items identified during code review that can be addressed in future iterations:
 ---
 
 ### RE-FI-003: Add Edge Case Tests for Item Count Boundaries
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #251 comment
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add tests verifying behavior when exactly 2 items exist (minimum for Cronbach's alpha) and when a very high number of items exist (50+ questions).
 **Original Comment:** "Missing test: Verify behavior when exactly 2 items exist... Verify behavior with very high number of items"
+**Implementation Notes:** Added two tests to TestEdgeCases class:
+- `test_exactly_two_items_minimum_for_alpha`: Tests calculation with exactly 2 items, verifying the k=2 edge case
+- `test_very_high_number_of_items`: Tests calculation with 60 items to verify scalability
 
 ---
 
