@@ -4,8 +4,8 @@ Pydantic schemas for reliability estimation endpoints (RE-005, RE-008, RE-009).
 These schemas support the admin endpoints for viewing reliability metrics
 including Cronbach's alpha, test-retest reliability, and split-half reliability.
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, Dict, Self
 from datetime import datetime
 from enum import Enum
 
@@ -98,6 +98,22 @@ class InternalConsistencyMetrics(BaseModel):
         description="Item-total correlations by question_id. Shows each item's contribution to overall reliability.",
     )
 
+    @model_validator(mode="after")
+    def validate_meets_threshold_consistency(self) -> Self:
+        """
+        Ensure meets_threshold is logically consistent with cronbachs_alpha.
+
+        When cronbachs_alpha is None (insufficient data), meets_threshold must be False.
+        When cronbachs_alpha is present, meets_threshold should reflect whether it
+        meets the 0.70 threshold.
+        """
+        if self.cronbachs_alpha is None and self.meets_threshold is True:
+            raise ValueError(
+                "meets_threshold cannot be True when cronbachs_alpha is None "
+                "(insufficient data to determine threshold)"
+            )
+        return self
+
 
 # =============================================================================
 # Test-Retest Reliability Schemas
@@ -145,6 +161,22 @@ class TestRetestMetrics(BaseModel):
         description="Timestamp when this metric was last calculated",
     )
 
+    @model_validator(mode="after")
+    def validate_meets_threshold_consistency(self) -> Self:
+        """
+        Ensure meets_threshold is logically consistent with correlation.
+
+        When correlation is None (insufficient data), meets_threshold must be False.
+        When correlation is present, meets_threshold should reflect whether it
+        meets the 0.50 threshold.
+        """
+        if self.correlation is None and self.meets_threshold is True:
+            raise ValueError(
+                "meets_threshold cannot be True when correlation is None "
+                "(insufficient data to determine threshold)"
+            )
+        return self
+
 
 # =============================================================================
 # Split-Half Reliability Schemas
@@ -184,6 +216,22 @@ class SplitHalfMetrics(BaseModel):
         None,
         description="Timestamp when this metric was last calculated",
     )
+
+    @model_validator(mode="after")
+    def validate_meets_threshold_consistency(self) -> Self:
+        """
+        Ensure meets_threshold is logically consistent with spearman_brown.
+
+        When spearman_brown is None (insufficient data), meets_threshold must be False.
+        When spearman_brown is present, meets_threshold should reflect whether it
+        meets the 0.70 threshold.
+        """
+        if self.spearman_brown is None and self.meets_threshold is True:
+            raise ValueError(
+                "meets_threshold cannot be True when spearman_brown is None "
+                "(insufficient data to determine threshold)"
+            )
+        return self
 
 
 # =============================================================================

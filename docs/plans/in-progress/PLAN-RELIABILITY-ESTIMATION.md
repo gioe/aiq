@@ -758,11 +758,17 @@ The str-based enums ensure JSON serialization remains unchanged. All 175 reliabi
 ---
 
 ### RE-FI-010: Add Validator for meets_threshold Consistency
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #254 comment
-**Files:** `backend/app/schemas/reliability.py`
+**Files:** `backend/app/schemas/reliability.py`, `backend/tests/test_reliability_schema.py`
 **Description:** Add Pydantic validator to ensure `meets_threshold` boolean is logically consistent with the reliability value (e.g., cannot be `True` when `cronbachs_alpha` is `None`). Alternatively, make `meets_threshold` optional when insufficient data.
 **Original Comment:** "When cronbachs_alpha is None (insufficient data), what should meets_threshold be? Consider adding a Pydantic validator to ensure logical consistency"
+**Implementation Notes:** Added `@model_validator(mode="after")` validators to all three metrics schemas:
+- `InternalConsistencyMetrics`: Validates that `meets_threshold=True` cannot be set when `cronbachs_alpha` is `None`
+- `TestRetestMetrics`: Validates that `meets_threshold=True` cannot be set when `correlation` is `None`
+- `SplitHalfMetrics`: Validates that `meets_threshold=True` cannot be set when `spearman_brown` is `None`
+
+The validators raise `ValidationError` with descriptive messages explaining the constraint. Added 25 unit tests covering valid scenarios, invalid scenarios, boundary cases, and error message quality.
 
 ---
 
@@ -898,3 +904,30 @@ The str-based enums ensure JSON serialization remains unchanged. All 175 reliabi
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add a test for k=1 (single item) to verify the function returns an appropriate error, since Cronbach's alpha is undefined for k<2 (the formula requires at least 2 items).
 **Original Comment:** "Consider: Adding a test for k=1 (single item) to verify it returns an error, since alpha is undefined for k<2"
+
+---
+
+### RE-FI-026: Consider Bidirectional Validation for meets_threshold
+**Status:** [ ] Not Started
+**Source:** PR #267 comment
+**Files:** `backend/app/schemas/reliability.py`
+**Description:** Current validators only check that `meets_threshold=True` is invalid when the metric is `None`. Consider adding validation for the opposite case: when a metric exceeds its threshold, `meets_threshold` should be `True`. Alternatively, document why this direction isn't validated (e.g., to allow business logic flexibility).
+**Original Comment:** "Add bidirectional validation to catch both cases: When metric is None → meets_threshold must be False ✅ (currently implemented); When metric meets actual threshold → meets_threshold should be True (not currently checked)"
+
+---
+
+### RE-FI-027: Validate Spearman-Brown Requires Raw Correlation
+**Status:** [ ] Not Started
+**Source:** PR #267 comment
+**Files:** `backend/app/schemas/reliability.py`
+**Description:** Consider adding schema-level validation to ensure `spearman_brown` can't be present when `raw_correlation` is None, since the Spearman-Brown correction mathematically requires a raw correlation value. Alternatively, document why this edge case is intentionally allowed.
+**Original Comment:** "The test `test_valid_when_raw_correlation_none_but_spearman_brown_present` identifies an edge case where `raw_correlation=None` but `spearman_brown=0.75`. While the schema allows this, mathematically this shouldn't happen."
+
+---
+
+### RE-FI-028: Add Module-Level Example to Schema Test Docstring
+**Status:** [ ] Not Started
+**Source:** PR #267 comment
+**Files:** `backend/tests/test_reliability_schema.py`
+**Description:** Add a module-level docstring example showing what the validators prevent, making it immediately clear what invalid state is being guarded against.
+**Original Comment:** "Consider adding a module-level docstring example showing what the validators prevent"
