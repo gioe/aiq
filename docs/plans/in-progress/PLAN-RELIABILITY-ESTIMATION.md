@@ -773,11 +773,16 @@ The validators raise `ValidationError` with descriptive messages explaining the 
 ---
 
 ### RE-FI-011: Extract Practice Effect Threshold to Constant
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Extract the hardcoded `5` (IQ points) threshold for "large" practice effect to a named constant with documentation explaining the rationale (e.g., 1/3 SD suggests systematic bias).
 **Original Comment:** "The magic number `5` lacks context. Is this 5 IQ points?... Define as a constant with documentation"
+**Implementation Notes:** Added `LARGE_PRACTICE_EFFECT_THRESHOLD = 5.0` constant in the Test-Retest Reliability Thresholds section with comprehensive documentation explaining:
+- The threshold represents approximately 1/3 of a standard deviation (SD=15 for IQ scores)
+- This is a meaningful effect size in psychometrics
+- Practice effects exceeding this threshold may indicate insufficient question variety, test-taking strategy effects, or learning effects beyond true ability change
+- Large practice effects warrant investigation into question pool diversity and retest interval policies
 
 ---
 
