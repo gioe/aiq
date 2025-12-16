@@ -151,7 +151,7 @@ def calculate_test_retest_reliability(
 ---
 
 ### RE-004: Implement Split-Half Reliability Calculation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/reliability.py`
 **Description:** Implement split-half reliability calculation (odd-even split) with Spearman-Brown correction for full-test reliability estimation.
 
@@ -178,14 +178,14 @@ def calculate_split_half_reliability(db: Session, min_sessions: int = 100) -> Di
 ```
 
 **Acceptance Criteria:**
-- [ ] Function splits responses into odd/even halves by question order
-- [ ] Calculates correlation between halves
-- [ ] Applies Spearman-Brown correction formula correctly
-- [ ] Returns both raw and corrected reliability
-- [ ] Returns `meets_threshold` boolean
-- [ ] Returns insufficient data error when sessions < min_sessions
-- [ ] Unit tests verify Spearman-Brown correction formula
-- [ ] Unit tests cover correlation calculation
+- [x] Function splits responses into odd/even halves by question order
+- [x] Calculates correlation between halves
+- [x] Applies Spearman-Brown correction formula correctly
+- [x] Returns both raw and corrected reliability
+- [x] Returns `meets_threshold` boolean
+- [x] Returns insufficient data error when sessions < min_sessions
+- [x] Unit tests verify Spearman-Brown correction formula
+- [x] Unit tests cover correlation calculation
 
 ---
 
