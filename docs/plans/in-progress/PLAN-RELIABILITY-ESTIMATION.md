@@ -875,3 +875,12 @@ Items identified during code review that can be addressed in future iterations:
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** Add tests for large dataset performance (e.g., 10,000+ sessions), concurrent request handling, and edge case of all users having identical scores (zero variance).
 **Original Comment:** "Missing Tests: Large dataset performance (e.g., 10,000+ sessions), Concurrent request handling, Edge case: All users have identical scores (zero variance)"
+
+---
+
+### RE-FI-025: Add Test for Single Item (k=1) Error Handling
+**Status:** [ ] Not Started
+**Source:** PR #264 comment
+**Files:** `backend/tests/core/test_reliability.py`
+**Description:** Add a test for k=1 (single item) to verify the function returns an appropriate error, since Cronbach's alpha is undefined for k<2 (the formula requires at least 2 items).
+**Original Comment:** "Consider: Adding a test for k=1 (single item) to verify it returns an error, since alpha is undefined for k<2"
