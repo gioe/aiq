@@ -1582,11 +1582,14 @@ class TestDiscriminationAnalysisError:
         assert "Original error" in str(error)
 
     def test_error_with_context(self):
-        """Test creating error with context information."""
+        """Test creating error with structured dict context (IDA-F019)."""
         error = DiscriminationAnalysisError(
             message="Query failed",
-            context="min_responses=30",
+            context={"min_responses": 30},
         )
+        # Check that dict is stored correctly
+        assert error.context == {"min_responses": 30}
+        # Check human-readable formatting
         assert "Context: min_responses=30" in str(error)
 
     def test_error_with_all_fields(self):
@@ -1595,12 +1598,60 @@ class TestDiscriminationAnalysisError:
         error = DiscriminationAnalysisError(
             message="Database operation failed",
             original_error=original,
-            context="question_id=123",
+            context={"question_id": 123},
         )
         error_str = str(error)
         assert "Database operation failed" in error_str
         assert "Context: question_id=123" in error_str
         assert "OperationalError" in error_str
+        # Verify context is accessible as dict for monitoring tools
+        assert error.context == {"question_id": 123}
+
+    def test_error_with_multiple_context_values(self):
+        """Test error with multiple context values (IDA-F019)."""
+        error = DiscriminationAnalysisError(
+            message="Report generation failed",
+            context={"min_responses": 30, "action_list_limit": 100},
+        )
+        # Check dict access for monitoring tool integration
+        assert error.context["min_responses"] == 30
+        assert error.context["action_list_limit"] == 100
+        # Check human-readable format includes both values
+        error_str = str(error)
+        assert "min_responses=30" in error_str
+        assert "action_list_limit=100" in error_str
+
+    def test_context_dict_enables_structured_filtering(self):
+        """Test that context dict enables filtering by specific values (IDA-F019).
+
+        This test documents the intended usage pattern for production monitoring
+        tools like Sentry and Datadog, which can filter/aggregate errors by
+        specific context values.
+        """
+        error = DiscriminationAnalysisError(
+            message="Query timeout",
+            context={
+                "min_responses": 50,
+                "question_type": "verbal_reasoning",
+                "difficulty_level": "hard",
+            },
+        )
+        # Monitoring tools can access specific context values
+        assert error.context["min_responses"] == 50
+        assert error.context["question_type"] == "verbal_reasoning"
+        assert error.context["difficulty_level"] == "hard"
+
+        # Context dict can be used for programmatic filtering
+        if error.context.get("min_responses", 0) > 30:
+            # Example: filter errors for high min_responses
+            pass
+
+        # Keys can be enumerated for dynamic handling
+        assert set(error.context.keys()) == {
+            "min_responses",
+            "question_type",
+            "difficulty_level",
+        }
 
 
 class TestGetEmptyReport:
@@ -1712,7 +1763,8 @@ class TestDatabaseErrorHandling:
             assert "Failed to generate discrimination report" in error.message
             assert error.original_error is not None
             assert "OperationalError" in str(error)
-            assert "min_responses=30" in error.context
+            # Verify structured context (IDA-F019)
+            assert error.context == {"min_responses": 30, "action_list_limit": 100}
 
     def test_get_question_discrimination_detail_handles_db_error(self, db_session):
         """Test that get_question_discrimination_detail wraps database errors."""
@@ -1725,7 +1777,8 @@ class TestDatabaseErrorHandling:
             error = exc_info.value
             assert "Failed to fetch question discrimination detail" in error.message
             assert error.original_error is not None
-            assert "question_id=123" in error.context
+            # Verify structured context (IDA-F019)
+            assert error.context == {"question_id": 123}
 
     def test_calculate_percentile_rank_handles_db_error(self, db_session):
         """Test that calculate_percentile_rank wraps database errors."""
@@ -1738,7 +1791,8 @@ class TestDatabaseErrorHandling:
             error = exc_info.value
             assert "Failed to calculate percentile rank" in error.message
             assert error.original_error is not None
-            assert "discrimination=0.35" in error.context
+            # Verify structured context (IDA-F019)
+            assert error.context == {"discrimination": 0.35}
 
     def test_get_discrimination_report_returns_empty_on_none_result(self, db_session):
         """Test that get_discrimination_report handles None tier_result gracefully."""
@@ -1826,7 +1880,7 @@ class TestDatabaseErrorHandling:
             "app.core.discrimination_analysis.calculate_percentile_rank",
             side_effect=DiscriminationAnalysisError(
                 message="Percentile calculation failed",
-                context="test context",
+                context={"test_key": "test_value"},
             ),
         ):
             with pytest.raises(DiscriminationAnalysisError) as exc_info:

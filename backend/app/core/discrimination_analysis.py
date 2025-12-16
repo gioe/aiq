@@ -40,24 +40,30 @@ class DiscriminationAnalysisError(Exception):
     report generation or question detail retrieval. It provides better diagnostics
     than raw SQLAlchemy exceptions for production monitoring and debugging.
 
+    The context field is a structured dictionary (IDA-F019) to enable better
+    integration with production monitoring tools like Sentry and Datadog.
+    This allows filtering/aggregating errors by specific parameter values.
+
     Attributes:
         message: Human-readable error description
         original_error: The underlying exception that caused this error
-        context: Additional context about where the error occurred
+        context: Structured dictionary with additional context about where
+                 the error occurred (e.g., {"min_responses": 30, "question_id": 123})
     """
 
     def __init__(
         self,
         message: str,
         original_error: Optional[Exception] = None,
-        context: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
     ):
         """Initialize the discrimination analysis error.
 
         Args:
             message: Human-readable description of what went wrong
             original_error: The underlying exception that caused this error
-            context: Additional context about where the error occurred
+            context: Structured dictionary with additional context about where
+                     the error occurred. Example: {"min_responses": 30}
         """
         self.message = message
         self.original_error = original_error
@@ -65,10 +71,17 @@ class DiscriminationAnalysisError(Exception):
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
-        """Format the error message with context and original error details."""
+        """Format the error message with context and original error details.
+
+        For human-readable output (e.g., logs, str(error)), the context dict
+        is formatted as key=value pairs. Production monitoring tools can
+        access the raw dict via error.context for structured filtering.
+        """
         parts = [self.message]
         if self.context:
-            parts.append(f"Context: {self.context}")
+            # Format dict as "key1=value1, key2=value2" for human readability
+            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            parts.append(f"Context: {context_str}")
         if self.original_error:
             parts.append(
                 f"Original error: {type(self.original_error).__name__}: {self.original_error}"
@@ -285,7 +298,7 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
         raise DiscriminationAnalysisError(
             message="Failed to calculate percentile rank due to database error",
             original_error=e,
-            context=f"discrimination={discrimination}",
+            context={"discrimination": discrimination},
         ) from e
 
 
@@ -713,7 +726,10 @@ def get_discrimination_report(
         raise DiscriminationAnalysisError(
             message="Failed to generate discrimination report due to database error",
             original_error=e,
-            context=f"min_responses={min_responses}, action_list_limit={action_list_limit}",
+            context={
+                "min_responses": min_responses,
+                "action_list_limit": action_list_limit,
+            },
         ) from e
 
 
@@ -905,5 +921,5 @@ def get_question_discrimination_detail(
         raise DiscriminationAnalysisError(
             message="Failed to fetch question discrimination detail due to database error",
             original_error=e,
-            context=f"question_id={question_id}",
+            context={"question_id": question_id},
         ) from e
