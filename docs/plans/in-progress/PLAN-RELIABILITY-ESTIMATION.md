@@ -726,11 +726,16 @@ Items identified during code review that can be addressed in future iterations:
 ---
 
 ### RE-FI-004: Add Module Usage Example
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #251 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Add a usage example to the module docstring showing how to call `calculate_cronbachs_alpha()` and interpret the results.
 **Original Comment:** "Consider adding a usage example to the module docstring"
+**Implementation Notes:** Added comprehensive usage examples to the module docstring showing:
+- How to call `calculate_cronbachs_alpha()` and interpret results
+- How to identify problematic items with negative correlations using `get_negative_item_correlations()`
+- How to generate a comprehensive reliability report using `get_reliability_report()`
+- How to access individual metrics and review actionable recommendations
 
 ---
 
