@@ -415,3 +415,330 @@ class TestReliabilityEndpoint:
         assert data["internal_consistency"]["last_calculated"] is not None
         assert data["test_retest"]["last_calculated"] is not None
         assert data["split_half"]["last_calculated"] is not None
+
+
+class TestReliabilityHistoryEndpoint:
+    """Tests for GET /v1/admin/reliability/history endpoint (RE-009)."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_returns_empty_history_when_no_metrics(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test endpoint returns empty list when no metrics stored."""
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "metrics" in data
+        assert "total_count" in data
+        assert data["metrics"] == []
+        assert data["total_count"] == 0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_requires_admin_token(self, client, db_session):
+        """Test endpoint requires valid admin token."""
+        # No token
+        response = client.get("/v1/admin/reliability/history")
+        assert response.status_code == 422  # Missing required header
+
+        # Invalid token
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_returns_stored_metrics(self, client, db_session, admin_token_headers):
+        """Test endpoint returns previously stored metrics."""
+        # Create some reliability metrics directly
+        now = datetime.now(timezone.utc)
+        metrics_data = [
+            {
+                "metric_type": "cronbachs_alpha",
+                "value": 0.78,
+                "sample_size": 100,
+                "calculated_at": now - timedelta(days=1),
+                "details": {"interpretation": "good", "meets_threshold": True},
+            },
+            {
+                "metric_type": "test_retest",
+                "value": 0.65,
+                "sample_size": 50,
+                "calculated_at": now - timedelta(days=2),
+                "details": {"interpretation": "acceptable", "meets_threshold": True},
+            },
+            {
+                "metric_type": "split_half",
+                "value": 0.82,
+                "sample_size": 100,
+                "calculated_at": now - timedelta(days=3),
+                "details": {"interpretation": "good", "meets_threshold": True},
+            },
+        ]
+
+        for m in metrics_data:
+            metric = ReliabilityMetric(
+                metric_type=m["metric_type"],
+                value=m["value"],
+                sample_size=m["sample_size"],
+                calculated_at=m["calculated_at"],
+                details=m["details"],
+            )
+            db_session.add(metric)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_count"] == 3
+        assert len(data["metrics"]) == 3
+
+        # Check structure of returned items
+        for metric in data["metrics"]:
+            assert "id" in metric
+            assert "metric_type" in metric
+            assert "value" in metric
+            assert "sample_size" in metric
+            assert "calculated_at" in metric
+            assert "details" in metric
+
+        # Check ordering (most recent first)
+        assert data["metrics"][0]["metric_type"] == "cronbachs_alpha"
+        assert data["metrics"][1]["metric_type"] == "test_retest"
+        assert data["metrics"][2]["metric_type"] == "split_half"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_filters_by_metric_type(self, client, db_session, admin_token_headers):
+        """Test filtering by metric_type parameter."""
+        # Create metrics of different types
+        now = datetime.now(timezone.utc)
+        for i, metric_type in enumerate(
+            ["cronbachs_alpha", "test_retest", "split_half"]
+        ):
+            for j in range(2):  # 2 of each type
+                metric = ReliabilityMetric(
+                    metric_type=metric_type,
+                    value=0.75 + (i * 0.05),
+                    sample_size=100 + (i * 10),
+                    calculated_at=now - timedelta(days=i * 2 + j),
+                    details={"interpretation": "good"},
+                )
+                db_session.add(metric)
+        db_session.commit()
+
+        # Filter for just cronbachs_alpha
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"metric_type": "cronbachs_alpha"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_count"] == 2
+        for metric in data["metrics"]:
+            assert metric["metric_type"] == "cronbachs_alpha"
+
+        # Filter for test_retest
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"metric_type": "test_retest"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_count"] == 2
+        for metric in data["metrics"]:
+            assert metric["metric_type"] == "test_retest"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_filters_by_days(self, client, db_session, admin_token_headers):
+        """Test filtering by days parameter."""
+        now = datetime.now(timezone.utc)
+
+        # Create metrics at different ages (avoid boundary values)
+        # Use ages well within and well outside the filter boundaries
+        ages_days = [5, 25, 50, 100, 200]
+        for age in ages_days:
+            metric = ReliabilityMetric(
+                metric_type="cronbachs_alpha",
+                value=0.78,
+                sample_size=100,
+                calculated_at=now - timedelta(days=age),
+                details={"interpretation": "good"},
+            )
+            db_session.add(metric)
+        db_session.commit()
+
+        # Get last 30 days - should include ages 5 and 25
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 30},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only get metrics from last 30 days (ages 5 and 25)
+        assert data["total_count"] == 2
+
+        # Get last 90 days - should include ages 5, 25, 50
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 90},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should get metrics from last 90 days (ages 5, 25, 50)
+        assert data["total_count"] == 3
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_days_parameter_validation(self, client, db_session, admin_token_headers):
+        """Test days parameter validation (1-365)."""
+        # days must be >= 1
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 0},
+        )
+        assert response.status_code == 422  # Validation error
+
+        # days must be <= 365
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 400},
+        )
+        assert response.status_code == 422  # Validation error
+
+        # Valid days=1 should work
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 1},
+        )
+        assert response.status_code == 200
+
+        # Valid days=365 should work
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"days": 365},
+        )
+        assert response.status_code == 200
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_response_schema_structure(self, client, db_session, admin_token_headers):
+        """Test response matches expected schema structure."""
+        now = datetime.now(timezone.utc)
+        metric = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.78,
+            sample_size=100,
+            calculated_at=now,
+            details={
+                "interpretation": "good",
+                "meets_threshold": True,
+                "num_items": 20,
+            },
+        )
+        db_session.add(metric)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Validate top-level structure
+        assert isinstance(data["metrics"], list)
+        assert isinstance(data["total_count"], int)
+
+        # Validate item structure
+        item = data["metrics"][0]
+        assert isinstance(item["id"], int)
+        assert isinstance(item["metric_type"], str)
+        assert isinstance(item["value"], float)
+        assert isinstance(item["sample_size"], int)
+        assert isinstance(item["calculated_at"], str)  # ISO format string
+        assert isinstance(item["details"], dict)
+
+        # Validate metric_type is valid
+        assert item["metric_type"] in ["cronbachs_alpha", "test_retest", "split_half"]
+
+    def test_admin_token_not_configured(self, client, db_session):
+        """Test handling when admin token is not configured on server."""
+        with patch("app.core.settings.ADMIN_TOKEN", None):
+            response = client.get(
+                "/v1/admin/reliability/history",
+                headers={"X-Admin-Token": "any-token"},
+            )
+            assert response.status_code == 500
+            assert "not configured" in response.json()["detail"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_combines_metric_type_and_days_filters(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test combining metric_type and days filters."""
+        now = datetime.now(timezone.utc)
+
+        # Create old and new metrics of different types
+        old_alpha = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.75,
+            sample_size=80,
+            calculated_at=now - timedelta(days=100),
+            details={},
+        )
+        new_alpha = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.78,
+            sample_size=100,
+            calculated_at=now - timedelta(days=10),
+            details={},
+        )
+        new_retest = ReliabilityMetric(
+            metric_type="test_retest",
+            value=0.65,
+            sample_size=50,
+            calculated_at=now - timedelta(days=5),
+            details={},
+        )
+        db_session.add_all([old_alpha, new_alpha, new_retest])
+        db_session.commit()
+
+        # Filter for cronbachs_alpha in last 30 days
+        response = client.get(
+            "/v1/admin/reliability/history",
+            headers=admin_token_headers,
+            params={"metric_type": "cronbachs_alpha", "days": 30},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only get the new alpha (not old alpha, not retest)
+        assert data["total_count"] == 1
+        assert data["metrics"][0]["metric_type"] == "cronbachs_alpha"
+        assert data["metrics"][0]["value"] == 0.78
