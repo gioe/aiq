@@ -839,11 +839,20 @@ These items were identified during code review and can be addressed in future it
 - All tests verify the full API flow: GET discrimination-report → PATCH quality-flag → GET discrimination-report, confirming the second GET returns fresh data with the updated quality_flag value
 
 ### IDA-F017: Use cache_key() Helper for Future-Proof Cache Keys
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #233 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** Consider using the `cache_key()` helper function from `app/core/cache.py` for automatic parameter hashing instead of manually constructing the cache key. This would automatically account for any new parameters without manual key format updates.
 **Original Comment:** "If additional parameters are added to `get_discrimination_report()` in the future (e.g., `max_responses`, `question_type_filter`), the cache key won't account for them unless explicitly updated. Consider using the `cache_key()` helper function for automatic parameter hashing."
+
+**Implementation:**
+- Imported `cache_key` helper function from `app/core/cache.py` as `generate_cache_key` to avoid naming conflicts
+- Updated `get_discrimination_report()` to use `generate_cache_key(min_responses=min_responses, action_list_limit=action_list_limit)` for cache key generation
+- Cache key format changed from `discrimination_report:min_responses={value}:action_list_limit={value}` to `discrimination_report:{hash}`
+- Updated logging to use new `full_cache_key` variable name
+- Updated test file to use the same `generate_cache_key()` function for cache key assertions
+- `invalidate_discrimination_report_cache()` continues to work correctly using `delete_by_prefix()` approach
+- All 109 discrimination analysis tests and 16 admin discrimination tests pass
 
 ### IDA-F018: Add Short-Lived Error Cache for Transient Database Failures
 **Status:** [ ] Not Started
