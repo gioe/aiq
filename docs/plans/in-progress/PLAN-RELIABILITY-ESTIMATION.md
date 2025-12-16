@@ -190,7 +190,7 @@ def calculate_split_half_reliability(db: Session, min_sessions: int = 100) -> Di
 ---
 
 ### RE-005: Create Pydantic Schemas for Reliability Report
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/schemas/reliability.py` (new file)
 **Description:** Create Pydantic schemas for the reliability dashboard endpoint response.
 
@@ -239,10 +239,10 @@ class ReliabilityReportResponse(BaseModel):
 ```
 
 **Acceptance Criteria:**
-- [ ] All response schemas defined with proper types
-- [ ] Optional fields properly marked for insufficient data cases
-- [ ] Schemas match gap document response format
-- [ ] Recommendations schema supports actionable admin guidance
+- [x] All response schemas defined with proper types
+- [x] Optional fields properly marked for insufficient data cases
+- [x] Schemas match gap document response format
+- [x] Recommendations schema supports actionable admin guidance
 
 ---
 
