@@ -844,7 +844,8 @@ def calculate_test_retest_reliability(
 
     result["test_retest_r"] = round(r, 4)
     result["interpretation"] = _get_test_retest_interpretation(r)
-    result["meets_threshold"] = r > AIQ_TEST_RETEST_THRESHOLD
+    # Use >= for consistency with alpha and split-half meets_threshold checks
+    result["meets_threshold"] = r >= AIQ_TEST_RETEST_THRESHOLD
     result["mean_interval_days"] = round(statistics.mean(intervals), 1)
 
     # Calculate score change statistics
@@ -1354,16 +1355,17 @@ def generate_reliability_recommendations(
             )
 
     # Check test-retest reliability against threshold
+    # Use < for consistency with alpha and split-half threshold warnings
     test_retest_r = test_retest_result.get("test_retest_r")
     if test_retest_r is not None:
-        if test_retest_r <= AIQ_TEST_RETEST_THRESHOLD:
+        if test_retest_r < AIQ_TEST_RETEST_THRESHOLD:
             interpretation = test_retest_result.get("interpretation", "poor")
             recommendations.append(
                 {
                     "category": "threshold_warning",
                     "message": (
-                        f"Test-retest reliability ({test_retest_r:.2f}) is at or below "
-                        f"the acceptable threshold (> {AIQ_TEST_RETEST_THRESHOLD}). "
+                        f"Test-retest reliability ({test_retest_r:.2f}) is below "
+                        f"the acceptable threshold (>= {AIQ_TEST_RETEST_THRESHOLD}). "
                         f"Score stability is {interpretation}."
                     ),
                     "priority": "high",
