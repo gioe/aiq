@@ -723,3 +723,21 @@ Items identified during code review that can be addressed in future iterations:
 **Files:** `backend/app/core/reliability.py`
 **Description:** Add a usage example to the module docstring showing how to call `calculate_cronbachs_alpha()` and interpret the results.
 **Original Comment:** "Consider adding a usage example to the module docstring"
+
+---
+
+### RE-FI-009: Use Enum Types in Reliability Schema Fields
+**Status:** [ ] Not Started
+**Source:** PR #254 comment
+**Files:** `backend/app/schemas/reliability.py`
+**Description:** Use the defined enum types (`ReliabilityInterpretation`, `RecommendationCategory`, `RecommendationPriority`, `OverallStatus`) directly in schema fields instead of `str` for stronger type safety, better API validation, and improved OpenAPI documentation.
+**Original Comment:** "Consider using the `ReliabilityInterpretation` enum type directly for stronger type safety... API validation will reject invalid values automatically, Better OpenAPI documentation with allowed values"
+
+---
+
+### RE-FI-010: Add Validator for meets_threshold Consistency
+**Status:** [ ] Not Started
+**Source:** PR #254 comment
+**Files:** `backend/app/schemas/reliability.py`
+**Description:** Add Pydantic validator to ensure `meets_threshold` boolean is logically consistent with the reliability value (e.g., cannot be `True` when `cronbachs_alpha` is `None`). Alternatively, make `meets_threshold` optional when insufficient data.
+**Original Comment:** "When cronbachs_alpha is None (insufficient data), what should meets_threshold be? Consider adding a Pydantic validator to ensure logical consistency"
