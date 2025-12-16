@@ -2891,6 +2891,50 @@ class TestStoreReliabilityMetric:
         assert retrieved.value == 0.90
         assert retrieved.sample_size == 250
 
+    def test_store_metric_validates_type(self, db_session):
+        """Rejects invalid metric types."""
+        with pytest.raises(ValueError, match="Invalid metric_type"):
+            store_reliability_metric(db_session, "invalid_type", 0.85, 100)
+
+    def test_store_metric_validates_type_typo(self, db_session):
+        """Rejects typos in metric type names."""
+        with pytest.raises(ValueError, match="Invalid metric_type"):
+            store_reliability_metric(db_session, "cronbach_alpha", 0.85, 100)
+
+    def test_store_metric_validates_value_range_high(self, db_session):
+        """Rejects values above 1.0."""
+        with pytest.raises(ValueError, match="between -1.0 and 1.0"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 1.5, 100)
+
+    def test_store_metric_validates_value_range_low(self, db_session):
+        """Rejects values below -1.0."""
+        with pytest.raises(ValueError, match="between -1.0 and 1.0"):
+            store_reliability_metric(db_session, "cronbachs_alpha", -1.5, 100)
+
+    def test_store_metric_validates_sample_size_zero(self, db_session):
+        """Rejects zero sample size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 0)
+
+    def test_store_metric_validates_sample_size_negative(self, db_session):
+        """Rejects negative sample size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 0.85, -5)
+
+    def test_store_metric_accepts_boundary_values(self, db_session):
+        """Accepts valid boundary values for coefficient."""
+        # Test -1.0 boundary
+        metric_low = store_reliability_metric(db_session, "cronbachs_alpha", -1.0, 100)
+        assert metric_low.value == -1.0
+
+        # Test 1.0 boundary
+        metric_high = store_reliability_metric(db_session, "test_retest", 1.0, 100)
+        assert metric_high.value == 1.0
+
+        # Test minimum sample size
+        metric_min = store_reliability_metric(db_session, "split_half", 0.5, 1)
+        assert metric_min.sample_size == 1
+
 
 class TestGetReliabilityHistory:
     """Tests for get_reliability_history function (RE-007)."""

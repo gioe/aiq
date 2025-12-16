@@ -1468,6 +1468,9 @@ def get_reliability_report(
 # RELIABILITY METRICS PERSISTENCE (RE-007)
 # =============================================================================
 
+# Valid metric types for reliability metrics storage
+VALID_METRIC_TYPES = {"cronbachs_alpha", "test_retest", "split_half"}
+
 
 def store_reliability_metric(
     db: Session,
@@ -1487,16 +1490,37 @@ def store_reliability_metric(
     Args:
         db: Database session
         metric_type: Type of metric - "cronbachs_alpha", "test_retest", or "split_half"
-        value: The calculated reliability coefficient
-        sample_size: Number of sessions/pairs used in the calculation
+        value: The calculated reliability coefficient (must be between -1.0 and 1.0)
+        sample_size: Number of sessions/pairs used in the calculation (must be >= 1)
         details: Optional additional context (interpretation, thresholds, etc.)
 
     Returns:
         Created ReliabilityMetric instance
 
+    Raises:
+        ValueError: If metric_type is invalid, value is out of range, or sample_size < 1
+
     Reference:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-007)
     """
+    # Validate metric type
+    if metric_type not in VALID_METRIC_TYPES:
+        raise ValueError(
+            f"Invalid metric_type: {metric_type}. "
+            f"Must be one of: {', '.join(sorted(VALID_METRIC_TYPES))}"
+        )
+
+    # Validate value range (reliability coefficients are between -1.0 and 1.0)
+    if not -1.0 <= value <= 1.0:
+        raise ValueError(
+            f"Invalid value: {value}. "
+            "Reliability coefficients must be between -1.0 and 1.0"
+        )
+
+    # Validate sample size
+    if sample_size < 1:
+        raise ValueError(f"Invalid sample_size: {sample_size}. Must be at least 1")
+
     metric = ReliabilityMetric(
         metric_type=metric_type,
         value=value,
