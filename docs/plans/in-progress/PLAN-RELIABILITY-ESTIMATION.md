@@ -704,11 +704,12 @@ Items identified during code review that can be addressed in future iterations:
 ---
 
 ### RE-FI-002: Improve Type Annotations with TypedDict
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #251 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Replace `List[Dict[str, Any]]` return type for `get_negative_item_correlations` with a proper TypedDict to eliminate the `type: ignore` comment and improve type safety.
 **Original Comment:** "The type: ignore comment suggests the type annotations for get_negative_item_correlations return type could be more specific"
+**Implementation Notes:** Added `ProblematicItem` TypedDict with `question_id: int`, `correlation: float`, and `recommendation: str` fields. Updated function return type and internal list type annotation. Removed `# type: ignore` comment and unused `Any` import.
 
 ---
 

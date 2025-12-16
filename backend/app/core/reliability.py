@@ -19,7 +19,7 @@ Based on:
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, TypedDict
 from collections import defaultdict
 import statistics
 
@@ -35,6 +35,23 @@ from app.models.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# TYPE DEFINITIONS
+# =============================================================================
+
+
+class ProblematicItem(TypedDict):
+    """
+    Type definition for items with negative or low item-total correlations.
+
+    Used by get_negative_item_correlations() to provide type-safe return values.
+    """
+
+    question_id: int
+    correlation: float
+    recommendation: str
 
 
 # =============================================================================
@@ -457,7 +474,7 @@ def calculate_cronbachs_alpha(
 def get_negative_item_correlations(
     item_total_correlations: Dict[int, float],
     threshold: float = 0.0,
-) -> List[Dict[str, Any]]:
+) -> List[ProblematicItem]:
     """
     Identify items with negative or low item-total correlations.
 
@@ -469,16 +486,12 @@ def get_negative_item_correlations(
         threshold: Correlation threshold below which items are flagged
 
     Returns:
-        List of problematic items:
-        [
-            {
-                "question_id": int,
-                "correlation": float,
-                "recommendation": str
-            }
-        ]
+        List of ProblematicItem TypedDicts containing:
+        - question_id: The ID of the problematic question
+        - correlation: The item-total correlation value
+        - recommendation: Actionable guidance for addressing the issue
     """
-    problematic = []
+    problematic: List[ProblematicItem] = []
 
     for q_id, corr in item_total_correlations.items():
         if corr < threshold:
@@ -503,8 +516,7 @@ def get_negative_item_correlations(
             )
 
     # Sort by correlation (most negative first)
-    # Cast needed for mypy since Dict values are typed as Any
-    problematic.sort(key=lambda x: x["correlation"])  # type: ignore[arg-type,return-value]
+    problematic.sort(key=lambda x: x["correlation"])
 
     return problematic
 
