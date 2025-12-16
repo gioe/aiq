@@ -303,7 +303,7 @@ def generate_reliability_recommendations(report: Dict) -> List[Dict]:
 ---
 
 ### RE-007: Store Reliability Metrics to Database
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/reliability.py`
 **Description:** Implement function to persist calculated reliability metrics to the database for historical tracking and trend analysis.
 
@@ -343,10 +343,10 @@ def get_reliability_history(
 ```
 
 **Acceptance Criteria:**
-- [ ] Metrics stored with timestamp, type, value, sample_size, and details
-- [ ] History function retrieves metrics for specified time period
-- [ ] Supports filtering by metric type
-- [ ] Unit tests verify storage and retrieval
+- [x] Metrics stored with timestamp, type, value, sample_size, and details
+- [x] History function retrieves metrics for specified time period
+- [x] Supports filtering by metric type
+- [x] Unit tests verify storage and retrieval
 
 ---
 
@@ -795,3 +795,21 @@ Items identified during code review that can be addressed in future iterations:
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add tests for edge case correlation values: exactly 0.0, negative correlations, and practice effect exactly at threshold (5.0).
 **Original Comment:** "Missing tests: Test with exactly zero correlation values, Test with negative correlation values, Test with practice effect exactly at threshold"
+
+---
+
+### RE-FI-017: Add Optional Commit Parameter for Batch Operations
+**Status:** [ ] Not Started
+**Source:** PR #257 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Add an optional `commit` parameter to `store_reliability_metric()` to allow caller control over transaction commits, enabling batch operations where multiple metrics can be stored in a single transaction.
+**Original Comment:** "store_reliability_metric() commits directly within the function. This pattern prevents batching multiple metric stores in a single transaction. Consider adding an optional `commit` parameter to allow caller control."
+
+---
+
+### RE-FI-018: Use Literal Type for metric_type Parameter
+**Status:** [ ] Not Started
+**Source:** PR #257 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Consider using `Literal["cronbachs_alpha", "test_retest", "split_half"]` type for the `metric_type` parameter instead of `str` for better IDE support and type checking with mypy.
+**Original Comment:** "Consider using `Literal[\"cronbachs_alpha\", \"test_retest\", \"split_half\"]` type for the `metric_type` parameter for better IDE support and type checking with mypy."

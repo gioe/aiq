@@ -40,6 +40,7 @@ from app.models.models import (
     TestStatus,
     Response,
     TestResult,
+    ReliabilityMetric,
 )
 from app.core.reliability import (
     calculate_cronbachs_alpha,
@@ -64,6 +65,9 @@ from app.core.reliability import (
     generate_reliability_recommendations,
     get_reliability_report,
     _determine_overall_status,
+    # RE-007 imports
+    store_reliability_metric,
+    get_reliability_history,
 )
 
 # Use SQLite in-memory database for tests (no file artifacts)
@@ -2764,3 +2768,355 @@ class TestReliabilityReportIntegration:
             # (depends on whether the calculation detects it)
             # Just verify the check was performed
             assert isinstance(item_reviews, list)
+
+
+# =============================================================================
+# RELIABILITY METRICS STORAGE TESTS (RE-007)
+# =============================================================================
+
+
+class TestStoreReliabilityMetric:
+    """Tests for store_reliability_metric function (RE-007)."""
+
+    def test_store_cronbachs_alpha_metric(self, db_session):
+        """Stores Cronbach's alpha metric correctly."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=150,
+        )
+
+        assert metric.id is not None
+        assert metric.metric_type == "cronbachs_alpha"
+        assert metric.value == 0.85
+        assert metric.sample_size == 150
+        assert metric.calculated_at is not None
+        assert metric.details is None
+
+    def test_store_test_retest_metric(self, db_session):
+        """Stores test-retest metric correctly."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.72,
+            sample_size=45,
+        )
+
+        assert metric.metric_type == "test_retest"
+        assert metric.value == 0.72
+        assert metric.sample_size == 45
+
+    def test_store_split_half_metric(self, db_session):
+        """Stores split-half metric correctly."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="split_half",
+            value=0.78,
+            sample_size=200,
+        )
+
+        assert metric.metric_type == "split_half"
+        assert metric.value == 0.78
+        assert metric.sample_size == 200
+
+    def test_store_metric_with_details(self, db_session):
+        """Stores metric with additional details JSON."""
+        details = {
+            "interpretation": "good",
+            "meets_threshold": True,
+            "num_items": 20,
+            "item_total_correlations": {1: 0.45, 2: 0.52, 3: 0.38},
+        }
+
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.82,
+            sample_size=180,
+            details=details,
+        )
+
+        assert metric.details is not None
+        assert metric.details["interpretation"] == "good"
+        assert metric.details["meets_threshold"] is True
+        assert metric.details["num_items"] == 20
+        # JSON serializes integer keys as strings
+        assert "1" in metric.details["item_total_correlations"]
+
+    def test_store_multiple_metrics(self, db_session):
+        """Stores multiple metrics and retrieves them correctly."""
+        # Store three metrics
+        store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=100,
+        )
+        store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.70,
+            sample_size=50,
+        )
+        store_reliability_metric(
+            db_session,
+            metric_type="split_half",
+            value=0.88,
+            sample_size=100,
+        )
+
+        # Query directly from database
+        metrics = db_session.query(ReliabilityMetric).all()
+        assert len(metrics) == 3
+
+    def test_store_metric_persists_to_database(self, db_session):
+        """Verifies metric is persisted and can be retrieved from database."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.90,
+            sample_size=250,
+        )
+
+        # Retrieve from database by ID
+        retrieved = (
+            db_session.query(ReliabilityMetric)
+            .filter(ReliabilityMetric.id == metric.id)
+            .first()
+        )
+
+        assert retrieved is not None
+        assert retrieved.metric_type == "cronbachs_alpha"
+        assert retrieved.value == 0.90
+        assert retrieved.sample_size == 250
+
+    def test_store_metric_validates_type(self, db_session):
+        """Rejects invalid metric types."""
+        with pytest.raises(ValueError, match="Invalid metric_type"):
+            store_reliability_metric(db_session, "invalid_type", 0.85, 100)
+
+    def test_store_metric_validates_type_typo(self, db_session):
+        """Rejects typos in metric type names."""
+        with pytest.raises(ValueError, match="Invalid metric_type"):
+            store_reliability_metric(db_session, "cronbach_alpha", 0.85, 100)
+
+    def test_store_metric_validates_value_range_high(self, db_session):
+        """Rejects values above 1.0."""
+        with pytest.raises(ValueError, match="between -1.0 and 1.0"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 1.5, 100)
+
+    def test_store_metric_validates_value_range_low(self, db_session):
+        """Rejects values below -1.0."""
+        with pytest.raises(ValueError, match="between -1.0 and 1.0"):
+            store_reliability_metric(db_session, "cronbachs_alpha", -1.5, 100)
+
+    def test_store_metric_validates_sample_size_zero(self, db_session):
+        """Rejects zero sample size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 0)
+
+    def test_store_metric_validates_sample_size_negative(self, db_session):
+        """Rejects negative sample size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            store_reliability_metric(db_session, "cronbachs_alpha", 0.85, -5)
+
+    def test_store_metric_accepts_boundary_values(self, db_session):
+        """Accepts valid boundary values for coefficient."""
+        # Test -1.0 boundary
+        metric_low = store_reliability_metric(db_session, "cronbachs_alpha", -1.0, 100)
+        assert metric_low.value == -1.0
+
+        # Test 1.0 boundary
+        metric_high = store_reliability_metric(db_session, "test_retest", 1.0, 100)
+        assert metric_high.value == 1.0
+
+        # Test minimum sample size
+        metric_min = store_reliability_metric(db_session, "split_half", 0.5, 1)
+        assert metric_min.sample_size == 1
+
+
+class TestGetReliabilityHistory:
+    """Tests for get_reliability_history function (RE-007)."""
+
+    def test_get_empty_history(self, db_session):
+        """Returns empty list when no metrics exist."""
+        history = get_reliability_history(db_session)
+        assert history == []
+
+    def test_get_all_metrics(self, db_session):
+        """Retrieves all metrics when no filter specified."""
+        # Store three metrics
+        store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
+        store_reliability_metric(db_session, "test_retest", 0.72, 50)
+        store_reliability_metric(db_session, "split_half", 0.78, 100)
+
+        history = get_reliability_history(db_session)
+        assert len(history) == 3
+
+    def test_filter_by_metric_type(self, db_session):
+        """Filters history by metric type correctly."""
+        # Store multiple metrics of different types
+        store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
+        store_reliability_metric(db_session, "cronbachs_alpha", 0.87, 120)
+        store_reliability_metric(db_session, "test_retest", 0.72, 50)
+        store_reliability_metric(db_session, "split_half", 0.78, 100)
+
+        # Filter by cronbachs_alpha
+        alpha_history = get_reliability_history(
+            db_session, metric_type="cronbachs_alpha"
+        )
+        assert len(alpha_history) == 2
+        assert all(m["metric_type"] == "cronbachs_alpha" for m in alpha_history)
+
+        # Filter by test_retest
+        retest_history = get_reliability_history(db_session, metric_type="test_retest")
+        assert len(retest_history) == 1
+        assert retest_history[0]["metric_type"] == "test_retest"
+
+    def test_filter_by_days(self, db_session):
+        """Filters history by time period correctly."""
+        from datetime import datetime, timedelta, timezone
+
+        # Store a recent metric
+        store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
+
+        # Store an old metric by directly creating it with old timestamp
+        old_metric = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.75,
+            sample_size=80,
+            calculated_at=datetime.now(timezone.utc) - timedelta(days=120),
+        )
+        db_session.add(old_metric)
+        db_session.commit()
+
+        # Get history with 90-day filter (default)
+        history = get_reliability_history(db_session, days=90)
+        assert len(history) == 1
+        assert history[0]["value"] == 0.85
+
+        # Get history with 180-day filter
+        history_longer = get_reliability_history(db_session, days=180)
+        assert len(history_longer) == 2
+
+    def test_history_ordered_by_date_desc(self, db_session):
+        """Returns metrics ordered by calculated_at descending (most recent first)."""
+        from datetime import datetime, timedelta, timezone
+
+        # Store metrics with different timestamps
+        now = datetime.now(timezone.utc)
+
+        metric1 = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.80,
+            sample_size=100,
+            calculated_at=now - timedelta(days=10),
+        )
+        metric2 = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=120,
+            calculated_at=now - timedelta(days=5),
+        )
+        metric3 = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.90,
+            sample_size=150,
+            calculated_at=now - timedelta(days=2),
+        )
+
+        db_session.add_all([metric1, metric2, metric3])
+        db_session.commit()
+
+        history = get_reliability_history(db_session)
+
+        assert len(history) == 3
+        # Most recent first
+        assert history[0]["value"] == 0.90
+        assert history[1]["value"] == 0.85
+        assert history[2]["value"] == 0.80
+
+    def test_history_includes_all_fields(self, db_session):
+        """Returns all required fields in history entries."""
+        details = {"interpretation": "good", "meets_threshold": True}
+
+        store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.82,
+            sample_size=150,
+            details=details,
+        )
+
+        history = get_reliability_history(db_session)
+        assert len(history) == 1
+
+        entry = history[0]
+        assert "id" in entry
+        assert "metric_type" in entry
+        assert "value" in entry
+        assert "sample_size" in entry
+        assert "calculated_at" in entry
+        assert "details" in entry
+
+        assert entry["metric_type"] == "cronbachs_alpha"
+        assert entry["value"] == 0.82
+        assert entry["sample_size"] == 150
+        assert entry["details"]["interpretation"] == "good"
+
+    def test_combined_filters(self, db_session):
+        """Supports combining metric_type and days filters."""
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+
+        # Recent alpha
+        metric1 = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=100,
+            calculated_at=now - timedelta(days=10),
+        )
+        # Old alpha
+        metric2 = ReliabilityMetric(
+            metric_type="cronbachs_alpha",
+            value=0.75,
+            sample_size=80,
+            calculated_at=now - timedelta(days=100),
+        )
+        # Recent retest
+        metric3 = ReliabilityMetric(
+            metric_type="test_retest",
+            value=0.72,
+            sample_size=50,
+            calculated_at=now - timedelta(days=10),
+        )
+
+        db_session.add_all([metric1, metric2, metric3])
+        db_session.commit()
+
+        # Get recent alpha only
+        history = get_reliability_history(
+            db_session,
+            metric_type="cronbachs_alpha",
+            days=30,
+        )
+
+        assert len(history) == 1
+        assert history[0]["value"] == 0.85
+        assert history[0]["metric_type"] == "cronbachs_alpha"
+
+    def test_handles_null_details(self, db_session):
+        """Handles metrics with null details correctly."""
+        store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.65,
+            sample_size=40,
+            details=None,
+        )
+
+        history = get_reliability_history(db_session)
+        assert len(history) == 1
+        assert history[0]["details"] is None
