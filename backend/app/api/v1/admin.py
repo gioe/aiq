@@ -135,6 +135,17 @@ from app.schemas.discrimination_analysis import (
     DiscriminationDetailHistory,
     QualityTier,
 )
+from app.schemas.reliability import (
+    ReliabilityReportResponse,
+    InternalConsistencyMetrics,
+    TestRetestMetrics,
+    SplitHalfMetrics,
+    ReliabilityRecommendation,
+)
+from app.core.reliability import (
+    get_reliability_report,
+    store_reliability_metric,
+)
 from app.models import Question, TestSession, TestResult, Response
 
 # Configure logger for admin operations
@@ -3590,3 +3601,169 @@ async def update_quality_flag(
         reason=reason,
         updated_at=update_time.isoformat(),
     )
+
+
+# =============================================================================
+# RE-008: Reliability Report Endpoint
+# =============================================================================
+
+
+@router.get(
+    "/reliability",
+    response_model=ReliabilityReportResponse,
+    responses={
+        401: {"description": "Invalid admin token"},
+    },
+)
+async def get_reliability_report_endpoint(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+    min_sessions: int = Query(
+        default=100,
+        ge=1,
+        description="Minimum sessions required for alpha/split-half calculations",
+    ),
+    min_retest_pairs: int = Query(
+        default=30,
+        ge=1,
+        description="Minimum retest pairs required for test-retest calculation",
+    ),
+    store_metrics: bool = Query(
+        default=True,
+        description="Whether to persist calculated metrics to the database",
+    ),
+) -> ReliabilityReportResponse:
+    """
+    Get reliability metrics report for admin dashboard.
+
+    Returns comprehensive reliability metrics including:
+    - **Cronbach's alpha**: Measures internal consistency (how well items measure
+      the same construct). Target: ≥ 0.70 for acceptable reliability.
+    - **Test-retest reliability**: Measures score stability over time using Pearson
+      correlation between consecutive tests. Target: > 0.50 for acceptable reliability.
+    - **Split-half reliability**: Measures internal consistency by splitting tests
+      into odd/even halves with Spearman-Brown correction. Target: ≥ 0.70.
+
+    **Interpretation thresholds:**
+    - Excellent: α/r ≥ 0.90
+    - Good: α/r ≥ 0.80
+    - Acceptable: α/r ≥ 0.70 (alpha/split-half) or r > 0.50 (test-retest)
+    - Poor: Below acceptable thresholds
+
+    **Data requirements:**
+    - Cronbach's alpha and split-half: Minimum 100 completed test sessions
+    - Test-retest: Minimum 30 users who have taken the test multiple times
+
+    When `store_metrics=true` (default), calculated metrics are persisted to the
+    database for historical trend analysis via the `/reliability/history` endpoint.
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    try:
+        # Generate the reliability report
+        report = get_reliability_report(
+            db=db,
+            min_sessions=min_sessions,
+            min_retest_pairs=min_retest_pairs,
+        )
+
+        # Optionally store metrics to database for historical tracking
+        if store_metrics:
+            # Store Cronbach's alpha if calculated
+            alpha = report["internal_consistency"].get("cronbachs_alpha")
+            if alpha is not None:
+                store_reliability_metric(
+                    db=db,
+                    metric_type="cronbachs_alpha",
+                    value=alpha,
+                    sample_size=report["internal_consistency"]["num_sessions"],
+                    details={
+                        "interpretation": report["internal_consistency"].get(
+                            "interpretation"
+                        ),
+                        "meets_threshold": report["internal_consistency"].get(
+                            "meets_threshold"
+                        ),
+                        "num_items": report["internal_consistency"].get("num_items"),
+                    },
+                )
+
+            # Store test-retest reliability if calculated
+            test_retest_r = report["test_retest"].get("correlation")
+            if test_retest_r is not None:
+                store_reliability_metric(
+                    db=db,
+                    metric_type="test_retest",
+                    value=test_retest_r,
+                    sample_size=report["test_retest"]["num_pairs"],
+                    details={
+                        "interpretation": report["test_retest"].get("interpretation"),
+                        "meets_threshold": report["test_retest"].get("meets_threshold"),
+                        "mean_interval_days": report["test_retest"].get(
+                            "mean_interval_days"
+                        ),
+                        "practice_effect": report["test_retest"].get("practice_effect"),
+                    },
+                )
+
+            # Store split-half reliability if calculated
+            spearman_brown = report["split_half"].get("spearman_brown")
+            if spearman_brown is not None:
+                store_reliability_metric(
+                    db=db,
+                    metric_type="split_half",
+                    value=spearman_brown,
+                    sample_size=report["split_half"]["num_sessions"],
+                    details={
+                        "interpretation": report["split_half"].get("interpretation"),
+                        "meets_threshold": report["split_half"].get("meets_threshold"),
+                        "raw_correlation": report["split_half"].get("raw_correlation"),
+                    },
+                )
+
+        # Build response using Pydantic models
+        return ReliabilityReportResponse(
+            internal_consistency=InternalConsistencyMetrics(
+                cronbachs_alpha=report["internal_consistency"].get("cronbachs_alpha"),
+                interpretation=report["internal_consistency"].get("interpretation"),
+                meets_threshold=report["internal_consistency"]["meets_threshold"],
+                num_sessions=report["internal_consistency"]["num_sessions"],
+                num_items=report["internal_consistency"].get("num_items"),
+                last_calculated=report["internal_consistency"].get("last_calculated"),
+                item_total_correlations=report["internal_consistency"].get(
+                    "item_total_correlations"
+                ),
+            ),
+            test_retest=TestRetestMetrics(
+                correlation=report["test_retest"].get("correlation"),
+                interpretation=report["test_retest"].get("interpretation"),
+                meets_threshold=report["test_retest"]["meets_threshold"],
+                num_pairs=report["test_retest"]["num_pairs"],
+                mean_interval_days=report["test_retest"].get("mean_interval_days"),
+                practice_effect=report["test_retest"].get("practice_effect"),
+                last_calculated=report["test_retest"].get("last_calculated"),
+            ),
+            split_half=SplitHalfMetrics(
+                raw_correlation=report["split_half"].get("raw_correlation"),
+                spearman_brown=report["split_half"].get("spearman_brown"),
+                meets_threshold=report["split_half"]["meets_threshold"],
+                num_sessions=report["split_half"]["num_sessions"],
+                last_calculated=report["split_half"].get("last_calculated"),
+            ),
+            overall_status=report["overall_status"],
+            recommendations=[
+                ReliabilityRecommendation(
+                    category=rec["category"],
+                    message=rec["message"],
+                    priority=rec["priority"],
+                )
+                for rec in report["recommendations"]
+            ],
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate reliability report: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate reliability report: {str(e)}",
+        )
