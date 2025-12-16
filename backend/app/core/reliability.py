@@ -1016,3 +1016,443 @@ def calculate_split_half_reliability(
     )
 
     return result
+
+
+# =============================================================================
+# RELIABILITY REPORT BUSINESS LOGIC (RE-006)
+# =============================================================================
+
+
+def get_reliability_interpretation(value: float, metric_type: str) -> str:
+    """
+    Get interpretation string for a reliability value.
+
+    Args:
+        value: The reliability coefficient
+        metric_type: "alpha", "test_retest", or "split_half"
+
+    Returns:
+        Interpretation: "excellent", "good", "acceptable", "questionable",
+                       "poor", or "unacceptable"
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
+    """
+    if metric_type == "alpha":
+        return _get_interpretation(value)
+    elif metric_type == "test_retest":
+        return _get_test_retest_interpretation(value)
+    elif metric_type == "split_half":
+        return _get_split_half_interpretation(value)
+    else:
+        # Default to alpha thresholds
+        return _get_interpretation(value)
+
+
+def generate_reliability_recommendations(
+    alpha_result: Dict,
+    test_retest_result: Dict,
+    split_half_result: Dict,
+) -> List[Dict[str, str]]:
+    """
+    Generate actionable recommendations based on reliability metrics.
+
+    Categories:
+    - data_collection: Need more sessions/retest pairs
+    - item_review: Items with negative item-total correlations
+    - threshold_warning: Metrics below acceptable thresholds
+
+    Args:
+        alpha_result: Result from calculate_cronbachs_alpha()
+        test_retest_result: Result from calculate_test_retest_reliability()
+        split_half_result: Result from calculate_split_half_reliability()
+
+    Returns:
+        List of recommendations:
+        [
+            {
+                "category": str,  # "data_collection", "item_review", "threshold_warning"
+                "message": str,
+                "priority": str  # "high", "medium", "low"
+            }
+        ]
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
+    """
+    recommendations: List[Dict[str, str]] = []
+
+    # ==========================================================================
+    # DATA COLLECTION RECOMMENDATIONS
+    # ==========================================================================
+
+    # Check for insufficient Cronbach's alpha data
+    if alpha_result.get("error") and "Insufficient" in alpha_result.get("error", ""):
+        num_sessions = alpha_result.get("num_sessions", 0)
+        recommendations.append(
+            {
+                "category": "data_collection",
+                "message": (
+                    f"Cronbach's alpha requires more test sessions. "
+                    f"Current: {num_sessions}. Target: 100+ sessions."
+                ),
+                "priority": "high",
+            }
+        )
+
+    # Check for insufficient test-retest data
+    if test_retest_result.get("error") and "Insufficient" in test_retest_result.get(
+        "error", ""
+    ):
+        num_pairs = test_retest_result.get("num_retest_pairs", 0)
+        recommendations.append(
+            {
+                "category": "data_collection",
+                "message": (
+                    f"Test-retest reliability requires more retest pairs. "
+                    f"Current: {num_pairs}. Target: 100+ pairs."
+                ),
+                "priority": "medium",
+            }
+        )
+    # If we have data but below recommended 100 pairs
+    elif (
+        test_retest_result.get("test_retest_r") is not None
+        and test_retest_result.get("num_retest_pairs", 0) < 100
+    ):
+        num_pairs = test_retest_result.get("num_retest_pairs", 0)
+        recommendations.append(
+            {
+                "category": "data_collection",
+                "message": (
+                    f"Test-retest sample size is low ({num_pairs} pairs). "
+                    f"Target: 100+ pairs for stable estimates."
+                ),
+                "priority": "low",
+            }
+        )
+
+    # Check for insufficient split-half data
+    if split_half_result.get("error") and "Insufficient" in split_half_result.get(
+        "error", ""
+    ):
+        num_sessions = split_half_result.get("num_sessions", 0)
+        recommendations.append(
+            {
+                "category": "data_collection",
+                "message": (
+                    f"Split-half reliability requires more test sessions. "
+                    f"Current: {num_sessions}. Target: 100+ sessions."
+                ),
+                "priority": "high",
+            }
+        )
+
+    # ==========================================================================
+    # ITEM REVIEW RECOMMENDATIONS
+    # ==========================================================================
+
+    # Check for items with negative item-total correlations
+    item_correlations = alpha_result.get("item_total_correlations", {})
+    if item_correlations:
+        negative_items = get_negative_item_correlations(
+            item_correlations, threshold=0.0
+        )
+        if negative_items:
+            count = len(negative_items)
+            priority = "high" if count >= 3 else "medium"
+            recommendations.append(
+                {
+                    "category": "item_review",
+                    "message": (
+                        f"Found {count} item(s) with negative item-total correlations. "
+                        f"These items may harm internal consistency and should be reviewed."
+                    ),
+                    "priority": priority,
+                }
+            )
+
+        # Check for items with very low (but positive) correlations
+        low_items = get_negative_item_correlations(item_correlations, threshold=0.15)
+        low_but_positive = [
+            item
+            for item in low_items
+            if item["correlation"] >= 0 and item["correlation"] < 0.15
+        ]
+        if len(low_but_positive) >= 3:
+            recommendations.append(
+                {
+                    "category": "item_review",
+                    "message": (
+                        f"Found {len(low_but_positive)} items with very low item-total "
+                        f"correlations (< 0.15). Consider reviewing these items for quality."
+                    ),
+                    "priority": "low",
+                }
+            )
+
+    # ==========================================================================
+    # THRESHOLD WARNING RECOMMENDATIONS
+    # ==========================================================================
+
+    # Check Cronbach's alpha against threshold
+    alpha = alpha_result.get("cronbachs_alpha")
+    if alpha is not None:
+        if alpha < AIQ_ALPHA_THRESHOLD:
+            interpretation = alpha_result.get("interpretation", "poor")
+            recommendations.append(
+                {
+                    "category": "threshold_warning",
+                    "message": (
+                        f"Cronbach's alpha ({alpha:.2f}) is below the acceptable "
+                        f"threshold (≥ {AIQ_ALPHA_THRESHOLD}). Internal consistency "
+                        f"is {interpretation}. Review item quality and test composition."
+                    ),
+                    "priority": "high",
+                }
+            )
+
+    # Check test-retest reliability against threshold
+    test_retest_r = test_retest_result.get("test_retest_r")
+    if test_retest_r is not None:
+        if test_retest_r <= AIQ_TEST_RETEST_THRESHOLD:
+            interpretation = test_retest_result.get("interpretation", "poor")
+            recommendations.append(
+                {
+                    "category": "threshold_warning",
+                    "message": (
+                        f"Test-retest reliability ({test_retest_r:.2f}) is at or below "
+                        f"the acceptable threshold (> {AIQ_TEST_RETEST_THRESHOLD}). "
+                        f"Score stability is {interpretation}."
+                    ),
+                    "priority": "high",
+                }
+            )
+
+    # Check split-half reliability against threshold
+    spearman_brown = split_half_result.get("spearman_brown_r")
+    if spearman_brown is not None:
+        if spearman_brown < AIQ_SPLIT_HALF_THRESHOLD:
+            interpretation = split_half_result.get("interpretation", "poor")
+            recommendations.append(
+                {
+                    "category": "threshold_warning",
+                    "message": (
+                        f"Split-half reliability ({spearman_brown:.2f}) is below the "
+                        f"acceptable threshold (≥ {AIQ_SPLIT_HALF_THRESHOLD}). "
+                        f"Internal consistency is {interpretation}."
+                    ),
+                    "priority": "medium",
+                }
+            )
+
+    # Check for large practice effect (may indicate test issues)
+    practice_effect = test_retest_result.get("score_change_stats", {}).get(
+        "practice_effect"
+    )
+    if practice_effect is not None and abs(practice_effect) > 5:
+        direction = "increase" if practice_effect > 0 else "decrease"
+        recommendations.append(
+            {
+                "category": "threshold_warning",
+                "message": (
+                    f"Large practice effect detected ({practice_effect:.1f} points {direction}). "
+                    f"This may indicate insufficient question variety or test-taking strategy effects."
+                ),
+                "priority": "medium",
+            }
+        )
+
+    # Sort recommendations by priority (high > medium > low)
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    recommendations.sort(key=lambda x: priority_order.get(x["priority"], 99))
+
+    return recommendations
+
+
+def _determine_overall_status(
+    alpha_result: Dict,
+    test_retest_result: Dict,
+    split_half_result: Dict,
+) -> str:
+    """
+    Determine overall reliability status based on combined metrics.
+
+    Args:
+        alpha_result: Result from calculate_cronbachs_alpha()
+        test_retest_result: Result from calculate_test_retest_reliability()
+        split_half_result: Result from calculate_split_half_reliability()
+
+    Returns:
+        Overall status: "excellent", "acceptable", "needs_attention", "insufficient_data"
+    """
+    # Check if we have insufficient data for all metrics
+    has_alpha = alpha_result.get("cronbachs_alpha") is not None
+    has_test_retest = test_retest_result.get("test_retest_r") is not None
+    has_split_half = split_half_result.get("spearman_brown_r") is not None
+
+    # If no metrics are available, report insufficient data
+    if not (has_alpha or has_test_retest or has_split_half):
+        return "insufficient_data"
+
+    # Count how many metrics meet their thresholds
+    thresholds_met = 0
+    total_metrics = 0
+
+    if has_alpha:
+        total_metrics += 1
+        if alpha_result.get("meets_threshold", False):
+            thresholds_met += 1
+
+    if has_test_retest:
+        total_metrics += 1
+        if test_retest_result.get("meets_threshold", False):
+            thresholds_met += 1
+
+    if has_split_half:
+        total_metrics += 1
+        if split_half_result.get("meets_threshold", False):
+            thresholds_met += 1
+
+    # Check for excellent status (all metrics excellent)
+    # Use explicit None checks to avoid issues with 0.0 being falsy
+    alpha_val = alpha_result.get("cronbachs_alpha")
+    alpha_excellent = (
+        has_alpha
+        and alpha_val is not None
+        and alpha_val >= ALPHA_THRESHOLDS["excellent"]
+    )
+
+    test_retest_val = test_retest_result.get("test_retest_r")
+    test_retest_excellent = (
+        has_test_retest
+        and test_retest_val is not None
+        and test_retest_val > TEST_RETEST_THRESHOLDS["excellent"]
+    )
+
+    split_half_val = split_half_result.get("spearman_brown_r")
+    split_half_excellent = (
+        has_split_half
+        and split_half_val is not None
+        and split_half_val >= SPLIT_HALF_THRESHOLDS["excellent"]
+    )
+
+    # All available metrics are excellent
+    if total_metrics > 0:
+        excellent_count = sum(
+            [alpha_excellent, test_retest_excellent, split_half_excellent]
+        )
+        if excellent_count == total_metrics:
+            return "excellent"
+
+    # All metrics meet thresholds
+    if thresholds_met == total_metrics and total_metrics > 0:
+        return "acceptable"
+
+    # Some metrics don't meet thresholds
+    return "needs_attention"
+
+
+def get_reliability_report(
+    db: Session,
+    min_sessions: int = 100,
+    min_retest_pairs: int = 30,
+) -> Dict:
+    """
+    Generate comprehensive reliability report for admin dashboard.
+
+    Combines:
+    - Cronbach's alpha (internal consistency)
+    - Test-retest reliability
+    - Split-half reliability
+
+    Returns dict matching ReliabilityReportResponse schema.
+
+    Args:
+        db: Database session
+        min_sessions: Minimum sessions required for alpha/split-half calculations
+        min_retest_pairs: Minimum pairs required for test-retest calculation
+
+    Returns:
+        {
+            "internal_consistency": InternalConsistencyMetrics,
+            "test_retest": TestRetestMetrics,
+            "split_half": SplitHalfMetrics,
+            "overall_status": str,
+            "recommendations": List[ReliabilityRecommendation]
+        }
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
+    """
+    from datetime import datetime, timezone
+
+    # Calculate all reliability metrics
+    alpha_result = calculate_cronbachs_alpha(db, min_sessions=min_sessions)
+    test_retest_result = calculate_test_retest_reliability(
+        db, min_pairs=min_retest_pairs
+    )
+    split_half_result = calculate_split_half_reliability(db, min_sessions=min_sessions)
+
+    # Current timestamp for last_calculated
+    now = datetime.now(timezone.utc)
+
+    # Build internal consistency metrics
+    internal_consistency = {
+        "cronbachs_alpha": alpha_result.get("cronbachs_alpha"),
+        "interpretation": alpha_result.get("interpretation"),
+        "meets_threshold": alpha_result.get("meets_threshold", False),
+        "num_sessions": alpha_result.get("num_sessions", 0),
+        "num_items": alpha_result.get("num_items"),
+        "last_calculated": now,
+        "item_total_correlations": alpha_result.get("item_total_correlations"),
+    }
+
+    # Build test-retest metrics
+    test_retest = {
+        "correlation": test_retest_result.get("test_retest_r"),
+        "interpretation": test_retest_result.get("interpretation"),
+        "meets_threshold": test_retest_result.get("meets_threshold", False),
+        "num_pairs": test_retest_result.get("num_retest_pairs", 0),
+        "mean_interval_days": test_retest_result.get("mean_interval_days"),
+        "practice_effect": test_retest_result.get("score_change_stats", {}).get(
+            "practice_effect"
+        ),
+        "last_calculated": now,
+    }
+
+    # Build split-half metrics
+    split_half = {
+        "raw_correlation": split_half_result.get("split_half_r"),
+        "spearman_brown": split_half_result.get("spearman_brown_r"),
+        "meets_threshold": split_half_result.get("meets_threshold", False),
+        "num_sessions": split_half_result.get("num_sessions", 0),
+        "last_calculated": now,
+    }
+
+    # Determine overall status
+    overall_status = _determine_overall_status(
+        alpha_result, test_retest_result, split_half_result
+    )
+
+    # Generate recommendations
+    recommendations = generate_reliability_recommendations(
+        alpha_result, test_retest_result, split_half_result
+    )
+
+    report = {
+        "internal_consistency": internal_consistency,
+        "test_retest": test_retest,
+        "split_half": split_half,
+        "overall_status": overall_status,
+        "recommendations": recommendations,
+    }
+
+    logger.info(
+        f"Reliability report generated: overall_status={overall_status}, "
+        f"alpha={alpha_result.get('cronbachs_alpha')}, "
+        f"test_retest={test_retest_result.get('test_retest_r')}, "
+        f"split_half={split_half_result.get('spearman_brown_r')}"
+    )
+
+    return report

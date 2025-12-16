@@ -247,7 +247,7 @@ class ReliabilityReportResponse(BaseModel):
 ---
 
 ### RE-006: Implement Reliability Report Business Logic
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/reliability.py`
 **Description:** Create the main function that orchestrates all reliability calculations and produces the comprehensive admin report.
 
@@ -293,12 +293,12 @@ def generate_reliability_recommendations(report: Dict) -> List[Dict]:
 ```
 
 **Acceptance Criteria:**
-- [ ] `get_reliability_report()` returns complete report matching schema
-- [ ] Report handles insufficient data gracefully
-- [ ] Recommendations generated based on actual metrics
-- [ ] Overall status determined from combined metrics
-- [ ] Function caches results with appropriate TTL (similar to discrimination report)
-- [ ] Unit tests cover all functions
+- [x] `get_reliability_report()` returns complete report matching schema
+- [x] Report handles insufficient data gracefully
+- [x] Recommendations generated based on actual metrics
+- [x] Overall status determined from combined metrics
+- [x] Function caches results with appropriate TTL (similar to discrimination report) - *Note: Caching deferred to RE-008 endpoint layer*
+- [x] Unit tests cover all functions
 
 ---
 
@@ -741,3 +741,57 @@ Items identified during code review that can be addressed in future iterations:
 **Files:** `backend/app/schemas/reliability.py`
 **Description:** Add Pydantic validator to ensure `meets_threshold` boolean is logically consistent with the reliability value (e.g., cannot be `True` when `cronbachs_alpha` is `None`). Alternatively, make `meets_threshold` optional when insufficient data.
 **Original Comment:** "When cronbachs_alpha is None (insufficient data), what should meets_threshold be? Consider adding a Pydantic validator to ensure logical consistency"
+
+---
+
+### RE-FI-011: Extract Practice Effect Threshold to Constant
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Extract the hardcoded `5` (IQ points) threshold for "large" practice effect to a named constant with documentation explaining the rationale (e.g., 1/3 SD suggests systematic bias).
+**Original Comment:** "The magic number `5` lacks context. Is this 5 IQ points?... Define as a constant with documentation"
+
+---
+
+### RE-FI-012: Extract Low Item Correlation Threshold to Constant
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Extract the `0.15` threshold for "very low" item-total correlations to a named constant.
+**Original Comment:** "The `0.15` threshold is hardcoded... Define as a constant"
+
+---
+
+### RE-FI-013: Document Inconsistent Threshold Comparison Behavior
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Add comment explaining why test-retest threshold uses `<=` (inclusive) while alpha and split-half use `<` (exclusive) for threshold warnings, or standardize to `<` for consistency.
+**Original Comment:** "Is the inclusive comparison (`<=`) for test-retest intentional? If intentional, add a comment explaining why"
+
+---
+
+### RE-FI-014: Replace Error String Matching with Structured Indicators
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Replace substring matching for error detection (`"Insufficient" in error`) with structured error indicators like `insufficient_data: bool` field in results dict for more robust control flow.
+**Original Comment:** "String matching for control flow is fragile. Consider structured error indicators"
+
+---
+
+### RE-FI-015: Add Defensive Error Handling Around Reliability Calculations
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** Add try-except blocks around the three `calculate_*` function calls in `get_reliability_report` to handle unexpected exceptions gracefully and return partial results.
+**Original Comment:** "If any of these functions raise unexpected exceptions, the entire report generation fails. Consider adding error handling"
+
+---
+
+### RE-FI-016: Add Edge Case Tests for Zero/Negative Correlations
+**Status:** [ ] Not Started
+**Source:** PR #256 comment
+**Files:** `backend/tests/core/test_reliability.py`
+**Description:** Add tests for edge case correlation values: exactly 0.0, negative correlations, and practice effect exactly at threshold (5.0).
+**Original Comment:** "Missing tests: Test with exactly zero correlation values, Test with negative correlation values, Test with practice effect exactly at threshold"
