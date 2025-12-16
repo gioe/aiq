@@ -100,7 +100,7 @@ def calculate_cronbachs_alpha(db: Session, min_sessions: int = 100) -> Dict:
 ---
 
 ### RE-003: Implement Test-Retest Reliability Calculation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/reliability.py`
 **Description:** Implement test-retest reliability calculation using Pearson correlation between consecutive test scores from users with multiple tests.
 
@@ -138,15 +138,15 @@ def calculate_test_retest_reliability(
 ```
 
 **Acceptance Criteria:**
-- [ ] Function identifies users with multiple completed tests
-- [ ] Calculates Pearson correlation between consecutive test scores
-- [ ] Filters by configurable interval range (min/max days)
-- [ ] Returns interpretation based on standard thresholds (>0.90 excellent, >0.70 good, >0.50 acceptable)
-- [ ] Returns `meets_threshold` boolean for r > 0.50
-- [ ] Calculates practice effect (mean score gain on retest)
-- [ ] Returns insufficient data error when pairs < 30
-- [ ] Unit tests verify Pearson correlation calculation
-- [ ] Unit tests cover interval filtering
+- [x] Function identifies users with multiple completed tests
+- [x] Calculates Pearson correlation between consecutive test scores
+- [x] Filters by configurable interval range (min/max days)
+- [x] Returns interpretation based on standard thresholds (>0.90 excellent, >0.70 good, >0.50 acceptable)
+- [x] Returns `meets_threshold` boolean for r > 0.50
+- [x] Calculates practice effect (mean score gain on retest)
+- [x] Returns insufficient data error when pairs < 30
+- [x] Unit tests verify Pearson correlation calculation
+- [x] Unit tests cover interval filtering
 
 ---
 

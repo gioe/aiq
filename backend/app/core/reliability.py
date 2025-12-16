@@ -1,9 +1,9 @@
 """
-Reliability estimation metrics for psychometric validation (RE-002).
+Reliability estimation metrics for psychometric validation.
 
 This module implements reliability calculations for AIQ's test assessment system:
-- Cronbach's alpha (internal consistency)
-- Test-retest reliability (future: RE-003)
+- Cronbach's alpha (internal consistency) - RE-002
+- Test-retest reliability - RE-003
 - Split-half reliability (future: RE-004)
 
 Reliability is fundamental to psychometric validity - without it, we cannot
@@ -17,14 +17,16 @@ Based on:
 """
 
 import logging
-from typing import Dict, List, Any
+import math
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Tuple, Optional
 from collections import defaultdict
 import statistics
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.models import Response, TestSession, TestStatus
+from app.models.models import Response, TestSession, TestStatus, TestResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,26 @@ ALPHA_THRESHOLDS = {
 
 # Minimum target for AIQ's test reliability
 AIQ_ALPHA_THRESHOLD = 0.70
+
+
+# =============================================================================
+# TEST-RETEST RELIABILITY THRESHOLDS (RE-003)
+# =============================================================================
+# Standard thresholds for test-retest correlation interpretation.
+# Based on IQ_METHODOLOGY.md and standard psychometric practice.
+
+TEST_RETEST_THRESHOLDS = {
+    "excellent": 0.90,  # r > 0.90: Excellent stability
+    "good": 0.70,  # r > 0.70: Good stability
+    "acceptable": 0.50,  # r > 0.50: Acceptable stability
+    # r <= 0.50: Poor stability
+}
+
+# Minimum target for AIQ's test-retest reliability
+AIQ_TEST_RETEST_THRESHOLD = 0.50
+
+# Minimum number of retest pairs required for calculation
+MIN_RETEST_PAIRS = 30
 
 
 # =============================================================================
@@ -448,3 +470,247 @@ def get_negative_item_correlations(
     problematic.sort(key=lambda x: x["correlation"])  # type: ignore[arg-type,return-value]
 
     return problematic
+
+
+# =============================================================================
+# TEST-RETEST RELIABILITY CALCULATION (RE-003)
+# =============================================================================
+
+
+def _get_test_retest_interpretation(r: float) -> str:
+    """
+    Get interpretation string for a test-retest correlation value.
+
+    Args:
+        r: Pearson correlation coefficient
+
+    Returns:
+        Interpretation: "excellent", "good", "acceptable", or "poor"
+    """
+    if r > TEST_RETEST_THRESHOLDS["excellent"]:
+        return "excellent"
+    elif r > TEST_RETEST_THRESHOLDS["good"]:
+        return "good"
+    elif r > TEST_RETEST_THRESHOLDS["acceptable"]:
+        return "acceptable"
+    else:
+        return "poor"
+
+
+def _calculate_pearson_correlation(
+    x: List[float],
+    y: List[float],
+) -> Optional[float]:
+    """
+    Calculate Pearson correlation coefficient between two lists.
+
+    Uses the formula:
+        r = Σ((xi - x̄)(yi - ȳ)) / √(Σ(xi - x̄)² × Σ(yi - ȳ)²)
+
+    Args:
+        x: First list of values
+        y: Second list of values
+
+    Returns:
+        Pearson correlation coefficient (-1.0 to 1.0), or None if cannot be calculated
+    """
+    if len(x) != len(y) or len(x) < 2:
+        return None
+
+    n = len(x)
+
+    # Calculate means
+    mean_x = sum(x) / n
+    mean_y = sum(y) / n
+
+    # Calculate covariance and variances
+    covariance = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+    var_x = sum((xi - mean_x) ** 2 for xi in x)
+    var_y = sum((yi - mean_y) ** 2 for yi in y)
+
+    # Check for zero variance
+    if var_x == 0 or var_y == 0:
+        return None
+
+    # Calculate correlation
+    r = covariance / math.sqrt(var_x * var_y)
+
+    # Clamp to valid range (floating point errors may cause slight exceeding)
+    return max(-1.0, min(1.0, r))
+
+
+def _get_consecutive_test_pairs(
+    db: Session,
+    min_interval_days: int = 7,
+    max_interval_days: int = 180,
+) -> List[Tuple[int, float, float, float]]:
+    """
+    Get pairs of consecutive test scores from users with multiple tests.
+
+    For each user with 2+ completed tests, this function identifies consecutive
+    test pairs within the specified interval range and returns their scores.
+
+    Args:
+        db: Database session
+        min_interval_days: Minimum days between tests to include (avoid practice effects
+                          from same-day retesting)
+        max_interval_days: Maximum days between tests to include (avoid long-term
+                          developmental changes)
+
+    Returns:
+        List of tuples: (user_id, test1_score, test2_score, interval_days)
+    """
+    # Query users with their completed test results ordered by completion time
+    # We need: user_id, iq_score, completed_at from TestResult joined with TestSession
+    results = (
+        db.query(
+            TestResult.user_id,
+            TestResult.iq_score,
+            TestResult.completed_at,
+        )
+        .join(TestSession, TestResult.test_session_id == TestSession.id)
+        .filter(TestSession.status == TestStatus.COMPLETED)
+        .order_by(TestResult.user_id, TestResult.completed_at)
+        .all()
+    )
+
+    if not results:
+        return []
+
+    # Group results by user
+    user_results: Dict[int, List[Tuple[int, datetime]]] = defaultdict(list)
+    for user_id, iq_score, completed_at in results:
+        user_results[user_id].append((iq_score, completed_at))
+
+    # Find consecutive pairs within interval range
+    pairs: List[Tuple[int, float, float, float]] = []
+    min_interval = timedelta(days=min_interval_days)
+    max_interval = timedelta(days=max_interval_days)
+
+    for user_id, tests in user_results.items():
+        if len(tests) < 2:
+            continue
+
+        # Sort by completion time (should already be sorted, but ensure)
+        tests.sort(key=lambda x: x[1])
+
+        # Check consecutive pairs
+        for i in range(len(tests) - 1):
+            score1, time1 = tests[i]
+            score2, time2 = tests[i + 1]
+
+            interval = time2 - time1
+
+            if min_interval <= interval <= max_interval:
+                interval_days = interval.total_seconds() / (24 * 3600)
+                pairs.append((user_id, float(score1), float(score2), interval_days))
+
+    return pairs
+
+
+def calculate_test_retest_reliability(
+    db: Session,
+    min_interval_days: int = 7,
+    max_interval_days: int = 180,
+    min_pairs: int = MIN_RETEST_PAIRS,
+) -> Dict:
+    """
+    Calculate test-retest reliability from users with multiple tests.
+
+    Test-retest reliability measures the stability of scores over time. It is
+    calculated as the Pearson correlation between consecutive test scores from
+    users who have taken the test multiple times.
+
+    Args:
+        db: Database session
+        min_interval_days: Minimum days between tests to include (default: 7)
+                          Excludes same-day retests to reduce practice effects
+        max_interval_days: Maximum days between tests to include (default: 180)
+                          Excludes very long intervals where real ability may change
+        min_pairs: Minimum number of retest pairs required (default: 30)
+
+    Returns:
+        {
+            "test_retest_r": float or None,  # Pearson correlation
+            "num_retest_pairs": int,
+            "mean_interval_days": float or None,
+            "interpretation": str or None,
+            "meets_threshold": bool,  # r > 0.50
+            "score_change_stats": {
+                "mean_change": float or None,  # Average score change (test2 - test1)
+                "std_change": float or None,   # Standard deviation of changes
+                "practice_effect": float or None  # Mean gain on retest (positive = improvement)
+            },
+            "error": str or None  # Present if calculation failed
+        }
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-003)
+        IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+    """
+    result: Dict = {
+        "test_retest_r": None,
+        "num_retest_pairs": 0,
+        "mean_interval_days": None,
+        "interpretation": None,
+        "meets_threshold": False,
+        "score_change_stats": {
+            "mean_change": None,
+            "std_change": None,
+            "practice_effect": None,
+        },
+        "error": None,
+    }
+
+    # Get consecutive test pairs
+    pairs = _get_consecutive_test_pairs(db, min_interval_days, max_interval_days)
+    result["num_retest_pairs"] = len(pairs)
+
+    if len(pairs) < min_pairs:
+        result["error"] = (
+            f"Insufficient data: {len(pairs)} retest pairs "
+            f"(minimum required: {min_pairs})"
+        )
+        logger.info(
+            f"Test-retest reliability calculation skipped: only {len(pairs)} "
+            f"retest pairs (need {min_pairs})"
+        )
+        return result
+
+    # Extract scores and intervals
+    test1_scores = [pair[1] for pair in pairs]
+    test2_scores = [pair[2] for pair in pairs]
+    intervals = [pair[3] for pair in pairs]
+
+    # Calculate Pearson correlation
+    r = _calculate_pearson_correlation(test1_scores, test2_scores)
+
+    if r is None:
+        result["error"] = "Could not calculate correlation (zero variance in scores)"
+        return result
+
+    result["test_retest_r"] = round(r, 4)
+    result["interpretation"] = _get_test_retest_interpretation(r)
+    result["meets_threshold"] = r > AIQ_TEST_RETEST_THRESHOLD
+    result["mean_interval_days"] = round(statistics.mean(intervals), 1)
+
+    # Calculate score change statistics
+    score_changes = [test2_scores[i] - test1_scores[i] for i in range(len(pairs))]
+
+    mean_change = statistics.mean(score_changes)
+    result["score_change_stats"]["mean_change"] = round(mean_change, 2)
+    result["score_change_stats"]["practice_effect"] = round(mean_change, 2)
+
+    if len(score_changes) >= 2:
+        std_change = statistics.stdev(score_changes)
+        result["score_change_stats"]["std_change"] = round(std_change, 2)
+    else:
+        result["score_change_stats"]["std_change"] = 0.0
+
+    logger.info(
+        f"Test-retest reliability calculated: r = {r:.4f} ({result['interpretation']}) "
+        f"from {len(pairs)} pairs. Mean interval: {result['mean_interval_days']} days. "
+        f"Practice effect: {mean_change:.2f} points. Meets threshold: {result['meets_threshold']}"
+    )
+
+    return result
