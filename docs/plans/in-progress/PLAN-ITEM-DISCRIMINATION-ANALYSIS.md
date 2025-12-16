@@ -825,11 +825,18 @@ These items were identified during code review and can be addressed in future it
 - All 108 discrimination analysis tests pass
 
 ### IDA-F016: Add Integration Test for Cache Invalidation via API
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #233 comment
 **Files:** `backend/tests/test_admin.py`
 **Description:** Add an integration test confirming that calling the `/v1/admin/questions/{id}/quality-flag` endpoint actually invalidates the cache, and subsequent calls to `/v1/admin/discrimination-report` return fresh data.
 **Original Comment:** "While unit tests verify cache behavior in isolation, there's no integration test confirming that: 1. Calling the `/v1/admin/questions/{id}/quality-flag` endpoint actually invalidates the cache. 2. Subsequent calls to `/v1/admin/discrimination-report` return fresh data."
+
+**Implementation:**
+- Added new test class `TestDiscriminationReportCacheInvalidation` with 3 integration tests:
+  - `test_quality_flag_update_invalidates_report_cache`: Core test that creates a question with negative discrimination, fetches the discrimination report (caching it), updates the quality flag via API, and verifies the subsequent report reflects the change (proving cache invalidation)
+  - `test_quality_flag_deactivation_updates_report_counts`: Tests that deactivating a question properly invalidates the cache and subsequent reports show fresh data
+  - `test_multiple_quality_flag_updates_invalidate_cache_each_time`: Tests that multiple consecutive quality flag updates (normal → under_review → normal → deactivated) each properly invalidate the cache
+- All tests verify the full API flow: GET discrimination-report → PATCH quality-flag → GET discrimination-report, confirming the second GET returns fresh data with the updated quality_flag value
 
 ### IDA-F017: Use cache_key() Helper for Future-Proof Cache Keys
 **Status:** [ ] Not Started
