@@ -77,6 +77,32 @@ MIN_RETEST_PAIRS = 30
 
 
 # =============================================================================
+# QUESTION INCLUSION THRESHOLDS
+# =============================================================================
+# Thresholds for determining which questions to include in reliability calculations.
+# These ensure we have enough data per question for stable estimates.
+
+# Minimum proportion of sessions a question must appear in to be included.
+# Example: With 500 sessions, questions must appear in at least 150 (30%) sessions.
+# Lower values include more questions but with less reliable per-item estimates.
+# Higher values ensure stable per-item estimates but may exclude newer questions.
+# 0.30 (30%) is a common heuristic that balances data stability with question coverage.
+MIN_QUESTION_APPEARANCE_RATIO = 0.30
+
+# Minimum absolute number of sessions a question must appear in (floor value).
+# This prevents including questions with too few responses even if they meet the ratio.
+# 30 is used as a floor because this is the minimum for stable correlation estimates.
+MIN_QUESTION_APPEARANCE_ABSOLUTE = 30
+
+# Fallback threshold for session completion when strict criteria can't be met.
+# If not enough sessions answer ALL eligible questions, we fall back to sessions
+# that answered at least this proportion of eligible questions.
+# 0.80 (80%) allows for some missing responses while still maintaining data quality.
+# This handles the common case where test composition varies slightly between sessions.
+SESSION_COMPLETION_FALLBACK_RATIO = 0.80
+
+
+# =============================================================================
 # CRONBACH'S ALPHA CALCULATION (RE-002)
 # =============================================================================
 
@@ -280,8 +306,11 @@ def calculate_cronbachs_alpha(
 
     # Step 3: Filter to questions that appear in enough sessions
     # For Cronbach's alpha, we need questions that appear consistently
-    # Use questions that appear in at least 30% of sessions as a heuristic
-    min_question_appearances = max(30, int(completed_sessions_count * 0.30))
+    # Use the configured ratio with an absolute minimum floor
+    min_question_appearances = max(
+        MIN_QUESTION_APPEARANCE_ABSOLUTE,
+        int(completed_sessions_count * MIN_QUESTION_APPEARANCE_RATIO),
+    )
 
     eligible_questions = [
         q_id
@@ -314,8 +343,10 @@ def calculate_cronbachs_alpha(
 
     if len(eligible_sessions) < min_sessions:
         # Fallback: use sessions that answered most questions
-        # Allow sessions with at least 80% of questions answered
-        min_questions_per_session = int(len(eligible_questions) * 0.80)
+        # Allow sessions that meet the completion fallback threshold
+        min_questions_per_session = int(
+            len(eligible_questions) * SESSION_COMPLETION_FALLBACK_RATIO
+        )
         eligible_sessions = [
             s_id
             for s_id, answers in session_responses.items()
@@ -906,8 +937,11 @@ def calculate_split_half_reliability(
         question_sessions[question_id].add(session_id)
 
     # Step 3: Filter to questions that appear in enough sessions
-    # Use questions that appear in at least 30% of sessions as a heuristic
-    min_question_appearances = max(30, int(completed_sessions_count * 0.30))
+    # Use the configured ratio with an absolute minimum floor
+    min_question_appearances = max(
+        MIN_QUESTION_APPEARANCE_ABSOLUTE,
+        int(completed_sessions_count * MIN_QUESTION_APPEARANCE_RATIO),
+    )
 
     eligible_questions = set(
         q_id
