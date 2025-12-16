@@ -39,8 +39,8 @@ from app.core.reliability import (
     AIQ_ALPHA_THRESHOLD,
 )
 
-# Use SQLite in-memory database for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_reliability.db"
+# Use SQLite in-memory database for tests (no file artifacts)
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
