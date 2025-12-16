@@ -18,7 +18,7 @@ Reference:
 import logging
 from datetime import timedelta, timezone
 from datetime import datetime as dt
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import case, func
 from sqlalchemy.exc import SQLAlchemyError
@@ -672,7 +672,7 @@ def get_discrimination_report(
         ) from e
 
 
-def _get_empty_report() -> Dict:
+def _get_empty_report() -> Dict[str, Any]:
     """
     Return an empty discrimination report structure.
 

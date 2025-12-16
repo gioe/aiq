@@ -1757,16 +1757,7 @@ class TestDatabaseErrorHandling:
 
     def test_get_discrimination_report_returns_empty_on_none_result(self, db_session):
         """Test that get_discrimination_report handles None tier_result gracefully."""
-        # Create a mock query object that returns None for first()
-        mock_query = MagicMock()
-        mock_query.first.return_value = None
-        mock_query.filter.return_value = mock_query
-        mock_query.label.return_value = mock_query
-
-        # We need a more sophisticated mock to test the None result case
-        # This is challenging because we need the query building to succeed
-        # but first() to return None. Let's verify the _get_empty_report fallback
-        # by directly testing the empty report structure is valid for the schema.
+        # Verify the _get_empty_report fallback structure is valid for the schema.
         report = _get_empty_report()
 
         # Verify the empty report matches expected schema structure
@@ -1774,6 +1765,31 @@ class TestDatabaseErrorHandling:
         assert isinstance(report["quality_distribution"]["excellent_pct"], float)
         assert isinstance(report["by_difficulty"]["easy"]["mean_discrimination"], float)
         assert isinstance(report["action_needed"]["immediate_review"], list)
+
+    def test_get_discrimination_report_handles_none_tier_result_integration(
+        self, db_session
+    ):
+        """Test that None from tier_result.first() triggers _get_empty_report().
+
+        This tests the actual integration path where tier_result is None,
+        verifying the code path at lines 410-414 of discrimination_analysis.py.
+        """
+        # Create a mock that properly chains query methods and returns None for first()
+        mock_query = MagicMock()
+        mock_query.filter.return_value = mock_query
+        mock_query.first.return_value = None
+
+        with patch.object(db_session, "query", return_value=mock_query):
+            report = get_discrimination_report(db_session, min_responses=30)
+
+            # Should get empty report structure when tier_result is None
+            assert report["summary"]["total_questions_with_data"] == 0
+            assert report["summary"]["excellent"] == 0
+            assert report["summary"]["negative"] == 0
+            assert report["quality_distribution"]["excellent_pct"] == 0.0
+            assert report["action_needed"]["immediate_review"] == []
+            assert report["action_needed"]["monitor"] == []
+            assert report["trends"]["mean_discrimination_30d"] is None
 
     def test_percentile_calculation_handles_none_total_count(self, db_session):
         """Test that percentile calculation handles None total count."""
