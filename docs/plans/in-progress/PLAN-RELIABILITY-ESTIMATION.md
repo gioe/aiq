@@ -814,11 +814,12 @@ The validators raise `ValidationError` with descriptive messages explaining the 
 ---
 
 ### RE-FI-014: Replace Error String Matching with Structured Indicators
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
-**Files:** `backend/app/core/reliability.py`
+**Files:** `backend/app/core/reliability.py`, `backend/tests/core/test_reliability.py`
 **Description:** Replace substring matching for error detection (`"Insufficient" in error`) with structured error indicators like `insufficient_data: bool` field in results dict for more robust control flow.
 **Original Comment:** "String matching for control flow is fragile. Consider structured error indicators"
+**Implementation Notes:** Added `insufficient_data: bool` field to all three calculate_* function results (Cronbach's alpha, test-retest, split-half). Updated `generate_reliability_recommendations()` to use the structured indicator instead of string matching. Added 9 new tests in `TestInsufficientDataIndicator` class verifying the behavior of the structured indicator across all scenarios.
 
 ---
 
