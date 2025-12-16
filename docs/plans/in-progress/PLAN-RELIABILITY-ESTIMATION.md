@@ -430,8 +430,8 @@ async def get_reliability_history_endpoint(
 ---
 
 ### RE-010: Add Comprehensive Tests for Reliability Module
-**Status:** [ ] Not Started
-**Files:** `backend/tests/test_reliability.py` (new file)
+**Status:** [x] Complete
+**Files:** `backend/tests/core/test_reliability.py`, `backend/tests/test_reliability_endpoint.py`
 **Description:** Comprehensive test suite for reliability calculation functionality.
 
 **Test Categories:**
@@ -457,12 +457,12 @@ async def get_reliability_history_endpoint(
    - No retest pairs available
 
 **Acceptance Criteria:**
-- [ ] Unit tests for `calculate_cronbachs_alpha()` with known datasets
-- [ ] Unit tests for `calculate_test_retest_reliability()` with known correlation
-- [ ] Unit tests for `calculate_split_half_reliability()` including Spearman-Brown
-- [ ] Integration tests for admin endpoints
-- [ ] Edge case tests for boundary conditions
-- [ ] All tests pass
+- [x] Unit tests for `calculate_cronbachs_alpha()` with known datasets
+- [x] Unit tests for `calculate_test_retest_reliability()` with known correlation
+- [x] Unit tests for `calculate_split_half_reliability()` including Spearman-Brown
+- [x] Integration tests for admin endpoints
+- [x] Edge case tests for boundary conditions
+- [x] All tests pass
 
 ---
 
