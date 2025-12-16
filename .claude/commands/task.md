@@ -1,9 +1,6 @@
 ---
 description: Begin work on a specific task from a plan file
 args:
-  - name: plan_file
-    description: Path to the plan markdown file (e.g., PLAN.md, IN_PROGRESS_TEST_PLAN.md)
-    required: true
   - name: task_id
     description: Task identifier to work on (e.g., P1-001, P8-010)
     required: true
@@ -11,14 +8,13 @@ args:
 
 You are about to begin work on a specific task from a plan file.
 
-**Plan File**: {{plan_file}}
 **Task ID**: {{task_id}}
 
 ⚠️ **CRITICAL: You MUST create a feature branch BEFORE any implementation work!** ⚠️
 
 Follow these steps IN ORDER:
 
-1. **Read the plan file** at the specified path to understand the full context
+1. **Read the plan file** in the docs/plans/in-progress directory.
 2. **Locate the specific task** with the identifier {{task_id}}
 3. **Extract task details** including:
    - Task description

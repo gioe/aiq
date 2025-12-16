@@ -2,13 +2,13 @@
 description: Verify that all tasks in a plan file are complete and update documentation
 args:
   - name: plan_file
-    description: Path to the plan markdown file to verify (e.g., docs/plans/EMPIRICAL_CALIBRATION.md)
+    description: Path to the plan markdown file to verify (e.g., PLAN_EMPIRICAL_CALIBRATION)
     required: true
 ---
 
 You are verifying that a plan has been fully completed and updating documentation to reflect the completed work.
 
-**Plan File**: {{plan_file}}
+**Plan File**: docs/plans/in-progress/{{plan_file}}.md
 
 ## Step 1: Read and Parse the Plan File
 
@@ -157,4 +157,4 @@ Generate a summary for the user:
 5. **Maintain formatting** - Match the style of existing documentation
 6. **Create atomic commits** - Commit documentation updates with message: `[DOCS] Update documentation for completed {{plan_file}}`
 
-Begin by reading the plan file at {{plan_file}}.
+Begin by reading the plan file at docs/plans/in-progress/{{plan_file}}.md.

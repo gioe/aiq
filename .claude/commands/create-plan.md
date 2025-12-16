@@ -107,7 +107,6 @@ Follow these steps:
 - Preserve technical details from the Solution Requirements section
 - Maintain the recommended implementation order from the gap document
 - Include specific function signatures where provided in the gap document
-- Include tests in the same task as implementation
 - Reference line numbers from the gap document where applicable
 
 Begin by reading the gap analysis document.
