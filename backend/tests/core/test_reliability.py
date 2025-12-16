@@ -1400,7 +1400,7 @@ class TestTestRetestCalculation:
         assert result["meets_threshold"] is True
 
     def test_meets_threshold_false_when_r_low(self, db_session):
-        """meets_threshold is False when r <= 0.50."""
+        """meets_threshold is False when r < 0.50."""
         from datetime import datetime, timedelta, timezone
         import random
 
@@ -1434,9 +1434,10 @@ class TestTestRetestCalculation:
 
         # With random scores, correlation should be near 0 (might be slightly positive/negative)
         # The key test is that meets_threshold reflects the threshold correctly
+        # Use < for consistency with alpha and split-half (>= threshold means "meets")
         if (
             result["test_retest_r"] is not None
-            and result["test_retest_r"] <= AIQ_TEST_RETEST_THRESHOLD
+            and result["test_retest_r"] < AIQ_TEST_RETEST_THRESHOLD
         ):
             assert result["meets_threshold"] is False
 
@@ -2480,7 +2481,7 @@ class TestGenerateReliabilityRecommendations:
         assert threshold_warnings[0]["priority"] == "high"
 
     def test_threshold_warning_for_low_test_retest(self):
-        """Generates threshold warning when test-retest is at or below acceptable."""
+        """Generates threshold warning when test-retest is below acceptable threshold."""
         alpha_result = {
             "cronbachs_alpha": None,
             "error": None,
