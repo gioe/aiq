@@ -607,3 +607,52 @@ class SystemConfig(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class ReliabilityMetric(Base):
+    """
+    Reliability metrics storage for historical tracking (RE-001).
+
+    Stores computed reliability coefficients (Cronbach's alpha, test-retest,
+    split-half) to avoid recalculation on every request and enable trend
+    analysis over time. Metrics are calculated periodically and stored here
+    for efficient retrieval by the admin reliability dashboard.
+
+    Metric types:
+    - cronbachs_alpha: Internal consistency coefficient (0.0-1.0)
+    - test_retest: Pearson correlation between consecutive tests (-1.0 to 1.0)
+    - split_half: Spearman-Brown corrected split-half reliability (0.0-1.0)
+    """
+
+    __tablename__ = "reliability_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Metric identification
+    metric_type = Column(
+        String(50), nullable=False, index=True
+    )  # "cronbachs_alpha", "test_retest", "split_half"
+
+    # Core values
+    value = Column(Float, nullable=False)  # The reliability coefficient
+    sample_size = Column(
+        Integer, nullable=False
+    )  # Number of sessions/pairs used in calculation
+
+    # Timestamp
+    calculated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Additional context (interpretation, thresholds, item correlations, etc.)
+    details = Column(JSON, nullable=True)
+
+    # Indexes for common query patterns
+    __table_args__ = (
+        Index("ix_reliability_metrics_calculated_at", "calculated_at"),
+        Index(
+            "ix_reliability_metrics_type_date", "metric_type", "calculated_at"
+        ),  # Compound index for history queries
+    )
