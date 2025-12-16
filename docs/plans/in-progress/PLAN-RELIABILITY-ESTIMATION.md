@@ -787,11 +787,15 @@ The validators raise `ValidationError` with descriptive messages explaining the 
 ---
 
 ### RE-FI-012: Extract Low Item Correlation Threshold to Constant
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Extract the `0.15` threshold for "very low" item-total correlations to a named constant.
 **Original Comment:** "The `0.15` threshold is hardcoded... Define as a constant"
+**Implementation Notes:** Added `LOW_ITEM_CORRELATION_THRESHOLD = 0.15` constant in a new "ITEM QUALITY THRESHOLDS" section with comprehensive documentation explaining:
+- Items with correlations below 0.15 have weak discriminating power
+- Based on psychometric guidelines (item-total correlations < 0.20 are weak, < 0.15 are "very low")
+- Used for identifying items that warrant low-priority quality review
 
 ---
 
