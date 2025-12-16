@@ -179,6 +179,9 @@ This document describes the technical architecture, component design, data model
 - `GET /v1/admin/analytics/response-times` - Aggregate response time analytics
 - `GET /v1/admin/questions/{id}/distractor-analysis` - Distractor effectiveness analysis for single question
 - `GET /v1/admin/questions/distractor-summary` - Bulk distractor analysis across all questions
+- `GET /v1/admin/questions/discrimination-report` - Discrimination quality report for all questions
+- `GET /v1/admin/questions/{id}/discrimination-detail` - Detailed discrimination info for specific question
+- `PATCH /v1/admin/questions/{id}/quality-flag` - Update quality flag for a question
 
 **Test Submission Approach:**
 - Batch submission (all answers submitted together)
@@ -277,6 +280,10 @@ questions
 - difficulty_recalibrated_at (datetime, nullable) - Timestamp of most recent recalibration
 # Distractor analysis
 - distractor_stats (JSON, nullable) - Selection counts and quartile stats per option
+# Item discrimination quality tracking
+- quality_flag (string, default: "normal") - Quality status: "normal", "under_review", "deactivated"
+- quality_flag_reason (string, nullable) - Reason for current flag status
+- quality_flag_updated_at (datetime, nullable) - When flag was last updated
 ```
 
 #### User_Questions (Junction Table)
@@ -433,6 +440,10 @@ ORDER BY completed_at DESC
 - `test_sessions(user_id, completed_at)` - for cadence checks
 - `questions.is_active` - for active question filtering
 - `questions.question_type` - for filtering by type
+- `questions.quality_flag` - for quality status filtering
+- `questions.response_count` - for filtering by response threshold
+- `questions.discrimination` - for ordering and filtering by discrimination
+- `questions.difficulty_level` - for GROUP BY queries
 - `question_generation_runs.started_at` - for time-based queries
 - `question_generation_runs.status` - for status filtering
 

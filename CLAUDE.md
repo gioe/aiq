@@ -244,7 +244,7 @@ Optional longer explanation if needed.
 
 **Core Tables**:
 - `users` - User accounts with auth credentials
-- `questions` - AI-generated IQ test questions with metadata (type, difficulty, correct_answer, distractor_stats, empirical_difficulty, original_difficulty_level, difficulty_recalibrated_at)
+- `questions` - AI-generated IQ test questions with metadata (type, difficulty, correct_answer, distractor_stats, empirical_difficulty, original_difficulty_level, difficulty_recalibrated_at, quality_flag, quality_flag_reason, quality_flag_updated_at)
 - `user_questions` - Junction table tracking which questions each user has seen (prevents repetition)
 - `test_sessions` - Individual test attempts (tracks in_progress, completed, abandoned, time_limit_exceeded)
 - `responses` - User answers to specific questions (includes time_spent_seconds per question)
@@ -294,6 +294,9 @@ LIMIT N
 - `GET /v1/admin/generation-runs` - List runs with filtering/pagination
 - `GET /v1/admin/generation-runs/{id}` - Get detailed run info
 - `GET /v1/admin/generation-runs/stats` - Aggregate statistics over time period
+- `GET /v1/admin/questions/discrimination-report` - Discrimination quality report for all questions
+- `GET /v1/admin/questions/{id}/discrimination-detail` - Detailed discrimination info for specific question
+- `PATCH /v1/admin/questions/{id}/quality-flag` - Update quality flag for a question
 
 ## Environment Setup
 

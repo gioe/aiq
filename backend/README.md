@@ -592,6 +592,127 @@ Returns aggregate statistics:
 
 **Authentication:** `X-Admin-Token` header required
 
+### Discrimination Analysis Endpoints
+
+These endpoints provide tools for analyzing question discrimination quality and managing problematic questions.
+
+#### `GET /v1/admin/questions/discrimination-report`
+Get a comprehensive discrimination quality report for all questions.
+
+**Authentication:** `X-Admin-Token`
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_responses` | int | 30 | Minimum responses required for inclusion |
+| `action_list_limit` | int | 100 | Maximum items in action lists (max: 1000) |
+
+**Response:**
+```json
+{
+  "summary": {
+    "total_questions_with_data": 500,
+    "excellent": 50,
+    "good": 100,
+    "acceptable": 150,
+    "poor": 100,
+    "very_poor": 75,
+    "negative": 25
+  },
+  "quality_distribution": {
+    "excellent_pct": 10.0,
+    "good_pct": 20.0,
+    "acceptable_pct": 30.0,
+    "problematic_pct": 40.0
+  },
+  "by_difficulty": {
+    "easy": {"mean_discrimination": 0.35, "negative_count": 5},
+    "medium": {"mean_discrimination": 0.30, "negative_count": 10},
+    "hard": {"mean_discrimination": 0.25, "negative_count": 10}
+  },
+  "by_type": {
+    "pattern_recognition": {"mean_discrimination": 0.32, "negative_count": 4},
+    "logical_reasoning": {"mean_discrimination": 0.28, "negative_count": 6}
+  },
+  "action_needed": {
+    "immediate_review": [
+      {"question_id": 123, "discrimination": -0.15, "response_count": 75, "reason": "Negative discrimination", "quality_flag": "under_review"}
+    ],
+    "monitor": [
+      {"question_id": 456, "discrimination": 0.08, "response_count": 60, "reason": "Very poor discrimination", "quality_flag": "normal"}
+    ]
+  },
+  "trends": {
+    "mean_discrimination_30d": 0.28,
+    "new_negative_this_week": 3
+  }
+}
+```
+
+**Quality Tiers:**
+| Tier | Discrimination Range |
+|------|---------------------|
+| Excellent | > 0.40 |
+| Good | 0.30 - 0.40 |
+| Acceptable | 0.20 - 0.30 |
+| Poor | 0.10 - 0.20 |
+| Very Poor | 0.00 - 0.10 |
+| Negative | < 0.00 |
+
+#### `GET /v1/admin/questions/{question_id}/discrimination-detail`
+Get detailed discrimination information for a specific question.
+
+**Authentication:** `X-Admin-Token`
+
+**Response:**
+```json
+{
+  "question_id": 123,
+  "discrimination": 0.35,
+  "quality_tier": "good",
+  "response_count": 150,
+  "compared_to_type_avg": "above",
+  "compared_to_difficulty_avg": "at",
+  "percentile_rank": 72,
+  "quality_flag": "normal",
+  "history": []
+}
+```
+
+#### `PATCH /v1/admin/questions/{question_id}/quality-flag`
+Update the quality flag for a question (for admin review workflow).
+
+**Authentication:** `X-Admin-Token`
+
+**Request Body:**
+```json
+{
+  "quality_flag": "under_review",
+  "reason": "Manual review pending - unusual response pattern"
+}
+```
+
+**Valid quality_flag values:**
+- `normal` - Question is in good standing
+- `under_review` - Question flagged for review (excluded from tests)
+- `deactivated` - Question permanently removed from pool (reason required)
+
+**Response:**
+```json
+{
+  "question_id": 123,
+  "previous_flag": "normal",
+  "new_flag": "under_review",
+  "reason": "Manual review pending - unusual response pattern",
+  "updated_at": "2024-12-15T10:00:00Z"
+}
+```
+
+**Notes:**
+- Questions with `quality_flag != "normal"` are automatically excluded from test composition
+- Questions with negative discrimination are auto-flagged as `under_review` when they reach 50 responses
+- Setting `quality_flag = "deactivated"` requires a reason
+
 #### Override Validity
 ```
 PATCH /v1/admin/sessions/{session_id}/validity
