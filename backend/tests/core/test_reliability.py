@@ -522,8 +522,9 @@ class TestEdgeCases:
         assert result["error"] is None
         assert result["num_items"] == 2
         assert result["cronbachs_alpha"] is not None
-        # With 2 perfectly correlated items, alpha should be high
-        assert result["cronbachs_alpha"] > 0.5
+        # With 2 perfectly correlated items (both items have identical response patterns),
+        # alpha should be high. Using 0.7 threshold since we expect excellent reliability.
+        assert result["cronbachs_alpha"] > 0.7
         assert result["interpretation"] is not None
         assert isinstance(result["meets_threshold"], bool)
         # Item-total correlations should be returned for both items
@@ -551,11 +552,13 @@ class TestEdgeCases:
 
         # Should successfully calculate with many items
         assert result["error"] is None
-        assert result["num_items"] >= 30  # At least half should meet threshold
+        # Items must appear in MIN_QUESTION_APPEARANCE_RATIO of sessions to be included.
+        # With ability-based responses, some items may be filtered. Allow for 1/3 filtering.
+        assert result["num_items"] >= 20
         assert result["cronbachs_alpha"] is not None
         # With many correlated items, alpha typically increases (Spearman-Brown prophecy)
-        # A test with 60 well-correlated items should have good reliability
-        assert result["cronbachs_alpha"] > 0.0
+        # A test with 60 well-correlated items should show meaningful reliability (>0.3)
+        assert result["cronbachs_alpha"] > 0.3
         assert result["interpretation"] is not None
         assert isinstance(result["meets_threshold"], bool)
         # Verify item-total correlations exist for included items
