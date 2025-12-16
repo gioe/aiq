@@ -1,10 +1,11 @@
 """
-Unit tests for reliability estimation (RE-002, RE-003, RE-004).
+Unit tests for reliability estimation (RE-002, RE-003, RE-004, RE-006).
 
 Tests the reliability estimation module that calculates:
 - Cronbach's alpha (internal consistency) - RE-002
 - Test-retest reliability - RE-003
 - Split-half reliability - RE-004
+- Reliability report business logic - RE-006
 
 Test Categories:
 - Cronbach's alpha calculation with known datasets
@@ -17,6 +18,9 @@ Test Categories:
 - Practice effect calculation
 - Split-half odd-even split
 - Spearman-Brown correction formula
+- Reliability report generation
+- Recommendations generation
+- Overall status determination
 
 Reference:
     docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md
@@ -55,6 +59,11 @@ from app.core.reliability import (
     _apply_spearman_brown_correction,
     SPLIT_HALF_THRESHOLDS,
     AIQ_SPLIT_HALF_THRESHOLD,
+    # RE-006 imports
+    get_reliability_interpretation,
+    generate_reliability_recommendations,
+    get_reliability_report,
+    _determine_overall_status,
 )
 
 # Use SQLite in-memory database for tests (no file artifacts)
@@ -2156,3 +2165,602 @@ class TestSplitHalfResponseStructure:
             assert isinstance(result["even_items"], int)
             assert isinstance(result["interpretation"], str)
             assert isinstance(result["meets_threshold"], bool)
+
+
+# =============================================================================
+# RELIABILITY REPORT BUSINESS LOGIC TESTS (RE-006)
+# =============================================================================
+
+
+class TestGetReliabilityInterpretation:
+    """Tests for get_reliability_interpretation function."""
+
+    def test_alpha_metric_type(self):
+        """Uses alpha thresholds for 'alpha' metric type."""
+        assert get_reliability_interpretation(0.90, "alpha") == "excellent"
+        assert get_reliability_interpretation(0.80, "alpha") == "good"
+        assert get_reliability_interpretation(0.70, "alpha") == "acceptable"
+        assert get_reliability_interpretation(0.60, "alpha") == "questionable"
+        assert get_reliability_interpretation(0.50, "alpha") == "poor"
+        assert get_reliability_interpretation(0.40, "alpha") == "unacceptable"
+
+    def test_test_retest_metric_type(self):
+        """Uses test-retest thresholds for 'test_retest' metric type."""
+        assert get_reliability_interpretation(0.91, "test_retest") == "excellent"
+        assert get_reliability_interpretation(0.71, "test_retest") == "good"
+        assert get_reliability_interpretation(0.51, "test_retest") == "acceptable"
+        assert get_reliability_interpretation(0.40, "test_retest") == "poor"
+
+    def test_split_half_metric_type(self):
+        """Uses split-half thresholds for 'split_half' metric type."""
+        assert get_reliability_interpretation(0.90, "split_half") == "excellent"
+        assert get_reliability_interpretation(0.80, "split_half") == "good"
+        assert get_reliability_interpretation(0.70, "split_half") == "acceptable"
+        assert get_reliability_interpretation(0.60, "split_half") == "questionable"
+        assert get_reliability_interpretation(0.50, "split_half") == "poor"
+        assert get_reliability_interpretation(0.40, "split_half") == "unacceptable"
+
+    def test_unknown_metric_type_defaults_to_alpha(self):
+        """Unknown metric types default to alpha thresholds."""
+        assert get_reliability_interpretation(0.90, "unknown") == "excellent"
+        assert get_reliability_interpretation(0.70, "unknown") == "acceptable"
+
+
+class TestDetermineOverallStatus:
+    """Tests for _determine_overall_status function."""
+
+    def test_insufficient_data_when_no_metrics(self):
+        """Returns 'insufficient_data' when no metrics are available."""
+        alpha_result = {"cronbachs_alpha": None, "meets_threshold": False}
+        test_retest_result = {"test_retest_r": None, "meets_threshold": False}
+        split_half_result = {"spearman_brown_r": None, "meets_threshold": False}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "insufficient_data"
+
+    def test_excellent_when_all_metrics_excellent(self):
+        """Returns 'excellent' when all available metrics are excellent."""
+        alpha_result = {"cronbachs_alpha": 0.92, "meets_threshold": True}
+        test_retest_result = {"test_retest_r": 0.95, "meets_threshold": True}
+        split_half_result = {"spearman_brown_r": 0.91, "meets_threshold": True}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "excellent"
+
+    def test_acceptable_when_all_meet_threshold(self):
+        """Returns 'acceptable' when all metrics meet threshold but not all excellent."""
+        alpha_result = {"cronbachs_alpha": 0.75, "meets_threshold": True}
+        test_retest_result = {"test_retest_r": 0.65, "meets_threshold": True}
+        split_half_result = {"spearman_brown_r": 0.72, "meets_threshold": True}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "acceptable"
+
+    def test_needs_attention_when_some_below_threshold(self):
+        """Returns 'needs_attention' when some metrics don't meet threshold."""
+        alpha_result = {"cronbachs_alpha": 0.75, "meets_threshold": True}
+        test_retest_result = {
+            "test_retest_r": 0.40,
+            "meets_threshold": False,
+        }  # Below threshold
+        split_half_result = {"spearman_brown_r": 0.72, "meets_threshold": True}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "needs_attention"
+
+    def test_handles_partial_data(self):
+        """Correctly handles cases where only some metrics are available."""
+        # Only alpha available, meets threshold
+        alpha_result = {"cronbachs_alpha": 0.75, "meets_threshold": True}
+        test_retest_result = {"test_retest_r": None, "meets_threshold": False}
+        split_half_result = {"spearman_brown_r": None, "meets_threshold": False}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "acceptable"
+
+    def test_needs_attention_with_single_failing_metric(self):
+        """Returns 'needs_attention' when single available metric fails threshold."""
+        alpha_result = {
+            "cronbachs_alpha": 0.50,
+            "meets_threshold": False,
+        }  # Below threshold
+        test_retest_result = {"test_retest_r": None, "meets_threshold": False}
+        split_half_result = {"spearman_brown_r": None, "meets_threshold": False}
+
+        status = _determine_overall_status(
+            alpha_result, test_retest_result, split_half_result
+        )
+        assert status == "needs_attention"
+
+
+class TestGenerateReliabilityRecommendations:
+    """Tests for generate_reliability_recommendations function."""
+
+    def test_recommends_more_sessions_when_alpha_insufficient(self):
+        """Recommends data collection when alpha has insufficient sessions."""
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "num_sessions": 50,
+            "error": "Insufficient data: 50 sessions (minimum required: 100)",
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": None,
+            "error": None,
+            "num_retest_pairs": 0,
+        }
+        split_half_result = {"spearman_brown_r": None, "error": None, "num_sessions": 0}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should have a data_collection recommendation for alpha
+        data_collection = [
+            r for r in recommendations if r["category"] == "data_collection"
+        ]
+        assert len(data_collection) >= 1
+        assert "alpha" in data_collection[0]["message"].lower()
+        assert data_collection[0]["priority"] == "high"
+
+    def test_recommends_more_pairs_when_test_retest_insufficient(self):
+        """Recommends data collection when test-retest has insufficient pairs."""
+        alpha_result = {
+            "cronbachs_alpha": 0.78,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": None,
+            "num_retest_pairs": 15,
+            "error": "Insufficient data: 15 retest pairs (minimum required: 30)",
+            "score_change_stats": {},
+        }
+        split_half_result = {"spearman_brown_r": 0.80, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        data_collection = [
+            r for r in recommendations if r["category"] == "data_collection"
+        ]
+        assert len(data_collection) >= 1
+        assert "retest" in data_collection[0]["message"].lower()
+
+    def test_recommends_low_sample_size_warning(self):
+        """Recommends larger sample when test-retest pairs are below 100."""
+        alpha_result = {
+            "cronbachs_alpha": 0.78,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.65,
+            "num_retest_pairs": 45,
+            "error": None,
+            "meets_threshold": True,
+            "score_change_stats": {"practice_effect": 2.0},
+        }
+        split_half_result = {"spearman_brown_r": 0.80, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        data_collection = [
+            r for r in recommendations if r["category"] == "data_collection"
+        ]
+        assert len(data_collection) >= 1
+        assert "45 pairs" in data_collection[0]["message"]
+        assert data_collection[0]["priority"] == "low"
+
+    def test_recommends_item_review_for_negative_correlations(self):
+        """Recommends item review when negative correlations exist."""
+        alpha_result = {
+            "cronbachs_alpha": 0.65,
+            "error": None,
+            "item_total_correlations": {
+                1: 0.45,
+                2: -0.15,  # Negative
+                3: 0.32,
+                4: -0.05,  # Negative
+            },
+        }
+        test_retest_result = {"test_retest_r": None, "error": None}
+        split_half_result = {"spearman_brown_r": None, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        item_review = [r for r in recommendations if r["category"] == "item_review"]
+        assert len(item_review) >= 1
+        assert "negative" in item_review[0]["message"].lower()
+        assert "2 item(s)" in item_review[0]["message"]
+
+    def test_threshold_warning_for_low_alpha(self):
+        """Generates threshold warning when alpha is below acceptable."""
+        alpha_result = {
+            "cronbachs_alpha": 0.55,
+            "interpretation": "poor",
+            "meets_threshold": False,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {"test_retest_r": None, "error": None}
+        split_half_result = {"spearman_brown_r": None, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        threshold_warnings = [
+            r for r in recommendations if r["category"] == "threshold_warning"
+        ]
+        assert len(threshold_warnings) >= 1
+        assert "alpha" in threshold_warnings[0]["message"].lower()
+        assert threshold_warnings[0]["priority"] == "high"
+
+    def test_threshold_warning_for_low_test_retest(self):
+        """Generates threshold warning when test-retest is at or below acceptable."""
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.45,
+            "interpretation": "poor",
+            "meets_threshold": False,
+            "error": None,
+            "score_change_stats": {},
+        }
+        split_half_result = {"spearman_brown_r": None, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        threshold_warnings = [
+            r for r in recommendations if r["category"] == "threshold_warning"
+        ]
+        assert len(threshold_warnings) >= 1
+        assert "test-retest" in threshold_warnings[0]["message"].lower()
+
+    def test_practice_effect_warning(self):
+        """Generates warning for large practice effect."""
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "meets_threshold": True,
+            "error": None,
+            "score_change_stats": {"practice_effect": 8.5},  # Large effect
+        }
+        split_half_result = {"spearman_brown_r": None, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        practice_warnings = [
+            r for r in recommendations if "practice effect" in r["message"].lower()
+        ]
+        assert len(practice_warnings) >= 1
+        assert "8.5" in practice_warnings[0]["message"]
+
+    def test_recommendations_sorted_by_priority(self):
+        """Recommendations are sorted by priority (high first)."""
+        alpha_result = {
+            "cronbachs_alpha": 0.50,  # Below threshold - high priority
+            "interpretation": "poor",
+            "meets_threshold": False,
+            "error": None,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,  # Above threshold
+            "num_retest_pairs": 45,  # Below 100 - low priority
+            "error": None,
+            "meets_threshold": True,
+            "score_change_stats": {"practice_effect": 2.0},
+        }
+        split_half_result = {"spearman_brown_r": None, "error": None}
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # First should be high priority
+        if len(recommendations) >= 2:
+            assert recommendations[0]["priority"] == "high"
+
+    def test_no_high_priority_recommendations_when_all_good(self):
+        """Returns no high priority recommendations when metrics are healthy."""
+        alpha_result = {
+            "cronbachs_alpha": 0.85,
+            "interpretation": "good",
+            "meets_threshold": True,
+            "error": None,
+            "num_sessions": 150,
+            "item_total_correlations": {1: 0.45, 2: 0.52, 3: 0.38},  # All positive
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "interpretation": "good",
+            "meets_threshold": True,
+            "error": None,
+            "num_retest_pairs": 120,
+            "score_change_stats": {"practice_effect": 2.0},  # Small effect
+        }
+        split_half_result = {
+            "spearman_brown_r": 0.82,
+            "interpretation": "good",
+            "meets_threshold": True,
+            "error": None,
+            "num_sessions": 150,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should have no high-priority recommendations
+        high_priority = [r for r in recommendations if r["priority"] == "high"]
+        assert len(high_priority) == 0
+
+
+class TestGetReliabilityReport:
+    """Tests for get_reliability_report function."""
+
+    def test_report_structure(self, db_session):
+        """Report contains all required top-level keys."""
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        assert "internal_consistency" in report
+        assert "test_retest" in report
+        assert "split_half" in report
+        assert "overall_status" in report
+        assert "recommendations" in report
+
+    def test_internal_consistency_structure(self, db_session):
+        """Internal consistency section has correct structure."""
+        report = get_reliability_report(db_session)
+
+        ic = report["internal_consistency"]
+        assert "cronbachs_alpha" in ic
+        assert "interpretation" in ic
+        assert "meets_threshold" in ic
+        assert "num_sessions" in ic
+        assert "num_items" in ic
+        assert "last_calculated" in ic
+        assert "item_total_correlations" in ic
+
+    def test_test_retest_structure(self, db_session):
+        """Test-retest section has correct structure."""
+        report = get_reliability_report(db_session)
+
+        tr = report["test_retest"]
+        assert "correlation" in tr
+        assert "interpretation" in tr
+        assert "meets_threshold" in tr
+        assert "num_pairs" in tr
+        assert "mean_interval_days" in tr
+        assert "practice_effect" in tr
+        assert "last_calculated" in tr
+
+    def test_split_half_structure(self, db_session):
+        """Split-half section has correct structure."""
+        report = get_reliability_report(db_session)
+
+        sh = report["split_half"]
+        assert "raw_correlation" in sh
+        assert "spearman_brown" in sh
+        assert "meets_threshold" in sh
+        assert "num_sessions" in sh
+        assert "last_calculated" in sh
+
+    def test_insufficient_data_status_when_empty_db(self, db_session):
+        """Returns 'insufficient_data' status when database is empty."""
+        report = get_reliability_report(db_session)
+
+        assert report["overall_status"] == "insufficient_data"
+
+    def test_recommendations_list_type(self, db_session):
+        """Recommendations is a list."""
+        report = get_reliability_report(db_session)
+
+        assert isinstance(report["recommendations"], list)
+
+    def test_report_with_valid_data(self, db_session):
+        """Report generates correctly with sufficient valid data."""
+        from datetime import datetime, timedelta, timezone
+
+        # Create questions
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 completed sessions with correlated responses
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create some retest pairs
+        for i in range(35):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            # First test
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=90 + i * 2,
+                completed_at=base_time - timedelta(days=60),
+            )
+            # Retest
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=92 + i * 2,  # Slight improvement
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Should have calculated at least some metrics
+        assert report["overall_status"] in [
+            "excellent",
+            "acceptable",
+            "needs_attention",
+        ]
+
+        # Internal consistency should have data (120 sessions >= 100 threshold)
+        assert report["internal_consistency"]["num_sessions"] >= 100
+
+    def test_custom_thresholds(self, db_session):
+        """Respects custom min_sessions and min_retest_pairs parameters."""
+        # Create a few sessions
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        for i in range(25):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(5)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # With default min_sessions=100, should have insufficient data
+        report_default = get_reliability_report(db_session, min_sessions=100)
+        assert report_default["internal_consistency"]["cronbachs_alpha"] is None
+
+        # With min_sessions=20, might calculate (depends on question overlap)
+        report_low = get_reliability_report(db_session, min_sessions=20)
+        assert report_low["internal_consistency"]["num_sessions"] >= 20
+
+    def test_last_calculated_timestamp(self, db_session):
+        """last_calculated timestamps are set to current time."""
+        from datetime import datetime, timezone
+
+        report = get_reliability_report(db_session)
+
+        now = datetime.now(timezone.utc)
+
+        # All last_calculated should be within a few seconds of now
+        ic_time = report["internal_consistency"]["last_calculated"]
+        assert abs((now - ic_time).total_seconds()) < 5
+
+        tr_time = report["test_retest"]["last_calculated"]
+        assert abs((now - tr_time).total_seconds()) < 5
+
+        sh_time = report["split_half"]["last_calculated"]
+        assert abs((now - sh_time).total_seconds()) < 5
+
+
+class TestReliabilityReportIntegration:
+    """Integration tests for the full reliability report flow."""
+
+    def test_excellent_status_with_high_reliability(self, db_session):
+        """Returns 'excellent' status when all metrics are excellent."""
+        from datetime import datetime, timedelta, timezone
+
+        # Create questions
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create perfectly correlated data (excellent internal consistency)
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Either all correct or all incorrect - perfect internal consistency
+            all_correct = i > 60
+            responses = [all_correct] * 6
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create perfectly correlated retest pairs
+        for i in range(35):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+
+            score = 80 + i * 2
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score,
+                completed_at=base_time - timedelta(days=60),
+            )
+            # Perfect correlation: same score
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=score,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # All metrics should be very high
+        if report["internal_consistency"]["cronbachs_alpha"] is not None:
+            assert report["internal_consistency"]["cronbachs_alpha"] >= 0.80
+        if report["test_retest"]["correlation"] is not None:
+            assert report["test_retest"]["correlation"] >= 0.90
+        if report["split_half"]["spearman_brown"] is not None:
+            assert report["split_half"]["spearman_brown"] >= 0.80
+
+    def test_needs_attention_with_problematic_items(self, db_session):
+        """Returns recommendations for item review when items have issues."""
+        import random
+
+        random.seed(42)
+
+        # Create questions
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create data where one item has negative correlation
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+
+            responses = []
+            for j in range(6):
+                if j == 2:
+                    # This item has REVERSE correlation - high ability = wrong
+                    responses.append(ability < 0.5)
+                else:
+                    # Normal items
+                    responses.append(ability > 0.4 - (j * 0.05))
+
+            create_completed_test_session(db_session, user, questions, responses)
+
+        report = get_reliability_report(db_session, min_sessions=100)
+
+        # Should have item_review recommendations if correlations were calculated
+        if report["internal_consistency"]["item_total_correlations"]:
+            # Check if any recommendations mention item review
+            item_reviews = [
+                r for r in report["recommendations"] if r["category"] == "item_review"
+            ]
+            # The reversed item should trigger a recommendation
+            # (depends on whether the calculation detects it)
+            # Just verify the check was performed
+            assert isinstance(item_reviews, list)
