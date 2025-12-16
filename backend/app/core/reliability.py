@@ -1317,9 +1317,9 @@ def _determine_overall_status(
     # Check for excellent status (all metrics excellent)
     alpha_excellent = (
         has_alpha
-        and (alpha_result.get("cronbachs_alpha", 0) or 0)
-        >= ALPHA_THRESHOLDS["excellent"]
+        and alpha_result.get("cronbachs_alpha", 0) >= ALPHA_THRESHOLDS["excellent"]
     )
+
     test_retest_excellent = (
         has_test_retest
         and (test_retest_result.get("test_retest_r", 0) or 0)
