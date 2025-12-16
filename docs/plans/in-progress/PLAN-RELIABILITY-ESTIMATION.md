@@ -48,7 +48,7 @@ class ReliabilityMetric(Base):
 ---
 
 ### RE-002: Implement Cronbach's Alpha Calculation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/reliability.py` (new file)
 **Description:** Implement Cronbach's alpha calculation for internal consistency assessment. Use the average inter-item covariance approach to handle variable test composition (users see different questions).
 
@@ -88,14 +88,14 @@ def calculate_cronbachs_alpha(db: Session, min_sessions: int = 100) -> Dict:
 ```
 
 **Acceptance Criteria:**
-- [ ] Function calculates Cronbach's alpha from completed test sessions
-- [ ] Handles variable test composition using average covariance approach
-- [ ] Returns interpretation based on standard thresholds (≥0.90 excellent, ≥0.80 good, ≥0.70 acceptable)
-- [ ] Returns `meets_threshold` boolean for α ≥ 0.70
-- [ ] Calculates item-total correlations for each question
-- [ ] Returns insufficient data error when sessions < min_sessions
-- [ ] Unit tests verify calculation against known datasets
-- [ ] Unit tests cover edge cases (all same answers, random data)
+- [x] Function calculates Cronbach's alpha from completed test sessions
+- [x] Handles variable test composition using average covariance approach
+- [x] Returns interpretation based on standard thresholds (≥0.90 excellent, ≥0.80 good, ≥0.70 acceptable)
+- [x] Returns `meets_threshold` boolean for α ≥ 0.70
+- [x] Calculates item-total correlations for each question
+- [x] Returns insufficient data error when sessions < min_sessions
+- [x] Unit tests verify calculation against known datasets
+- [x] Unit tests cover edge cases (all same answers, random data)
 
 ---
 
