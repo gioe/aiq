@@ -3668,58 +3668,78 @@ async def get_reliability_report_endpoint(
         )
 
         # Optionally store metrics to database for historical tracking
+        # Wrap in try-except to ensure partial writes don't corrupt data
         if store_metrics:
-            # Store Cronbach's alpha if calculated
-            alpha = report["internal_consistency"].get("cronbachs_alpha")
-            if alpha is not None:
-                store_reliability_metric(
-                    db=db,
-                    metric_type="cronbachs_alpha",
-                    value=alpha,
-                    sample_size=report["internal_consistency"]["num_sessions"],
-                    details={
-                        "interpretation": report["internal_consistency"].get(
-                            "interpretation"
-                        ),
-                        "meets_threshold": report["internal_consistency"].get(
-                            "meets_threshold"
-                        ),
-                        "num_items": report["internal_consistency"].get("num_items"),
-                    },
-                )
+            try:
+                # Store Cronbach's alpha if calculated
+                alpha = report["internal_consistency"].get("cronbachs_alpha")
+                if alpha is not None:
+                    store_reliability_metric(
+                        db=db,
+                        metric_type="cronbachs_alpha",
+                        value=alpha,
+                        sample_size=report["internal_consistency"]["num_sessions"],
+                        details={
+                            "interpretation": report["internal_consistency"].get(
+                                "interpretation"
+                            ),
+                            "meets_threshold": report["internal_consistency"].get(
+                                "meets_threshold"
+                            ),
+                            "num_items": report["internal_consistency"].get(
+                                "num_items"
+                            ),
+                        },
+                    )
 
-            # Store test-retest reliability if calculated
-            test_retest_r = report["test_retest"].get("correlation")
-            if test_retest_r is not None:
-                store_reliability_metric(
-                    db=db,
-                    metric_type="test_retest",
-                    value=test_retest_r,
-                    sample_size=report["test_retest"]["num_pairs"],
-                    details={
-                        "interpretation": report["test_retest"].get("interpretation"),
-                        "meets_threshold": report["test_retest"].get("meets_threshold"),
-                        "mean_interval_days": report["test_retest"].get(
-                            "mean_interval_days"
-                        ),
-                        "practice_effect": report["test_retest"].get("practice_effect"),
-                    },
-                )
+                # Store test-retest reliability if calculated
+                test_retest_r = report["test_retest"].get("correlation")
+                if test_retest_r is not None:
+                    store_reliability_metric(
+                        db=db,
+                        metric_type="test_retest",
+                        value=test_retest_r,
+                        sample_size=report["test_retest"]["num_pairs"],
+                        details={
+                            "interpretation": report["test_retest"].get(
+                                "interpretation"
+                            ),
+                            "meets_threshold": report["test_retest"].get(
+                                "meets_threshold"
+                            ),
+                            "mean_interval_days": report["test_retest"].get(
+                                "mean_interval_days"
+                            ),
+                            "practice_effect": report["test_retest"].get(
+                                "practice_effect"
+                            ),
+                        },
+                    )
 
-            # Store split-half reliability if calculated
-            spearman_brown = report["split_half"].get("spearman_brown")
-            if spearman_brown is not None:
-                store_reliability_metric(
-                    db=db,
-                    metric_type="split_half",
-                    value=spearman_brown,
-                    sample_size=report["split_half"]["num_sessions"],
-                    details={
-                        "interpretation": report["split_half"].get("interpretation"),
-                        "meets_threshold": report["split_half"].get("meets_threshold"),
-                        "raw_correlation": report["split_half"].get("raw_correlation"),
-                    },
-                )
+                # Store split-half reliability if calculated
+                spearman_brown = report["split_half"].get("spearman_brown")
+                if spearman_brown is not None:
+                    store_reliability_metric(
+                        db=db,
+                        metric_type="split_half",
+                        value=spearman_brown,
+                        sample_size=report["split_half"]["num_sessions"],
+                        details={
+                            "interpretation": report["split_half"].get(
+                                "interpretation"
+                            ),
+                            "meets_threshold": report["split_half"].get(
+                                "meets_threshold"
+                            ),
+                            "raw_correlation": report["split_half"].get(
+                                "raw_correlation"
+                            ),
+                        },
+                    )
+            except Exception as e:
+                # Log error but don't fail the request - still return the calculated report
+                db.rollback()
+                logger.error(f"Failed to store reliability metrics: {str(e)}")
 
         # Build response using Pydantic models
         return ReliabilityReportResponse(
@@ -3761,9 +3781,13 @@ async def get_reliability_report_endpoint(
             ],
         )
 
+    except ValueError as e:
+        # Known validation errors - safe to expose
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to generate reliability report: {str(e)}")
+        # Log full error details but return generic message to client
+        logger.error(f"Failed to generate reliability report: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate reliability report: {str(e)}",
+            detail="Failed to generate reliability report. Please try again later.",
         )
