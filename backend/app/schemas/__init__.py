@@ -91,6 +91,19 @@ from .discrimination_analysis import (
     QualityFlagUpdateRequest,
     QualityFlagUpdateResponse,
 )
+from .reliability import (
+    ReliabilityInterpretation,
+    RecommendationCategory,
+    RecommendationPriority,
+    OverallStatus,
+    InternalConsistencyMetrics,
+    TestRetestMetrics,
+    SplitHalfMetrics,
+    ReliabilityRecommendation,
+    ReliabilityReportResponse,
+    ReliabilityHistoryItem,
+    ReliabilityHistoryResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -171,4 +184,16 @@ __all__ = [
     "DiscriminationDetailResponse",
     "QualityFlagUpdateRequest",
     "QualityFlagUpdateResponse",
+    # Reliability estimation schemas (RE-005)
+    "ReliabilityInterpretation",
+    "RecommendationCategory",
+    "RecommendationPriority",
+    "OverallStatus",
+    "InternalConsistencyMetrics",
+    "TestRetestMetrics",
+    "SplitHalfMetrics",
+    "ReliabilityRecommendation",
+    "ReliabilityReportResponse",
+    "ReliabilityHistoryItem",
+    "ReliabilityHistoryResponse",
 ]
