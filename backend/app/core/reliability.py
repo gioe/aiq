@@ -1,4 +1,4 @@
-"""
+r"""
 Reliability estimation metrics for psychometric validation.
 
 This module implements reliability calculations for AIQ's test assessment system:
@@ -14,6 +14,55 @@ Based on:
 - docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md
 - docs/gaps/RELIABILITY-ESTIMATION.md
 - IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+
+Usage Example
+-------------
+Calculate Cronbach's alpha and interpret the results:
+
+    from app.core.reliability import calculate_cronbachs_alpha, get_negative_item_correlations
+
+    # Calculate Cronbach's alpha (requires database session)
+    result = calculate_cronbachs_alpha(db, min_sessions=100)
+
+    if result["error"]:
+        print(f"Calculation failed: {result['error']}")
+    else:
+        alpha = result["cronbachs_alpha"]
+        interpretation = result["interpretation"]
+        meets_threshold = result["meets_threshold"]
+
+        print(f"Cronbach's alpha: {alpha:.4f}")
+        print(f"Interpretation: {interpretation}")  # "excellent", "good", "acceptable", etc.
+        print(f"Meets AIQ threshold (>=0.70): {meets_threshold}")
+        print(f"Calculated from {result['num_sessions']} sessions with {result['num_items']} items")
+
+        # Identify problematic items with negative item-total correlations
+        item_correlations = result["item_total_correlations"]
+        problematic = get_negative_item_correlations(item_correlations, threshold=0.0)
+
+        if problematic:
+            print(f"\nFound {len(problematic)} items with negative correlations:")
+            for item in problematic:
+                print(f"  Question {item['question_id']}: r = {item['correlation']:.3f}")
+                print(f"    {item['recommendation']}")
+
+Generate a comprehensive reliability report:
+
+    from app.core.reliability import get_reliability_report
+
+    # Generate full report (combines all reliability metrics)
+    report = get_reliability_report(db, min_sessions=100, min_retest_pairs=30)
+
+    print(f"Overall status: {report['overall_status']}")  # "excellent", "acceptable", etc.
+
+    # Access individual metrics
+    print(f"Cronbach's alpha: {report['internal_consistency']['cronbachs_alpha']}")
+    print(f"Test-retest r: {report['test_retest']['correlation']}")
+    print(f"Split-half r (corrected): {report['split_half']['spearman_brown']}")
+
+    # Review actionable recommendations
+    for rec in report["recommendations"]:
+        print(f"[{rec['priority']}] {rec['category']}: {rec['message']}")
 """
 
 import logging
