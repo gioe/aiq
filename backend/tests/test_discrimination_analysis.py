@@ -24,7 +24,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from app.core.cache import get_cache
+from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models.models import Question, QuestionType, DifficultyLevel
 
 from app.core.discrimination_analysis import (
@@ -1400,10 +1400,11 @@ class TestDiscriminationReportCaching:
         get_discrimination_report(db_session, min_responses=30)
 
         # Verify cache has the expected key
-        # Cache key includes both min_responses and action_list_limit (IDA-F012)
+        # Cache key uses hash-based format for future-proofing (IDA-F017)
         cache = get_cache()
-        cache_key = "discrimination_report:min_responses=30:action_list_limit=100"
-        cached_value = cache.get(cache_key)
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        full_cache_key = f"discrimination_report:{params_hash}"
+        cached_value = cache.get(full_cache_key)
 
         assert cached_value is not None
         assert cached_value["summary"]["total_questions_with_data"] == 1
@@ -1451,16 +1452,12 @@ class TestDiscriminationReportCaching:
         # Call with min_responses=50
         get_discrimination_report(db_session, min_responses=50)
 
-        # Verify both cache keys exist (keys include action_list_limit, IDA-F012)
+        # Verify both cache keys exist (hash-based format, IDA-F017)
         cache = get_cache()
-        assert (
-            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
-            is not None
-        )
-        assert (
-            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
-            is not None
-        )
+        params_hash_30 = generate_cache_key(min_responses=30, action_list_limit=100)
+        params_hash_50 = generate_cache_key(min_responses=50, action_list_limit=100)
+        assert cache.get(f"discrimination_report:{params_hash_30}") is not None
+        assert cache.get(f"discrimination_report:{params_hash_50}") is not None
 
     def test_invalidate_clears_all_report_cache_entries(self, db_session):
         """invalidate_discrimination_report_cache() clears all cached reports."""
@@ -1476,29 +1473,19 @@ class TestDiscriminationReportCaching:
         get_discrimination_report(db_session, min_responses=30)
         get_discrimination_report(db_session, min_responses=50)
 
-        # Verify cache has entries (keys include action_list_limit, IDA-F012)
+        # Verify cache has entries (hash-based format, IDA-F017)
         cache = get_cache()
-        assert (
-            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
-            is not None
-        )
-        assert (
-            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
-            is not None
-        )
+        params_hash_30 = generate_cache_key(min_responses=30, action_list_limit=100)
+        params_hash_50 = generate_cache_key(min_responses=50, action_list_limit=100)
+        assert cache.get(f"discrimination_report:{params_hash_30}") is not None
+        assert cache.get(f"discrimination_report:{params_hash_50}") is not None
 
         # Invalidate cache
         invalidate_discrimination_report_cache()
 
         # Verify cache entries are cleared
-        assert (
-            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
-            is None
-        )
-        assert (
-            cache.get("discrimination_report:min_responses=50:action_list_limit=100")
-            is None
-        )
+        assert cache.get(f"discrimination_report:{params_hash_30}") is None
+        assert cache.get(f"discrimination_report:{params_hash_50}") is None
 
     def test_invalidate_only_clears_discrimination_report_entries(self, db_session):
         """Invalidation only clears discrimination report cache, not other entries."""
@@ -1516,12 +1503,10 @@ class TestDiscriminationReportCaching:
         )
         get_discrimination_report(db_session, min_responses=30)
 
-        # Verify both entries exist (keys include action_list_limit, IDA-F012)
+        # Verify both entries exist (hash-based format, IDA-F017)
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
         assert cache.get("unrelated:key") is not None
-        assert (
-            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
-            is not None
-        )
+        assert cache.get(f"discrimination_report:{params_hash}") is not None
 
         # Invalidate discrimination cache
         invalidate_discrimination_report_cache()
@@ -1529,10 +1514,7 @@ class TestDiscriminationReportCaching:
         # Unrelated entry should still exist
         assert cache.get("unrelated:key") is not None
         # Discrimination report should be cleared
-        assert (
-            cache.get("discrimination_report:min_responses=30:action_list_limit=100")
-            is None
-        )
+        assert cache.get(f"discrimination_report:{params_hash}") is None
 
     def test_fresh_report_after_invalidation(self, db_session):
         """After invalidation, fresh data is returned on next call."""

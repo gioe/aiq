@@ -24,7 +24,7 @@ from sqlalchemy import case, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.cache import get_cache
+from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models.models import DifficultyLevel, Question, QuestionType
 
 
@@ -331,14 +331,16 @@ def get_discrimination_report(
     )
 
     # Check cache first (IDA-F004)
+    # Use cache_key() helper for automatic parameter hashing (IDA-F017)
+    # This ensures any future parameters are automatically included in the cache key
     cache = get_cache()
-    cache_key = (
-        f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:"
-        f"min_responses={min_responses}:action_list_limit={action_list_limit}"
+    params_hash = generate_cache_key(
+        min_responses=min_responses, action_list_limit=action_list_limit
     )
-    cached_result = cache.get(cache_key)
+    full_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
+    cached_result = cache.get(full_cache_key)
     if cached_result is not None:
-        logger.debug(f"Returning cached discrimination report (key={cache_key})")
+        logger.debug(f"Returning cached discrimination report (key={full_cache_key})")
         return cached_result
 
     try:
@@ -653,9 +655,9 @@ def get_discrimination_report(
         }
 
         # Store in cache before returning (IDA-F004)
-        cache.set(cache_key, result, ttl=DISCRIMINATION_REPORT_CACHE_TTL)
+        cache.set(full_cache_key, result, ttl=DISCRIMINATION_REPORT_CACHE_TTL)
         logger.debug(
-            f"Cached discrimination report (key={cache_key}, ttl={DISCRIMINATION_REPORT_CACHE_TTL}s)"
+            f"Cached discrimination report (key={full_cache_key}, ttl={DISCRIMINATION_REPORT_CACHE_TTL}s)"
         )
 
         return result
