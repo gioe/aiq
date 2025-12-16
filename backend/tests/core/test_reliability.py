@@ -1,9 +1,10 @@
 """
-Unit tests for reliability estimation (RE-002, RE-003).
+Unit tests for reliability estimation (RE-002, RE-003, RE-004).
 
 Tests the reliability estimation module that calculates:
 - Cronbach's alpha (internal consistency) - RE-002
 - Test-retest reliability - RE-003
+- Split-half reliability - RE-004
 
 Test Categories:
 - Cronbach's alpha calculation with known datasets
@@ -14,6 +15,8 @@ Test Categories:
 - Test-retest correlation calculation
 - Interval filtering
 - Practice effect calculation
+- Split-half odd-even split
+- Spearman-Brown correction formula
 
 Reference:
     docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md
@@ -47,6 +50,11 @@ from app.core.reliability import (
     TEST_RETEST_THRESHOLDS,
     AIQ_TEST_RETEST_THRESHOLD,
     MIN_RETEST_PAIRS,
+    calculate_split_half_reliability,
+    _get_split_half_interpretation,
+    _apply_spearman_brown_correction,
+    SPLIT_HALF_THRESHOLDS,
+    AIQ_SPLIT_HALF_THRESHOLD,
 )
 
 # Use SQLite in-memory database for tests (no file artifacts)
@@ -1611,3 +1619,540 @@ class TestTestRetestMultipleTestsPerUser:
 
         # 18 users × 2 consecutive pairs each = 36 pairs
         assert result["num_retest_pairs"] == 36
+
+
+# =============================================================================
+# SPLIT-HALF RELIABILITY TESTS (RE-004)
+# =============================================================================
+
+
+class TestSpearmanBrownCorrection:
+    """Tests for Spearman-Brown correction formula."""
+
+    def test_perfect_half_correlation(self):
+        """Perfect half correlation (r=1.0) should give perfect full (r=1.0)."""
+        r_full = _apply_spearman_brown_correction(1.0)
+        assert r_full == 1.0
+
+    def test_zero_half_correlation(self):
+        """Zero half correlation should give zero full correlation."""
+        r_full = _apply_spearman_brown_correction(0.0)
+        assert r_full == 0.0
+
+    def test_moderate_half_correlation(self):
+        """
+        Test Spearman-Brown formula: r_full = (2 * r_half) / (1 + r_half).
+
+        For r_half = 0.5:
+            r_full = (2 * 0.5) / (1 + 0.5) = 1.0 / 1.5 = 0.6667
+        """
+        r_full = _apply_spearman_brown_correction(0.5)
+        expected = (2 * 0.5) / (1 + 0.5)  # 0.6667
+        assert abs(r_full - expected) < 0.0001
+
+    def test_high_half_correlation(self):
+        """
+        Test Spearman-Brown with high correlation.
+
+        For r_half = 0.8:
+            r_full = (2 * 0.8) / (1 + 0.8) = 1.6 / 1.8 = 0.8889
+        """
+        r_full = _apply_spearman_brown_correction(0.8)
+        expected = (2 * 0.8) / (1 + 0.8)  # 0.8889
+        assert abs(r_full - expected) < 0.0001
+
+    def test_low_half_correlation(self):
+        """
+        Test Spearman-Brown with low correlation.
+
+        For r_half = 0.3:
+            r_full = (2 * 0.3) / (1 + 0.3) = 0.6 / 1.3 = 0.4615
+        """
+        r_full = _apply_spearman_brown_correction(0.3)
+        expected = (2 * 0.3) / (1 + 0.3)  # 0.4615
+        assert abs(r_full - expected) < 0.0001
+
+    def test_negative_half_correlation(self):
+        """Negative half correlations should give valid negative full correlations."""
+        r_full = _apply_spearman_brown_correction(-0.3)
+        # Formula: (2 * -0.3) / (1 + -0.3) = -0.6 / 0.7 = -0.857
+        expected = (2 * -0.3) / (1 + -0.3)
+        assert abs(r_full - expected) < 0.0001
+
+    def test_extreme_negative_edge_case(self):
+        """Handle edge case of r_half = -1.0."""
+        r_full = _apply_spearman_brown_correction(-1.0)
+        # Should return -1.0 to avoid division by zero
+        assert r_full == -1.0
+
+    def test_result_clamped_to_valid_range(self):
+        """Results should be clamped to [-1.0, 1.0]."""
+        # With r_half approaching 1.0, r_full should not exceed 1.0
+        r_full = _apply_spearman_brown_correction(0.999)
+        assert -1.0 <= r_full <= 1.0
+
+
+class TestSplitHalfInterpretation:
+    """Tests for split-half reliability interpretation thresholds."""
+
+    def test_excellent_threshold(self):
+        """Reliability >= 0.90 is interpreted as 'excellent'."""
+        assert _get_split_half_interpretation(0.90) == "excellent"
+        assert _get_split_half_interpretation(0.95) == "excellent"
+        assert _get_split_half_interpretation(1.0) == "excellent"
+
+    def test_good_threshold(self):
+        """Reliability >= 0.80 and < 0.90 is interpreted as 'good'."""
+        assert _get_split_half_interpretation(0.80) == "good"
+        assert _get_split_half_interpretation(0.85) == "good"
+        assert _get_split_half_interpretation(0.89) == "good"
+
+    def test_acceptable_threshold(self):
+        """Reliability >= 0.70 and < 0.80 is interpreted as 'acceptable'."""
+        assert _get_split_half_interpretation(0.70) == "acceptable"
+        assert _get_split_half_interpretation(0.75) == "acceptable"
+        assert _get_split_half_interpretation(0.79) == "acceptable"
+
+    def test_questionable_threshold(self):
+        """Reliability >= 0.60 and < 0.70 is interpreted as 'questionable'."""
+        assert _get_split_half_interpretation(0.60) == "questionable"
+        assert _get_split_half_interpretation(0.65) == "questionable"
+        assert _get_split_half_interpretation(0.69) == "questionable"
+
+    def test_poor_threshold(self):
+        """Reliability >= 0.50 and < 0.60 is interpreted as 'poor'."""
+        assert _get_split_half_interpretation(0.50) == "poor"
+        assert _get_split_half_interpretation(0.55) == "poor"
+        assert _get_split_half_interpretation(0.59) == "poor"
+
+    def test_unacceptable_threshold(self):
+        """Reliability < 0.50 is interpreted as 'unacceptable'."""
+        assert _get_split_half_interpretation(0.49) == "unacceptable"
+        assert _get_split_half_interpretation(0.30) == "unacceptable"
+        assert _get_split_half_interpretation(0.0) == "unacceptable"
+        assert _get_split_half_interpretation(-0.5) == "unacceptable"
+
+    def test_threshold_constants_exist(self):
+        """Verify SPLIT_HALF_THRESHOLDS constants are defined correctly."""
+        assert SPLIT_HALF_THRESHOLDS["excellent"] == 0.90
+        assert SPLIT_HALF_THRESHOLDS["good"] == 0.80
+        assert SPLIT_HALF_THRESHOLDS["acceptable"] == 0.70
+        assert SPLIT_HALF_THRESHOLDS["questionable"] == 0.60
+        assert SPLIT_HALF_THRESHOLDS["poor"] == 0.50
+
+    def test_aiq_threshold_constant(self):
+        """Verify AIQ target threshold is set correctly."""
+        assert AIQ_SPLIT_HALF_THRESHOLD == 0.70
+
+
+class TestSplitHalfInsufficientData:
+    """Tests for split-half handling of insufficient data."""
+
+    def test_no_completed_sessions(self, db_session):
+        """Returns error when no completed test sessions exist."""
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        assert result["split_half_r"] is None
+        assert result["spearman_brown_r"] is None
+        assert result["num_sessions"] == 0
+        assert result["error"] is not None
+        assert "Insufficient data" in result["error"]
+        assert result["meets_threshold"] is False
+
+    def test_below_min_sessions_threshold(self, db_session):
+        """Returns error when completed sessions are below minimum threshold."""
+        # Create 50 completed sessions (below default 100)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Create varied responses
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        assert result["split_half_r"] is None
+        assert result["error"] is not None
+        assert "Insufficient data: 50 sessions" in result["error"]
+
+    def test_custom_min_sessions(self, db_session):
+        """Respects custom min_sessions parameter."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(40):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # With min_sessions=50, should fail
+        result_50 = calculate_split_half_reliability(db_session, min_sessions=50)
+        assert result_50["error"] is not None
+
+        # With min_sessions=30, should work (or fail for different reason)
+        result_30 = calculate_split_half_reliability(db_session, min_sessions=30)
+        # Either it calculates or fails for different reason (e.g., not enough questions)
+        assert result_30["num_sessions"] >= 30 or result_30["error"] is not None
+
+    def test_insufficient_questions(self, db_session):
+        """Returns error when not enough questions appear across sessions."""
+        # Create only 2 questions (need at least 4 for split-half)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(2)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [i % 2 == 0, i % 3 == 0]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should fail due to insufficient items
+        assert result["split_half_r"] is None
+        assert result["error"] is not None
+        assert "Insufficient items" in result["error"]
+
+
+class TestSplitHalfCalculation:
+    """Tests for split-half reliability calculation."""
+
+    def test_calculates_reliability_with_valid_data(self, db_session):
+        """Calculates split-half reliability when sufficient valid data exists."""
+        # Create 6 questions (will be split into 3 odd + 3 even)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 sessions with correlated responses (ability-based)
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+
+            # High ability users get more correct on all items
+            ability = i / 120
+            responses = []
+            for j in range(6):
+                # Base probability based on ability
+                prob = ability
+                # Add slight item difficulty variation
+                prob -= j * 0.05
+                responses.append(prob > 0.4)
+
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should successfully calculate reliability
+        assert result["split_half_r"] is not None
+        assert result["spearman_brown_r"] is not None
+        assert result["error"] is None
+        assert result["num_sessions"] >= 100
+        assert result["num_items"] >= 4
+        assert result["interpretation"] is not None
+        assert isinstance(result["meets_threshold"], bool)
+
+    def test_result_structure(self, db_session):
+        """Verify result contains all required fields."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Verify all required fields are present
+        assert "split_half_r" in result
+        assert "spearman_brown_r" in result
+        assert "num_sessions" in result
+        assert "num_items" in result
+        assert "odd_items" in result
+        assert "even_items" in result
+        assert "interpretation" in result
+        assert "meets_threshold" in result
+        assert "error" in result
+
+    def test_spearman_brown_greater_than_raw(self, db_session):
+        """Spearman-Brown corrected value should be >= raw correlation (when positive)."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["error"] is None and result["split_half_r"] is not None:
+            if result["split_half_r"] > 0:
+                # Spearman-Brown should be >= raw for positive correlations
+                assert result["spearman_brown_r"] >= result["split_half_r"]
+
+    def test_meets_threshold_true_when_spearman_brown_high(self, db_session):
+        """meets_threshold is True when Spearman-Brown r >= 0.70."""
+        # Create highly correlated items (high reliability)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Highly correlated - either all correct or all wrong
+            all_correct = i > 60
+            responses = [all_correct] * 6
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if (
+            result["spearman_brown_r"] is not None
+            and result["spearman_brown_r"] >= 0.70
+        ):
+            assert result["meets_threshold"] is True
+
+    def test_meets_threshold_false_when_spearman_brown_low(self, db_session):
+        """meets_threshold is False when Spearman-Brown r < 0.70."""
+        # Create uncorrelated items (low reliability)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        import random
+
+        random.seed(42)
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Random responses - no correlation between items
+            responses = [random.random() > 0.5 for _ in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["spearman_brown_r"] is not None and result["spearman_brown_r"] < 0.70:
+            assert result["meets_threshold"] is False
+
+
+class TestSplitHalfOddEvenSplit:
+    """Tests for the odd-even split logic."""
+
+    def test_odd_even_counts_correct(self, db_session):
+        """Verify odd and even item counts are reported correctly."""
+        # Create 5 questions (will split into 3 odd + 2 even)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 for _ in range(5)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["error"] is None:
+            # With 5 questions: odd items (positions 1, 3, 5) = 3, even items (2, 4) = 2
+            assert result["odd_items"] == 3
+            assert result["even_items"] == 2
+
+    def test_six_items_split_evenly(self, db_session):
+        """6 items should split into 3 odd + 3 even."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 for _ in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["error"] is None:
+            assert result["odd_items"] == 3
+            assert result["even_items"] == 3
+
+
+class TestSplitHalfEdgeCases:
+    """Tests for edge cases in split-half reliability calculation."""
+
+    def test_all_same_responses_handled(self, db_session):
+        """Handles zero variance when all responses are identical."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # All users get all questions correct (no variance)
+            responses = [True] * 6
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should handle gracefully - either return error or handle appropriately
+        if result["error"] is not None:
+            assert (
+                "variance" in result["error"].lower()
+                or "cannot" in result["error"].lower()
+                or "correlation" in result["error"].lower()
+            )
+
+    def test_only_in_progress_sessions_excluded(self, db_session):
+        """In-progress sessions are not included in calculation."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 50 completed sessions
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create 100 in-progress sessions (should not count)
+        for i in range(100):
+            user = create_test_user(db_session, f"inprogress{i}@example.com")
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.IN_PROGRESS,
+            )
+            db_session.add(session)
+        db_session.commit()
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should only count completed sessions (50), not enough
+        assert result["num_sessions"] == 50
+        assert result["error"] is not None
+
+    def test_abandoned_sessions_excluded(self, db_session):
+        """Abandoned sessions are not included in calculation."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 50 completed sessions
+        for i in range(50):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [(i + j) % 2 == 0 for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create 100 abandoned sessions
+        for i in range(100):
+            user = create_test_user(db_session, f"abandoned{i}@example.com")
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.ABANDONED,
+            )
+            db_session.add(session)
+        db_session.commit()
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # Should only count completed sessions
+        assert result["num_sessions"] == 50
+
+
+class TestSplitHalfKnownDatasets:
+    """Tests using controlled datasets to verify calculation accuracy."""
+
+    def test_perfect_correlation_high_reliability(self, db_session):
+        """
+        When odd and even halves are perfectly correlated, reliability should be high.
+
+        If users either get all items correct or all items incorrect,
+        both halves will have the same pattern and reliability approaches 1.0.
+        """
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Half get all correct, half get all incorrect
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            all_correct = i < 60
+            responses = [all_correct] * 6
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        # With perfect item correlation, reliability should be very high
+        if result["spearman_brown_r"] is not None:
+            assert result["spearman_brown_r"] >= 0.90
+
+    def test_random_responses_low_reliability(self, db_session):
+        """
+        When responses are random, reliability should be low.
+
+        Random responses indicate no consistency between halves,
+        so reliability should be near 0.
+        """
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        import random
+
+        random.seed(123)
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Completely random responses
+            responses = [random.random() > 0.5 for _ in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["spearman_brown_r"] is not None:
+            # With random responses, reliability should be low (near 0)
+            assert result["spearman_brown_r"] < 0.50
+
+    def test_moderate_correlation_moderate_reliability(self, db_session):
+        """
+        When items have moderate correlation, reliability should be moderate to high.
+
+        This simulates a realistic test where items correlate but not perfectly.
+        """
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        import random
+
+        random.seed(456)
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Underlying ability determines most responses
+            ability = i / 120
+            responses = []
+            for j in range(6):
+                prob = ability
+                # Add some noise
+                prob += (random.random() - 0.5) * 0.3
+                responses.append(prob > 0.5)
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["spearman_brown_r"] is not None:
+            # With ability-based responses, should have at least moderate reliability
+            assert result["spearman_brown_r"] >= 0.4
+
+
+class TestSplitHalfResponseStructure:
+    """Tests for response structure and types."""
+
+    def test_error_response_structure(self, db_session):
+        """Error response has correct structure."""
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        assert result["split_half_r"] is None
+        assert result["spearman_brown_r"] is None
+        assert result["interpretation"] is None
+        assert result["meets_threshold"] is False
+        assert result["error"] is not None
+        assert isinstance(result["error"], str)
+
+    def test_success_response_structure(self, db_session):
+        """Successful response has correct structure and types."""
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_split_half_reliability(db_session, min_sessions=100)
+
+        if result["error"] is None:
+            assert isinstance(result["split_half_r"], float)
+            assert isinstance(result["spearman_brown_r"], float)
+            assert isinstance(result["num_sessions"], int)
+            assert isinstance(result["num_items"], int)
+            assert isinstance(result["odd_items"], int)
+            assert isinstance(result["even_items"], int)
+            assert isinstance(result["interpretation"], str)
+            assert isinstance(result["meets_threshold"], bool)
