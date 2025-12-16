@@ -3492,3 +3492,282 @@ class TestInsufficientDataIndicator:
         assert alpha["insufficient_data"] is True
         assert test_retest["insufficient_data"] is True
         assert split_half["insufficient_data"] is True
+
+
+# =============================================================================
+# DEFENSIVE ERROR HANDLING TESTS (RE-FI-015)
+# =============================================================================
+
+
+class TestDefensiveErrorHandling:
+    """
+    Tests for defensive error handling in get_reliability_report (RE-FI-015).
+
+    These tests verify that unexpected exceptions in individual calculation
+    functions are caught and don't prevent partial results from being returned.
+    """
+
+    def test_report_returns_partial_results_when_alpha_raises(
+        self, db_session, monkeypatch
+    ):
+        """Report returns partial results when Cronbach's alpha calculation raises."""
+        from app.core import reliability
+
+        # Create test data for test-retest and split-half
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 completed sessions
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create retest pairs
+        for i in range(35):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            base_time = datetime.now(timezone.utc)
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=90 + i * 2,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=92 + i * 2,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        # Make calculate_cronbachs_alpha raise an exception
+        def raise_error(*args, **kwargs):
+            raise RuntimeError("Simulated database connection error")
+
+        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+
+        # Get report - should still work with partial results
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Alpha should have error result
+        assert report["internal_consistency"]["cronbachs_alpha"] is None
+        assert report["internal_consistency"]["meets_threshold"] is False
+
+        # Test-retest should still be calculated (we have enough pairs)
+        # Note: may still be None depending on data, but no error from exception
+        assert "correlation" in report["test_retest"]
+
+        # Split-half should still be calculated
+        assert "spearman_brown" in report["split_half"]
+
+        # Overall status should reflect the partial data
+        # Can be excellent if the non-failing metrics are excellent
+        assert report["overall_status"] in [
+            "insufficient_data",
+            "needs_attention",
+            "acceptable",
+            "excellent",
+        ]
+
+    def test_report_returns_partial_results_when_test_retest_raises(
+        self, db_session, monkeypatch
+    ):
+        """Report returns partial results when test-retest calculation raises."""
+        from app.core import reliability
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 completed sessions for alpha and split-half
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Make calculate_test_retest_reliability raise an exception
+        def raise_error(*args, **kwargs):
+            raise ValueError("Simulated query error")
+
+        monkeypatch.setattr(
+            reliability, "calculate_test_retest_reliability", raise_error
+        )
+
+        # Get report - should still work with partial results
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Test-retest should have error result
+        assert report["test_retest"]["correlation"] is None
+        assert report["test_retest"]["meets_threshold"] is False
+        assert report["test_retest"]["num_pairs"] == 0
+
+        # Alpha and split-half should still be calculated
+        # (may be None if data insufficient, but not due to exception)
+        assert "cronbachs_alpha" in report["internal_consistency"]
+        assert "spearman_brown" in report["split_half"]
+
+    def test_report_returns_partial_results_when_split_half_raises(
+        self, db_session, monkeypatch
+    ):
+        """Report returns partial results when split-half calculation raises."""
+        from app.core import reliability
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 completed sessions for alpha
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Make calculate_split_half_reliability raise an exception
+        def raise_error(*args, **kwargs):
+            raise TypeError("Simulated type error in calculation")
+
+        monkeypatch.setattr(
+            reliability, "calculate_split_half_reliability", raise_error
+        )
+
+        # Get report - should still work with partial results
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Split-half should have error result
+        assert report["split_half"]["spearman_brown"] is None
+        assert report["split_half"]["raw_correlation"] is None
+        assert report["split_half"]["meets_threshold"] is False
+
+        # Alpha should still be calculated
+        assert "cronbachs_alpha" in report["internal_consistency"]
+
+    def test_report_returns_results_when_all_calculations_raise(
+        self, db_session, monkeypatch
+    ):
+        """Report returns valid structure even when all calculations raise."""
+        from app.core import reliability
+
+        # Make all calculations raise exceptions
+        def raise_alpha_error(*args, **kwargs):
+            raise RuntimeError("Alpha calculation failed")
+
+        def raise_test_retest_error(*args, **kwargs):
+            raise ValueError("Test-retest calculation failed")
+
+        def raise_split_half_error(*args, **kwargs):
+            raise TypeError("Split-half calculation failed")
+
+        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_alpha_error)
+        monkeypatch.setattr(
+            reliability, "calculate_test_retest_reliability", raise_test_retest_error
+        )
+        monkeypatch.setattr(
+            reliability, "calculate_split_half_reliability", raise_split_half_error
+        )
+
+        # Get report - should still return valid structure
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Should have all required keys
+        assert "internal_consistency" in report
+        assert "test_retest" in report
+        assert "split_half" in report
+        assert "overall_status" in report
+        assert "recommendations" in report
+
+        # All metrics should be None
+        assert report["internal_consistency"]["cronbachs_alpha"] is None
+        assert report["test_retest"]["correlation"] is None
+        assert report["split_half"]["spearman_brown"] is None
+
+        # All meets_threshold should be False
+        assert report["internal_consistency"]["meets_threshold"] is False
+        assert report["test_retest"]["meets_threshold"] is False
+        assert report["split_half"]["meets_threshold"] is False
+
+        # Overall status should be insufficient_data
+        assert report["overall_status"] == "insufficient_data"
+
+    def test_error_result_structure_has_required_fields(self, db_session, monkeypatch):
+        """Error results from exceptions contain all required fields."""
+        from app.core import reliability
+
+        # Make alpha calculation raise
+        def raise_error(*args, **kwargs):
+            raise RuntimeError("Test error message")
+
+        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+
+        report = get_reliability_report(db_session)
+
+        # Check internal consistency has all required fields
+        ic = report["internal_consistency"]
+        assert "cronbachs_alpha" in ic
+        assert "interpretation" in ic
+        assert "meets_threshold" in ic
+        assert "num_sessions" in ic
+        assert "num_items" in ic
+        assert "last_calculated" in ic
+        assert "item_total_correlations" in ic
+
+        # Check values are appropriate defaults
+        assert ic["cronbachs_alpha"] is None
+        assert ic["interpretation"] is None
+        assert ic["meets_threshold"] is False
+        assert ic["num_sessions"] == 0
+        assert ic["num_items"] == 0 or ic["num_items"] is None
+        assert ic["item_total_correlations"] == {}
+
+    def test_recommendations_generated_with_partial_errors(
+        self, db_session, monkeypatch
+    ):
+        """Recommendations are still generated when some calculations fail."""
+        from app.core import reliability
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+
+        # Create 120 completed sessions
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Make only alpha calculation raise
+        def raise_error(*args, **kwargs):
+            raise RuntimeError("Alpha calculation failed")
+
+        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30
+        )
+
+        # Should have recommendations (at least for the failed alpha)
+        assert isinstance(report["recommendations"], list)
+
+        # Since alpha failed (and is treated as insufficient_data), should have
+        # a data_collection recommendation
+        data_collection_recs = [
+            r for r in report["recommendations"] if r["category"] == "data_collection"
+        ]
+        assert len(data_collection_recs) >= 1
+
+    def test_helper_function_create_error_result(self):
+        """_create_error_result helper returns correct structure."""
+        from app.core.reliability import _create_error_result
+
+        result = _create_error_result("Test error message")
+
+        assert result["error"] == "Test error message"
+        assert result["insufficient_data"] is True
