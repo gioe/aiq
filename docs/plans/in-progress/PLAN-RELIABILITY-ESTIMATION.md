@@ -351,8 +351,8 @@ def get_reliability_history(
 ---
 
 ### RE-008: Add Admin Endpoint for Reliability Report
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py`
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_reliability_endpoint.py`
 **Description:** Add admin API endpoint for the reliability dashboard.
 
 **Implementation:**
@@ -377,12 +377,12 @@ async def get_reliability_report_endpoint(
 ```
 
 **Acceptance Criteria:**
-- [ ] `GET /v1/admin/reliability` returns full report
-- [ ] Endpoint requires admin token authentication
-- [ ] min_sessions and min_retest_pairs parameters work correctly
-- [ ] store_metrics parameter controls whether metrics are persisted
-- [ ] Returns proper schema even with insufficient data
-- [ ] Integration tests verify endpoint responses
+- [x] `GET /v1/admin/reliability` returns full report
+- [x] Endpoint requires admin token authentication
+- [x] min_sessions and min_retest_pairs parameters work correctly
+- [x] store_metrics parameter controls whether metrics are persisted
+- [x] Returns proper schema even with insufficient data
+- [x] Integration tests verify endpoint responses
 
 ---
 
