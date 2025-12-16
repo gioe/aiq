@@ -1315,20 +1315,26 @@ def _determine_overall_status(
             thresholds_met += 1
 
     # Check for excellent status (all metrics excellent)
+    # Use explicit None checks to avoid issues with 0.0 being falsy
+    alpha_val = alpha_result.get("cronbachs_alpha")
     alpha_excellent = (
         has_alpha
-        and alpha_result.get("cronbachs_alpha", 0) >= ALPHA_THRESHOLDS["excellent"]
+        and alpha_val is not None
+        and alpha_val >= ALPHA_THRESHOLDS["excellent"]
     )
 
+    test_retest_val = test_retest_result.get("test_retest_r")
     test_retest_excellent = (
         has_test_retest
-        and (test_retest_result.get("test_retest_r", 0) or 0)
-        > TEST_RETEST_THRESHOLDS["excellent"]
+        and test_retest_val is not None
+        and test_retest_val > TEST_RETEST_THRESHOLDS["excellent"]
     )
+
+    split_half_val = split_half_result.get("spearman_brown_r")
     split_half_excellent = (
         has_split_half
-        and (split_half_result.get("spearman_brown_r", 0) or 0)
-        >= SPLIT_HALF_THRESHOLDS["excellent"]
+        and split_half_val is not None
+        and split_half_val >= SPLIT_HALF_THRESHOLDS["excellent"]
     )
 
     # All available metrics are excellent
