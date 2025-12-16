@@ -905,8 +905,21 @@ These items were identified during code review and can be addressed in future it
 - Keys can be enumerated for dynamic handling
 
 ### IDA-F020: Address Potential Double Logging in Error Paths
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #244 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** Both `calculate_percentile_rank()` and `get_question_discrimination_detail()` log errors. When `calculate_percentile_rank()` is called from `get_question_discrimination_detail()`, duplicate log entries may appear. Consider whether having context from both levels is helpful or if it creates noise in production logs.
 **Original Comment:** "Both calculate_percentile_rank() and get_question_discrimination_detail() log errors. If calculate_percentile_rank() is called from get_question_discrimination_detail(), you might see duplicate log entries. Not a blocker - having context from both levels can be helpful. Just be aware this could create noise in production logs."
+
+**Implementation:**
+- Changed `calculate_percentile_rank()` to log database errors at DEBUG level instead of ERROR level
+- This prevents duplicate ERROR log entries when the function is called from `get_question_discrimination_detail()`
+- The caller (`get_question_discrimination_detail()`) continues to log at ERROR level for direct database errors
+- When `DiscriminationAnalysisError` propagates from `calculate_percentile_rank()`, it is re-raised without logging
+- Added detailed comments (IDA-F020) explaining the logging pattern
+- Added 4 new tests in `TestLoggingBehavior` class:
+  - `test_calculate_percentile_rank_logs_at_debug_level`: Verifies inner function logs at DEBUG level
+  - `test_get_question_discrimination_detail_logs_at_error_level`: Verifies outer function logs at ERROR level
+  - `test_no_duplicate_error_logs_when_percentile_fails`: Verifies no duplicate ERROR logs when inner function fails
+  - `test_error_log_count_for_direct_db_error`: Verifies exactly one ERROR log for direct database errors
+- All 124 discrimination analysis tests pass
