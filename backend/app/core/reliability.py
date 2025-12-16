@@ -182,6 +182,29 @@ SESSION_COMPLETION_FALLBACK_RATIO = 0.80
 
 
 # =============================================================================
+# ITEM QUALITY THRESHOLDS
+# =============================================================================
+# Thresholds for identifying items with low discriminating power.
+# Items with low item-total correlations do not effectively differentiate
+# between high and low ability respondents.
+
+# Threshold below which item-total correlations are considered "very low".
+# Items with correlations between 0 and this threshold still contribute
+# positively to reliability but have weak discriminating power.
+#
+# The value 0.15 is based on psychometric guidelines:
+# - Item-total correlations < 0.20 are generally considered weak
+# - Correlations < 0.15 are "very low" and warrant quality review
+# - Items in this range may be measuring something different from the
+#   overall construct or may have quality issues (ambiguous wording,
+#   multiple correct answers, etc.)
+#
+# This threshold is used to identify items for low-priority review,
+# as they may still be acceptable but could be improved.
+LOW_ITEM_CORRELATION_THRESHOLD = 0.15
+
+
+# =============================================================================
 # CRONBACH'S ALPHA CALCULATION (RE-002)
 # =============================================================================
 
@@ -1287,11 +1310,14 @@ def generate_reliability_recommendations(
             )
 
         # Check for items with very low (but positive) correlations
-        low_items = get_negative_item_correlations(item_correlations, threshold=0.15)
+        low_items = get_negative_item_correlations(
+            item_correlations, threshold=LOW_ITEM_CORRELATION_THRESHOLD
+        )
         low_but_positive = [
             item
             for item in low_items
-            if item["correlation"] >= 0 and item["correlation"] < 0.15
+            if item["correlation"] >= 0
+            and item["correlation"] < LOW_ITEM_CORRELATION_THRESHOLD
         ]
         if len(low_but_positive) >= 3:
             recommendations.append(
@@ -1299,7 +1325,8 @@ def generate_reliability_recommendations(
                     "category": "item_review",
                     "message": (
                         f"Found {len(low_but_positive)} items with very low item-total "
-                        f"correlations (< 0.15). Consider reviewing these items for quality."
+                        f"correlations (< {LOW_ITEM_CORRELATION_THRESHOLD}). "
+                        f"Consider reviewing these items for quality."
                     ),
                     "priority": "low",
                 }
