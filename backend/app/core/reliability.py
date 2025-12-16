@@ -141,6 +141,19 @@ AIQ_TEST_RETEST_THRESHOLD = 0.50
 # Minimum number of retest pairs required for calculation
 MIN_RETEST_PAIRS = 30
 
+# Practice effect threshold for flagging potential test issues (in IQ points).
+# A practice effect exceeding this threshold suggests systematic score inflation
+# on retests, which may indicate:
+# - Insufficient question variety (users remember questions)
+# - Test-taking strategy effects (familiarity with format)
+# - Learning effects beyond true ability change
+#
+# The threshold of 5 IQ points represents approximately 1/3 of a standard deviation
+# (SD = 15 for IQ scores), which is a meaningful effect size in psychometrics.
+# Practice effects larger than this warrant investigation into question pool
+# diversity and retest interval policies.
+LARGE_PRACTICE_EFFECT_THRESHOLD = 5.0
+
 
 # =============================================================================
 # QUESTION INCLUSION THRESHOLDS
@@ -1351,7 +1364,10 @@ def generate_reliability_recommendations(
     practice_effect = test_retest_result.get("score_change_stats", {}).get(
         "practice_effect"
     )
-    if practice_effect is not None and abs(practice_effect) > 5:
+    if (
+        practice_effect is not None
+        and abs(practice_effect) > LARGE_PRACTICE_EFFECT_THRESHOLD
+    ):
         direction = "increase" if practice_effect > 0 else "decrease"
         recommendations.append(
             {
