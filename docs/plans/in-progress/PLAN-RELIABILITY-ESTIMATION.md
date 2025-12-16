@@ -714,11 +714,14 @@ Items identified during code review that can be addressed in future iterations:
 ---
 
 ### RE-FI-003: Add Edge Case Tests for Item Count Boundaries
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #251 comment
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add tests verifying behavior when exactly 2 items exist (minimum for Cronbach's alpha) and when a very high number of items exist (50+ questions).
 **Original Comment:** "Missing test: Verify behavior when exactly 2 items exist... Verify behavior with very high number of items"
+**Implementation Notes:** Added two tests to TestEdgeCases class:
+- `test_exactly_two_items_minimum_for_alpha`: Tests calculation with exactly 2 items, verifying the k=2 edge case
+- `test_very_high_number_of_items`: Tests calculation with 60 items to verify scalability
 
 ---
 
@@ -872,3 +875,12 @@ Items identified during code review that can be addressed in future iterations:
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** Add tests for large dataset performance (e.g., 10,000+ sessions), concurrent request handling, and edge case of all users having identical scores (zero variance).
 **Original Comment:** "Missing Tests: Large dataset performance (e.g., 10,000+ sessions), Concurrent request handling, Edge case: All users have identical scores (zero variance)"
+
+---
+
+### RE-FI-025: Add Test for Single Item (k=1) Error Handling
+**Status:** [ ] Not Started
+**Source:** PR #264 comment
+**Files:** `backend/tests/core/test_reliability.py`
+**Description:** Add a test for k=1 (single item) to verify the function returns an appropriate error, since Cronbach's alpha is undefined for k<2 (the formula requires at least 2 items).
+**Original Comment:** "Consider: Adding a test for k=1 (single item) to verify it returns an error, since alpha is undefined for k<2"

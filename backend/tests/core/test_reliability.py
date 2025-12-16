@@ -501,6 +501,69 @@ class TestEdgeCases:
         # Should only count completed sessions
         assert result["num_sessions"] == 50
 
+    def test_exactly_two_items_minimum_for_alpha(self, db_session):
+        """Tests Cronbach's alpha calculation with exactly 2 items (minimum)."""
+        # Cronbach's alpha requires at least 2 items to calculate
+        # Formula: α = (k / (k-1)) × (1 - Σσ²ᵢ / σ²ₜ)
+        # With k=2, this becomes α = 2 × (1 - Σσ²ᵢ / σ²ₜ)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(2)]
+
+        # Create 120 sessions with correlated responses to get valid alpha
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Correlated responses: high ability users get both right
+            ability = i / 120
+            responses = [ability > 0.5, ability > 0.5]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Should successfully calculate with 2 items
+        assert result["error"] is None
+        assert result["num_items"] == 2
+        assert result["cronbachs_alpha"] is not None
+        # With 2 perfectly correlated items (both items have identical response patterns),
+        # alpha should be high. Using 0.7 threshold since we expect excellent reliability.
+        assert result["cronbachs_alpha"] > 0.7
+        assert result["interpretation"] is not None
+        assert isinstance(result["meets_threshold"], bool)
+        # Item-total correlations should be returned for both items
+        assert len(result["item_total_correlations"]) == 2
+
+    def test_very_high_number_of_items(self, db_session):
+        """Tests Cronbach's alpha calculation with 50+ items."""
+        # Create 60 questions (high item count)
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(60)]
+
+        # Create 150 sessions with correlated responses
+        for i in range(150):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Ability-based responses for correlation
+            ability = i / 150
+            # Add some variation: harder questions (higher index) have lower success rate
+            responses = []
+            for j in range(60):
+                # Base probability from ability, adjusted by item difficulty
+                prob = ability - (j * 0.01)  # Items get progressively harder
+                responses.append(prob > 0.3)
+            create_completed_test_session(db_session, user, questions, responses)
+
+        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Should successfully calculate with many items
+        assert result["error"] is None
+        # Items must appear in MIN_QUESTION_APPEARANCE_RATIO of sessions to be included.
+        # With ability-based responses, some items may be filtered. Allow for 1/3 filtering.
+        assert result["num_items"] >= 20
+        assert result["cronbachs_alpha"] is not None
+        # With many correlated items, alpha typically increases (Spearman-Brown prophecy)
+        # A test with 60 well-correlated items should show meaningful reliability (>0.3)
+        assert result["cronbachs_alpha"] > 0.3
+        assert result["interpretation"] is not None
+        assert isinstance(result["meets_threshold"], bool)
+        # Verify item-total correlations exist for included items
+        assert len(result["item_total_correlations"]) > 0
+
 
 # =============================================================================
 # ITEM-TOTAL CORRELATION TESTS
