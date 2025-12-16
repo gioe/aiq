@@ -691,11 +691,15 @@ def cronbachs_alpha(item_scores: np.ndarray) -> float:
 Items identified during code review that can be addressed in future iterations:
 
 ### RE-FI-001: Extract Magic Numbers to Named Constants
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #251 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Extract the 0.30 (30% question inclusion threshold) and 0.80 (80% fallback threshold) magic numbers to named constants with documentation.
 **Original Comment:** "The 0.30 (30%) threshold is a magic number without explanation... Extract to a named constant"
+**Implementation Notes:** Added three named constants with detailed documentation:
+- `MIN_QUESTION_APPEARANCE_RATIO = 0.30` - Proportion of sessions a question must appear in
+- `MIN_QUESTION_APPEARANCE_ABSOLUTE = 30` - Minimum absolute floor for question appearances
+- `SESSION_COMPLETION_FALLBACK_RATIO = 0.80` - Fallback threshold for session completion
 
 ---
 
