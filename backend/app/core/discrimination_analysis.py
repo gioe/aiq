@@ -98,6 +98,18 @@ DISCRIMINATION_REPORT_CACHE_TTL = 300  # seconds
 # with pagination if they need to see all items.
 DEFAULT_ACTION_LIST_LIMIT = 100
 
+# Short-lived error cache TTL (IDA-F018)
+# When transient database errors occur (timeouts, connection drops), we cache
+# a fallback empty report for a short duration to prevent thundering herd issues.
+# This avoids every retry hitting the database during incidents.
+# 30 seconds is short enough to recover quickly once the database is healthy,
+# but long enough to absorb a burst of retries during brief outages.
+ERROR_CACHE_TTL = 30  # seconds
+
+# Error cache key prefix for discrimination report
+# Separate from the success cache to allow independent invalidation
+ERROR_CACHE_KEY_PREFIX = "discrimination_report_error"
+
 
 def invalidate_discrimination_report_cache() -> None:
     """
@@ -116,8 +128,14 @@ def invalidate_discrimination_report_cache() -> None:
     """
     cache = get_cache()
     deleted_count = cache.delete_by_prefix(DISCRIMINATION_REPORT_CACHE_PREFIX)
-    if deleted_count > 0:
-        logger.info(f"Invalidated {deleted_count} discrimination report cache entries")
+    # Also clear error cache entries (IDA-F018)
+    error_deleted_count = cache.delete_by_prefix(ERROR_CACHE_KEY_PREFIX)
+    total_deleted = deleted_count + error_deleted_count
+    if total_deleted > 0:
+        logger.info(
+            f"Invalidated {total_deleted} discrimination report cache entries "
+            f"({deleted_count} success, {error_deleted_count} error)"
+        )
 
 
 # =============================================================================
@@ -342,6 +360,18 @@ def get_discrimination_report(
     if cached_result is not None:
         logger.debug(f"Returning cached discrimination report (key={full_cache_key})")
         return cached_result
+
+    # IDA-F018: Check error cache for fallback during database incidents
+    # If a transient error occurred recently, return the cached empty report
+    # to prevent thundering herd. This check happens BEFORE hitting the database.
+    error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+    cached_error_result = cache.get(error_cache_key)
+    if cached_error_result is not None:
+        logger.info(
+            f"Returning cached error fallback report to prevent thundering herd "
+            f"(key={error_cache_key})"
+        )
+        return cached_error_result
 
     try:
         # Base filter for all queries: active questions with sufficient responses
@@ -667,6 +697,19 @@ def get_discrimination_report(
             f"Database error during discrimination report generation: {e}",
             exc_info=True,
         )
+
+        # IDA-F018: Cache empty report on transient database errors to prevent
+        # thundering herd issues. Subsequent calls (within ERROR_CACHE_TTL seconds)
+        # will return this cached fallback without hitting the database.
+        # This is the first error for these parameters (error cache was already
+        # checked before the try block), so cache and raise.
+        empty_report = _get_empty_report()
+        cache.set(error_cache_key, empty_report, ttl=ERROR_CACHE_TTL)
+        logger.warning(
+            f"Cached error fallback report for {ERROR_CACHE_TTL}s to prevent "
+            f"thundering herd (key={error_cache_key})"
+        )
+
         raise DiscriminationAnalysisError(
             message="Failed to generate discrimination report due to database error",
             original_error=e,
