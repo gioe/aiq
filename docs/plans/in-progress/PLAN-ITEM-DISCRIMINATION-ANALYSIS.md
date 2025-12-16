@@ -881,11 +881,28 @@ These items were identified during code review and can be addressed in future it
 - All 118 discrimination analysis tests and 16 admin discrimination tests pass
 
 ### IDA-F019: Use Structured Dict for Error Context in DiscriminationAnalysisError
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #244 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** Consider changing the `context` field from a freeform string to a dictionary for better integration with production monitoring tools (Sentry, Datadog). This would make it easier to parse, filter, and aggregate errors by specific parameter values.
 **Original Comment:** "The context field is currently a freeform string. Consider making it a dictionary for structured logging: `context: Optional[Dict[str, Any]] = None`. Benefits: Easier to parse in production monitoring tools, can filter/aggregate errors by specific parameter values, more consistent than string formatting."
+
+**Implementation:**
+- Changed `DiscriminationAnalysisError.context` field from `Optional[str]` to `Optional[Dict[str, Any]]`
+- Updated `_format_message()` to format dict context as "key1=value1, key2=value2" for human-readable output
+- Updated all three call sites to pass structured dictionaries:
+  - `calculate_percentile_rank()`: `{"discrimination": discrimination}`
+  - `get_discrimination_report()`: `{"min_responses": min_responses, "action_list_limit": action_list_limit}`
+  - `get_question_discrimination_detail()`: `{"question_id": question_id}`
+- Added 2 new tests: `test_error_with_multiple_context_values` and `test_context_dict_enables_structured_filtering`
+- Updated 4 existing tests to use dict context format
+- All 120 discrimination analysis tests and 156 admin tests pass
+
+**Benefits:**
+- Production monitoring tools (Sentry, Datadog) can filter and aggregate errors by specific parameter values
+- Context dict can be used for programmatic filtering in error handlers
+- More consistent structure than freeform strings
+- Keys can be enumerated for dynamic handling
 
 ### IDA-F020: Address Potential Double Logging in Error Paths
 **Status:** [ ] Not Started
