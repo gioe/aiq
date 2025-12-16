@@ -855,11 +855,30 @@ These items were identified during code review and can be addressed in future it
 - All 109 discrimination analysis tests and 16 admin discrimination tests pass
 
 ### IDA-F018: Add Short-Lived Error Cache for Transient Database Failures
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #244 comment
-**Files:** `backend/app/core/discrimination_analysis.py`
+**Files:** `backend/app/core/discrimination_analysis.py`, `backend/tests/test_discrimination_analysis.py`
 **Description:** Consider caching a fallback empty report for a short duration (e.g., 30 seconds) when transient database errors occur, to prevent thundering herd issues during database incidents. Current behavior of failing fast is defensible, but short-lived error caching could improve production resilience.
 **Original Comment:** "When a SQLAlchemyError occurs, the function raises an exception without caching anything. On transient errors (timeouts, connection drops), this means every retry hits the database again. Should transient errors trigger a short-lived cache entry (e.g., 30 seconds) with a fallback empty report?"
+
+**Implementation:**
+- Added `ERROR_CACHE_TTL = 30` constant (30 seconds for quick recovery)
+- Added `ERROR_CACHE_KEY_PREFIX = "discrimination_report_error"` for separate error cache namespace
+- Modified `get_discrimination_report()` to check error cache before hitting the database
+- On first database error, cache empty report with short TTL, then raise exception
+- On subsequent calls within TTL, return cached empty report without hitting database
+- Updated `invalidate_discrimination_report_cache()` to clear both success and error caches
+- Added 9 new tests in `TestErrorCaching` class:
+  - `test_error_cache_ttl_is_short`: Verifies TTL is reasonable (30 seconds)
+  - `test_error_cache_key_prefix_is_distinct`: Verifies separate namespace from success cache
+  - `test_first_error_caches_empty_report_and_raises`: First error caches fallback and raises
+  - `test_second_call_returns_cached_error_report`: Subsequent calls return cached fallback
+  - `test_error_cache_prevents_thundering_herd`: Multiple calls don't all hit database
+  - `test_different_params_have_separate_error_caches`: Different params have separate caches
+  - `test_invalidate_clears_both_success_and_error_caches`: Invalidation clears both
+  - `test_successful_response_clears_error_cache_on_next_call`: Recovery works correctly
+  - `test_error_cache_expires_after_ttl`: Cache expires and allows database retry
+- All 118 discrimination analysis tests and 16 admin discrimination tests pass
 
 ### IDA-F019: Use Structured Dict for Error Context in DiscriminationAnalysisError
 **Status:** [ ] Not Started

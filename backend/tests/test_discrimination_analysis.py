@@ -36,6 +36,9 @@ from app.core.discrimination_analysis import (
     get_question_discrimination_detail,
     invalidate_discrimination_report_cache,
     QUALITY_TIER_THRESHOLDS,
+    ERROR_CACHE_TTL,
+    ERROR_CACHE_KEY_PREFIX,
+    DISCRIMINATION_REPORT_CACHE_PREFIX,
 )
 
 
@@ -1831,3 +1834,237 @@ class TestDatabaseErrorHandling:
 
             # Should propagate the original error, not wrap it again
             assert "Percentile calculation failed" in str(exc_info.value)
+
+
+# =============================================================================
+# ERROR CACHING TESTS (IDA-F018)
+# =============================================================================
+
+
+class TestErrorCaching:
+    """Tests for short-lived error caching during database incidents (IDA-F018).
+
+    These tests verify that when transient database errors occur, a fallback
+    empty report is cached for a short duration (ERROR_CACHE_TTL) to prevent
+    thundering herd issues during database incidents.
+    """
+
+    def test_error_cache_ttl_is_short(self):
+        """Verify ERROR_CACHE_TTL is reasonably short for recovery."""
+        # Error cache should be much shorter than the success cache
+        assert ERROR_CACHE_TTL <= 60  # At most 1 minute
+        assert ERROR_CACHE_TTL > 0  # Must be positive
+        # Current value is 30 seconds
+        assert ERROR_CACHE_TTL == 30
+
+    def test_error_cache_key_prefix_is_distinct(self):
+        """Verify error cache uses a distinct prefix from success cache."""
+        assert ERROR_CACHE_KEY_PREFIX != DISCRIMINATION_REPORT_CACHE_PREFIX
+        assert "error" in ERROR_CACHE_KEY_PREFIX.lower()
+
+    def test_first_error_caches_empty_report_and_raises(self, db_session):
+        """Test that first database error caches empty report and raises exception."""
+        cache = get_cache()
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+
+        # Ensure error cache is empty
+        assert cache.get(error_cache_key) is None
+
+        # Trigger a database error
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("connection lost", None, None),
+        ):
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=30)
+
+        # Verify empty report was cached
+        cached_error_report = cache.get(error_cache_key)
+        assert cached_error_report is not None
+        assert cached_error_report["summary"]["total_questions_with_data"] == 0
+        assert cached_error_report == _get_empty_report()
+
+    def test_second_call_returns_cached_error_report(self, db_session):
+        """Test that subsequent calls return cached error report without hitting DB."""
+        cache = get_cache()
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+
+        # First call triggers error and caches fallback
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("connection lost", None, None),
+        ) as mock_query:
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=30)
+
+            # Verify query was called
+            assert mock_query.call_count > 0
+
+        # Verify error cache is populated
+        assert cache.get(error_cache_key) is not None
+
+        # Second call should return cached fallback without hitting the database
+        # We need a fresh mock that will track calls
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("should not be called", None, None),
+        ) as mock_query2:
+            # This call should NOT raise - it returns the cached error report
+            result = get_discrimination_report(db_session, min_responses=30)
+
+            # Verify query was NOT called (returned from cache)
+            assert mock_query2.call_count == 0
+
+        # Result should be the empty report
+        assert result["summary"]["total_questions_with_data"] == 0
+        assert result == _get_empty_report()
+
+    def test_error_cache_prevents_thundering_herd(self, db_session):
+        """Test multiple concurrent calls during outage don't all hit the database."""
+        query_call_count = [0]
+
+        def failing_query(*args, **kwargs):
+            query_call_count[0] += 1
+            raise OperationalError("database unavailable", None, None)
+
+        # First call triggers the error
+        with patch.object(db_session, "query", side_effect=failing_query):
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=30)
+
+        first_count = query_call_count[0]
+        assert first_count > 0
+
+        # Simulate multiple subsequent calls (as would happen in a thundering herd)
+        for _ in range(5):
+            result = get_discrimination_report(db_session, min_responses=30)
+            assert result["summary"]["total_questions_with_data"] == 0
+
+        # Query count should not have increased
+        assert query_call_count[0] == first_count
+
+    def test_different_params_have_separate_error_caches(self, db_session):
+        """Test that different parameter combinations have separate error caches."""
+        cache = get_cache()
+
+        # Trigger error for min_responses=30
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("error", None, None),
+        ):
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=30)
+
+        # Now min_responses=30 should have cached error report
+        params_hash_30 = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key_30 = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash_30}"
+        assert cache.get(error_cache_key_30) is not None
+
+        # min_responses=50 should NOT have cached error report
+        params_hash_50 = generate_cache_key(min_responses=50, action_list_limit=100)
+        error_cache_key_50 = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash_50}"
+        assert cache.get(error_cache_key_50) is None
+
+        # Calling with min_responses=50 should hit the database (not return cached)
+        # Create a mock that tracks calls
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("new error", None, None),
+        ) as mock_query:
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=50)
+
+            # Should have hit the database
+            assert mock_query.call_count > 0
+
+    def test_invalidate_clears_both_success_and_error_caches(self, db_session):
+        """Test that invalidate_discrimination_report_cache clears error cache too."""
+        cache = get_cache()
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+        success_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
+
+        # Manually set both caches
+        cache.set(error_cache_key, _get_empty_report(), ttl=ERROR_CACHE_TTL)
+        cache.set(success_cache_key, {"test": "data"}, ttl=300)
+
+        # Verify both are set
+        assert cache.get(error_cache_key) is not None
+        assert cache.get(success_cache_key) is not None
+
+        # Invalidate
+        invalidate_discrimination_report_cache()
+
+        # Both should be cleared
+        assert cache.get(error_cache_key) is None
+        assert cache.get(success_cache_key) is None
+
+    def test_successful_response_clears_error_cache_on_next_call(self, db_session):
+        """Test that when DB recovers, successful response is cached instead of error."""
+        cache = get_cache()
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+        success_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
+
+        # First, manually populate error cache (simulating a recent error)
+        cache.set(error_cache_key, _get_empty_report(), ttl=ERROR_CACHE_TTL)
+
+        # Now clear error cache and make a successful call
+        cache.delete(error_cache_key)
+
+        # Create a question so we get real data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            response_count=50,
+            discrimination=0.35,
+        )
+
+        # This should succeed and cache the result
+        result = get_discrimination_report(db_session, min_responses=30)
+
+        # Should have real data (not empty report)
+        assert result["summary"]["total_questions_with_data"] >= 1
+
+        # Success cache should be populated
+        assert cache.get(success_cache_key) is not None
+
+        # Error cache should still be empty
+        assert cache.get(error_cache_key) is None
+
+    def test_error_cache_expires_after_ttl(self, db_session):
+        """Test that error cache expires and subsequent call hits database."""
+        cache = get_cache()
+        params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
+        error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+
+        # Manually set error cache with very short TTL that will expire
+        # Use ttl=0 to simulate expiry (cache.get will return None for expired)
+        cache.set(error_cache_key, _get_empty_report(), ttl=0)
+
+        # Give it a moment to expire
+        import time
+
+        time.sleep(0.01)
+
+        # Cache should be expired
+        assert cache.get(error_cache_key) is None
+
+        # Next call should hit the database (since cache is expired)
+        with patch.object(
+            db_session,
+            "query",
+            side_effect=OperationalError("error", None, None),
+        ) as mock_query:
+            with pytest.raises(DiscriminationAnalysisError):
+                get_discrimination_report(db_session, min_responses=30)
+
+            # Should have hit the database
+            assert mock_query.call_count > 0
