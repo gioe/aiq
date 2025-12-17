@@ -1508,6 +1508,25 @@ def _determine_overall_status(
     return "needs_attention"
 
 
+def _create_error_result(error_message: str) -> Dict:
+    """
+    Create a default error result dict for failed calculations.
+
+    This provides a consistent structure when a calculation fails unexpectedly,
+    allowing the report to continue with partial results.
+
+    Args:
+        error_message: Description of the error that occurred
+
+    Returns:
+        Dict with error set and all other fields as None/empty/False
+    """
+    return {
+        "error": error_message,
+        "insufficient_data": True,  # Treat unexpected errors as insufficient data
+    }
+
+
 def get_reliability_report(
     db: Session,
     min_sessions: int = 100,
@@ -1522,6 +1541,11 @@ def get_reliability_report(
     - Split-half reliability
 
     Returns dict matching ReliabilityReportResponse schema.
+
+    Each calculation is wrapped in error handling to ensure that a failure
+    in one calculation doesn't prevent partial results from being returned.
+    If a calculation raises an unexpected exception, the report will include
+    an error message for that metric while still computing the others.
 
     Args:
         db: Database session
@@ -1542,12 +1566,67 @@ def get_reliability_report(
     """
     from datetime import datetime, timezone
 
-    # Calculate all reliability metrics
-    alpha_result = calculate_cronbachs_alpha(db, min_sessions=min_sessions)
-    test_retest_result = calculate_test_retest_reliability(
-        db, min_pairs=min_retest_pairs
-    )
-    split_half_result = calculate_split_half_reliability(db, min_sessions=min_sessions)
+    # Calculate all reliability metrics with defensive error handling
+    # Each calculation is wrapped in try-except to allow partial results
+    # if one calculation fails unexpectedly (RE-FI-015)
+
+    try:
+        alpha_result = calculate_cronbachs_alpha(db, min_sessions=min_sessions)
+    except Exception as e:
+        logger.exception(f"Unexpected error calculating Cronbach's alpha: {e}")
+        alpha_result = _create_error_result(f"Calculation error: {str(e)}")
+        alpha_result.update(
+            {
+                "cronbachs_alpha": None,
+                "num_sessions": 0,
+                "num_items": 0,
+                "interpretation": None,
+                "meets_threshold": False,
+                "item_total_correlations": {},
+            }
+        )
+
+    try:
+        test_retest_result = calculate_test_retest_reliability(
+            db, min_pairs=min_retest_pairs
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error calculating test-retest reliability: {e}")
+        test_retest_result = _create_error_result(f"Calculation error: {str(e)}")
+        test_retest_result.update(
+            {
+                "test_retest_r": None,
+                "num_retest_pairs": 0,
+                "mean_interval_days": None,
+                "interpretation": None,
+                "meets_threshold": False,
+                "score_change_stats": {
+                    "mean_change": None,
+                    "std_change": None,
+                    "practice_effect": None,
+                },
+            }
+        )
+
+    try:
+        split_half_result = calculate_split_half_reliability(
+            db, min_sessions=min_sessions
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error calculating split-half reliability: {e}")
+        split_half_result = _create_error_result(f"Calculation error: {str(e)}")
+        split_half_result.update(
+            {
+                "split_half_r": None,
+                "spearman_brown_r": None,
+                "num_sessions": 0,
+                "num_items": 0,
+                "odd_items": 0,
+                "even_items": 0,
+                "interpretation": None,
+                "meets_threshold": False,
+            }
+        )
 
     # Current timestamp for last_calculated
     now = datetime.now(timezone.utc)
