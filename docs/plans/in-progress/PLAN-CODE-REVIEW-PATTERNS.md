@@ -223,7 +223,7 @@ def test_quality_tier(value, expected):
 ---
 
 #### CRP-004: Add Caching Guidelines to CLAUDE.md
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `CLAUDE.md`
 **Description:** Add guidelines for when and how to implement caching.
 
@@ -296,10 +296,10 @@ except SQLAlchemyError:
 ```
 
 **Acceptance Criteria:**
-- [ ] Guidelines explain when to cache
-- [ ] Standard caching pattern documented
-- [ ] Cache invalidation requirements explained
-- [ ] Error caching pattern included
+- [x] Guidelines explain when to cache
+- [x] Standard caching pattern documented
+- [x] Cache invalidation requirements explained
+- [x] Error caching pattern included
 
 ---
 
