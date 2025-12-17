@@ -5,24 +5,115 @@ These tests verify that the Pydantic validators enforce logical consistency
 between meets_threshold boolean and the corresponding metric values, as well
 as mathematical constraints between related fields.
 
-Bidirectional validation ensures:
-- When metric is None → meets_threshold must be False
-- When metric >= threshold → meets_threshold must be True
-- When metric < threshold → meets_threshold must be False
+=============================================================================
+WHAT THE VALIDATORS PREVENT
+=============================================================================
 
-Spearman-Brown validation ensures (RE-FI-027):
-- When raw_correlation is None → spearman_brown must also be None
-- The Spearman-Brown correction mathematically requires a raw correlation value
+The reliability schema validators guard against three categories of invalid states:
 
-Example of invalid states caught by validators:
-    # Invalid: metric meets threshold but meets_threshold is False
-    InternalConsistencyMetrics(cronbachs_alpha=0.85, meets_threshold=False, ...)  # raises ValidationError
+1. INSUFFICIENT DATA CLAIMS SUCCESS (RE-FI-010)
+   -------------------------------------------------
+   Without validation: An API response could claim "meets_threshold=True" even
+   when there's no actual data to support it. This is misleading and dangerous
+   for consumers who might act on the assumption that reliability has been verified.
 
-    # Invalid: metric below threshold but meets_threshold is True
-    TestRetestMetrics(correlation=0.40, meets_threshold=True, ...)  # raises ValidationError
+   INVALID - Claims threshold met with no data:
+       InternalConsistencyMetrics(
+           cronbachs_alpha=None,     # No data!
+           meets_threshold=True,     # But claims success? BUG!
+           num_sessions=50,
+       )
+       # Validator raises: "meets_threshold cannot be True when
+       #                    cronbachs_alpha is None (insufficient data)"
 
-    # Invalid: spearman_brown present without raw_correlation (RE-FI-027)
-    SplitHalfMetrics(raw_correlation=None, spearman_brown=0.75, ...)  # raises ValidationError
+   VALID - Honestly reports insufficient data:
+       InternalConsistencyMetrics(
+           cronbachs_alpha=None,
+           meets_threshold=False,    # Correctly indicates not met
+           num_sessions=50,
+       )
+
+2. INCONSISTENT THRESHOLD REPORTING (RE-FI-026)
+   -------------------------------------------------
+   Without validation: The meets_threshold boolean could contradict the actual
+   metric value. A reliability coefficient of 0.85 (excellent) might be reported
+   as "fails threshold" or vice versa, causing incorrect dashboard displays
+   and potentially leading to misguided item removals or quality decisions.
+
+   INVALID - Good reliability reported as failing:
+       InternalConsistencyMetrics(
+           cronbachs_alpha=0.85,     # Excellent! >= 0.70 threshold
+           meets_threshold=False,    # But says it failed? BUG!
+           num_sessions=150,
+           num_items=20,
+       )
+       # Validator raises: "meets_threshold must be True when
+       #                    cronbachs_alpha (0.85) >= threshold (0.70)"
+
+   INVALID - Poor reliability reported as passing:
+       TestRetestMetrics(
+           correlation=0.35,         # Poor! < 0.50 threshold
+           meets_threshold=True,     # But says it passed? BUG!
+           num_pairs=50,
+       )
+       # Validator raises: "meets_threshold must be False when
+       #                    correlation (0.35) < threshold (0.50)"
+
+   VALID - Threshold status matches the data:
+       InternalConsistencyMetrics(
+           cronbachs_alpha=0.85,
+           meets_threshold=True,     # Correctly reports success
+           num_sessions=150,
+           num_items=20,
+       )
+
+3. MATHEMATICALLY IMPOSSIBLE STATE (RE-FI-027)
+   -------------------------------------------------
+   Without validation: The Spearman-Brown corrected reliability could exist
+   without the raw correlation it's derived from. This violates the fundamental
+   formula: r_sb = 2r / (1+r). You cannot have the output without the input.
+
+   INVALID - Derived value without source:
+       SplitHalfMetrics(
+           raw_correlation=None,     # No input to the formula!
+           spearman_brown=0.82,      # But correction exists? BUG!
+           meets_threshold=True,
+           num_sessions=150,
+       )
+       # Validator raises: "spearman_brown cannot be present when
+       #                    raw_correlation is None. The Spearman-Brown
+       #                    correction requires a raw correlation value."
+
+   VALID - Both present (normal calculation):
+       SplitHalfMetrics(
+           raw_correlation=0.70,     # Input to formula
+           spearman_brown=0.82,      # Output: 2*0.70 / (1+0.70) = 0.82
+           meets_threshold=True,
+           num_sessions=150,
+       )
+
+   VALID - Both absent (insufficient data):
+       SplitHalfMetrics(
+           raw_correlation=None,
+           spearman_brown=None,
+           meets_threshold=False,
+           num_sessions=50,
+       )
+
+=============================================================================
+THRESHOLD VALUES
+=============================================================================
+
+The validators use these threshold constants for bidirectional validation:
+- ALPHA_THRESHOLD = 0.70     (Cronbach's alpha minimum for internal consistency)
+- TEST_RETEST_THRESHOLD = 0.50  (Test-retest correlation minimum for stability)
+- SPLIT_HALF_THRESHOLD = 0.70   (Spearman-Brown minimum for split-half reliability)
+
+Boundary behavior: The thresholds use >= comparison, meaning exactly 0.70
+meets the threshold (for alpha and split-half) and exactly 0.50 meets the
+threshold (for test-retest).
+
+=============================================================================
 """
 import pytest
 from datetime import datetime, timezone

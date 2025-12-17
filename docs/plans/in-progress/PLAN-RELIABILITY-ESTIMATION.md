@@ -1028,11 +1028,17 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-028: Add Module-Level Example to Schema Test Docstring
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #267 comment
 **Files:** `backend/tests/test_reliability_schema.py`
 **Description:** Add a module-level docstring example showing what the validators prevent, making it immediately clear what invalid state is being guarded against.
 **Original Comment:** "Consider adding a module-level docstring example showing what the validators prevent"
+**Implementation Notes:** Enhanced the module docstring with comprehensive documentation covering three categories of invalid states prevented by the validators:
+1. **Insufficient data claims success (RE-FI-010)**: API responses claiming success with no data
+2. **Inconsistent threshold reporting (RE-FI-026)**: meets_threshold contradicting actual values
+3. **Mathematically impossible states (RE-FI-027)**: Spearman-Brown existing without raw correlation
+
+Each category includes explanation of why validation matters, INVALID code examples with expected error messages, and VALID code examples showing correct usage. Also documented threshold constants and boundary behavior.
 
 ---
 
