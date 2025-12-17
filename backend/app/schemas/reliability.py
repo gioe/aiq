@@ -302,6 +302,27 @@ class SplitHalfMetrics(BaseModel):
                     )
         return self
 
+    @model_validator(mode="after")
+    def validate_spearman_brown_requires_raw_correlation(self) -> Self:
+        """
+        Ensure spearman_brown cannot be present when raw_correlation is None.
+
+        The Spearman-Brown correction formula is:
+            r_full = (2 × r_half) / (1 + r_half)
+
+        where r_half is the raw correlation between the two halves. Mathematically,
+        the Spearman-Brown value cannot exist without a raw correlation value to
+        correct. If raw_correlation is None (insufficient data), spearman_brown
+        must also be None.
+        """
+        if self.raw_correlation is None and self.spearman_brown is not None:
+            raise ValueError(
+                "spearman_brown cannot be present when raw_correlation is None. "
+                "The Spearman-Brown correction requires a raw correlation value "
+                "to compute the full-test reliability estimate."
+            )
+        return self
+
 
 # =============================================================================
 # Recommendations Schema
