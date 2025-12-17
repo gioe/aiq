@@ -1018,11 +1018,12 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-027: Validate Spearman-Brown Requires Raw Correlation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #267 comment
-**Files:** `backend/app/schemas/reliability.py`
+**Files:** `backend/app/schemas/reliability.py`, `backend/tests/test_reliability_schema.py`
 **Description:** Consider adding schema-level validation to ensure `spearman_brown` can't be present when `raw_correlation` is None, since the Spearman-Brown correction mathematically requires a raw correlation value. Alternatively, document why this edge case is intentionally allowed.
 **Original Comment:** "The test `test_valid_when_raw_correlation_none_but_spearman_brown_present` identifies an edge case where `raw_correlation=None` but `spearman_brown=0.75`. While the schema allows this, mathematically this shouldn't happen."
+**Implementation Notes:** Added `validate_spearman_brown_requires_raw_correlation` model validator to `SplitHalfMetrics` schema that enforces the mathematical constraint: if `raw_correlation` is None, `spearman_brown` must also be None. The error message explains the Spearman-Brown correction formula and why raw correlation is required. Updated the previously passing test `test_valid_when_raw_correlation_none_but_spearman_brown_present` to now verify this case is invalid. Added 12 new tests in `TestSpearmanBrownRequiresRawCorrelation` class covering invalid cases, valid cases, error message quality, and edge cases.
 
 ---
 
