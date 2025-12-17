@@ -824,11 +824,17 @@ The validators raise `ValidationError` with descriptive messages explaining the 
 ---
 
 ### RE-FI-015: Add Defensive Error Handling Around Reliability Calculations
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
-**Files:** `backend/app/core/reliability.py`
+**Files:** `backend/app/core/reliability.py`, `backend/tests/core/test_reliability.py`
 **Description:** Add try-except blocks around the three `calculate_*` function calls in `get_reliability_report` to handle unexpected exceptions gracefully and return partial results.
 **Original Comment:** "If any of these functions raise unexpected exceptions, the entire report generation fails. Consider adding error handling"
+**Implementation Notes:** Added `_create_error_result()` helper function and wrapped each calculation (`calculate_cronbachs_alpha`, `calculate_test_retest_reliability`, `calculate_split_half_reliability`) in try-except blocks. When an exception occurs:
+- The error is logged with full traceback via `logger.exception()`
+- A fallback result is created with `insufficient_data=True` to trigger proper recommendations
+- All required fields are populated with appropriate defaults (None, 0, False, {})
+- The remaining calculations continue and partial results are returned
+Added 7 tests in `TestDefensiveErrorHandling` class verifying partial results, error structure, and recommendation generation.
 
 ---
 
