@@ -249,6 +249,7 @@ Optional longer explanation if needed.
 - `test_sessions` - Individual test attempts (tracks in_progress, completed, abandoned, time_limit_exceeded)
 - `responses` - User answers to specific questions (includes time_spent_seconds per question)
 - `test_results` - Calculated IQ scores, test metadata, and response_time_flags (anomaly analysis)
+- `reliability_metrics` - Historical reliability metrics (Cronbach's alpha, test-retest, split-half) for trend analysis
 
 **Key Query Pattern** (filtering unseen questions):
 ```sql
@@ -297,6 +298,8 @@ LIMIT N
 - `GET /v1/admin/questions/discrimination-report` - Discrimination quality report for all questions
 - `GET /v1/admin/questions/{id}/discrimination-detail` - Detailed discrimination info for specific question
 - `PATCH /v1/admin/questions/{id}/quality-flag` - Update quality flag for a question
+- `GET /v1/admin/reliability` - Reliability metrics report (Cronbach's alpha, test-retest, split-half)
+- `GET /v1/admin/reliability/history` - Historical reliability metrics for trend analysis
 
 ## Environment Setup
 
@@ -359,6 +362,7 @@ open AIQ.xcodeproj  # Select your development team in project settings
 - `QGT` - Question Generation Tracking (metrics persistence for generation runs)
 - `DA` - Distractor Analysis (question distractor effectiveness tracking)
 - `EIC` - Empirical Item Calibration (difficulty calibration based on user responses)
+- `RE` - Reliability Estimation (Cronbach's alpha, test-retest, split-half reliability)
 
 **Current Status** (see PLAN.md for details):
 - ✅ Phase 1: Foundation & Infrastructure (complete)
