@@ -87,6 +87,20 @@ repos:
         pass_filenames: false
 
   # ============================================
+  # Custom Code Quality Hooks
+  # ============================================
+
+  # Check for direct float comparisons in tests (use pytest.approx() instead)
+  - repo: local
+    hooks:
+      - id: check-float-comparisons
+        name: check-float-comparisons
+        entry: python scripts/check_float_comparisons.py
+        language: python
+        files: ^(backend|question-service)/.*test_.*\.py$
+        types: [python]
+
+  # ============================================
   # iOS Swift Hooks
   # ============================================
 
