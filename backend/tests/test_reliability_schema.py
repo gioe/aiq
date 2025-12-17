@@ -1,13 +1,18 @@
 """
-Tests for reliability schema validators (RE-FI-010, RE-FI-026).
+Tests for reliability schema validators (RE-FI-010, RE-FI-026, RE-FI-027).
 
 These tests verify that the Pydantic validators enforce logical consistency
-between meets_threshold boolean and the corresponding metric values.
+between meets_threshold boolean and the corresponding metric values, as well
+as mathematical constraints between related fields.
 
 Bidirectional validation ensures:
 - When metric is None → meets_threshold must be False
 - When metric >= threshold → meets_threshold must be True
 - When metric < threshold → meets_threshold must be False
+
+Spearman-Brown validation ensures (RE-FI-027):
+- When raw_correlation is None → spearman_brown must also be None
+- The Spearman-Brown correction mathematically requires a raw correlation value
 
 Example of invalid states caught by validators:
     # Invalid: metric meets threshold but meets_threshold is False
@@ -15,6 +20,9 @@ Example of invalid states caught by validators:
 
     # Invalid: metric below threshold but meets_threshold is True
     TestRetestMetrics(correlation=0.40, meets_threshold=True, ...)  # raises ValidationError
+
+    # Invalid: spearman_brown present without raw_correlation (RE-FI-027)
+    SplitHalfMetrics(raw_correlation=None, spearman_brown=0.75, ...)  # raises ValidationError
 """
 import pytest
 from datetime import datetime, timezone
@@ -286,20 +294,31 @@ class TestSplitHalfMetricsValidator:
         assert metrics.spearman_brown == 0.0
         assert metrics.meets_threshold is False
 
-    def test_valid_when_raw_correlation_none_but_spearman_brown_present(self):
+    def test_invalid_when_raw_correlation_none_but_spearman_brown_present(self):
         """
-        Edge case: raw_correlation could be None while spearman_brown is present
-        (unlikely but schema allows it). Validator only checks spearman_brown.
+        Invalid: spearman_brown cannot be present when raw_correlation is None.
+
+        The Spearman-Brown correction formula mathematically requires a raw
+        correlation value. If raw_correlation is None (insufficient data),
+        spearman_brown must also be None.
         """
-        metrics = SplitHalfMetrics(
-            raw_correlation=None,
-            spearman_brown=0.75,
-            meets_threshold=True,
-            num_sessions=100,
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.75,
+                meets_threshold=True,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
         )
-        assert metrics.raw_correlation is None
-        assert metrics.spearman_brown == 0.75
-        assert metrics.meets_threshold is True
+        assert (
+            "Spearman-Brown correction requires a raw correlation value"
+            in error_messages
+        )
 
 
 class TestValidatorErrorMessages:
@@ -751,35 +770,41 @@ class TestSplitHalfBidirectionalValidation:
         assert metrics.spearman_brown == 0.699
         assert metrics.meets_threshold is False
 
-    def test_valid_when_raw_correlation_none_but_spearman_brown_meets_threshold(self):
+    def test_invalid_when_raw_correlation_none_but_spearman_brown_present(self):
         """
-        Edge case: raw_correlation is None but spearman_brown is present and meets threshold.
-        Bidirectional validation should still apply based on spearman_brown value.
-        """
-        metrics = SplitHalfMetrics(
-            raw_correlation=None,
-            spearman_brown=0.85,  # Meets threshold
-            meets_threshold=True,
-            num_sessions=100,
-        )
-        assert metrics.spearman_brown == 0.85
-        assert metrics.meets_threshold is True
+        Edge case: spearman_brown cannot be present when raw_correlation is None.
 
-    def test_invalid_raw_correlation_none_spearman_brown_meets_but_flag_false(self):
-        """
-        Edge case: raw_correlation is None, spearman_brown meets threshold,
-        but meets_threshold=False should be rejected.
+        This validates the mathematical constraint that the Spearman-Brown
+        correction requires a raw correlation value. Previously this was allowed,
+        but RE-FI-027 added validation to enforce this constraint.
         """
         with pytest.raises(ValidationError) as exc_info:
             SplitHalfMetrics(
                 raw_correlation=None,
-                spearman_brown=0.85,  # Meets threshold
-                meets_threshold=False,  # Incorrect
+                spearman_brown=0.85,  # Cannot be present without raw_correlation
+                meets_threshold=True,
                 num_sessions=100,
             )
 
         error_messages = str(exc_info.value)
-        assert "meets_threshold must be True" in error_messages
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_valid_when_both_correlations_none(self):
+        """
+        Valid: Both raw_correlation and spearman_brown can be None (insufficient data).
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=None,
+            spearman_brown=None,
+            meets_threshold=False,
+            num_sessions=50,
+        )
+        assert metrics.raw_correlation is None
+        assert metrics.spearman_brown is None
+        assert metrics.meets_threshold is False
 
 
 class TestBidirectionalValidationThresholdConstants:
@@ -798,3 +823,216 @@ class TestBidirectionalValidationThresholdConstants:
     def test_split_half_threshold_is_070(self):
         """Verify SPLIT_HALF_THRESHOLD constant is 0.70."""
         assert SPLIT_HALF_THRESHOLD == 0.70
+
+
+# =============================================================================
+# Spearman-Brown Requires Raw Correlation Validation Tests (RE-FI-027)
+# =============================================================================
+
+
+class TestSpearmanBrownRequiresRawCorrelation:
+    """
+    Tests for the validation that spearman_brown cannot be present when
+    raw_correlation is None.
+
+    The Spearman-Brown correction formula is:
+        r_full = (2 × r_half) / (1 + r_half)
+
+    Mathematically, spearman_brown cannot exist without a raw correlation
+    value to apply the correction to.
+    """
+
+    def test_invalid_spearman_brown_present_without_raw_correlation(self):
+        """
+        Invalid: Cannot have spearman_brown when raw_correlation is None.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.75,
+                meets_threshold=True,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_invalid_spearman_brown_below_threshold_without_raw_correlation(self):
+        """
+        Invalid: Cannot have spearman_brown when raw_correlation is None,
+        even when spearman_brown is below threshold.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.55,
+                meets_threshold=False,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_invalid_spearman_brown_zero_without_raw_correlation(self):
+        """
+        Invalid: Cannot have spearman_brown=0.0 when raw_correlation is None.
+
+        Even though 0.0 might seem like a "null" value, it's still a valid
+        calculated correlation, and the constraint should still apply.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.0,
+                meets_threshold=False,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_invalid_spearman_brown_negative_without_raw_correlation(self):
+        """
+        Invalid: Cannot have negative spearman_brown when raw_correlation is None.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=-0.25,
+                meets_threshold=False,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_valid_both_correlations_present(self):
+        """
+        Valid: Both raw_correlation and spearman_brown are present.
+        This is the normal case when calculation succeeds.
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.70,
+            spearman_brown=0.82,
+            meets_threshold=True,
+            num_sessions=150,
+        )
+        assert metrics.raw_correlation == 0.70
+        assert metrics.spearman_brown == 0.82
+        assert metrics.meets_threshold is True
+
+    def test_valid_both_correlations_none(self):
+        """
+        Valid: Both raw_correlation and spearman_brown are None.
+        This is the normal case when there's insufficient data.
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=None,
+            spearman_brown=None,
+            meets_threshold=False,
+            num_sessions=50,
+        )
+        assert metrics.raw_correlation is None
+        assert metrics.spearman_brown is None
+        assert metrics.meets_threshold is False
+
+    def test_valid_raw_correlation_present_spearman_brown_none(self):
+        """
+        Valid: raw_correlation is present but spearman_brown is None.
+
+        This is a valid edge case - technically the raw correlation could
+        be calculated but the Spearman-Brown correction not applied for
+        some reason (though unlikely in practice).
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.65,
+            spearman_brown=None,
+            meets_threshold=False,
+            num_sessions=100,
+        )
+        assert metrics.raw_correlation == 0.65
+        assert metrics.spearman_brown is None
+        assert metrics.meets_threshold is False
+
+    def test_error_message_explains_mathematical_constraint(self):
+        """
+        Verify the error message explains the mathematical reason for the constraint.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.80,
+                meets_threshold=True,
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        # Should mention the Spearman-Brown correction
+        assert "Spearman-Brown correction" in error_messages
+        # Should mention that raw correlation is required
+        assert "requires a raw correlation value" in error_messages
+
+    def test_validation_runs_with_both_validators(self):
+        """
+        Verify both validators run: spearman_brown requires raw_correlation
+        AND meets_threshold consistency.
+
+        When raw_correlation is None but spearman_brown is present,
+        the spearman_brown validation should fail first.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.85,  # Present without raw_correlation
+                meets_threshold=True,
+                num_sessions=100,
+            )
+
+        # The spearman_brown requires raw_correlation error should be raised
+        error_messages = str(exc_info.value)
+        assert (
+            "spearman_brown cannot be present when raw_correlation is None"
+            in error_messages
+        )
+
+    def test_valid_at_threshold_boundary_with_both_correlations(self):
+        """
+        Valid: Both correlations present and spearman_brown is exactly at threshold.
+        """
+        # Using raw_correlation that produces spearman_brown = 0.70
+        # r_sb = 2r / (1+r) = 0.70 => r = 0.538...
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.538,
+            spearman_brown=0.70,
+            meets_threshold=True,
+            num_sessions=150,
+        )
+        assert metrics.raw_correlation == 0.538
+        assert metrics.spearman_brown == 0.70
+        assert metrics.meets_threshold is True
+
+    def test_valid_with_very_low_correlations(self):
+        """
+        Valid: Both correlations present but very low (near zero).
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.05,
+            spearman_brown=0.095,  # Approximately 2*0.05 / (1+0.05)
+            meets_threshold=False,
+            num_sessions=100,
+        )
+        assert metrics.raw_correlation == 0.05
+        assert metrics.spearman_brown == 0.095
+        assert metrics.meets_threshold is False
