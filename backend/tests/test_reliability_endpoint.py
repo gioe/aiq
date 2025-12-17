@@ -211,11 +211,12 @@ class TestReliabilityEndpoint:
         data = response.json()
         assert data["internal_consistency"]["cronbachs_alpha"] is None
 
-        # With lower min_sessions=3, should calculate (but may still have issues)
+        # With lower min_sessions=10 (the new minimum), should calculate (but may still
+        # have issues due to insufficient data for this test's 5 sessions)
         response = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
-            params={"min_sessions": 3, "store_metrics": False},
+            params={"min_sessions": 10, "store_metrics": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -251,19 +252,19 @@ class TestReliabilityEndpoint:
         # Create sufficient test data for at least one metric to calculate
         questions = create_test_questions(db_session, count=15)
         create_test_sessions_with_responses(
-            db_session, test_user, questions, num_sessions=10
+            db_session, test_user, questions, num_sessions=15
         )
 
         # Count existing metrics
         existing_metrics = db_session.query(ReliabilityMetric).count()
 
-        # Make request with store_metrics=true and low thresholds
+        # Make request with store_metrics=true and minimum allowed thresholds
         response = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={
-                "min_sessions": 5,
-                "min_retest_pairs": 2,
+                "min_sessions": 10,
+                "min_retest_pairs": 10,
                 "store_metrics": True,
             },
         )
@@ -282,19 +283,19 @@ class TestReliabilityEndpoint:
         # Create test data
         questions = create_test_questions(db_session, count=15)
         create_test_sessions_with_responses(
-            db_session, test_user, questions, num_sessions=10
+            db_session, test_user, questions, num_sessions=15
         )
 
         # Count existing metrics
         existing_metrics = db_session.query(ReliabilityMetric).count()
 
-        # Make request with store_metrics=false
+        # Make request with store_metrics=false and minimum allowed thresholds
         response = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={
-                "min_sessions": 5,
-                "min_retest_pairs": 2,
+                "min_sessions": 10,
+                "min_retest_pairs": 10,
                 "store_metrics": False,
             },
         )
@@ -372,19 +373,19 @@ class TestReliabilityEndpoint:
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_parameter_validation(self, client, db_session, admin_token_headers):
         """Test query parameter validation."""
-        # min_sessions must be >= 1
+        # min_sessions must be >= 10
         response = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
-            params={"min_sessions": 0},
+            params={"min_sessions": 9},
         )
         assert response.status_code == 422  # Validation error
 
-        # min_retest_pairs must be >= 1
+        # min_retest_pairs must be >= 10
         response = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
-            params={"min_retest_pairs": 0},
+            params={"min_retest_pairs": 9},
         )
         assert response.status_code == 422  # Validation error
 

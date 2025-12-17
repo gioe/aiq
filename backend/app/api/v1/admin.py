@@ -3624,12 +3624,12 @@ async def get_reliability_report_endpoint(
     _: bool = Depends(verify_admin_token),
     min_sessions: int = Query(
         default=100,
-        ge=1,
+        ge=10,
         description="Minimum sessions required for alpha/split-half calculations",
     ),
     min_retest_pairs: int = Query(
         default=30,
-        ge=1,
+        ge=10,
         description="Minimum retest pairs required for test-retest calculation",
     ),
     store_metrics: bool = Query(
