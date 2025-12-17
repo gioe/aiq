@@ -859,11 +859,12 @@ Added 7 tests in `TestDefensiveErrorHandling` class verifying partial results, e
 ---
 
 ### RE-FI-017: Add Optional Commit Parameter for Batch Operations
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #257 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Add an optional `commit` parameter to `store_reliability_metric()` to allow caller control over transaction commits, enabling batch operations where multiple metrics can be stored in a single transaction.
 **Original Comment:** "store_reliability_metric() commits directly within the function. This pattern prevents batching multiple metric stores in a single transaction. Consider adding an optional `commit` parameter to allow caller control."
+**Implementation Notes:** Added `commit: bool = True` parameter to `store_reliability_metric()`. When `commit=True` (default), the function commits and refreshes as before for backward compatibility. When `commit=False`, the function flushes to get the ID but does not commit, allowing callers to batch multiple stores in a single transaction. Added 6 unit tests covering default behavior, explicit commit values, batch operations, and atomic rollback scenarios.
 
 ---
 
