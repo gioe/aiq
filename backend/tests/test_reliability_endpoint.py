@@ -799,8 +799,8 @@ class TestReliabilityReportCaching:
         assert response1.status_code == 200
         timestamp1 = response1.json()["internal_consistency"]["last_calculated"]
 
-        # Small delay to ensure different timestamp
-        time.sleep(0.1)
+        # Delay to ensure different timestamp (0.5s for CI runner reliability)
+        time.sleep(0.5)
 
         # Request with store_metrics=true should bypass cache and recalculate
         response2 = client.get(
@@ -860,7 +860,8 @@ class TestReliabilityReportCaching:
         # Next request should get fresh result
         import time
 
-        time.sleep(0.1)
+        # Delay to ensure different timestamp (0.5s for CI runner reliability)
+        time.sleep(0.5)
         response2 = client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
@@ -2312,8 +2313,8 @@ class TestAutomaticCacheInvalidation:
         db_session.commit()
         db_session.refresh(new_session)
 
-        # Small delay to ensure different timestamp
-        time.sleep(0.1)
+        # Delay to ensure different timestamp (0.5s for CI runner reliability)
+        time.sleep(0.5)
 
         # Submit the test via the endpoint (this should invalidate the cache)
         submit_response = client.post(
@@ -2344,8 +2345,8 @@ class TestAutomaticCacheInvalidation:
             submit_response.status_code == 200
         ), f"Submit failed: {submit_response.json()}"
 
-        # Small delay to ensure different timestamp
-        time.sleep(0.1)
+        # Delay to ensure different timestamp (0.5s for CI runner reliability)
+        time.sleep(0.5)
 
         # Third reliability request should get fresh calculation (cache invalidated)
         response3 = client.get(
