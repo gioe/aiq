@@ -588,55 +588,22 @@ Focus on files changed in the current branch compared to main.
 ---
 
 #### CRP-009: Add Pre-Commit Hook for Float Comparisons
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `.pre-commit-config.yaml`, `scripts/check_float_comparisons.py`
 **Description:** Add a pre-commit hook that detects direct float equality comparisons in test files.
 
-**Script Logic:**
-```python
-#!/usr/bin/env python3
-"""Check for direct float comparisons in test files."""
-
-import re
-import sys
-from pathlib import Path
-
-FLOAT_COMPARISON_PATTERN = re.compile(
-    r'assert\s+[\w\[\]"\'\.]+\s*==\s*\d+\.\d+(?!\s*,)',  # assert x == 1.5 without comma (approx)
-    re.MULTILINE
-)
-
-def check_file(path: Path) -> list[str]:
-    issues = []
-    content = path.read_text()
-    for i, line in enumerate(content.split('\n'), 1):
-        if FLOAT_COMPARISON_PATTERN.search(line):
-            if 'pytest.approx' not in line:
-                issues.append(f"{path}:{i}: Direct float comparison - use pytest.approx()")
-    return issues
-
-def main():
-    test_files = list(Path('.').rglob('test_*.py'))
-    all_issues = []
-    for f in test_files:
-        all_issues.extend(check_file(f))
-
-    if all_issues:
-        print("Float comparison issues found:")
-        for issue in all_issues:
-            print(f"  {issue}")
-        sys.exit(1)
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
+**Implementation Notes:**
+- Created `scripts/check_float_comparisons.py` with comprehensive regex pattern matching
+- Hook runs on `test_*.py` files in `backend/` and `question-service/` directories
+- Detects float literals including scientific notation (e.g., `1.5e-3`)
+- Ignores lines that already use `pytest.approx()`
+- Provides clear error messages with file path, line number, and suggested fix
 
 **Acceptance Criteria:**
-- [ ] Pre-commit hook created
-- [ ] Detects `assert x == 1.5` patterns without pytest.approx()
-- [ ] Runs on test files only
-- [ ] Provides clear error messages
+- [x] Pre-commit hook created
+- [x] Detects `assert x == 1.5` patterns without pytest.approx()
+- [x] Runs on test files only
+- [x] Provides clear error messages
 
 ---
 
