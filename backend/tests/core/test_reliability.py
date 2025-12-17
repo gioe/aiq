@@ -3057,6 +3057,129 @@ class TestStoreReliabilityMetric:
         metric_min = store_reliability_metric(db_session, "split_half", 0.5, 1)
         assert metric_min.sample_size == 1
 
+    def test_commit_true_by_default(self, db_session):
+        """Verifies commit=True is the default behavior (backward compatible)."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=100,
+        )
+
+        # Metric should have an ID (was committed and refreshed)
+        assert metric.id is not None
+
+        # Verify the metric was actually committed (visible in query)
+        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        assert queried is not None
+        assert queried.value == 0.85
+
+    def test_commit_false_does_not_commit(self, db_session):
+        """Verifies commit=False does not commit the transaction."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.72,
+            sample_size=50,
+            commit=False,
+        )
+
+        # Metric should have an ID (from flush)
+        assert metric.id is not None
+        assert metric.value == 0.72
+        assert metric.sample_size == 50
+        assert metric.metric_type == "test_retest"
+
+        # Rollback the transaction
+        db_session.rollback()
+
+        # Metric should not exist after rollback (was not committed)
+        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        assert queried is None
+
+    def test_commit_false_allows_batch_operations(self, db_session):
+        """Verifies commit=False allows batching multiple metrics in one transaction."""
+        # Store three metrics without committing
+        metric1 = store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=100,
+            commit=False,
+        )
+        metric2 = store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.72,
+            sample_size=50,
+            commit=False,
+        )
+        metric3 = store_reliability_metric(
+            db_session,
+            metric_type="split_half",
+            value=0.78,
+            sample_size=100,
+            commit=False,
+        )
+
+        # All metrics should have IDs (from flush)
+        assert metric1.id is not None
+        assert metric2.id is not None
+        assert metric3.id is not None
+
+        # Now commit all at once
+        db_session.commit()
+
+        # Verify all three were committed
+        all_metrics = db_session.query(ReliabilityMetric).all()
+        assert len(all_metrics) == 3
+
+        metric_types = {m.metric_type for m in all_metrics}
+        assert metric_types == {"cronbachs_alpha", "test_retest", "split_half"}
+
+    def test_commit_false_single_rollback_removes_all(self, db_session):
+        """Verifies batch operations can be rolled back atomically."""
+        # Store two metrics without committing
+        store_reliability_metric(
+            db_session,
+            metric_type="cronbachs_alpha",
+            value=0.85,
+            sample_size=100,
+            commit=False,
+        )
+        store_reliability_metric(
+            db_session,
+            metric_type="test_retest",
+            value=0.72,
+            sample_size=50,
+            commit=False,
+        )
+
+        # Rollback the entire batch
+        db_session.rollback()
+
+        # No metrics should exist
+        all_metrics = db_session.query(ReliabilityMetric).all()
+        assert len(all_metrics) == 0
+
+    def test_commit_explicit_true(self, db_session):
+        """Verifies explicit commit=True works the same as default."""
+        metric = store_reliability_metric(
+            db_session,
+            metric_type="split_half",
+            value=0.80,
+            sample_size=150,
+            commit=True,
+        )
+
+        # Metric should be committed
+        assert metric.id is not None
+
+        # Verify with a fresh query
+        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        assert queried is not None
+        assert queried.value == 0.80
+
 
 class TestGetReliabilityHistory:
     """Tests for get_reliability_history function (RE-007)."""
