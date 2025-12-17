@@ -993,11 +993,12 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-025: Add Test for Single Item (k=1) Error Handling
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #264 comment
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add a test for k=1 (single item) to verify the function returns an appropriate error, since Cronbach's alpha is undefined for k<2 (the formula requires at least 2 items).
 **Original Comment:** "Consider: Adding a test for k=1 (single item) to verify it returns an error, since alpha is undefined for k<2"
+**Implementation:** Added `test_single_item_returns_error` test in `TestEdgeCases` class that creates 120 sessions with only 1 question and verifies the function returns an error message containing "need at least 2".
 
 ---
 
