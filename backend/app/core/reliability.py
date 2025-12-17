@@ -82,8 +82,45 @@ from app.models.models import (
     TestResult,
     ReliabilityMetric,
 )
+from app.core.cache import cache_key as generate_cache_key, get_cache
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# CACHING CONFIGURATION (RE-FI-019)
+# =============================================================================
+# Caching for reliability report to avoid recalculating expensive metrics
+# on every request. Cache is invalidated when store_metrics=true (data stored)
+# or when new test data is added.
+
+# Cache key prefix for reliability report
+RELIABILITY_REPORT_CACHE_PREFIX = "reliability_report"
+
+# Cache TTL in seconds (5 minutes as recommended in PR #258)
+RELIABILITY_REPORT_CACHE_TTL = 300
+
+
+def invalidate_reliability_report_cache() -> None:
+    """
+    Invalidate all cached reliability report data.
+
+    This should be called when reliability data changes, specifically:
+    - After storing reliability metrics (store_metrics=true)
+    - After new test sessions are completed (data changes)
+    - During testing for cache verification
+
+    Note: In multi-worker deployments, cache invalidation only affects the current
+    worker. Other workers may serve stale data until TTL expires. For production,
+    consider using Redis with pub/sub for cross-worker invalidation.
+    """
+    cache = get_cache()
+    deleted_count = cache.delete_by_prefix(RELIABILITY_REPORT_CACHE_PREFIX)
+    if deleted_count > 0:
+        logger.debug(
+            f"Invalidated {deleted_count} reliability report cache entries "
+            f"(prefix={RELIABILITY_REPORT_CACHE_PREFIX})"
+        )
 
 
 # =============================================================================
@@ -1544,6 +1581,7 @@ def get_reliability_report(
     db: Session,
     min_sessions: int = 100,
     min_retest_pairs: int = 30,
+    use_cache: bool = True,
 ) -> Dict:
     """
     Generate comprehensive reliability report for admin dashboard.
@@ -1560,10 +1598,17 @@ def get_reliability_report(
     If a calculation raises an unexpected exception, the report will include
     an error message for that metric while still computing the others.
 
+    Caching (RE-FI-019):
+    Results are cached for 5 minutes to avoid recalculating expensive metrics
+    on every request. Cache is keyed by min_sessions and min_retest_pairs.
+    Set use_cache=False to bypass cache (e.g., when store_metrics=True).
+
     Args:
         db: Database session
         min_sessions: Minimum sessions required for alpha/split-half calculations
         min_retest_pairs: Minimum pairs required for test-retest calculation
+        use_cache: Whether to use caching (default True). Set to False when
+            storing metrics to ensure fresh calculations.
 
     Returns:
         {
@@ -1575,9 +1620,23 @@ def get_reliability_report(
         }
 
     Reference:
-        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006, RE-FI-019)
     """
     from datetime import datetime, timezone
+
+    # Generate cache key from parameters (RE-FI-019)
+    cache = get_cache()
+    params_hash = generate_cache_key(
+        min_sessions=min_sessions, min_retest_pairs=min_retest_pairs
+    )
+    full_cache_key = f"{RELIABILITY_REPORT_CACHE_PREFIX}:{params_hash}"
+
+    # Check cache first if caching is enabled
+    if use_cache:
+        cached_result = cache.get(full_cache_key)
+        if cached_result is not None:
+            logger.debug(f"Returning cached reliability report (key={full_cache_key})")
+            return cached_result
 
     # Calculate all reliability metrics with defensive error handling
     # Each calculation is wrapped in try-except to allow partial results
@@ -1694,6 +1753,16 @@ def get_reliability_report(
         "overall_status": overall_status,
         "recommendations": recommendations,
     }
+
+    # Cache the result for future requests (RE-FI-019)
+    # Cache is only updated when use_cache=True to avoid caching when
+    # the caller explicitly wants fresh data
+    if use_cache:
+        cache.set(full_cache_key, report, ttl=RELIABILITY_REPORT_CACHE_TTL)
+        logger.debug(
+            f"Cached reliability report (key={full_cache_key}, "
+            f"ttl={RELIABILITY_REPORT_CACHE_TTL}s)"
+        )
 
     logger.info(
         f"Reliability report generated: overall_status={overall_status}, "
