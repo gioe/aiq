@@ -638,36 +638,43 @@ Focus on files changed in the current branch compared to main.
 ### Phase 4: Code Review Agent Enhancement
 
 #### CRP-011: Update Code Reviewer Agent Prompt
-**Status:** [ ] Not Started
-**Files:** Agent configuration (location TBD based on pr-review-toolkit setup)
+**Status:** [x] Complete
+**Files:** `.claude/agents/project-code-reviewer.md`
 **Description:** Enhance the code-reviewer agent to specifically check for the identified patterns.
 
-**Prompt Additions:**
-```
-When reviewing code, specifically check for these common issues:
+**Implementation Notes:**
+- Created a project-level subagent at `.claude/agents/project-code-reviewer.md`
+- Built-in plugin agents cannot be directly modified, so a project-specific agent was created
+- The agent checks for all 11 patterns from the original prompt, organized by priority
+- Each pattern includes "What to look for", "Why" it matters, and code examples (BAD/GOOD)
+- Output format provides file paths, line numbers, and suggested fixes
+- Agent summarizes issues by priority with recommended actions
 
-## High Priority
-1. Magic numbers in comparisons - suggest extracting to named constants
+**Patterns Covered:**
+
+**High Priority (Must fix before merge):**
+1. Magic numbers in comparisons - extract to named constants
 2. Direct float comparisons in tests - require pytest.approx()
 3. Database queries without LIMIT - flag for unbounded result sets
 4. Missing try-except around database operations
 
-## Medium Priority
+**Medium Priority (Should fix):**
 5. String literals where enums exist - check for existing enum types
 6. Dict[str, Any] return types - suggest TypedDict
 7. Expensive operations without caching - flag for caching consideration
 8. Imported but unused loggers
 
-## Test Quality
+**Test Quality (Critical for CI stability):**
 9. Tests that only check status_code and structure - require value assertions
 10. Short time.sleep() values (<500ms) - flag for CI flakiness
 11. Repeated similar test methods - suggest parametrization
-```
+
+**Usage:** Invoke the agent with "Use the project-code-reviewer agent to review my changes"
 
 **Acceptance Criteria:**
-- [ ] Agent prompt updated with pattern-specific checks
-- [ ] Patterns organized by priority
-- [ ] Agent provides specific, actionable feedback
+- [x] Agent prompt updated with pattern-specific checks
+- [x] Patterns organized by priority
+- [x] Agent provides specific, actionable feedback
 
 ---
 
