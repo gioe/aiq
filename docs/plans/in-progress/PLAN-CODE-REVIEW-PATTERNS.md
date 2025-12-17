@@ -408,7 +408,7 @@ def outer_function():
 ---
 
 #### CRP-006: Add Type Safety Guidelines to CLAUDE.md
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `CLAUDE.md`
 **Description:** Add guidelines for using proper types instead of generic Dict/str.
 
@@ -488,10 +488,10 @@ class MetricsResponse(BaseModel):
 ```
 
 **Acceptance Criteria:**
-- [ ] Enum vs string literal guidance included
-- [ ] Literal type usage explained
-- [ ] TypedDict pattern shown
-- [ ] Pydantic validator examples provided
+- [x] Enum vs string literal guidance included
+- [x] Literal type usage explained
+- [x] TypedDict pattern shown
+- [x] Pydantic validator examples provided
 
 ---
 
