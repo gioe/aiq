@@ -146,8 +146,8 @@ class ProblematicItem(TypedDict):
 MetricTypeLiteral = Literal["cronbachs_alpha", "test_retest", "split_half"]
 
 # Type alias for metric types used in get_reliability_interpretation().
-# This function uses slightly different values for historical reasons.
-InterpretationMetricType = Literal["alpha", "test_retest", "split_half"]
+# Standardized to use full names matching MetricTypeLiteral for consistency (RE-FI-029).
+InterpretationMetricType = Literal["cronbachs_alpha", "test_retest", "split_half"]
 
 
 # =============================================================================
@@ -1532,7 +1532,7 @@ def get_reliability_interpretation(
 
     Args:
         value: The reliability coefficient
-        metric_type: "alpha", "test_retest", or "split_half"
+        metric_type: "cronbachs_alpha", "test_retest", or "split_half"
 
     Returns:
         Interpretation: "excellent", "good", "acceptable", "questionable",
@@ -1541,7 +1541,7 @@ def get_reliability_interpretation(
     Reference:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
     """
-    if metric_type == "alpha":
+    if metric_type == "cronbachs_alpha":
         return _get_interpretation(value)
     elif metric_type == "test_retest":
         return _get_test_retest_interpretation(value)

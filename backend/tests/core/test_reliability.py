@@ -2295,14 +2295,14 @@ class TestSplitHalfResponseStructure:
 class TestGetReliabilityInterpretation:
     """Tests for get_reliability_interpretation function."""
 
-    def test_alpha_metric_type(self):
-        """Uses alpha thresholds for 'alpha' metric type."""
-        assert get_reliability_interpretation(0.90, "alpha") == "excellent"
-        assert get_reliability_interpretation(0.80, "alpha") == "good"
-        assert get_reliability_interpretation(0.70, "alpha") == "acceptable"
-        assert get_reliability_interpretation(0.60, "alpha") == "questionable"
-        assert get_reliability_interpretation(0.50, "alpha") == "poor"
-        assert get_reliability_interpretation(0.40, "alpha") == "unacceptable"
+    def test_cronbachs_alpha_metric_type(self):
+        """Uses alpha thresholds for 'cronbachs_alpha' metric type."""
+        assert get_reliability_interpretation(0.90, "cronbachs_alpha") == "excellent"
+        assert get_reliability_interpretation(0.80, "cronbachs_alpha") == "good"
+        assert get_reliability_interpretation(0.70, "cronbachs_alpha") == "acceptable"
+        assert get_reliability_interpretation(0.60, "cronbachs_alpha") == "questionable"
+        assert get_reliability_interpretation(0.50, "cronbachs_alpha") == "poor"
+        assert get_reliability_interpretation(0.40, "cronbachs_alpha") == "unacceptable"
 
     def test_test_retest_metric_type(self):
         """Uses test-retest thresholds for 'test_retest' metric type."""
@@ -2321,9 +2321,15 @@ class TestGetReliabilityInterpretation:
         assert get_reliability_interpretation(0.40, "split_half") == "unacceptable"
 
     def test_unknown_metric_type_defaults_to_alpha(self):
-        """Unknown metric types default to alpha thresholds."""
-        assert get_reliability_interpretation(0.90, "unknown") == "excellent"
-        assert get_reliability_interpretation(0.70, "unknown") == "acceptable"
+        """Unknown metric types default to alpha thresholds (defensive branch).
+
+        Note: With Literal types, this branch is unreachable in normal usage.
+        This test verifies the defensive programming behavior when bypassing
+        static type checking (e.g., from dynamic input).
+        """
+        # type: ignore is needed because we're intentionally testing invalid input
+        assert get_reliability_interpretation(0.90, "unknown") == "excellent"  # type: ignore[arg-type]
+        assert get_reliability_interpretation(0.70, "unknown") == "acceptable"  # type: ignore[arg-type]
 
 
 class TestDetermineOverallStatus:
