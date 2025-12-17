@@ -570,6 +570,117 @@ def test_quality_tier(value, expected):
     assert get_quality_tier(value) == expected
 ```
 
+## Defensive Error Handling
+
+### Database Operations
+Wrap database operations in try-except for graceful degradation:
+
+```python
+from sqlalchemy.exc import SQLAlchemyError
+
+def get_report(db: Session) -> Dict:
+    try:
+        result = db.query(...).all()
+        return process_result(result)
+    except SQLAlchemyError as e:
+        logger.exception(f"Database error in get_report: {e}")
+        raise ReportGenerationError(
+            message="Failed to generate report",
+            original_error=e,
+            context={"operation": "get_report"}
+        )
+```
+
+### Custom Exception Classes
+Create domain-specific exceptions with context for better debugging and monitoring:
+
+```python
+class AnalysisError(Exception):
+    """Base exception for analysis errors with structured context.
+
+    The context field is a structured dictionary to enable integration
+    with monitoring tools (Sentry, Datadog) for filtering/aggregation.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        original_error: Optional[Exception] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        self.message = message
+        self.original_error = original_error
+        self.context = context or {}
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        parts = [self.message]
+        if self.context:
+            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            parts.append(f"Context: {context_str}")
+        if self.original_error:
+            parts.append(
+                f"Original error: {type(self.original_error).__name__}: {self.original_error}"
+            )
+        return " | ".join(parts)
+```
+
+**Real example from this codebase** (see `app/core/discrimination_analysis.py`):
+```python
+raise DiscriminationAnalysisError(
+    message="Failed to calculate percentile rank due to database error",
+    original_error=e,
+    context={"discrimination": discrimination},
+)
+```
+
+### Partial Results on Failure
+When generating composite reports, continue with partial results rather than failing entirely:
+
+```python
+def get_full_report(db: Session) -> Dict:
+    result = {}
+
+    try:
+        result["section_a"] = calculate_section_a(db)
+    except AnalysisError:
+        logger.exception("Section A calculation failed")
+        result["section_a"] = _empty_section_a()
+
+    try:
+        result["section_b"] = calculate_section_b(db)
+    except AnalysisError:
+        logger.exception("Section B calculation failed")
+        result["section_b"] = _empty_section_b()
+
+    return result
+```
+
+### Logging Levels for Nested Functions
+Avoid duplicate error logs in nested function calls:
+
+```python
+def inner_function():
+    try:
+        ...
+    except SQLAlchemyError as e:
+        logger.debug(f"Inner function failed: {e}")  # DEBUG, not ERROR
+        raise AnalysisError(...) from e
+
+def outer_function():
+    try:
+        inner_function()
+    except AnalysisError:
+        logger.error("Outer function failed")  # ERROR at top level only
+        raise
+```
+
+**Guidelines:**
+- Use `logger.exception()` when you want the full stack trace (typically at top level)
+- Use `logger.error()` for errors without stack trace
+- Use `logger.debug()` in inner functions to avoid duplicate ERROR logs
+- Only log at ERROR level once per error chain (usually at the outermost handler)
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
