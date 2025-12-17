@@ -2320,16 +2320,23 @@ class TestGetReliabilityInterpretation:
         assert get_reliability_interpretation(0.50, "split_half") == "poor"
         assert get_reliability_interpretation(0.40, "split_half") == "unacceptable"
 
-    def test_unknown_metric_type_defaults_to_alpha(self):
-        """Unknown metric types default to alpha thresholds (defensive branch).
+    def test_unknown_metric_type_raises_error(self):
+        """Unknown metric types raise ValueError (RE-FI-030).
 
         Note: With Literal types, this branch is unreachable in normal usage.
-        This test verifies the defensive programming behavior when bypassing
-        static type checking (e.g., from dynamic input).
+        This test verifies that invalid metric types raise a clear error
+        to catch programming errors when bypassing static type checking.
         """
         # type: ignore is needed because we're intentionally testing invalid input
-        assert get_reliability_interpretation(0.90, "unknown") == "excellent"  # type: ignore[arg-type]
-        assert get_reliability_interpretation(0.70, "unknown") == "acceptable"  # type: ignore[arg-type]
+        with pytest.raises(ValueError) as exc_info:
+            get_reliability_interpretation(0.90, "unknown")  # type: ignore[arg-type]
+
+        # Verify the error message is helpful
+        assert "Invalid metric_type" in str(exc_info.value)
+        assert "unknown" in str(exc_info.value)
+        assert "cronbachs_alpha" in str(exc_info.value)
+        assert "test_retest" in str(exc_info.value)
+        assert "split_half" in str(exc_info.value)
 
 
 class TestDetermineOverallStatus:

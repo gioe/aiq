@@ -1053,11 +1053,12 @@ Each category includes explanation of why validation matters, INVALID code examp
 ---
 
 ### RE-FI-030: Remove Unreachable Defensive Code Branch
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #275 comment
 **Files:** `backend/app/core/reliability.py:1208-1210`
 **Description:** The `else` branch in `get_reliability_interpretation()` is technically unreachable with Literal types. Consider removing it entirely or replacing the return statement with an assertion/exception for clearer defensive programming.
 **Original Comment:** "With proper Literal types, this is truly unreachable and keeping unreachable code can be confusing. Mypy's `--warn-unreachable` flag would flag this."
+**Implementation Notes:** Replaced the silent fallback to alpha thresholds with an explicit `ValueError` that fails fast when an invalid metric type is passed. This catches programming errors early instead of silently using a default. Updated the test `test_unknown_metric_type_raises_error` to verify the new error-raising behavior with helpful error messages listing valid metric types.
 
 ---
 
