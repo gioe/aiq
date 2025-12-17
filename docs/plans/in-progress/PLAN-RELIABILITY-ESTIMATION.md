@@ -1041,3 +1041,23 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** In `test_cache_bypassed_when_store_metrics_true` and `test_cache_invalidation_works`, the 100ms delay (`time.sleep(0.1)`) may not be sufficient on slower CI runners to guarantee different timestamps. Consider increasing to 0.5-1.0 seconds, or mocking the datetime to make tests deterministic.
 **Original Comment:** "100ms may not be sufficient on slower CI runners to guarantee different timestamps if the system clock has low resolution. Consider using a more robust assertion or increasing the delay to 0.5-1.0 seconds."
+
+---
+
+### RE-FI-033: Add Stronger Assertions to Randomized Edge Case Tests
+**Status:** [ ] Not Started
+**Source:** PR #278 comment
+**Files:** `backend/tests/test_reliability_endpoint.py`
+**Description:** Add stronger assertions in edge case tests to validate the quality of reliability calculations, not just that endpoints return 200. For example:
+- `test_zero_variance_all_same_responses`: Assert that `cronbachs_alpha` is `None` since the formula divides by total variance (which is 0)
+- `test_skewed_difficulty_easy_items_only`: Assert that alpha is lower due to ceiling effect (range restriction)
+**Original Comment:** "Many tests just verify the endpoint returns 200 and has the expected structure, but don't validate the **quality** of the reliability calculations... With zero variance, Cronbach's alpha should be **undefined/null** because the formula divides by total variance."
+
+---
+
+### RE-FI-034: Add Enum Validation Regression Test
+**Status:** [ ] Not Started
+**Source:** PR #278 comment
+**Files:** `backend/tests/test_reliability_endpoint.py`
+**Description:** Add a test that specifically validates the enum fix for `ReliabilityInterpretation`. Generate data patterns that produce "questionable" or "unacceptable" interpretations and verify the endpoint succeeds without validation errors.
+**Original Comment:** "Consider adding a test that specifically validates the enum fix (generates data that produces 'questionable' or 'unacceptable' and verifies the endpoint succeeds)"
