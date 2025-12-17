@@ -7,9 +7,16 @@ with customizable identifier resolution and response headers.
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from typing import Callable, Optional, Awaitable
+from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
+
+
+class EndpointLimitConfig(TypedDict):
+    """Configuration for per-endpoint rate limits."""
+
+    limit: int
+    window: int
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -18,6 +25,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     Applies rate limiting to all requests passing through it.
     Adds rate limit headers to responses.
+    Supports per-endpoint rate limit overrides.
 
     Example:
         ```python
@@ -30,7 +38,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         app.add_middleware(
             RateLimitMiddleware,
             limiter=limiter,
-            identifier_resolver=lambda request: request.client.host
+            identifier_resolver=lambda request: request.client.host,
+            endpoint_limits={
+                "/v1/admin/reliability": {"limit": 10, "window": 60},
+            }
         )
         ```
     """
@@ -42,6 +53,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         identifier_resolver: Optional[Callable[[Request], str]] = None,
         skip_paths: Optional[list[str]] = None,
         add_headers: bool = True,
+        endpoint_limits: Optional[dict[str, EndpointLimitConfig]] = None,
     ):
         """
         Initialize rate limit middleware.
@@ -53,12 +65,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                                 (default: uses client IP)
             skip_paths: List of paths to skip rate limiting (e.g., /health)
             add_headers: Whether to add rate limit headers to responses
+            endpoint_limits: Per-endpoint rate limit overrides.
+                           Dict of path -> EndpointLimitConfig.
+                           Each endpoint uses a separate rate limit bucket,
+                           independent of the default rate limit.
         """
         super().__init__(app)
         self.limiter = limiter
         self.identifier_resolver = identifier_resolver or self._default_identifier
         self.skip_paths = skip_paths or []
         self.add_headers = add_headers
+        self.endpoint_limits = endpoint_limits or {}
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -85,8 +102,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             print(f"Rate limit identifier resolution failed: {e}")
             return await call_next(request)
 
-        # Check rate limit
-        allowed, metadata = self.limiter.check(identifier)
+        # Get endpoint-specific limits or use defaults
+        path = request.url.path
+        limit: Optional[int] = None
+        window: Optional[int] = None
+
+        if path in self.endpoint_limits:
+            endpoint_config = self.endpoint_limits[path]
+            limit = endpoint_config.get("limit")
+            window = endpoint_config.get("window")
+            # Use path-specific identifier to separate rate limits per endpoint
+            # Using "::endpoint::" delimiter to avoid collision with identifiers that contain colons
+            identifier = f"{identifier}::endpoint::{path}"
+
+        # Check rate limit with endpoint-specific or default limits
+        allowed, metadata = self.limiter.check(identifier, limit=limit, window=window)
 
         if not allowed:
             # Rate limit exceeded

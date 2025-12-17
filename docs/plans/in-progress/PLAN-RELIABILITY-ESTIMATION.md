@@ -956,11 +956,24 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-023: Add Rate Limiting to Admin Endpoints
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
-**Files:** `backend/app/api/v1/admin.py`
+**Files:** `backend/app/main.py`, `backend/app/ratelimit/middleware.py`, `backend/tests/test_ratelimit_middleware.py`
 **Description:** Add rate limiting to admin endpoints to prevent abuse, especially for computationally expensive operations like reliability calculations.
 **Original Comment:** "Admin endpoints should have rate limiting to prevent abuse, especially for computationally expensive operations."
+**Implementation Notes:**
+- Enhanced `RateLimitMiddleware` to support per-endpoint rate limit overrides via `endpoint_limits` parameter
+- Added endpoint-specific rate limits for computationally expensive admin endpoints in `main.py`:
+  - `/v1/admin/reliability` - 10 requests/minute
+  - `/v1/admin/analytics/factor-analysis` - 10 requests/minute
+  - `/v1/admin/questions/discrimination-report` - 10 requests/minute
+  - `/v1/admin/questions/distractor-summary` - 10 requests/minute
+  - `/v1/admin/questions/calibration-health` - 10 requests/minute
+  - `/v1/admin/validity-report` - 10 requests/minute
+  - `/v1/admin/analytics/response-times` - 10 requests/minute
+  - `/v1/admin/trigger-question-generation` - 5 requests/hour (write operation)
+  - `/v1/admin/questions/recalibrate` - 5 requests/hour (write operation)
+- Added 13 new tests in `test_ratelimit_middleware.py` covering middleware functionality and per-endpoint limits
 
 ---
 

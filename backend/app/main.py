@@ -197,6 +197,45 @@ def create_application() -> FastAPI:
                     "limit": 10,
                     "window": 60,
                 },  # 10 per min
+                # Rate limits for admin endpoints to prevent abuse
+                # Computationally expensive endpoints have stricter limits
+                f"{settings.API_V1_PREFIX}/admin/reliability": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/analytics/factor-analysis": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/questions/discrimination-report": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/questions/distractor-summary": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/questions/calibration-health": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/validity-report": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/analytics/response-times": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
+                # Write operations have stricter limits
+                f"{settings.API_V1_PREFIX}/admin/trigger-question-generation": {
+                    "limit": 5,
+                    "window": 3600,
+                },  # 5 per hour - triggers expensive background job
+                f"{settings.API_V1_PREFIX}/admin/questions/recalibrate": {
+                    "limit": 5,
+                    "window": 3600,
+                },  # 5 per hour - modifies question data
             },
         )
 
@@ -207,6 +246,7 @@ def create_application() -> FastAPI:
             identifier_resolver=get_user_identifier,
             skip_paths=rate_limit_config.skip_paths,
             add_headers=rate_limit_config.add_headers,
+            endpoint_limits=rate_limit_config.endpoint_limits,
         )
 
     # Include API router
