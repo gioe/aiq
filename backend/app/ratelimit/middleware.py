@@ -7,9 +7,16 @@ with customizable identifier resolution and response headers.
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from typing import Callable, Optional, Awaitable
+from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
+
+
+class EndpointLimitConfig(TypedDict):
+    """Configuration for per-endpoint rate limits."""
+
+    limit: int
+    window: int
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -46,7 +53,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         identifier_resolver: Optional[Callable[[Request], str]] = None,
         skip_paths: Optional[list[str]] = None,
         add_headers: bool = True,
-        endpoint_limits: Optional[dict[str, dict]] = None,
+        endpoint_limits: Optional[dict[str, EndpointLimitConfig]] = None,
     ):
         """
         Initialize rate limit middleware.
@@ -58,8 +65,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                                 (default: uses client IP)
             skip_paths: List of paths to skip rate limiting (e.g., /health)
             add_headers: Whether to add rate limit headers to responses
-            endpoint_limits: Per-endpoint rate limit overrides
-                           Dict of path -> {"limit": int, "window": int}
+            endpoint_limits: Per-endpoint rate limit overrides.
+                           Dict of path -> EndpointLimitConfig.
+                           Each endpoint uses a separate rate limit bucket,
+                           independent of the default rate limit.
         """
         super().__init__(app)
         self.limiter = limiter
@@ -103,7 +112,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             limit = endpoint_config.get("limit")
             window = endpoint_config.get("window")
             # Use path-specific identifier to separate rate limits per endpoint
-            identifier = f"{identifier}:{path}"
+            # Using "::endpoint::" delimiter to avoid collision with identifiers that contain colons
+            identifier = f"{identifier}::endpoint::{path}"
 
         # Check rate limit with endpoint-specific or default limits
         allowed, metadata = self.limiter.check(identifier, limit=limit, window=window)

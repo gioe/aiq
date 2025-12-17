@@ -79,7 +79,7 @@ from .strategies import (
 from .storage import RateLimiterStorage, InMemoryStorage
 
 # FastAPI integration
-from .middleware import RateLimitMiddleware, get_user_identifier
+from .middleware import RateLimitMiddleware, get_user_identifier, EndpointLimitConfig
 
 # Configuration
 from .config import RateLimitConfig, RateLimitPresets, get_endpoint_limit
@@ -99,6 +99,7 @@ __all__ = [
     # Middleware
     "RateLimitMiddleware",
     "get_user_identifier",
+    "EndpointLimitConfig",
     # Config
     "RateLimitConfig",
     "RateLimitPresets",
