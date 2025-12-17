@@ -570,6 +570,109 @@ def test_quality_tier(value, expected):
     assert get_quality_tier(value) == expected
 ```
 
+## Caching for Expensive Operations
+
+### When to Add Caching
+Consider caching when:
+- Operation involves multiple database queries or aggregations
+- Results don't change frequently (e.g., analytics reports, statistics)
+- Same data may be requested multiple times in short period
+- Computation is CPU-intensive (e.g., statistical calculations)
+
+### Caching Pattern
+```python
+from app.core.cache import get_cache, cache_key
+
+REPORT_CACHE_TTL = 300  # 5 minutes
+REPORT_CACHE_PREFIX = "my_report"
+
+def get_expensive_report(db: Session, param1: int, param2: int) -> Dict:
+    cache = get_cache()
+
+    # Generate cache key from parameters
+    key = f"{REPORT_CACHE_PREFIX}:{cache_key(param1=param1, param2=param2)}"
+
+    # Check cache first
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    # Compute expensive result
+    result = _compute_report(db, param1, param2)
+
+    # Cache for future requests
+    cache.set(key, result, ttl=REPORT_CACHE_TTL)
+
+    return result
+
+def invalidate_report_cache():
+    """Call when underlying data changes."""
+    cache = get_cache()
+    cache.delete_by_prefix(REPORT_CACHE_PREFIX)
+```
+
+### Using the Decorator Pattern
+For simpler cases, use the `@cached` decorator:
+
+```python
+from app.core.cache import cached
+
+@cached(ttl=300, key_prefix="user_stats")
+def get_user_statistics(user_id: int) -> Dict:
+    # Expensive computation automatically cached
+    return compute_statistics(user_id)
+```
+
+### Cache Invalidation
+Always invalidate cache when:
+- Underlying data is modified (new records, updates, deletes)
+- Admin makes manual changes (quality flags, overrides)
+- Configuration changes affect results
+
+```python
+# In test submission endpoint
+def submit_test(...):
+    result = calculate_score(...)
+    invalidate_reliability_report_cache()  # New test data affects reliability
+    return result
+```
+
+### Error Handling with Caching
+For transient errors, avoid caching empty/error responses unless intentional:
+
+```python
+from sqlalchemy.exc import SQLAlchemyError
+
+ERROR_CACHE_TTL = 30  # Short TTL for quick recovery
+
+def get_report_with_fallback(db: Session) -> Dict:
+    cache = get_cache()
+    key = "report:main"
+
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        result = expensive_query(db)
+        cache.set(key, result, ttl=REPORT_CACHE_TTL)
+        return result
+    except SQLAlchemyError:
+        logger.exception("Database error in report generation")
+        # Optionally cache empty result briefly to prevent thundering herd
+        empty_result = {"error": True, "data": None}
+        cache.set(key, empty_result, ttl=ERROR_CACHE_TTL)
+        raise
+```
+
+### Cache TTL Guidelines
+| Data Type | Suggested TTL | Rationale |
+|-----------|---------------|-----------|
+| Analytics/Reports | 5-15 minutes | Balance freshness with performance |
+| User-specific data | 2-5 minutes | More frequent updates expected |
+| Static configuration | 30-60 minutes | Rarely changes |
+| Error/empty results | 30 seconds | Allow quick recovery |
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
