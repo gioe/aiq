@@ -84,7 +84,7 @@ Constants should include:
 ---
 
 #### CRP-002: Add Database Performance Checklist to CLAUDE.md
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `CLAUDE.md`
 **Description:** Add checklist for database query performance considerations.
 
@@ -115,9 +115,9 @@ Before submitting code with database queries, verify:
 ```
 
 **Acceptance Criteria:**
-- [ ] Checklist added to CLAUDE.md
-- [ ] Each item has clear success criteria
-- [ ] Examples of common anti-patterns included
+- [x] Checklist added to CLAUDE.md
+- [x] Each item has clear success criteria
+- [x] Examples of common anti-patterns included
 
 ---
 
