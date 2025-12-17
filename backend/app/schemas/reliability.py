@@ -9,19 +9,12 @@ from typing import List, Optional, Dict, Self
 from datetime import datetime
 from enum import Enum
 
-
-# =============================================================================
-# Reliability Thresholds (must match app/core/reliability.py values)
-# =============================================================================
-
-# Threshold for Cronbach's alpha to be considered acceptable (>= 0.70)
-ALPHA_THRESHOLD = 0.70
-
-# Threshold for test-retest correlation to be considered acceptable (>= 0.50)
-TEST_RETEST_THRESHOLD = 0.50
-
-# Threshold for Spearman-Brown corrected reliability (>= 0.70)
-SPLIT_HALF_THRESHOLD = 0.70
+# Import threshold constants from core reliability module (single source of truth)
+from app.core.reliability import (
+    AIQ_ALPHA_THRESHOLD as ALPHA_THRESHOLD,
+    AIQ_TEST_RETEST_THRESHOLD as TEST_RETEST_THRESHOLD,
+    AIQ_SPLIT_HALF_THRESHOLD as SPLIT_HALF_THRESHOLD,
+)
 
 
 class ReliabilityInterpretation(str, Enum):
