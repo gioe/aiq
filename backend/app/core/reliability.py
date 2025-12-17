@@ -252,6 +252,175 @@ LOW_ITEM_CORRELATION_THRESHOLD = 0.15
 
 
 # =============================================================================
+# SHARED DATA LOADER (RE-FI-020)
+# =============================================================================
+# Optimizes database queries by loading all required data for reliability
+# calculations in a single pass. This reduces database round trips when
+# calculating multiple reliability metrics in get_reliability_report().
+
+
+class ReliabilityResponseData(TypedDict):
+    """Data structure for response-based reliability calculations."""
+
+    completed_sessions_count: int
+    # (session_id, question_id, is_correct, response_id)
+    # response_id is included for ordering in split-half calculation
+    responses: List[Tuple[int, int, bool, int]]
+
+
+class ReliabilityTestRetestData(TypedDict):
+    """Data structure for test-retest reliability calculations."""
+
+    test_results: List[Tuple[int, int, datetime]]  # (user_id, iq_score, completed_at)
+
+
+class ReliabilityDataLoader:
+    """
+    Shared data loader for reliability calculations.
+
+    This class loads all required data for reliability calculations in a single
+    pass, reducing database round trips when calculating multiple metrics.
+
+    Usage:
+        loader = ReliabilityDataLoader(db)
+        response_data = loader.get_response_data()  # For alpha and split-half
+        test_retest_data = loader.get_test_retest_data()  # For test-retest
+
+    The loader caches results, so calling the same getter multiple times will
+    not trigger additional database queries.
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-FI-020)
+    """
+
+    def __init__(self, db: Session):
+        """
+        Initialize the data loader.
+
+        Args:
+            db: Database session for queries
+        """
+        self._db = db
+        self._response_data: Optional[ReliabilityResponseData] = None
+        self._test_retest_data: Optional[ReliabilityTestRetestData] = None
+
+    def get_response_data(self) -> ReliabilityResponseData:
+        """
+        Get response data for Cronbach's alpha and split-half calculations.
+
+        This method loads:
+        - Count of completed test sessions
+        - All responses from completed sessions (session_id, question_id, is_correct, response_id)
+
+        The response_id is included to support ordering for split-half calculation,
+        which needs to split responses by their position within each session.
+
+        The data is cached after the first call, so subsequent calls return
+        the cached data without additional database queries.
+
+        Returns:
+            ReliabilityResponseData containing session count and responses
+        """
+        if self._response_data is not None:
+            return self._response_data
+
+        # Count completed sessions
+        completed_sessions_count = (
+            self._db.query(func.count(TestSession.id))
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .scalar()
+        ) or 0
+
+        # Get all responses from completed sessions
+        # Include Response.id for ordering in split-half calculation
+        responses_query = (
+            self._db.query(
+                Response.test_session_id,
+                Response.question_id,
+                Response.is_correct,
+                Response.id,
+            )
+            .join(TestSession, Response.test_session_id == TestSession.id)
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .all()
+        )
+
+        # Convert to list of tuples for consistent typing
+        # Include response_id for split-half ordering
+        responses = [
+            (r.test_session_id, r.question_id, r.is_correct, r.id)
+            for r in responses_query
+        ]
+
+        self._response_data = {
+            "completed_sessions_count": completed_sessions_count,
+            "responses": responses,
+        }
+
+        logger.debug(
+            f"ReliabilityDataLoader: Loaded {completed_sessions_count} completed sessions "
+            f"and {len(responses)} responses"
+        )
+
+        return self._response_data
+
+    def get_test_retest_data(self) -> ReliabilityTestRetestData:
+        """
+        Get test result data for test-retest reliability calculations.
+
+        This method loads user test results (user_id, iq_score, completed_at)
+        for all completed test sessions, ordered by user and completion time.
+
+        The data is cached after the first call, so subsequent calls return
+        the cached data without additional database queries.
+
+        Returns:
+            ReliabilityTestRetestData containing test results
+        """
+        if self._test_retest_data is not None:
+            return self._test_retest_data
+
+        # Get all completed test results ordered by user and time
+        results_query = (
+            self._db.query(
+                TestResult.user_id,
+                TestResult.iq_score,
+                TestResult.completed_at,
+            )
+            .join(TestSession, TestResult.test_session_id == TestSession.id)
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .order_by(TestResult.user_id, TestResult.completed_at)
+            .all()
+        )
+
+        # Convert to list of tuples for consistent typing
+        test_results = [(r.user_id, r.iq_score, r.completed_at) for r in results_query]
+
+        self._test_retest_data = {
+            "test_results": test_results,
+        }
+
+        logger.debug(
+            f"ReliabilityDataLoader: Loaded {len(test_results)} test results for "
+            "test-retest calculation"
+        )
+
+        return self._test_retest_data
+
+    def preload_all(self) -> None:
+        """
+        Preload all data for reliability calculations.
+
+        This method triggers loading of both response data and test-retest data.
+        Use this when you know you'll need both datasets to avoid interleaved
+        queries.
+        """
+        self.get_response_data()
+        self.get_test_retest_data()
+        logger.debug("ReliabilityDataLoader: Preloaded all reliability data")
+
+
+# =============================================================================
 # CRONBACH'S ALPHA CALCULATION (RE-002)
 # =============================================================================
 
@@ -348,6 +517,7 @@ def _calculate_item_total_correlation(
 def calculate_cronbachs_alpha(
     db: Session,
     min_sessions: int = 100,
+    data_loader: Optional["ReliabilityDataLoader"] = None,
 ) -> Dict:
     """
     Calculate Cronbach's alpha for test internal consistency.
@@ -376,6 +546,10 @@ def calculate_cronbachs_alpha(
     Args:
         db: Database session
         min_sessions: Minimum completed sessions required for calculation
+        data_loader: Optional ReliabilityDataLoader for optimized batch queries.
+            When provided, uses preloaded data instead of querying the database.
+            This reduces database round trips when calculating multiple metrics.
+            (RE-FI-020)
 
     Returns:
         {
@@ -403,12 +577,21 @@ def calculate_cronbachs_alpha(
         "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
-    # Get count of completed test sessions
-    completed_sessions_count = (
-        db.query(func.count(TestSession.id))
-        .filter(TestSession.status == TestStatus.COMPLETED)
-        .scalar()
-    ) or 0
+    # Get data from loader or query database directly (RE-FI-020)
+    if data_loader is not None:
+        # Use preloaded data to reduce database round trips
+        response_data = data_loader.get_response_data()
+        completed_sessions_count = response_data["completed_sessions_count"]
+        responses_raw = response_data["responses"]
+    else:
+        # Fall back to direct database queries (original behavior)
+        completed_sessions_count = (
+            db.query(func.count(TestSession.id))
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .scalar()
+        ) or 0
+
+        responses_raw = None  # Will be loaded below if needed
 
     result["num_sessions"] = completed_sessions_count
 
@@ -426,18 +609,27 @@ def calculate_cronbachs_alpha(
 
     # Build item-response matrix
     # Step 1: Get all responses from completed sessions
-    responses = (
-        db.query(
-            Response.test_session_id,
-            Response.question_id,
-            Response.is_correct,
+    if responses_raw is None:
+        # Load from database if not provided by data_loader
+        # Note: Cronbach's alpha doesn't need response_id, but we include it
+        # for consistency with the data loader format
+        responses_query = (
+            db.query(
+                Response.test_session_id,
+                Response.question_id,
+                Response.is_correct,
+                Response.id,
+            )
+            .join(TestSession, Response.test_session_id == TestSession.id)
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .all()
         )
-        .join(TestSession, Response.test_session_id == TestSession.id)
-        .filter(TestSession.status == TestStatus.COMPLETED)
-        .all()
-    )
+        responses_raw = [
+            (r.test_session_id, r.question_id, r.is_correct, r.id)
+            for r in responses_query
+        ]
 
-    if not responses:
+    if not responses_raw:
         result["error"] = "No responses found for completed sessions"
         return result
 
@@ -447,12 +639,13 @@ def calculate_cronbachs_alpha(
     # question_sessions: {question_id: set of session_ids}
     question_sessions: Dict[int, set] = defaultdict(set)
 
-    for resp in responses:
-        session_id = resp.test_session_id
-        question_id = resp.question_id
-        is_correct = 1 if resp.is_correct else 0
-
-        session_responses[session_id][question_id] = is_correct
+    for resp in responses_raw:
+        # Handle both 3-tuple (from direct query) and 4-tuple (from data_loader)
+        session_id = resp[0]
+        question_id = resp[1]
+        is_correct = resp[2]
+        is_correct_int = 1 if is_correct else 0
+        session_responses[session_id][question_id] = is_correct_int
         question_sessions[question_id].add(session_id)
 
     # Step 3: Filter to questions that appear in enough sessions
@@ -743,10 +936,68 @@ def _calculate_pearson_correlation(
     return max(-1.0, min(1.0, r))
 
 
+def _get_consecutive_test_pairs_from_data(
+    test_results: List[Tuple[int, int, datetime]],
+    min_interval_days: int = 7,
+    max_interval_days: int = 180,
+) -> List[Tuple[int, float, float, float]]:
+    """
+    Get pairs of consecutive test scores from preloaded test results data.
+
+    This is an internal helper that processes preloaded data from ReliabilityDataLoader.
+    For each user with 2+ completed tests, this function identifies consecutive
+    test pairs within the specified interval range and returns their scores.
+
+    Args:
+        test_results: List of (user_id, iq_score, completed_at) tuples
+        min_interval_days: Minimum days between tests to include
+        max_interval_days: Maximum days between tests to include
+
+    Returns:
+        List of tuples: (user_id, test1_score, test2_score, interval_days)
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-FI-020)
+    """
+    if not test_results:
+        return []
+
+    # Group results by user
+    user_results: Dict[int, List[Tuple[int, datetime]]] = defaultdict(list)
+    for user_id, iq_score, completed_at in test_results:
+        user_results[user_id].append((iq_score, completed_at))
+
+    # Find consecutive pairs within interval range
+    pairs: List[Tuple[int, float, float, float]] = []
+    min_interval = timedelta(days=min_interval_days)
+    max_interval = timedelta(days=max_interval_days)
+
+    for user_id, tests in user_results.items():
+        if len(tests) < 2:
+            continue
+
+        # Sort by completion time (should already be sorted, but ensure)
+        tests.sort(key=lambda x: x[1])
+
+        # Check consecutive pairs
+        for i in range(len(tests) - 1):
+            score1, time1 = tests[i]
+            score2, time2 = tests[i + 1]
+
+            interval = time2 - time1
+
+            if min_interval <= interval <= max_interval:
+                interval_days = interval.total_seconds() / (24 * 3600)
+                pairs.append((user_id, float(score1), float(score2), interval_days))
+
+    return pairs
+
+
 def _get_consecutive_test_pairs(
     db: Session,
     min_interval_days: int = 7,
     max_interval_days: int = 180,
+    data_loader: Optional["ReliabilityDataLoader"] = None,
 ) -> List[Tuple[int, float, float, float]]:
     """
     Get pairs of consecutive test scores from users with multiple tests.
@@ -760,10 +1011,24 @@ def _get_consecutive_test_pairs(
                           from same-day retesting)
         max_interval_days: Maximum days between tests to include (avoid long-term
                           developmental changes)
+        data_loader: Optional ReliabilityDataLoader for optimized batch queries.
+            When provided, uses preloaded data instead of querying the database.
+            (RE-FI-020)
 
     Returns:
         List of tuples: (user_id, test1_score, test2_score, interval_days)
     """
+    # Get data from loader or query database directly (RE-FI-020)
+    if data_loader is not None:
+        # Use preloaded data to reduce database round trips
+        test_retest_data = data_loader.get_test_retest_data()
+        return _get_consecutive_test_pairs_from_data(
+            test_retest_data["test_results"],
+            min_interval_days,
+            max_interval_days,
+        )
+
+    # Fall back to direct database query (original behavior)
     # Query users with their completed test results ordered by completion time
     # We need: user_id, iq_score, completed_at from TestResult joined with TestSession
     results = (
@@ -817,6 +1082,7 @@ def calculate_test_retest_reliability(
     min_interval_days: int = 7,
     max_interval_days: int = 180,
     min_pairs: int = MIN_RETEST_PAIRS,
+    data_loader: Optional["ReliabilityDataLoader"] = None,
 ) -> Dict:
     """
     Calculate test-retest reliability from users with multiple tests.
@@ -832,6 +1098,10 @@ def calculate_test_retest_reliability(
         max_interval_days: Maximum days between tests to include (default: 180)
                           Excludes very long intervals where real ability may change
         min_pairs: Minimum number of retest pairs required (default: 30)
+        data_loader: Optional ReliabilityDataLoader for optimized batch queries.
+            When provided, uses preloaded data instead of querying the database.
+            This reduces database round trips when calculating multiple metrics.
+            (RE-FI-020)
 
     Returns:
         {
@@ -867,8 +1137,10 @@ def calculate_test_retest_reliability(
         "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
-    # Get consecutive test pairs
-    pairs = _get_consecutive_test_pairs(db, min_interval_days, max_interval_days)
+    # Get consecutive test pairs (RE-FI-020: pass data_loader if provided)
+    pairs = _get_consecutive_test_pairs(
+        db, min_interval_days, max_interval_days, data_loader=data_loader
+    )
     result["num_retest_pairs"] = len(pairs)
 
     if len(pairs) < min_pairs:
@@ -984,6 +1256,7 @@ def _apply_spearman_brown_correction(r_half: float) -> float:
 def calculate_split_half_reliability(
     db: Session,
     min_sessions: int = 100,
+    data_loader: Optional["ReliabilityDataLoader"] = None,
 ) -> Dict:
     """
     Calculate split-half reliability using odd-even split.
@@ -1003,6 +1276,10 @@ def calculate_split_half_reliability(
     Args:
         db: Database session
         min_sessions: Minimum completed sessions required for calculation
+        data_loader: Optional ReliabilityDataLoader for optimized batch queries.
+            When provided, uses preloaded data instead of querying the database.
+            This reduces database round trips when calculating multiple metrics.
+            (RE-FI-020)
 
     Returns:
         {
@@ -1034,12 +1311,21 @@ def calculate_split_half_reliability(
         "insufficient_data": False,  # Structured indicator for insufficient data
     }
 
-    # Get count of completed test sessions
-    completed_sessions_count = (
-        db.query(func.count(TestSession.id))
-        .filter(TestSession.status == TestStatus.COMPLETED)
-        .scalar()
-    ) or 0
+    # Get data from loader or query database directly (RE-FI-020)
+    if data_loader is not None:
+        # Use preloaded data to reduce database round trips
+        response_data = data_loader.get_response_data()
+        completed_sessions_count = response_data["completed_sessions_count"]
+        responses_raw = response_data["responses"]
+    else:
+        # Fall back to direct database queries (original behavior)
+        completed_sessions_count = (
+            db.query(func.count(TestSession.id))
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .scalar()
+        ) or 0
+
+        responses_raw = None  # Will be loaded below if needed
 
     result["num_sessions"] = completed_sessions_count
 
@@ -1057,37 +1343,47 @@ def calculate_split_half_reliability(
 
     # Build item-response data structure
     # Step 1: Get all responses from completed sessions with question order
-    responses = (
-        db.query(
-            Response.test_session_id,
-            Response.question_id,
-            Response.is_correct,
+    if responses_raw is None:
+        # Load from database if not provided by data_loader
+        responses_query = (
+            db.query(
+                Response.test_session_id,
+                Response.question_id,
+                Response.is_correct,
+                Response.id,
+            )
+            .join(TestSession, Response.test_session_id == TestSession.id)
+            .filter(TestSession.status == TestStatus.COMPLETED)
+            .all()
         )
-        .join(TestSession, Response.test_session_id == TestSession.id)
-        .filter(TestSession.status == TestStatus.COMPLETED)
-        .order_by(
-            Response.test_session_id, Response.id
-        )  # Order by response ID within session
-        .all()
-    )
+        responses_raw = [
+            (r.test_session_id, r.question_id, r.is_correct, r.id)
+            for r in responses_query
+        ]
 
-    if not responses:
+    if not responses_raw:
         result["error"] = "No responses found for completed sessions"
         return result
 
     # Step 2: Build data structures
-    # session_responses: {session_id: [(question_id, is_correct), ...]} - ordered list
-    session_responses: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
+    # session_responses: {session_id: [(question_id, is_correct, response_id), ...]}
+    # We need response_id for ordering within each session
+    session_responses: Dict[int, List[Tuple[int, int, int]]] = defaultdict(list)
     # question_sessions: {question_id: set of session_ids}
     question_sessions: Dict[int, set] = defaultdict(set)
 
-    for resp in responses:
-        session_id = resp.test_session_id
-        question_id = resp.question_id
-        is_correct = 1 if resp.is_correct else 0
+    for resp in responses_raw:
+        session_id = resp[0]
+        question_id = resp[1]
+        is_correct = 1 if resp[2] else 0
+        response_id = resp[3]
 
-        session_responses[session_id].append((question_id, is_correct))
+        session_responses[session_id].append((question_id, is_correct, response_id))
         question_sessions[question_id].add(session_id)
+
+    # Sort each session's responses by response_id to ensure proper ordering
+    for session_id in session_responses:
+        session_responses[session_id].sort(key=lambda x: x[2])  # Sort by response_id
 
     # Step 3: Filter to questions that appear in enough sessions
     # Use the configured ratio with an absolute minimum floor
@@ -1126,9 +1422,10 @@ def calculate_split_half_reliability(
 
     for session_id, resp_list in session_responses.items():
         # Filter to only eligible questions while preserving order
+        # resp_list is now [(question_id, is_correct, response_id), ...]
         eligible_responses = [
             (q_id, is_correct)
-            for q_id, is_correct in resp_list
+            for q_id, is_correct, _ in resp_list
             if q_id in eligible_questions
         ]
 
@@ -1170,9 +1467,10 @@ def calculate_split_half_reliability(
 
     # Calculate typical split sizes (from first valid session)
     for session_id, resp_list in session_responses.items():
+        # resp_list is now [(question_id, is_correct, response_id), ...]
         eligible_responses = [
             (q_id, is_correct)
-            for q_id, is_correct in resp_list
+            for q_id, is_correct, _ in resp_list
             if q_id in eligible_questions
         ]
         if len(eligible_responses) >= 4:
@@ -1642,8 +1940,16 @@ def get_reliability_report(
     # Each calculation is wrapped in try-except to allow partial results
     # if one calculation fails unexpectedly (RE-FI-015)
 
+    # Create shared data loader to reduce database round trips (RE-FI-020)
+    # This loads response data and test-retest data once, sharing it across
+    # all three reliability calculations instead of each querying the database
+    # independently.
+    data_loader = ReliabilityDataLoader(db)
+
     try:
-        alpha_result = calculate_cronbachs_alpha(db, min_sessions=min_sessions)
+        alpha_result = calculate_cronbachs_alpha(
+            db, min_sessions=min_sessions, data_loader=data_loader
+        )
     except Exception as e:
         logger.exception(f"Unexpected error calculating Cronbach's alpha: {e}")
         alpha_result = _create_error_result(f"Calculation error: {str(e)}")
@@ -1660,7 +1966,7 @@ def get_reliability_report(
 
     try:
         test_retest_result = calculate_test_retest_reliability(
-            db, min_pairs=min_retest_pairs
+            db, min_pairs=min_retest_pairs, data_loader=data_loader
         )
     except Exception as e:
         logger.exception(f"Unexpected error calculating test-retest reliability: {e}")
@@ -1682,7 +1988,7 @@ def get_reliability_report(
 
     try:
         split_half_result = calculate_split_half_reliability(
-            db, min_sessions=min_sessions
+            db, min_sessions=min_sessions, data_loader=data_loader
         )
     except Exception as e:
         logger.exception(f"Unexpected error calculating split-half reliability: {e}")

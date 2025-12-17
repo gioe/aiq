@@ -93,6 +93,23 @@ def db_session():
         Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def clear_cache_before_test():
+    """
+    Clear the in-memory cache before and after each test.
+
+    This prevents cached reliability report results from leaking between tests,
+    which can cause flaky test failures when tests run in different orders.
+
+    Added for RE-FI-019 (reliability report caching) to ensure test isolation.
+    """
+    from app.core.cache import get_cache
+
+    get_cache().clear()
+    yield
+    get_cache().clear()
+
+
 # =============================================================================
 # HELPER FUNCTIONS FOR TEST SETUP
 # =============================================================================
@@ -4243,3 +4260,343 @@ class TestCorrelationEdgeCases:
         assert len(practice_warnings) >= 1
         # Should mention "decrease" since it's negative
         assert any("decrease" in r["message"].lower() for r in practice_warnings)
+
+
+# =============================================================================
+# RELIABILITY DATA LOADER TESTS (RE-FI-020)
+# =============================================================================
+
+
+class TestReliabilityDataLoader:
+    """
+    Tests for ReliabilityDataLoader (RE-FI-020).
+
+    This class tests the shared data loader that optimizes database queries
+    by loading all required data for reliability calculations in a single pass.
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-FI-020)
+    """
+
+    def test_data_loader_caches_response_data(self, db_session):
+        """
+        Data loader caches response data after first call.
+
+        Subsequent calls to get_response_data() should return the same
+        cached data without additional database queries.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+
+        # Create test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        for i in range(10):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            responses = [i % 2 == 0] * 5
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create data loader
+        loader = ReliabilityDataLoader(db_session)
+
+        # First call loads data
+        data1 = loader.get_response_data()
+        # Second call returns cached data (same object)
+        data2 = loader.get_response_data()
+
+        assert data1 is data2
+        assert data1["completed_sessions_count"] == 10
+        assert len(data1["responses"]) > 0
+
+    def test_data_loader_caches_test_retest_data(self, db_session):
+        """
+        Data loader caches test-retest data after first call.
+
+        Subsequent calls to get_test_retest_data() should return the same
+        cached data without additional database queries.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+        from datetime import datetime, timedelta, timezone
+
+        # Create test data with retests
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        base_time = datetime.now(timezone.utc)
+
+        for i in range(10):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=105,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        # Create data loader
+        loader = ReliabilityDataLoader(db_session)
+
+        # First call loads data
+        data1 = loader.get_test_retest_data()
+        # Second call returns cached data (same object)
+        data2 = loader.get_test_retest_data()
+
+        assert data1 is data2
+        assert len(data1["test_results"]) == 20  # 10 users x 2 tests each
+
+    def test_data_loader_loads_correct_response_format(self, db_session):
+        """
+        Data loader returns responses in correct 4-tuple format.
+
+        Format: (session_id, question_id, is_correct, response_id)
+        """
+        from app.core.reliability import ReliabilityDataLoader
+
+        # Create test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        user = create_test_user(db_session, "loader@example.com")
+        create_completed_test_session(
+            db_session, user, questions, [True, False, True, False, True]
+        )
+
+        loader = ReliabilityDataLoader(db_session)
+        data = loader.get_response_data()
+
+        assert data["completed_sessions_count"] == 1
+        assert len(data["responses"]) == 5
+
+        # Check tuple format
+        for resp in data["responses"]:
+            assert len(resp) == 4  # (session_id, question_id, is_correct, response_id)
+            assert isinstance(resp[0], int)  # session_id
+            assert isinstance(resp[1], int)  # question_id
+            assert isinstance(resp[2], bool)  # is_correct
+            assert isinstance(resp[3], int)  # response_id
+
+    def test_calculate_cronbachs_alpha_with_data_loader(self, db_session):
+        """
+        calculate_cronbachs_alpha works correctly with data_loader parameter.
+
+        When provided, the function should use the preloaded data instead of
+        querying the database directly.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+
+        # Create test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        for i in range(100):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 100
+            responses = [ability > 0.5 - (j * 0.1) for j in range(5)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Calculate with data loader
+        loader = ReliabilityDataLoader(db_session)
+        result_with_loader = calculate_cronbachs_alpha(
+            db_session, min_sessions=100, data_loader=loader
+        )
+
+        # Calculate without data loader
+        result_without_loader = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Results should be identical
+        assert (
+            result_with_loader["cronbachs_alpha"]
+            == result_without_loader["cronbachs_alpha"]
+        )
+        assert (
+            result_with_loader["num_sessions"] == result_without_loader["num_sessions"]
+        )
+        assert result_with_loader["num_items"] == result_without_loader["num_items"]
+        assert (
+            result_with_loader["meets_threshold"]
+            == result_without_loader["meets_threshold"]
+        )
+
+    def test_calculate_test_retest_with_data_loader(self, db_session):
+        """
+        calculate_test_retest_reliability works correctly with data_loader parameter.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+        from datetime import datetime, timedelta, timezone
+
+        # Create test data with retests
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        base_time = datetime.now(timezone.utc)
+
+        for i in range(35):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=90 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=92 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        # Calculate with data loader
+        loader = ReliabilityDataLoader(db_session)
+        result_with_loader = calculate_test_retest_reliability(
+            db_session, min_pairs=30, data_loader=loader
+        )
+
+        # Calculate without data loader
+        result_without_loader = calculate_test_retest_reliability(
+            db_session, min_pairs=30
+        )
+
+        # Results should be identical
+        assert (
+            result_with_loader["test_retest_r"]
+            == result_without_loader["test_retest_r"]
+        )
+        assert (
+            result_with_loader["num_retest_pairs"]
+            == result_without_loader["num_retest_pairs"]
+        )
+        assert (
+            result_with_loader["meets_threshold"]
+            == result_without_loader["meets_threshold"]
+        )
+
+    def test_calculate_split_half_with_data_loader(self, db_session):
+        """
+        calculate_split_half_reliability works correctly with data_loader parameter.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+
+        # Create test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+        for i in range(100):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 100
+            responses = [ability > 0.5 - (j * 0.1) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Calculate with data loader
+        loader = ReliabilityDataLoader(db_session)
+        result_with_loader = calculate_split_half_reliability(
+            db_session, min_sessions=100, data_loader=loader
+        )
+
+        # Calculate without data loader
+        result_without_loader = calculate_split_half_reliability(
+            db_session, min_sessions=100
+        )
+
+        # Results should be identical
+        assert (
+            result_with_loader["split_half_r"] == result_without_loader["split_half_r"]
+        )
+        assert (
+            result_with_loader["spearman_brown_r"]
+            == result_without_loader["spearman_brown_r"]
+        )
+        assert (
+            result_with_loader["num_sessions"] == result_without_loader["num_sessions"]
+        )
+        assert (
+            result_with_loader["meets_threshold"]
+            == result_without_loader["meets_threshold"]
+        )
+
+    def test_data_loader_preload_all(self, db_session):
+        """
+        preload_all() method loads both response and test-retest data.
+        """
+        from app.core.reliability import ReliabilityDataLoader
+        from datetime import datetime, timedelta, timezone
+
+        # Create test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        base_time = datetime.now(timezone.utc)
+
+        for i in range(10):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=100,
+                completed_at=base_time - timedelta(days=60),
+            )
+
+        loader = ReliabilityDataLoader(db_session)
+
+        # Before preload, both caches should be None (internal state)
+        assert loader._response_data is None
+        assert loader._test_retest_data is None
+
+        # Call preload
+        loader.preload_all()
+
+        # After preload, both caches should be populated
+        assert loader._response_data is not None
+        assert loader._test_retest_data is not None
+
+    def test_get_reliability_report_uses_shared_data(self, db_session):
+        """
+        get_reliability_report uses ReliabilityDataLoader for optimized queries.
+
+        This integration test verifies that the report generation works correctly
+        when using the shared data loader introduced in RE-FI-020.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        # Create substantial test data
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
+        base_time = datetime.now(timezone.utc)
+
+        # Create 120 sessions for alpha and split-half
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            ability = i / 120
+            responses = [ability > 0.5 - (j * 0.08) for j in range(6)]
+            create_completed_test_session(db_session, user, questions, responses)
+
+        # Create 35 retest pairs
+        for i in range(35):
+            user = create_test_user(db_session, f"retest{i}@example.com")
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=90 + i,
+                completed_at=base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                iq_score=92 + i,
+                completed_at=base_time - timedelta(days=30),
+            )
+
+        # Generate report (which uses ReliabilityDataLoader internally)
+        report = get_reliability_report(
+            db_session, min_sessions=100, min_retest_pairs=30, use_cache=False
+        )
+
+        # Verify all metrics calculated
+        assert report["internal_consistency"]["cronbachs_alpha"] is not None
+        assert report["test_retest"]["correlation"] is not None
+        assert report["split_half"]["spearman_brown"] is not None
+
+        # Verify report structure
+        assert report["overall_status"] in [
+            "excellent",
+            "acceptable",
+            "needs_attention",
+            "insufficient_data",
+        ]
