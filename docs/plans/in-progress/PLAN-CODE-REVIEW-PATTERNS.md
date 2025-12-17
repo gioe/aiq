@@ -122,7 +122,7 @@ Before submitting code with database queries, verify:
 ---
 
 #### CRP-003: Add Test Quality Guidelines to CLAUDE.md
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `CLAUDE.md`
 **Description:** Add guidelines for writing robust tests that pass CI reliably.
 
@@ -216,9 +216,9 @@ def test_quality_tier(value, expected):
 ```
 
 **Acceptance Criteria:**
-- [ ] Guidelines cover floating-point, timing, edge cases, isolation, assertions, parametrization
-- [ ] Each guideline has BAD/GOOD examples
-- [ ] pytest.approx usage is mandatory for floats
+- [x] Guidelines cover floating-point, timing, edge cases, isolation, assertions, parametrization
+- [x] Each guideline has BAD/GOOD examples
+- [x] pytest.approx usage is mandatory for floats
 
 ---
 
