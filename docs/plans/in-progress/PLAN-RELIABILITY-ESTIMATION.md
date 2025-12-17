@@ -946,11 +946,12 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-022: Improve Parameter Validation Minimums
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
-**Files:** `backend/app/api/v1/admin.py`
+**Files:** `backend/app/api/v1/admin.py`, `backend/tests/test_reliability_endpoint.py`
 **Description:** Consider raising the minimum values for `min_sessions` and `min_retest_pairs` query parameters from `ge=1` to more realistic minimums (e.g., `ge=10`) since values like 1 or 2 would fail calculations anyway.
 **Original Comment:** "min_sessions and min_retest_pairs have ge=1 constraint, but values like 1 or 2 would still fail calculations. Consider adding a more realistic minimum (e.g., ge=10)"
+**Implementation:** Updated both `min_sessions` and `min_retest_pairs` query parameter constraints from `ge=1` to `ge=10`. Also updated related tests to use values compliant with the new constraints.
 
 ---
 
