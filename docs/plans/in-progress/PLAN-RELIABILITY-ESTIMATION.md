@@ -974,3 +974,21 @@ Runtime validation is preserved for defense in depth. All 206 reliability tests 
 **Files:** `backend/tests/test_reliability_schema.py`
 **Description:** Add a module-level docstring example showing what the validators prevent, making it immediately clear what invalid state is being guarded against.
 **Original Comment:** "Consider adding a module-level docstring example showing what the validators prevent"
+
+---
+
+### RE-FI-029: Standardize Metric Type Naming Across Literal Types
+**Status:** [ ] Not Started
+**Source:** PR #275 comment
+**Files:** `backend/app/core/reliability.py`
+**Description:** The two Literal types use different values for Cronbach's alpha: `MetricTypeLiteral` uses "cronbachs_alpha" while `InterpretationMetricType` uses "alpha". Consider standardizing on one naming convention to reduce cognitive overhead and potential bugs when converting between contexts.
+**Original Comment:** "The two Literal types use different values for Cronbach's alpha... This inconsistency creates cognitive overhead and potential bugs when converting between contexts."
+
+---
+
+### RE-FI-030: Remove Unreachable Defensive Code Branch
+**Status:** [ ] Not Started
+**Source:** PR #275 comment
+**Files:** `backend/app/core/reliability.py:1208-1210`
+**Description:** The `else` branch in `get_reliability_interpretation()` is technically unreachable with Literal types. Consider removing it entirely or replacing the return statement with an assertion/exception for clearer defensive programming.
+**Original Comment:** "With proper Literal types, this is truly unreachable and keeping unreachable code can be confusing. Mypy's `--warn-unreachable` flag would flag this."
