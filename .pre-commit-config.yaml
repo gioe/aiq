@@ -100,6 +100,17 @@ repos:
         files: ^(backend|question-service)/.*test_.*\.py$
         types: [python]
 
+  # Check for magic numbers in comparisons (extract to named constants)
+  - repo: local
+    hooks:
+      - id: check-magic-numbers
+        name: check-magic-numbers
+        entry: python scripts/check_magic_numbers.py
+        language: python
+        files: ^(backend|question-service)/app/.*\.py$
+        exclude: ^.*/test_.*\.py$
+        types: [python]
+
   # ============================================
   # iOS Swift Hooks
   # ============================================
