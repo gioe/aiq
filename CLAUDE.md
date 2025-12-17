@@ -483,6 +483,93 @@ class Response(Base):
 op.create_index("ix_responses_question_id", "responses", ["question_id"])
 ```
 
+## Test Quality Guidelines
+
+### Floating-Point Comparisons
+Always use `pytest.approx()` for floating-point equality:
+
+```python
+# BAD - can be flaky due to floating-point precision
+assert result["percentage"] == 33.33
+
+# GOOD - tolerant of floating-point representation
+assert result["percentage"] == pytest.approx(33.33)
+
+# GOOD - with explicit tolerance for very precise values
+assert result["percentage"] == pytest.approx(33.33, rel=1e-3)
+```
+
+### Time-Based Tests
+Avoid flaky time-dependent tests:
+
+```python
+# BAD - 100ms may not be enough on slow CI runners
+time.sleep(0.1)
+assert response1["timestamp"] != response2["timestamp"]
+
+# GOOD - use sufficient delay for CI environments
+time.sleep(0.5)  # 500ms accounts for CI variability
+
+# BETTER - mock time for deterministic tests
+with freeze_time("2025-01-01 12:00:00"):
+    ...
+```
+
+### Edge Case Coverage
+Include tests for these boundary conditions:
+- Empty inputs (empty list, None, empty string)
+- Single element inputs
+- Exactly-at-threshold values (e.g., exactly 100 when threshold is >= 100)
+- Maximum/minimum valid values
+- Invalid/malformed inputs
+- Zero and negative values where applicable
+
+### Test Isolation
+```python
+# BAD - commits after each item in loop, can interfere with concurrent tests
+for i in range(6):
+    question = create_question(...)
+    db.commit()  # Multiple commits
+
+# GOOD - batch operations with single commit
+questions = [create_question(...) for i in range(6)]
+db.add_all(questions)
+db.commit()  # Single commit
+```
+
+### Assertion Quality
+```python
+# BAD - only verifies structure, not correctness
+assert response.status_code == 200
+assert "alpha" in response.json()
+
+# GOOD - verifies expected values and behavior
+assert response.status_code == 200
+data = response.json()
+assert data["cronbachs_alpha"] == pytest.approx(0.85)
+assert data["meets_threshold"] is True  # alpha >= 0.70
+assert data["interpretation"] == "good"
+```
+
+### Parametrized Tests
+Use parametrization for repetitive test cases:
+
+```python
+# BAD - repetitive test methods
+def test_tier_excellent(): ...
+def test_tier_good(): ...
+def test_tier_acceptable(): ...
+
+# GOOD - parametrized single test
+@pytest.mark.parametrize("value,expected", [
+    (0.95, "excellent"),
+    (0.85, "good"),
+    (0.75, "acceptable"),
+])
+def test_quality_tier(value, expected):
+    assert get_quality_tier(value) == expected
+```
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
