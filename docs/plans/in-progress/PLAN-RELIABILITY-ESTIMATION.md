@@ -906,11 +906,21 @@ Runtime validation is preserved for defense in depth. All 206 reliability tests 
 ---
 
 ### RE-FI-020: Optimize Database Queries for Large Datasets
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
-**Files:** `backend/app/core/reliability.py`
+**Files:** `backend/app/core/reliability.py`, `backend/tests/core/test_reliability.py`
 **Description:** Consider batching database queries or implementing a data loader pattern to reduce database round trips. Currently `calculate_cronbachs_alpha()`, `calculate_test_retest_reliability()`, and `calculate_split_half_reliability()` each query the database independently.
 **Original Comment:** "The `get_reliability_report()` function calls three separate calculation functions, each querying the database independently... Consider batching database queries or implementing a data loader pattern to reduce database round trips."
+
+**Implementation Notes:**
+- Created `ReliabilityDataLoader` class that loads all required data in a single pass
+- Responses data loaded once and shared between Cronbach's alpha and split-half calculations
+- Test-retest data loaded separately (different data requirements)
+- Data is cached within the loader instance, preventing duplicate queries
+- All calculation functions updated with optional `data_loader` parameter
+- `get_reliability_report()` creates a shared loader and passes it to all calculations
+- Added 8 new unit tests for the data loader in `TestReliabilityDataLoader`
+- Also fixed a flaky test issue by adding `clear_cache_before_test` fixture
 
 ---
 
