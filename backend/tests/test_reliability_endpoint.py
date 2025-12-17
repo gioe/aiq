@@ -1144,7 +1144,15 @@ class TestRandomizedDataPatterns:
     ):
         """Test edge case where all sessions have exactly the same responses.
 
-        This should be handled gracefully - zero variance means alpha is undefined.
+        When all sessions have identical responses and therefore identical total
+        scores, Cronbach's alpha is mathematically undefined because the formula
+        divides by total variance, which is 0.
+
+        The reliability calculation should:
+        1. Detect this edge case
+        2. Return cronbachs_alpha as None (not a number)
+        3. Set meets_threshold to False (cannot meet threshold with undefined alpha)
+        4. Include an appropriate error or recommendation
         """
         questions = create_test_questions(db_session, count=15)
         base_time = datetime.now(timezone.utc)
@@ -1199,6 +1207,27 @@ class TestRandomizedDataPatterns:
         assert "internal_consistency" in data
         assert "overall_status" in data
 
+        # STRONGER ASSERTIONS: Zero variance means alpha is undefined/None
+        # When total variance is 0 (all sessions have same total score),
+        # Cronbach's alpha formula divides by 0, so alpha should be None
+        ic = data["internal_consistency"]
+        assert ic["cronbachs_alpha"] is None, (
+            f"With zero variance (all identical responses), cronbachs_alpha "
+            f"should be None (undefined), but got {ic['cronbachs_alpha']}"
+        )
+
+        # Cannot meet threshold when alpha is undefined
+        assert (
+            ic["meets_threshold"] is False
+        ), "meets_threshold should be False when cronbachs_alpha is None"
+
+        # Should have appropriate status indicating data issues
+        # Either "insufficient_data" or "needs_attention" are acceptable
+        assert data["overall_status"] in ["insufficient_data", "needs_attention"], (
+            f"overall_status should indicate a problem when alpha is undefined, "
+            f"got {data['overall_status']}"
+        )
+
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_skewed_difficulty_easy_items_only(
         self, client, db_session, admin_token_headers, test_user
@@ -1206,7 +1235,20 @@ class TestRandomizedDataPatterns:
         """Test with skewed difficulty where most items are answered correctly.
 
         Creates data where all items have very high success rates (>90%),
-        which can lead to restricted range and lower reliability estimates.
+        which leads to restricted range (ceiling effect) and lower reliability.
+
+        Psychometric theory: When items are too easy, variance is restricted
+        because most people answer correctly. This reduces the ability to
+        distinguish between test-takers, resulting in:
+        - Lower item variances
+        - Lower total score variance
+        - Lower Cronbach's alpha
+
+        This test validates that:
+        1. The calculation completes without error
+        2. Alpha is calculated (not None)
+        3. Alpha is lower than what we'd expect from well-balanced items
+        4. The test doesn't falsely claim excellent reliability
         """
         import random
 
@@ -1215,8 +1257,9 @@ class TestRandomizedDataPatterns:
         questions = create_test_questions(db_session, count=15)
         base_time = datetime.now(timezone.utc)
 
-        # Create 20 sessions where almost everyone gets almost everything right
-        for i in range(20):
+        # Create 35 sessions where almost everyone gets almost everything right
+        # (need at least 30 sessions for MIN_QUESTION_APPEARANCE_ABSOLUTE threshold)
+        for i in range(35):
             session = TestSession(
                 user_id=test_user.id,
                 status=TestStatus.COMPLETED,
@@ -1263,9 +1306,32 @@ class TestRandomizedDataPatterns:
         data = response.json()
 
         # Easy items should still produce valid calculations
-        assert data["internal_consistency"]["num_sessions"] >= 10
-        # May have low alpha due to ceiling effect but should not error
-        assert "cronbachs_alpha" in data["internal_consistency"]
+        ic = data["internal_consistency"]
+        assert ic["num_sessions"] >= 10
+
+        # STRONGER ASSERTIONS: Alpha should exist and be calculable
+        assert (
+            ic["cronbachs_alpha"] is not None
+        ), "cronbachs_alpha should be calculated (not None) even with easy items"
+
+        # Alpha with 95% easy items should be LOW due to ceiling effect
+        # With restricted range, alpha typically falls below 0.70 (acceptable threshold)
+        # In extreme ceiling cases, alpha can even be negative or near zero
+        alpha = ic["cronbachs_alpha"]
+        assert alpha < 0.85, (
+            f"With 95% easy items (ceiling effect), alpha should be lower than "
+            f"0.85 due to range restriction, but got {alpha}"
+        )
+
+        # Interpretation should NOT be "excellent" with ceiling effect data
+        assert ic["interpretation"] != "excellent", (
+            f"With ceiling effect data, interpretation should not be 'excellent', "
+            f"but got '{ic['interpretation']}' with alpha={alpha}"
+        )
+
+        # Document the expected behavior for this edge case
+        # Note: Very easy items reduce variance, which deflates alpha
+        # This is expected psychometric behavior, not a bug
 
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_skewed_difficulty_hard_items_only(

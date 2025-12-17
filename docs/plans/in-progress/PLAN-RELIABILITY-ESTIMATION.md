@@ -1094,13 +1094,16 @@ Chose the simpler approach of increasing delays over mocking datetime since:
 ---
 
 ### RE-FI-033: Add Stronger Assertions to Randomized Edge Case Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #278 comment
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** Add stronger assertions in edge case tests to validate the quality of reliability calculations, not just that endpoints return 200. For example:
 - `test_zero_variance_all_same_responses`: Assert that `cronbachs_alpha` is `None` since the formula divides by total variance (which is 0)
 - `test_skewed_difficulty_easy_items_only`: Assert that alpha is lower due to ceiling effect (range restriction)
 **Original Comment:** "Many tests just verify the endpoint returns 200 and has the expected structure, but don't validate the **quality** of the reliability calculations... With zero variance, Cronbach's alpha should be **undefined/null** because the formula divides by total variance."
+**Implementation Notes:** Enhanced both edge case tests with stronger assertions:
+- `test_zero_variance_all_same_responses`: Added assertions verifying cronbachs_alpha is None (mathematically undefined due to division by 0), meets_threshold is False, and overall_status indicates data issues
+- `test_skewed_difficulty_easy_items_only`: Added assertions verifying alpha is calculated but lower than 0.85 due to ceiling effect, and interpretation is not "excellent". Also increased sessions from 20 to 35 to meet MIN_QUESTION_APPEARANCE_ABSOLUTE threshold
 
 ---
 
