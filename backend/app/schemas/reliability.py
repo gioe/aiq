@@ -9,6 +9,13 @@ from typing import List, Optional, Dict, Self
 from datetime import datetime
 from enum import Enum
 
+# Import threshold constants from core reliability module (single source of truth)
+from app.core.reliability import (
+    AIQ_ALPHA_THRESHOLD as ALPHA_THRESHOLD,
+    AIQ_TEST_RETEST_THRESHOLD as TEST_RETEST_THRESHOLD,
+    AIQ_SPLIT_HALF_THRESHOLD as SPLIT_HALF_THRESHOLD,
+)
+
 
 class ReliabilityInterpretation(str, Enum):
     """Interpretation of reliability coefficient values.
@@ -117,15 +124,31 @@ class InternalConsistencyMetrics(BaseModel):
         """
         Ensure meets_threshold is logically consistent with cronbachs_alpha.
 
-        When cronbachs_alpha is None (insufficient data), meets_threshold must be False.
-        When cronbachs_alpha is present, meets_threshold should reflect whether it
-        meets the 0.70 threshold.
+        Bidirectional validation:
+        - When cronbachs_alpha is None (insufficient data), meets_threshold must be False.
+        - When cronbachs_alpha >= 0.70, meets_threshold must be True.
+        - When cronbachs_alpha < 0.70, meets_threshold must be False.
         """
-        if self.cronbachs_alpha is None and self.meets_threshold is True:
-            raise ValueError(
-                "meets_threshold cannot be True when cronbachs_alpha is None "
-                "(insufficient data to determine threshold)"
-            )
+        if self.cronbachs_alpha is None:
+            if self.meets_threshold is True:
+                raise ValueError(
+                    "meets_threshold cannot be True when cronbachs_alpha is None "
+                    "(insufficient data to determine threshold)"
+                )
+        else:
+            # Bidirectional validation: ensure meets_threshold matches the actual threshold
+            expected = self.cronbachs_alpha >= ALPHA_THRESHOLD
+            if self.meets_threshold != expected:
+                if expected:
+                    raise ValueError(
+                        f"meets_threshold must be True when cronbachs_alpha ({self.cronbachs_alpha:.3f}) "
+                        f">= {ALPHA_THRESHOLD} threshold"
+                    )
+                else:
+                    raise ValueError(
+                        f"meets_threshold must be False when cronbachs_alpha ({self.cronbachs_alpha:.3f}) "
+                        f"< {ALPHA_THRESHOLD} threshold"
+                    )
         return self
 
 
@@ -180,15 +203,31 @@ class TestRetestMetrics(BaseModel):
         """
         Ensure meets_threshold is logically consistent with correlation.
 
-        When correlation is None (insufficient data), meets_threshold must be False.
-        When correlation is present, meets_threshold should reflect whether it
-        meets the 0.50 threshold.
+        Bidirectional validation:
+        - When correlation is None (insufficient data), meets_threshold must be False.
+        - When correlation >= 0.50, meets_threshold must be True.
+        - When correlation < 0.50, meets_threshold must be False.
         """
-        if self.correlation is None and self.meets_threshold is True:
-            raise ValueError(
-                "meets_threshold cannot be True when correlation is None "
-                "(insufficient data to determine threshold)"
-            )
+        if self.correlation is None:
+            if self.meets_threshold is True:
+                raise ValueError(
+                    "meets_threshold cannot be True when correlation is None "
+                    "(insufficient data to determine threshold)"
+                )
+        else:
+            # Bidirectional validation: ensure meets_threshold matches the actual threshold
+            expected = self.correlation >= TEST_RETEST_THRESHOLD
+            if self.meets_threshold != expected:
+                if expected:
+                    raise ValueError(
+                        f"meets_threshold must be True when correlation ({self.correlation:.3f}) "
+                        f">= {TEST_RETEST_THRESHOLD} threshold"
+                    )
+                else:
+                    raise ValueError(
+                        f"meets_threshold must be False when correlation ({self.correlation:.3f}) "
+                        f"< {TEST_RETEST_THRESHOLD} threshold"
+                    )
         return self
 
 
@@ -236,15 +275,31 @@ class SplitHalfMetrics(BaseModel):
         """
         Ensure meets_threshold is logically consistent with spearman_brown.
 
-        When spearman_brown is None (insufficient data), meets_threshold must be False.
-        When spearman_brown is present, meets_threshold should reflect whether it
-        meets the 0.70 threshold.
+        Bidirectional validation:
+        - When spearman_brown is None (insufficient data), meets_threshold must be False.
+        - When spearman_brown >= 0.70, meets_threshold must be True.
+        - When spearman_brown < 0.70, meets_threshold must be False.
         """
-        if self.spearman_brown is None and self.meets_threshold is True:
-            raise ValueError(
-                "meets_threshold cannot be True when spearman_brown is None "
-                "(insufficient data to determine threshold)"
-            )
+        if self.spearman_brown is None:
+            if self.meets_threshold is True:
+                raise ValueError(
+                    "meets_threshold cannot be True when spearman_brown is None "
+                    "(insufficient data to determine threshold)"
+                )
+        else:
+            # Bidirectional validation: ensure meets_threshold matches the actual threshold
+            expected = self.spearman_brown >= SPLIT_HALF_THRESHOLD
+            if self.meets_threshold != expected:
+                if expected:
+                    raise ValueError(
+                        f"meets_threshold must be True when spearman_brown ({self.spearman_brown:.3f}) "
+                        f">= {SPLIT_HALF_THRESHOLD} threshold"
+                    )
+                else:
+                    raise ValueError(
+                        f"meets_threshold must be False when spearman_brown ({self.spearman_brown:.3f}) "
+                        f"< {SPLIT_HALF_THRESHOLD} threshold"
+                    )
         return self
 
 

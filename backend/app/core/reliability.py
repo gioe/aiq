@@ -174,14 +174,14 @@ AIQ_ALPHA_THRESHOLD = 0.70
 # =============================================================================
 # Standard thresholds for test-retest correlation interpretation.
 # Based on IQ_METHODOLOGY.md and standard psychometric practice.
+# Note: Test-retest uses a simpler 4-category system (excellent, good, acceptable, poor)
+# with strict greater-than (>) comparisons, unlike Cronbach's alpha which uses >=.
 
 TEST_RETEST_THRESHOLDS = {
-    "excellent": 0.90,  # r ≥ 0.90: Excellent stability
-    "good": 0.80,  # r ≥ 0.80: Good stability
-    "acceptable": 0.70,  # r ≥ 0.70: Acceptable stability
-    "questionable": 0.60,  # r ≥ 0.60: Questionable stability
-    "poor": 0.50,  # r ≥ 0.50: Poor stability
-    # r < 0.50: Unacceptable
+    "excellent": 0.90,  # r > 0.90: Excellent stability
+    "good": 0.70,  # r > 0.70: Good stability
+    "acceptable": 0.50,  # r > 0.50: Acceptable stability
+    # r <= 0.50: Poor stability
 }
 
 # Minimum target for AIQ's test-retest reliability
@@ -880,25 +880,26 @@ def _get_test_retest_interpretation(r: float) -> str:
     """
     Get interpretation string for a test-retest correlation value.
 
+    Uses a simpler 4-category system with strict greater-than (>) comparisons:
+    - r > 0.90: excellent
+    - r > 0.70: good
+    - r > 0.50: acceptable
+    - r <= 0.50: poor
+
     Args:
         r: Pearson correlation coefficient
 
     Returns:
-        Interpretation: "excellent", "good", "acceptable", "questionable",
-                       "poor", or "unacceptable"
+        Interpretation: "excellent", "good", "acceptable", or "poor"
     """
-    if r >= TEST_RETEST_THRESHOLDS["excellent"]:
+    if r > TEST_RETEST_THRESHOLDS["excellent"]:
         return "excellent"
-    elif r >= TEST_RETEST_THRESHOLDS["good"]:
+    elif r > TEST_RETEST_THRESHOLDS["good"]:
         return "good"
-    elif r >= TEST_RETEST_THRESHOLDS["acceptable"]:
+    elif r > TEST_RETEST_THRESHOLDS["acceptable"]:
         return "acceptable"
-    elif r >= TEST_RETEST_THRESHOLDS["questionable"]:
-        return "questionable"
-    elif r >= TEST_RETEST_THRESHOLDS["poor"]:
-        return "poor"
     else:
-        return "unacceptable"
+        return "poor"
 
 
 def _calculate_pearson_correlation(

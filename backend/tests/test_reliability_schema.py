@@ -1,8 +1,20 @@
 """
-Tests for reliability schema validators (RE-FI-010).
+Tests for reliability schema validators (RE-FI-010, RE-FI-026).
 
 These tests verify that the Pydantic validators enforce logical consistency
 between meets_threshold boolean and the corresponding metric values.
+
+Bidirectional validation ensures:
+- When metric is None → meets_threshold must be False
+- When metric >= threshold → meets_threshold must be True
+- When metric < threshold → meets_threshold must be False
+
+Example of invalid states caught by validators:
+    # Invalid: metric meets threshold but meets_threshold is False
+    InternalConsistencyMetrics(cronbachs_alpha=0.85, meets_threshold=False, ...)  # raises ValidationError
+
+    # Invalid: metric below threshold but meets_threshold is True
+    TestRetestMetrics(correlation=0.40, meets_threshold=True, ...)  # raises ValidationError
 """
 import pytest
 from datetime import datetime, timezone
@@ -13,6 +25,9 @@ from app.schemas.reliability import (
     TestRetestMetrics,
     SplitHalfMetrics,
     ReliabilityInterpretation,
+    ALPHA_THRESHOLD,
+    TEST_RETEST_THRESHOLD,
+    SPLIT_HALF_THRESHOLD,
 )
 
 
@@ -424,3 +439,362 @@ class TestValidatorIntegrationWithBusinessLogic:
         assert test_retest.meets_threshold is True
         assert split_half.spearman_brown == 0.83
         assert split_half.meets_threshold is True
+
+
+# =============================================================================
+# Bidirectional Validation Tests (RE-FI-026)
+# =============================================================================
+
+
+class TestInternalConsistencyBidirectionalValidation:
+    """
+    Tests for bidirectional validation of InternalConsistencyMetrics.
+
+    Verifies that meets_threshold must match the actual threshold comparison:
+    - cronbachs_alpha >= 0.70 → meets_threshold must be True
+    - cronbachs_alpha < 0.70 → meets_threshold must be False
+    """
+
+    def test_invalid_when_alpha_meets_threshold_but_meets_threshold_false(self):
+        """
+        When cronbachs_alpha >= 0.70 (meets threshold), meets_threshold
+        cannot be False - it must accurately reflect the threshold status.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            InternalConsistencyMetrics(
+                cronbachs_alpha=0.85,  # Above threshold
+                interpretation=ReliabilityInterpretation.GOOD,
+                meets_threshold=False,  # Incorrect - should be True
+                num_sessions=150,
+                num_items=20,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+        assert "0.85" in error_messages or "0.850" in error_messages
+        assert str(ALPHA_THRESHOLD) in error_messages
+
+    def test_invalid_when_alpha_below_threshold_but_meets_threshold_true(self):
+        """
+        When cronbachs_alpha < 0.70 (below threshold), meets_threshold
+        cannot be True - it must accurately reflect the threshold status.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            InternalConsistencyMetrics(
+                cronbachs_alpha=0.55,  # Below threshold
+                interpretation=ReliabilityInterpretation.POOR,
+                meets_threshold=True,  # Incorrect - should be False
+                num_sessions=150,
+                num_items=20,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be False" in error_messages
+        assert "0.55" in error_messages or "0.550" in error_messages
+        assert str(ALPHA_THRESHOLD) in error_messages
+
+    def test_valid_at_exact_threshold_boundary(self):
+        """
+        When cronbachs_alpha is exactly at the threshold (0.70),
+        meets_threshold should be True (>= comparison).
+        """
+        metrics = InternalConsistencyMetrics(
+            cronbachs_alpha=ALPHA_THRESHOLD,  # Exactly 0.70
+            interpretation=ReliabilityInterpretation.ACCEPTABLE,
+            meets_threshold=True,
+            num_sessions=150,
+            num_items=20,
+        )
+        assert metrics.cronbachs_alpha == ALPHA_THRESHOLD
+        assert metrics.meets_threshold is True
+
+    def test_invalid_at_exact_threshold_boundary_with_wrong_flag(self):
+        """
+        When cronbachs_alpha is exactly at the threshold (0.70),
+        meets_threshold=False should be rejected.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            InternalConsistencyMetrics(
+                cronbachs_alpha=ALPHA_THRESHOLD,  # Exactly 0.70
+                interpretation=ReliabilityInterpretation.ACCEPTABLE,
+                meets_threshold=False,  # Incorrect - boundary is inclusive
+                num_sessions=150,
+                num_items=20,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+
+    def test_valid_just_below_threshold(self):
+        """
+        When cronbachs_alpha is just below threshold (0.699),
+        meets_threshold should be False.
+        """
+        metrics = InternalConsistencyMetrics(
+            cronbachs_alpha=0.699,  # Just below 0.70
+            interpretation=ReliabilityInterpretation.QUESTIONABLE,
+            meets_threshold=False,
+            num_sessions=150,
+            num_items=20,
+        )
+        assert metrics.cronbachs_alpha == 0.699
+        assert metrics.meets_threshold is False
+
+
+class TestTestRetestBidirectionalValidation:
+    """
+    Tests for bidirectional validation of TestRetestMetrics.
+
+    Verifies that meets_threshold must match the actual threshold comparison:
+    - correlation >= 0.50 → meets_threshold must be True
+    - correlation < 0.50 → meets_threshold must be False
+    """
+
+    def test_invalid_when_correlation_meets_threshold_but_meets_threshold_false(self):
+        """
+        When correlation >= 0.50 (meets threshold), meets_threshold
+        cannot be False.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            TestRetestMetrics(
+                correlation=0.75,  # Above threshold
+                interpretation=ReliabilityInterpretation.GOOD,
+                meets_threshold=False,  # Incorrect - should be True
+                num_pairs=50,
+                mean_interval_days=45.0,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+        assert "0.75" in error_messages or "0.750" in error_messages
+
+    def test_invalid_when_correlation_below_threshold_but_meets_threshold_true(self):
+        """
+        When correlation < 0.50 (below threshold), meets_threshold
+        cannot be True.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            TestRetestMetrics(
+                correlation=0.35,  # Below threshold
+                interpretation=ReliabilityInterpretation.POOR,
+                meets_threshold=True,  # Incorrect - should be False
+                num_pairs=50,
+                mean_interval_days=45.0,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be False" in error_messages
+        assert "0.35" in error_messages or "0.350" in error_messages
+
+    def test_valid_at_exact_threshold_boundary(self):
+        """
+        When correlation is exactly at the threshold (0.50),
+        meets_threshold should be True (>= comparison).
+        """
+        metrics = TestRetestMetrics(
+            correlation=TEST_RETEST_THRESHOLD,  # Exactly 0.50
+            interpretation=ReliabilityInterpretation.POOR,
+            meets_threshold=True,
+            num_pairs=50,
+            mean_interval_days=45.0,
+        )
+        assert metrics.correlation == TEST_RETEST_THRESHOLD
+        assert metrics.meets_threshold is True
+
+    def test_invalid_at_exact_threshold_boundary_with_wrong_flag(self):
+        """
+        When correlation is exactly at the threshold (0.50),
+        meets_threshold=False should be rejected.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            TestRetestMetrics(
+                correlation=TEST_RETEST_THRESHOLD,  # Exactly 0.50
+                interpretation=ReliabilityInterpretation.POOR,
+                meets_threshold=False,  # Incorrect - boundary is inclusive
+                num_pairs=50,
+                mean_interval_days=45.0,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+
+    def test_valid_just_below_threshold(self):
+        """
+        When correlation is just below threshold (0.499),
+        meets_threshold should be False.
+        """
+        metrics = TestRetestMetrics(
+            correlation=0.499,  # Just below 0.50
+            interpretation=ReliabilityInterpretation.UNACCEPTABLE,
+            meets_threshold=False,
+            num_pairs=50,
+            mean_interval_days=45.0,
+        )
+        assert metrics.correlation == 0.499
+        assert metrics.meets_threshold is False
+
+    def test_valid_with_negative_correlation_below_threshold(self):
+        """
+        Negative correlations are below threshold, so meets_threshold should be False.
+        """
+        metrics = TestRetestMetrics(
+            correlation=-0.25,  # Negative, well below 0.50
+            interpretation=ReliabilityInterpretation.UNACCEPTABLE,
+            meets_threshold=False,
+            num_pairs=50,
+        )
+        assert metrics.correlation == -0.25
+        assert metrics.meets_threshold is False
+
+    def test_invalid_negative_correlation_with_meets_threshold_true(self):
+        """
+        Negative correlations cannot have meets_threshold=True.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            TestRetestMetrics(
+                correlation=-0.25,  # Negative, well below 0.50
+                interpretation=ReliabilityInterpretation.UNACCEPTABLE,
+                meets_threshold=True,  # Incorrect
+                num_pairs=50,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be False" in error_messages
+
+
+class TestSplitHalfBidirectionalValidation:
+    """
+    Tests for bidirectional validation of SplitHalfMetrics.
+
+    Verifies that meets_threshold must match the actual threshold comparison:
+    - spearman_brown >= 0.70 → meets_threshold must be True
+    - spearman_brown < 0.70 → meets_threshold must be False
+    """
+
+    def test_invalid_when_spearman_brown_meets_threshold_but_meets_threshold_false(
+        self,
+    ):
+        """
+        When spearman_brown >= 0.70 (meets threshold), meets_threshold
+        cannot be False.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=0.70,
+                spearman_brown=0.82,  # Above threshold
+                meets_threshold=False,  # Incorrect - should be True
+                num_sessions=150,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+        assert "0.82" in error_messages or "0.820" in error_messages
+
+    def test_invalid_when_spearman_brown_below_threshold_but_meets_threshold_true(self):
+        """
+        When spearman_brown < 0.70 (below threshold), meets_threshold
+        cannot be True.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=0.45,
+                spearman_brown=0.62,  # Below threshold
+                meets_threshold=True,  # Incorrect - should be False
+                num_sessions=150,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be False" in error_messages
+        assert "0.62" in error_messages or "0.620" in error_messages
+
+    def test_valid_at_exact_threshold_boundary(self):
+        """
+        When spearman_brown is exactly at the threshold (0.70),
+        meets_threshold should be True (>= comparison).
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.538,  # Raw correlation that produces SB = 0.70
+            spearman_brown=SPLIT_HALF_THRESHOLD,  # Exactly 0.70
+            meets_threshold=True,
+            num_sessions=150,
+        )
+        assert metrics.spearman_brown == SPLIT_HALF_THRESHOLD
+        assert metrics.meets_threshold is True
+
+    def test_invalid_at_exact_threshold_boundary_with_wrong_flag(self):
+        """
+        When spearman_brown is exactly at the threshold (0.70),
+        meets_threshold=False should be rejected.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=0.538,
+                spearman_brown=SPLIT_HALF_THRESHOLD,  # Exactly 0.70
+                meets_threshold=False,  # Incorrect - boundary is inclusive
+                num_sessions=150,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+
+    def test_valid_just_below_threshold(self):
+        """
+        When spearman_brown is just below threshold (0.699),
+        meets_threshold should be False.
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=0.537,
+            spearman_brown=0.699,  # Just below 0.70
+            meets_threshold=False,
+            num_sessions=150,
+        )
+        assert metrics.spearman_brown == 0.699
+        assert metrics.meets_threshold is False
+
+    def test_valid_when_raw_correlation_none_but_spearman_brown_meets_threshold(self):
+        """
+        Edge case: raw_correlation is None but spearman_brown is present and meets threshold.
+        Bidirectional validation should still apply based on spearman_brown value.
+        """
+        metrics = SplitHalfMetrics(
+            raw_correlation=None,
+            spearman_brown=0.85,  # Meets threshold
+            meets_threshold=True,
+            num_sessions=100,
+        )
+        assert metrics.spearman_brown == 0.85
+        assert metrics.meets_threshold is True
+
+    def test_invalid_raw_correlation_none_spearman_brown_meets_but_flag_false(self):
+        """
+        Edge case: raw_correlation is None, spearman_brown meets threshold,
+        but meets_threshold=False should be rejected.
+        """
+        with pytest.raises(ValidationError) as exc_info:
+            SplitHalfMetrics(
+                raw_correlation=None,
+                spearman_brown=0.85,  # Meets threshold
+                meets_threshold=False,  # Incorrect
+                num_sessions=100,
+            )
+
+        error_messages = str(exc_info.value)
+        assert "meets_threshold must be True" in error_messages
+
+
+class TestBidirectionalValidationThresholdConstants:
+    """
+    Tests to verify the threshold constants are correctly imported and used.
+    """
+
+    def test_alpha_threshold_is_070(self):
+        """Verify ALPHA_THRESHOLD constant is 0.70."""
+        assert ALPHA_THRESHOLD == 0.70
+
+    def test_test_retest_threshold_is_050(self):
+        """Verify TEST_RETEST_THRESHOLD constant is 0.50."""
+        assert TEST_RETEST_THRESHOLD == 0.50
+
+    def test_split_half_threshold_is_070(self):
+        """Verify SPLIT_HALF_THRESHOLD constant is 0.70."""
+        assert SPLIT_HALF_THRESHOLD == 0.70

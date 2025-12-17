@@ -1003,11 +1003,17 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-026: Consider Bidirectional Validation for meets_threshold
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #267 comment
-**Files:** `backend/app/schemas/reliability.py`
+**Files:** `backend/app/schemas/reliability.py`, `backend/tests/test_reliability_schema.py`
 **Description:** Current validators only check that `meets_threshold=True` is invalid when the metric is `None`. Consider adding validation for the opposite case: when a metric exceeds its threshold, `meets_threshold` should be `True`. Alternatively, document why this direction isn't validated (e.g., to allow business logic flexibility).
 **Original Comment:** "Add bidirectional validation to catch both cases: When metric is None → meets_threshold must be False ✅ (currently implemented); When metric meets actual threshold → meets_threshold should be True (not currently checked)"
+**Implementation Notes:** Added bidirectional validation to all three metrics schemas:
+- Added threshold constants: `ALPHA_THRESHOLD = 0.70`, `TEST_RETEST_THRESHOLD = 0.50`, `SPLIT_HALF_THRESHOLD = 0.70`
+- Updated `InternalConsistencyMetrics` validator: `cronbachs_alpha >= 0.70` → `meets_threshold` must be True; `cronbachs_alpha < 0.70` → `meets_threshold` must be False
+- Updated `TestRetestMetrics` validator: `correlation >= 0.50` → `meets_threshold` must be True; `correlation < 0.50` → `meets_threshold` must be False
+- Updated `SplitHalfMetrics` validator: `spearman_brown >= 0.70` → `meets_threshold` must be True; `spearman_brown < 0.70` → `meets_threshold` must be False
+- Added 25 new tests covering bidirectional validation, threshold boundaries, and edge cases
 
 ---
 
