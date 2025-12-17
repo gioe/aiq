@@ -869,11 +869,21 @@ Added 7 tests in `TestDefensiveErrorHandling` class verifying partial results, e
 ---
 
 ### RE-FI-018: Use Literal Type for metric_type Parameter
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #257 comment
 **Files:** `backend/app/core/reliability.py`
 **Description:** Consider using `Literal["cronbachs_alpha", "test_retest", "split_half"]` type for the `metric_type` parameter instead of `str` for better IDE support and type checking with mypy.
 **Original Comment:** "Consider using `Literal[\"cronbachs_alpha\", \"test_retest\", \"split_half\"]` type for the `metric_type` parameter for better IDE support and type checking with mypy."
+**Implementation Notes:** Added two Literal type aliases:
+- `MetricTypeLiteral = Literal["cronbachs_alpha", "test_retest", "split_half"]` - for storage/retrieval functions
+- `InterpretationMetricType = Literal["alpha", "test_retest", "split_half"]` - for interpretation function
+
+Updated the following function signatures:
+- `get_reliability_interpretation(value: float, metric_type: InterpretationMetricType)`
+- `store_reliability_metric(db: Session, metric_type: MetricTypeLiteral, ...)`
+- `get_reliability_history(db: Session, metric_type: Optional[MetricTypeLiteral] = None, ...)`
+
+Runtime validation is preserved for defense in depth. All 206 reliability tests pass, mypy reports no issues.
 
 ---
 
