@@ -681,6 +681,139 @@ def outer_function():
 - Use `logger.debug()` in inner functions to avoid duplicate ERROR logs
 - Only log at ERROR level once per error chain (usually at the outermost handler)
 
+## Type Safety Best Practices
+
+### Use Enums Instead of String Literals
+When you have a fixed set of possible values, use an enum instead of bare strings:
+
+```python
+# BAD - string literals for status
+def get_status() -> str:
+    return "valid"  # Easy to typo, no IDE support
+
+# GOOD - enum with type safety
+class ValidityStatus(str, Enum):
+    VALID = "valid"
+    SUSPECT = "suspect"
+    INVALID = "invalid"
+
+def get_status() -> ValidityStatus:
+    return ValidityStatus.VALID
+```
+
+**Real example from this codebase** (see `app/schemas/reliability.py`):
+```python
+class ReliabilityInterpretation(str, Enum):
+    """Interpretation of reliability coefficient values."""
+    EXCELLENT = "excellent"   # >= 0.90
+    GOOD = "good"             # >= 0.80
+    ACCEPTABLE = "acceptable" # >= 0.70
+    QUESTIONABLE = "questionable"  # >= 0.60
+    POOR = "poor"             # >= 0.50
+    UNACCEPTABLE = "unacceptable"  # < 0.50
+```
+
+### Use Literal Types for Constrained Strings
+When you need a union of specific string values but don't need full enum features:
+
+```python
+# BAD - any string accepted
+def get_interpretation(value: float, metric_type: str) -> str:
+    ...
+
+# GOOD - only valid values accepted
+MetricType = Literal["cronbachs_alpha", "test_retest", "split_half"]
+
+def get_interpretation(value: float, metric_type: MetricType) -> str:
+    ...
+```
+
+**Real example from this codebase** (see `app/core/reliability.py`):
+```python
+# Type alias for metric types used in storage and retrieval functions
+MetricTypeLiteral = Literal["cronbachs_alpha", "test_retest", "split_half"]
+```
+
+### Use TypedDict Instead of Dict[str, Any]
+For structured dictionaries with known keys, use `TypedDict` to get type checking:
+
+```python
+# BAD - untyped dictionary, errors caught only at runtime
+def get_result() -> Dict[str, Any]:
+    return {"question_id": 1, "correlation": 0.5}
+
+# GOOD - typed dictionary, IDE support and type checking
+class QuestionResult(TypedDict):
+    question_id: int
+    correlation: float
+
+def get_result() -> QuestionResult:
+    return {"question_id": 1, "correlation": 0.5}
+```
+
+**Real example from this codebase** (see `app/core/reliability.py`):
+```python
+class ProblematicItem(TypedDict):
+    """Type definition for items with negative or low item-total correlations."""
+    question_id: int
+    correlation: float
+    recommendation: str
+```
+
+### Use Enum Types in Pydantic Schemas
+Pydantic automatically validates enum fields, providing API-level type safety:
+
+```python
+# BAD - string field accepts any value
+class MetricsResponse(BaseModel):
+    interpretation: str  # Any string accepted
+
+# GOOD - enum field with automatic validation
+class MetricsResponse(BaseModel):
+    interpretation: ReliabilityInterpretation  # Only valid enum values
+```
+
+### Add Pydantic Validators for Logical Consistency
+Use validators to enforce invariants that can't be expressed through types alone:
+
+```python
+class MetricsResponse(BaseModel):
+    value: Optional[float]
+    meets_threshold: bool
+
+    @model_validator(mode="after")
+    def validate_threshold_consistency(self) -> Self:
+        """Ensure meets_threshold is consistent with value."""
+        if self.value is None and self.meets_threshold:
+            raise ValueError("meets_threshold cannot be True when value is None")
+        if self.value is not None and self.value >= THRESHOLD and not self.meets_threshold:
+            raise ValueError(f"meets_threshold must be True when value >= {THRESHOLD}")
+        return self
+```
+
+**Real example from this codebase** (see `app/schemas/reliability.py`):
+```python
+@model_validator(mode="after")
+def validate_meets_threshold_consistency(self) -> Self:
+    """Ensure meets_threshold is logically consistent with cronbachs_alpha."""
+    if self.cronbachs_alpha is None and self.meets_threshold:
+        raise ValueError("meets_threshold cannot be True when cronbachs_alpha is None")
+    if self.cronbachs_alpha is not None:
+        if self.cronbachs_alpha >= ALPHA_THRESHOLD and not self.meets_threshold:
+            raise ValueError(...)
+    return self
+```
+
+### When to Use Each Approach
+
+| Scenario | Recommended Type |
+|----------|-----------------|
+| Fixed set of named values with behavior | `Enum` or `str, Enum` |
+| Union of specific string values | `Literal["a", "b", "c"]` |
+| Dictionary with known structure | `TypedDict` |
+| API request/response schemas | Pydantic `BaseModel` with validators |
+| Return type for internal functions | `TypedDict` or dataclass |
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
