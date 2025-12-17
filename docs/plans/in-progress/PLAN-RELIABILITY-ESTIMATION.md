@@ -925,11 +925,23 @@ Runtime validation is preserved for defense in depth. All 206 reliability tests 
 ---
 
 ### RE-FI-021: Add Randomized Test Data Patterns
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
-**Files:** `backend/tests/test_reliability_endpoint.py`
+**Files:** `backend/tests/test_reliability_endpoint.py`, `backend/app/schemas/reliability.py`
 **Description:** Add tests with random patterns to catch variance edge cases. Current test data uses uniform patterns that may not catch all edge cases.
 **Original Comment:** "Test Data Generation Could Be More Realistic... Current test creates uniform patterns that may not catch edge cases"
+**Implementation Notes:** Added `TestRandomizedDataPatterns` test class with 9 comprehensive tests covering:
+- High variance random responses (~50% probability)
+- Bimodal score distributions (90% vs 20% correct)
+- Low variance nearly identical responses
+- Zero variance all same responses (edge case)
+- Skewed difficulty (easy items only, 95% success rate)
+- Skewed difficulty (hard items only, 20% success rate)
+- Mixed item difficulty with ability-based responses (realistic scenario)
+- Random noise layered on structured responses (IRT-like model)
+- Extreme outlier sessions (one perfect score among normal)
+
+Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpretation` enum was missing "questionable" and "unacceptable" values that the reliability calculation functions could return, causing API validation errors with low reliability data.
 
 ---
 
