@@ -304,7 +304,7 @@ except SQLAlchemyError:
 ---
 
 #### CRP-005: Add Error Handling Guidelines to CLAUDE.md
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `CLAUDE.md`
 **Description:** Add guidelines for defensive error handling, especially around database operations.
 
@@ -400,10 +400,10 @@ def outer_function():
 ```
 
 **Acceptance Criteria:**
-- [ ] Database error handling pattern documented
-- [ ] Custom exception pattern with context shown
-- [ ] Partial results pattern explained
-- [ ] Logging level guidance for nested calls included
+- [x] Database error handling pattern documented
+- [x] Custom exception pattern with context shown
+- [x] Partial results pattern explained
+- [x] Logging level guidance for nested calls included
 
 ---
 
