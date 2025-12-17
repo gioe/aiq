@@ -2193,3 +2193,379 @@ class TestLargeDatasetPerformance:
         assert (
             avg_time < 0.5
         ), f"Avg response time {avg_time:.2f}s exceeds 500ms threshold"
+
+
+class TestAutomaticCacheInvalidation:
+    """Tests for automatic cache invalidation on test completion (RE-FI-031).
+
+    These tests verify that the reliability report cache is automatically
+    invalidated when new test sessions are completed, ensuring admin users
+    always see up-to-date reliability metrics.
+    """
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_invalidated_on_test_submit(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that submitting a test invalidates the reliability cache.
+
+        This verifies that:
+        1. Initial reliability report is cached
+        2. When a new test is submitted, the cache is invalidated
+        3. Subsequent reliability requests calculate fresh results
+        """
+        import time
+        from app.models import UserQuestion
+        from app.core.security import create_access_token
+
+        # Create a test user for submitting tests
+        user = User(
+            email="cache_test_user@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Cache",
+            last_name="Test",
+            notification_enabled=False,
+        )
+        db_session.add(user)
+        db_session.flush()
+        auth_headers = {
+            "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
+        }
+
+        # Create test questions
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create existing sessions for baseline reliability data
+        for i in range(20):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i + 200),  # Old sessions
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            for j, question in enumerate(questions):
+                is_correct = (i + j) % 2 == 0
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=90 + (i % 10),
+                correct_answers=sum(
+                    1 for j in range(len(questions)) if (i + j) % 2 == 0
+                ),
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i + 200),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # First reliability request - populate cache
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 10},
+        )
+        assert response1.status_code == 200
+        timestamp1 = response1.json()["internal_consistency"]["last_calculated"]
+
+        # Second request should hit cache (same timestamp)
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 10},
+        )
+        assert response2.status_code == 200
+        timestamp2 = response2.json()["internal_consistency"]["last_calculated"]
+        assert timestamp1 == timestamp2, "Cache should return same timestamp"
+
+        # Create a new in-progress test session for the user
+        new_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=datetime.now(timezone.utc),
+        )
+        db_session.add(new_session)
+        db_session.flush()
+
+        # Mark questions as seen for this session
+        for question in questions[:3]:
+            user_question = UserQuestion(
+                user_id=user.id,
+                question_id=question.id,
+                test_session_id=new_session.id,
+                seen_at=datetime.now(timezone.utc),
+            )
+            db_session.add(user_question)
+        db_session.commit()
+        db_session.refresh(new_session)
+
+        # Small delay to ensure different timestamp
+        time.sleep(0.1)
+
+        # Submit the test via the endpoint (this should invalidate the cache)
+        submit_response = client.post(
+            "/v1/test/submit",
+            headers=auth_headers,
+            json={
+                "session_id": new_session.id,
+                "responses": [
+                    {
+                        "question_id": questions[0].id,
+                        "user_answer": "A",
+                        "time_spent_seconds": 30,
+                    },
+                    {
+                        "question_id": questions[1].id,
+                        "user_answer": "B",
+                        "time_spent_seconds": 25,
+                    },
+                    {
+                        "question_id": questions[2].id,
+                        "user_answer": "A",
+                        "time_spent_seconds": 20,
+                    },
+                ],
+            },
+        )
+        assert (
+            submit_response.status_code == 200
+        ), f"Submit failed: {submit_response.json()}"
+
+        # Small delay to ensure different timestamp
+        time.sleep(0.1)
+
+        # Third reliability request should get fresh calculation (cache invalidated)
+        response3 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 10},
+        )
+        assert response3.status_code == 200
+        timestamp3 = response3.json()["internal_consistency"]["last_calculated"]
+
+        # Timestamp should be different after cache invalidation
+        assert timestamp3 != timestamp1, (
+            f"Cache should have been invalidated on test submit. "
+            f"timestamp1={timestamp1}, timestamp3={timestamp3}"
+        )
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_invalidation_function_called_on_submit(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that invalidate_reliability_report_cache() is called when test is submitted.
+
+        Uses mocking to verify the function call without relying on timing.
+        """
+        from app.models import UserQuestion
+        from app.core.security import create_access_token
+
+        # Create a test user
+        user = User(
+            email="mock_cache_test_user@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Mock",
+            last_name="Test",
+            notification_enabled=False,
+        )
+        db_session.add(user)
+        db_session.flush()
+        auth_headers = {
+            "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
+        }
+
+        # Create test questions
+        questions = create_test_questions(db_session, count=5)
+
+        # Create an in-progress session
+        session = TestSession(
+            user_id=user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=datetime.now(timezone.utc),
+        )
+        db_session.add(session)
+        db_session.flush()
+
+        # Mark questions as seen
+        for question in questions[:2]:
+            user_question = UserQuestion(
+                user_id=user.id,
+                question_id=question.id,
+                test_session_id=session.id,
+                seen_at=datetime.now(timezone.utc),
+            )
+            db_session.add(user_question)
+        db_session.commit()
+        db_session.refresh(session)
+
+        # Mock the cache invalidation function to verify it's called
+        with patch(
+            "app.api.v1.test.invalidate_reliability_report_cache"
+        ) as mock_invalidate:
+            # Submit the test
+            submit_response = client.post(
+                "/v1/test/submit",
+                headers=auth_headers,
+                json={
+                    "session_id": session.id,
+                    "responses": [
+                        {
+                            "question_id": questions[0].id,
+                            "user_answer": "A",
+                            "time_spent_seconds": 30,
+                        },
+                        {
+                            "question_id": questions[1].id,
+                            "user_answer": "B",
+                            "time_spent_seconds": 25,
+                        },
+                    ],
+                },
+            )
+            assert (
+                submit_response.status_code == 200
+            ), f"Submit failed: {submit_response.json()}"
+
+            # Verify the cache invalidation function was called exactly once
+            mock_invalidate.assert_called_once()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_new_test_data_reflected_in_reliability_after_invalidation(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that new test data affects reliability metrics after cache invalidation.
+
+        This verifies that after a test is submitted:
+        1. The cache is invalidated
+        2. The new test data is included in subsequent reliability calculations
+        3. The session count increases by 1
+        """
+        from app.models import UserQuestion
+        from app.core.security import create_access_token
+
+        # Create a test user
+        user = User(
+            email="data_reflection_test_user@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Data",
+            last_name="Test",
+            notification_enabled=False,
+        )
+        db_session.add(user)
+        db_session.flush()
+        auth_headers = {
+            "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
+        }
+
+        # Create test questions
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create initial sessions (20 sessions)
+        initial_session_count = 20
+        for i in range(initial_session_count):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i + 200),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            for j, question in enumerate(questions):
+                is_correct = (i + j) % 2 == 0
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=95,
+                correct_answers=sum(
+                    1 for j in range(len(questions)) if (i + j) % 2 == 0
+                ),
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i + 200),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Get initial reliability report
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 10},
+        )
+        assert response1.status_code == 200
+        initial_num_sessions = response1.json()["internal_consistency"]["num_sessions"]
+
+        # Create new in-progress session
+        new_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=datetime.now(timezone.utc),
+        )
+        db_session.add(new_session)
+        db_session.flush()
+
+        # Mark questions as seen for new session
+        for question in questions:
+            user_question = UserQuestion(
+                user_id=user.id,
+                question_id=question.id,
+                test_session_id=new_session.id,
+                seen_at=datetime.now(timezone.utc),
+            )
+            db_session.add(user_question)
+        db_session.commit()
+        db_session.refresh(new_session)
+
+        # Submit the new test
+        submit_response = client.post(
+            "/v1/test/submit",
+            headers=auth_headers,
+            json={
+                "session_id": new_session.id,
+                "responses": [
+                    {"question_id": q.id, "user_answer": "A", "time_spent_seconds": 30}
+                    for q in questions
+                ],
+            },
+        )
+        assert submit_response.status_code == 200
+
+        # Get reliability report again - should show increased session count
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 10},
+        )
+        assert response2.status_code == 200
+        new_num_sessions = response2.json()["internal_consistency"]["num_sessions"]
+
+        # The new session should be included in the count
+        assert new_num_sessions == initial_num_sessions + 1, (
+            f"Expected {initial_num_sessions + 1} sessions after new test, "
+            f"got {new_num_sessions}. Cache may not have been invalidated."
+        )
