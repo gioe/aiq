@@ -1001,3 +1001,21 @@ Runtime validation is preserved for defense in depth. All 206 reliability tests 
 **Files:** `backend/app/core/reliability.py:1208-1210`
 **Description:** The `else` branch in `get_reliability_interpretation()` is technically unreachable with Literal types. Consider removing it entirely or replacing the return statement with an assertion/exception for clearer defensive programming.
 **Original Comment:** "With proper Literal types, this is truly unreachable and keeping unreachable code can be confusing. Mypy's `--warn-unreachable` flag would flag this."
+
+---
+
+### RE-FI-031: Add Automatic Cache Invalidation on Test Completion
+**Status:** [ ] Not Started
+**Source:** PR #276 comment
+**Files:** `backend/app/api/v1/test_sessions.py`, `backend/app/core/reliability.py`
+**Description:** Add automatic cache invalidation for reliability report when new test sessions are completed. Currently cache is only invalidated when explicitly calling `invalidate_reliability_report_cache()`, but new test data should trigger invalidation to avoid showing stale reliability metrics (up to 5 minutes) after users complete tests.
+**Original Comment:** "The current implementation lacks automatic cache invalidation when new test data is added... Users might see stale reliability metrics for up to 5 minutes after completing new tests, even when viewing with `store_metrics=false`."
+
+---
+
+### RE-FI-032: Improve Test Reliability by Increasing Time Delays
+**Status:** [ ] Not Started
+**Source:** PR #276 comment
+**Files:** `backend/tests/test_reliability_endpoint.py`
+**Description:** In `test_cache_bypassed_when_store_metrics_true` and `test_cache_invalidation_works`, the 100ms delay (`time.sleep(0.1)`) may not be sufficient on slower CI runners to guarantee different timestamps. Consider increasing to 0.5-1.0 seconds, or mocking the datetime to make tests deterministic.
+**Original Comment:** "100ms may not be sufficient on slower CI runners to guarantee different timestamps if the system clock has low resolution. Consider using a more robust assertion or increasing the delay to 0.5-1.0 seconds."
