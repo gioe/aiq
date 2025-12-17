@@ -38,6 +38,7 @@ from app.core.system_config import (
 from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
+from app.core.reliability import invalidate_reliability_report_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
 from app.core.test_composition import select_stratified_questions
@@ -870,6 +871,11 @@ def submit_test(
 
     # Invalidate user's cached data after test submission
     invalidate_user_cache(int(current_user.id))  # type: ignore[arg-type]
+
+    # RE-FI-031: Invalidate reliability report cache after test completion
+    # New test data affects reliability metrics (Cronbach's alpha, test-retest, split-half)
+    # so cached reports should be refreshed to include the new data
+    invalidate_reliability_report_cache()
 
     # Build response with test result (pass db for domain percentile calculation)
     result_response = build_test_result_response(test_result, db=db)

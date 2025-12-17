@@ -1063,11 +1063,15 @@ Each category includes explanation of why validation matters, INVALID code examp
 ---
 
 ### RE-FI-031: Add Automatic Cache Invalidation on Test Completion
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #276 comment
-**Files:** `backend/app/api/v1/test_sessions.py`, `backend/app/core/reliability.py`
+**Files:** `backend/app/api/v1/test.py`, `backend/tests/test_reliability_endpoint.py`
 **Description:** Add automatic cache invalidation for reliability report when new test sessions are completed. Currently cache is only invalidated when explicitly calling `invalidate_reliability_report_cache()`, but new test data should trigger invalidation to avoid showing stale reliability metrics (up to 5 minutes) after users complete tests.
 **Original Comment:** "The current implementation lacks automatic cache invalidation when new test data is added... Users might see stale reliability metrics for up to 5 minutes after completing new tests, even when viewing with `store_metrics=false`."
+**Implementation Notes:** Added import for `invalidate_reliability_report_cache` from `app.core.reliability` and call it in the `submit_test` endpoint right after `invalidate_user_cache()`. This ensures the reliability report cache is invalidated whenever a new test is completed, so admin users always see up-to-date reliability metrics. Added 3 tests in `TestAutomaticCacheInvalidation` class covering:
+- `test_cache_invalidated_on_test_submit`: Verifies cache invalidation via timestamp comparison
+- `test_cache_invalidation_function_called_on_submit`: Uses mocking to verify function call
+- `test_new_test_data_reflected_in_reliability_after_invalidation`: Verifies session count increases after new test
 
 ---
 
