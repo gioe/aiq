@@ -608,9 +608,17 @@ Focus on files changed in the current branch compared to main.
 ---
 
 #### CRP-010: Add Pre-Commit Hook for Magic Numbers
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `.pre-commit-config.yaml`, `scripts/check_magic_numbers.py`
 **Description:** Add a pre-commit hook that flags suspicious numeric literals in non-test Python files.
+
+**Implementation Notes:**
+- Created `scripts/check_magic_numbers.py` with comprehensive detection logic
+- Hook runs on non-test `.py` files in `backend/app/` and `question-service/app/` directories
+- Detects numbers in comparisons (>, <, >=, <=, ==, !=) within if/elif/while/and/or statements
+- Properly handles strings and comments to avoid false positives
+- Acceptable numbers list includes: 0, 1, -1, 100, 1000, powers of 2, HTTP status codes (200, 400, 500)
+- Provides clear error messages with file path, line number, and suggested fix
 
 **Detection Rules:**
 - Flag numbers that appear in comparisons (>, <, >=, <=, ==)
@@ -620,10 +628,10 @@ Focus on files changed in the current branch compared to main.
 - Exclude numbers that are clearly array indices
 
 **Acceptance Criteria:**
-- [ ] Pre-commit hook created
-- [ ] Flags numeric literals in comparisons
-- [ ] Has reasonable exclusions to reduce false positives
-- [ ] Provides suggestions for fixes
+- [x] Pre-commit hook created
+- [x] Flags numeric literals in comparisons
+- [x] Has reasonable exclusions to reduce false positives
+- [x] Provides suggestions for fixes
 
 ---
 
