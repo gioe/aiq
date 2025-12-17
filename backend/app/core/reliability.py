@@ -1548,9 +1548,12 @@ def get_reliability_interpretation(
     elif metric_type == "split_half":
         return _get_split_half_interpretation(value)
     else:
-        # This branch is technically unreachable with Literal types,
-        # but kept for defensive programming
-        return _get_interpretation(value)
+        # This branch is unreachable with proper Literal types.
+        # Raise an error instead of silently defaulting to catch programming errors.
+        raise ValueError(
+            f"Invalid metric_type: '{metric_type}'. "
+            f"Must be one of: 'cronbachs_alpha', 'test_retest', 'split_half'"
+        )
 
 
 def generate_reliability_recommendations(
