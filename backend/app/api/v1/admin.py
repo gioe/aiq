@@ -5,7 +5,7 @@ import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Literal, Dict, Any, List, cast
+from typing import Optional, Literal, Dict, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
@@ -3812,7 +3812,7 @@ async def get_reliability_report_endpoint(
 async def get_reliability_history_endpoint(
     db: Session = Depends(get_db),
     _: bool = Depends(verify_admin_token),
-    metric_type: Optional[str] = Query(
+    metric_type: Optional[MetricTypeLiteral] = Query(
         default=None,
         description="Filter by metric type: cronbachs_alpha, test_retest, split_half",
     ),
@@ -3843,16 +3843,11 @@ async def get_reliability_history_endpoint(
     Requires X-Admin-Token header with valid admin token.
     """
     try:
-        # Cast metric_type to Literal type for type safety.
-        # Runtime validation in get_reliability_history will catch invalid values.
-        typed_metric_type = (
-            cast(MetricTypeLiteral, metric_type) if metric_type else None
-        )
-
-        # Get historical metrics using the core function
+        # Get historical metrics using the core function.
+        # metric_type is already validated by FastAPI via Literal type annotation.
         metrics = get_reliability_history(
             db=db,
-            metric_type=typed_metric_type,
+            metric_type=metric_type,
             days=days,
         )
 
