@@ -1706,6 +1706,7 @@ def store_reliability_metric(
     value: float,
     sample_size: int,
     details: Optional[Dict] = None,
+    commit: bool = True,
 ) -> ReliabilityMetric:
     """
     Store a reliability metric to the database for historical tracking.
@@ -1721,6 +1722,9 @@ def store_reliability_metric(
         value: The calculated reliability coefficient (must be between -1.0 and 1.0)
         sample_size: Number of sessions/pairs used in the calculation (must be >= 1)
         details: Optional additional context (interpretation, thresholds, etc.)
+        commit: Whether to commit the transaction immediately. Defaults to True for
+            backward compatibility. Set to False when batching multiple metric stores
+            in a single transaction (caller must commit).
 
     Returns:
         Created ReliabilityMetric instance
@@ -1757,13 +1761,21 @@ def store_reliability_metric(
     )
 
     db.add(metric)
-    db.commit()
-    db.refresh(metric)
 
-    logger.info(
-        f"Stored reliability metric: type={metric_type}, value={value:.4f}, "
-        f"sample_size={sample_size}, id={metric.id}"
-    )
+    if commit:
+        db.commit()
+        db.refresh(metric)
+        logger.info(
+            f"Stored reliability metric: type={metric_type}, value={value:.4f}, "
+            f"sample_size={sample_size}, id={metric.id}"
+        )
+    else:
+        # Flush to get the id without committing the transaction
+        db.flush()
+        logger.info(
+            f"Added reliability metric (uncommitted): type={metric_type}, "
+            f"value={value:.4f}, sample_size={sample_size}, id={metric.id}"
+        )
 
     return metric
 
