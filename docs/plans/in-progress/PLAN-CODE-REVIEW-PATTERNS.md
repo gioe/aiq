@@ -555,7 +555,7 @@ class MetricsResponse(BaseModel):
 ### Phase 3: Automated Tooling
 
 #### CRP-008: Create Code Review Slash Command
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `.claude/commands/review-patterns.md`
 **Description:** Create a slash command that can be invoked to check code for common review patterns.
 
@@ -581,9 +581,9 @@ Focus on files changed in the current branch compared to main.
 ```
 
 **Acceptance Criteria:**
-- [ ] Slash command created and functional
-- [ ] Reviews staged/specified files for all patterns
-- [ ] Provides actionable suggestions with code examples
+- [x] Slash command created and functional
+- [x] Reviews staged/specified files for all patterns
+- [x] Provides actionable suggestions with code examples
 
 ---
 
