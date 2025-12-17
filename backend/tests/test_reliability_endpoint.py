@@ -901,3 +901,712 @@ class TestReliabilityReportCaching:
         )
         assert set(data1["test_retest"].keys()) == set(data2["test_retest"].keys())
         assert set(data1["split_half"].keys()) == set(data2["split_half"].keys())
+
+
+class TestRandomizedDataPatterns:
+    """Tests with randomized data patterns to catch variance edge cases (RE-FI-021).
+
+    These tests use non-uniform, randomized response patterns to ensure the
+    reliability calculations handle realistic data distributions correctly.
+    The current test data uses deterministic patterns (i + j) % 3 which may
+    miss edge cases related to:
+    - High variance in responses
+    - Low variance / near-zero variance
+    - Bimodal score distributions
+    - Skewed difficulty patterns
+    - Random noise in data
+    """
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_high_variance_random_responses(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with high variance random response patterns.
+
+        Creates sessions where answer correctness varies randomly with
+        approximately 50% probability, creating high variance in the data.
+        """
+        import random
+
+        random.seed(42)  # Fixed seed for reproducibility
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 20 sessions with random responses (high variance)
+        for i in range(20):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Random responses with ~50% probability
+            correct_count = 0
+            for question in questions:
+                is_correct = random.random() > 0.5
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            # Add test result with appropriate score
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=85 + correct_count * 2,  # Score varies with correctness
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Request reliability report
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # With high variance random data, calculations should complete
+        # but reliability values should be lower than with structured data
+        assert data["internal_consistency"]["num_sessions"] >= 10
+        # Report should have valid structure regardless of values
+        assert "cronbachs_alpha" in data["internal_consistency"]
+        assert "overall_status" in data
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_bimodal_score_distribution(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with bimodal score distribution (some very high, some very low).
+
+        Creates sessions where half the users score very high (~90% correct)
+        and half score very low (~20% correct), creating a bimodal distribution.
+        """
+        import random
+
+        random.seed(123)  # Fixed seed for reproducibility
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 20 sessions with bimodal distribution
+        for i in range(20):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Bimodal: first 10 sessions get ~90% correct, last 10 get ~20% correct
+            high_performer = i < 10
+            target_accuracy = 0.90 if high_performer else 0.20
+
+            correct_count = 0
+            for question in questions:
+                is_correct = random.random() < target_accuracy
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            # IQ score based on performance
+            iq_score = 130 if high_performer else 70
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=iq_score + random.randint(-5, 5),
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Request reliability report
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Bimodal data should still produce valid calculations
+        assert data["internal_consistency"]["num_sessions"] >= 10
+        # With bimodal data, we should see high discrimination (items separate groups well)
+        # The endpoint should still return valid structure
+        assert "cronbachs_alpha" in data["internal_consistency"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_low_variance_nearly_identical_responses(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with low variance responses (almost everyone answers the same).
+
+        This is an edge case where nearly all sessions have identical response
+        patterns, which can cause issues with variance calculations.
+        """
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 15 sessions with nearly identical responses
+        # First 12 questions correct, last 3 wrong for everyone
+        for i in range(15):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for j, question in enumerate(questions):
+                # Nearly identical pattern: slight variation in one item
+                if j < 12:
+                    is_correct = True
+                elif j == 12:
+                    # Only variation: occasionally correct for this item
+                    is_correct = i % 5 == 0
+                else:
+                    is_correct = False
+
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=110 + (1 if i % 5 == 0 else 0),  # Minimal variation
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Request reliability report
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Low variance can produce unusual alpha values but should not error
+        assert "cronbachs_alpha" in data["internal_consistency"]
+        assert data["internal_consistency"]["num_sessions"] >= 10
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_zero_variance_all_same_responses(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test edge case where all sessions have exactly the same responses.
+
+        This should be handled gracefully - zero variance means alpha is undefined.
+        """
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 15 sessions with EXACTLY identical responses
+        for i in range(15):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Same pattern for everyone: first 10 correct, last 5 wrong
+            for j, question in enumerate(questions):
+                is_correct = j < 10
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=100,  # Same score for everyone
+                correct_answers=10,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Request reliability report
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should handle gracefully - zero variance is an edge case
+        # The endpoint should still return valid structure
+        assert "internal_consistency" in data
+        assert "overall_status" in data
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_skewed_difficulty_easy_items_only(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with skewed difficulty where most items are answered correctly.
+
+        Creates data where all items have very high success rates (>90%),
+        which can lead to restricted range and lower reliability estimates.
+        """
+        import random
+
+        random.seed(456)
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 20 sessions where almost everyone gets almost everything right
+        for i in range(20):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for question in questions:
+                # 95% success rate - very easy items
+                is_correct = random.random() < 0.95
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=120 + random.randint(-3, 3),
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Easy items should still produce valid calculations
+        assert data["internal_consistency"]["num_sessions"] >= 10
+        # May have low alpha due to ceiling effect but should not error
+        assert "cronbachs_alpha" in data["internal_consistency"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_skewed_difficulty_hard_items_only(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with skewed difficulty where most items are answered incorrectly.
+
+        Creates data where all items have very low success rates (~20%),
+        which can lead to floor effects and lower reliability estimates.
+        """
+        import random
+
+        random.seed(789)
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 20 sessions where almost everyone gets almost everything wrong
+        for i in range(20):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for question in questions:
+                # 20% success rate - very hard items
+                is_correct = random.random() < 0.20
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=75 + random.randint(-5, 5),
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Hard items should still produce valid calculations
+        assert data["internal_consistency"]["num_sessions"] >= 10
+        # May have low alpha due to floor effect but should not error
+        assert "cronbachs_alpha" in data["internal_consistency"]
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_mixed_item_difficulty_realistic(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with realistic mixed item difficulty (some easy, some hard).
+
+        Creates a more realistic scenario where different items have different
+        success rates, simulating a well-designed test with varying difficulty.
+        """
+        import random
+
+        random.seed(999)
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Assign difficulty to each question (success probability)
+        # Mix of easy (0.85), medium (0.5-0.7), and hard (0.25) items
+        item_difficulties = [
+            0.85,
+            0.75,
+            0.65,
+            0.55,
+            0.50,  # Easy to medium
+            0.50,
+            0.45,
+            0.40,
+            0.35,
+            0.30,  # Medium to hard
+            0.25,
+            0.85,
+            0.70,
+            0.40,
+            0.25,  # Mixed
+        ]
+
+        # Create 25 sessions with ability-based responses
+        for i in range(25):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Person ability modifier (some test-takers are better than others)
+            ability_modifier = random.gauss(0, 0.15)  # Normal distribution
+
+            correct_count = 0
+            for j, question in enumerate(questions):
+                # Success probability = item difficulty + ability modifier
+                success_prob = max(
+                    0.05, min(0.95, item_difficulties[j] + ability_modifier)
+                )
+                is_correct = random.random() < success_prob
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            # IQ based on correct answers with some noise
+            iq_score = 85 + (correct_count * 2) + random.randint(-3, 3)
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=iq_score,
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 15, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Realistic mixed difficulty should produce good reliability
+        assert data["internal_consistency"]["num_sessions"] >= 15
+        # With realistic data, we expect alpha to be calculated
+        # (may or may not meet threshold, but should be a valid number)
+        alpha = data["internal_consistency"]["cronbachs_alpha"]
+        if alpha is not None:
+            assert -1.0 <= alpha <= 1.0  # Alpha should be in valid range
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_random_noise_with_some_structure(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with random noise layered on structured responses.
+
+        Creates data with an underlying structure (ability-based responses)
+        plus random noise, simulating real-world measurement error.
+        """
+        import random
+
+        random.seed(2024)
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 30 sessions with structured + noisy responses
+        for i in range(30):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # Base ability level for this session (varies across sessions)
+            base_ability = 0.3 + (i / 30) * 0.5  # Ranges from 0.3 to 0.8
+
+            correct_count = 0
+            for j, question in enumerate(questions):
+                # Item difficulty increases with position
+                item_difficulty = 0.3 + (j / 15) * 0.4
+
+                # Probability based on ability vs difficulty with noise
+                base_prob = 1.0 / (
+                    1.0 + pow(2.718, -(base_ability - item_difficulty) * 4)
+                )
+                noise = random.gauss(0, 0.1)  # Random noise
+                final_prob = max(0.05, min(0.95, base_prob + noise))
+
+                is_correct = random.random() < final_prob
+                if is_correct:
+                    correct_count += 1
+
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=70 + correct_count * 3,
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 20, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # IRT-like data should produce reasonable reliability
+        assert data["internal_consistency"]["num_sessions"] >= 20
+        alpha = data["internal_consistency"]["cronbachs_alpha"]
+        if alpha is not None:
+            assert -1.0 <= alpha <= 1.0
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_extreme_outlier_session(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test with one extreme outlier session among normal ones.
+
+        Creates mostly normal data but with one session that has an
+        extreme pattern (all correct or all wrong), testing robustness
+        to outliers.
+        """
+        import random
+
+        random.seed(555)
+
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 19 normal sessions
+        for i in range(19):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for question in questions:
+                # Normal ~60% success rate
+                is_correct = random.random() < 0.60
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=95 + correct_count,
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        # Create one outlier session (perfect score)
+        outlier_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+            started_at=base_time - timedelta(days=20),
+        )
+        db_session.add(outlier_session)
+        db_session.flush()
+
+        for question in questions:
+            response = Response(
+                test_session_id=outlier_session.id,
+                user_id=test_user.id,
+                question_id=question.id,
+                user_answer="A",  # All correct
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+            db_session.add(response)
+
+        result = TestResult(
+            test_session_id=outlier_session.id,
+            user_id=test_user.id,
+            iq_score=160,  # Outlier score
+            correct_answers=15,
+            total_questions=len(questions),
+            completed_at=base_time - timedelta(days=20),
+        )
+        db_session.add(result)
+        db_session.commit()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 15, "store_metrics": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should handle outlier gracefully
+        assert data["internal_consistency"]["num_sessions"] >= 15
+        assert "cronbachs_alpha" in data["internal_consistency"]

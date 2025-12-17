@@ -176,10 +176,12 @@ AIQ_ALPHA_THRESHOLD = 0.70
 # Based on IQ_METHODOLOGY.md and standard psychometric practice.
 
 TEST_RETEST_THRESHOLDS = {
-    "excellent": 0.90,  # r > 0.90: Excellent stability
-    "good": 0.70,  # r > 0.70: Good stability
-    "acceptable": 0.50,  # r > 0.50: Acceptable stability
-    # r <= 0.50: Poor stability
+    "excellent": 0.90,  # r ≥ 0.90: Excellent stability
+    "good": 0.80,  # r ≥ 0.80: Good stability
+    "acceptable": 0.70,  # r ≥ 0.70: Acceptable stability
+    "questionable": 0.60,  # r ≥ 0.60: Questionable stability
+    "poor": 0.50,  # r ≥ 0.50: Poor stability
+    # r < 0.50: Unacceptable
 }
 
 # Minimum target for AIQ's test-retest reliability
@@ -882,16 +884,21 @@ def _get_test_retest_interpretation(r: float) -> str:
         r: Pearson correlation coefficient
 
     Returns:
-        Interpretation: "excellent", "good", "acceptable", or "poor"
+        Interpretation: "excellent", "good", "acceptable", "questionable",
+                       "poor", or "unacceptable"
     """
-    if r > TEST_RETEST_THRESHOLDS["excellent"]:
+    if r >= TEST_RETEST_THRESHOLDS["excellent"]:
         return "excellent"
-    elif r > TEST_RETEST_THRESHOLDS["good"]:
+    elif r >= TEST_RETEST_THRESHOLDS["good"]:
         return "good"
-    elif r > TEST_RETEST_THRESHOLDS["acceptable"]:
+    elif r >= TEST_RETEST_THRESHOLDS["acceptable"]:
         return "acceptable"
-    else:
+    elif r >= TEST_RETEST_THRESHOLDS["questionable"]:
+        return "questionable"
+    elif r >= TEST_RETEST_THRESHOLDS["poor"]:
         return "poor"
+    else:
+        return "unacceptable"
 
 
 def _calculate_pearson_correlation(
@@ -1830,7 +1837,7 @@ def _determine_overall_status(
     test_retest_excellent = (
         has_test_retest
         and test_retest_val is not None
-        and test_retest_val > TEST_RETEST_THRESHOLDS["excellent"]
+        and test_retest_val >= TEST_RETEST_THRESHOLDS["excellent"]
     )
 
     split_half_val = split_half_result.get("spearman_brown_r")

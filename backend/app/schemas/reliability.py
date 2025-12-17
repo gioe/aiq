@@ -11,12 +11,26 @@ from enum import Enum
 
 
 class ReliabilityInterpretation(str, Enum):
-    """Interpretation of reliability coefficient values."""
+    """Interpretation of reliability coefficient values.
+
+    The interpretation hierarchy reflects standard psychometric thresholds:
+    - excellent: >= 0.90 (professional-grade reliability)
+    - good: >= 0.80 (acceptable for most purposes)
+    - acceptable: >= 0.70 (minimum for research applications)
+    - questionable: >= 0.60 (borderline, warrants attention)
+    - poor: >= 0.50 (below acceptable for most purposes)
+    - unacceptable: < 0.50 (not reliable enough for meaningful interpretation)
+
+    Note: Thresholds may differ slightly between metric types (Cronbach's alpha,
+    test-retest, split-half) but the interpretation meanings are consistent.
+    """
 
     EXCELLENT = "excellent"  # >= 0.90
     GOOD = "good"  # >= 0.80
-    ACCEPTABLE = "acceptable"  # >= 0.70 (Cronbach's alpha) or >= 0.50 (test-retest)
-    POOR = "poor"  # Below acceptable threshold
+    ACCEPTABLE = "acceptable"  # >= 0.70
+    QUESTIONABLE = "questionable"  # >= 0.60
+    POOR = "poor"  # >= 0.50
+    UNACCEPTABLE = "unacceptable"  # < 0.50
 
 
 class RecommendationCategory(str, Enum):
@@ -73,7 +87,7 @@ class InternalConsistencyMetrics(BaseModel):
     )
     interpretation: Optional[ReliabilityInterpretation] = Field(
         None,
-        description="Interpretation of alpha value: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), poor (<0.70)",
+        description="Interpretation of alpha value: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)",
     )
     meets_threshold: bool = Field(
         ...,
@@ -136,7 +150,7 @@ class TestRetestMetrics(BaseModel):
     )
     interpretation: Optional[ReliabilityInterpretation] = Field(
         None,
-        description="Interpretation of correlation: excellent (>0.90), good (>0.70), acceptable (>0.50), poor (<=0.50)",
+        description="Interpretation of correlation: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)",
     )
     meets_threshold: bool = Field(
         ...,
