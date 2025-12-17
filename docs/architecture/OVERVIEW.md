@@ -182,6 +182,8 @@ This document describes the technical architecture, component design, data model
 - `GET /v1/admin/questions/discrimination-report` - Discrimination quality report for all questions
 - `GET /v1/admin/questions/{id}/discrimination-detail` - Detailed discrimination info for specific question
 - `PATCH /v1/admin/questions/{id}/quality-flag` - Update quality flag for a question
+- `GET /v1/admin/reliability` - Reliability metrics report (Cronbach's alpha, test-retest, split-half)
+- `GET /v1/admin/reliability/history` - Historical reliability metrics for trend analysis
 
 **Test Submission Approach:**
 - Batch submission (all answers submitted together)
@@ -395,6 +397,17 @@ question_generation_runs
 - created_at
 ```
 
+#### Reliability_Metrics
+```
+reliability_metrics
+- id (primary key)
+- metric_type (string) - "cronbachs_alpha", "test_retest", "split_half"
+- value (float) - The reliability coefficient
+- sample_size (int) - Number of sessions/pairs used in calculation
+- calculated_at (timestamp with timezone)
+- details (JSON, nullable) - Additional context (interpretation, thresholds)
+```
+
 ### Relationships
 
 ```
@@ -446,6 +459,9 @@ ORDER BY completed_at DESC
 - `questions.difficulty_level` - for GROUP BY queries
 - `question_generation_runs.started_at` - for time-based queries
 - `question_generation_runs.status` - for status filtering
+- `reliability_metrics.metric_type` - for filtering by metric type
+- `reliability_metrics.calculated_at` - for time-based queries
+- `reliability_metrics(metric_type, calculated_at)` - compound index for history queries
 
 ### System Configuration
 

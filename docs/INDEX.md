@@ -48,6 +48,7 @@ Detailed plans for major features:
 - [Empirical Calibration](../backend/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md) - Difficulty label validation and recalibration based on empirical p-values ✅
 - [Distractor Analysis](./plans/complete/PLAN-DISTRACTOR-ANALYSIS.md) - Multiple-choice distractor effectiveness analysis ✅
 - [Item Discrimination Analysis](./plans/complete/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md) - Auto-flagging and exclusion of questions with poor discrimination ✅
+- [Reliability Estimation](./plans/complete/PLAN-RELIABILITY-ESTIMATION.md) - Cronbach's alpha, test-retest, and split-half reliability metrics ✅
 
 ### In Progress
 - [Question Generation Tracking](./plans/QUESTION_GENERATION_TRACKING.md) - Question metrics system
