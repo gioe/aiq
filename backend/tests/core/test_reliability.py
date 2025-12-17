@@ -3771,3 +3771,352 @@ class TestDefensiveErrorHandling:
 
         assert result["error"] == "Test error message"
         assert result["insufficient_data"] is True
+
+
+# =============================================================================
+# RE-FI-016: EDGE CASE TESTS FOR CORRELATION VALUES
+# =============================================================================
+
+
+class TestCorrelationEdgeCases:
+    """
+    Tests for edge case correlation values in reliability calculations.
+
+    Covers:
+    - Exactly zero correlation (r = 0.0)
+    - Negative correlation (r < 0)
+    - Practice effect exactly at threshold (5.0)
+
+    Reference: RE-FI-016 in PLAN-RELIABILITY-ESTIMATION.md
+    """
+
+    def test_exactly_zero_correlation_pearson(self):
+        """Pearson correlation handles exactly zero correlation (r = 0.0)."""
+        # Create two uncorrelated series
+        # x increases linearly, y alternates around a constant mean
+        x = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+        y = [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]  # constant, zero var
+
+        # Zero variance in y should return None
+        result = _calculate_pearson_correlation(x, y)
+        assert result is None
+
+        # For actual zero correlation with variance in both:
+        # Use orthogonal pattern
+        x2 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+        y2 = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0]
+
+        # This creates near-zero correlation
+        result2 = _calculate_pearson_correlation(x2, y2)
+        assert result2 is not None
+        assert abs(result2) < 0.2  # Very close to zero
+
+    def test_exactly_zero_correlation_test_retest(self, db_session):
+        """
+        Test-retest reliability handles zero correlation between test scores.
+
+        Creates score pairs with no linear relationship (uncorrelated).
+        """
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+
+        # Create uncorrelated score pairs
+        # First scores increase, second scores follow a different pattern
+        base_time = datetime.now(timezone.utc)
+
+        # Pattern that should produce near-zero correlation:
+        # Pairs: (90, 110), (100, 90), (110, 110), (120, 90), (130, 110), etc.
+        # The second score alternates while first increases
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+
+            score1 = 90 + i * 2  # Increasing: 90, 92, 94, ...
+            score2 = 100 + (10 if i % 2 == 0 else -10)  # Alternating: 110, 90, 110, ...
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score1,
+                base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score2,
+                base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session)
+
+        # Should return a result (not insufficient data)
+        assert result["error"] is None
+        assert result["insufficient_data"] is False
+        assert result["num_retest_pairs"] >= 30
+
+        # Correlation should be near zero
+        r = result["test_retest_r"]
+        assert r is not None
+        assert -0.3 < r < 0.3  # Near-zero correlation range
+
+        # meets_threshold should be False for near-zero correlation
+        assert result["meets_threshold"] is False
+
+    def test_negative_correlation_pearson(self):
+        """Pearson correlation correctly calculates negative correlation."""
+        # Perfect negative correlation
+        x = [1.0, 2.0, 3.0, 4.0, 5.0]
+        y = [5.0, 4.0, 3.0, 2.0, 1.0]
+
+        result = _calculate_pearson_correlation(x, y)
+        assert result is not None
+        assert abs(result - (-1.0)) < 0.001  # Should be -1.0
+
+    def test_strong_negative_correlation_pearson(self):
+        """Pearson correlation calculates strong negative correlation."""
+        # Strong but not perfect negative correlation
+        x = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+        y = [10.0, 9.5, 8.5, 7.5, 6.5, 5.5, 4.0, 3.0, 2.5, 1.0]
+
+        result = _calculate_pearson_correlation(x, y)
+        assert result is not None
+        assert result < -0.9  # Strong negative correlation
+
+    def test_negative_correlation_test_retest(self, db_session):
+        """
+        Test-retest reliability handles negative correlation between test scores.
+
+        Creates score pairs with inverse relationship (higher first = lower second).
+        """
+        from datetime import datetime, timedelta, timezone
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        base_time = datetime.now(timezone.utc)
+
+        # Create negatively correlated score pairs
+        # First score increases, second score decreases
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+
+            score1 = 80 + i * 2  # Increasing: 80, 82, 84, ...
+            score2 = 150 - i * 2  # Decreasing: 150, 148, 146, ...
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score1,
+                base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score2,
+                base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session)
+
+        # Should return a result
+        assert result["error"] is None
+        assert result["insufficient_data"] is False
+        assert result["num_retest_pairs"] >= 30
+
+        # Correlation should be strongly negative
+        r = result["test_retest_r"]
+        assert r is not None
+        assert r < -0.9  # Strong negative correlation
+
+        # meets_threshold should be False (negative correlation doesn't meet threshold)
+        assert result["meets_threshold"] is False
+
+        # Interpretation should reflect poor reliability
+        assert result["interpretation"] in ["poor", "unacceptable"]
+
+    def test_practice_effect_exactly_at_threshold(self, db_session):
+        """
+        Practice effect exactly at threshold (5.0) is handled correctly.
+
+        The LARGE_PRACTICE_EFFECT_THRESHOLD is 5.0 IQ points.
+        Values > 5.0 should trigger warnings, values == 5.0 should not.
+        """
+        from datetime import datetime, timedelta, timezone
+        from app.core.reliability import LARGE_PRACTICE_EFFECT_THRESHOLD
+
+        # Verify threshold value
+        assert LARGE_PRACTICE_EFFECT_THRESHOLD == 5.0
+
+        questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
+        base_time = datetime.now(timezone.utc)
+
+        # Create pairs where second score is exactly 5 points higher
+        for i in range(35):
+            user = create_test_user(db_session, f"user{i}@example.com")
+
+            # Add variance to scores while maintaining exactly +5 practice effect
+            score1 = 90 + i  # 90 to 124
+            score2 = score1 + 5  # Always exactly +5 higher
+
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score1,
+                base_time - timedelta(days=60),
+            )
+            create_completed_test_with_score(
+                db_session,
+                user,
+                questions,
+                score2,
+                base_time - timedelta(days=30),
+            )
+
+        result = calculate_test_retest_reliability(db_session)
+
+        # Practice effect should be exactly 5.0
+        assert result["score_change_stats"]["practice_effect"] == 5.0
+        assert result["score_change_stats"]["mean_change"] == 5.0
+
+    def test_practice_effect_at_threshold_no_warning(self):
+        """
+        Practice effect exactly at threshold (5.0) should NOT trigger warning.
+
+        The threshold check uses > (greater than), not >= (greater than or equal).
+        """
+        alpha_result = {
+            "cronbachs_alpha": 0.85,
+            "error": None,
+            "insufficient_data": False,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "meets_threshold": True,
+            "error": None,
+            "insufficient_data": False,
+            "score_change_stats": {"practice_effect": 5.0},  # Exactly at threshold
+        }
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should NOT have practice effect warning (5.0 is AT threshold, not ABOVE)
+        practice_warnings = [
+            r for r in recommendations if "practice effect" in r["message"].lower()
+        ]
+        assert len(practice_warnings) == 0
+
+    def test_practice_effect_just_above_threshold_triggers_warning(self):
+        """
+        Practice effect just above threshold (5.1) should trigger warning.
+        """
+        alpha_result = {
+            "cronbachs_alpha": 0.85,
+            "error": None,
+            "insufficient_data": False,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "meets_threshold": True,
+            "error": None,
+            "insufficient_data": False,
+            "score_change_stats": {"practice_effect": 5.1},  # Just above threshold
+        }
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should have practice effect warning
+        practice_warnings = [
+            r for r in recommendations if "practice effect" in r["message"].lower()
+        ]
+        assert len(practice_warnings) >= 1
+
+    def test_negative_practice_effect_at_threshold_no_warning(self):
+        """
+        Negative practice effect at threshold (-5.0) should NOT trigger warning.
+
+        The absolute value check (abs(practice_effect) > 5.0) means -5.0 is at threshold.
+        """
+        alpha_result = {
+            "cronbachs_alpha": 0.85,
+            "error": None,
+            "insufficient_data": False,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "meets_threshold": True,
+            "error": None,
+            "insufficient_data": False,
+            "score_change_stats": {"practice_effect": -5.0},  # Negative at threshold
+        }
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should NOT have practice effect warning (-5.0 is AT threshold via abs())
+        practice_warnings = [
+            r for r in recommendations if "practice effect" in r["message"].lower()
+        ]
+        assert len(practice_warnings) == 0
+
+    def test_negative_practice_effect_below_threshold_triggers_warning(self):
+        """
+        Negative practice effect below threshold (-5.1) should trigger warning.
+
+        The absolute value |−5.1| = 5.1 > 5.0, so it triggers.
+        """
+        alpha_result = {
+            "cronbachs_alpha": 0.85,
+            "error": None,
+            "insufficient_data": False,
+            "item_total_correlations": {},
+        }
+        test_retest_result = {
+            "test_retest_r": 0.75,
+            "meets_threshold": True,
+            "error": None,
+            "insufficient_data": False,
+            "score_change_stats": {"practice_effect": -5.1},  # Below threshold (abs)
+        }
+        split_half_result = {
+            "spearman_brown_r": 0.80,
+            "error": None,
+            "insufficient_data": False,
+        }
+
+        recommendations = generate_reliability_recommendations(
+            alpha_result, test_retest_result, split_half_result
+        )
+
+        # Should have practice effect warning
+        practice_warnings = [
+            r for r in recommendations if "practice effect" in r["message"].lower()
+        ]
+        assert len(practice_warnings) >= 1
+        # Should mention "decrease" since it's negative
+        assert any("decrease" in r["message"].lower() for r in practice_warnings)
