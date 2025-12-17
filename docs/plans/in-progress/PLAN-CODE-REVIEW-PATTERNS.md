@@ -1,0 +1,816 @@
+# Implementation Plan: Code Review Pattern Prevention
+
+**Status:** 🚧 IN PROGRESS
+**Source:** Analysis of GitHub PR review comments from completed plan files
+**Task Prefix:** CRP (Code Review Patterns)
+**Generated:** 2025-12-17
+
+## Overview
+
+This plan implements proactive measures to prevent recurring code review issues identified across multiple completed feature implementations. Analysis of **Original Comment:** entries in completed plan files revealed 12 distinct patterns of issues that consistently required follow-up tasks after initial PR reviews. By addressing these patterns through tooling, documentation, and process improvements, we can reduce review iteration cycles and improve initial code quality.
+
+## Problem Statement
+
+Across 8 completed plan files (PLAN-ITEM-DISCRIMINATION-ANALYSIS, PLAN-RELIABILITY-ESTIMATION, PLAN-DISTRACTOR-ANALYSIS, PLAN-CHEATING-DETECTION, PLAN-EMPIRICAL-ITEM-CALIBRATION, PLAN-TIME-STANDARDIZATION, PLAN_QUESTION_GENERATION_TRACKING, PLAN_EMPIRICAL_ITEM_CALIBRATION), we identified **50+ follow-up tasks** created from PR review comments. These follow-ups fall into predictable categories that could have been caught earlier.
+
+## Identified Patterns (by frequency)
+
+| Pattern | Occurrences | Impact |
+|---------|-------------|--------|
+| Magic numbers / hardcoded values | ~8 | Maintainability, readability |
+| Test quality issues (floats, edge cases, assertions) | ~8 | Test reliability, coverage |
+| Missing use of existing enums/types | ~5 | Type safety, consistency |
+| Database performance (LIMIT, indexes, batching) | ~5 | Scalability, performance |
+| Missing error handling | ~5 | Reliability, debugging |
+| Missing caching for expensive operations | ~4 | Performance, user experience |
+| Logging gaps | ~3 | Debugging, monitoring |
+| Documentation gaps | ~3 | Maintainability, onboarding |
+| Inconsistent code patterns | ~4 | Cognitive load, bugs |
+| Missing rate limiting | ~2 | Security, stability |
+| Type safety / schema validation | ~5 | API reliability |
+
+## Prerequisites
+
+- [x] Access to CLAUDE.md for workflow documentation
+- [x] Understanding of existing PR template and review process
+- [x] Familiarity with pytest, Pydantic, and SQLAlchemy patterns
+
+## Tasks
+
+### Phase 1: Documentation Updates
+
+#### CRP-001: Add Magic Number Guidelines to CLAUDE.md
+**Status:** [x] Complete
+**Files:** `CLAUDE.md`
+**Description:** Add explicit guidelines about extracting magic numbers to named constants with documentation.
+
+**Content to Add:**
+```markdown
+## Magic Numbers and Constants
+
+When writing code, extract numeric literals to named constants when:
+- The number represents a threshold, limit, or configuration value
+- The same number appears in multiple places
+- The meaning of the number is not immediately obvious
+
+**Example - Before:**
+```python
+if response_count >= 50 and discrimination < 0:
+    flag_question(question_id)
+```
+
+**Example - After:**
+```python
+# Minimum responses required for stable discrimination estimates
+MIN_RESPONSES_FOR_DISCRIMINATION = 50
+# Questions with negative discrimination harm test validity
+NEGATIVE_DISCRIMINATION_THRESHOLD = 0.0
+
+if response_count >= MIN_RESPONSES_FOR_DISCRIMINATION and discrimination < NEGATIVE_DISCRIMINATION_THRESHOLD:
+    flag_question(question_id)
+```
+
+Constants should include:
+- Descriptive name in SCREAMING_SNAKE_CASE
+- Comment explaining the rationale or source (e.g., "Based on psychometric guidelines")
+- Placement near related constants or at module level
+```
+
+**Acceptance Criteria:**
+- [x] Guidelines added to CLAUDE.md
+- [x] Examples show before/after pattern
+- [x] Rationale for documentation requirement explained
+
+---
+
+#### CRP-002: Add Database Performance Checklist to CLAUDE.md
+**Status:** [ ] Not Started
+**Files:** `CLAUDE.md`
+**Description:** Add checklist for database query performance considerations.
+
+**Content to Add:**
+```markdown
+## Database Query Performance Checklist
+
+Before submitting code with database queries, verify:
+
+### Query Construction
+- [ ] **LIMIT clause**: Does the query return unbounded results? Add `LIMIT` with configurable parameter
+- [ ] **ORDER BY with LIMIT**: If limiting results, is ordering deterministic and meaningful?
+- [ ] **Pagination**: For large result sets, is pagination implemented?
+
+### Indexing
+- [ ] **Filter columns indexed**: Are columns in WHERE clauses indexed?
+- [ ] **Sort columns indexed**: Are columns in ORDER BY indexed?
+- [ ] **Compound indexes**: For multi-column filters, consider compound indexes
+
+### Query Patterns
+- [ ] **N+1 queries**: Are you querying in a loop? Consider batch loading or joins
+- [ ] **Aggregations**: Can GROUP BY/AVG/COUNT be done in SQL instead of Python?
+- [ ] **Subqueries vs JOINs**: Is the approach optimal for the data size?
+
+### Performance Testing
+- [ ] **Large dataset behavior**: How does this perform with 10,000+ records?
+- [ ] **Concurrent access**: Are there race conditions with simultaneous requests?
+```
+
+**Acceptance Criteria:**
+- [ ] Checklist added to CLAUDE.md
+- [ ] Each item has clear success criteria
+- [ ] Examples of common anti-patterns included
+
+---
+
+#### CRP-003: Add Test Quality Guidelines to CLAUDE.md
+**Status:** [ ] Not Started
+**Files:** `CLAUDE.md`
+**Description:** Add guidelines for writing robust tests that pass CI reliably.
+
+**Content to Add:**
+```markdown
+## Test Quality Guidelines
+
+### Floating-Point Comparisons
+Always use `pytest.approx()` for floating-point equality:
+
+```python
+# BAD - can be flaky due to floating-point precision
+assert result["percentage"] == 33.33
+
+# GOOD - tolerant of floating-point representation
+assert result["percentage"] == pytest.approx(33.33)
+
+# GOOD - with explicit tolerance for very precise values
+assert result["percentage"] == pytest.approx(33.33, rel=1e-3)
+```
+
+### Time-Based Tests
+Avoid flaky time-dependent tests:
+
+```python
+# BAD - 100ms may not be enough on slow CI runners
+time.sleep(0.1)
+assert response1["timestamp"] != response2["timestamp"]
+
+# GOOD - use sufficient delay for CI environments
+time.sleep(0.5)  # 500ms accounts for CI variability
+
+# BETTER - mock time for deterministic tests
+with freeze_time("2025-01-01 12:00:00"):
+    ...
+```
+
+### Edge Case Coverage
+Include tests for these boundary conditions:
+- Empty inputs (empty list, None, empty string)
+- Single element inputs
+- Exactly-at-threshold values (e.g., exactly 100 when threshold is >= 100)
+- Maximum/minimum valid values
+- Invalid/malformed inputs
+- Zero and negative values where applicable
+
+### Test Isolation
+```python
+# BAD - commits after each item in loop, can interfere with concurrent tests
+for i in range(6):
+    question = create_question(...)
+    db.commit()  # Multiple commits
+
+# GOOD - batch operations with single commit
+questions = [create_question(...) for i in range(6)]
+db.add_all(questions)
+db.commit()  # Single commit
+```
+
+### Assertion Quality
+```python
+# BAD - only verifies structure, not correctness
+assert response.status_code == 200
+assert "alpha" in response.json()
+
+# GOOD - verifies expected values and behavior
+assert response.status_code == 200
+data = response.json()
+assert data["cronbachs_alpha"] == pytest.approx(0.85)
+assert data["meets_threshold"] is True  # alpha >= 0.70
+assert data["interpretation"] == "good"
+```
+
+### Parametrized Tests
+Use parametrization for repetitive test cases:
+
+```python
+# BAD - repetitive test methods
+def test_tier_excellent(): ...
+def test_tier_good(): ...
+def test_tier_acceptable(): ...
+
+# GOOD - parametrized single test
+@pytest.mark.parametrize("value,expected", [
+    (0.95, "excellent"),
+    (0.85, "good"),
+    (0.75, "acceptable"),
+])
+def test_quality_tier(value, expected):
+    assert get_quality_tier(value) == expected
+```
+
+**Acceptance Criteria:**
+- [ ] Guidelines cover floating-point, timing, edge cases, isolation, assertions, parametrization
+- [ ] Each guideline has BAD/GOOD examples
+- [ ] pytest.approx usage is mandatory for floats
+
+---
+
+#### CRP-004: Add Caching Guidelines to CLAUDE.md
+**Status:** [ ] Not Started
+**Files:** `CLAUDE.md`
+**Description:** Add guidelines for when and how to implement caching.
+
+**Content to Add:**
+```markdown
+## Caching for Expensive Operations
+
+### When to Add Caching
+Consider caching when:
+- Operation involves multiple database queries or aggregations
+- Results don't change frequently (e.g., analytics reports, statistics)
+- Same data may be requested multiple times in short period
+- Computation is CPU-intensive (e.g., statistical calculations)
+
+### Caching Pattern
+```python
+from app.core.cache import get_cache, set_cache, cache_key, delete_by_prefix
+
+REPORT_CACHE_TTL = 300  # 5 minutes
+REPORT_CACHE_PREFIX = "my_report"
+
+def get_expensive_report(db: Session, param1: int, param2: int) -> Dict:
+    # Generate cache key from parameters
+    key = f"{REPORT_CACHE_PREFIX}:{cache_key(param1=param1, param2=param2)}"
+
+    # Check cache first
+    cached = get_cache(key)
+    if cached is not None:
+        return cached
+
+    # Compute expensive result
+    result = _compute_report(db, param1, param2)
+
+    # Cache for future requests
+    set_cache(key, result, ttl=REPORT_CACHE_TTL)
+
+    return result
+
+def invalidate_report_cache():
+    """Call when underlying data changes."""
+    delete_by_prefix(REPORT_CACHE_PREFIX)
+```
+
+### Cache Invalidation
+Always invalidate cache when:
+- Underlying data is modified (new records, updates, deletes)
+- Admin makes manual changes (quality flags, overrides)
+- Configuration changes affect results
+
+```python
+# In test submission endpoint
+def submit_test(...):
+    result = calculate_score(...)
+    invalidate_reliability_report_cache()  # New test data affects reliability
+    return result
+```
+
+### Error Caching (Thundering Herd Prevention)
+For transient errors, cache an empty/error response briefly:
+```python
+ERROR_CACHE_TTL = 30  # Short TTL for quick recovery
+
+try:
+    result = expensive_query(db)
+except SQLAlchemyError:
+    # Cache empty result to prevent thundering herd
+    set_cache(key, empty_result, ttl=ERROR_CACHE_TTL)
+    raise
+```
+```
+
+**Acceptance Criteria:**
+- [ ] Guidelines explain when to cache
+- [ ] Standard caching pattern documented
+- [ ] Cache invalidation requirements explained
+- [ ] Error caching pattern included
+
+---
+
+#### CRP-005: Add Error Handling Guidelines to CLAUDE.md
+**Status:** [ ] Not Started
+**Files:** `CLAUDE.md`
+**Description:** Add guidelines for defensive error handling, especially around database operations.
+
+**Content to Add:**
+```markdown
+## Defensive Error Handling
+
+### Database Operations
+Wrap database operations in try-except for graceful degradation:
+
+```python
+from sqlalchemy.exc import SQLAlchemyError
+
+def get_report(db: Session) -> Dict:
+    try:
+        result = db.query(...).all()
+        return process_result(result)
+    except SQLAlchemyError as e:
+        logger.exception(f"Database error in get_report: {e}")
+        raise ReportGenerationError(
+            message="Failed to generate report",
+            original_error=e,
+            context={"operation": "get_report"}
+        )
+```
+
+### Custom Exception Classes
+Create domain-specific exceptions with context:
+
+```python
+class AnalysisError(Exception):
+    def __init__(
+        self,
+        message: str,
+        original_error: Optional[Exception] = None,
+        context: Optional[Dict[str, Any]] = None
+    ):
+        self.message = message
+        self.original_error = original_error
+        self.context = context or {}
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        parts = [self.message]
+        if self.context:
+            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            parts.append(f"Context: {context_str}")
+        if self.original_error:
+            parts.append(f"Caused by: {self.original_error}")
+        return " | ".join(parts)
+```
+
+### Partial Results on Failure
+When generating composite reports, continue with partial results:
+
+```python
+def get_full_report(db: Session) -> Dict:
+    result = {}
+
+    try:
+        result["section_a"] = calculate_section_a(db)
+    except AnalysisError:
+        logger.exception("Section A calculation failed")
+        result["section_a"] = _empty_section_a()
+
+    try:
+        result["section_b"] = calculate_section_b(db)
+    except AnalysisError:
+        logger.exception("Section B calculation failed")
+        result["section_b"] = _empty_section_b()
+
+    return result
+```
+
+### Logging Levels for Nested Functions
+Avoid duplicate error logs in nested function calls:
+
+```python
+def inner_function():
+    try:
+        ...
+    except SQLAlchemyError as e:
+        logger.debug(f"Inner function failed: {e}")  # DEBUG, not ERROR
+        raise AnalysisError(...) from e
+
+def outer_function():
+    try:
+        inner_function()
+    except AnalysisError:
+        logger.error("Outer function failed")  # ERROR at top level only
+        raise
+```
+```
+
+**Acceptance Criteria:**
+- [ ] Database error handling pattern documented
+- [ ] Custom exception pattern with context shown
+- [ ] Partial results pattern explained
+- [ ] Logging level guidance for nested calls included
+
+---
+
+#### CRP-006: Add Type Safety Guidelines to CLAUDE.md
+**Status:** [ ] Not Started
+**Files:** `CLAUDE.md`
+**Description:** Add guidelines for using proper types instead of generic Dict/str.
+
+**Content to Add:**
+```markdown
+## Type Safety Best Practices
+
+### Use Enums Instead of String Literals
+```python
+# BAD - string literals for status
+def get_status() -> str:
+    return "valid"  # Easy to typo, no IDE support
+
+# GOOD - enum with type safety
+class ValidityStatus(str, Enum):
+    VALID = "valid"
+    SUSPECT = "suspect"
+    INVALID = "invalid"
+
+def get_status() -> ValidityStatus:
+    return ValidityStatus.VALID
+```
+
+### Use Literal Types for Constrained Strings
+```python
+# BAD - any string accepted
+def get_interpretation(value: float, metric_type: str) -> str:
+    ...
+
+# GOOD - only valid values accepted
+MetricType = Literal["cronbachs_alpha", "test_retest", "split_half"]
+
+def get_interpretation(value: float, metric_type: MetricType) -> str:
+    ...
+```
+
+### Use TypedDict Instead of Dict[str, Any]
+```python
+# BAD - untyped dictionary
+def get_result() -> Dict[str, Any]:
+    return {"question_id": 1, "correlation": 0.5}
+
+# GOOD - typed dictionary
+class QuestionResult(TypedDict):
+    question_id: int
+    correlation: float
+
+def get_result() -> QuestionResult:
+    return {"question_id": 1, "correlation": 0.5}
+```
+
+### Use Enum Types in Pydantic Schemas
+```python
+# BAD - string field
+class MetricsResponse(BaseModel):
+    interpretation: str  # Any string accepted
+
+# GOOD - enum field with automatic validation
+class MetricsResponse(BaseModel):
+    interpretation: ReliabilityInterpretation  # Only valid enum values
+```
+
+### Add Pydantic Validators for Logical Consistency
+```python
+class MetricsResponse(BaseModel):
+    value: Optional[float]
+    meets_threshold: bool
+
+    @model_validator(mode="after")
+    def validate_threshold_consistency(self) -> "MetricsResponse":
+        if self.value is None and self.meets_threshold:
+            raise ValueError("meets_threshold cannot be True when value is None")
+        if self.value is not None and self.value >= THRESHOLD and not self.meets_threshold:
+            raise ValueError(f"meets_threshold must be True when value >= {THRESHOLD}")
+        return self
+```
+```
+
+**Acceptance Criteria:**
+- [ ] Enum vs string literal guidance included
+- [ ] Literal type usage explained
+- [ ] TypedDict pattern shown
+- [ ] Pydantic validator examples provided
+
+---
+
+### Phase 2: PR Template Updates
+
+#### CRP-007: Create Code Quality Checklist for PRs
+**Status:** [ ] Not Started
+**Files:** `.github/PULL_REQUEST_TEMPLATE.md` (create if not exists)
+**Description:** Add a checklist to the PR template that covers the common review patterns.
+
+**Template Content:**
+```markdown
+## Code Quality Checklist
+
+### Constants and Configuration
+- [ ] No magic numbers - all thresholds/limits are named constants with comments
+- [ ] Constants are grouped logically and documented with rationale
+
+### Type Safety
+- [ ] Used enums/Literal types instead of string literals where applicable
+- [ ] Used TypedDict instead of Dict[str, Any] for structured return types
+- [ ] Pydantic schemas have validators for logical consistency
+
+### Database Performance
+- [ ] Queries have appropriate LIMIT clauses for unbounded results
+- [ ] Necessary indexes exist for filter/sort columns
+- [ ] No N+1 query patterns (checked for loops with queries)
+- [ ] Aggregations done in SQL where possible
+
+### Error Handling
+- [ ] Database operations wrapped in try-except
+- [ ] Custom exceptions include context for debugging
+- [ ] Logging at appropriate levels (no duplicate ERROR logs)
+
+### Caching (if applicable)
+- [ ] Expensive operations are cached with appropriate TTL
+- [ ] Cache is invalidated when underlying data changes
+- [ ] Error caching considered for thundering herd prevention
+
+### Testing
+- [ ] Used pytest.approx() for floating-point comparisons
+- [ ] Edge cases covered (empty, single, boundary, invalid inputs)
+- [ ] Time-based tests use sufficient delays (500ms+) or mocking
+- [ ] Tests verify correctness, not just structure (assert values, not just keys)
+- [ ] Parametrized tests used for repetitive cases
+- [ ] Test isolation maintained (batch commits, no shared state)
+
+### Documentation
+- [ ] Public functions have docstrings with usage examples
+- [ ] Complex logic has inline comments explaining "why"
+- [ ] Performance implications documented for significant changes
+```
+
+**Acceptance Criteria:**
+- [ ] PR template created/updated with checklist
+- [ ] Checklist covers all identified patterns
+- [ ] Each item is actionable and verifiable
+
+---
+
+### Phase 3: Automated Tooling
+
+#### CRP-008: Create Code Review Slash Command
+**Status:** [ ] Not Started
+**Files:** `.claude/commands/review-patterns.md`
+**Description:** Create a slash command that can be invoked to check code for common review patterns.
+
+**Command Content:**
+```markdown
+Review the staged changes (or specified files) for these common code review patterns:
+
+1. **Magic Numbers**: Find numeric literals that should be named constants
+2. **String Literals**: Find strings that could use enums or Literal types
+3. **Dict[str, Any]**: Find untyped dictionaries that should use TypedDict
+4. **Database Queries**: Check for missing LIMIT, potential N+1, missing indexes
+5. **Missing Caching**: Identify expensive operations that might benefit from caching
+6. **Error Handling**: Check database operations have try-except
+7. **Test Quality**: Check for float comparisons without pytest.approx(), weak assertions
+8. **Logging**: Check imported loggers are actually used
+
+For each issue found, provide:
+- File and line number
+- The specific pattern violated
+- A suggested fix with code example
+
+Focus on files changed in the current branch compared to main.
+```
+
+**Acceptance Criteria:**
+- [ ] Slash command created and functional
+- [ ] Reviews staged/specified files for all patterns
+- [ ] Provides actionable suggestions with code examples
+
+---
+
+#### CRP-009: Add Pre-Commit Hook for Float Comparisons
+**Status:** [ ] Not Started
+**Files:** `.pre-commit-config.yaml`, `scripts/check_float_comparisons.py`
+**Description:** Add a pre-commit hook that detects direct float equality comparisons in test files.
+
+**Script Logic:**
+```python
+#!/usr/bin/env python3
+"""Check for direct float comparisons in test files."""
+
+import re
+import sys
+from pathlib import Path
+
+FLOAT_COMPARISON_PATTERN = re.compile(
+    r'assert\s+[\w\[\]"\'\.]+\s*==\s*\d+\.\d+(?!\s*,)',  # assert x == 1.5 without comma (approx)
+    re.MULTILINE
+)
+
+def check_file(path: Path) -> list[str]:
+    issues = []
+    content = path.read_text()
+    for i, line in enumerate(content.split('\n'), 1):
+        if FLOAT_COMPARISON_PATTERN.search(line):
+            if 'pytest.approx' not in line:
+                issues.append(f"{path}:{i}: Direct float comparison - use pytest.approx()")
+    return issues
+
+def main():
+    test_files = list(Path('.').rglob('test_*.py'))
+    all_issues = []
+    for f in test_files:
+        all_issues.extend(check_file(f))
+
+    if all_issues:
+        print("Float comparison issues found:")
+        for issue in all_issues:
+            print(f"  {issue}")
+        sys.exit(1)
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
+```
+
+**Acceptance Criteria:**
+- [ ] Pre-commit hook created
+- [ ] Detects `assert x == 1.5` patterns without pytest.approx()
+- [ ] Runs on test files only
+- [ ] Provides clear error messages
+
+---
+
+#### CRP-010: Add Pre-Commit Hook for Magic Numbers
+**Status:** [ ] Not Started
+**Files:** `.pre-commit-config.yaml`, `scripts/check_magic_numbers.py`
+**Description:** Add a pre-commit hook that flags suspicious numeric literals in non-test Python files.
+
+**Detection Rules:**
+- Flag numbers that appear in comparisons (>, <, >=, <=, ==)
+- Exclude common acceptable values (0, 1, -1, 100, 1000)
+- Exclude numbers in comments or docstrings
+- Exclude test files (magic numbers in tests are often acceptable)
+- Exclude numbers that are clearly array indices
+
+**Acceptance Criteria:**
+- [ ] Pre-commit hook created
+- [ ] Flags numeric literals in comparisons
+- [ ] Has reasonable exclusions to reduce false positives
+- [ ] Provides suggestions for fixes
+
+---
+
+### Phase 4: Code Review Agent Enhancement
+
+#### CRP-011: Update Code Reviewer Agent Prompt
+**Status:** [ ] Not Started
+**Files:** Agent configuration (location TBD based on pr-review-toolkit setup)
+**Description:** Enhance the code-reviewer agent to specifically check for the identified patterns.
+
+**Prompt Additions:**
+```
+When reviewing code, specifically check for these common issues:
+
+## High Priority
+1. Magic numbers in comparisons - suggest extracting to named constants
+2. Direct float comparisons in tests - require pytest.approx()
+3. Database queries without LIMIT - flag for unbounded result sets
+4. Missing try-except around database operations
+
+## Medium Priority
+5. String literals where enums exist - check for existing enum types
+6. Dict[str, Any] return types - suggest TypedDict
+7. Expensive operations without caching - flag for caching consideration
+8. Imported but unused loggers
+
+## Test Quality
+9. Tests that only check status_code and structure - require value assertions
+10. Short time.sleep() values (<500ms) - flag for CI flakiness
+11. Repeated similar test methods - suggest parametrization
+```
+
+**Acceptance Criteria:**
+- [ ] Agent prompt updated with pattern-specific checks
+- [ ] Patterns organized by priority
+- [ ] Agent provides specific, actionable feedback
+
+---
+
+### Phase 5: Validation and Documentation
+
+#### CRP-012: Create Pattern Examples Document
+**Status:** [ ] Not Started
+**Files:** `docs/code-review-patterns.md`
+**Description:** Create a reference document with examples of each anti-pattern and its fix, sourced from actual PR comments.
+
+**Content Structure:**
+```markdown
+# Code Review Pattern Reference
+
+This document contains real examples from PR reviews, showing common issues and their fixes.
+
+## Pattern 1: Magic Numbers
+
+### Example from IDA-F001
+**Original Code:**
+```python
+if abs(question_disc - type_avg) <= 0.05:
+    return "at"
+```
+
+**Review Comment:** "The 0.05 threshold for 'at' comparison is reasonable but could be a named constant"
+
+**Fixed Code:**
+```python
+COMPARISON_TOLERANCE = 0.05  # Threshold for "at average" comparisons
+
+if abs(question_disc - type_avg) <= COMPARISON_TOLERANCE:
+    return "at"
+```
+
+[... continue for each pattern ...]
+```
+
+**Acceptance Criteria:**
+- [ ] Document created with all 12 pattern categories
+- [ ] Each pattern has real example from PR comments
+- [ ] Before/after code shown for each
+- [ ] Original review comment quoted for context
+
+---
+
+#### CRP-013: Add Pattern Prevention to Onboarding
+**Status:** [ ] Not Started
+**Files:** `DEVELOPMENT.md` or `CONTRIBUTING.md`
+**Description:** Update developer documentation to reference the new guidelines and tools.
+
+**Content to Add:**
+- Link to code-review-patterns.md reference document
+- Mention of pre-commit hooks and their purpose
+- Overview of PR checklist expectations
+- How to run /review-patterns slash command
+
+**Acceptance Criteria:**
+- [ ] Onboarding docs updated
+- [ ] Links to new resources included
+- [ ] Process for using tools explained
+
+---
+
+## Task Summary
+
+| Task ID | Title | Complexity | Phase |
+|---------|-------|------------|-------|
+| CRP-001 | Add Magic Number Guidelines to CLAUDE.md | Small | 1 |
+| CRP-002 | Add Database Performance Checklist to CLAUDE.md | Small | 1 |
+| CRP-003 | Add Test Quality Guidelines to CLAUDE.md | Medium | 1 |
+| CRP-004 | Add Caching Guidelines to CLAUDE.md | Small | 1 |
+| CRP-005 | Add Error Handling Guidelines to CLAUDE.md | Small | 1 |
+| CRP-006 | Add Type Safety Guidelines to CLAUDE.md | Small | 1 |
+| CRP-007 | Create Code Quality Checklist for PRs | Medium | 2 |
+| CRP-008 | Create Code Review Slash Command | Medium | 3 |
+| CRP-009 | Add Pre-Commit Hook for Float Comparisons | Small | 3 |
+| CRP-010 | Add Pre-Commit Hook for Magic Numbers | Medium | 3 |
+| CRP-011 | Update Code Reviewer Agent Prompt | Medium | 4 |
+| CRP-012 | Create Pattern Examples Document | Medium | 5 |
+| CRP-013 | Add Pattern Prevention to Onboarding | Small | 5 |
+
+## Estimated Total Complexity
+
+**Medium** (13 tasks)
+
+- 6 Small tasks (documentation additions)
+- 7 Medium tasks (tooling and process)
+
+## Implementation Order
+
+1. **Phase 1** (CRP-001 through CRP-006): Documentation updates - can be done in parallel
+2. **Phase 2** (CRP-007): PR template - depends on Phase 1 for checklist content
+3. **Phase 3** (CRP-008 through CRP-010): Automated tooling - can be done in parallel
+4. **Phase 4** (CRP-011): Agent enhancement - can be done after Phase 1
+5. **Phase 5** (CRP-012, CRP-013): Validation docs - done last after patterns are stable
+
+## Success Criteria
+
+1. **Reduction in Follow-up Tasks**: Future PRs should have fewer "Future Improvements" items related to these patterns
+2. **Faster Review Cycles**: First-pass PR reviews should catch fewer of these issues
+3. **Developer Awareness**: New contributors can find and follow the guidelines easily
+4. **Automated Detection**: Pre-commit hooks catch obvious violations before review
+5. **Consistent Codebase**: Existing patterns from guidelines are followed uniformly
+
+## Metrics to Track
+
+After implementation, track:
+- Number of follow-up tasks created from PR reviews (target: 50% reduction)
+- Categories of follow-up tasks (should shift away from documented patterns)
+- Time from PR open to merge (should decrease with fewer revision cycles)
+- Pre-commit hook failure rate (should decrease as developers learn patterns)
+
+## Future Enhancements (Out of Scope)
+
+These could be added later:
+1. **CI Integration**: Run pattern checks as part of CI pipeline
+2. **IDE Integration**: VS Code extension to highlight patterns in real-time
+3. **Metrics Dashboard**: Track pattern violations over time
+4. **Automated Fixes**: Pre-commit hooks that auto-fix simple patterns
+5. **Training Materials**: Video walkthroughs of common patterns

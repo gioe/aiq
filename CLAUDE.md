@@ -350,6 +350,54 @@ open AIQ.xcodeproj  # Select your development team in project settings
 
 **CI/CD**: GitHub Actions runs on all PRs - tests, linting, and type checking must pass before merge.
 
+## Magic Numbers and Constants
+
+When writing code, extract numeric literals to named constants when:
+- The number represents a threshold, limit, or configuration value
+- The same number appears in multiple places
+- The meaning of the number is not immediately obvious
+
+**Example - Before:**
+```python
+if response_count >= 50 and discrimination < 0:
+    flag_question(question_id)
+```
+
+**Example - After:**
+```python
+# Minimum responses required for stable discrimination estimates
+MIN_RESPONSES_FOR_DISCRIMINATION = 50
+# Questions with negative discrimination harm test validity
+NEGATIVE_DISCRIMINATION_THRESHOLD = 0.0
+
+if response_count >= MIN_RESPONSES_FOR_DISCRIMINATION and discrimination < NEGATIVE_DISCRIMINATION_THRESHOLD:
+    flag_question(question_id)
+```
+
+**Constants should include:**
+- Descriptive name in SCREAMING_SNAKE_CASE
+- Comment explaining the rationale or source (e.g., "Based on psychometric guidelines")
+- Placement near related constants or at module level
+
+**When magic numbers are acceptable:**
+- Array/string indices (0, 1, -1)
+- Common mathematical operations (multiplying by 2, dividing by 100 for percentages)
+- Test files where the meaning is clear from context
+- Truly universal constants (0 for empty, 1 for single)
+
+**Real examples from this codebase:**
+```python
+# backend/app/core/reliability.py
+MIN_QUESTION_APPEARANCE_RATIO = 0.30  # Proportion of sessions a question must appear in
+MIN_QUESTION_APPEARANCE_ABSOLUTE = 30  # Minimum absolute floor for question appearances
+LARGE_PRACTICE_EFFECT_THRESHOLD = 5.0  # ~1/3 SD for IQ scores (SD=15)
+LOW_ITEM_CORRELATION_THRESHOLD = 0.15  # Items with correlations below this have weak discriminating power
+
+# backend/app/core/discrimination_analysis.py
+COMPARISON_TOLERANCE = 0.05  # Threshold for "at average" comparisons
+DEFAULT_ACTION_LIST_LIMIT = 100  # Maximum items returned in action lists
+```
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
