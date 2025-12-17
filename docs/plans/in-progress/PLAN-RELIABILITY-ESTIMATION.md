@@ -1043,11 +1043,12 @@ Each category includes explanation of why validation matters, INVALID code examp
 ---
 
 ### RE-FI-029: Standardize Metric Type Naming Across Literal Types
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #275 comment
-**Files:** `backend/app/core/reliability.py`
+**Files:** `backend/app/core/reliability.py`, `backend/tests/core/test_reliability.py`
 **Description:** The two Literal types use different values for Cronbach's alpha: `MetricTypeLiteral` uses "cronbachs_alpha" while `InterpretationMetricType` uses "alpha". Consider standardizing on one naming convention to reduce cognitive overhead and potential bugs when converting between contexts.
 **Original Comment:** "The two Literal types use different values for Cronbach's alpha... This inconsistency creates cognitive overhead and potential bugs when converting between contexts."
+**Implementation Notes:** Standardized `InterpretationMetricType` to use `"cronbachs_alpha"` instead of `"alpha"`, matching the convention used in `MetricTypeLiteral`. Updated `get_reliability_interpretation()` function to use the new value, and updated the corresponding unit tests. Added `type: ignore[arg-type]` comments to the defensive branch test that intentionally tests invalid input for documentation purposes.
 
 ---
 
