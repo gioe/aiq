@@ -148,6 +148,7 @@ from app.core.reliability import (
     get_reliability_report,
     store_reliability_metric,
     get_reliability_history,
+    MetricTypeLiteral,
 )
 from app.models import Question, TestSession, TestResult, Response
 
@@ -3811,7 +3812,7 @@ async def get_reliability_report_endpoint(
 async def get_reliability_history_endpoint(
     db: Session = Depends(get_db),
     _: bool = Depends(verify_admin_token),
-    metric_type: Optional[str] = Query(
+    metric_type: Optional[MetricTypeLiteral] = Query(
         default=None,
         description="Filter by metric type: cronbachs_alpha, test_retest, split_half",
     ),
@@ -3842,7 +3843,8 @@ async def get_reliability_history_endpoint(
     Requires X-Admin-Token header with valid admin token.
     """
     try:
-        # Get historical metrics using the core function
+        # Get historical metrics using the core function.
+        # metric_type is already validated by FastAPI via Literal type annotation.
         metrics = get_reliability_history(
             db=db,
             metric_type=metric_type,

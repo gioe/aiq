@@ -68,7 +68,7 @@ Generate a comprehensive reliability report:
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Tuple, Optional, TypedDict
+from typing import Dict, List, Literal, Tuple, Optional, TypedDict
 from collections import defaultdict
 import statistics
 
@@ -101,6 +101,16 @@ class ProblematicItem(TypedDict):
     question_id: int
     correlation: float
     recommendation: str
+
+
+# Type alias for metric types used in storage and retrieval functions.
+# These correspond to the values stored in the database and used in
+# store_reliability_metric() and get_reliability_history().
+MetricTypeLiteral = Literal["cronbachs_alpha", "test_retest", "split_half"]
+
+# Type alias for metric types used in get_reliability_interpretation().
+# This function uses slightly different values for historical reasons.
+InterpretationMetricType = Literal["alpha", "test_retest", "split_half"]
 
 
 # =============================================================================
@@ -1171,7 +1181,9 @@ def calculate_split_half_reliability(
 # =============================================================================
 
 
-def get_reliability_interpretation(value: float, metric_type: str) -> str:
+def get_reliability_interpretation(
+    value: float, metric_type: InterpretationMetricType
+) -> str:
     """
     Get interpretation string for a reliability value.
 
@@ -1193,7 +1205,8 @@ def get_reliability_interpretation(value: float, metric_type: str) -> str:
     elif metric_type == "split_half":
         return _get_split_half_interpretation(value)
     else:
-        # Default to alpha thresholds
+        # This branch is technically unreachable with Literal types,
+        # but kept for defensive programming
         return _get_interpretation(value)
 
 
@@ -1702,7 +1715,7 @@ VALID_METRIC_TYPES = {"cronbachs_alpha", "test_retest", "split_half"}
 
 def store_reliability_metric(
     db: Session,
-    metric_type: str,
+    metric_type: MetricTypeLiteral,
     value: float,
     sample_size: int,
     details: Optional[Dict] = None,
@@ -1718,7 +1731,8 @@ def store_reliability_metric(
 
     Args:
         db: Database session
-        metric_type: Type of metric - "cronbachs_alpha", "test_retest", or "split_half"
+        metric_type: Type of metric - "cronbachs_alpha", "test_retest", or "split_half".
+            Uses Literal type for IDE support and mypy type checking.
         value: The calculated reliability coefficient (must be between -1.0 and 1.0)
         sample_size: Number of sessions/pairs used in the calculation (must be >= 1)
         details: Optional additional context (interpretation, thresholds, etc.)
@@ -1735,7 +1749,8 @@ def store_reliability_metric(
     Reference:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-007)
     """
-    # Validate metric type
+    # Validate metric type (runtime validation for defense in depth,
+    # even though Literal type provides static checking)
     if metric_type not in VALID_METRIC_TYPES:
         raise ValueError(
             f"Invalid metric_type: {metric_type}. "
@@ -1782,7 +1797,7 @@ def store_reliability_metric(
 
 def get_reliability_history(
     db: Session,
-    metric_type: Optional[str] = None,
+    metric_type: Optional[MetricTypeLiteral] = None,
     days: int = 90,
 ) -> List[Dict]:
     """
@@ -1794,7 +1809,8 @@ def get_reliability_history(
     Args:
         db: Database session
         metric_type: Optional filter for specific metric type
-                     ("cronbachs_alpha", "test_retest", "split_half")
+                     ("cronbachs_alpha", "test_retest", "split_half").
+                     Uses Literal type for IDE support and mypy type checking.
         days: Number of days of history to retrieve (default: 90)
 
     Returns:
