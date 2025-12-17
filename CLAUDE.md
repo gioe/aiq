@@ -398,6 +398,91 @@ COMPARISON_TOLERANCE = 0.05  # Threshold for "at average" comparisons
 DEFAULT_ACTION_LIST_LIMIT = 100  # Maximum items returned in action lists
 ```
 
+## Database Query Performance Checklist
+
+Before submitting code with database queries, verify:
+
+### Query Construction
+- [ ] **LIMIT clause**: Does the query return unbounded results? Add `LIMIT` with configurable parameter
+- [ ] **ORDER BY with LIMIT**: If limiting results, is ordering deterministic and meaningful?
+- [ ] **Pagination**: For large result sets, is pagination implemented?
+
+### Indexing
+- [ ] **Filter columns indexed**: Are columns in WHERE clauses indexed?
+- [ ] **Sort columns indexed**: Are columns in ORDER BY indexed?
+- [ ] **Compound indexes**: For multi-column filters, consider compound indexes
+
+### Query Patterns
+- [ ] **N+1 queries**: Are you querying in a loop? Consider batch loading or joins
+- [ ] **Aggregations**: Can GROUP BY/AVG/COUNT be done in SQL instead of Python?
+- [ ] **Subqueries vs JOINs**: Is the approach optimal for the data size?
+
+### Performance Testing
+- [ ] **Large dataset behavior**: How does this perform with 10,000+ records?
+- [ ] **Concurrent access**: Are there race conditions with simultaneous requests?
+
+### Common Anti-Patterns to Avoid
+
+**Unbounded queries:**
+```python
+# BAD - returns all records, can crash with large datasets
+questions = db.query(Question).filter(Question.is_active == True).all()
+
+# GOOD - limit results and allow pagination
+DEFAULT_PAGE_SIZE = 100
+questions = (
+    db.query(Question)
+    .filter(Question.is_active == True)
+    .order_by(Question.created_at.desc())
+    .limit(page_size or DEFAULT_PAGE_SIZE)
+    .offset(page * (page_size or DEFAULT_PAGE_SIZE))
+    .all()
+)
+```
+
+**N+1 query pattern:**
+```python
+# BAD - queries database once per session (N+1 problem)
+sessions = db.query(TestSession).all()
+for session in sessions:
+    responses = db.query(Response).filter(Response.session_id == session.id).all()
+
+# GOOD - use joinedload to fetch related data in single query
+from sqlalchemy.orm import joinedload
+sessions = (
+    db.query(TestSession)
+    .options(joinedload(TestSession.responses))
+    .all()
+)
+```
+
+**Python aggregation instead of SQL:**
+```python
+# BAD - fetches all records to calculate average in Python
+responses = db.query(Response).filter(Response.question_id == question_id).all()
+avg_time = sum(r.time_spent_seconds for r in responses) / len(responses)
+
+# GOOD - calculate average in database
+from sqlalchemy import func
+avg_time = (
+    db.query(func.avg(Response.time_spent_seconds))
+    .filter(Response.question_id == question_id)
+    .scalar()
+)
+```
+
+**Missing index on filter columns:**
+```python
+# If you frequently query by a column, ensure it has an index
+# In your model:
+class Response(Base):
+    __tablename__ = "responses"
+    question_id = Column(Integer, ForeignKey("questions.id"), index=True)  # index=True!
+
+# Or in migration:
+op.create_index("ix_responses_question_id", "responses", ["question_id"])
+```
+
 ## Project Planning & Task Tracking
 
 **Primary Reference**: `PLAN.md` contains the complete project roadmap organized into phases
