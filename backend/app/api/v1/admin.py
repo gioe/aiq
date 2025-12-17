@@ -3662,13 +3662,21 @@ async def get_reliability_report_endpoint(
     database for historical trend analysis via the `/reliability/history` endpoint.
 
     Requires X-Admin-Token header with valid admin token.
+
+    **Caching (RE-FI-019):**
+    Results are cached for 5 minutes when `store_metrics=false` to avoid
+    recalculating expensive metrics on every request. When `store_metrics=true`,
+    fresh calculations are performed to ensure accurate data is stored.
     """
     try:
-        # Generate the reliability report
+        # Generate the reliability report (RE-FI-019)
+        # When store_metrics=True, bypass cache to ensure fresh data is stored
+        # When store_metrics=False, use cache to avoid expensive recalculation
         report = get_reliability_report(
             db=db,
             min_sessions=min_sessions,
             min_retest_pairs=min_retest_pairs,
+            use_cache=not store_metrics,  # Bypass cache when storing metrics
         )
 
         # Optionally store metrics to database for historical tracking

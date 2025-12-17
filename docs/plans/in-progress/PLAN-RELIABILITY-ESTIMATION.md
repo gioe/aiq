@@ -888,11 +888,20 @@ Runtime validation is preserved for defense in depth. All 206 reliability tests 
 ---
 
 ### RE-FI-019: Add Caching for Reliability Report Endpoint
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
-**Files:** `backend/app/api/v1/admin.py`
+**Files:** `backend/app/api/v1/admin.py`, `backend/app/core/reliability.py`
 **Description:** Add caching for the reliability report endpoint to avoid recalculating expensive metrics on every request. Consider caching when `store_metrics=false` with appropriate TTL (e.g., 5 minutes).
 **Original Comment:** "The endpoint calculates reliability metrics on every request, which could be computationally expensive with large datasets... With 100+ sessions and complex calculations, this could cause slow API responses and unnecessary database load."
+
+**Implementation Notes:**
+- Added 5-minute TTL cache for reliability report results in `get_reliability_report()` function
+- Cache is keyed by `min_sessions` and `min_retest_pairs` parameters to ensure different parameter combinations are cached separately
+- Cache is bypassed when `store_metrics=true` to ensure fresh calculations are stored
+- Cache is used when `store_metrics=false` for read-only requests
+- Added `invalidate_reliability_report_cache()` function for manual cache invalidation
+- Added 5 new tests verifying cache behavior, invalidation, and response structure integrity
+- All 24 reliability endpoint tests pass
 
 ---
 

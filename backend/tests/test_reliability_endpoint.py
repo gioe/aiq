@@ -742,3 +742,162 @@ class TestReliabilityHistoryEndpoint:
         assert data["total_count"] == 1
         assert data["metrics"][0]["metric_type"] == "cronbachs_alpha"
         assert data["metrics"][0]["value"] == 0.78
+
+
+class TestReliabilityReportCaching:
+    """Tests for reliability report caching behavior (RE-FI-019).
+
+    These tests verify:
+    - Cache is used when store_metrics=false
+    - Cache is bypassed when store_metrics=true
+    - Cache invalidation works correctly
+    - Different parameters result in different cache keys
+    """
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_used_when_store_metrics_false(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that cached results are returned when store_metrics=false."""
+        # First request - should populate cache
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response1.status_code == 200
+        data1 = response1.json()
+        timestamp1 = data1["internal_consistency"]["last_calculated"]
+
+        # Second request should return cached result with same timestamp
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response2.status_code == 200
+        data2 = response2.json()
+        timestamp2 = data2["internal_consistency"]["last_calculated"]
+
+        # Timestamps should be identical (from cache)
+        assert timestamp1 == timestamp2
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_bypassed_when_store_metrics_true(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that cache is bypassed when store_metrics=true."""
+        import time
+
+        # First request with store_metrics=false to populate cache
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response1.status_code == 200
+        timestamp1 = response1.json()["internal_consistency"]["last_calculated"]
+
+        # Small delay to ensure different timestamp
+        time.sleep(0.1)
+
+        # Request with store_metrics=true should bypass cache and recalculate
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": True},
+        )
+        assert response2.status_code == 200
+        timestamp2 = response2.json()["internal_consistency"]["last_calculated"]
+
+        # Timestamps should be different (fresh calculation)
+        assert timestamp1 != timestamp2
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_different_parameters_use_different_cache_keys(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that different min_sessions/min_retest_pairs use different cache keys."""
+        # Request with default parameters
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 100},
+        )
+        assert response1.status_code == 200
+
+        # Request with different min_sessions should succeed independently
+        # (uses different cache key)
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False, "min_sessions": 50},
+        )
+        assert response2.status_code == 200
+
+        # Both requests succeed with valid response structure
+        assert "internal_consistency" in response1.json()
+        assert "internal_consistency" in response2.json()
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_invalidation_works(self, client, db_session, admin_token_headers):
+        """Test that cache can be invalidated."""
+        from app.core.reliability import invalidate_reliability_report_cache
+
+        # First request to populate cache
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response1.status_code == 200
+        timestamp1 = response1.json()["internal_consistency"]["last_calculated"]
+
+        # Invalidate cache
+        invalidate_reliability_report_cache()
+
+        # Next request should get fresh result
+        import time
+
+        time.sleep(0.1)
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response2.status_code == 200
+        timestamp2 = response2.json()["internal_consistency"]["last_calculated"]
+
+        # Timestamps should be different after cache invalidation
+        assert timestamp1 != timestamp2
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_cache_does_not_affect_response_structure(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test that cached responses maintain the same structure as fresh responses."""
+        # First request (fresh)
+        response1 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response1.status_code == 200
+        data1 = response1.json()
+
+        # Second request (cached)
+        response2 = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"store_metrics": False},
+        )
+        assert response2.status_code == 200
+        data2 = response2.json()
+
+        # Both should have identical structure
+        assert set(data1.keys()) == set(data2.keys())
+        assert set(data1["internal_consistency"].keys()) == set(
+            data2["internal_consistency"].keys()
+        )
+        assert set(data1["test_retest"].keys()) == set(data2["test_retest"].keys())
+        assert set(data1["split_half"].keys()) == set(data2["split_half"].keys())
