@@ -1076,11 +1076,20 @@ Each category includes explanation of why validation matters, INVALID code examp
 ---
 
 ### RE-FI-032: Improve Test Reliability by Increasing Time Delays
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #276 comment
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** In `test_cache_bypassed_when_store_metrics_true` and `test_cache_invalidation_works`, the 100ms delay (`time.sleep(0.1)`) may not be sufficient on slower CI runners to guarantee different timestamps. Consider increasing to 0.5-1.0 seconds, or mocking the datetime to make tests deterministic.
 **Original Comment:** "100ms may not be sufficient on slower CI runners to guarantee different timestamps if the system clock has low resolution. Consider using a more robust assertion or increasing the delay to 0.5-1.0 seconds."
+**Implementation Notes:** Increased time delays from 0.1s to 0.5s in 4 locations across 3 tests:
+- `test_cache_bypassed_when_store_metrics_true`: 1 delay
+- `test_cache_invalidation_works`: 1 delay
+- `test_cache_invalidated_on_test_submit`: 2 delays (before submit and after submit)
+
+Chose the simpler approach of increasing delays over mocking datetime since:
+- `freezegun` is not currently a project dependency
+- 0.5s is sufficient for CI runners while not significantly impacting test runtime
+- All 41 reliability endpoint tests pass
 
 ---
 
