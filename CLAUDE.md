@@ -570,108 +570,116 @@ def test_quality_tier(value, expected):
     assert get_quality_tier(value) == expected
 ```
 
-## Caching for Expensive Operations
+## Defensive Error Handling
 
-### When to Add Caching
-Consider caching when:
-- Operation involves multiple database queries or aggregations
-- Results don't change frequently (e.g., analytics reports, statistics)
-- Same data may be requested multiple times in short period
-- Computation is CPU-intensive (e.g., statistical calculations)
-
-### Caching Pattern
-```python
-from app.core.cache import get_cache, cache_key
-
-REPORT_CACHE_TTL = 300  # 5 minutes
-REPORT_CACHE_PREFIX = "my_report"
-
-def get_expensive_report(db: Session, param1: int, param2: int) -> Dict:
-    cache = get_cache()
-
-    # Generate cache key from parameters
-    key = f"{REPORT_CACHE_PREFIX}:{cache_key(param1=param1, param2=param2)}"
-
-    # Check cache first
-    cached = cache.get(key)
-    if cached is not None:
-        return cached
-
-    # Compute expensive result
-    result = _compute_report(db, param1, param2)
-
-    # Cache for future requests
-    cache.set(key, result, ttl=REPORT_CACHE_TTL)
-
-    return result
-
-def invalidate_report_cache():
-    """Call when underlying data changes."""
-    cache = get_cache()
-    cache.delete_by_prefix(REPORT_CACHE_PREFIX)
-```
-
-### Using the Decorator Pattern
-For simpler cases, use the `@cached` decorator:
-
-```python
-from app.core.cache import cached
-
-@cached(ttl=300, key_prefix="user_stats")
-def get_user_statistics(user_id: int) -> Dict:
-    # Expensive computation automatically cached
-    return compute_statistics(user_id)
-```
-
-### Cache Invalidation
-Always invalidate cache when:
-- Underlying data is modified (new records, updates, deletes)
-- Admin makes manual changes (quality flags, overrides)
-- Configuration changes affect results
-
-```python
-# In test submission endpoint
-def submit_test(...):
-    result = calculate_score(...)
-    invalidate_reliability_report_cache()  # New test data affects reliability
-    return result
-```
-
-### Error Handling with Caching
-For transient errors, avoid caching empty/error responses unless intentional:
+### Database Operations
+Wrap database operations in try-except for graceful degradation:
 
 ```python
 from sqlalchemy.exc import SQLAlchemyError
 
-ERROR_CACHE_TTL = 30  # Short TTL for quick recovery
+def get_report(db: Session) -> Dict:
+    try:
+        result = db.query(...).all()
+        return process_result(result)
+    except SQLAlchemyError as e:
+        logger.exception(f"Database error in get_report: {e}")
+        raise ReportGenerationError(
+            message="Failed to generate report",
+            original_error=e,
+            context={"operation": "get_report"}
+        )
+```
 
-def get_report_with_fallback(db: Session) -> Dict:
-    cache = get_cache()
-    key = "report:main"
+### Custom Exception Classes
+Create domain-specific exceptions with context for better debugging and monitoring:
 
-    cached = cache.get(key)
-    if cached is not None:
-        return cached
+```python
+class AnalysisError(Exception):
+    """Base exception for analysis errors with structured context.
+
+    The context field is a structured dictionary to enable integration
+    with monitoring tools (Sentry, Datadog) for filtering/aggregation.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        original_error: Optional[Exception] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        self.message = message
+        self.original_error = original_error
+        self.context = context or {}
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        parts = [self.message]
+        if self.context:
+            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            parts.append(f"Context: {context_str}")
+        if self.original_error:
+            parts.append(
+                f"Original error: {type(self.original_error).__name__}: {self.original_error}"
+            )
+        return " | ".join(parts)
+```
+
+**Real example from this codebase** (see `app/core/discrimination_analysis.py`):
+```python
+raise DiscriminationAnalysisError(
+    message="Failed to calculate percentile rank due to database error",
+    original_error=e,
+    context={"discrimination": discrimination},
+)
+```
+
+### Partial Results on Failure
+When generating composite reports, continue with partial results rather than failing entirely:
+
+```python
+def get_full_report(db: Session) -> Dict:
+    result = {}
 
     try:
-        result = expensive_query(db)
-        cache.set(key, result, ttl=REPORT_CACHE_TTL)
-        return result
-    except SQLAlchemyError:
-        logger.exception("Database error in report generation")
-        # Optionally cache empty result briefly to prevent thundering herd
-        empty_result = {"error": True, "data": None}
-        cache.set(key, empty_result, ttl=ERROR_CACHE_TTL)
+        result["section_a"] = calculate_section_a(db)
+    except AnalysisError:
+        logger.exception("Section A calculation failed")
+        result["section_a"] = _empty_section_a()
+
+    try:
+        result["section_b"] = calculate_section_b(db)
+    except AnalysisError:
+        logger.exception("Section B calculation failed")
+        result["section_b"] = _empty_section_b()
+
+    return result
+```
+
+### Logging Levels for Nested Functions
+Avoid duplicate error logs in nested function calls:
+
+```python
+def inner_function():
+    try:
+        ...
+    except SQLAlchemyError as e:
+        logger.debug(f"Inner function failed: {e}")  # DEBUG, not ERROR
+        raise AnalysisError(...) from e
+
+def outer_function():
+    try:
+        inner_function()
+    except AnalysisError:
+        logger.error("Outer function failed")  # ERROR at top level only
         raise
 ```
 
-### Cache TTL Guidelines
-| Data Type | Suggested TTL | Rationale |
-|-----------|---------------|-----------|
-| Analytics/Reports | 5-15 minutes | Balance freshness with performance |
-| User-specific data | 2-5 minutes | More frequent updates expected |
-| Static configuration | 30-60 minutes | Rarely changes |
-| Error/empty results | 30 seconds | Allow quick recovery |
+**Guidelines:**
+- Use `logger.exception()` when you want the full stack trace (typically at top level)
+- Use `logger.error()` for errors without stack trace
+- Use `logger.debug()` in inner functions to avoid duplicate ERROR logs
+- Only log at ERROR level once per error chain (usually at the outermost handler)
 
 ## Project Planning & Task Tracking
 
