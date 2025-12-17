@@ -547,6 +547,41 @@ class TestEdgeCases:
         # Item-total correlations should be returned for both items
         assert len(result["item_total_correlations"]) == 2
 
+    def test_single_item_returns_error(self, db_session):
+        """Tests that k=1 (single item) returns appropriate error.
+
+        Cronbach's alpha is undefined for k<2 because the formula
+        α = (k / (k-1)) × (1 - Σσ²ᵢ / σ²ₜ) requires at least 2 items.
+        With k=1, the (k-1) term becomes 0, causing division by zero.
+
+        Related: RE-FI-025
+        """
+        # Create only 1 question (k=1)
+        question = create_test_question(db_session, "SingleQuestion")
+
+        # Create 120 sessions (enough to meet min_sessions threshold)
+        # with varied responses to ensure we have variance
+        for i in range(120):
+            user = create_test_user(db_session, f"user{i}@example.com")
+            # Vary responses to ensure there's variance in the data
+            responses = [i % 2 == 0]  # Alternating correct/incorrect
+            create_completed_test_session(db_session, user, [question], responses)
+
+        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+
+        # Should return error for single item
+        assert result["cronbachs_alpha"] is None
+        assert result["error"] is not None
+        # Error message mentions insufficient items (need at least 2)
+        assert "need at least 2" in result["error"].lower()
+        # Verify other fields are still populated appropriately
+        assert result["num_sessions"] >= 100
+        # With only 1 question, num_items should be 1 or 0 depending on
+        # whether filtering occurred before the error
+        assert result["num_items"] <= 1
+        assert result["meets_threshold"] is False
+        assert result["interpretation"] is None
+
     def test_very_high_number_of_items(self, db_session):
         """Tests Cronbach's alpha calculation with 50+ items."""
         # Create 60 questions (high item count)
