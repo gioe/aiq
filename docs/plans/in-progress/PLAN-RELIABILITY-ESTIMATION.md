@@ -839,11 +839,22 @@ Added 7 tests in `TestDefensiveErrorHandling` class verifying partial results, e
 ---
 
 ### RE-FI-016: Add Edge Case Tests for Zero/Negative Correlations
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #256 comment
 **Files:** `backend/tests/core/test_reliability.py`
 **Description:** Add tests for edge case correlation values: exactly 0.0, negative correlations, and practice effect exactly at threshold (5.0).
 **Original Comment:** "Missing tests: Test with exactly zero correlation values, Test with negative correlation values, Test with practice effect exactly at threshold"
+**Implementation Notes:** Added `TestCorrelationEdgeCases` class with 10 tests covering:
+- `test_exactly_zero_correlation_pearson`: Tests Pearson correlation with zero variance and near-zero correlation
+- `test_exactly_zero_correlation_test_retest`: Tests test-retest with uncorrelated score pairs
+- `test_negative_correlation_pearson`: Tests perfect negative correlation (r = -1.0)
+- `test_strong_negative_correlation_pearson`: Tests strong but imperfect negative correlation
+- `test_negative_correlation_test_retest`: Tests test-retest with negatively correlated scores
+- `test_practice_effect_exactly_at_threshold`: Tests practice effect exactly at 5.0 IQ points
+- `test_practice_effect_at_threshold_no_warning`: Verifies 5.0 does NOT trigger warning (boundary test)
+- `test_practice_effect_just_above_threshold_triggers_warning`: Verifies 5.1 triggers warning
+- `test_negative_practice_effect_at_threshold_no_warning`: Verifies -5.0 does NOT trigger warning
+- `test_negative_practice_effect_below_threshold_triggers_warning`: Verifies -5.1 triggers warning with "decrease" message
 
 ---
 
