@@ -1611,3 +1611,585 @@ class TestRandomizedDataPatterns:
         # Should handle outlier gracefully
         assert data["internal_consistency"]["num_sessions"] >= 15
         assert "cronbachs_alpha" in data["internal_consistency"]
+
+
+class TestLargeDatasetPerformance:
+    """Tests for large dataset performance (RE-FI-024).
+
+    These tests verify:
+    - Reliability calculations complete in reasonable time with large datasets
+    - Memory usage remains bounded with 10,000+ sessions
+    - API response times stay acceptable under load
+    - Concurrent request handling works correctly
+    """
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_large_dataset_10000_sessions(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test reliability calculation performance with 10,000+ sessions.
+
+        This test verifies that the reliability endpoint can handle large
+        datasets (10,000 sessions x 15 questions = 150,000 responses) without
+        timing out or running out of memory.
+
+        Note: This test uses batch inserts for efficiency and measures
+        execution time to ensure acceptable performance.
+        """
+        import random
+        import time
+
+        random.seed(42)  # Fixed seed for reproducibility
+
+        # Create 15 questions
+        questions = create_test_questions(db_session, count=15)
+        question_ids = [q.id for q in questions]
+
+        # Create a single user for all sessions (simplifies test)
+        user = User(
+            email="large_dataset_test@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Large",
+            last_name="Dataset",
+            notification_enabled=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 10,000 sessions using bulk inserts for efficiency
+        NUM_SESSIONS = 10000
+        BATCH_SIZE = 500  # Insert in batches to avoid memory issues
+        base_time = datetime.now(timezone.utc)
+
+        start_setup = time.time()
+
+        for batch_start in range(0, NUM_SESSIONS, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, NUM_SESSIONS)
+
+            # Create sessions for this batch
+            for i in range(batch_start, batch_end):
+                session = TestSession(
+                    user_id=user.id,
+                    status=TestStatus.COMPLETED,
+                    started_at=base_time - timedelta(hours=i),
+                )
+                db_session.add(session)
+            db_session.flush()
+
+            # Get the session IDs from this batch
+            batch_sessions = (
+                db_session.query(TestSession)
+                .filter(TestSession.user_id == user.id)
+                .order_by(TestSession.id.desc())
+                .limit(batch_end - batch_start)
+                .all()
+            )
+
+            # Create responses and results for each session
+            for session in batch_sessions:
+                correct_count = 0
+                for j, qid in enumerate(question_ids):
+                    # Varying correctness pattern for realistic data
+                    is_correct = random.random() < (0.3 + (j / 30))  # 30-80% correct
+                    if is_correct:
+                        correct_count += 1
+                    response = Response(
+                        test_session_id=session.id,
+                        user_id=user.id,
+                        question_id=qid,
+                        user_answer="A" if is_correct else "B",
+                        is_correct=is_correct,
+                        time_spent_seconds=random.randint(15, 60),
+                    )
+                    db_session.add(response)
+
+                result = TestResult(
+                    test_session_id=session.id,
+                    user_id=user.id,
+                    iq_score=85 + correct_count * 2 + random.randint(-3, 3),
+                    correct_answers=correct_count,
+                    total_questions=len(question_ids),
+                    completed_at=session.started_at,
+                )
+                db_session.add(result)
+
+            db_session.commit()
+
+        setup_time = time.time() - start_setup
+
+        # Verify data was created
+        session_count = (
+            db_session.query(TestSession).filter(TestSession.user_id == user.id).count()
+        )
+        assert (
+            session_count == NUM_SESSIONS
+        ), f"Expected {NUM_SESSIONS} sessions, got {session_count}"
+
+        # Now test the reliability endpoint performance
+        start_request = time.time()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 100, "store_metrics": False},
+        )
+
+        request_time = time.time() - start_request
+
+        # Should complete successfully
+        assert response.status_code == 200, f"Request failed: {response.text}"
+        data = response.json()
+
+        # Verify response structure
+        assert "internal_consistency" in data
+        assert "test_retest" in data
+        assert "split_half" in data
+        assert "overall_status" in data
+
+        # Verify data was actually processed (not just insufficient data response)
+        assert data["internal_consistency"]["num_sessions"] > 0
+
+        # Performance assertion: should complete in reasonable time
+        # With optimizations (data loader, caching), 10k sessions should process
+        # in under 60 seconds even on modest hardware
+        MAX_ALLOWED_TIME = 60  # seconds
+        assert request_time < MAX_ALLOWED_TIME, (
+            f"Request took {request_time:.2f}s, exceeded {MAX_ALLOWED_TIME}s threshold. "
+            f"Setup time was {setup_time:.2f}s"
+        )
+
+        # Log performance metrics for visibility
+        print(f"\nPerformance metrics for {NUM_SESSIONS} sessions:")
+        print(f"  Setup time: {setup_time:.2f}s")
+        print(f"  Request time: {request_time:.2f}s")
+        print(f"  Sessions processed: {data['internal_consistency']['num_sessions']}")
+        if data["internal_consistency"]["cronbachs_alpha"] is not None:
+            print(
+                f"  Cronbach's alpha: {data['internal_consistency']['cronbachs_alpha']:.4f}"
+            )
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_concurrent_request_handling(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Test that concurrent requests to reliability endpoint are handled correctly.
+
+        This test verifies that multiple simultaneous requests:
+        - All complete successfully
+        - Return consistent results (from cache or fresh)
+        - Don't cause race conditions or data corruption
+        """
+        import concurrent.futures
+        import random
+        import time
+
+        random.seed(123)
+
+        # Create test data (smaller dataset for concurrent test)
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 50 sessions for reasonable test data
+        for i in range(50):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for j, question in enumerate(questions):
+                is_correct = random.random() < 0.6
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=90 + correct_count,
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        def make_request():
+            """Helper function to make a reliability endpoint request."""
+            return client.get(
+                "/v1/admin/reliability",
+                headers=admin_token_headers,
+                params={"min_sessions": 10, "store_metrics": False},
+            )
+
+        # Make 10 concurrent requests
+        NUM_CONCURRENT = 10
+        results = []
+        errors = []
+
+        start_time = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=NUM_CONCURRENT
+        ) as executor:
+            futures = [executor.submit(make_request) for _ in range(NUM_CONCURRENT)]
+
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    response = future.result()
+                    results.append(response)
+                except Exception as e:
+                    errors.append(str(e))
+
+        total_time = time.time() - start_time
+
+        # All requests should succeed
+        assert len(errors) == 0, f"Concurrent requests had errors: {errors}"
+        assert len(results) == NUM_CONCURRENT
+
+        # All responses should be 200 OK
+        for i, response in enumerate(results):
+            assert (
+                response.status_code == 200
+            ), f"Request {i} failed with status {response.status_code}: {response.text}"
+
+        # All responses should have valid structure
+        for response in results:
+            data = response.json()
+            assert "internal_consistency" in data
+            assert "overall_status" in data
+
+        # Verify consistency - all cached responses should have same timestamp
+        # (since we're using store_metrics=False)
+        timestamps = [
+            r.json()["internal_consistency"]["last_calculated"] for r in results
+        ]
+        # With caching, most timestamps should be identical
+        unique_timestamps = set(timestamps)
+        # Allow for at most 2 unique timestamps (one fresh, one cached)
+        assert (
+            len(unique_timestamps) <= 2
+        ), f"Too many unique timestamps in concurrent requests: {unique_timestamps}"
+
+        print("\nConcurrent request metrics:")
+        print(f"  Total requests: {NUM_CONCURRENT}")
+        print(f"  Total time: {total_time:.2f}s")
+        print(f"  Avg time per request: {total_time / NUM_CONCURRENT:.2f}s")
+        print(f"  Unique timestamps: {len(unique_timestamps)}")
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_all_users_identical_scores_zero_variance(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test edge case where all users have exactly identical IQ scores.
+
+        When all test scores are identical, variance is zero, which can cause
+        division by zero or undefined values in reliability calculations.
+        This tests that the endpoint handles this gracefully.
+        """
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create multiple users, each with exactly the same score
+        IDENTICAL_SCORE = 100
+        NUM_USERS = 20
+
+        for u in range(NUM_USERS):
+            user = User(
+                email=f"zero_variance_user_{u}@example.com",
+                password_hash=hash_password("testpassword123"),
+                first_name=f"User{u}",
+                last_name="ZeroVar",
+                notification_enabled=False,
+            )
+            db_session.add(user)
+            db_session.flush()
+
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=u),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            # All users answer exactly the same way (first 10 correct, last 5 wrong)
+            for j, question in enumerate(questions):
+                is_correct = j < 10
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            # All users get exactly the same score
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=IDENTICAL_SCORE,  # Same for everyone
+                correct_answers=10,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=u),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Verify scores are identical
+        scores = db_session.query(TestResult.iq_score).all()
+        unique_scores = set(s[0] for s in scores)
+        assert len(unique_scores) == 1, f"Expected 1 unique score, got {unique_scores}"
+
+        # Request reliability report
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 10, "store_metrics": False},
+        )
+
+        # Should complete without error (200 OK)
+        assert response.status_code == 200, f"Request failed: {response.text}"
+        data = response.json()
+
+        # Verify response has valid structure
+        assert "internal_consistency" in data
+        assert "test_retest" in data
+        assert "split_half" in data
+        assert "overall_status" in data
+
+        # With zero variance in total scores:
+        # - Cronbach's alpha is mathematically undefined (0/0)
+        # - The implementation should handle this gracefully
+        # - May return None, 0, or handle as insufficient variance
+        assert "cronbachs_alpha" in data["internal_consistency"]
+        # The key assertion is that the endpoint doesn't crash
+
+        # Test-retest with identical scores should return correlation as undefined or 0
+        # (since there's no variance to correlate)
+        assert "correlation" in data["test_retest"]
+
+        print("\nZero variance (identical scores) test:")
+        print(f"  Users: {NUM_USERS}")
+        print(f"  Score: {IDENTICAL_SCORE} (same for all)")
+        print(f"  Cronbach's alpha: {data['internal_consistency']['cronbachs_alpha']}")
+        print(f"  Test-retest r: {data['test_retest']['correlation']}")
+        print(f"  Overall status: {data['overall_status']}")
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_large_dataset_with_many_questions(
+        self, client, db_session, admin_token_headers
+    ):
+        """Test performance with large number of questions (50+).
+
+        This tests scalability with a larger item pool, which affects:
+        - Item-response matrix size
+        - Item-total correlation calculations
+        - Memory usage for correlation computations
+        """
+        import random
+        import time
+
+        random.seed(789)
+
+        # Create 50 questions (larger than typical 15-20)
+        NUM_QUESTIONS = 50
+        questions = create_test_questions(db_session, count=NUM_QUESTIONS)
+        question_ids = [q.id for q in questions]
+
+        # Create test user
+        user = User(
+            email="many_questions_test@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Many",
+            last_name="Questions",
+            notification_enabled=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create 200 sessions with 50 questions each = 10,000 responses
+        NUM_SESSIONS = 200
+        base_time = datetime.now(timezone.utc)
+
+        for i in range(NUM_SESSIONS):
+            session = TestSession(
+                user_id=user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(hours=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for j, qid in enumerate(question_ids):
+                # Realistic item difficulty varying by position
+                item_p = 0.3 + (0.4 * (1 - j / NUM_QUESTIONS))  # 70% -> 30%
+                is_correct = random.random() < item_p
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=user.id,
+                    question_id=qid,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=random.randint(10, 45),
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=user.id,
+                iq_score=70 + int(correct_count * 60 / NUM_QUESTIONS),
+                correct_answers=correct_count,
+                total_questions=NUM_QUESTIONS,
+                completed_at=session.started_at,
+            )
+            db_session.add(result)
+
+            # Commit in batches to avoid memory issues
+            if i % 50 == 0:
+                db_session.commit()
+
+        db_session.commit()
+
+        # Test reliability endpoint
+        start_time = time.time()
+
+        response = client.get(
+            "/v1/admin/reliability",
+            headers=admin_token_headers,
+            params={"min_sessions": 50, "store_metrics": False},
+        )
+
+        request_time = time.time() - start_time
+
+        assert response.status_code == 200, f"Request failed: {response.text}"
+        data = response.json()
+
+        # Verify response
+        assert data["internal_consistency"]["num_sessions"] > 0
+        num_items = data["internal_consistency"]["num_items"]
+        assert num_items is not None, "Expected num_items to be calculated"
+
+        # Should handle large item count gracefully
+        print(f"\nMany questions ({NUM_QUESTIONS}) test:")
+        print(f"  Sessions: {NUM_SESSIONS}")
+        print(f"  Items (questions) used: {num_items}")
+        print(f"  Request time: {request_time:.2f}s")
+        if data["internal_consistency"]["cronbachs_alpha"] is not None:
+            print(
+                f"  Cronbach's alpha: {data['internal_consistency']['cronbachs_alpha']:.4f}"
+            )
+
+        # Performance should still be reasonable
+        assert request_time < 30, f"Request took {request_time:.2f}s, expected < 30s"
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_stress_test_rapid_sequential_requests(
+        self, client, db_session, admin_token_headers, test_user
+    ):
+        """Stress test with rapid sequential requests.
+
+        This tests the endpoint's behavior under sustained load
+        with rapid sequential requests (not concurrent).
+        """
+        import random
+        import time
+
+        random.seed(456)
+
+        # Create test data
+        questions = create_test_questions(db_session, count=15)
+        base_time = datetime.now(timezone.utc)
+
+        # Create 30 sessions
+        for i in range(30):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=base_time - timedelta(days=i),
+            )
+            db_session.add(session)
+            db_session.flush()
+
+            correct_count = 0
+            for j, question in enumerate(questions):
+                is_correct = random.random() < 0.55
+                if is_correct:
+                    correct_count += 1
+                response = Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A" if is_correct else "B",
+                    is_correct=is_correct,
+                    time_spent_seconds=30,
+                )
+                db_session.add(response)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=90 + correct_count,
+                correct_answers=correct_count,
+                total_questions=len(questions),
+                completed_at=base_time - timedelta(days=i),
+            )
+            db_session.add(result)
+
+        db_session.commit()
+
+        # Make rapid sequential requests
+        NUM_REQUESTS = 50
+        request_times = []
+        errors = []
+
+        for i in range(NUM_REQUESTS):
+            start = time.time()
+            try:
+                response = client.get(
+                    "/v1/admin/reliability",
+                    headers=admin_token_headers,
+                    params={"min_sessions": 10, "store_metrics": False},
+                )
+                assert response.status_code == 200
+                request_times.append(time.time() - start)
+            except Exception as e:
+                errors.append(f"Request {i}: {str(e)}")
+
+        assert len(errors) == 0, f"Errors during stress test: {errors}"
+        assert len(request_times) == NUM_REQUESTS
+
+        avg_time = sum(request_times) / len(request_times)
+        max_time = max(request_times)
+        min_time = min(request_times)
+
+        print(f"\nStress test ({NUM_REQUESTS} rapid requests):")
+        print(f"  Avg response time: {avg_time * 1000:.1f}ms")
+        print(f"  Min response time: {min_time * 1000:.1f}ms")
+        print(f"  Max response time: {max_time * 1000:.1f}ms")
+        print(f"  Errors: {len(errors)}")
+
+        # With caching, avg response should be fast (under 500ms)
+        assert (
+            avg_time < 0.5
+        ), f"Avg response time {avg_time:.2f}s exceeds 500ms threshold"

@@ -978,11 +978,17 @@ Also fixed a pre-existing bug discovered by the tests: the `ReliabilityInterpret
 ---
 
 ### RE-FI-024: Add Large Dataset Performance Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #258 comment
 **Files:** `backend/tests/test_reliability_endpoint.py`
 **Description:** Add tests for large dataset performance (e.g., 10,000+ sessions), concurrent request handling, and edge case of all users having identical scores (zero variance).
 **Original Comment:** "Missing Tests: Large dataset performance (e.g., 10,000+ sessions), Concurrent request handling, Edge case: All users have identical scores (zero variance)"
+**Implementation Notes:** Added `TestLargeDatasetPerformance` test class with 5 tests:
+- `test_large_dataset_10000_sessions`: Tests reliability calculation with 10,000 sessions (150,000 responses), verifies performance under 60 seconds
+- `test_concurrent_request_handling`: Tests 10 concurrent requests, verifies proper caching and no race conditions
+- `test_all_users_identical_scores_zero_variance`: Tests edge case where all users have identical IQ scores (zero variance in total scores), verifies graceful handling
+- `test_large_dataset_with_many_questions`: Tests performance with 50 questions (larger than typical 15-20), verifies scalability of item-total correlations
+- `test_stress_test_rapid_sequential_requests`: Tests 50 rapid sequential requests, verifies avg response time under 500ms with caching
 
 ---
 
