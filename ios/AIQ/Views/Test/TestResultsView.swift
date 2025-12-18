@@ -5,6 +5,7 @@ struct TestResultsView: View {
     let onDismiss: () -> Void
 
     @State private var showAnimation = false
+    @State private var showConfidenceIntervalInfo = false
 
     var body: some View {
         NavigationStack {
@@ -86,8 +87,13 @@ struct TestResultsView: View {
                     .foregroundStyle(ColorPalette.scoreGradient)
                     .scaleEffect(showAnimation ? 1.0 : 0.8)
                     .opacity(showAnimation ? 1.0 : 0.0)
-                    .accessibilityLabel("Your IQ Score is \(result.iqScore)")
+                    .accessibilityLabel(result.scoreAccessibilityDescription)
                     .accessibilityHint(iqRangeDescription)
+
+                // Confidence Interval display (when available)
+                if let ci = result.confidenceInterval {
+                    confidenceIntervalDisplay(ci)
+                }
             }
 
             // IQ Range context
@@ -115,6 +121,54 @@ struct TestResultsView: View {
             backgroundColor: ColorPalette.background
         )
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Confidence Interval Display
+
+    @ViewBuilder
+    private func confidenceIntervalDisplay(_ ci: ConfidenceInterval) -> some View {
+        VStack(spacing: DesignSystem.Spacing.sm) {
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                Text("Range: \(ci.rangeFormatted)")
+                    .font(Typography.bodyMedium)
+                    .foregroundColor(ColorPalette.textSecondary)
+
+                Button {
+                    showConfidenceIntervalInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: DesignSystem.IconSize.sm))
+                        .foregroundColor(ColorPalette.primary)
+                }
+                .accessibilityLabel("Learn about score range")
+                .accessibilityHint("Shows explanation of confidence interval")
+            }
+            .scaleEffect(showAnimation ? 1.0 : 0.9)
+            .opacity(showAnimation ? 1.0 : 0.0)
+        }
+        .alert("Understanding Your Score Range", isPresented: $showConfidenceIntervalInfo) {
+            Button("Got it", role: .cancel) {}
+        } message: {
+            Text(confidenceIntervalExplanation)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(ci.accessibilityDescription)
+    }
+
+    /// Explanation text for the confidence interval info alert
+    private var confidenceIntervalExplanation: String {
+        guard let ci = result.confidenceInterval else {
+            return "No confidence interval available."
+        }
+        let confidenceText = "\(ci.confidencePercentage)% confidence"
+        return """
+        Your score of \(result.iqScore) represents our best estimate of your cognitive ability.
+
+        Due to the nature of measurement, your true ability likely falls between \
+        \(ci.lower) and \(ci.upper) (\(confidenceText)).
+
+        This range accounts for normal variation in test performance.
+        """
     }
 
     // MARK: - Metrics Grid
@@ -326,7 +380,7 @@ struct TestResultsView: View {
 
 // MARK: - Preview
 
-#Preview("Excellent Score - With Percentiles") {
+#Preview("Excellent Score - With CI") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 1,
@@ -349,13 +403,19 @@ struct TestResultsView: View {
                 "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 55.0)
             ],
             strongestDomain: "pattern",
-            weakestDomain: "memory"
+            weakestDomain: "memory",
+            confidenceInterval: ConfidenceInterval(
+                lower: 135,
+                upper: 149,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
         ),
         onDismiss: {}
     )
 }
 
-#Preview("Average Score - With Percentiles") {
+#Preview("Average Score - With CI") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 2,
@@ -378,13 +438,19 @@ struct TestResultsView: View {
                 "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 50.0)
             ],
             strongestDomain: "pattern",
-            weakestDomain: "verbal"
+            weakestDomain: "verbal",
+            confidenceInterval: ConfidenceInterval(
+                lower: 98,
+                upper: 112,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
         ),
         onDismiss: {}
     )
 }
 
-#Preview("Low Score - Mixed Performance") {
+#Preview("Low Score - With Wide CI") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 3,
@@ -407,13 +473,19 @@ struct TestResultsView: View {
                 "memory": DomainScore(correct: 1, total: 3, pct: 33.3, percentile: 22.0)
             ],
             strongestDomain: "logic",
-            weakestDomain: "pattern"
+            weakestDomain: "pattern",
+            confidenceInterval: ConfidenceInterval(
+                lower: 75,
+                upper: 101,
+                confidenceLevel: 0.95,
+                standardError: 6.7
+            )
         ),
         onDismiss: {}
     )
 }
 
-#Preview("No Percentiles - Legacy Data") {
+#Preview("No CI - Legacy Data") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 4,
@@ -436,13 +508,14 @@ struct TestResultsView: View {
                 "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil)
             ],
             strongestDomain: nil,
-            weakestDomain: nil
+            weakestDomain: nil,
+            confidenceInterval: nil
         ),
         onDismiss: {}
     )
 }
 
-#Preview("No Domain Scores") {
+#Preview("No Domain Scores - With CI") {
     TestResultsView(
         result: SubmittedTestResult(
             id: 5,
@@ -458,7 +531,13 @@ struct TestResultsView: View {
             responseTimeFlags: nil,
             domainScores: nil,
             strongestDomain: nil,
-            weakestDomain: nil
+            weakestDomain: nil,
+            confidenceInterval: ConfidenceInterval(
+                lower: 93,
+                upper: 107,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
         ),
         onDismiss: {}
     )

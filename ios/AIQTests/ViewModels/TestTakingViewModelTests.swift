@@ -543,7 +543,8 @@ final class TestTakingViewModelTests: XCTestCase {
         responseTimeFlags: ResponseTimeFlags? = nil,
         domainScores: [String: DomainScore]? = nil,
         strongestDomain: String? = nil,
-        weakestDomain: String? = nil
+        weakestDomain: String? = nil,
+        confidenceInterval: ConfidenceInterval? = nil
     ) -> SubmittedTestResult {
         SubmittedTestResult(
             id: id,
@@ -559,7 +560,8 @@ final class TestTakingViewModelTests: XCTestCase {
             responseTimeFlags: responseTimeFlags,
             domainScores: domainScores,
             strongestDomain: strongestDomain,
-            weakestDomain: weakestDomain
+            weakestDomain: weakestDomain,
+            confidenceInterval: confidenceInterval
         )
     }
 
