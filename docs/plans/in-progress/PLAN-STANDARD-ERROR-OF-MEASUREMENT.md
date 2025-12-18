@@ -122,13 +122,13 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Accessibility labels updated for VoiceOver
 
 ### SEM-011: iOS History View Updates
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/History/HistoryView.swift` or related files
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Views/History/TestHistoryListItem.swift`, `ios/AIQ/Views/History/IQTrendChart.swift`, `ios/AIQ/Views/History/TestDetailView.swift`
 **Description:** Update test history views to show confidence intervals for historical results. Consider visual representation options (range display, visual bars).
 **Acceptance Criteria:**
-- [ ] History list shows CI for each result when available
-- [ ] Chart/visualization accounts for uncertainty
-- [ ] Consistent display format with result view
+- [x] History list shows CI for each result when available
+- [x] Chart/visualization accounts for uncertainty
+- [x] Consistent display format with result view
 
 ### SEM-012: Edge Case Handling
 **Status:** [ ] Not Started
@@ -169,6 +169,27 @@ These items were identified during PR review and deferred for future considerati
 - `test_boundary_validation_combinations` → `test_parametrized_boundary_validation`
 - `test_various_valid_bound_combinations` → `test_parametrized_valid_bounds`
 **Original Comment:** "Some test names could be more specific for clarity."
+
+### SEM-FI-004: Consider Linear Interpolation for CI Bands
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
+**Description:** The current implementation uses `.catmullRom` interpolation for confidence interval area marks, which creates smooth curves. Consider whether `.linear` interpolation would be more scientifically accurate for representing measurement uncertainty between discrete test points.
+**Original Comment:** "For measurement uncertainty, would `.linear` interpolation be more scientifically accurate? Smooth curves look better but may be less accurate scientifically."
+
+### SEM-FI-005: Enhanced Chart Accessibility with Date Range
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
+**Description:** Enhance the chart accessibility label to include the date range of test results, providing VoiceOver users with better temporal context.
+**Original Comment:** "For users with many test results, consider including the date range in the accessibility label."
+
+### SEM-FI-006: Add Unit Tests for Chart Domain Calculation
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQTests/` (new test file)
+**Description:** Add unit tests for chart visualization logic including: `chartYDomain` calculation with mixed CI/non-CI data, `hasConfidenceIntervals` computed property, `sampledDataWithCI` filtering logic, and edge cases (all results have CI, no results have CI, empty history).
+**Original Comment:** "Consider adding unit tests for the chart domain calculation logic - while these are view computed properties, the domain calculation logic would benefit from unit tests."
 
 ---
 

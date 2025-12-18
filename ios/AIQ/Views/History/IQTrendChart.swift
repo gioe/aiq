@@ -8,14 +8,50 @@ struct IQTrendChart: View {
     // Maximum number of data points to render for performance
     private let maxDataPoints = 50
 
+    /// Whether any results have confidence interval data
+    private var hasConfidenceIntervals: Bool {
+        testHistory.contains { $0.confidenceInterval != nil }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("IQ Score Trend")
-                .font(.headline)
-                .foregroundColor(.primary)
+            HStack {
+                Text("IQ Score Trend")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                Spacer()
+
+                // Legend for confidence interval band (when applicable)
+                if hasConfidenceIntervals {
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.accentColor.opacity(0.2))
+                            .frame(width: 12, height: 8)
+                        Text("95% CI")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .accessibilityLabel("Shaded area shows 95% confidence interval")
+                }
+            }
 
             if testHistory.count >= 2 {
                 Chart {
+                    // Confidence interval area (rendered first to be behind line)
+                    ForEach(sampledDataWithCI) { result in
+                        if let ci = result.confidenceInterval {
+                            AreaMark(
+                                x: .value("Date", result.completedAt),
+                                yStart: .value("CI Lower", ci.lower),
+                                yEnd: .value("CI Upper", ci.upper)
+                            )
+                            .foregroundStyle(Color.accentColor.opacity(0.15))
+                            .interpolationMethod(.catmullRom)
+                        }
+                    }
+
+                    // Main score line
                     ForEach(sampledData) { result in
                         LineMark(
                             x: .value("Date", result.completedAt),
@@ -54,6 +90,8 @@ struct IQTrendChart: View {
                 }
                 .frame(height: 200)
                 .drawingGroup() // Rasterize chart for better rendering performance
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(chartAccessibilityLabel)
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")
@@ -105,24 +143,143 @@ struct IQTrendChart: View {
         return sampled
     }
 
-    /// Calculate appropriate Y-axis domain based on score range
+    /// Sampled data filtered to only results with confidence intervals
+    private var sampledDataWithCI: [TestResult] {
+        sampledData.filter { $0.confidenceInterval != nil }
+    }
+
+    /// Calculate appropriate Y-axis domain based on score range (including CI bounds)
     private var chartYDomain: ClosedRange<Int> {
         guard !testHistory.isEmpty else { return 70 ... 130 }
 
-        let scores = testHistory.map(\.iqScore)
-        let minScore = scores.min() ?? 100
-        let maxScore = scores.max() ?? 100
+        // Collect all scores and CI bounds in a single pass for better performance
+        var allValues: [Int] = []
+        allValues.reserveCapacity(testHistory.count * 3) // Pre-allocate for score + CI bounds
+
+        for result in testHistory {
+            allValues.append(result.iqScore)
+            if let ci = result.confidenceInterval {
+                allValues.append(ci.lower)
+                allValues.append(ci.upper)
+            }
+        }
+
+        let minValue = allValues.min() ?? 100
+        let maxValue = allValues.max() ?? 100
 
         // Add padding to make the chart more readable
         let padding = 10
-        let lowerBound = max(70, minScore - padding)
-        let upperBound = min(160, maxScore + padding)
+        let lowerBound = max(70, minValue - padding)
+        let upperBound = min(160, maxValue + padding)
 
         return lowerBound ... upperBound
     }
+
+    /// Accessibility label describing the chart content
+    private var chartAccessibilityLabel: String {
+        guard !testHistory.isEmpty else {
+            return "IQ score trend chart with no data"
+        }
+
+        let scores = testHistory.map(\.iqScore)
+        let minScore = scores.min() ?? 0
+        let maxScore = scores.max() ?? 0
+        let avgScore = scores.reduce(0, +) / scores.count
+
+        var label = "IQ score trend chart showing \(testHistory.count) test results. "
+        label += "Scores range from \(minScore) to \(maxScore) with an average of \(avgScore). "
+
+        if hasConfidenceIntervals {
+            label += "Shaded areas show 95% confidence intervals for measurement uncertainty."
+        }
+
+        return label
+    }
 }
 
-#Preview {
+#Preview("With Confidence Intervals") {
+    let sampleHistory = [
+        TestResult(
+            id: 1,
+            testSessionId: 1,
+            userId: 1,
+            iqScore: 105,
+            percentileRank: 63.0,
+            totalQuestions: 20,
+            correctAnswers: 13,
+            accuracyPercentage: 65.0,
+            completionTimeSeconds: 1200,
+            completedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
+            confidenceInterval: ConfidenceInterval(
+                lower: 98,
+                upper: 112,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
+        ),
+        TestResult(
+            id: 2,
+            testSessionId: 2,
+            userId: 1,
+            iqScore: 112,
+            percentileRank: 75.0,
+            totalQuestions: 20,
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completionTimeSeconds: 1100,
+            completedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60),
+            confidenceInterval: ConfidenceInterval(
+                lower: 105,
+                upper: 119,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
+        ),
+        TestResult(
+            id: 3,
+            testSessionId: 3,
+            userId: 1,
+            iqScore: 118,
+            percentileRank: 88.0,
+            totalQuestions: 20,
+            correctAnswers: 17,
+            accuracyPercentage: 85.0,
+            completionTimeSeconds: 1050,
+            completedAt: Date().addingTimeInterval(-10 * 24 * 60 * 60),
+            confidenceInterval: ConfidenceInterval(
+                lower: 111,
+                upper: 125,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
+        ),
+        TestResult(
+            id: 4,
+            testSessionId: 4,
+            userId: 1,
+            iqScore: 125,
+            percentileRank: 95.0,
+            totalQuestions: 20,
+            correctAnswers: 18,
+            accuracyPercentage: 90.0,
+            completionTimeSeconds: 1000,
+            completedAt: Date(),
+            confidenceInterval: ConfidenceInterval(
+                lower: 118,
+                upper: 132,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
+        )
+    ]
+
+    ScrollView {
+        IQTrendChart(testHistory: sampleHistory)
+            .padding()
+    }
+}
+
+#Preview("Without Confidence Intervals") {
     let sampleHistory = [
         TestResult(
             id: 1,
@@ -175,11 +332,29 @@ struct IQTrendChart: View {
     ]
 
     ScrollView {
-        VStack(spacing: 16) {
-            IQTrendChart(testHistory: sampleHistory)
+        IQTrendChart(testHistory: sampleHistory)
+            .padding()
+    }
+}
 
-            IQTrendChart(testHistory: Array(sampleHistory.prefix(1)))
-        }
-        .padding()
+#Preview("Not Enough Data") {
+    let sampleHistory = [
+        TestResult(
+            id: 1,
+            testSessionId: 1,
+            userId: 1,
+            iqScore: 105,
+            percentileRank: 63.0,
+            totalQuestions: 20,
+            correctAnswers: 13,
+            accuracyPercentage: 65.0,
+            completionTimeSeconds: 1200,
+            completedAt: Date()
+        )
+    ]
+
+    ScrollView {
+        IQTrendChart(testHistory: sampleHistory)
+            .padding()
     }
 }

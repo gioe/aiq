@@ -16,6 +16,15 @@ struct TestHistoryListItem: View {
                     Text("\(testResult.iqScore)")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(scoreColor)
+                        .accessibilityLabel(testResult.scoreAccessibilityDescription)
+
+                    // Confidence interval range (if available)
+                    if let ci = testResult.confidenceInterval {
+                        Text("Range: \(ci.rangeFormatted)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .accessibilityLabel(ci.accessibilityDescription)
+                    }
 
                     // Percentile badge (if available)
                     if let percentileText = testResult.percentileFormatted {
@@ -115,7 +124,7 @@ private struct MetricView: View {
     }
 }
 
-#Preview {
+#Preview("With Confidence Interval") {
     let sampleResult = TestResult(
         id: 1,
         testSessionId: 1,
@@ -126,6 +135,30 @@ private struct MetricView: View {
         correctAnswers: 17,
         accuracyPercentage: 85.0,
         completionTimeSeconds: 1200,
+        completedAt: Date(),
+        confidenceInterval: ConfidenceInterval(
+            lower: 118,
+            upper: 132,
+            confidenceLevel: 0.95,
+            standardError: 3.5
+        )
+    )
+
+    return TestHistoryListItem(testResult: sampleResult)
+        .padding()
+}
+
+#Preview("Without Confidence Interval") {
+    let sampleResult = TestResult(
+        id: 2,
+        testSessionId: 2,
+        userId: 1,
+        iqScore: 105,
+        percentileRank: 63.0,
+        totalQuestions: 20,
+        correctAnswers: 14,
+        accuracyPercentage: 70.0,
+        completionTimeSeconds: 1100,
         completedAt: Date()
     )
 
