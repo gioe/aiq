@@ -237,6 +237,91 @@ iOS project will use:
 - **SwiftLint** - Linting (to be configured in P1-012)
 - **SwiftFormat** - Code formatting (to be configured in P1-012)
 
+### Code Review Patterns
+
+We have documented common code review issues and their fixes based on analysis of 50+ follow-up tasks from previous PRs. Review these resources before submitting code:
+
+- **[Code Review Patterns Reference](docs/code-review-patterns.md)** - Comprehensive examples of common issues and fixes, sourced from actual PR review comments
+
+Key patterns to watch for:
+1. **Magic numbers** - Extract numeric thresholds to named constants with documentation
+2. **Type safety** - Use enums, Literal types, and TypedDict instead of strings and Dict[str, Any]
+3. **Database performance** - Include LIMIT clauses, avoid N+1 queries, use indexes
+4. **Error handling** - Wrap database operations in try-except with proper context
+5. **Test quality** - Use pytest.approx() for floats, cover edge cases, write strong assertions
+
+See `CLAUDE.md` for detailed guidelines on each pattern with code examples.
+
+### Pre-commit Hooks
+
+Pre-commit hooks automatically check code quality before each commit. Install them once:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+**Custom hooks for code review patterns:**
+
+| Hook | Description | Files Checked |
+|------|-------------|---------------|
+| `check-float-comparisons` | Detects direct float equality in tests (use `pytest.approx()`) | `test_*.py` files |
+| `check-magic-numbers` | Flags numeric literals in comparisons that should be constants | Non-test `.py` files in `app/` |
+
+**If a hook fails:**
+```bash
+# See what files failed
+git status
+
+# View the specific error
+pre-commit run check-float-comparisons --files backend/tests/test_example.py
+
+# Run all hooks on all files (useful for first-time setup)
+pre-commit run --all-files
+```
+
+### PR Checklist
+
+All PRs include a code quality checklist in `.github/PULL_REQUEST_TEMPLATE.md`. Before submitting:
+
+1. **Review the checklist** - Each item addresses common review issues
+2. **Check applicable items** - Mark items that apply to your changes
+3. **N/A items** - You can note items that don't apply (e.g., no database queries)
+
+Key checklist sections:
+- **Constants and Configuration** - No magic numbers
+- **Type Safety** - Proper use of enums and TypedDict
+- **Database Performance** - LIMIT clauses, indexes, no N+1
+- **Error Handling** - Try-except with context
+- **Caching** - TTL and invalidation (if applicable)
+- **Testing** - pytest.approx(), edge cases, strong assertions
+
+### Review Patterns Slash Command
+
+Use the `/review-patterns` command with Claude Code to automatically check your changes for common issues:
+
+```bash
+# Review staged changes
+/review-patterns
+
+# Review specific files
+/review-patterns files=backend/app/api/v1/admin.py,backend/app/core/scoring.py
+```
+
+The command checks for:
+- Magic numbers in comparisons
+- String literals that could use enums
+- Dict[str, Any] return types that should use TypedDict
+- Database queries without LIMIT
+- N+1 query patterns
+- Missing caching for expensive operations
+- Missing error handling on database operations
+- Float comparisons without pytest.approx()
+- Weak test assertions
+- Short time.sleep() values that may cause CI flakiness
+
+Output includes file, line number, pattern violated, and suggested fix with code examples.
+
 ### Running Tests
 
 **Backend:**
