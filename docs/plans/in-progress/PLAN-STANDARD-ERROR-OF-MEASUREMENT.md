@@ -131,13 +131,13 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Consistent display format with result view
 
 ### SEM-012: Edge Case Handling
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/scoring.py`
+**Status:** [x] Complete
+**Files:** `backend/app/core/scoring.py`, `backend/tests/test_scoring.py`
 **Description:** Implement edge case handling for CI calculation: clamping CI bounds to reasonable IQ range (40-160), handling very low reliability (show warning), and supporting historical backfill option.
 **Acceptance Criteria:**
-- [ ] CI bounds clamped to 40-160 range
-- [ ] Warning mechanism when reliability < 0.60 (CI too wide to be meaningful)
-- [ ] Optional utility function for backfilling historical results
+- [x] CI bounds clamped to 40-160 range
+- [x] Warning mechanism when reliability < 0.60 (CI too wide to be meaningful)
+- [x] Optional utility function for backfilling historical results
 
 ### SEM-FI-001: Documentation and User Communication
 **Status:** [ ] Not Started
