@@ -39,14 +39,18 @@ Current algorithm acceptable for MVP but will be replaced with
 scientifically validated approach once sufficient user data available.
 """
 
+import logging
 import math
 from typing import Protocol, List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
+from enum import Enum
 from scipy.stats import norm
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
     from app.models.models import Response, Question
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -572,6 +576,12 @@ IQ_POPULATION_SD = 15.0
 # Below this threshold, confidence intervals are too wide to be useful
 MIN_RELIABILITY_FOR_SEM = 0.60
 
+# Valid IQ score range for confidence interval bounds
+# Scores outside this range are considered implausible and bounds are clamped
+# Based on practical limits of IQ measurement (approximately ±4 SD from mean)
+IQ_CI_LOWER_BOUND = 40
+IQ_CI_UPPER_BOUND = 160
+
 
 def calculate_sem(reliability: float, population_sd: float = IQ_POPULATION_SD) -> float:
     """
@@ -670,7 +680,7 @@ def calculate_confidence_interval(
 
     Returns:
         A tuple of (lower_bound, upper_bound) as integers.
-        Bounds are rounded to the nearest integer.
+        Bounds are rounded to the nearest integer and clamped to 40-160 range.
 
     Raises:
         ValueError: If sem is negative.
@@ -685,6 +695,10 @@ def calculate_confidence_interval(
         (83, 117)
         >>> calculate_confidence_interval(108, 4.74)  # Higher score, lower SEM
         (99, 117)
+        >>> calculate_confidence_interval(50, 10.0)  # Low score, clamped lower bound
+        (40, 70)  # Lower bound clamped from 30 to 40
+        >>> calculate_confidence_interval(150, 10.0)  # High score, clamped upper bound
+        (130, 160)  # Upper bound clamped from 170 to 160
 
     Interpretation:
         A 95% confidence interval of (87, 113) means we are 95% confident
@@ -697,6 +711,7 @@ def calculate_confidence_interval(
         - Larger SEM produces wider intervals (less precise measurement)
         - Higher confidence levels produce wider intervals
         - Results are rounded to integers since IQ scores are reported as whole numbers
+        - Bounds are clamped to valid IQ range (40-160) to prevent implausible values
     """
     if sem < 0:
         raise ValueError(f"sem must be non-negative, got {sem}")
@@ -719,6 +734,11 @@ def calculate_confidence_interval(
     # Calculate bounds and round to integers
     lower_bound = round(score - margin)
     upper_bound = round(score + margin)
+
+    # Clamp bounds to valid IQ range (40-160)
+    # Scores outside this range are considered implausible
+    lower_bound = max(IQ_CI_LOWER_BOUND, lower_bound)
+    upper_bound = min(IQ_CI_UPPER_BOUND, upper_bound)
 
     return (lower_bound, upper_bound)
 
@@ -779,19 +799,138 @@ def get_cached_reliability(db: "Session") -> Optional[float]:
 
         # Return None if alpha couldn't be calculated
         if alpha is None:
+            logger.debug("Reliability coefficient not available (insufficient data)")
             return None
 
         # Check minimum reliability threshold for meaningful SEM
         # Below this threshold, CIs are too wide to be useful
         if alpha < MIN_RELIABILITY_FOR_SEM:
+            logger.warning(
+                f"Reliability coefficient ({alpha:.3f}) below minimum threshold "
+                f"({MIN_RELIABILITY_FOR_SEM}) for meaningful confidence intervals. "
+                "CI calculation skipped."
+            )
             return None
 
         return alpha
 
-    except Exception:
+    except Exception as e:
         # If anything goes wrong, return None to allow graceful degradation
         # The test submission will proceed without CI data
+        logger.debug(f"Error retrieving reliability coefficient: {e}")
         return None
+
+
+class ReliabilityStatus(str, Enum):
+    """Status codes for reliability-based SEM calculation eligibility."""
+
+    SUFFICIENT = (
+        "sufficient"  # Reliability >= MIN_RELIABILITY_FOR_SEM, can calculate CI
+    )
+    INSUFFICIENT_DATA = "insufficient_data"  # Not enough data to calculate reliability
+    BELOW_THRESHOLD = (
+        "below_threshold"  # Reliability calculated but < MIN_RELIABILITY_FOR_SEM
+    )
+    ERROR = "error"  # Error occurred during reliability retrieval
+
+
+@dataclass
+class ReliabilityCheckResult:
+    """Result of checking reliability for SEM calculation eligibility.
+
+    Provides detailed information about why CI calculation can or cannot proceed,
+    useful for logging, debugging, and informing users about data quality.
+    """
+
+    status: ReliabilityStatus
+    reliability: Optional[float]  # The actual reliability value (if available)
+    message: str  # Human-readable explanation
+    can_calculate_ci: bool  # Whether CI calculation should proceed
+
+
+def check_reliability_for_sem(db: "Session") -> ReliabilityCheckResult:
+    """
+    Check if reliability data is sufficient for meaningful SEM calculation.
+
+    This function provides detailed status information about reliability,
+    including warnings when reliability is below the threshold. It's useful
+    for logging, monitoring, and providing user feedback about score precision.
+
+    Args:
+        db: Database session for querying reliability data.
+
+    Returns:
+        ReliabilityCheckResult with:
+        - status: ReliabilityStatus enum indicating the reason for success/failure
+        - reliability: The actual Cronbach's alpha value (if calculated)
+        - message: Human-readable explanation of the status
+        - can_calculate_ci: Boolean indicating if CI calculation should proceed
+
+    Examples:
+        >>> result = check_reliability_for_sem(db)
+        >>> if result.can_calculate_ci:
+        ...     sem = calculate_sem(result.reliability)
+        ...     ci = calculate_confidence_interval(score, sem)
+        ... else:
+        ...     logger.warning(result.message)
+
+    Note:
+        This function is more verbose than get_cached_reliability() and is
+        intended for situations where detailed status information is needed,
+        such as admin dashboards or detailed logging.
+    """
+    from app.core.reliability import get_reliability_report
+
+    try:
+        report = get_reliability_report(db)
+        internal_consistency = report.get("internal_consistency", {})
+        alpha = internal_consistency.get("cronbachs_alpha")
+
+        if alpha is None:
+            return ReliabilityCheckResult(
+                status=ReliabilityStatus.INSUFFICIENT_DATA,
+                reliability=None,
+                message=(
+                    "Insufficient data to calculate reliability coefficient. "
+                    "More completed test sessions are required."
+                ),
+                can_calculate_ci=False,
+            )
+
+        if alpha < MIN_RELIABILITY_FOR_SEM:
+            # Calculate what the SEM and 95% CI width would be at this reliability
+            hypothetical_sem = calculate_sem(alpha)
+            ci_width = round(2 * 1.96 * hypothetical_sem)
+
+            return ReliabilityCheckResult(
+                status=ReliabilityStatus.BELOW_THRESHOLD,
+                reliability=alpha,
+                message=(
+                    f"Reliability coefficient ({alpha:.3f}) is below the minimum "
+                    f"threshold ({MIN_RELIABILITY_FOR_SEM}) for meaningful confidence "
+                    f"intervals. At this reliability, 95% CI would span ±{ci_width // 2} points, "
+                    "which is too imprecise for practical use."
+                ),
+                can_calculate_ci=False,
+            )
+
+        return ReliabilityCheckResult(
+            status=ReliabilityStatus.SUFFICIENT,
+            reliability=alpha,
+            message=(
+                f"Reliability coefficient ({alpha:.3f}) meets threshold for "
+                "meaningful confidence interval calculation."
+            ),
+            can_calculate_ci=True,
+        )
+
+    except Exception as e:
+        return ReliabilityCheckResult(
+            status=ReliabilityStatus.ERROR,
+            reliability=None,
+            message=f"Error retrieving reliability data: {e}",
+            can_calculate_ci=False,
+        )
 
 
 def calculate_domain_scores(
@@ -874,3 +1013,169 @@ def calculate_domain_scores(
         }
 
     return result
+
+
+# =============================================================================
+# Historical Backfill Utilities (SEM-012)
+# =============================================================================
+
+
+@dataclass
+class BackfillResult:
+    """Result of a confidence interval backfill operation."""
+
+    total_results: int  # Total TestResults found
+    eligible_results: int  # Results eligible for backfill (have IQ score)
+    already_populated: int  # Results that already have CI data
+    updated_count: int  # Results successfully updated
+    skipped_count: int  # Results skipped (e.g., reliability unavailable)
+    error_count: int  # Results that failed to update
+
+
+def backfill_confidence_intervals(
+    db: "Session",
+    dry_run: bool = True,
+    batch_size: int = 100,
+) -> BackfillResult:
+    """
+    Backfill confidence interval data for historical TestResults.
+
+    This utility function calculates and populates SEM and CI fields for
+    existing TestResults that were created before CI calculation was implemented.
+    It uses the current reliability coefficient for all results.
+
+    IMPORTANT: This applies the CURRENT reliability to ALL historical results,
+    which may not reflect the reliability at the time each test was taken.
+    This is acceptable for backfilling because:
+    1. CI is a property of the test instrument, not individual scores
+    2. Reliability is relatively stable once sufficient data is collected
+    3. The alternative (no CI data) is less useful than approximate CI
+
+    Args:
+        db: Database session for querying and updating TestResults.
+        dry_run: If True, only calculate what would be updated without making changes.
+            Defaults to True for safety. Set to False to actually update records.
+        batch_size: Number of records to process per batch commit.
+            Defaults to 100 to balance memory usage and transaction size.
+
+    Returns:
+        BackfillResult with statistics about the operation.
+
+    Examples:
+        >>> # First, preview what would be changed (dry run)
+        >>> result = backfill_confidence_intervals(db, dry_run=True)
+        >>> print(f"Would update {result.updated_count} results")
+
+        >>> # If preview looks good, perform the actual backfill
+        >>> result = backfill_confidence_intervals(db, dry_run=False)
+        >>> print(f"Updated {result.updated_count} results")
+
+    Note:
+        - Only updates results where CI fields are NULL
+        - Uses 95% confidence level (consistent with live calculation)
+        - Commits in batches to avoid long-running transactions
+        - Logs progress for monitoring
+
+    Warning:
+        - This operation can be expensive for large datasets
+        - Run during low-traffic periods for production databases
+        - Always run with dry_run=True first to preview changes
+    """
+    from app.models.models import TestResult
+
+    # Check if reliability is sufficient for CI calculation
+    reliability = get_cached_reliability(db)
+
+    # Get count statistics first
+    total_results = db.query(TestResult).count()
+    eligible_results = (
+        db.query(TestResult).filter(TestResult.iq_score.isnot(None)).count()
+    )
+    already_populated = (
+        db.query(TestResult)
+        .filter(
+            TestResult.iq_score.isnot(None),
+            TestResult.standard_error.isnot(None),
+            TestResult.ci_lower.isnot(None),
+            TestResult.ci_upper.isnot(None),
+        )
+        .count()
+    )
+
+    # If reliability is insufficient, we can't backfill
+    if reliability is None:
+        logger.warning(
+            "Cannot backfill confidence intervals: reliability coefficient "
+            f"unavailable or below threshold ({MIN_RELIABILITY_FOR_SEM})"
+        )
+        return BackfillResult(
+            total_results=total_results,
+            eligible_results=eligible_results,
+            already_populated=already_populated,
+            updated_count=0,
+            skipped_count=eligible_results - already_populated,
+            error_count=0,
+        )
+
+    # Calculate SEM for this reliability (used for all results)
+    sem = calculate_sem(reliability)
+
+    # Query results that need backfilling
+    results_to_update = (
+        db.query(TestResult)
+        .filter(
+            TestResult.iq_score.isnot(None),
+            # Only update where CI is NULL (not already populated)
+            TestResult.standard_error.is_(None),
+        )
+        .all()
+    )
+
+    updated_count = 0
+    error_count = 0
+
+    for i, test_result in enumerate(results_to_update):
+        try:
+            # Calculate CI for this result's IQ score
+            ci_lower, ci_upper = calculate_confidence_interval(
+                score=test_result.iq_score,  # type: ignore[arg-type]
+                sem=sem,
+                confidence_level=0.95,
+            )
+
+            if not dry_run:
+                test_result.standard_error = sem  # type: ignore[assignment]
+                test_result.ci_lower = ci_lower  # type: ignore[assignment]
+                test_result.ci_upper = ci_upper  # type: ignore[assignment]
+
+            updated_count += 1
+
+            # Commit in batches
+            if not dry_run and (i + 1) % batch_size == 0:
+                db.commit()
+                logger.info(
+                    f"Backfill progress: {i + 1}/{len(results_to_update)} results updated"
+                )
+
+        except Exception as e:
+            error_count += 1
+            logger.error(f"Error backfilling TestResult {test_result.id}: {e}")
+
+    # Final commit for remaining records
+    if not dry_run and updated_count > 0:
+        db.commit()
+
+    action = "Would update" if dry_run else "Updated"
+    logger.info(
+        f"Backfill complete: {action} {updated_count} results "
+        f"(reliability={reliability:.3f}, SEM={sem:.2f})"
+    )
+
+    return BackfillResult(
+        total_results=total_results,
+        eligible_results=eligible_results,
+        already_populated=already_populated,
+        updated_count=updated_count,
+        skipped_count=0,  # All eligible results were processed
+        error_count=error_count,
+    )

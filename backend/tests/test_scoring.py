@@ -2145,3 +2145,339 @@ class TestConfidenceIntervalSchema:
             )
             assert schema.lower == lower
             assert schema.upper == upper
+
+
+# =============================================================================
+# SEM-012: Edge Case Handling Tests
+# =============================================================================
+
+
+class TestConfidenceIntervalClamping:
+    """Tests for CI bounds clamping to 40-160 range (SEM-012)."""
+
+    def test_lower_bound_clamping(self):
+        """Test that lower bound is clamped to 40 when calculation goes below."""
+        from app.core.scoring import (
+            calculate_confidence_interval,
+            IQ_CI_LOWER_BOUND,
+        )
+
+        # Score of 50 with large SEM should produce unclamped lower < 40
+        # With SEM=10, z=1.96, margin=19.6, lower would be 50-20=30
+        lower, upper = calculate_confidence_interval(50, 10.0)
+
+        assert lower == IQ_CI_LOWER_BOUND  # Clamped to 40
+        assert upper == 70  # 50 + 20 = 70 (not clamped)
+
+    def test_upper_bound_clamping(self):
+        """Test that upper bound is clamped to 160 when calculation goes above."""
+        from app.core.scoring import (
+            calculate_confidence_interval,
+            IQ_CI_UPPER_BOUND,
+        )
+
+        # Score of 150 with large SEM should produce unclamped upper > 160
+        # With SEM=10, z=1.96, margin=19.6, upper would be 150+20=170
+        lower, upper = calculate_confidence_interval(150, 10.0)
+
+        assert lower == 130  # 150 - 20 = 130 (not clamped)
+        assert upper == IQ_CI_UPPER_BOUND  # Clamped to 160
+
+    def test_both_bounds_clamped(self):
+        """Test extreme case where both bounds would need clamping."""
+        from app.core.scoring import (
+            calculate_confidence_interval,
+            IQ_CI_LOWER_BOUND,
+            IQ_CI_UPPER_BOUND,
+        )
+
+        # Very large SEM that would produce bounds outside 40-160 on both ends
+        # Score 100 with SEM=50, z=1.96, margin=98
+        # Lower would be 100-98=2, upper would be 100+98=198
+        lower, upper = calculate_confidence_interval(100, 50.0)
+
+        assert lower == IQ_CI_LOWER_BOUND  # Clamped to 40
+        assert upper == IQ_CI_UPPER_BOUND  # Clamped to 160
+
+    def test_no_clamping_within_range(self):
+        """Test that normal scores within range are not clamped."""
+        lower, upper = calculate_confidence_interval(100, 6.71)
+
+        # 100 ± 13.15 = (87, 113) - no clamping needed
+        assert lower == 87
+        assert upper == 113
+
+    def test_lower_bound_at_boundary(self):
+        """Test score near lower boundary of valid range."""
+        from app.core.scoring import IQ_CI_LOWER_BOUND
+
+        # Score of 50 with small SEM - lower bound should be close to 40
+        lower, upper = calculate_confidence_interval(50, 5.0)
+
+        # 50 - 9.8 = 40.2 → rounds to 40, which equals the clamped minimum
+        assert lower == IQ_CI_LOWER_BOUND  # 40
+        assert upper == 60  # 50 + 9.8 = 59.8 → rounds to 60
+
+    def test_upper_bound_at_boundary(self):
+        """Test score near upper boundary of valid range."""
+        from app.core.scoring import IQ_CI_UPPER_BOUND
+
+        # Score of 150 with small SEM - upper bound should be close to 160
+        lower, upper = calculate_confidence_interval(150, 5.0)
+
+        assert lower == 140  # 150 - 9.8 = 140.2 → rounds to 140
+        assert upper == IQ_CI_UPPER_BOUND  # Clamped to 160
+
+    def test_constants_defined(self):
+        """Test that clamping constants are properly defined."""
+        from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND
+
+        assert IQ_CI_LOWER_BOUND == 40
+        assert IQ_CI_UPPER_BOUND == 160
+        assert IQ_CI_LOWER_BOUND < IQ_CI_UPPER_BOUND
+
+
+class TestReliabilityStatusAndCheckFunction:
+    """Tests for ReliabilityStatus enum and check_reliability_for_sem function (SEM-012)."""
+
+    def test_reliability_status_enum_values(self):
+        """Test that ReliabilityStatus enum has expected values."""
+        from app.core.scoring import ReliabilityStatus
+
+        assert ReliabilityStatus.SUFFICIENT == "sufficient"
+        assert ReliabilityStatus.INSUFFICIENT_DATA == "insufficient_data"
+        assert ReliabilityStatus.BELOW_THRESHOLD == "below_threshold"
+        assert ReliabilityStatus.ERROR == "error"
+
+    def test_check_reliability_sufficient(self):
+        """Test check_reliability_for_sem with sufficient reliability."""
+        from unittest.mock import patch
+        from app.core.scoring import (
+            check_reliability_for_sem,
+            ReliabilityStatus,
+        )
+
+        mock_db = MagicMock()
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.85,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = check_reliability_for_sem(mock_db)
+
+        assert result.status == ReliabilityStatus.SUFFICIENT
+        assert result.reliability == pytest.approx(0.85)
+        assert result.can_calculate_ci is True
+        assert "meets threshold" in result.message.lower()
+
+    def test_check_reliability_below_threshold(self):
+        """Test check_reliability_for_sem with reliability below threshold."""
+        from unittest.mock import patch
+        from app.core.scoring import (
+            check_reliability_for_sem,
+            ReliabilityStatus,
+            MIN_RELIABILITY_FOR_SEM,
+        )
+
+        mock_db = MagicMock()
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.55,  # Below 0.60
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = check_reliability_for_sem(mock_db)
+
+        assert result.status == ReliabilityStatus.BELOW_THRESHOLD
+        assert result.reliability == pytest.approx(0.55)
+        assert result.can_calculate_ci is False
+        assert "below" in result.message.lower()
+        assert str(MIN_RELIABILITY_FOR_SEM) in result.message
+
+    def test_check_reliability_insufficient_data(self):
+        """Test check_reliability_for_sem with insufficient data (None alpha)."""
+        from unittest.mock import patch
+        from app.core.scoring import (
+            check_reliability_for_sem,
+            ReliabilityStatus,
+        )
+
+        mock_db = MagicMock()
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": None,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = check_reliability_for_sem(mock_db)
+
+        assert result.status == ReliabilityStatus.INSUFFICIENT_DATA
+        assert result.reliability is None
+        assert result.can_calculate_ci is False
+        assert "insufficient" in result.message.lower()
+
+    def test_check_reliability_error(self):
+        """Test check_reliability_for_sem when exception occurs."""
+        from unittest.mock import patch
+        from app.core.scoring import (
+            check_reliability_for_sem,
+            ReliabilityStatus,
+        )
+
+        mock_db = MagicMock()
+
+        with patch(
+            "app.core.reliability.get_reliability_report",
+            side_effect=Exception("Database connection error"),
+        ):
+            result = check_reliability_for_sem(mock_db)
+
+        assert result.status == ReliabilityStatus.ERROR
+        assert result.reliability is None
+        assert result.can_calculate_ci is False
+        assert "error" in result.message.lower()
+
+    def test_reliability_check_result_dataclass(self):
+        """Test ReliabilityCheckResult dataclass structure."""
+        from app.core.scoring import ReliabilityCheckResult, ReliabilityStatus
+
+        result = ReliabilityCheckResult(
+            status=ReliabilityStatus.SUFFICIENT,
+            reliability=0.85,
+            message="Test message",
+            can_calculate_ci=True,
+        )
+
+        assert result.status == ReliabilityStatus.SUFFICIENT
+        assert result.reliability == pytest.approx(0.85)
+        assert result.message == "Test message"
+        assert result.can_calculate_ci is True
+
+
+class TestBackfillConfidenceIntervals:
+    """Tests for backfill_confidence_intervals utility function (SEM-012)."""
+
+    def test_backfill_result_dataclass(self):
+        """Test BackfillResult dataclass structure."""
+        from app.core.scoring import BackfillResult
+
+        result = BackfillResult(
+            total_results=100,
+            eligible_results=95,
+            already_populated=50,
+            updated_count=45,
+            skipped_count=0,
+            error_count=0,
+        )
+
+        assert result.total_results == 100
+        assert result.eligible_results == 95
+        assert result.already_populated == 50
+        assert result.updated_count == 45
+        assert result.skipped_count == 0
+        assert result.error_count == 0
+
+    def test_backfill_returns_statistics_when_no_reliability(self):
+        """Test backfill returns proper stats when reliability is unavailable."""
+        from unittest.mock import patch, MagicMock
+        from app.core.scoring import backfill_confidence_intervals
+
+        mock_db = MagicMock()
+
+        # Mock query().count() to return statistics
+        mock_db.query.return_value.count.return_value = 10
+        mock_db.query.return_value.filter.return_value.count.return_value = 5
+
+        # Mock get_cached_reliability to return None
+        with patch("app.core.scoring.get_cached_reliability", return_value=None):
+            result = backfill_confidence_intervals(mock_db, dry_run=True)
+
+        assert result.total_results == 10
+        assert result.updated_count == 0  # Nothing updated because no reliability
+        assert result.skipped_count >= 0
+
+    def test_backfill_dry_run_does_not_commit(self):
+        """Test that dry_run=True doesn't commit changes."""
+        from unittest.mock import patch, MagicMock
+        from app.core.scoring import backfill_confidence_intervals
+
+        mock_db = MagicMock()
+
+        # Mock statistics
+        mock_db.query.return_value.count.return_value = 5
+        mock_db.query.return_value.filter.return_value.count.return_value = 3
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+
+        with patch("app.core.scoring.get_cached_reliability", return_value=0.85):
+            backfill_confidence_intervals(mock_db, dry_run=True)
+
+        # Commit should not have been called
+        mock_db.commit.assert_not_called()
+
+    def test_backfill_updates_results_when_not_dry_run(self):
+        """Test that dry_run=False updates results."""
+        from unittest.mock import patch, MagicMock
+        from app.core.scoring import backfill_confidence_intervals
+
+        mock_db = MagicMock()
+
+        # Create mock test result
+        mock_result = MagicMock()
+        mock_result.id = 1
+        mock_result.iq_score = 100
+
+        # Mock statistics
+        mock_db.query.return_value.count.return_value = 1
+        mock_db.query.return_value.filter.return_value.count.return_value = 1
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_result]
+
+        with patch("app.core.scoring.get_cached_reliability", return_value=0.85):
+            result = backfill_confidence_intervals(mock_db, dry_run=False)
+
+        # Commit should have been called
+        mock_db.commit.assert_called()
+        assert result.updated_count == 1
+
+    def test_backfill_handles_errors_gracefully(self):
+        """Test that backfill handles errors for individual results."""
+        from unittest.mock import patch, MagicMock
+        from app.core.scoring import backfill_confidence_intervals
+
+        mock_db = MagicMock()
+
+        # Create mock test results - one will raise an error
+        mock_result1 = MagicMock()
+        mock_result1.id = 1
+        mock_result1.iq_score = 100
+
+        mock_result2 = MagicMock()
+        mock_result2.id = 2
+        # This will cause an error when trying to access iq_score
+        type(mock_result2).iq_score = property(
+            lambda self: (_ for _ in ()).throw(ValueError("Test error"))
+        )
+
+        # Mock statistics
+        mock_db.query.return_value.count.return_value = 2
+        mock_db.query.return_value.filter.return_value.count.return_value = 2
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            mock_result1,
+            mock_result2,
+        ]
+
+        with patch("app.core.scoring.get_cached_reliability", return_value=0.85):
+            result = backfill_confidence_intervals(mock_db, dry_run=False)
+
+        # Should have one success and one error
+        assert result.updated_count == 1
+        assert result.error_count == 1
