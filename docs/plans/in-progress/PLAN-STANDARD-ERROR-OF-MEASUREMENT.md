@@ -48,15 +48,15 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Minimum reliability threshold check (≥0.60) before using for SEM
 
 ### SEM-004: Integrate SEM/CI into Test Result Creation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py`
 **Description:** Modify the test submission endpoint to calculate SEM and CI when creating TestResult records. When reliability data is available and meets threshold (≥0.60), populate `standard_error`, `ci_lower`, and `ci_upper` fields.
 **Acceptance Criteria:**
-- [ ] TestResult creation includes SEM and CI calculation
-- [ ] Fields populated only when reliability ≥ 0.60
-- [ ] Null fields when reliability insufficient (graceful degradation)
-- [ ] Logging added for SEM calculation (success/skip reasons)
-- [ ] No impact on test submission performance (uses cached reliability)
+- [x] TestResult creation includes SEM and CI calculation
+- [x] Fields populated only when reliability ≥ 0.60
+- [x] Null fields when reliability insufficient (graceful degradation)
+- [x] Logging added for SEM calculation (success/skip reasons)
+- [x] No impact on test submission performance (uses cached reliability)
 
 ### SEM-005: Update API Response Schemas
 **Status:** [ ] Not Started
