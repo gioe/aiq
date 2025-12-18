@@ -62,6 +62,10 @@ from app.core.validity_analysis import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Standard confidence level used for all IQ score confidence intervals
+# 95% is the psychometric standard for reporting measurement uncertainty
+CONFIDENCE_INTERVAL_LEVEL = 0.95
+
 
 def get_session_questions(
     db: Session, user_id: int, session_id: int, include_explanation: bool = False
@@ -221,7 +225,7 @@ def build_test_result_response(
         confidence_interval = ConfidenceIntervalSchema(
             lower=test_result.ci_lower,
             upper=test_result.ci_upper,
-            confidence_level=0.95,  # Standard 95% CI used in SEM-004
+            confidence_level=CONFIDENCE_INTERVAL_LEVEL,
             standard_error=test_result.standard_error,
         )
 
@@ -847,7 +851,7 @@ def submit_test(
             ci_lower, ci_upper = calculate_confidence_interval(
                 score=score_result.iq_score,
                 sem=standard_error,
-                confidence_level=0.95,
+                confidence_level=CONFIDENCE_INTERVAL_LEVEL,
             )
 
             logger.info(

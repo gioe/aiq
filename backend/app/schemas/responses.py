@@ -1,8 +1,9 @@
 """
 Pydantic schemas for response submission endpoints.
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Any, Dict, List, Optional
+from typing_extensions import Self
 from datetime import datetime
 
 from app.schemas.test_sessions import TestSessionResponse
@@ -50,6 +51,15 @@ class ConfidenceIntervalSchema(BaseModel):
         ge=0.0,
         description="Standard Error of Measurement (SEM) used to calculate the interval",
     )
+
+    @model_validator(mode="after")
+    def validate_interval_bounds(self) -> Self:
+        """Ensure lower bound is less than or equal to upper bound."""
+        if self.lower > self.upper:
+            raise ValueError(
+                f"Lower bound ({self.lower}) must be <= upper bound ({self.upper})"
+            )
+        return self
 
 
 class ResponseItem(BaseModel):

@@ -88,6 +88,8 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] Test correct z-scores used (1.645 for 90%, 1.96 for 95%, 2.576 for 99%)
 - [ ] Test edge cases: reliability at boundaries (0, 1)
 - [ ] Test error handling: invalid reliability values (<0, >1)
+- [ ] Test ConfidenceIntervalSchema validates lower <= upper (rejects invalid bounds)
+- [ ] Test ConfidenceIntervalSchema boundary values (40, 160)
 
 ### SEM-008: Add SEM Integration Tests
 **Status:** [ ] Not Started
@@ -98,6 +100,7 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] Test CI null when reliability insufficient
 - [ ] Test API response includes correct CI structure
 - [ ] Test CI values stored correctly in database
+- [ ] Test all three endpoints return CI: /submit, /history, /results/{id}
 
 ### SEM-009: iOS Model Updates
 **Status:** [ ] Not Started
