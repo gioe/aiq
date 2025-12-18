@@ -1575,3 +1575,216 @@ class TestCalculateConfidenceInterval:
         assert lower < 110 < upper
         assert lower >= 95
         assert upper <= 125
+
+
+class TestGetCachedReliability:
+    """Tests for get_cached_reliability function."""
+
+    def test_returns_alpha_when_above_threshold(self):
+        """Test that alpha is returned when >= MIN_RELIABILITY_FOR_SEM (0.60)."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with acceptable alpha
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.85,
+                "meets_threshold": True,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result == pytest.approx(0.85)
+        # Verify it's above the MIN_RELIABILITY_FOR_SEM threshold (0.60)
+        assert result >= 0.60
+
+    def test_returns_none_when_below_threshold(self):
+        """Test that None is returned when alpha < MIN_RELIABILITY_FOR_SEM (0.60)."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with alpha below threshold
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.55,  # Below 0.60 threshold
+                "meets_threshold": False,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result is None
+
+    def test_returns_none_when_alpha_is_none(self):
+        """Test that None is returned when alpha couldn't be calculated."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with None alpha (insufficient data)
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": None,
+                "meets_threshold": False,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result is None
+
+    def test_returns_none_when_internal_consistency_missing(self):
+        """Test that None is returned when internal_consistency is missing."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report without internal_consistency key
+        mock_report = {}
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result is None
+
+    def test_returns_none_on_exception(self):
+        """Test that None is returned when get_reliability_report raises exception."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        with patch(
+            "app.core.reliability.get_reliability_report",
+            side_effect=Exception("Database error"),
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result is None
+
+    def test_exactly_at_threshold(self):
+        """Test that alpha exactly at threshold (0.60) is returned."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with alpha exactly at threshold
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.60,  # Exactly at threshold
+                "meets_threshold": False,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        # Should return the value since it's >= threshold
+        assert result == pytest.approx(0.60)
+
+    def test_just_below_threshold(self):
+        """Test that alpha just below threshold (0.599) returns None."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with alpha just below threshold
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.599,  # Just below 0.60
+                "meets_threshold": False,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result is None
+
+    def test_excellent_reliability(self):
+        """Test with excellent reliability (0.95)."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        # Mock reliability report with excellent alpha
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.95,
+                "interpretation": "excellent",
+                "meets_threshold": True,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert result == pytest.approx(0.95)
+
+    def test_returns_float_type(self):
+        """Test that return value is a float (when not None)."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.80,
+                "meets_threshold": True,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ):
+            result = get_cached_reliability(mock_db)
+
+        assert isinstance(result, float)
+
+    def test_calls_get_reliability_report_with_db(self):
+        """Test that get_reliability_report is called with the database session."""
+        from unittest.mock import patch
+        from app.core.scoring import get_cached_reliability
+
+        mock_db = MagicMock()
+
+        mock_report = {
+            "internal_consistency": {
+                "cronbachs_alpha": 0.80,
+            }
+        }
+
+        with patch(
+            "app.core.reliability.get_reliability_report", return_value=mock_report
+        ) as mock_get_report:
+            get_cached_reliability(mock_db)
+
+        mock_get_report.assert_called_once_with(mock_db)

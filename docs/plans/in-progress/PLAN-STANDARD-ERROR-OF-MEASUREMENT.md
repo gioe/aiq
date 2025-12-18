@@ -38,14 +38,14 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Includes comprehensive docstring with formula and examples
 
 ### SEM-003: Add Cached Reliability Retrieval Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/scoring.py`
 **Description:** Implement helper function to retrieve the most recent Cronbach's alpha from the reliability system. This function should use cached values when available to avoid recalculating reliability on every test submission.
 **Acceptance Criteria:**
-- [ ] Function `get_cached_reliability(db: Session) -> Optional[float]` implemented
-- [ ] Returns Cronbach's alpha from `get_reliability_report()` using cache
-- [ ] Returns `None` if reliability cannot be calculated (insufficient data)
-- [ ] Minimum reliability threshold check (≥0.60) before using for SEM
+- [x] Function `get_cached_reliability(db: Session) -> Optional[float]` implemented
+- [x] Returns Cronbach's alpha from `get_reliability_report()` using cache
+- [x] Returns `None` if reliability cannot be calculated (insufficient data)
+- [x] Minimum reliability threshold check (≥0.60) before using for SEM
 
 ### SEM-004: Integrate SEM/CI into Test Result Creation
 **Status:** [ ] Not Started
