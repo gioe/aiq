@@ -79,17 +79,17 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] OpenAPI documentation updated via Pydantic schemas (automatic)
 
 ### SEM-007: Add SEM Unit Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_scoring.py` (new or existing)
 **Description:** Comprehensive unit tests for SEM and CI calculation functions. Tests should cover normal cases, edge cases, and error conditions.
 **Acceptance Criteria:**
-- [ ] Test SEM calculation at various reliability levels (0.50, 0.70, 0.80, 0.90, 0.95)
-- [ ] Test CI calculation at various confidence levels (90%, 95%, 99%)
-- [ ] Test correct z-scores used (1.645 for 90%, 1.96 for 95%, 2.576 for 99%)
-- [ ] Test edge cases: reliability at boundaries (0, 1)
-- [ ] Test error handling: invalid reliability values (<0, >1)
-- [ ] Test ConfidenceIntervalSchema validates lower <= upper (rejects invalid bounds)
-- [ ] Test ConfidenceIntervalSchema boundary values (40, 160)
+- [x] Test SEM calculation at various reliability levels (0.50, 0.70, 0.80, 0.90, 0.95)
+- [x] Test CI calculation at various confidence levels (90%, 95%, 99%)
+- [x] Test correct z-scores used (1.645 for 90%, 1.96 for 95%, 2.576 for 99%)
+- [x] Test edge cases: reliability at boundaries (0, 1)
+- [x] Test error handling: invalid reliability values (<0, >1)
+- [x] Test ConfidenceIntervalSchema validates lower <= upper (rejects invalid bounds)
+- [x] Test ConfidenceIntervalSchema boundary values (40, 160)
 
 ### SEM-008: Add SEM Integration Tests
 **Status:** [ ] Not Started
@@ -147,6 +147,30 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] In-app explanation of what CI means
 - [ ] Help text: "Your score of X represents our best estimate. Due to the nature of measurement, your true ability likely falls between Y and Z (95% confidence)."
 - [ ] FAQ section updated if applicable
+
+---
+
+## Deferred Items
+
+These items were identified during PR review and deferred for future consideration.
+
+### SEM-FI-002: Remove Redundant Boundary Tests
+**Status:** [ ] Not Started
+**Source:** PR #310 code review comment
+**Files:** `backend/tests/test_scoring.py`
+**Description:** The tests `test_lower_below_40_significantly_rejected` and `test_upper_above_160_significantly_rejected` (testing values 0 and 200) are redundant with existing boundary tests (testing 39 and 161). Pydantic validators work identically regardless of how far below/above the threshold a value is.
+**Original Comment:** "Lines 2104-2127 are redundant with the existing boundary tests. The Pydantic validators work identically whether the value is 39 or 0, 161 or 200. These could be removed without loss of coverage."
+
+### SEM-FI-003: Improve Parametrized Test Naming
+**Status:** [ ] Not Started
+**Source:** PR #310 code review comment
+**Files:** `backend/tests/test_scoring.py`
+**Description:** Consider renaming parametrized tests for clarity:
+- `test_boundary_validation_combinations` → `test_parametrized_boundary_validation`
+- `test_various_valid_bound_combinations` → `test_parametrized_valid_bounds`
+**Original Comment:** "Some test names could be more specific for clarity."
+
+---
 
 ## Database Changes
 

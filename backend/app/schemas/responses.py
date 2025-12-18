@@ -42,9 +42,9 @@ class ConfidenceIntervalSchema(BaseModel):
     )
     confidence_level: float = Field(
         ...,
-        ge=0.0,
-        le=1.0,
-        description="Confidence level as a decimal (e.g., 0.95 for 95% CI)",
+        gt=0.0,
+        lt=1.0,
+        description="Confidence level as a decimal (must be strictly between 0 and 1, e.g., 0.95 for 95% CI)",
     )
     standard_error: float = Field(
         ...,
