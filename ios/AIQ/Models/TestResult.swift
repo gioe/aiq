@@ -1,6 +1,60 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Confidence Interval
+
+/// Represents a confidence interval for an IQ score.
+///
+/// Confidence intervals quantify the uncertainty in score measurement,
+/// providing a range within which the true score is likely to fall.
+/// This is calculated using the Standard Error of Measurement (SEM)
+/// derived from the test's reliability coefficient.
+///
+/// Example: A score of 108 with CI [101, 115] at 95% confidence means
+/// there is a 95% probability the true score falls between 101 and 115.
+struct ConfidenceInterval: Codable, Equatable {
+    /// Lower bound of the confidence interval (clamped to valid IQ range 40-160)
+    let lower: Int
+
+    /// Upper bound of the confidence interval (clamped to valid IQ range 40-160)
+    let upper: Int
+
+    /// Confidence level as a decimal (e.g., 0.95 for 95% CI)
+    let confidenceLevel: Double
+
+    /// Standard Error of Measurement (SEM) used to calculate the interval
+    let standardError: Double
+
+    enum CodingKeys: String, CodingKey {
+        case lower
+        case upper
+        case confidenceLevel = "confidence_level"
+        case standardError = "standard_error"
+    }
+
+    /// Formatted range string (e.g., "101-115")
+    var rangeFormatted: String {
+        "\(lower)-\(upper)"
+    }
+
+    /// Confidence level as a percentage (e.g., 95 for 0.95)
+    var confidencePercentage: Int {
+        Int(round(confidenceLevel * 100))
+    }
+
+    /// Full description (e.g., "95% confidence interval: 101-115")
+    var fullDescription: String {
+        "\(confidencePercentage)% confidence interval: \(rangeFormatted)"
+    }
+
+    /// Accessibility description for VoiceOver
+    var accessibilityDescription: String {
+        "Score range from \(lower) to \(upper) with \(confidencePercentage) percent confidence"
+    }
+}
+
+// MARK: - Domain Score
+
 /// Represents performance breakdown for a single cognitive domain.
 struct DomainScore: Codable, Equatable {
     let correct: Int
@@ -94,6 +148,8 @@ struct TestResult: Codable, Identifiable, Equatable {
     let completionTimeSeconds: Int?
     let completedAt: Date
     let domainScores: [String: DomainScore]?
+    /// Confidence interval for the IQ score. Nil when reliability data is insufficient.
+    let confidenceInterval: ConfidenceInterval?
 
     init(
         id: Int,
@@ -106,7 +162,8 @@ struct TestResult: Codable, Identifiable, Equatable {
         accuracyPercentage: Double,
         completionTimeSeconds: Int? = nil,
         completedAt: Date,
-        domainScores: [String: DomainScore]? = nil
+        domainScores: [String: DomainScore]? = nil,
+        confidenceInterval: ConfidenceInterval? = nil
     ) {
         self.id = id
         self.testSessionId = testSessionId
@@ -119,6 +176,7 @@ struct TestResult: Codable, Identifiable, Equatable {
         self.completionTimeSeconds = completionTimeSeconds
         self.completedAt = completedAt
         self.domainScores = domainScores
+        self.confidenceInterval = confidenceInterval
     }
 
     var accuracy: Double {
@@ -159,6 +217,23 @@ struct TestResult: Codable, Identifiable, Equatable {
         case completionTimeSeconds = "completion_time_seconds"
         case completedAt = "completed_at"
         case domainScores = "domain_scores"
+        case confidenceInterval = "confidence_interval"
+    }
+
+    /// Score displayed with confidence interval range when available (e.g., "108 (101-115)")
+    var scoreWithConfidenceInterval: String {
+        if let ci = confidenceInterval {
+            return "\(iqScore) (\(ci.rangeFormatted))"
+        }
+        return "\(iqScore)"
+    }
+
+    /// Accessibility description for the score with confidence interval
+    var scoreAccessibilityDescription: String {
+        if let ci = confidenceInterval {
+            return "IQ score \(iqScore). \(ci.accessibilityDescription)"
+        }
+        return "IQ score \(iqScore)"
     }
 }
 
