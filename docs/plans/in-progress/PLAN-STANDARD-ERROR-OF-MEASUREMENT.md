@@ -148,6 +148,30 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] Help text: "Your score of X represents our best estimate. Due to the nature of measurement, your true ability likely falls between Y and Z (95% confidence)."
 - [ ] FAQ section updated if applicable
 
+---
+
+## Deferred Items
+
+These items were identified during PR review and deferred for future consideration.
+
+### SEM-FI-002: Remove Redundant Boundary Tests
+**Status:** [ ] Not Started
+**Source:** PR #310 code review comment
+**Files:** `backend/tests/test_scoring.py`
+**Description:** The tests `test_lower_below_40_significantly_rejected` and `test_upper_above_160_significantly_rejected` (testing values 0 and 200) are redundant with existing boundary tests (testing 39 and 161). Pydantic validators work identically regardless of how far below/above the threshold a value is.
+**Original Comment:** "Lines 2104-2127 are redundant with the existing boundary tests. The Pydantic validators work identically whether the value is 39 or 0, 161 or 200. These could be removed without loss of coverage."
+
+### SEM-FI-003: Improve Parametrized Test Naming
+**Status:** [ ] Not Started
+**Source:** PR #310 code review comment
+**Files:** `backend/tests/test_scoring.py`
+**Description:** Consider renaming parametrized tests for clarity:
+- `test_boundary_validation_combinations` → `test_parametrized_boundary_validation`
+- `test_various_valid_bound_combinations` → `test_parametrized_valid_bounds`
+**Original Comment:** "Some test names could be more specific for clarity."
+
+---
+
 ## Database Changes
 
 No schema changes required - the fields already exist in `test_results` table:
