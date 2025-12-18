@@ -15,6 +15,7 @@ from app.core.scoring import (
     calculate_all_domain_percentiles,
     get_strongest_weakest_domains,
     calculate_sem,
+    calculate_confidence_interval,
 )
 from app.models.models import QuestionType
 
@@ -1316,3 +1317,261 @@ class TestCalculateSEM:
         """
         result = calculate_sem(0.80, population_sd=5.0)
         assert result == pytest.approx(2.24, rel=1e-2)
+
+
+class TestCalculateConfidenceInterval:
+    """Tests for calculate_confidence_interval function."""
+
+    def test_95_percent_ci_standard_sem(self):
+        """Test 95% CI with typical SEM for good reliability.
+
+        With score=100, SEM=6.71 (α=0.80):
+        z = 1.96 for 95% CI
+        margin = 1.96 × 6.71 ≈ 13.15
+        CI = (100 - 13, 100 + 13) = (87, 113)
+        """
+        lower, upper = calculate_confidence_interval(100, 6.71)
+        assert lower == 87
+        assert upper == 113
+
+    def test_90_percent_ci(self):
+        """Test 90% confidence interval.
+
+        With score=100, SEM=6.71:
+        z = 1.645 for 90% CI
+        margin = 1.645 × 6.71 ≈ 11.04
+        CI = (100 - 11, 100 + 11) = (89, 111)
+        """
+        lower, upper = calculate_confidence_interval(100, 6.71, confidence_level=0.90)
+        assert lower == 89
+        assert upper == 111
+
+    def test_99_percent_ci(self):
+        """Test 99% confidence interval.
+
+        With score=100, SEM=6.71:
+        z = 2.576 for 99% CI
+        margin = 2.576 × 6.71 ≈ 17.28
+        CI = (100 - 17, 100 + 17) = (83, 117)
+        """
+        lower, upper = calculate_confidence_interval(100, 6.71, confidence_level=0.99)
+        assert lower == 83
+        assert upper == 117
+
+    def test_higher_score(self):
+        """Test CI for above-average score.
+
+        With score=115, SEM=4.74 (excellent reliability):
+        z = 1.96, margin = 1.96 × 4.74 ≈ 9.29
+        CI = (115 - 9, 115 + 9) = (106, 124)
+        """
+        lower, upper = calculate_confidence_interval(115, 4.74)
+        assert lower == 106
+        assert upper == 124
+
+    def test_lower_score(self):
+        """Test CI for below-average score.
+
+        With score=85, SEM=4.74:
+        z = 1.96, margin ≈ 9.29
+        CI = (85 - 9, 85 + 9) = (76, 94)
+        """
+        lower, upper = calculate_confidence_interval(85, 4.74)
+        assert lower == 76
+        assert upper == 94
+
+    def test_zero_sem(self):
+        """Test CI with zero SEM (perfect reliability).
+
+        When SEM=0, the CI should collapse to the observed score.
+        """
+        lower, upper = calculate_confidence_interval(100, 0.0)
+        assert lower == 100
+        assert upper == 100
+
+    def test_very_small_sem(self):
+        """Test CI with very small SEM.
+
+        With score=100, SEM=1.0:
+        z = 1.96, margin = 1.96
+        CI = (100 - 2, 100 + 2) = (98, 102)
+        """
+        lower, upper = calculate_confidence_interval(100, 1.0)
+        assert lower == 98
+        assert upper == 102
+
+    def test_large_sem(self):
+        """Test CI with large SEM (low reliability).
+
+        With score=100, SEM=10.0 (very low reliability):
+        z = 1.96, margin = 19.6
+        CI = (100 - 20, 100 + 20) = (80, 120)
+        """
+        lower, upper = calculate_confidence_interval(100, 10.0)
+        assert lower == 80
+        assert upper == 120
+
+    def test_negative_sem_raises_error(self):
+        """Test that negative SEM raises ValueError."""
+        with pytest.raises(ValueError, match="sem must be non-negative"):
+            calculate_confidence_interval(100, -1.0)
+
+    def test_confidence_level_zero_raises_error(self):
+        """Test that confidence_level=0 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="confidence_level must be strictly between 0 and 1"
+        ):
+            calculate_confidence_interval(100, 6.71, confidence_level=0.0)
+
+    def test_confidence_level_one_raises_error(self):
+        """Test that confidence_level=1 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="confidence_level must be strictly between 0 and 1"
+        ):
+            calculate_confidence_interval(100, 6.71, confidence_level=1.0)
+
+    def test_confidence_level_negative_raises_error(self):
+        """Test that negative confidence_level raises ValueError."""
+        with pytest.raises(
+            ValueError, match="confidence_level must be strictly between 0 and 1"
+        ):
+            calculate_confidence_interval(100, 6.71, confidence_level=-0.5)
+
+    def test_confidence_level_above_one_raises_error(self):
+        """Test that confidence_level > 1 raises ValueError."""
+        with pytest.raises(
+            ValueError, match="confidence_level must be strictly between 0 and 1"
+        ):
+            calculate_confidence_interval(100, 6.71, confidence_level=1.5)
+
+    def test_returns_tuple_of_integers(self):
+        """Test that function returns a tuple of two integers."""
+        result = calculate_confidence_interval(100, 6.71)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], int)
+        assert isinstance(result[1], int)
+
+    def test_lower_bound_less_than_upper(self):
+        """Test that lower bound is always less than or equal to upper bound."""
+        lower, upper = calculate_confidence_interval(100, 6.71)
+        assert lower <= upper
+
+    def test_symmetric_interval(self):
+        """Test that interval is symmetric around the score.
+
+        Due to rounding, intervals may be off by 1, but should be close to symmetric.
+        """
+        score = 100
+        lower, upper = calculate_confidence_interval(score, 6.71)
+
+        # Calculate distances from score
+        dist_lower = score - lower
+        dist_upper = upper - score
+
+        # Should be within 1 point of each other due to rounding
+        assert abs(dist_lower - dist_upper) <= 1
+
+    @pytest.mark.parametrize(
+        "confidence_level,expected_z",
+        [
+            (0.90, 1.645),
+            (0.95, 1.960),
+            (0.99, 2.576),
+        ],
+    )
+    def test_correct_z_scores_used(self, confidence_level, expected_z):
+        """Verify correct z-scores are used for common confidence levels.
+
+        This test verifies the internal z-score calculation by checking
+        that the margin of error is consistent with the expected z-score.
+        """
+        score = 100
+        sem = 10.0  # Use round number for easy calculation
+
+        lower, upper = calculate_confidence_interval(score, sem, confidence_level)
+
+        # Calculate the implied margin from the result
+        # Due to rounding, we need to allow for some tolerance
+        avg_margin = ((score - lower) + (upper - score)) / 2
+
+        # Expected margin = z × SEM
+        expected_margin = expected_z * sem
+
+        # Allow for rounding tolerance of ±0.5
+        assert abs(avg_margin - expected_margin) <= 0.5
+
+    def test_ci_with_decimal_score(self):
+        """Test that function accepts integer scores only.
+
+        Although the type hint specifies int, verify behavior is correct
+        when passed an integer.
+        """
+        # This should work fine with integer input
+        lower, upper = calculate_confidence_interval(108, 6.71)
+        assert isinstance(lower, int)
+        assert isinstance(upper, int)
+
+    def test_extreme_high_score(self):
+        """Test CI for very high score."""
+        lower, upper = calculate_confidence_interval(145, 3.0)
+        # z ≈ 1.96, margin ≈ 5.88
+        assert lower == 139
+        assert upper == 151
+
+    def test_extreme_low_score(self):
+        """Test CI for very low score."""
+        lower, upper = calculate_confidence_interval(55, 3.0)
+        # z ≈ 1.96, margin ≈ 5.88
+        assert lower == 49
+        assert upper == 61
+
+    def test_80_percent_ci(self):
+        """Test 80% confidence interval.
+
+        With score=100, SEM=6.71:
+        z = 1.282 for 80% CI
+        margin = 1.282 × 6.71 ≈ 8.60
+        CI = (100 - 9, 100 + 9) = (91, 109)
+        """
+        lower, upper = calculate_confidence_interval(100, 6.71, confidence_level=0.80)
+        # Allow for rounding: 1.282 × 6.71 = 8.60, so (91, 109)
+        assert lower == 91
+        assert upper == 109
+
+    def test_custom_confidence_level(self):
+        """Test with non-standard confidence level (85%)."""
+        lower, upper = calculate_confidence_interval(100, 6.71, confidence_level=0.85)
+        # z ≈ 1.44 for 85% CI, margin ≈ 9.66
+        # Should give approximately (90, 110)
+        assert lower in [90, 91]
+        assert upper in [109, 110]
+
+    def test_rounding_behavior(self):
+        """Test that rounding follows standard Python rounding rules.
+
+        Python's round() uses banker's rounding (round half to even),
+        which may affect boundary cases.
+        """
+        # With SEM=5.0, z=1.96, margin=9.8
+        # 100 - 9.8 = 90.2 → rounds to 90
+        # 100 + 9.8 = 109.8 → rounds to 110
+        lower, upper = calculate_confidence_interval(100, 5.0)
+        assert lower == 90
+        assert upper == 110
+
+    def test_integration_with_calculate_sem(self):
+        """Test that CI calculation integrates properly with SEM calculation.
+
+        This is an integration test showing the typical usage pattern.
+        """
+        # Calculate SEM for reliability of 0.85
+        sem = calculate_sem(0.85)  # Should be ~5.81
+
+        # Calculate 95% CI for score of 110
+        lower, upper = calculate_confidence_interval(110, sem)
+
+        # Verify reasonable bounds
+        assert lower < 110 < upper
+        assert lower >= 95
+        assert upper <= 125
