@@ -152,11 +152,12 @@ struct IQTrendChart: View {
     private var chartYDomain: ClosedRange<Int> {
         guard !testHistory.isEmpty else { return 70 ... 130 }
 
-        // Collect all scores and CI bounds for domain calculation
-        var allValues: [Int] = testHistory.map(\.iqScore)
+        // Collect all scores and CI bounds in a single pass for better performance
+        var allValues: [Int] = []
+        allValues.reserveCapacity(testHistory.count * 3) // Pre-allocate for score + CI bounds
 
-        // Include CI bounds in domain calculation
         for result in testHistory {
+            allValues.append(result.iqScore)
             if let ci = result.confidenceInterval {
                 allValues.append(ci.lower)
                 allValues.append(ci.upper)

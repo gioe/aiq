@@ -110,7 +110,7 @@ struct TestDetailView: View {
                     showConfidenceIntervalInfo = true
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 14))
+                        .font(.system(size: DesignSystem.IconSize.sm))
                         .foregroundColor(.accentColor)
                 }
                 .accessibilityLabel("Learn about score range")
