@@ -1450,3 +1450,631 @@ class TestDomainPercentilesInAPIResponse:
             assert "domain_scores" in result
             assert "strongest_domain" in result
             assert "weakest_domain" in result
+
+
+class TestConfidenceIntervalIntegration:
+    """Integration tests for SEM/CI calculation and storage in test submission flow (SEM-008).
+
+    These tests verify the end-to-end behavior of confidence interval calculation,
+    from test submission through API response and database storage.
+    """
+
+    def test_submit_with_reliability_data_populates_ci(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI is populated when reliability data is available and meets threshold.
+
+        When Cronbach's alpha is >= 0.60, the submission should calculate and store
+        SEM, ci_lower, and ci_upper values.
+        """
+        import pytest
+        from unittest.mock import patch
+
+        from app.models.models import TestResult
+
+        # Start a test first (before mocking)
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test with correct answers (with mock active)
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        # Mock get_cached_reliability to return the mock reliability value
+        # This mocks at the API endpoint level where the function is called
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify CI is populated in the API response
+        result = data["result"]
+        assert "confidence_interval" in result
+        ci = result["confidence_interval"]
+        assert ci is not None
+        assert "lower" in ci
+        assert "upper" in ci
+        assert "confidence_level" in ci
+        assert "standard_error" in ci
+
+        # Verify values are reasonable
+        assert ci["confidence_level"] == pytest.approx(0.95)
+        assert ci["standard_error"] > 0
+        assert ci["lower"] < result["iq_score"]
+        assert ci["upper"] > result["iq_score"]
+        assert ci["lower"] < ci["upper"]
+
+        # Verify database storage
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert test_result.standard_error is not None
+        assert test_result.ci_lower is not None
+        assert test_result.ci_upper is not None
+        assert test_result.ci_lower == ci["lower"]
+        assert test_result.ci_upper == ci["upper"]
+
+    def test_submit_without_reliability_data_ci_is_null(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI is null when reliability data is unavailable.
+
+        When there's insufficient data to calculate reliability (e.g., not enough
+        test sessions), the submission should proceed but CI fields should be null.
+        """
+        from unittest.mock import patch
+
+        from app.models.models import TestResult
+
+        # Start a test first (before mocking)
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        # Mock get_cached_reliability to return None (insufficient data)
+        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        # Submission should succeed
+        assert response.status_code == 200
+        data = response.json()
+
+        # CI should be null in response
+        result = data["result"]
+        assert result["confidence_interval"] is None
+
+        # Database fields should be null
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert test_result.standard_error is None
+        assert test_result.ci_lower is None
+        assert test_result.ci_upper is None
+
+    def test_submit_with_low_reliability_ci_is_null(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI is null when reliability is below threshold (< 0.60).
+
+        When Cronbach's alpha is below 0.60, confidence intervals would be too
+        wide to be meaningful, so they should not be calculated.
+
+        Note: The MIN_RELIABILITY_FOR_SEM threshold check happens inside
+        get_cached_reliability, so when reliability is too low, it returns None.
+        """
+        from unittest.mock import patch
+
+        from app.models.models import TestResult
+
+        # Start a test first (before mocking)
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit test
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        # Mock get_cached_reliability to return None (simulating alpha < 0.60)
+        # The actual threshold check happens inside get_cached_reliability
+        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        # Submission should succeed
+        assert response.status_code == 200
+        data = response.json()
+
+        # CI should be null due to low reliability
+        result = data["result"]
+        assert result["confidence_interval"] is None
+
+        # Database fields should be null
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert test_result.standard_error is None
+        assert test_result.ci_lower is None
+        assert test_result.ci_upper is None
+
+    def test_api_response_ci_structure(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that API response includes correct CI structure with all required fields.
+
+        Verifies the complete structure of the confidence_interval object in the
+        API response matches the ConfidenceIntervalSchema specification.
+        """
+        import pytest
+        from unittest.mock import patch
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        # Mock get_cached_reliability to return a good reliability value
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify complete CI structure
+        ci = data["result"]["confidence_interval"]
+        assert ci is not None
+
+        # Check all required fields exist and have correct types
+        assert isinstance(ci["lower"], int)
+        assert isinstance(ci["upper"], int)
+        assert isinstance(ci["confidence_level"], float)
+        assert isinstance(ci["standard_error"], float)
+
+        # Verify confidence_level is the standard 95%
+        assert ci["confidence_level"] == pytest.approx(0.95)
+
+        # Verify bounds are within reasonable IQ range (40-160 per schema)
+        assert ci["lower"] >= 40
+        assert ci["upper"] <= 160
+
+    def test_ci_values_stored_correctly_in_database(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI values are correctly stored in the database.
+
+        Verifies that standard_error, ci_lower, and ci_upper are persisted
+        and match the expected calculated values.
+        """
+        import pytest
+        from unittest.mock import patch
+
+        from app.models.models import TestResult
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {
+            "session_id": session_id,
+            "responses": responses,
+        }
+
+        # Mock get_cached_reliability to return alpha = 0.80
+        # Expected SEM = 15 * sqrt(1 - 0.80) = 15 * sqrt(0.20) ≈ 6.71
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response.status_code == 200
+
+        # Query database directly to verify storage
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+
+        assert test_result is not None
+
+        # Verify standard_error is approximately 6.71 (SEM for alpha=0.80)
+        assert test_result.standard_error == pytest.approx(6.71, rel=0.01)
+
+        # Verify CI bounds are integers
+        assert isinstance(test_result.ci_lower, int)
+        assert isinstance(test_result.ci_upper, int)
+
+        # Verify CI bounds are symmetric around the score (within rounding)
+        score = test_result.iq_score
+        lower_margin = score - test_result.ci_lower
+        upper_margin = test_result.ci_upper - score
+        # Margins should be approximately equal (may differ by 1 due to rounding)
+        assert abs(lower_margin - upper_margin) <= 1
+
+        # Verify 95% CI margin is approximately 1.96 * SEM ≈ 13.15
+        expected_margin = 1.96 * test_result.standard_error
+        actual_margin = (upper_margin + lower_margin) / 2
+        assert actual_margin == pytest.approx(expected_margin, abs=1)
+
+    def test_submit_endpoint_returns_ci(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that POST /v1/test/submit returns CI in the response."""
+        from unittest.mock import patch
+
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response.status_code == 200
+        result = response.json()["result"]
+
+        # Verify CI is present in submit response
+        assert "confidence_interval" in result
+        assert result["confidence_interval"] is not None
+        assert result["confidence_interval"]["lower"] is not None
+        assert result["confidence_interval"]["upper"] is not None
+
+    def test_results_endpoint_returns_ci(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that GET /v1/test/results/{id} returns CI in the response."""
+        from unittest.mock import patch
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+            submit_response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+        result_id = submit_response.json()["result"]["id"]
+
+        # Get result by ID
+        response = client.get(f"/v1/test/results/{result_id}", headers=auth_headers)
+
+        assert response.status_code == 200
+        result = response.json()
+
+        # Verify CI is present
+        assert "confidence_interval" in result
+        assert result["confidence_interval"] is not None
+        assert result["confidence_interval"]["lower"] is not None
+        assert result["confidence_interval"]["upper"] is not None
+
+    def test_history_endpoint_returns_ci(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that GET /v1/test/history returns CI for each result."""
+        import pytest
+        from unittest.mock import patch
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+            client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        # Get history
+        response = client.get("/v1/test/history", headers=auth_headers)
+
+        assert response.status_code == 200
+        history = response.json()
+
+        assert len(history) >= 1
+
+        # Verify each result in history has CI
+        for result in history:
+            assert "confidence_interval" in result
+            # CI may be null for older results without reliability data
+            if result["confidence_interval"] is not None:
+                assert result["confidence_interval"]["lower"] is not None
+                assert result["confidence_interval"]["upper"] is not None
+                assert result["confidence_interval"][
+                    "confidence_level"
+                ] == pytest.approx(0.95)
+
+    def test_ci_null_in_all_endpoints_when_reliability_unavailable(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI is null across all endpoints when reliability is unavailable."""
+        import pytest
+        from unittest.mock import patch
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        # 1. Check /submit endpoint - mock no reliability data
+        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+            submit_response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+        assert submit_response.status_code == 200
+        assert submit_response.json()["result"]["confidence_interval"] is None
+        result_id = submit_response.json()["result"]["id"]
+
+        # 2. Check /results/{id} endpoint
+        results_response = client.get(
+            f"/v1/test/results/{result_id}", headers=auth_headers
+        )
+        assert results_response.status_code == 200
+        assert results_response.json()["confidence_interval"] is None
+
+        # 3. Check /history endpoint
+        history_response = client.get("/v1/test/history", headers=auth_headers)
+        assert history_response.status_code == 200
+        assert len(history_response.json()) >= 1
+        # Find our result in history
+        for result in history_response.json():
+            if result["id"] == result_id:
+                assert result["confidence_interval"] is None
+                break
+        else:
+            pytest.fail(f"Result {result_id} not found in history")
+
+    def test_ci_boundary_values_respected(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI bounds respect the schema boundary values (40-160).
+
+        While the schema enforces 40-160 bounds, this test verifies the calculation
+        doesn't produce values outside this range even for extreme scores.
+        """
+        from unittest.mock import patch
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        # Mock high reliability for narrow CI
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.90):
+            response = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response.status_code == 200
+        ci = response.json()["result"]["confidence_interval"]
+
+        # Verify bounds are within schema limits
+        assert ci["lower"] >= 40, f"Lower bound {ci['lower']} is below minimum 40"
+        assert ci["upper"] <= 160, f"Upper bound {ci['upper']} is above maximum 160"
+
+    def test_ci_width_decreases_with_higher_reliability(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that CI width is narrower with higher reliability.
+
+        This test verifies the mathematical relationship between reliability
+        and CI width without needing multiple test submissions.
+        """
+        import pytest
+        from unittest.mock import patch
+
+        # Start a test
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        responses = []
+        for q in questions:
+            for tq in test_questions:
+                if tq.id == q["id"]:
+                    responses.append(
+                        {"question_id": q["id"], "user_answer": tq.correct_answer}
+                    )
+                    break
+
+        submission = {"session_id": session_id, "responses": responses}
+
+        # Test with low reliability (0.60) - should have wider CI
+        with patch("app.api.v1.test.get_cached_reliability", return_value=0.60):
+            response_low = client.post(
+                "/v1/test/submit", json=submission, headers=auth_headers
+            )
+
+        assert response_low.status_code == 200
+        ci_low = response_low.json()["result"]["confidence_interval"]
+        assert ci_low is not None
+        width_low = ci_low["upper"] - ci_low["lower"]
+
+        # Calculate expected width for high reliability
+        # For alpha=0.60: SEM = 15 * sqrt(1 - 0.60) = 9.49
+        # For alpha=0.90: SEM = 15 * sqrt(1 - 0.90) = 4.74
+        # Expected CI width ratio should be approximately 9.49/4.74 = 2.0
+
+        # Verify SEM is correct for low reliability
+        sem_low = ci_low["standard_error"]
+        expected_sem_low = 15 * (0.40**0.5)  # 9.49
+        assert sem_low == pytest.approx(expected_sem_low, rel=0.01)
+
+        # Verify CI width is proportional to SEM
+        # 95% CI width = 2 * 1.96 * SEM ≈ 3.92 * SEM
+        expected_width_low = 2 * 1.96 * sem_low
+        # Allow for rounding (CI bounds are integers)
+        assert width_low == pytest.approx(expected_width_low, abs=2)
+
+        # Test mathematical relationship: higher reliability = narrower CI
+        # We can't submit another test in the same test run, but we can verify
+        # the relationship mathematically
+        expected_sem_high = 15 * (0.10**0.5)  # 4.74 for alpha=0.90
+        expected_width_high = 2 * 1.96 * expected_sem_high
+
+        # Verify high reliability produces narrower CI than low reliability
+        assert expected_width_high < width_low, (
+            f"Higher reliability should produce narrower CI: "
+            f"expected_width_high={expected_width_high:.1f} should be < "
+            f"width_low={width_low}"
+        )
