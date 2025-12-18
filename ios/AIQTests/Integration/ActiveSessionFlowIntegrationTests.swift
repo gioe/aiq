@@ -655,7 +655,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             responseTimeFlags: nil,
             domainScores: nil,
             strongestDomain: nil,
-            weakestDomain: nil
+            weakestDomain: nil,
+            confidenceInterval: nil
         )
         let completedSession = TestSession(
             id: sessionId,

@@ -99,6 +99,8 @@ struct SubmittedTestResult: Codable, Equatable {
     let strongestDomain: String?
     /// The cognitive domain with the lowest percentile score
     let weakestDomain: String?
+    /// Confidence interval for the IQ score. Nil when reliability data is insufficient.
+    let confidenceInterval: ConfidenceInterval?
 
     var accuracy: Double {
         accuracyPercentage / 100.0
@@ -141,6 +143,23 @@ struct SubmittedTestResult: Codable, Equatable {
         case domainScores = "domain_scores"
         case strongestDomain = "strongest_domain"
         case weakestDomain = "weakest_domain"
+        case confidenceInterval = "confidence_interval"
+    }
+
+    /// Score displayed with confidence interval range when available (e.g., "108 (101-115)")
+    var scoreWithConfidenceInterval: String {
+        if let ci = confidenceInterval {
+            return "\(iqScore) (\(ci.rangeFormatted))"
+        }
+        return "\(iqScore)"
+    }
+
+    /// Accessibility description for the score with confidence interval
+    var scoreAccessibilityDescription: String {
+        if let ci = confidenceInterval {
+            return "IQ score \(iqScore). \(ci.accessibilityDescription)"
+        }
+        return "IQ score \(iqScore)"
     }
 }
 
