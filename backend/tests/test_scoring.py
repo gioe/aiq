@@ -1966,27 +1966,54 @@ class TestConfidenceIntervalSchema:
                 standard_error=6.71,
             )
 
-    def test_confidence_level_boundaries_accepted(self):
-        """Test that confidence_level boundaries (0 and 1) are accepted."""
+    def test_confidence_level_boundaries_rejected(self):
+        """Test that confidence_level boundaries (0 and 1) are rejected.
+
+        The schema uses gt=0.0 and lt=1.0 (strictly between) to align with
+        calculate_confidence_interval() which also requires strictly between.
+        """
+        from pydantic import ValidationError
         from app.schemas.responses import ConfidenceIntervalSchema
 
-        # confidence_level = 0.0 (edge case)
-        schema_zero = ConfidenceIntervalSchema(
-            lower=90,
-            upper=110,
-            confidence_level=0.0,
-            standard_error=6.71,
-        )
-        assert schema_zero.confidence_level == pytest.approx(0.0)
+        # confidence_level = 0.0 should be rejected (requires > 0)
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=90,
+                upper=110,
+                confidence_level=0.0,
+                standard_error=6.71,
+            )
 
-        # confidence_level = 1.0 (edge case)
-        schema_one = ConfidenceIntervalSchema(
+        # confidence_level = 1.0 should be rejected (requires < 1)
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=90,
+                upper=110,
+                confidence_level=1.0,
+                standard_error=6.71,
+            )
+
+    def test_confidence_level_near_boundaries_accepted(self):
+        """Test that confidence_level values near but not at boundaries are accepted."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # Very small positive value should be accepted
+        schema_small = ConfidenceIntervalSchema(
             lower=90,
             upper=110,
-            confidence_level=1.0,
+            confidence_level=0.01,
             standard_error=6.71,
         )
-        assert schema_one.confidence_level == pytest.approx(1.0)
+        assert schema_small.confidence_level == pytest.approx(0.01)
+
+        # Value close to 1.0 should be accepted
+        schema_high = ConfidenceIntervalSchema(
+            lower=90,
+            upper=110,
+            confidence_level=0.99,
+            standard_error=6.71,
+        )
+        assert schema_high.confidence_level == pytest.approx(0.99)
 
     def test_standard_error_negative_rejected(self):
         """Test that negative standard_error is rejected."""
