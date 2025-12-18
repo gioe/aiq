@@ -40,7 +40,7 @@ scientifically validated approach once sufficient user data available.
 """
 
 import math
-from typing import Protocol, List, Dict, Any, Optional, TYPE_CHECKING
+from typing import Protocol, List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from scipy.stats import norm
 
@@ -637,6 +637,89 @@ def calculate_sem(reliability: float, population_sd: float = IQ_POPULATION_SD) -
 
     sem = population_sd * math.sqrt(1 - reliability)
     return round(sem, 2)
+
+
+def calculate_confidence_interval(
+    score: int, sem: float, confidence_level: float = 0.95
+) -> Tuple[int, int]:
+    """
+    Calculate a confidence interval for a test score using the Standard Error of Measurement.
+
+    The confidence interval represents the range within which the individual's true
+    score is expected to fall with the specified probability. This accounts for
+    measurement error inherent in any psychological test.
+
+    Formula: CI = score ± (z × SEM)
+
+    Where:
+        z = z-score corresponding to the confidence level (from standard normal distribution)
+        SEM = Standard Error of Measurement
+
+    Common z-scores:
+        - 90% CI: z = 1.645
+        - 95% CI: z = 1.960
+        - 99% CI: z = 2.576
+
+    Args:
+        score: The observed test score (e.g., IQ score).
+        sem: Standard Error of Measurement, typically from calculate_sem().
+            Must be non-negative.
+        confidence_level: The desired confidence level as a decimal (0-1).
+            Common values: 0.90, 0.95, 0.99. Defaults to 0.95 (95% CI).
+
+    Returns:
+        A tuple of (lower_bound, upper_bound) as integers.
+        Bounds are rounded to the nearest integer.
+
+    Raises:
+        ValueError: If sem is negative.
+        ValueError: If confidence_level is not strictly between 0 and 1.
+
+    Examples:
+        >>> calculate_confidence_interval(100, 6.71)  # 95% CI with SEM=6.71
+        (87, 113)
+        >>> calculate_confidence_interval(100, 6.71, 0.90)  # 90% CI
+        (89, 111)
+        >>> calculate_confidence_interval(100, 6.71, 0.99)  # 99% CI
+        (83, 117)
+        >>> calculate_confidence_interval(108, 4.74)  # Higher score, lower SEM
+        (99, 117)
+
+    Interpretation:
+        A 95% confidence interval of (87, 113) means we are 95% confident
+        that the individual's true score falls between 87 and 113. The
+        observed score of 100 is our best estimate, but measurement error
+        means the true score could reasonably be anywhere in this range.
+
+    Note:
+        - The interval width is 2 × z × SEM
+        - Larger SEM produces wider intervals (less precise measurement)
+        - Higher confidence levels produce wider intervals
+        - Results are rounded to integers since IQ scores are reported as whole numbers
+    """
+    if sem < 0:
+        raise ValueError(f"sem must be non-negative, got {sem}")
+
+    if confidence_level <= 0 or confidence_level >= 1:
+        raise ValueError(
+            f"confidence_level must be strictly between 0 and 1, got {confidence_level}"
+        )
+
+    # Calculate z-score for the given confidence level
+    # For a two-tailed CI, we need the z-score that leaves (1-confidence_level)/2
+    # in each tail. norm.ppf gives the z-score for a given cumulative probability.
+    # Example: For 95% CI, we need z where P(Z ≤ z) = 0.975, which is 1.96
+    alpha = 1 - confidence_level
+    z_score = norm.ppf(1 - alpha / 2)
+
+    # Calculate margin of error
+    margin = z_score * sem
+
+    # Calculate bounds and round to integers
+    lower_bound = round(score - margin)
+    upper_bound = round(score + margin)
+
+    return (lower_bound, upper_bound)
 
 
 def calculate_domain_scores(

@@ -27,15 +27,15 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Includes comprehensive docstring with formula and examples
 
 ### SEM-002: Add Confidence Interval Calculation Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/scoring.py`
 **Description:** Implement `calculate_confidence_interval()` function that calculates confidence intervals for a given score using SEM. Uses z-scores from normal distribution (1.96 for 95% CI).
 **Acceptance Criteria:**
-- [ ] Function `calculate_confidence_interval(score: int, sem: float, confidence_level: float = 0.95) -> Tuple[int, int]` implemented
-- [ ] Uses scipy.stats.norm.ppf for z-score calculation
-- [ ] Returns integer-rounded lower and upper bounds
-- [ ] Supports configurable confidence levels (90%, 95%, 99%)
-- [ ] Includes comprehensive docstring with formula and examples
+- [x] Function `calculate_confidence_interval(score: int, sem: float, confidence_level: float = 0.95) -> Tuple[int, int]` implemented
+- [x] Uses scipy.stats.norm.ppf for z-score calculation
+- [x] Returns integer-rounded lower and upper bounds
+- [x] Supports configurable confidence levels (90%, 95%, 99%)
+- [x] Includes comprehensive docstring with formula and examples
 
 ### SEM-003: Add Cached Reliability Retrieval Function
 **Status:** [ ] Not Started
