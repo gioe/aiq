@@ -122,13 +122,13 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Accessibility labels updated for VoiceOver
 
 ### SEM-011: iOS History View Updates
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/History/HistoryView.swift` or related files
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Views/History/TestHistoryListItem.swift`, `ios/AIQ/Views/History/IQTrendChart.swift`, `ios/AIQ/Views/History/TestDetailView.swift`
 **Description:** Update test history views to show confidence intervals for historical results. Consider visual representation options (range display, visual bars).
 **Acceptance Criteria:**
-- [ ] History list shows CI for each result when available
-- [ ] Chart/visualization accounts for uncertainty
-- [ ] Consistent display format with result view
+- [x] History list shows CI for each result when available
+- [x] Chart/visualization accounts for uncertainty
+- [x] Consistent display format with result view
 
 ### SEM-012: Edge Case Handling
 **Status:** [ ] Not Started
