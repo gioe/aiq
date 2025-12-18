@@ -7,6 +7,7 @@ struct TestDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showAnimation = false
+    @State private var showConfidenceIntervalInfo = false
 
     var body: some View {
         ScrollView {
@@ -50,18 +51,26 @@ struct TestDetailView: View {
                 .foregroundStyle(scoreGradient)
                 .scaleEffect(showAnimation ? 1.0 : 0.5)
                 .opacity(showAnimation ? 1.0 : 0.0)
+                .accessibilityHidden(true)
 
             // IQ Score
             VStack(spacing: 8) {
                 Text("IQ Score")
                     .font(.headline)
                     .foregroundColor(.secondary)
+                    .accessibilityHidden(true)
 
                 Text("\(testResult.iqScore)")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
                     .foregroundStyle(scoreGradient)
                     .scaleEffect(showAnimation ? 1.0 : 0.8)
                     .opacity(showAnimation ? 1.0 : 0.0)
+                    .accessibilityLabel(testResult.scoreAccessibilityDescription)
+
+                // Confidence interval display (when available)
+                if let ci = testResult.confidenceInterval {
+                    confidenceIntervalDisplay(ci)
+                }
 
                 // IQ Range classification
                 Text(iqRangeDescription)
@@ -85,6 +94,54 @@ struct TestDetailView: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Confidence Interval Display
+
+    @ViewBuilder
+    private func confidenceIntervalDisplay(_ ci: ConfidenceInterval) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text("Range: \(ci.rangeFormatted)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Button {
+                    showConfidenceIntervalInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14))
+                        .foregroundColor(.accentColor)
+                }
+                .accessibilityLabel("Learn about score range")
+                .accessibilityHint("Shows explanation of confidence interval")
+            }
+            .scaleEffect(showAnimation ? 1.0 : 0.9)
+            .opacity(showAnimation ? 1.0 : 0.0)
+        }
+        .alert("Understanding Your Score Range", isPresented: $showConfidenceIntervalInfo) {
+            Button("Got it", role: .cancel) {}
+        } message: {
+            Text(confidenceIntervalExplanation)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(ci.accessibilityDescription)
+    }
+
+    /// Explanation text for the confidence interval info alert
+    private var confidenceIntervalExplanation: String {
+        guard let ci = testResult.confidenceInterval else {
+            return "No confidence interval available."
+        }
+        let confidenceText = "\(ci.confidencePercentage)% confidence"
+        return """
+        Your score of \(testResult.iqScore) represents our best estimate of your cognitive ability.
+
+        Due to the nature of measurement, your true ability likely falls between \
+        \(ci.lower) and \(ci.upper) (\(confidenceText)).
+
+        This range accounts for normal variation in test performance.
+        """
     }
 
     // MARK: - Comparison Card
@@ -279,7 +336,7 @@ struct TestDetailView: View {
 
 // MARK: - Preview
 
-#Preview("High Score") {
+#Preview("High Score - With CI") {
     NavigationStack {
         TestDetailView(
             testResult: TestResult(
@@ -292,14 +349,20 @@ struct TestDetailView: View {
                 correctAnswers: 18,
                 accuracyPercentage: 90.0,
                 completionTimeSeconds: 1200,
-                completedAt: Date()
+                completedAt: Date(),
+                confidenceInterval: ConfidenceInterval(
+                    lower: 128,
+                    upper: 142,
+                    confidenceLevel: 0.95,
+                    standardError: 3.5
+                )
             ),
             userAverage: 120
         )
     }
 }
 
-#Preview("Average Score") {
+#Preview("Average Score - With CI") {
     NavigationStack {
         TestDetailView(
             testResult: TestResult(
@@ -312,14 +375,20 @@ struct TestDetailView: View {
                 correctAnswers: 14,
                 accuracyPercentage: 70.0,
                 completionTimeSeconds: 1500,
-                completedAt: Date().addingTimeInterval(-86400 * 7)
+                completedAt: Date().addingTimeInterval(-86400 * 7),
+                confidenceInterval: ConfidenceInterval(
+                    lower: 98,
+                    upper: 112,
+                    confidenceLevel: 0.95,
+                    standardError: 3.5
+                )
             ),
             userAverage: 110
         )
     }
 }
 
-#Preview("First Test (No Average)") {
+#Preview("First Test - No CI") {
     NavigationStack {
         TestDetailView(
             testResult: TestResult(
