@@ -1788,3 +1788,333 @@ class TestGetCachedReliability:
             get_cached_reliability(mock_db)
 
         mock_get_report.assert_called_once_with(mock_db)
+
+
+class TestConfidenceIntervalSchema:
+    """Tests for ConfidenceIntervalSchema Pydantic validation."""
+
+    def test_valid_schema_creation(self):
+        """Test creating a valid ConfidenceIntervalSchema."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        schema = ConfidenceIntervalSchema(
+            lower=95,
+            upper=115,
+            confidence_level=0.95,
+            standard_error=6.71,
+        )
+
+        assert schema.lower == 95
+        assert schema.upper == 115
+        assert schema.confidence_level == pytest.approx(0.95)
+        assert schema.standard_error == pytest.approx(6.71)
+
+    def test_lower_greater_than_upper_rejected(self):
+        """Test that lower > upper raises ValidationError."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError) as exc_info:
+            ConfidenceIntervalSchema(
+                lower=115,  # Greater than upper
+                upper=95,
+                confidence_level=0.95,
+                standard_error=6.71,
+            )
+
+        # Verify the error message contains information about bound validation
+        error_str = str(exc_info.value)
+        assert "lower" in error_str.lower() or "upper" in error_str.lower()
+
+    def test_lower_equals_upper_accepted(self):
+        """Test that lower == upper is accepted (zero SEM case)."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # When SEM is 0, CI collapses to a single point
+        schema = ConfidenceIntervalSchema(
+            lower=100,
+            upper=100,
+            confidence_level=0.95,
+            standard_error=0.0,
+        )
+
+        assert schema.lower == 100
+        assert schema.upper == 100
+
+    def test_boundary_lower_40_accepted(self):
+        """Test that lower=40 (minimum IQ bound) is accepted."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        schema = ConfidenceIntervalSchema(
+            lower=40,
+            upper=60,
+            confidence_level=0.95,
+            standard_error=10.0,
+        )
+
+        assert schema.lower == 40
+
+    def test_boundary_upper_160_accepted(self):
+        """Test that upper=160 (maximum IQ bound) is accepted."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        schema = ConfidenceIntervalSchema(
+            lower=140,
+            upper=160,
+            confidence_level=0.95,
+            standard_error=10.0,
+        )
+
+        assert schema.upper == 160
+
+    def test_boundary_both_extremes_accepted(self):
+        """Test that both boundary values (40 and 160) work together."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # This represents extremely low reliability with score at 100
+        schema = ConfidenceIntervalSchema(
+            lower=40,
+            upper=160,
+            confidence_level=0.95,
+            standard_error=30.0,  # Very high SEM
+        )
+
+        assert schema.lower == 40
+        assert schema.upper == 160
+
+    def test_lower_below_40_rejected(self):
+        """Test that lower < 40 raises ValidationError."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError) as exc_info:
+            ConfidenceIntervalSchema(
+                lower=39,  # Below minimum
+                upper=100,
+                confidence_level=0.95,
+                standard_error=6.71,
+            )
+
+        error_str = str(exc_info.value)
+        assert "40" in error_str or "greater than or equal" in error_str.lower()
+
+    def test_upper_above_160_rejected(self):
+        """Test that upper > 160 raises ValidationError."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError) as exc_info:
+            ConfidenceIntervalSchema(
+                lower=100,
+                upper=161,  # Above maximum
+                confidence_level=0.95,
+                standard_error=6.71,
+            )
+
+        error_str = str(exc_info.value)
+        assert "160" in error_str or "less than or equal" in error_str.lower()
+
+    def test_lower_below_40_significantly_rejected(self):
+        """Test that significantly low lower bound is rejected."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=0,  # Significantly below minimum
+                upper=100,
+                confidence_level=0.95,
+                standard_error=50.0,
+            )
+
+    def test_upper_above_160_significantly_rejected(self):
+        """Test that significantly high upper bound is rejected."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=100,
+                upper=200,  # Significantly above maximum
+                confidence_level=0.95,
+                standard_error=50.0,
+            )
+
+    def test_confidence_level_below_0_rejected(self):
+        """Test that confidence_level < 0 is rejected."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=90,
+                upper=110,
+                confidence_level=-0.1,  # Negative
+                standard_error=6.71,
+            )
+
+    def test_confidence_level_above_1_rejected(self):
+        """Test that confidence_level > 1 is rejected."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=90,
+                upper=110,
+                confidence_level=1.5,  # Above 1
+                standard_error=6.71,
+            )
+
+    def test_confidence_level_boundaries_accepted(self):
+        """Test that confidence_level boundaries (0 and 1) are accepted."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # confidence_level = 0.0 (edge case)
+        schema_zero = ConfidenceIntervalSchema(
+            lower=90,
+            upper=110,
+            confidence_level=0.0,
+            standard_error=6.71,
+        )
+        assert schema_zero.confidence_level == pytest.approx(0.0)
+
+        # confidence_level = 1.0 (edge case)
+        schema_one = ConfidenceIntervalSchema(
+            lower=90,
+            upper=110,
+            confidence_level=1.0,
+            standard_error=6.71,
+        )
+        assert schema_one.confidence_level == pytest.approx(1.0)
+
+    def test_standard_error_negative_rejected(self):
+        """Test that negative standard_error is rejected."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        with pytest.raises(ValidationError):
+            ConfidenceIntervalSchema(
+                lower=90,
+                upper=110,
+                confidence_level=0.95,
+                standard_error=-1.0,  # Negative
+            )
+
+    def test_standard_error_zero_accepted(self):
+        """Test that standard_error=0 is accepted (perfect reliability)."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        schema = ConfidenceIntervalSchema(
+            lower=100,
+            upper=100,  # With SEM=0, interval collapses
+            confidence_level=0.95,
+            standard_error=0.0,
+        )
+
+        assert schema.standard_error == pytest.approx(0.0)
+
+    def test_typical_95_percent_ci(self):
+        """Test a typical 95% confidence interval scenario."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # Score=108, reliability=0.80 (SEM≈6.71), 95% CI ≈ (95, 121)
+        schema = ConfidenceIntervalSchema(
+            lower=95,
+            upper=121,
+            confidence_level=0.95,
+            standard_error=6.71,
+        )
+
+        assert schema.lower == 95
+        assert schema.upper == 121
+        assert schema.confidence_level == pytest.approx(0.95)
+        assert schema.standard_error == pytest.approx(6.71)
+
+    def test_narrow_ci_high_reliability(self):
+        """Test narrow CI with high reliability."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # High reliability (α=0.95) gives SEM≈3.35, narrow CI
+        schema = ConfidenceIntervalSchema(
+            lower=101,
+            upper=115,
+            confidence_level=0.95,
+            standard_error=3.35,
+        )
+
+        assert schema.upper - schema.lower == 14  # Narrow interval
+
+    def test_wide_ci_low_reliability(self):
+        """Test wide CI with low reliability."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        # Low reliability (α=0.60) gives SEM≈9.49, wide CI
+        schema = ConfidenceIntervalSchema(
+            lower=81,
+            upper=119,
+            confidence_level=0.95,
+            standard_error=9.49,
+        )
+
+        assert schema.upper - schema.lower == 38  # Wide interval
+
+    @pytest.mark.parametrize(
+        "lower,upper",
+        [
+            (40, 50),  # Lower at minimum
+            (150, 160),  # Upper at maximum
+            (40, 160),  # Both at extremes
+            (100, 100),  # Equal values
+            (99, 101),  # Narrow interval
+            (60, 140),  # Wide interval
+        ],
+    )
+    def test_various_valid_bound_combinations(self, lower, upper):
+        """Test various valid combinations of lower and upper bounds."""
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        schema = ConfidenceIntervalSchema(
+            lower=lower,
+            upper=upper,
+            confidence_level=0.95,
+            standard_error=5.0,
+        )
+
+        assert schema.lower == lower
+        assert schema.upper == upper
+        assert schema.lower <= schema.upper
+
+    @pytest.mark.parametrize(
+        "lower,upper,should_raise",
+        [
+            (39, 100, True),  # Lower below minimum
+            (100, 161, True),  # Upper above maximum
+            (39, 161, True),  # Both out of bounds
+            (100, 99, True),  # Lower > Upper
+            (40, 40, False),  # Minimum valid with equal bounds
+            (160, 160, False),  # Maximum valid with equal bounds
+        ],
+    )
+    def test_boundary_validation_combinations(self, lower, upper, should_raise):
+        """Test boundary validation with parametrized combinations."""
+        from pydantic import ValidationError
+        from app.schemas.responses import ConfidenceIntervalSchema
+
+        if should_raise:
+            with pytest.raises(ValidationError):
+                ConfidenceIntervalSchema(
+                    lower=lower,
+                    upper=upper,
+                    confidence_level=0.95,
+                    standard_error=5.0,
+                )
+        else:
+            schema = ConfidenceIntervalSchema(
+                lower=lower,
+                upper=upper,
+                confidence_level=0.95,
+                standard_error=5.0,
+            )
+            assert schema.lower == lower
+            assert schema.upper == upper
