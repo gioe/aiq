@@ -112,14 +112,14 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] JSON decoding handles both present and null CI
 
 ### SEM-010: iOS Test Result View Updates
-**Status:** [ ] Not Started
-**Files:** `ios/AIQ/Views/Test/TestResultView.swift`
+**Status:** [x] Complete
+**Files:** `ios/AIQ/Views/Test/TestResultsView.swift`, `ios/AIQ/Models/TestSession.swift`
 **Description:** Update the test result display to show confidence interval when available. Display score as "108 (101-115)" format with optional information tooltip explaining CI.
 **Acceptance Criteria:**
-- [ ] Score displayed with range when CI available: "108 (101-115)"
-- [ ] Graceful fallback when CI null (show score only)
-- [ ] Info button/tooltip explaining what confidence interval means
-- [ ] Accessibility labels updated for VoiceOver
+- [x] Score displayed with range when CI available: "Range: 101-115"
+- [x] Graceful fallback when CI null (show score only)
+- [x] Info button/tooltip explaining what confidence interval means
+- [x] Accessibility labels updated for VoiceOver
 
 ### SEM-011: iOS History View Updates
 **Status:** [ ] Not Started
