@@ -14,6 +14,7 @@ from app.core.scoring import (
     calculate_domain_percentile,
     calculate_all_domain_percentiles,
     get_strongest_weakest_domains,
+    calculate_sem,
 )
 from app.models.models import QuestionType
 
@@ -32,7 +33,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 115  # 100 + (1.0 - 0.5) * 30 = 115
         assert result.correct_answers == 20
         assert result.total_questions == 20
-        assert result.accuracy_percentage == 100.0
+        assert result.accuracy_percentage == pytest.approx(100.0)
 
     def test_scoring_zero_correct(self):
         """Test zero correct answers (0% correct)."""
@@ -41,7 +42,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 85  # 100 + (0.0 - 0.5) * 30 = 85
         assert result.correct_answers == 0
         assert result.total_questions == 20
-        assert result.accuracy_percentage == 0.0
+        assert result.accuracy_percentage == pytest.approx(0.0)
 
     def test_scoring_average_performance(self):
         """Test average performance (50% correct)."""
@@ -50,7 +51,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 100  # 100 + (0.5 - 0.5) * 30 = 100
         assert result.correct_answers == 10
         assert result.total_questions == 20
-        assert result.accuracy_percentage == 50.0
+        assert result.accuracy_percentage == pytest.approx(50.0)
 
     def test_scoring_75_percent(self):
         """Test 75% correct."""
@@ -60,7 +61,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 108
         assert result.correct_answers == 15
         assert result.total_questions == 20
-        assert result.accuracy_percentage == 75.0
+        assert result.accuracy_percentage == pytest.approx(75.0)
 
     def test_scoring_25_percent(self):
         """Test 25% correct."""
@@ -70,7 +71,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 92
         assert result.correct_answers == 5
         assert result.total_questions == 20
-        assert result.accuracy_percentage == 25.0
+        assert result.accuracy_percentage == pytest.approx(25.0)
 
     def test_scoring_single_question_correct(self):
         """Test single question answered correctly."""
@@ -79,7 +80,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 115
         assert result.correct_answers == 1
         assert result.total_questions == 1
-        assert result.accuracy_percentage == 100.0
+        assert result.accuracy_percentage == pytest.approx(100.0)
 
     def test_scoring_single_question_incorrect(self):
         """Test single question answered incorrectly."""
@@ -88,7 +89,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 85
         assert result.correct_answers == 0
         assert result.total_questions == 1
-        assert result.accuracy_percentage == 0.0
+        assert result.accuracy_percentage == pytest.approx(0.0)
 
     def test_scoring_odd_numbers(self):
         """Test scoring with odd numbers that don't divide evenly."""
@@ -99,7 +100,7 @@ class TestStandardIQRangeScoring:
         assert result.iq_score == 101
         assert result.correct_answers == 7
         assert result.total_questions == 13
-        assert result.accuracy_percentage == 53.85
+        assert result.accuracy_percentage == pytest.approx(53.85)
 
     def test_scoring_clamping_upper_bound(self):
         """Test that scores are clamped to maximum of 150."""
@@ -188,7 +189,7 @@ class TestTestScore:
         assert score.iq_score == 110
         assert score.correct_answers == 15
         assert score.total_questions == 20
-        assert score.accuracy_percentage == 75.0
+        assert score.accuracy_percentage == pytest.approx(75.0)
 
     def test_test_score_is_dataclass(self):
         """Test that TestScore is a proper dataclass."""
@@ -261,32 +262,32 @@ class TestCalculateDomainScores:
         # Verify pattern domain: 1/2 = 50%
         assert result["pattern"]["correct"] == 1
         assert result["pattern"]["total"] == 2
-        assert result["pattern"]["pct"] == 50.0
+        assert result["pattern"]["pct"] == pytest.approx(50.0)
 
         # Verify logic domain: 2/3 = 66.7%
         assert result["logic"]["correct"] == 2
         assert result["logic"]["total"] == 3
-        assert result["logic"]["pct"] == 66.7
+        assert result["logic"]["pct"] == pytest.approx(66.7)
 
         # Verify spatial domain: 1/1 = 100%
         assert result["spatial"]["correct"] == 1
         assert result["spatial"]["total"] == 1
-        assert result["spatial"]["pct"] == 100.0
+        assert result["spatial"]["pct"] == pytest.approx(100.0)
 
         # Verify math domain: 1/2 = 50%
         assert result["math"]["correct"] == 1
         assert result["math"]["total"] == 2
-        assert result["math"]["pct"] == 50.0
+        assert result["math"]["pct"] == pytest.approx(50.0)
 
         # Verify verbal domain: 1/1 = 100%
         assert result["verbal"]["correct"] == 1
         assert result["verbal"]["total"] == 1
-        assert result["verbal"]["pct"] == 100.0
+        assert result["verbal"]["pct"] == pytest.approx(100.0)
 
         # Verify memory domain: 0/1 = 0%
         assert result["memory"]["correct"] == 0
         assert result["memory"]["total"] == 1
-        assert result["memory"]["pct"] == 0.0
+        assert result["memory"]["pct"] == pytest.approx(0.0)
 
     def test_empty_domain(self):
         """Test that domains with no questions have pct=None."""
@@ -304,8 +305,8 @@ class TestCalculateDomainScores:
         result = calculate_domain_scores(responses, questions)
 
         # Domains with questions should have percentages
-        assert result["pattern"]["pct"] == 100.0
-        assert result["logic"]["pct"] == 100.0
+        assert result["pattern"]["pct"] == pytest.approx(100.0)
+        assert result["logic"]["pct"] == pytest.approx(100.0)
 
         # Domains without questions should have pct=None
         assert result["spatial"]["correct"] == 0
@@ -332,7 +333,7 @@ class TestCalculateDomainScores:
         for domain in QuestionType:
             assert result[domain.value]["correct"] == 1
             assert result[domain.value]["total"] == 1
-            assert result[domain.value]["pct"] == 100.0
+            assert result[domain.value]["pct"] == pytest.approx(100.0)
 
     def test_zero_score_all_domains(self):
         """Test 0% accuracy across all domains."""
@@ -350,7 +351,7 @@ class TestCalculateDomainScores:
         for domain in QuestionType:
             assert result[domain.value]["correct"] == 0
             assert result[domain.value]["total"] == 1
-            assert result[domain.value]["pct"] == 0.0
+            assert result[domain.value]["pct"] == pytest.approx(0.0)
 
     def test_empty_responses(self):
         """Test with no responses at all."""
@@ -398,7 +399,7 @@ class TestCalculateDomainScores:
         # Only the pattern question should count
         assert result["pattern"]["correct"] == 1
         assert result["pattern"]["total"] == 1
-        assert result["pattern"]["pct"] == 100.0
+        assert result["pattern"]["pct"] == pytest.approx(100.0)
 
     def test_percentage_rounding(self):
         """Test that percentages are rounded to 1 decimal place."""
@@ -417,7 +418,9 @@ class TestCalculateDomainScores:
 
         result = calculate_domain_scores(responses, questions)
 
-        assert result["pattern"]["pct"] == 33.3  # 1/3 rounded to 1 decimal
+        assert result["pattern"]["pct"] == pytest.approx(
+            33.3
+        )  # 1/3 rounded to 1 decimal
 
     def test_percentage_rounding_66_percent(self):
         """Test rounding for 2/3 = 66.666...%."""
@@ -435,7 +438,7 @@ class TestCalculateDomainScores:
 
         result = calculate_domain_scores(responses, questions)
 
-        assert result["logic"]["pct"] == 66.7  # 2/3 rounded to 1 decimal
+        assert result["logic"]["pct"] == pytest.approx(66.7)  # 2/3 rounded to 1 decimal
 
     def test_all_question_types_represented(self):
         """Test that all QuestionType values are represented in output."""
@@ -464,7 +467,10 @@ class TestCalculateDomainScores:
         for domain in QuestionType:
             assert result[domain.value]["total"] == 1
             # pct should be either 0.0 or 100.0
-            assert result[domain.value]["pct"] in [0.0, 100.0]
+            assert result[domain.value]["pct"] in [
+                pytest.approx(0.0),
+                pytest.approx(100.0),
+            ]
 
     def test_multiple_questions_single_domain(self):
         """Test many questions in a single domain."""
@@ -480,7 +486,7 @@ class TestCalculateDomainScores:
 
         assert result["pattern"]["correct"] == 7
         assert result["pattern"]["total"] == 10
-        assert result["pattern"]["pct"] == 70.0
+        assert result["pattern"]["pct"] == pytest.approx(70.0)
 
 
 class TestCalculateWeightedIQScore:
@@ -503,7 +509,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 100
         assert result.correct_answers == 12
         assert result.total_questions == 24
-        assert result.accuracy_percentage == 50.0
+        assert result.accuracy_percentage == pytest.approx(50.0)
 
     def test_equal_weights_100_percent(self):
         """Test with perfect score using equal weights."""
@@ -522,7 +528,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 115
         assert result.correct_answers == 24
         assert result.total_questions == 24
-        assert result.accuracy_percentage == 100.0
+        assert result.accuracy_percentage == pytest.approx(100.0)
 
     def test_equal_weights_0_percent(self):
         """Test with zero score using equal weights."""
@@ -541,7 +547,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 85
         assert result.correct_answers == 0
         assert result.total_questions == 24
-        assert result.accuracy_percentage == 0.0
+        assert result.accuracy_percentage == pytest.approx(0.0)
 
     def test_weighted_calculation(self):
         """Test weighted calculation with explicit weights."""
@@ -571,7 +577,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 108
         assert result.correct_answers == 4
         assert result.total_questions == 8
-        assert result.accuracy_percentage == 75.0
+        assert result.accuracy_percentage == pytest.approx(75.0)
 
     def test_weight_normalization(self):
         """Test that weights are normalized when they don't sum to 1.0."""
@@ -596,7 +602,7 @@ class TestCalculateWeightedIQScore:
         # Weighted accuracy: 0.6 * 1.0 + 0.4 * 0.0 = 0.6
         # IQ: 100 + (0.6 - 0.5) * 30 = 100 + 3 = 103
         assert result.iq_score == 103
-        assert result.accuracy_percentage == 60.0
+        assert result.accuracy_percentage == pytest.approx(60.0)
 
     def test_partial_test_only_some_domains(self):
         """Test with a partial test that only has some domains."""
@@ -616,7 +622,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 104
         assert result.correct_answers == 5
         assert result.total_questions == 8
-        assert result.accuracy_percentage == 62.5
+        assert result.accuracy_percentage == pytest.approx(62.5)
 
     def test_empty_domain_scores(self):
         """Test with no questions answered."""
@@ -635,7 +641,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 100
         assert result.correct_answers == 0
         assert result.total_questions == 0
-        assert result.accuracy_percentage == 0.0
+        assert result.accuracy_percentage == pytest.approx(0.0)
 
     def test_weights_with_missing_domain_fallback(self):
         """Test that missing weights default to 0."""
@@ -657,7 +663,7 @@ class TestCalculateWeightedIQScore:
         # Weighted accuracy: 1.0 * 1.0 = 1.0
         # IQ: 100 + (1.0 - 0.5) * 30 = 115
         assert result.iq_score == 115
-        assert result.accuracy_percentage == 100.0
+        assert result.accuracy_percentage == pytest.approx(100.0)
 
     def test_all_weights_zero_falls_back_to_equal(self):
         """Test that all-zero weights fall back to equal weights."""
@@ -681,7 +687,7 @@ class TestCalculateWeightedIQScore:
         # Falls back to equal weights: (1.0 + 0.0) / 2 = 0.5
         # IQ: 100 + (0.5 - 0.5) * 30 = 100
         assert result.iq_score == 100
-        assert result.accuracy_percentage == 50.0
+        assert result.accuracy_percentage == pytest.approx(50.0)
 
     def test_single_domain_test(self):
         """Test with only one domain in the test."""
@@ -701,7 +707,7 @@ class TestCalculateWeightedIQScore:
         assert result.iq_score == 108
         assert result.correct_answers == 3
         assert result.total_questions == 4
-        assert result.accuracy_percentage == 75.0
+        assert result.accuracy_percentage == pytest.approx(75.0)
 
     def test_realistic_weighted_scoring(self):
         """Test with realistic domain weights based on g-loadings."""
@@ -767,7 +773,7 @@ class TestCalculateDomainPercentile:
         result = calculate_domain_percentile(
             accuracy=0.65, mean_accuracy=0.65, sd_accuracy=0.18
         )
-        assert result == 50.0
+        assert result == pytest.approx(50.0)
 
     def test_one_sd_above_mean(self):
         """Test accuracy one SD above mean yields ~84th percentile."""
@@ -1017,7 +1023,7 @@ class TestCalculateAllDomainPercentiles:
         result = calculate_all_domain_percentiles(domain_scores, population_stats)
 
         # 65% accuracy with 65% mean should be 50th percentile
-        assert result["pattern"] == 50.0
+        assert result["pattern"] == pytest.approx(50.0)
 
     def test_empty_domain_scores(self):
         """Test with empty domain_scores dict."""
@@ -1163,3 +1169,150 @@ class TestGetStrongestWeakestDomains:
         assert "strongest_domain" in result
         assert "weakest_domain" in result
         assert len(result) == 2
+
+
+class TestCalculateSEM:
+    """Tests for calculate_sem function (Standard Error of Measurement)."""
+
+    def test_standard_reliability(self):
+        """Test SEM calculation with good reliability (α=0.80).
+
+        SEM = 15 × √(1 - 0.80) = 15 × √0.20 ≈ 6.708 → 6.71
+        """
+        result = calculate_sem(0.80)
+        assert result == pytest.approx(6.71, rel=1e-2)
+
+    def test_excellent_reliability(self):
+        """Test SEM calculation with excellent reliability (α=0.90).
+
+        SEM = 15 × √(1 - 0.90) = 15 × √0.10 ≈ 4.743 → 4.74
+        """
+        result = calculate_sem(0.90)
+        assert result == pytest.approx(4.74, rel=1e-2)
+
+    def test_near_perfect_reliability(self):
+        """Test SEM calculation with near-perfect reliability (α=0.95).
+
+        SEM = 15 × √(1 - 0.95) = 15 × √0.05 ≈ 3.354 → 3.35
+        """
+        result = calculate_sem(0.95)
+        assert result == pytest.approx(3.35, rel=1e-2)
+
+    def test_low_reliability(self):
+        """Test SEM calculation with low reliability (α=0.50).
+
+        SEM = 15 × √(1 - 0.50) = 15 × √0.50 ≈ 10.607 → 10.61
+        """
+        result = calculate_sem(0.50)
+        assert result == pytest.approx(10.61, rel=1e-2)
+
+    def test_boundary_zero_reliability(self):
+        """Test SEM with zero reliability (α=0.0).
+
+        SEM = 15 × √(1 - 0.0) = 15 × √1.0 = 15.0
+        Perfect uncertainty: SEM equals population SD.
+        """
+        result = calculate_sem(0.0)
+        assert result == pytest.approx(15.0)
+
+    def test_boundary_perfect_reliability(self):
+        """Test SEM with perfect reliability (α=1.0).
+
+        SEM = 15 × √(1 - 1.0) = 15 × √0.0 = 0.0
+        Perfect reliability: no measurement error.
+        """
+        result = calculate_sem(1.0)
+        assert result == pytest.approx(0.0)
+
+    def test_invalid_reliability_negative(self):
+        """Test that negative reliability raises ValueError."""
+        with pytest.raises(ValueError, match="reliability must be between 0 and 1"):
+            calculate_sem(-0.1)
+
+    def test_invalid_reliability_above_one(self):
+        """Test that reliability > 1 raises ValueError."""
+        with pytest.raises(ValueError, match="reliability must be between 0 and 1"):
+            calculate_sem(1.5)
+
+    def test_invalid_population_sd_zero(self):
+        """Test that zero population_sd raises ValueError."""
+        with pytest.raises(ValueError, match="population_sd must be positive"):
+            calculate_sem(0.80, population_sd=0)
+
+    def test_invalid_population_sd_negative(self):
+        """Test that negative population_sd raises ValueError."""
+        with pytest.raises(ValueError, match="population_sd must be positive"):
+            calculate_sem(0.80, population_sd=-5.0)
+
+    def test_custom_population_sd(self):
+        """Test SEM with custom population standard deviation.
+
+        Using SD=10 instead of default 15:
+        SEM = 10 × √(1 - 0.80) = 10 × √0.20 ≈ 4.472 → 4.47
+        """
+        result = calculate_sem(0.80, population_sd=10.0)
+        assert result == pytest.approx(4.47, rel=1e-2)
+
+    def test_rounding_to_two_decimals(self):
+        """Test that SEM is rounded to exactly 2 decimal places."""
+        result = calculate_sem(0.75)
+        # Verify result has at most 2 decimal places
+        assert result == round(result, 2)
+
+    @pytest.mark.parametrize(
+        "reliability,expected_sem",
+        [
+            (0.96, 3.0),
+            (0.91, 4.5),
+            (0.87, 5.4),
+            (0.80, 6.7),
+            (0.70, 8.2),
+            (0.60, 9.5),
+        ],
+    )
+    def test_interpretation_table_values(self, reliability, expected_sem):
+        """Verify SEM values from the interpretation table in docstring.
+
+        These are the values documented for IQ tests with SD=15.
+        """
+        result = calculate_sem(reliability)
+        assert result == pytest.approx(expected_sem, abs=0.1)
+
+    def test_moderate_reliability(self):
+        """Test SEM with moderate reliability (α=0.70).
+
+        SEM = 15 × √(1 - 0.70) = 15 × √0.30 ≈ 8.216 → 8.22
+        """
+        result = calculate_sem(0.70)
+        assert result == pytest.approx(8.22, rel=1e-2)
+
+    def test_very_high_reliability(self):
+        """Test SEM with very high reliability (α=0.96).
+
+        SEM = 15 × √(1 - 0.96) = 15 × √0.04 = 15 × 0.2 = 3.0
+        """
+        result = calculate_sem(0.96)
+        assert result == pytest.approx(3.0)
+
+    def test_returns_float(self):
+        """Test that the function returns a float."""
+        result = calculate_sem(0.85)
+        assert isinstance(result, float)
+
+    def test_larger_population_sd(self):
+        """Test SEM with larger population standard deviation.
+
+        Using SD=20 instead of default 15:
+        SEM = 20 × √(1 - 0.80) = 20 × √0.20 ≈ 8.944 → 8.94
+        """
+        result = calculate_sem(0.80, population_sd=20.0)
+        assert result == pytest.approx(8.94, rel=1e-2)
+
+    def test_small_population_sd(self):
+        """Test SEM with small population standard deviation.
+
+        Using SD=5:
+        SEM = 5 × √(1 - 0.80) = 5 × √0.20 ≈ 2.236 → 2.24
+        """
+        result = calculate_sem(0.80, population_sd=5.0)
+        assert result == pytest.approx(2.24, rel=1e-2)
