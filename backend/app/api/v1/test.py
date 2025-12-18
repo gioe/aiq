@@ -29,6 +29,9 @@ from app.core.scoring import (
     calculate_domain_scores,
     calculate_all_domain_percentiles,
     get_strongest_weakest_domains,
+    get_cached_reliability,
+    calculate_sem,
+    calculate_confidence_interval,
 )
 from app.core.system_config import (
     is_weighted_scoring_enabled,
@@ -808,6 +811,44 @@ def submit_test(
             exc_info=True,
         )
 
+    # SEM-004: Calculate Standard Error of Measurement and Confidence Interval
+    # This provides measurement precision information for the IQ score
+    standard_error: Optional[float] = None
+    ci_lower: Optional[int] = None
+    ci_upper: Optional[int] = None
+
+    try:
+        # Get cached reliability coefficient (Cronbach's alpha)
+        # Returns None if insufficient data or reliability < 0.60
+        reliability = get_cached_reliability(db)
+
+        if reliability is not None:
+            # Calculate SEM using the reliability coefficient
+            standard_error = calculate_sem(reliability)
+
+            # Calculate 95% confidence interval for the IQ score
+            ci_lower, ci_upper = calculate_confidence_interval(
+                score=score_result.iq_score,
+                sem=standard_error,
+                confidence_level=0.95,
+            )
+
+            logger.info(
+                f"Test session {test_session.id}: SEM calculation successful - "
+                f"reliability={reliability:.3f}, SEM={standard_error:.2f}, "
+                f"CI=[{ci_lower}, {ci_upper}]"
+            )
+        else:
+            # Log why SEM calculation was skipped
+            logger.info(
+                f"Test session {test_session.id}: SEM calculation skipped - "
+                "insufficient data or reliability below threshold (< 0.60)"
+            )
+
+    except Exception as e:
+        # SEM calculation failures should not block test submission (graceful degradation)
+        logger.warning(f"Test session {test_session.id}: Failed to calculate SEM - {e}")
+
     # Create TestResult record
     from app.models.models import TestResult
 
@@ -826,6 +867,10 @@ def submit_test(
         validity_status=validity_status,
         validity_flags=validity_flags,
         validity_checked_at=validity_checked_at,
+        # SEM-004: Store measurement precision data
+        standard_error=standard_error,
+        ci_lower=ci_lower,
+        ci_upper=ci_upper,
     )
     db.add(test_result)
 
