@@ -20,6 +20,7 @@ from app.schemas.responses import (
     ResponseSubmission,
     SubmitTestResponse,
     TestResultResponse,
+    ConfidenceIntervalSchema,
 )
 from app.core.auth import get_current_user
 from app.core.scoring import (
@@ -60,6 +61,10 @@ from app.core.validity_analysis import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Standard confidence level used for all IQ score confidence intervals
+# 95% is the psychometric standard for reporting measurement uncertainty
+CONFIDENCE_INTERVAL_LEVEL = 0.95
 
 
 def get_session_questions(
@@ -209,6 +214,21 @@ def build_test_result_response(
                 if domain in domain_scores:
                     domain_scores[domain]["percentile"] = percentile
 
+    # SEM-005: Build confidence interval from stored SEM and CI bounds
+    # CI is only populated when reliability data was sufficient (>= 0.60)
+    confidence_interval: Optional[ConfidenceIntervalSchema] = None
+    if (
+        test_result.standard_error is not None
+        and test_result.ci_lower is not None
+        and test_result.ci_upper is not None
+    ):
+        confidence_interval = ConfidenceIntervalSchema(
+            lower=test_result.ci_lower,
+            upper=test_result.ci_upper,
+            confidence_level=CONFIDENCE_INTERVAL_LEVEL,
+            standard_error=test_result.standard_error,
+        )
+
     return TestResultResponse(
         id=test_result.id,  # type: ignore[arg-type]
         test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
@@ -224,6 +244,7 @@ def build_test_result_response(
         domain_scores=domain_scores,  # type: ignore[arg-type]
         strongest_domain=strongest_domain,
         weakest_domain=weakest_domain,
+        confidence_interval=confidence_interval,
     )
 
 
@@ -830,7 +851,7 @@ def submit_test(
             ci_lower, ci_upper = calculate_confidence_interval(
                 score=score_result.iq_score,
                 sem=standard_error,
-                confidence_level=0.95,
+                confidence_level=CONFIDENCE_INTERVAL_LEVEL,
             )
 
             logger.info(

@@ -59,24 +59,24 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] No impact on test submission performance (uses cached reliability)
 
 ### SEM-005: Update API Response Schemas
-**Status:** [ ] Not Started
-**Files:** `backend/app/schemas/test.py`
+**Status:** [x] Complete
+**Files:** `backend/app/schemas/responses.py`, `backend/app/api/v1/test.py`
 **Description:** Update test result response schemas to include confidence interval information. Add a new nested schema for CI data that includes lower bound, upper bound, confidence level, and standard error.
 **Acceptance Criteria:**
-- [ ] New `ConfidenceIntervalSchema` with lower, upper, confidence_level, standard_error fields
-- [ ] `TestResultResponse` updated with optional `confidence_interval` field
-- [ ] `TestHistoryItem` updated with optional `confidence_interval` field
-- [ ] Null CI represented as `confidence_interval: null` in responses
+- [x] New `ConfidenceIntervalSchema` with lower, upper, confidence_level, standard_error fields
+- [x] `TestResultResponse` updated with optional `confidence_interval` field
+- [x] `TestHistoryItem` updated with optional `confidence_interval` field (N/A: history uses `TestResultResponse` directly)
+- [x] Null CI represented as `confidence_interval: null` in responses
 
 ### SEM-006: Update Test Result Endpoints
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py`
 **Description:** Update test result and history endpoints to include CI data in responses. Both the test completion response and test history endpoint should return CI when available.
 **Acceptance Criteria:**
-- [ ] Test submission response includes CI data
-- [ ] Test history endpoint returns CI for each result
-- [ ] Single test result endpoint returns CI
-- [ ] OpenAPI documentation updated via Pydantic schemas
+- [x] Test submission response includes CI data (via `build_test_result_response`)
+- [x] Test history endpoint returns CI for each result (via `build_test_result_response`)
+- [x] Single test result endpoint returns CI (via `build_test_result_response`)
+- [x] OpenAPI documentation updated via Pydantic schemas (automatic)
 
 ### SEM-007: Add SEM Unit Tests
 **Status:** [ ] Not Started
@@ -88,6 +88,8 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] Test correct z-scores used (1.645 for 90%, 1.96 for 95%, 2.576 for 99%)
 - [ ] Test edge cases: reliability at boundaries (0, 1)
 - [ ] Test error handling: invalid reliability values (<0, >1)
+- [ ] Test ConfidenceIntervalSchema validates lower <= upper (rejects invalid bounds)
+- [ ] Test ConfidenceIntervalSchema boundary values (40, 160)
 
 ### SEM-008: Add SEM Integration Tests
 **Status:** [ ] Not Started
@@ -98,6 +100,7 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [ ] Test CI null when reliability insufficient
 - [ ] Test API response includes correct CI structure
 - [ ] Test CI values stored correctly in database
+- [ ] Test all three endpoints return CI: /submit, /history, /results/{id}
 
 ### SEM-009: iOS Model Updates
 **Status:** [ ] Not Started
