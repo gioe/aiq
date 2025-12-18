@@ -170,6 +170,27 @@ These items were identified during PR review and deferred for future considerati
 - `test_various_valid_bound_combinations` → `test_parametrized_valid_bounds`
 **Original Comment:** "Some test names could be more specific for clarity."
 
+### SEM-FI-004: Consider Linear Interpolation for CI Bands
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
+**Description:** The current implementation uses `.catmullRom` interpolation for confidence interval area marks, which creates smooth curves. Consider whether `.linear` interpolation would be more scientifically accurate for representing measurement uncertainty between discrete test points.
+**Original Comment:** "For measurement uncertainty, would `.linear` interpolation be more scientifically accurate? Smooth curves look better but may be less accurate scientifically."
+
+### SEM-FI-005: Enhanced Chart Accessibility with Date Range
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
+**Description:** Enhance the chart accessibility label to include the date range of test results, providing VoiceOver users with better temporal context.
+**Original Comment:** "For users with many test results, consider including the date range in the accessibility label."
+
+### SEM-FI-006: Add Unit Tests for Chart Domain Calculation
+**Status:** [ ] Not Started
+**Source:** PR #314 code review comment
+**Files:** `ios/AIQTests/` (new test file)
+**Description:** Add unit tests for chart visualization logic including: `chartYDomain` calculation with mixed CI/non-CI data, `hasConfidenceIntervals` computed property, `sampledDataWithCI` filtering logic, and edge cases (all results have CI, no results have CI, empty history).
+**Original Comment:** "Consider adding unit tests for the chart domain calculation logic - while these are view computed properties, the domain calculation logic would benefit from unit tests."
+
 ---
 
 ## Database Changes
