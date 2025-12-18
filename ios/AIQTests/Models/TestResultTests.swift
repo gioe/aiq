@@ -506,4 +506,267 @@ final class TestResultTests: XCTestCase {
             domainScores: nil
         )
     }
+
+    // MARK: - ConfidenceInterval Decoding Tests
+
+    func testConfidenceIntervalDecoding() throws {
+        let json = """
+        {
+            "lower": 101,
+            "upper": 115,
+            "confidence_level": 0.95,
+            "standard_error": 3.5
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let ci = try JSONDecoder().decode(ConfidenceInterval.self, from: data)
+
+        XCTAssertEqual(ci.lower, 101)
+        XCTAssertEqual(ci.upper, 115)
+        XCTAssertEqual(ci.confidenceLevel, 0.95)
+        XCTAssertEqual(ci.standardError, 3.5)
+    }
+
+    func testConfidenceIntervalRangeFormatted() {
+        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        XCTAssertEqual(ci.rangeFormatted, "101-115")
+    }
+
+    func testConfidenceIntervalConfidencePercentage() {
+        let ci95 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        XCTAssertEqual(ci95.confidencePercentage, 95)
+
+        let ci90 = ConfidenceInterval(lower: 102, upper: 114, confidenceLevel: 0.90, standardError: 3.5)
+        XCTAssertEqual(ci90.confidencePercentage, 90)
+
+        let ci99 = ConfidenceInterval(lower: 99, upper: 117, confidenceLevel: 0.99, standardError: 3.5)
+        XCTAssertEqual(ci99.confidencePercentage, 99)
+    }
+
+    func testConfidenceIntervalFullDescription() {
+        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        XCTAssertEqual(ci.fullDescription, "95% confidence interval: 101-115")
+    }
+
+    func testConfidenceIntervalAccessibilityDescription() {
+        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        XCTAssertEqual(ci.accessibilityDescription, "Score range from 101 to 115 with 95 percent confidence")
+    }
+
+    func testConfidenceIntervalEquality() {
+        let ci1 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci2 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci3 = ConfidenceInterval(lower: 100, upper: 116, confidenceLevel: 0.95, standardError: 3.5)
+
+        XCTAssertEqual(ci1, ci2)
+        XCTAssertNotEqual(ci1, ci3)
+    }
+
+    // MARK: - TestResult with ConfidenceInterval Tests
+
+    func testTestResultDecodingWithConfidenceInterval() throws {
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 108,
+            "percentile_rank": 70.2,
+            "total_questions": 20,
+            "correct_answers": 14,
+            "accuracy_percentage": 70.0,
+            "completion_time_seconds": 1200,
+            "completed_at": "2025-12-13T10:00:00Z",
+            "domain_scores": null,
+            "confidence_interval": {
+                "lower": 101,
+                "upper": 115,
+                "confidence_level": 0.95,
+                "standard_error": 3.5
+            }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let result = try decoder.decode(TestResult.self, from: data)
+
+        XCTAssertEqual(result.id, 1)
+        XCTAssertEqual(result.iqScore, 108)
+        XCTAssertNotNil(result.confidenceInterval)
+        XCTAssertEqual(result.confidenceInterval?.lower, 101)
+        XCTAssertEqual(result.confidenceInterval?.upper, 115)
+        XCTAssertEqual(result.confidenceInterval?.confidenceLevel, 0.95)
+        XCTAssertEqual(result.confidenceInterval?.standardError, 3.5)
+    }
+
+    func testTestResultDecodingWithNullConfidenceInterval() throws {
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 108,
+            "percentile_rank": 70.2,
+            "total_questions": 20,
+            "correct_answers": 14,
+            "accuracy_percentage": 70.0,
+            "completion_time_seconds": 1200,
+            "completed_at": "2025-12-13T10:00:00Z",
+            "confidence_interval": null
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let result = try decoder.decode(TestResult.self, from: data)
+
+        XCTAssertEqual(result.iqScore, 108)
+        XCTAssertNil(result.confidenceInterval)
+    }
+
+    func testTestResultDecodingWithoutConfidenceIntervalField() throws {
+        // Backward compatibility - confidence_interval field may not be present
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 108,
+            "percentile_rank": 70.2,
+            "total_questions": 20,
+            "correct_answers": 14,
+            "accuracy_percentage": 70.0,
+            "completed_at": "2025-12-13T10:00:00Z"
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let result = try decoder.decode(TestResult.self, from: data)
+
+        XCTAssertEqual(result.iqScore, 108)
+        XCTAssertNil(result.confidenceInterval)
+    }
+
+    // MARK: - TestResult Score Display Helper Tests
+
+    func testScoreWithConfidenceIntervalWhenPresent() {
+        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let result = TestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            percentileRank: 70.2,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: ci
+        )
+
+        XCTAssertEqual(result.scoreWithConfidenceInterval, "108 (101-115)")
+    }
+
+    func testScoreWithConfidenceIntervalWhenNil() {
+        let result = TestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            percentileRank: 70.2,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: nil
+        )
+
+        XCTAssertEqual(result.scoreWithConfidenceInterval, "108")
+    }
+
+    func testScoreAccessibilityDescriptionWithConfidenceInterval() {
+        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let result = TestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            percentileRank: 70.2,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: ci
+        )
+
+        XCTAssertEqual(
+            result.scoreAccessibilityDescription,
+            "IQ score 108. Score range from 101 to 115 with 95 percent confidence"
+        )
+    }
+
+    func testScoreAccessibilityDescriptionWithoutConfidenceInterval() {
+        let result = TestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            percentileRank: 70.2,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: nil
+        )
+
+        XCTAssertEqual(result.scoreAccessibilityDescription, "IQ score 108")
+    }
+
+    // MARK: - ConfidenceInterval Edge Cases
+
+    func testConfidenceIntervalAtBoundaries() {
+        // Test lower boundary of valid IQ range (40)
+        let ciAtLowerBound = ConfidenceInterval(lower: 40, upper: 55, confidenceLevel: 0.95, standardError: 7.5)
+        XCTAssertEqual(ciAtLowerBound.lower, 40)
+        XCTAssertEqual(ciAtLowerBound.rangeFormatted, "40-55")
+
+        // Test upper boundary of valid IQ range (160)
+        let ciAtUpperBound = ConfidenceInterval(lower: 145, upper: 160, confidenceLevel: 0.95, standardError: 7.5)
+        XCTAssertEqual(ciAtUpperBound.upper, 160)
+        XCTAssertEqual(ciAtUpperBound.rangeFormatted, "145-160")
+    }
+
+    func testConfidenceIntervalWithDifferentConfidenceLevels() throws {
+        // 90% confidence level
+        let json90 = """
+        {
+            "lower": 102,
+            "upper": 114,
+            "confidence_level": 0.90,
+            "standard_error": 3.5
+        }
+        """
+        let ci90 = try JSONDecoder().decode(ConfidenceInterval.self, from: json90.data(using: .utf8)!)
+        XCTAssertEqual(ci90.confidencePercentage, 90)
+        XCTAssertEqual(ci90.fullDescription, "90% confidence interval: 102-114")
+
+        // 99% confidence level
+        let json99 = """
+        {
+            "lower": 99,
+            "upper": 117,
+            "confidence_level": 0.99,
+            "standard_error": 3.5
+        }
+        """
+        let ci99 = try JSONDecoder().decode(ConfidenceInterval.self, from: json99.data(using: .utf8)!)
+        XCTAssertEqual(ci99.confidencePercentage, 99)
+        XCTAssertEqual(ci99.fullDescription, "99% confidence interval: 99-117")
+    }
 }

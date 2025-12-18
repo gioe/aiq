@@ -103,13 +103,13 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Test all three endpoints return CI: /submit, /history, /results/{id}
 
 ### SEM-009: iOS Model Updates
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `ios/AIQ/Models/TestResult.swift`
 **Description:** Update iOS TestResult model to include confidence interval data. Add new struct/class for CI representation and update TestResult to include optional CI field.
 **Acceptance Criteria:**
-- [ ] New `ConfidenceInterval` struct with lower, upper, confidenceLevel, standardError
-- [ ] `TestResult` model updated with optional `confidenceInterval` property
-- [ ] JSON decoding handles both present and null CI
+- [x] New `ConfidenceInterval` struct with lower, upper, confidenceLevel, standardError
+- [x] `TestResult` model updated with optional `confidenceInterval` property
+- [x] JSON decoding handles both present and null CI
 
 ### SEM-010: iOS Test Result View Updates
 **Status:** [ ] Not Started
