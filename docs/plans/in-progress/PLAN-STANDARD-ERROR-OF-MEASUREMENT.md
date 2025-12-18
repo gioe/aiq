@@ -17,14 +17,14 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 ## Tasks
 
 ### SEM-001: Add SEM Calculation Function
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/scoring.py`
 **Description:** Implement `calculate_sem()` function that computes Standard Error of Measurement using the formula: `SEM = SD × √(1 - reliability)`. The function should accept reliability coefficient and population standard deviation (defaulting to 15 for IQ scores).
 **Acceptance Criteria:**
-- [ ] Function `calculate_sem(reliability: float, population_sd: float = 15.0) -> float` implemented
-- [ ] Raises `ValueError` if reliability is not between 0 and 1
-- [ ] Returns correct SEM for known inputs (e.g., α=0.80, SD=15 → SEM≈6.7)
-- [ ] Includes comprehensive docstring with formula and examples
+- [x] Function `calculate_sem(reliability: float, population_sd: float = 15.0) -> float` implemented
+- [x] Raises `ValueError` if reliability is not between 0 and 1
+- [x] Returns correct SEM for known inputs (e.g., α=0.80, SD=15 → SEM≈6.7)
+- [x] Includes comprehensive docstring with formula and examples
 
 ### SEM-002: Add Confidence Interval Calculation Function
 **Status:** [ ] Not Started

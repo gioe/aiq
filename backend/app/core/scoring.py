@@ -39,6 +39,7 @@ Current algorithm acceptable for MVP but will be replaced with
 scientifically validated approach once sufficient user data available.
 """
 
+import math
 from typing import Protocol, List, Dict, Any, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from scipy.stats import norm
@@ -557,6 +558,85 @@ def get_strongest_weakest_domains(
         "strongest_domain": strongest,
         "weakest_domain": weakest,
     }
+
+
+# =============================================================================
+# Standard Error of Measurement (SEM) Functions
+# =============================================================================
+
+# Population standard deviation for IQ scores (by definition)
+IQ_POPULATION_SD = 15.0
+
+# Minimum reliability coefficient for meaningful SEM calculation
+# Below this threshold, confidence intervals are too wide to be useful
+MIN_RELIABILITY_FOR_SEM = 0.60
+
+
+def calculate_sem(reliability: float, population_sd: float = IQ_POPULATION_SD) -> float:
+    """
+    Calculate the Standard Error of Measurement (SEM).
+
+    SEM quantifies the expected variation in observed scores due to measurement
+    error. It represents the standard deviation of the distribution of scores
+    a person would obtain if they took the test many times (assuming no practice
+    effects or other changes in ability).
+
+    Formula: SEM = σ × √(1 - r)
+
+    Where:
+        σ = population standard deviation (15 for IQ scores by definition)
+        r = reliability coefficient (typically Cronbach's alpha)
+
+    Lower SEM indicates more precise measurement. Higher reliability coefficients
+    result in lower SEM.
+
+    Args:
+        reliability: Reliability coefficient (e.g., Cronbach's alpha).
+            Must be between 0 and 1 inclusive.
+        population_sd: Population standard deviation of the test scores.
+            Defaults to 15.0 (standard for IQ tests).
+
+    Returns:
+        Standard Error of Measurement, rounded to 2 decimal places.
+
+    Raises:
+        ValueError: If reliability is not between 0 and 1 inclusive.
+        ValueError: If population_sd is not positive.
+
+    Examples:
+        >>> calculate_sem(0.80)  # Good reliability
+        6.71
+        >>> calculate_sem(0.90)  # Excellent reliability
+        4.74
+        >>> calculate_sem(0.95)  # Near-perfect reliability
+        3.35
+
+    SEM Interpretation Table (for IQ tests with SD=15):
+        | Reliability (α) | SEM  | 95% CI Width |
+        |-----------------|------|--------------|
+        | 0.96            | 3.0  | ±5.9 points  |
+        | 0.91            | 4.5  | ±8.8 points  |
+        | 0.87            | 5.4  | ±10.6 points |
+        | 0.80            | 6.7  | ±13.1 points |
+        | 0.70            | 8.2  | ±16.1 points |
+        | 0.60            | 9.5  | ±18.6 points |
+
+    Note:
+        - SEM is in the same units as the test scores (IQ points)
+        - A 95% confidence interval is approximately score ± 1.96 × SEM
+        - Reliability below 0.60 produces SEM > 9.5, making CIs too wide for
+          meaningful interpretation
+    """
+    if reliability < 0 or reliability > 1:
+        raise ValueError(
+            f"reliability must be between 0 and 1 inclusive, got {reliability}"
+        )
+
+    if population_sd <= 0:
+        raise ValueError(f"population_sd must be positive, got {population_sd}")
+
+    sem = population_sd * math.sqrt(1 - reliability)
+    return round(sem, 2)
 
 
 def calculate_domain_scores(
