@@ -23,6 +23,7 @@ from .responses import (
     ResponseSubmission,
     TestResultResponse,
     SubmitTestResponse,
+    ConfidenceIntervalSchema,
 )
 from .generation_runs import (
     GenerationRunStatusSchema,
@@ -122,6 +123,7 @@ __all__ = [
     "ResponseSubmission",
     "TestResultResponse",
     "SubmitTestResponse",
+    "ConfidenceIntervalSchema",
     # Generation run tracking schemas
     "GenerationRunStatusSchema",
     "QuestionGenerationRunCreate",

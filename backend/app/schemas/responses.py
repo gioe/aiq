@@ -9,6 +9,49 @@ from app.schemas.test_sessions import TestSessionResponse
 from app.core.validators import StringSanitizer, validate_no_sql_injection
 
 
+# =============================================================================
+# Confidence Interval Schema (SEM-005)
+# =============================================================================
+
+
+class ConfidenceIntervalSchema(BaseModel):
+    """
+    Schema for confidence interval data around an IQ score.
+
+    Confidence intervals quantify the uncertainty in score measurement,
+    providing a range within which the true score is likely to fall.
+    This is calculated using the Standard Error of Measurement (SEM)
+    derived from the test's reliability coefficient.
+
+    Example: A score of 108 with CI [101, 115] at 95% confidence means
+    there is a 95% probability the true score falls between 101 and 115.
+    """
+
+    lower: int = Field(
+        ...,
+        ge=40,
+        le=160,
+        description="Lower bound of the confidence interval (clamped to valid IQ range 40-160)",
+    )
+    upper: int = Field(
+        ...,
+        ge=40,
+        le=160,
+        description="Upper bound of the confidence interval (clamped to valid IQ range 40-160)",
+    )
+    confidence_level: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence level as a decimal (e.g., 0.95 for 95% CI)",
+    )
+    standard_error: float = Field(
+        ...,
+        ge=0.0,
+        description="Standard Error of Measurement (SEM) used to calculate the interval",
+    )
+
+
 class ResponseItem(BaseModel):
     """Schema for individual response item."""
 
@@ -78,6 +121,10 @@ class TestResultResponse(BaseModel):
     weakest_domain: Optional[str] = Field(
         None,
         description="Name of the lowest-scoring cognitive domain",
+    )
+    confidence_interval: Optional[ConfidenceIntervalSchema] = Field(
+        None,
+        description="Confidence interval for the IQ score. Null when reliability data is insufficient (< 0.60).",
     )
 
     class Config:
