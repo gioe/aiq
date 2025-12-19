@@ -171,7 +171,7 @@ These items were identified during PR review and deferred for future considerati
 **Original Comment:** "Some test names could be more specific for clarity."
 
 ### SEM-FI-004: Consider Linear Interpolation for CI Bands
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #314 code review comment
 **Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
 **Description:** The current implementation uses `.catmullRom` interpolation for confidence interval area marks, which creates smooth curves. Consider whether `.linear` interpolation would be more scientifically accurate for representing measurement uncertainty between discrete test points.

@@ -39,6 +39,9 @@ struct IQTrendChart: View {
             if testHistory.count >= 2 {
                 Chart {
                     // Confidence interval area (rendered first to be behind line)
+                    // Uses linear interpolation rather than smooth curves because CI represents
+                    // measurement uncertainty at discrete test points - we have no data about
+                    // uncertainty between tests, so smooth interpolation would be misleading.
                     ForEach(sampledDataWithCI) { result in
                         if let ci = result.confidenceInterval {
                             AreaMark(
@@ -47,7 +50,7 @@ struct IQTrendChart: View {
                                 yEnd: .value("CI Upper", ci.upper)
                             )
                             .foregroundStyle(Color.accentColor.opacity(0.15))
-                            .interpolationMethod(.catmullRom)
+                            .interpolationMethod(.linear)
                         }
                     }
 
