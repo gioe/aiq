@@ -1441,7 +1441,8 @@ class TestDomainPercentilesInAPIResponse:
         # Get history
         history_response = client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
-        history = history_response.json()
+        history_data = history_response.json()
+        history = history_data["results"]
 
         assert len(history) > 0
 
@@ -1901,7 +1902,8 @@ class TestConfidenceIntervalIntegration:
         response = client.get("/v1/test/history", headers=auth_headers)
 
         assert response.status_code == 200
-        history = response.json()
+        history_data = response.json()
+        history = history_data["results"]
 
         assert len(history) >= 1
 
@@ -1960,9 +1962,10 @@ class TestConfidenceIntervalIntegration:
         # 3. Check /history endpoint
         history_response = client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
-        assert len(history_response.json()) >= 1
+        history_data = history_response.json()
+        assert len(history_data["results"]) >= 1
         # Find our result in history
-        for result in history_response.json():
+        for result in history_data["results"]:
             if result["id"] == result_id:
                 assert result["confidence_interval"] is None
                 break

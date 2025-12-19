@@ -121,8 +121,8 @@ class TestCompleteUserJourney:
         history_response = client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
         history_data = history_response.json()
-        assert len(history_data) == 1  # Should have 1 test
-        assert history_data[0]["id"] == result_id
+        assert len(history_data["results"]) == 1  # Should have 1 test
+        assert history_data["results"][0]["id"] == result_id
 
         # Step 8: Verify no active test session (test was completed)
         active_final = client.get("/v1/test/active", headers=auth_headers)
@@ -235,7 +235,7 @@ class TestCompleteUserJourney:
         history_response = client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
         history_data = history_response.json()
-        assert len(history_data) == 2  # Should have 2 tests
+        assert len(history_data["results"]) == 2  # Should have 2 tests
 
 
 class TestNotificationIntegrationWithTests:
