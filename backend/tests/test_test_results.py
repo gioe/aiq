@@ -461,12 +461,43 @@ class TestGetTestHistoryPagination:
         response = client.get("/v1/test/history?offset=-1", headers=auth_headers)
         assert response.status_code == 422  # Validation error
 
-    def test_offset_beyond_results(self, client, auth_headers, test_questions):
-        """Test offset beyond available results returns empty list."""
+    def test_offset_beyond_results(
+        self, client, auth_headers, test_questions, db_session, test_user
+    ):
+        """Test offset beyond available results returns empty list with correct total_count."""
+        from app.models.models import TestSession, TestResult, TestStatus
+        from datetime import datetime
+
+        # Create 3 test results so we have a non-zero total_count
+        for i in range(3):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+                started_at=datetime.utcnow(),
+                completed_at=datetime.utcnow(),
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            result = TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=100 + i,
+                total_questions=10,
+                correct_answers=5,
+                completion_time_seconds=300,
+                completed_at=session.completed_at,
+            )
+            db_session.add(result)
+        db_session.commit()
+
+        # Query with offset beyond available results
         response = client.get("/v1/test/history?offset=1000", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
 
+        # Should return empty results but total_count reflects actual count
         assert data["results"] == []
-        assert data["total_count"] == 0  # User has no results
+        assert data["total_count"] == 3  # User has 3 results, but none on this page
         assert data["has_more"] is False
