@@ -155,7 +155,7 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 These items were identified during PR review and deferred for future consideration.
 
 ### SEM-FI-002: Remove Redundant Boundary Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #310 code review comment
 **Files:** `backend/tests/test_scoring.py`
 **Description:** The tests `test_lower_below_40_significantly_rejected` and `test_upper_above_160_significantly_rejected` (testing values 0 and 200) are redundant with existing boundary tests (testing 39 and 161). Pydantic validators work identically regardless of how far below/above the threshold a value is.
