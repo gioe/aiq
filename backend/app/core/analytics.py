@@ -287,10 +287,17 @@ class ResponseMatrixResult:
         return self.matrix.shape[1]
 
 
+# Default limit for response queries in build_response_matrix
+# 10000 responses is a reasonable default for admin-only endpoints
+# to prevent memory issues with large datasets
+DEFAULT_RESPONSE_LIMIT = 10000
+
+
 def build_response_matrix(
     db: Session,
     min_responses_per_question: int = 30,
     min_questions_per_session: int = 10,
+    max_responses: int = DEFAULT_RESPONSE_LIMIT,
 ) -> Optional[ResponseMatrixResult]:
     """
     Build a response matrix (users × items) for factor analysis.
@@ -310,6 +317,11 @@ def build_response_matrix(
             must have answered (from the filtered question set) to be
             included. Sessions with fewer questions are excluded.
             Default is 10.
+        max_responses: Maximum number of responses to fetch from the database.
+            Default is 10000. If this limit is reached, a warning is logged
+            and the matrix will be built from a subset of available responses.
+            This prevents memory issues when the response table grows large.
+            Set to 0 or None to disable the limit (use with caution).
 
     Returns:
         ResponseMatrixResult containing the matrix and metadata, or None
@@ -326,6 +338,11 @@ def build_response_matrix(
           by excluding that cell; however, the current implementation
           requires all included sessions to have responses for all included
           questions (handled via filtering).
+        - **LIMITATION**: When max_responses limit is reached, the matrix
+          will be built from only the earliest responses (ordered by
+          session ID ascending). This may affect factor analysis accuracy for
+          very large datasets. Consider increasing the limit for comprehensive
+          analysis or running analysis on time-bounded subsets.
 
     Example:
         >>> result = build_response_matrix(db, min_responses_per_question=50)
@@ -349,13 +366,27 @@ def build_response_matrix(
         session.id for session in completed_sessions  # type: ignore[misc]
     ]
 
-    # Step 2: Get all responses for completed sessions
-    responses = (
-        db.query(Response).filter(Response.test_session_id.in_(session_ids)).all()
-    )
+    # Step 2: Get responses for completed sessions (with optional limit)
+    query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
+
+    # Apply limit if specified (0 or None disables the limit)
+    # Use ascending order to maintain consistency with session_ids ordering
+    # (completed_sessions are ordered by TestSession.id ascending)
+    if max_responses:
+        query = query.order_by(Response.test_session_id.asc()).limit(max_responses)
+
+    responses = query.all()
 
     if not responses:
         return None
+
+    # Log warning if limit was reached (indicates potential data truncation)
+    if max_responses and len(responses) >= max_responses:
+        logger.warning(
+            f"build_response_matrix: Response limit ({max_responses}) reached. "
+            f"Matrix may be incomplete. Consider increasing max_responses "
+            f"for comprehensive factor analysis."
+        )
 
     # Step 3: Count responses per question to filter questions
     question_response_counts: Dict[int, int] = {}

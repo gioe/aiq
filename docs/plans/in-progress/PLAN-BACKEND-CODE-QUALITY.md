@@ -32,14 +32,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-002: Add Limit to build_response_matrix() Query
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/analytics.py:354`
 **Description:** Fetches all responses for all test sessions without pagination. Could be thousands of responses. Add limit or process in batches for admin-only endpoints.
 **Acceptance Criteria:**
-- [ ] Query has configurable limit (default 10000)
-- [ ] Warning logged if limit is reached
-- [ ] Documentation notes this limitation
-- [ ] Unit test covers limit behavior
+- [x] Query has configurable limit (default 10000)
+- [x] Warning logged if limit is reached
+- [x] Documentation notes this limitation
+- [x] Unit test covers limit behavior
 
 ---
 
@@ -483,6 +483,45 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 
 ---
 
+### BCQ-038: Improve build_response_matrix Warning Message
+**Status:** [ ] Not Started
+**Source:** PR #324 comment
+**Files:** `backend/app/core/analytics.py:382`
+**Description:** Improve the warning message when max_responses limit is reached by including the actual total count of responses available.
+**Original Comment:** "This warning only triggers if we fetch exactly `max_responses` rows... Consider checking the actual total count and including it in the warning message for more actionable information to administrators."
+**Acceptance Criteria:**
+- [ ] Add count query to get total responses available
+- [ ] Include "Fetched X of Y total responses" in warning message
+- [ ] Unit test verifies improved message format
+
+---
+
+### BCQ-039: Strengthen test_respects_max_responses_limit Assertion
+**Status:** [ ] Not Started
+**Source:** PR #324 comment
+**Files:** `backend/tests/core/test_response_matrix.py:834`
+**Description:** The test assertion `assert result.n_users <= 3` is too permissive. Should verify exact expected behavior.
+**Original Comment:** "This test is too permissive... Even better: be more specific about expected behavior. With 5 users, 1 question each, limit of 3 responses → should get 3 users"
+**Acceptance Criteria:**
+- [ ] Change assertion to verify exact user count when limit is hit
+- [ ] Add assertion that at least some users are included
+- [ ] Add comment explaining expected behavior
+
+---
+
+### BCQ-040: Extract MAX_RESPONSE_LIMIT Constant
+**Status:** [ ] Not Started
+**Source:** PR #324 comment
+**Files:** `backend/app/api/v1/admin.py:2818`
+**Description:** The magic number 1000000 for the maximum response limit should be extracted to a named constant.
+**Original Comment:** "Extract to named constant per CLAUDE.md guidelines: MAX_RESPONSE_LIMIT = 1_000_000"
+**Acceptance Criteria:**
+- [ ] Create constant with descriptive name and comment explaining rationale
+- [ ] Use constant in Query parameter definition
+- [ ] Document memory implications in comment
+
+---
+
 ## Database Changes
 
 ### New Indexes
@@ -588,13 +627,16 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 | BCQ-035 | Reduce Type Ignore Comments | Large |
 | BCQ-036 | Add Process Tracking for Background Generation | Medium |
 | BCQ-037 | Implement Redis Storage for Rate Limiting | Medium |
+| BCQ-038 | Improve build_response_matrix Warning Message | Small |
+| BCQ-039 | Strengthen test_respects_max_responses_limit Assertion | Small |
+| BCQ-040 | Extract MAX_RESPONSE_LIMIT Constant | Small |
 
 ## Estimated Total Complexity
 
-**Large** (37 tasks)
+**Large** (40 tasks)
 
 **Breakdown:**
-- Small: 24 tasks
+- Small: 27 tasks
 - Medium: 10 tasks
 - Large: 3 tasks (BCQ-020, BCQ-033, BCQ-035)
 
