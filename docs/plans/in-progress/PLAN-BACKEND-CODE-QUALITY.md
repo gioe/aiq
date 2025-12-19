@@ -32,14 +32,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-002: Add Limit to build_response_matrix() Query
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/analytics.py:354`
 **Description:** Fetches all responses for all test sessions without pagination. Could be thousands of responses. Add limit or process in batches for admin-only endpoints.
 **Acceptance Criteria:**
-- [ ] Query has configurable limit (default 10000)
-- [ ] Warning logged if limit is reached
-- [ ] Documentation notes this limitation
-- [ ] Unit test covers limit behavior
+- [x] Query has configurable limit (default 10000)
+- [x] Warning logged if limit is reached
+- [x] Documentation notes this limitation
+- [x] Unit test covers limit behavior
 
 ---
 
