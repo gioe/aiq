@@ -2812,6 +2812,12 @@ async def get_factor_analysis(
         le=200,
         description="Minimum responses per question for inclusion",
     ),
+    max_responses: int = Query(
+        default=10000,
+        ge=0,
+        le=1000000,
+        description="Maximum responses to fetch. Set to 0 for no limit (use with caution).",
+    ),
 ):
     """
     Perform factor analysis to calculate empirical g-loadings per domain.
@@ -2843,6 +2849,7 @@ async def get_factor_analysis(
             db=db,
             min_responses_per_question=min_responses_per_question,
             min_questions_per_session=10,
+            max_responses=max_responses,
         )
 
         # Check if we have enough data

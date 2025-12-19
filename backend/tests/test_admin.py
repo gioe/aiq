@@ -4149,8 +4149,10 @@ class TestFactorAnalysisEndpoint:
 
         db_session.commit()
 
+        # Use max_responses=0 to disable limit for comprehensive analysis
+        # (test creates 550 sessions × 60 questions = 33,000 responses)
         response = client.get(
-            "/v1/admin/analytics/factor-analysis",
+            "/v1/admin/analytics/factor-analysis?max_responses=0",
             headers=admin_token_headers,
         )
 

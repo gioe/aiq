@@ -799,3 +799,138 @@ class TestBuildResponseMatrixComplexScenarios:
         domains_in_result = set(result.question_domains)
         expected_domains = {qt.value for qt in QuestionType}
         assert domains_in_result == expected_domains
+
+
+# =============================================================================
+# MAX_RESPONSES LIMIT TESTS (BCQ-002)
+# =============================================================================
+
+
+class TestBuildResponseMatrixMaxResponses:
+    """Tests for max_responses limit behavior."""
+
+    def test_respects_max_responses_limit(self, db_session):
+        """Limits the number of responses fetched from database."""
+        # Create 5 users with 1 question each = 5 responses
+        users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
+        sessions = [create_test_session(db_session, user) for user in users]
+
+        q = create_question(db_session, QuestionType.PATTERN)
+
+        for user, session in zip(users, sessions):
+            create_response(db_session, session, user, q, is_correct=True)
+
+        # Limit to 3 responses
+        result = build_response_matrix(
+            db_session,
+            min_responses_per_question=1,
+            min_questions_per_session=1,
+            max_responses=3,
+        )
+
+        assert result is not None
+        # Should only include responses up to the limit
+        # The exact number of users depends on how the limit is applied
+        assert result.n_users <= 3
+
+    def test_logs_warning_when_limit_reached(self, db_session):
+        """Logs a warning when max_responses limit is reached."""
+        from unittest.mock import patch
+
+        # Create enough data to hit the limit
+        users = [create_user(db_session, f"user{i}@test.com") for i in range(10)]
+        sessions = [create_test_session(db_session, user) for user in users]
+
+        q = create_question(db_session, QuestionType.PATTERN)
+
+        for user, session in zip(users, sessions):
+            create_response(db_session, session, user, q, is_correct=True)
+
+        # Patch the logger to capture the warning call
+        with patch("app.core.analytics.logger") as mock_logger:
+            # Set limit lower than total responses
+            build_response_matrix(
+                db_session,
+                min_responses_per_question=1,
+                min_questions_per_session=1,
+                max_responses=5,
+            )
+
+            # Check that warning was logged
+            mock_logger.warning.assert_called_once()
+            warning_msg = mock_logger.warning.call_args[0][0]
+            assert "Response limit" in warning_msg
+            assert "5" in warning_msg  # The limit value
+            assert "reached" in warning_msg
+
+    def test_no_warning_when_limit_not_reached(self, db_session):
+        """No warning logged when responses are below the limit."""
+        from unittest.mock import patch
+
+        user = create_user(db_session)
+        session = create_test_session(db_session, user)
+        q = create_question(db_session, QuestionType.PATTERN)
+        create_response(db_session, session, user, q, is_correct=True)
+
+        # Patch the logger to verify no warning is logged
+        with patch("app.core.analytics.logger") as mock_logger:
+            # Set limit much higher than total responses
+            build_response_matrix(
+                db_session,
+                min_responses_per_question=1,
+                min_questions_per_session=1,
+                max_responses=1000,
+            )
+
+            # Check that no warning about limit was logged
+            mock_logger.warning.assert_not_called()
+
+    def test_zero_max_responses_disables_limit(self, db_session):
+        """Setting max_responses=0 disables the limit."""
+        # Create 5 users
+        users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
+        sessions = [create_test_session(db_session, user) for user in users]
+
+        q = create_question(db_session, QuestionType.PATTERN)
+
+        for user, session in zip(users, sessions):
+            create_response(db_session, session, user, q, is_correct=True)
+
+        # Disable limit with 0
+        result = build_response_matrix(
+            db_session,
+            min_responses_per_question=1,
+            min_questions_per_session=1,
+            max_responses=0,
+        )
+
+        assert result is not None
+        # All 5 users should be included
+        assert result.n_users == 5
+
+    def test_default_max_responses_is_10000(self, db_session):
+        """Default max_responses is 10000 (from constant)."""
+        from app.core.analytics import DEFAULT_RESPONSE_LIMIT
+
+        assert DEFAULT_RESPONSE_LIMIT == 10000
+
+    def test_works_normally_under_limit(self, db_session):
+        """Matrix is built normally when data is under the limit."""
+        users = [create_user(db_session, f"user{i}@test.com") for i in range(3)]
+        sessions = [create_test_session(db_session, user) for user in users]
+
+        q = create_question(db_session, QuestionType.PATTERN)
+
+        for user, session in zip(users, sessions):
+            create_response(db_session, session, user, q, is_correct=True)
+
+        result = build_response_matrix(
+            db_session,
+            min_responses_per_question=1,
+            min_questions_per_session=1,
+            max_responses=100,  # Well above the 3 responses
+        )
+
+        assert result is not None
+        assert result.n_users == 3
+        assert result.n_items == 1
