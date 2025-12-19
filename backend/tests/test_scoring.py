@@ -1914,32 +1914,6 @@ class TestConfidenceIntervalSchema:
         error_str = str(exc_info.value)
         assert "160" in error_str or "less than or equal" in error_str.lower()
 
-    def test_lower_below_40_significantly_rejected(self):
-        """Test that significantly low lower bound is rejected."""
-        from pydantic import ValidationError
-        from app.schemas.responses import ConfidenceIntervalSchema
-
-        with pytest.raises(ValidationError):
-            ConfidenceIntervalSchema(
-                lower=0,  # Significantly below minimum
-                upper=100,
-                confidence_level=0.95,
-                standard_error=50.0,
-            )
-
-    def test_upper_above_160_significantly_rejected(self):
-        """Test that significantly high upper bound is rejected."""
-        from pydantic import ValidationError
-        from app.schemas.responses import ConfidenceIntervalSchema
-
-        with pytest.raises(ValidationError):
-            ConfidenceIntervalSchema(
-                lower=100,
-                upper=200,  # Significantly above maximum
-                confidence_level=0.95,
-                standard_error=50.0,
-            )
-
     def test_confidence_level_below_0_rejected(self):
         """Test that confidence_level < 0 is rejected."""
         from pydantic import ValidationError
