@@ -55,16 +55,16 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-004: Add Pagination to /test/history Endpoint
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py:1014-1019`
 **Description:** Returns all test results without pagination. Performance issues for power users. Add `limit` and `offset` query parameters.
 **Acceptance Criteria:**
-- [ ] `limit` parameter with default 50, max 100
-- [ ] `offset` parameter for pagination
-- [ ] Query uses LIMIT and OFFSET clauses
-- [ ] Response includes total count for pagination UI
-- [ ] Integration test verifies pagination
-- [ ] iOS client updated if needed (check compatibility)
+- [x] `limit` parameter with default 50, max 100
+- [x] `offset` parameter for pagination
+- [x] Query uses LIMIT and OFFSET clauses
+- [x] Response includes total count for pagination UI
+- [x] Integration test verifies pagination
+- [x] iOS client updated if needed (check compatibility)
 
 ---
 
