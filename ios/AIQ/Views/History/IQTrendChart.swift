@@ -192,11 +192,34 @@ struct IQTrendChart: View {
         var label = "IQ score trend chart showing \(testHistory.count) test results. "
         label += "Scores range from \(minScore) to \(maxScore) with an average of \(avgScore). "
 
+        // Add date range for temporal context
+        label += dateRangeDescription
+
         if hasConfidenceIntervals {
             label += "Shaded areas show 95% confidence intervals for measurement uncertainty."
         }
 
         return label
+    }
+
+    /// Formatted date range description for accessibility
+    private var dateRangeDescription: String {
+        let sortedDates = testHistory.map(\.completedAt).sorted()
+        guard let firstDate = sortedDates.first,
+              let lastDate = sortedDates.last else {
+            return ""
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+
+        // If all tests are on the same day, just mention that date
+        if Calendar.current.isDate(firstDate, inSameDayAs: lastDate) {
+            return "Tests taken on \(formatter.string(from: firstDate)). "
+        }
+
+        return "Tests span from \(formatter.string(from: firstDate)) to \(formatter.string(from: lastDate)). "
     }
 }
 
