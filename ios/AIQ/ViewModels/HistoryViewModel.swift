@@ -83,8 +83,8 @@ class HistoryViewModel: BaseViewModel {
                 return
             }
 
-            // Fetch from API
-            let history: [TestResult] = try await apiClient.request(
+            // Fetch from API (now returns paginated response)
+            let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
                 endpoint: .testHistory,
                 method: .get,
                 body: nil as String?,
@@ -93,6 +93,8 @@ class HistoryViewModel: BaseViewModel {
                 cacheDuration: nil,
                 forceRefresh: false
             )
+
+            let history = paginatedResponse.results
 
             // Cache the results (5 minute expiration)
             await DataCache.shared.set(history, forKey: DataCache.Key.testHistory)

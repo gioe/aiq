@@ -257,7 +257,7 @@ final class DashboardViewModelTests: XCTestCase {
         )
 
         await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(456))
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
 
         // When
@@ -375,7 +375,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Queue all responses in order: abandon, test history, active session
         await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
 
         // When
@@ -433,7 +433,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Queue all responses in order: abandon, test history, active session
         await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setResponse([mockTestResult] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([mockTestResult])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
 
         // When
