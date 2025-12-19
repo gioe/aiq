@@ -140,13 +140,13 @@ AIQ currently provides point estimates for IQ scores (e.g., "Your IQ is 108") wi
 - [x] Optional utility function for backfilling historical results
 
 ### SEM-FI-001: Documentation and User Communication
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** Various (README, in-app help)
 **Description:** Add documentation explaining confidence intervals to users. Include contextual help in the app and update any user-facing documentation.
 **Acceptance Criteria:**
-- [ ] In-app explanation of what CI means
-- [ ] Help text: "Your score of X represents our best estimate. Due to the nature of measurement, your true ability likely falls between Y and Z (95% confidence)."
-- [ ] FAQ section updated if applicable
+- [x] In-app explanation of what CI means
+- [x] Help text: "Your score of X represents our best estimate. Due to the nature of measurement, your true ability likely falls between Y and Z (95% confidence)."
+- [x] FAQ section updated if applicable
 
 ---
 

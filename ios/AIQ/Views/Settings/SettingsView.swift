@@ -35,6 +35,21 @@ struct SettingsView: View {
                         .font(.caption)
                 }
 
+                // Help Section
+                Section {
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "questionmark.circle")
+                                .foregroundColor(.accentColor)
+                            Text("Help & FAQ")
+                        }
+                    }
+                } header: {
+                    Text("Support")
+                }
+
                 // App Settings Section
                 Section {
                     HStack {
