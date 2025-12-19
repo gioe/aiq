@@ -10,7 +10,7 @@ struct IQTrendChart: View {
 
     /// Whether any results have confidence interval data
     private var hasConfidenceIntervals: Bool {
-        testHistory.contains { $0.confidenceInterval != nil }
+        ChartDomainCalculator.hasConfidenceIntervals(in: testHistory)
     }
 
     var body: some View {
@@ -122,60 +122,17 @@ struct IQTrendChart: View {
 
     /// Sampled data for rendering (improves performance with large datasets)
     private var sampledData: [TestResult] {
-        guard testHistory.count > maxDataPoints else {
-            return testHistory
-        }
-
-        // Always include first and last test
-        var sampled: [TestResult] = []
-        let sortedHistory = testHistory.sorted { $0.completedAt < $1.completedAt }
-
-        // Calculate sampling interval
-        let interval = Double(sortedHistory.count) / Double(maxDataPoints)
-
-        for sampleIndex in 0 ..< maxDataPoints {
-            let index = min(Int(Double(sampleIndex) * interval), sortedHistory.count - 1)
-            sampled.append(sortedHistory[index])
-        }
-
-        // Ensure we include the last test if not already included
-        if let last = sortedHistory.last, sampled.last?.id != last.id {
-            sampled.append(last)
-        }
-
-        return sampled
+        ChartDomainCalculator.sampleData(from: testHistory, maxDataPoints: maxDataPoints)
     }
 
     /// Sampled data filtered to only results with confidence intervals
     private var sampledDataWithCI: [TestResult] {
-        sampledData.filter { $0.confidenceInterval != nil }
+        ChartDomainCalculator.filterResultsWithCI(from: sampledData)
     }
 
     /// Calculate appropriate Y-axis domain based on score range (including CI bounds)
     private var chartYDomain: ClosedRange<Int> {
-        guard !testHistory.isEmpty else { return 70 ... 130 }
-
-        // Collect all scores and CI bounds in a single pass for better performance
-        var allValues: [Int] = []
-        allValues.reserveCapacity(testHistory.count * 3) // Pre-allocate for score + CI bounds
-
-        for result in testHistory {
-            allValues.append(result.iqScore)
-            if let ci = result.confidenceInterval {
-                allValues.append(ci.lower)
-                allValues.append(ci.upper)
-            }
-        }
-
-        let minValue = allValues.min() ?? 100
-        let maxValue = allValues.max() ?? 100
-
-        // Add padding to make the chart more readable
-        let padding = 10
-        let lowerBound = max(70, minValue - padding)
-        let upperBound = min(160, maxValue + padding)
-
-        return lowerBound ... upperBound
+        ChartDomainCalculator.calculateYDomain(for: testHistory)
     }
 
     /// Accessibility label describing the chart content

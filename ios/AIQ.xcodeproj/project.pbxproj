@@ -105,6 +105,8 @@
 		FB3D1D04F6A27722E71C7F97 /* QuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 830D779DEE0CF101CA007C56 /* QuestionCardView.swift */; };
 		DW005001A /* TestResultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DW005001B /* TestResultTests.swift */; };
 		DW006001A /* DomainScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DW006001B /* DomainScoresView.swift */; };
+		507906F5A67940A095C3F1B1 /* ChartDomainCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF875B462C574EFB92363723 /* ChartDomainCalculator.swift */; };
+		974CF05D769F4DA3B3B9C0DC /* IQTrendChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4382DC467C04DA4A1E33E87 /* IQTrendChartTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -221,6 +223,8 @@
 		F274204B05C0975C2504BF59 /* TestTakingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingView.swift; sourceTree = "<group>"; };
 		FA7144DFDCC0350CF613E06B /* RegistrationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModel.swift; sourceTree = "<group>"; };
 		FBEE4A6F5EB368890F6507C8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		BF875B462C574EFB92363723 /* ChartDomainCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartDomainCalculator.swift; sourceTree = "<group>"; };
+		C4382DC467C04DA4A1E33E87 /* IQTrendChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQTrendChartTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -278,6 +282,7 @@
 				420BD147BE5F3B7A85137699 /* TestDetailView.swift */,
 				7AC34CF425BCF0769C9BDCD9 /* TestDetailView+Helpers.swift */,
 				5AA5F757688E9D59CB558163 /* TestHistoryListItem.swift */,
+				BF875B462C574EFB92363723 /* ChartDomainCalculator.swift */,
 			);
 			path = History;
 			sourceTree = "<group>";
@@ -416,6 +421,7 @@
 				DW005001C /* Models */,
 				055F17F3D066294DB72A2006 /* Mocks */,
 				0CF338C0D0FFA2CB33019FFF /* ViewModels */,
+				08F04787859946F2BE47D9E4 /* Views */,
 			);
 			path = AIQTests;
 			sourceTree = "<group>";
@@ -552,6 +558,14 @@
 			path = API;
 			sourceTree = "<group>";
 		};
+		08F04787859946F2BE47D9E4 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				C4382DC467C04DA4A1E33E87 /* IQTrendChartTests.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -629,6 +643,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AE62AA3C08E95DB228CACE7F /* Assets.xcassets in Resources */,
+				974CF05D769F4DA3B3B9C0DC /* IQTrendChartTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -689,6 +704,7 @@
 				0FDC01236CFD3443FA27A45C /* HistoryViewModel.swift in Sources */,
 				BB0A35ADCC8900F61FF3AA69 /* AIQApp.swift in Sources */,
 				A450BDE1AC3B5ED5396006B8 /* IQTrendChart.swift in Sources */,
+				507906F5A67940A095C3F1B1 /* ChartDomainCalculator.swift in Sources */,
 				0B164F8AC5D529748951EF6C /* InsightsCardView.swift in Sources */,
 				91429C7C16E238E0C072F0E3 /* KeychainStorage.swift in Sources */,
 				1AEF308D2EDA4EBF0080F75D /* DashboardCardComponents.swift in Sources */,
