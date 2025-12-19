@@ -178,7 +178,7 @@ These items were identified during PR review and deferred for future considerati
 **Original Comment:** "For measurement uncertainty, would `.linear` interpolation be more scientifically accurate? Smooth curves look better but may be less accurate scientifically."
 
 ### SEM-FI-005: Enhanced Chart Accessibility with Date Range
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #314 code review comment
 **Files:** `ios/AIQ/Views/History/IQTrendChart.swift`
 **Description:** Enhance the chart accessibility label to include the date range of test results, providing VoiceOver users with better temporal context.
