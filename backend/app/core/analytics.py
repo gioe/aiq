@@ -339,9 +339,9 @@ def build_response_matrix(
           requires all included sessions to have responses for all included
           questions (handled via filtering).
         - **LIMITATION**: When max_responses limit is reached, the matrix
-          will be built from only the most recent responses (ordered by
-          session ID). This may affect factor analysis accuracy for very
-          large datasets. Consider increasing the limit for comprehensive
+          will be built from only the earliest responses (ordered by
+          session ID ascending). This may affect factor analysis accuracy for
+          very large datasets. Consider increasing the limit for comprehensive
           analysis or running analysis on time-bounded subsets.
 
     Example:
@@ -370,8 +370,10 @@ def build_response_matrix(
     query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
 
     # Apply limit if specified (0 or None disables the limit)
+    # Use ascending order to maintain consistency with session_ids ordering
+    # (completed_sessions are ordered by TestSession.id ascending)
     if max_responses:
-        query = query.order_by(Response.test_session_id.desc()).limit(max_responses)
+        query = query.order_by(Response.test_session_id.asc()).limit(max_responses)
 
     responses = query.all()
 
