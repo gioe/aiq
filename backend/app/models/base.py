@@ -58,10 +58,20 @@ Base = declarative_base()
 def get_db() -> Generator:
     """
     Dependency function to get database session.
-    Yields a database session and closes it after use.
+
+    Yields a database session and ensures proper cleanup:
+    - On success: session is closed (letting SQLAlchemy handle commit/rollback)
+    - On exception: explicit rollback to ensure transaction cleanup, then re-raises
+
+    Note: Explicit rollback on exception prevents transactions from being left
+    in an inconsistent state, which can occur if relying solely on connection
+    closure for cleanup.
     """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
