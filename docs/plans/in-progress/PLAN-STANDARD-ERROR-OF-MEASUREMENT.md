@@ -185,11 +185,15 @@ These items were identified during PR review and deferred for future considerati
 **Original Comment:** "For users with many test results, consider including the date range in the accessibility label."
 
 ### SEM-FI-006: Add Unit Tests for Chart Domain Calculation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #314 code review comment
-**Files:** `ios/AIQTests/` (new test file)
+**Files:** `ios/AIQTests/Views/IQTrendChartTests.swift`, `ios/AIQ/Views/History/ChartDomainCalculator.swift`
 **Description:** Add unit tests for chart visualization logic including: `chartYDomain` calculation with mixed CI/non-CI data, `hasConfidenceIntervals` computed property, `sampledDataWithCI` filtering logic, and edge cases (all results have CI, no results have CI, empty history).
 **Original Comment:** "Consider adding unit tests for the chart domain calculation logic - while these are view computed properties, the domain calculation logic would benefit from unit tests."
+**Implementation Notes:**
+- Created `ChartDomainCalculator` enum to extract testable logic from `IQTrendChart` view
+- Added 23 unit tests covering domain calculation, CI detection, data filtering, and data sampling
+- Tests include edge cases: empty history, single result, mixed CI/non-CI data, boundary clamping
 
 ---
 
