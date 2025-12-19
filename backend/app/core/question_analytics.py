@@ -575,9 +575,15 @@ def _is_within_range(
     return expected_range[0] <= value <= expected_range[1]
 
 
+# Default batch size for processing questions in validate_difficulty_labels
+# 1000 is a reasonable balance between memory efficiency and query overhead
+DEFAULT_BATCH_SIZE = 1000
+
+
 def validate_difficulty_labels(
     db: Session,
     min_responses: int = 100,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> Dict[str, List[Dict]]:
     """
     Compare assigned difficulty labels against empirical p-values.
@@ -587,10 +593,15 @@ def validate_difficulty_labels(
     outside the expected range for their assigned label are considered
     miscalibrated.
 
+    Questions are processed in batches to maintain constant memory usage
+    regardless of the total question pool size.
+
     Args:
         db: Database session
         min_responses: Minimum responses required for reliable validation
                        (default: 100, per psychometric standards)
+        batch_size: Number of questions to process per batch (default: 1000).
+                    Lower values reduce memory usage but increase query overhead.
 
     Returns:
         Dictionary categorizing all active questions:
@@ -629,82 +640,108 @@ def validate_difficulty_labels(
         docs/psychometric-methodology/gaps/EMPIRICAL-ITEM-CALIBRATION.md
         IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
     """
-    # Get all active questions
-    questions = (
-        db.query(Question).filter(Question.is_active == True).all()  # noqa: E712
-    )
-
     results: Dict[str, List[Dict]] = {
         "miscalibrated": [],
         "correctly_calibrated": [],
         "insufficient_data": [],
     }
 
-    for question in questions:
-        response_count = question.response_count or 0
-        assigned_difficulty = question.difficulty_level.value.lower()
-        # Cast to Optional[float] for type checker - at runtime this is already float | None
-        empirical_diff: float | None = question.empirical_difficulty  # type: ignore[assignment]
+    # Process questions in batches to maintain constant memory usage
+    offset = 0
+    total_processed = 0
 
-        # Check if we have sufficient data for validation
-        if response_count < min_responses:
-            results["insufficient_data"].append(
-                {
-                    "question_id": question.id,
-                    "assigned_difficulty": assigned_difficulty,
-                    "empirical_difficulty": empirical_diff,
-                    "response_count": response_count,
-                }
-            )
-            continue
+    while True:
+        # Fetch one batch of questions, ordered by id for deterministic pagination
+        questions = (
+            db.query(Question)
+            .filter(Question.is_active == True)  # noqa: E712
+            .order_by(Question.id)
+            .offset(offset)
+            .limit(batch_size)
+            .all()
+        )
 
-        # Handle edge case: no empirical difficulty calculated yet
-        if empirical_diff is None:
-            results["insufficient_data"].append(
-                {
-                    "question_id": question.id,
-                    "assigned_difficulty": assigned_difficulty,
-                    "empirical_difficulty": None,
-                    "response_count": response_count,
-                }
-            )
-            continue
+        # Exit loop when no more questions
+        if not questions:
+            break
 
-        # Get expected range for assigned difficulty
-        expected_range = DIFFICULTY_RANGES.get(assigned_difficulty)
-        if expected_range is None:
-            logger.warning(
-                f"Unknown difficulty level '{assigned_difficulty}' for question {question.id}"
-            )
-            continue
+        batch_count = len(questions)
+        total_processed += batch_count
+        logger.debug(
+            f"Processing batch: offset={offset}, batch_size={batch_count}, "
+            f"total_processed={total_processed}"
+        )
 
-        # Check if empirical difficulty falls within expected range
-        if _is_within_range(empirical_diff, expected_range):
-            results["correctly_calibrated"].append(
-                {
-                    "question_id": question.id,
-                    "assigned_difficulty": assigned_difficulty,
-                    "empirical_difficulty": empirical_diff,
-                    "expected_range": list(expected_range),
-                    "response_count": response_count,
-                }
-            )
-        else:
-            # Miscalibrated - calculate severity and suggested label
-            severity = _calculate_calibration_severity(empirical_diff, expected_range)
-            suggested_label = _get_suggested_difficulty_label(empirical_diff)
+        for question in questions:
+            response_count = question.response_count or 0
+            assigned_difficulty = question.difficulty_level.value.lower()
+            # Cast to Optional[float] for type checker - at runtime this is already float | None
+            empirical_diff: float | None = question.empirical_difficulty  # type: ignore[assignment]
 
-            results["miscalibrated"].append(
-                {
-                    "question_id": question.id,
-                    "assigned_difficulty": assigned_difficulty,
-                    "empirical_difficulty": empirical_diff,
-                    "expected_range": list(expected_range),
-                    "suggested_label": suggested_label,
-                    "response_count": response_count,
-                    "severity": severity,
-                }
-            )
+            # Check if we have sufficient data for validation
+            if response_count < min_responses:
+                results["insufficient_data"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "response_count": response_count,
+                    }
+                )
+                continue
+
+            # Handle edge case: no empirical difficulty calculated yet
+            if empirical_diff is None:
+                results["insufficient_data"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": None,
+                        "response_count": response_count,
+                    }
+                )
+                continue
+
+            # Get expected range for assigned difficulty
+            expected_range = DIFFICULTY_RANGES.get(assigned_difficulty)
+            if expected_range is None:
+                logger.warning(
+                    f"Unknown difficulty level '{assigned_difficulty}' for question {question.id}"
+                )
+                continue
+
+            # Check if empirical difficulty falls within expected range
+            if _is_within_range(empirical_diff, expected_range):
+                results["correctly_calibrated"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "expected_range": list(expected_range),
+                        "response_count": response_count,
+                    }
+                )
+            else:
+                # Miscalibrated - calculate severity and suggested label
+                severity = _calculate_calibration_severity(
+                    empirical_diff, expected_range
+                )
+                suggested_label = _get_suggested_difficulty_label(empirical_diff)
+
+                results["miscalibrated"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "expected_range": list(expected_range),
+                        "suggested_label": suggested_label,
+                        "response_count": response_count,
+                        "severity": severity,
+                    }
+                )
+
+        # Move to next batch
+        offset += batch_size
 
     # Log summary
     logger.info(
