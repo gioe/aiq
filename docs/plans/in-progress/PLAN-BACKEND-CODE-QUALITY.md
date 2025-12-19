@@ -44,13 +44,13 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-003: Add Explicit Rollback in get_db() Dependency
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/models/base.py:58-67`
 **Description:** No explicit rollback on exceptions, relying on connection closure. Can leave transactions in inconsistent state. Add explicit rollback in except block.
 **Acceptance Criteria:**
-- [ ] `db.rollback()` called in except block before close
-- [ ] Exception is re-raised after rollback
-- [ ] Unit test verifies rollback on error
+- [x] `db.rollback()` called in except block before close
+- [x] Exception is re-raised after rollback
+- [x] Unit test verifies rollback on error
 
 ---
 
