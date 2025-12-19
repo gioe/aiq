@@ -37,6 +37,7 @@ from app.core.question_analytics import (
     auto_flag_problematic_questions,
     DIFFICULTY_RANGES,
     SEVERITY_ORDER,
+    DEFAULT_BATCH_SIZE,
     _get_suggested_difficulty_label,
     _calculate_calibration_severity,
     _is_within_range,
@@ -2383,3 +2384,216 @@ class TestUpdateQuestionStatisticsAutoFlag:
 
         # Should be rounded to 3 decimal places
         assert question_after.quality_flag_reason == "Negative discrimination: -0.123"
+
+
+# =============================================================================
+# BATCH PROCESSING TESTS (BCQ-001)
+# =============================================================================
+
+
+class TestValidateDifficultyLabelsBatchProcessing:
+    """Tests for batch processing in validate_difficulty_labels()."""
+
+    def test_default_batch_size_constant_exists(self):
+        """Verify the DEFAULT_BATCH_SIZE constant is properly defined."""
+        assert DEFAULT_BATCH_SIZE == 1000
+
+    def test_batch_processing_with_small_batch_size(self, db_session):
+        """Verify batch processing works with a batch size smaller than question count."""
+        # Create 5 questions - more than our test batch size of 2
+        for i in range(5):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                empirical_difficulty=0.80,
+                response_count=150,
+            )
+
+        # Use batch_size=2 to ensure multiple batches are processed
+        result = validate_difficulty_labels(db_session, min_responses=100, batch_size=2)
+
+        # All 5 questions should be processed and correctly categorized
+        assert len(result["correctly_calibrated"]) == 5
+        assert len(result["miscalibrated"]) == 0
+        assert len(result["insufficient_data"]) == 0
+
+    def test_batch_processing_with_batch_size_equal_to_count(self, db_session):
+        """Verify batch processing works when batch size equals question count."""
+        for i in range(3):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                empirical_difficulty=0.55,
+                response_count=120,
+            )
+
+        # Use batch_size equal to question count
+        result = validate_difficulty_labels(db_session, min_responses=100, batch_size=3)
+
+        assert len(result["correctly_calibrated"]) == 3
+
+    def test_batch_processing_with_batch_size_larger_than_count(self, db_session):
+        """Verify batch processing works when batch size exceeds question count."""
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.HARD,
+            empirical_difficulty=0.25,
+            response_count=100,
+        )
+
+        # Use batch_size larger than question count
+        result = validate_difficulty_labels(
+            db_session, min_responses=100, batch_size=1000
+        )
+
+        assert len(result["correctly_calibrated"]) == 1
+
+    def test_batch_processing_maintains_result_correctness(self, db_session):
+        """Verify batch processing produces identical results to processing all at once."""
+        # Create a mix of questions in different categories
+        # 2 correctly calibrated
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            empirical_difficulty=0.80,
+            response_count=150,
+        )
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.55,
+            response_count=150,
+        )
+        # 2 miscalibrated
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            empirical_difficulty=0.30,  # Should be hard
+            response_count=150,
+        )
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.HARD,
+            empirical_difficulty=0.85,  # Should be easy
+            response_count=150,
+        )
+        # 2 insufficient data
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            empirical_difficulty=0.80,
+            response_count=50,  # Below threshold
+        )
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=None,  # No data
+            response_count=0,
+        )
+
+        # Process with small batch size to force multiple batches
+        result = validate_difficulty_labels(db_session, min_responses=100, batch_size=2)
+
+        # Verify correct categorization
+        assert len(result["correctly_calibrated"]) == 2
+        assert len(result["miscalibrated"]) == 2
+        assert len(result["insufficient_data"]) == 2
+
+        # Verify miscalibrated questions have correct severity levels
+        severities = {q["severity"] for q in result["miscalibrated"]}
+        assert "severe" in severities  # 0.30 for easy and 0.85 for hard are severe
+
+    def test_batch_processing_with_batch_size_of_one(self, db_session):
+        """Verify batch processing works with batch_size=1 (extreme case)."""
+        for i in range(3):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                empirical_difficulty=0.75,
+                response_count=100,
+            )
+
+        result = validate_difficulty_labels(db_session, min_responses=100, batch_size=1)
+
+        assert len(result["correctly_calibrated"]) == 3
+
+    def test_batch_processing_empty_database(self, db_session):
+        """Verify batch processing handles empty database gracefully."""
+        result = validate_difficulty_labels(
+            db_session, min_responses=100, batch_size=10
+        )
+
+        assert len(result["correctly_calibrated"]) == 0
+        assert len(result["miscalibrated"]) == 0
+        assert len(result["insufficient_data"]) == 0
+
+    def test_batch_processing_excludes_inactive_questions(self, db_session):
+        """Verify inactive questions are excluded across all batches."""
+        # Create 3 active questions
+        for i in range(3):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                empirical_difficulty=0.80,
+                response_count=150,
+                is_active=True,
+            )
+
+        # Create 2 inactive questions
+        for i in range(2):
+            create_test_question(
+                db_session,
+                difficulty_level=DifficultyLevel.EASY,
+                empirical_difficulty=0.80,
+                response_count=150,
+                is_active=False,
+            )
+
+        # Process with batch size of 2 to force multiple batches
+        result = validate_difficulty_labels(db_session, min_responses=100, batch_size=2)
+
+        # Only 3 active questions should be processed
+        total_processed = (
+            len(result["correctly_calibrated"])
+            + len(result["miscalibrated"])
+            + len(result["insufficient_data"])
+        )
+        assert total_processed == 3
+
+    def test_batch_processing_deterministic_ordering(self, db_session):
+        """Verify batch processing produces deterministic results (ordered by id)."""
+        # Create questions with different difficulty levels
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.EASY,
+            empirical_difficulty=0.80,
+            response_count=150,
+        )
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            empirical_difficulty=0.55,
+            response_count=150,
+        )
+        create_test_question(
+            db_session,
+            difficulty_level=DifficultyLevel.HARD,
+            empirical_difficulty=0.25,
+            response_count=150,
+        )
+
+        # Run twice with same batch size
+        result1 = validate_difficulty_labels(
+            db_session, min_responses=100, batch_size=2
+        )
+        result2 = validate_difficulty_labels(
+            db_session, min_responses=100, batch_size=2
+        )
+
+        # Results should be identical
+        ids1 = [q["question_id"] for q in result1["correctly_calibrated"]]
+        ids2 = [q["question_id"] for q in result2["correctly_calibrated"]]
+        assert ids1 == ids2
+
+        # And should be in id order
+        assert ids1 == sorted(ids1)
