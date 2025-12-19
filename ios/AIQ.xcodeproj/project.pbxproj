@@ -57,6 +57,7 @@
 		6738DF0A64349DA00F6F19AB /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 498BBF70632DA9D81653E606 /* DesignSystem.swift */; };
 		6A8E2C9A29244DF090FF95E4 /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434B6F6E612E8135BEB9EF58 /* Validators.swift */; };
 		6ACE6887E7912C56422B641D /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4920AEE7896263EFC006D52E /* NotificationSettingsView.swift */; };
+		SEMFI001HELPVIEW001 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SEMFI001HELPVIEW002 /* HelpView.swift */; };
 		6DF5EFD0C18FAE3A2ABE79D7 /* TokenRefreshInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64FE278A925F2286ADD61B2 /* TokenRefreshInterceptor.swift */; };
 		6E1EB0DAAF8F6606D18C1BCE /* ErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67CEB2DCF7782567F9CBF677 /* ErrorBanner.swift */; };
 		717530B196F1E5ACA7BCFA6F /* TestTakingViewModel+MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F1EB27503C7AD5786387369 /* TestTakingViewModel+MockData.swift */; };
@@ -157,6 +158,7 @@
 		473678EF6D55B9C2E25ED72D /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		48800FF67D75A5E99360F823 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		4920AEE7896263EFC006D52E /* NotificationSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		SEMFI001HELPVIEW002 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		498BBF70632DA9D81653E606 /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		4E9D80DD93370014E289266F /* RegistrationViewModelValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelValidationTests.swift; sourceTree = "<group>"; };
 		511F20E653108CE007281485 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -357,8 +359,9 @@
 		296868952E4F61472E69DE01 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				6FFC21540454C65F37BF4D00 /* SettingsView.swift */,
+				SEMFI001HELPVIEW002 /* HelpView.swift */,
 				4920AEE7896263EFC006D52E /* NotificationSettingsView.swift */,
+				6FFC21540454C65F37BF4D00 /* SettingsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -734,6 +737,7 @@
 				A456DCF6620AFC49DC1594E7 /* WelcomeView.swift in Sources */,
 				F7480280BCE683D14926BD93 /* NotificationSettingsViewModel.swift in Sources */,
 				6ACE6887E7912C56422B641D /* NotificationSettingsView.swift in Sources */,
+				SEMFI001HELPVIEW001 /* HelpView.swift in Sources */,
 				03D4E0477F6CAD3F7DBCAA47 /* NotificationManager.swift in Sources */,
 				A6FE5141F061D18080388EBF /* ColorPalette.swift in Sources */,
 				6738DF0A64349DA00F6F19AB /* DesignSystem.swift in Sources */,
