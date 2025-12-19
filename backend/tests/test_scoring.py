@@ -2071,7 +2071,7 @@ class TestConfidenceIntervalSchema:
             (60, 140),  # Wide interval
         ],
     )
-    def test_various_valid_bound_combinations(self, lower, upper):
+    def test_parametrized_valid_bounds(self, lower, upper):
         """Test various valid combinations of lower and upper bounds."""
         from app.schemas.responses import ConfidenceIntervalSchema
 
@@ -2097,7 +2097,7 @@ class TestConfidenceIntervalSchema:
             (160, 160, False),  # Maximum valid with equal bounds
         ],
     )
-    def test_boundary_validation_combinations(self, lower, upper, should_raise):
+    def test_parametrized_boundary_validation(self, lower, upper, should_raise):
         """Test boundary validation with parametrized combinations."""
         from pydantic import ValidationError
         from app.schemas.responses import ConfidenceIntervalSchema

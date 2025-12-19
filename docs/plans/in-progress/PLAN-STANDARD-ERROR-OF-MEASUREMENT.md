@@ -162,7 +162,7 @@ These items were identified during PR review and deferred for future considerati
 **Original Comment:** "Lines 2104-2127 are redundant with the existing boundary tests. The Pydantic validators work identically whether the value is 39 or 0, 161 or 200. These could be removed without loss of coverage."
 
 ### SEM-FI-003: Improve Parametrized Test Naming
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #310 code review comment
 **Files:** `backend/tests/test_scoring.py`
 **Description:** Consider renaming parametrized tests for clarity:
