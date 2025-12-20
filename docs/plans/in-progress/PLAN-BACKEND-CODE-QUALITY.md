@@ -129,15 +129,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-010: Consolidate Token Validation Logic
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/auth.py:16-131`
 **Description:** `get_current_user` and `get_current_user_from_refresh_token` contain nearly identical token decoding logic. Extract common helper.
 **Acceptance Criteria:**
-- [ ] New `_decode_and_validate_token(token, expected_type)` helper created
-- [ ] Both functions use the helper
-- [ ] Reduced lines of code (target: 30% reduction)
-- [ ] All auth tests pass
-- [ ] No change in API behavior
+- [x] New `_decode_and_validate_token(token, expected_type)` helper created
+- [x] Both functions use the helper
+- [x] Reduced lines of code (target: 30% reduction)
+- [x] All auth tests pass
+- [x] No change in API behavior
 
 ---
 
