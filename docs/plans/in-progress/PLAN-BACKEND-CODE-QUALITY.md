@@ -762,3 +762,40 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 - [ ] Document the intentional dual-check pattern (if keeping both)
 - [ ] OR consolidate to single error path if redundant
 - [ ] Ensure error messages are consistent and helpful
+
+---
+
+### BCQ-046: Add handle_db_error Usage Example to CLAUDE.md
+**Status:** [ ] Not Started
+**Source:** PR #335 comment
+**Files:** `CLAUDE.md`
+**Description:** Document the `handle_db_error` pattern in CLAUDE.md for future contributors since it's a project-wide pattern for database error handling.
+**Original Comment:** "Since this is a project-wide pattern, consider adding a section to CLAUDE.md documenting the usage of `handle_db_error` context manager."
+**Acceptance Criteria:**
+- [ ] Add "Database Error Handling" section to CLAUDE.md
+- [ ] Include usage example with context manager
+- [ ] Document configurable options (status_code, detail_template, log_level)
+
+---
+
+### BCQ-047: Document Return-Inside-Context-Manager Pattern
+**Status:** [ ] Not Started
+**Source:** PR #335 comment
+**Files:** `backend/app/core/db_error_handling.py`
+**Description:** Add documentation clarifying that returning response inside the context manager is intentional (catches response construction failures too).
+**Original Comment:** "Is this the intended pattern, or should returns happen outside the context manager? Pro (current approach): Response construction failures also get caught and logged. Con: Response construction failures trigger database rollback (which may be unnecessary)."
+**Acceptance Criteria:**
+- [ ] Add code comment or docstring clarifying the pattern is intentional
+- [ ] Document trade-offs in the docstring
+
+---
+
+### BCQ-048: Document Async Session Compatibility
+**Status:** [ ] Not Started
+**Source:** PR #335 comment
+**Files:** `backend/app/core/db_error_handling.py`
+**Description:** Document that the decorator's isinstance check may not work with SQLAlchemy async sessions.
+**Original Comment:** "The decorator's isinstance check could potentially fail with SQLAlchemy async sessions. Consider: Checking for Session base class, Using Protocol/ABC if supporting async sessions in future, Documenting that only sync sessions are supported."
+**Acceptance Criteria:**
+- [ ] Add note in docstring about sync-only session support
+- [ ] Consider Protocol-based check for future async support
