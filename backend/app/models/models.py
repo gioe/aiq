@@ -417,7 +417,7 @@ class TestResult(Base):
     # Cheating detection / validity analysis (CD-001)
     # These fields store results of validity checks performed after test submission
     validity_status = Column(
-        String(20), default="valid", nullable=False
+        String(20), default="valid", nullable=False, index=True
     )  # Overall validity: "valid", "suspect", or "invalid"
     # Determined by combining person-fit, Guttman error, and response time analyses
     # "valid" = no significant concerns

@@ -106,14 +106,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-008: Add Index on test_results.validity_status
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/models/models.py:419-426`, `backend/alembic/versions/`
 **Description:** `validity_status` field frequently queried in admin endpoints but lacks index. Add index to improve query performance.
 **Acceptance Criteria:**
-- [ ] `index=True` added to validity_status column definition
-- [ ] Alembic migration created with `op.create_index()`
-- [ ] Migration applies without error
-- [ ] Query plan shows index usage
+- [x] `index=True` added to validity_status column definition
+- [x] Alembic migration created with `op.create_index()`
+- [x] Migration applies without error
+- [x] Query plan shows index usage
 
 ---
 
