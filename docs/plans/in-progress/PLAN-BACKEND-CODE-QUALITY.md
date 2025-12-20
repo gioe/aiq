@@ -179,14 +179,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-014: Refactor Duplicate Token Creation Functions
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/security.py:41-96`
 **Description:** `create_access_token` and `create_refresh_token` have identical logic except for token type. Extract internal function.
 **Acceptance Criteria:**
-- [ ] New `_create_token(data, token_type, expires_delta, default_expires)` internal
-- [ ] Public functions become thin wrappers
-- [ ] All token tests pass
-- [ ] No change in token behavior
+- [x] New `_create_token(data, token_type, expires_delta, default_expires)` internal
+- [x] Public functions become thin wrappers
+- [x] All token tests pass
+- [x] No change in token behavior
 
 ---
 
