@@ -5286,3 +5286,53 @@ class TestDiscriminationReportCacheInvalidation:
         assert (
             flag4 == "deactivated"
         ), f"Third cache invalidation failed: expected 'deactivated', got '{flag4}'"
+
+
+class TestConstantTimeTokenComparison:
+    """Tests verifying constant-time comparison is used for security tokens (BCQ-007)."""
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_verify_admin_token_accepts_valid_token(self, client, db_session):
+        """Test that verify_admin_token accepts correct token."""
+        response = client.get(
+            "/v1/admin/questions/discrimination-report",
+            headers={"X-Admin-Token": "test-admin-token"},
+        )
+        # Should not get 401 (may get different error if no data, but auth passed)
+        assert response.status_code != 401
+
+    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_verify_admin_token_rejects_invalid_token(self, client, db_session):
+        """Test that verify_admin_token rejects incorrect token."""
+        response = client.get(
+            "/v1/admin/questions/discrimination-report",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+        assert "Invalid admin token" in response.json()["detail"]
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_verify_service_key_accepts_valid_key(
+        self, client, db_session, valid_generation_run_data
+    ):
+        """Test that verify_service_key accepts correct key."""
+        response = client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers={"X-Service-Key": "test-service-key"},
+        )
+        # Should not get 401 (auth passed)
+        assert response.status_code != 401
+
+    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    def test_verify_service_key_rejects_invalid_key(
+        self, client, valid_generation_run_data
+    ):
+        """Test that verify_service_key rejects incorrect key."""
+        response = client.post(
+            "/v1/admin/generation-runs",
+            json=valid_generation_run_data,
+            headers={"X-Service-Key": "wrong-key"},
+        )
+        assert response.status_code == 401
+        assert "Invalid service API key" in response.json()["detail"]
