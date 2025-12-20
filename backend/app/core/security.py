@@ -38,6 +38,32 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def _create_token(
+    data: Dict[str, Any],
+    token_type: str,
+    expires_delta: Optional[timedelta],
+    default_expires: timedelta,
+) -> str:
+    """
+    Internal helper to create a JWT token.
+
+    Args:
+        data: Dictionary of data to encode in the token
+        token_type: Type of token ("access" or "refresh")
+        expires_delta: Optional custom expiration time delta
+        default_expires: Default expiration delta if expires_delta is None
+
+    Returns:
+        Encoded JWT token string
+    """
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or default_expires)
+    to_encode.update({"exp": expire, "type": token_type})
+    return jwt.encode(
+        to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
+
+
 def create_access_token(
     data: Dict[str, Any], expires_delta: Optional[timedelta] = None
 ) -> str:
@@ -51,20 +77,12 @@ def create_access_token(
     Returns:
         Encoded JWT token string
     """
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    return _create_token(
+        data=data,
+        token_type="access",
+        expires_delta=expires_delta,
+        default_expires=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return encoded_jwt
 
 
 def create_refresh_token(
@@ -80,20 +98,12 @@ def create_refresh_token(
     Returns:
         Encoded JWT refresh token string
     """
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-        )
-
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    return _create_token(
+        data=data,
+        token_type="refresh",
+        expires_delta=expires_delta,
+        default_expires=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
-    return encoded_jwt
 
 
 def decode_token(token: str) -> Optional[Dict[str, Any]]:
