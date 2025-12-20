@@ -167,6 +167,31 @@ def verify_session_in_progress(test_session: TestSession) -> None:
         )
 
 
+def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
+    """
+    Fetch a test session by ID or raise 404 if not found.
+
+    This helper centralizes the common pattern of fetching a test session
+    and raising HTTPException with 404 status if the session doesn't exist.
+
+    Args:
+        db: Database session
+        session_id: Test session ID to fetch
+
+    Returns:
+        TestSession if found
+
+    Raises:
+        HTTPException: 404 if test session not found
+    """
+    test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
+
+    if not test_session:
+        raise HTTPException(status_code=404, detail="Test session not found")
+
+    return test_session
+
+
 def build_test_result_response(
     test_result,
     db: Optional[Session] = None,
@@ -425,10 +450,7 @@ def get_test_session(
     Raises:
         HTTPException: If session not found or doesn't belong to user
     """
-    test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
-
-    if not test_session:
-        raise HTTPException(status_code=404, detail="Test session not found")
+    test_session = get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, int(current_user.id))  # type: ignore
@@ -516,11 +538,7 @@ def abandon_test(
     Raises:
         HTTPException: If session not found, not authorized, or already completed
     """
-    # Fetch the test session
-    test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
-
-    if not test_session:
-        raise HTTPException(status_code=404, detail="Test session not found")
+    test_session = get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, int(current_user.id))  # type: ignore
@@ -578,13 +596,7 @@ def submit_test(
     """
     from app.models.models import Response
 
-    # Fetch the test session
-    test_session = (
-        db.query(TestSession).filter(TestSession.id == submission.session_id).first()
-    )
-
-    if not test_session:
-        raise HTTPException(status_code=404, detail="Test session not found")
+    test_session = get_test_session_or_404(db, submission.session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, int(current_user.id))  # type: ignore
