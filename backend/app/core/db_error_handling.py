@@ -49,6 +49,20 @@ class DatabaseOperationError(Exception):
     the operation that failed. It can be caught and converted to an
     appropriate HTTP response.
 
+    Note:
+        This exception is provided for use in non-HTTP contexts (background
+        tasks, CLI commands, internal services) where HTTPException is not
+        appropriate. The `handle_db_error` context manager uses HTTPException
+        directly for FastAPI endpoint usage.
+
+    Usage Example:
+        >>> try:
+        ...     user = db.query(User).filter(User.id == user_id).first()
+        ...     if not user:
+        ...         raise DatabaseOperationError("find user", ValueError("User not found"))
+        ... except DatabaseOperationError as e:
+        ...     logger.error(f"Operation failed: {e.operation_name}")
+
     Attributes:
         operation_name: Human-readable name of the operation that failed
         original_error: The underlying exception that caused the failure
@@ -130,12 +144,30 @@ def handle_db_error(
     """
     try:
         yield
-    except HTTPException:
+    except HTTPException as e:
         if reraise_http_exceptions:
             raise
-        # If not reraising, continue to handle as a regular exception
+        # When not reraising, treat HTTPException like any other error:
+        # rollback, log, and wrap in new HTTPException with configured status
         db.rollback()
-        raise
+
+        # Format error detail using the original exception's detail
+        if detail_template:
+            detail = detail_template.format(
+                operation_name=operation_name, error=e.detail
+            )
+        else:
+            detail = f"Failed to {operation_name}: {e.detail}"
+
+        # Log with context
+        logger.log(
+            log_level,
+            f"Database error during {operation_name}: {e.detail}",
+            exc_info=True,
+        )
+
+        # Raise new HTTPException with configured status code
+        raise HTTPException(status_code=status_code, detail=detail)
     except (SQLAlchemyError, Exception) as e:
         db.rollback()
 

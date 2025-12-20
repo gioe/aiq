@@ -115,16 +115,43 @@ class TestHandleDbErrorContextManager:
         assert exc_info.value.detail == "Not found"
 
     def test_http_exception_not_reraised_when_disabled(self):
-        """Test HTTPException handling when reraise_http_exceptions is False."""
+        """Test HTTPException handling when reraise_http_exceptions is False.
+
+        When reraise_http_exceptions=False, the original HTTPException should be
+        caught, rolled back, and wrapped in a NEW HTTPException with the configured
+        status code (defaulting to 500).
+        """
         db = MagicMock()
 
         with pytest.raises(HTTPException) as exc_info:
             with handle_db_error(db, "test operation", reraise_http_exceptions=False):
                 raise HTTPException(status_code=404, detail="Not found")
 
-        # When reraise is disabled, it should still raise but with rollback
+        # When reraise is disabled:
+        # 1. Rollback should happen
         db.rollback.assert_called_once()
-        assert exc_info.value.status_code == 404
+        # 2. Status code should be overridden to default 500
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        # 3. Detail should be wrapped with operation name
+        assert "Failed to test operation" in exc_info.value.detail
+
+    def test_http_exception_status_override_when_disabled(self):
+        """Test that HTTPException status code is overridden when reraise is disabled."""
+        db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            with handle_db_error(
+                db,
+                "test operation",
+                reraise_http_exceptions=False,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            ):
+                raise HTTPException(status_code=404, detail="Original error")
+
+        db.rollback.assert_called_once()
+        # Status code should be the configured one, not the original
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "Failed to test operation" in exc_info.value.detail
 
     def test_custom_status_code(self):
         """Test custom HTTP status code."""
