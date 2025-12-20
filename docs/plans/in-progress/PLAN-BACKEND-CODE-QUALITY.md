@@ -94,14 +94,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-007: Use Constant-Time Comparison for Admin Token
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/admin.py:176-201`
 **Description:** Plain string comparison for admin token is vulnerable to timing attacks. Use `secrets.compare_digest()`.
 **Acceptance Criteria:**
-- [ ] Import `secrets` module
-- [ ] Replace `==` with `secrets.compare_digest()`
-- [ ] Same change applied to `verify_service_key()`
-- [ ] Unit test verifies comparison works correctly
+- [x] Import `secrets` module
+- [x] Replace `==` with `secrets.compare_digest()`
+- [x] Same change applied to `verify_service_key()`
+- [x] Unit test verifies comparison works correctly
 
 ---
 
