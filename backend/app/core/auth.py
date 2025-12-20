@@ -1,7 +1,7 @@
 """
 FastAPI authentication dependencies.
 """
-from typing import Optional
+from typing import Literal
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -12,13 +12,95 @@ from .security import decode_token, verify_token_type
 # HTTP Bearer token scheme
 security = HTTPBearer()
 
+# Token types
+TokenType = Literal["access", "refresh"]
+
+
+def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
+    """
+    Decode and validate a JWT token, returning the user_id.
+
+    Args:
+        token: The JWT token string
+        expected_type: Expected token type ("access" or "refresh")
+
+    Returns:
+        The user_id from the token payload
+
+    Raises:
+        HTTPException: 401 if token is invalid, wrong type, or missing user_id
+    """
+    # Error messages based on token type
+    invalid_token_msg = (
+        "Invalid authentication token"
+        if expected_type == "access"
+        else "Invalid refresh token"
+    )
+    invalid_type_msg = (
+        "Invalid token type"
+        if expected_type == "access"
+        else "Invalid token type, expected refresh token"
+    )
+
+    # Decode and verify token
+    payload = decode_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=invalid_token_msg,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify token type
+    if not verify_token_type(payload, expected_type):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=invalid_type_msg,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Extract user_id from payload
+    user_id = payload.get("user_id")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user_id
+
+
+def _get_user_or_401(db: Session, user_id: int) -> User:
+    """
+    Get a user by ID or raise 401 Unauthorized.
+
+    Args:
+        db: Database session
+        user_id: User ID to look up
+
+    Returns:
+        User object
+
+    Raises:
+        HTTPException: 401 if user not found
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
     """
-    FastAPI dependency to get the current authenticated user from JWT token.
+    Get the current authenticated user from JWT token.
 
     Args:
         credentials: HTTP Bearer token credentials from request header
@@ -30,45 +112,8 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    # Extract token from credentials
-    token = credentials.credentials
-
-    # Decode and verify token
-    payload = decode_token(token)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Verify token type is "access"
-    if not verify_token_type(payload, "access"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Extract user_id from payload
-    user_id: Optional[int] = payload.get("user_id")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Get user from database
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
+    user_id = _decode_and_validate_token(credentials.credentials, "access")
+    return _get_user_or_401(db, user_id)
 
 
 async def get_current_user_from_refresh_token(
@@ -76,7 +121,7 @@ async def get_current_user_from_refresh_token(
     db: Session = Depends(get_db),
 ) -> User:
     """
-    FastAPI dependency to get the current user from a refresh token.
+    Get the current user from a refresh token.
 
     This is used for the token refresh endpoint.
 
@@ -90,42 +135,5 @@ async def get_current_user_from_refresh_token(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    # Extract token from credentials
-    token = credentials.credentials
-
-    # Decode and verify token
-    payload = decode_token(token)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Verify token type is "refresh"
-    if not verify_token_type(payload, "refresh"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type, expected refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Extract user_id from payload
-    user_id: Optional[int] = payload.get("user_id")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Get user from database
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
+    user_id = _decode_and_validate_token(credentials.credentials, "refresh")
+    return _get_user_or_401(db, user_id)
