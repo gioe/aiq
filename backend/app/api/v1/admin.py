@@ -2,6 +2,7 @@
 Admin operations endpoints.
 """
 import logging
+import secrets
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -192,7 +193,7 @@ async def verify_admin_token(x_admin_token: str = Header(...)) -> bool:
             detail="Admin token not configured on server",
         )
 
-    if x_admin_token != settings.ADMIN_TOKEN:
+    if not secrets.compare_digest(x_admin_token, settings.ADMIN_TOKEN):
         raise HTTPException(
             status_code=401,
             detail="Invalid admin token",
@@ -224,7 +225,7 @@ async def verify_service_key(x_service_key: str = Header(...)) -> bool:
             detail="Service API key not configured on server",
         )
 
-    if x_service_key != settings.SERVICE_API_KEY:
+    if not secrets.compare_digest(x_service_key, settings.SERVICE_API_KEY):
         raise HTTPException(
             status_code=401,
             detail="Invalid service API key",
