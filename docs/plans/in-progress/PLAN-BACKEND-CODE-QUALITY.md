@@ -82,14 +82,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-006: Fix Race Condition in Test Session Creation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py:279-294`, `backend/app/models/models.py`
 **Description:** Check for active session and create new session is not atomic. Race condition if user triggers multiple test starts simultaneously. Use database-level constraint.
 **Acceptance Criteria:**
-- [ ] Partial unique index on `test_sessions` for (user_id, status='in_progress')
-- [ ] Migration created for index
-- [ ] IntegrityError caught and converted to meaningful HTTPException
-- [ ] Concurrent test verifies race condition prevented
+- [x] Partial unique index on `test_sessions` for (user_id, status='in_progress')
+- [x] Migration created for index
+- [x] IntegrityError caught and converted to meaningful HTTPException
+- [x] Concurrent test verifies race condition prevented
 
 ---
 
