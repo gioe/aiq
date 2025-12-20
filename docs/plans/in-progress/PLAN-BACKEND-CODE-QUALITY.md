@@ -154,14 +154,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-012: Consolidate Token Creation Pattern
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/auth.py:69-71, 123-125, 165-167`
 **Description:** All three locations create token_data dict identically then call both token creation functions. Extract helper.
 **Acceptance Criteria:**
-- [ ] New `_create_auth_tokens(user)` helper returns both tokens
-- [ ] Helper used in register, login, and refresh endpoints
-- [ ] Token structure unchanged
-- [ ] All auth tests pass
+- [x] New `_create_auth_tokens(user)` helper returns both tokens
+- [x] Helper used in register, login, and refresh endpoints
+- [x] Token structure unchanged
+- [x] All auth tests pass
 
 ---
 
