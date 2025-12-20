@@ -69,15 +69,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-005: Add Database Error Handling in Auth Endpoints
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/auth.py:58-61`
 **Description:** Database operations in registration/login lack try-except for SQLAlchemy errors. Wrap in try-except with rollback.
 **Acceptance Criteria:**
-- [ ] try-except wraps db.add/commit/refresh in register
-- [ ] try-except wraps db operations in login
-- [ ] Rollback called on SQLAlchemyError
-- [ ] User-friendly error message returned (not raw exception)
-- [ ] Exception logged with context
+- [x] try-except wraps db.add/commit/refresh in register
+- [x] try-except wraps db operations in login
+- [x] Rollback called on SQLAlchemyError
+- [x] User-friendly error message returned (not raw exception)
+- [x] Exception logged with context
 
 ---
 

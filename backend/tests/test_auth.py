@@ -1,6 +1,9 @@
 """
 Tests for authentication endpoints.
 """
+from unittest.mock import patch
+
+from sqlalchemy.exc import SQLAlchemyError
 
 
 class TestRegisterUser:
@@ -468,3 +471,117 @@ class TestAuthenticationFlow:
 
         assert profile1.status_code == 200
         assert profile2.status_code == 200
+
+
+class TestDatabaseErrorHandling:
+    """Tests for database error handling in auth endpoints."""
+
+    def test_register_database_error_returns_500(self, client):
+        """Test that database errors during registration return 500."""
+        user_data = {
+            "email": "dberror@example.com",
+            "password": "securepassword123",
+            "first_name": "Database",
+            "last_name": "Error",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            mock_commit.side_effect = SQLAlchemyError("Database connection lost")
+            response = client.post("/v1/auth/register", json=user_data)
+
+            assert response.status_code == 500
+            data = response.json()
+            assert "Failed to create user account" in data["detail"]
+            assert "Please try again later" in data["detail"]
+            # Verify error message is user-friendly (no raw exception details)
+            assert "Database connection lost" not in data["detail"]
+
+    def test_login_database_error_returns_500(self, client, test_user):
+        """Test that database errors during login timestamp update return 500."""
+        credentials = {
+            "email": "test@example.com",
+            "password": "testpassword123",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            mock_commit.side_effect = SQLAlchemyError("Database write failed")
+            response = client.post("/v1/auth/login", json=credentials)
+
+            assert response.status_code == 500
+            data = response.json()
+            assert "Login failed" in data["detail"]
+            assert "server error" in data["detail"]
+            # Verify error message is user-friendly (no raw exception details)
+            assert "Database write failed" not in data["detail"]
+
+    def test_register_database_error_triggers_rollback(self, client, db_session):
+        """Test that database errors during registration trigger rollback."""
+        user_data = {
+            "email": "rollbacktest@example.com",
+            "password": "securepassword123",
+            "first_name": "Rollback",
+            "last_name": "Test",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            with patch("app.api.v1.auth.Session.rollback") as mock_rollback:
+                mock_commit.side_effect = SQLAlchemyError("Commit failed")
+                response = client.post("/v1/auth/register", json=user_data)
+
+                assert response.status_code == 500
+                # Verify rollback was called
+                mock_rollback.assert_called_once()
+
+    def test_login_database_error_triggers_rollback(self, client, test_user):
+        """Test that database errors during login trigger rollback."""
+        credentials = {
+            "email": "test@example.com",
+            "password": "testpassword123",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            with patch("app.api.v1.auth.Session.rollback") as mock_rollback:
+                mock_commit.side_effect = SQLAlchemyError("Commit failed")
+                response = client.post("/v1/auth/login", json=credentials)
+
+                assert response.status_code == 500
+                # Verify rollback was called
+                mock_rollback.assert_called_once()
+
+    def test_register_database_error_logs_error(self, client):
+        """Test that database errors during registration are logged."""
+        user_data = {
+            "email": "logtest@example.com",
+            "password": "securepassword123",
+            "first_name": "Log",
+            "last_name": "Test",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            with patch("app.api.v1.auth.logger") as mock_logger:
+                mock_commit.side_effect = SQLAlchemyError("Database timeout")
+                response = client.post("/v1/auth/register", json=user_data)
+
+                assert response.status_code == 500
+                # Verify error was logged
+                mock_logger.error.assert_called_once()
+                log_call_args = str(mock_logger.error.call_args)
+                assert "Database error during user registration" in log_call_args
+
+    def test_login_database_error_logs_error(self, client, test_user):
+        """Test that database errors during login are logged."""
+        credentials = {
+            "email": "test@example.com",
+            "password": "testpassword123",
+        }
+
+        with patch("app.api.v1.auth.Session.commit") as mock_commit:
+            with patch("app.api.v1.auth.logger") as mock_logger:
+                mock_commit.side_effect = SQLAlchemyError("Database timeout")
+                response = client.post("/v1/auth/login", json=credentials)
+
+                assert response.status_code == 500
+                # Verify error was logged
+                mock_logger.error.assert_called_once()
+                log_call_args = str(mock_logger.error.call_args)
+                assert "Database error during login" in log_call_args

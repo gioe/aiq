@@ -1,9 +1,12 @@
 """
 Authentication endpoints for user registration and login.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+import logging
 from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.models import get_db, User
 from app.schemas.auth import UserRegister, UserLogin, Token, TokenRefresh
@@ -15,6 +18,8 @@ from app.core.security import (
 )
 from app.core.auth import get_current_user, get_current_user_from_refresh_token
 from app.core.analytics import AnalyticsTracker
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -55,9 +60,17 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         region=user_data.region,
     )
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error during user registration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user account. Please try again later.",
+        )
 
     # Track analytics event
     AnalyticsTracker.track_user_registered(
@@ -110,8 +123,18 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
 
     # Update last login timestamp
     user.last_login_at = datetime.now(timezone.utc)  # type: ignore
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(
+            f"Database error during login timestamp update for user {user.id}: {e}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed due to a server error. Please try again later.",
+        )
 
     # Track analytics event
     AnalyticsTracker.track_user_login(
