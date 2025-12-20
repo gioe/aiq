@@ -118,13 +118,13 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-009: Add Index on responses.question_id
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/models/models.py:353-354`, `backend/alembic/versions/`
 **Description:** `question_id` frequently used in queries but lacks index annotation.
 **Acceptance Criteria:**
-- [ ] `index=True` added to question_id column definition
-- [ ] Combined with BCQ-008 migration if created together
-- [ ] Query plan shows index usage for response queries
+- [x] `index=True` added to question_id column definition
+- [x] Combined with BCQ-008 migration if created together
+- [x] Query plan shows index usage for response queries
 
 ---
 
