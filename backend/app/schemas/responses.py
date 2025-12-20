@@ -150,3 +150,39 @@ class SubmitTestResponse(BaseModel):
     result: TestResultResponse = Field(..., description="Test result with IQ score")
     responses_count: int = Field(..., description="Number of responses submitted")
     message: str = Field(..., description="Confirmation message")
+
+
+# =============================================================================
+# Pagination Constants (BCQ-004)
+# =============================================================================
+
+# Default number of results per page for test history
+DEFAULT_HISTORY_PAGE_SIZE = 50
+
+# Maximum allowed results per page to prevent excessive memory usage
+MAX_HISTORY_PAGE_SIZE = 100
+
+
+class PaginatedTestHistoryResponse(BaseModel):
+    """
+    Schema for paginated test history results.
+
+    Includes pagination metadata to support UI pagination controls.
+    """
+
+    results: List[TestResultResponse] = Field(
+        ..., description="List of test results for the current page"
+    )
+    total_count: int = Field(
+        ..., ge=0, description="Total number of test results available for this user"
+    )
+    limit: int = Field(
+        ...,
+        ge=1,
+        le=MAX_HISTORY_PAGE_SIZE,
+        description=f"Number of results per page (max {MAX_HISTORY_PAGE_SIZE})",
+    )
+    offset: int = Field(..., ge=0, description="Offset from the start of the results")
+    has_more: bool = Field(
+        ..., description="Whether there are more results beyond this page"
+    )

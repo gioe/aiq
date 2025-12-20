@@ -136,6 +136,20 @@ actor MockAPIClient: APIClientProtocol {
         endpointResponses[endpoint.path] = response
     }
 
+    /// Set test history response, automatically wrapping in paginated format (BCQ-004)
+    /// - Parameter results: Array of test results to return
+    /// - Note: The backend now returns `PaginatedTestHistoryResponse` instead of `[TestResult]`
+    func setTestHistoryResponse(_ results: [TestResult]) {
+        let paginatedResponse = PaginatedTestHistoryResponse(
+            results: results,
+            totalCount: results.count,
+            limit: 50,
+            offset: 0,
+            hasMore: false
+        )
+        endpointResponses[APIEndpoint.testHistory.path] = paginatedResponse
+    }
+
     /// Set error for a specific endpoint
     /// - Parameters:
     ///   - error: The error to throw for this endpoint

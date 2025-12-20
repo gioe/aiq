@@ -291,8 +291,8 @@ final class APIClientIntegrationTests: XCTestCase {
         sut.setAuthToken("valid-token")
         mockTestHistoryResponse()
 
-        // When
-        let history: [TestResult] = try await sut.request(
+        // When - API now returns paginated response (BCQ-004)
+        let paginatedResponse: PaginatedTestHistoryResponse = try await sut.request(
             endpoint: .testHistory,
             method: .get,
             body: nil as String?,
@@ -300,9 +300,13 @@ final class APIClientIntegrationTests: XCTestCase {
         )
 
         // Then
-        XCTAssertEqual(history.count, 2)
-        XCTAssertEqual(history[0].iqScore, 120)
-        XCTAssertEqual(history[1].iqScore, 118)
+        XCTAssertEqual(paginatedResponse.results.count, 2)
+        XCTAssertEqual(paginatedResponse.results[0].iqScore, 120)
+        XCTAssertEqual(paginatedResponse.results[1].iqScore, 118)
+        XCTAssertEqual(paginatedResponse.totalCount, 2)
+        XCTAssertEqual(paginatedResponse.limit, 50)
+        XCTAssertEqual(paginatedResponse.offset, 0)
+        XCTAssertFalse(paginatedResponse.hasMore)
     }
 
     // MARK: - Active Session Integration Tests
@@ -596,34 +600,41 @@ extension APIClientIntegrationTests {
                 throw URLError(.badURL)
             }
 
-            let results = [
-                [
-                    "id": 1,
-                    "test_session_id": 1,
-                    "user_id": 1,
-                    "iq_score": 120,
-                    "percentile_rank": 84.0,
-                    "total_questions": 20,
-                    "correct_answers": 15,
-                    "accuracy_percentage": 75.0,
-                    "completion_time_seconds": 1200,
-                    "completed_at": ISO8601DateFormatter().string(from: Date())
+            // Return paginated response format (BCQ-004)
+            let paginatedResponse: [String: Any] = [
+                "results": [
+                    [
+                        "id": 1,
+                        "test_session_id": 1,
+                        "user_id": 1,
+                        "iq_score": 120,
+                        "percentile_rank": 84.0,
+                        "total_questions": 20,
+                        "correct_answers": 15,
+                        "accuracy_percentage": 75.0,
+                        "completion_time_seconds": 1200,
+                        "completed_at": ISO8601DateFormatter().string(from: Date())
+                    ],
+                    [
+                        "id": 2,
+                        "test_session_id": 2,
+                        "user_id": 1,
+                        "iq_score": 118,
+                        "percentile_rank": 80.0,
+                        "total_questions": 20,
+                        "correct_answers": 14,
+                        "accuracy_percentage": 70.0,
+                        "completion_time_seconds": 1300,
+                        "completed_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400))
+                    ]
                 ],
-                [
-                    "id": 2,
-                    "test_session_id": 2,
-                    "user_id": 1,
-                    "iq_score": 118,
-                    "percentile_rank": 80.0,
-                    "total_questions": 20,
-                    "correct_answers": 14,
-                    "accuracy_percentage": 70.0,
-                    "completion_time_seconds": 1300,
-                    "completed_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400))
-                ]
+                "total_count": 2,
+                "limit": 50,
+                "offset": 0,
+                "has_more": false
             ]
 
-            guard let data = try? JSONSerialization.data(withJSONObject: results),
+            guard let data = try? JSONSerialization.data(withJSONObject: paginatedResponse),
                   let httpResponse = HTTPURLResponse(
                       url: url,
                       statusCode: 200,

@@ -55,16 +55,16 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-004: Add Pagination to /test/history Endpoint
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py:1014-1019`
 **Description:** Returns all test results without pagination. Performance issues for power users. Add `limit` and `offset` query parameters.
 **Acceptance Criteria:**
-- [ ] `limit` parameter with default 50, max 100
-- [ ] `offset` parameter for pagination
-- [ ] Query uses LIMIT and OFFSET clauses
-- [ ] Response includes total count for pagination UI
-- [ ] Integration test verifies pagination
-- [ ] iOS client updated if needed (check compatibility)
+- [x] `limit` parameter with default 50, max 100
+- [x] `offset` parameter for pagination
+- [x] Query uses LIMIT and OFFSET clauses
+- [x] Response includes total count for pagination UI
+- [x] Integration test verifies pagination
+- [x] iOS client updated if needed (check compatibility)
 
 ---
 
@@ -691,3 +691,48 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 - BCQ-037: Implement Redis storage for rate limiting
 
 **Key Finding:** No critical (P0) security vulnerabilities identified. The backend has solid fundamentals but needs optimization for production scale. The additional manual review findings are lower priority (code organization and technical debt) compared to the original agent findings.
+
+---
+
+## Deferred Items from PR Reviews
+
+### BCQ-041: Add Composite Index on test_results (user_id, completed_at)
+**Status:** [ ] Not Started
+**Source:** PR #326 comment
+**Files:** `backend/alembic/versions/`
+**Description:** Add composite index to optimize both the count query and paginated fetch for the /test/history endpoint.
+**Original Comment:** "Ensure composite index exists: `CREATE INDEX CONCURRENTLY idx_test_results_user_completed ON test_results (user_id, completed_at DESC);` This optimizes both the count query and the paginated fetch."
+**Acceptance Criteria:**
+- [ ] Create Alembic migration for composite index
+- [ ] Use `op.create_index()` with `postgresql_concurrently=True` for non-blocking creation
+- [ ] Verify query plan shows index usage with `EXPLAIN ANALYZE`
+- [ ] Document index in schema documentation
+
+---
+
+### BCQ-042: Add iOS Pagination State Management
+**Status:** [ ] Not Started
+**Source:** PR #326 comment
+**Files:** `ios/AIQ/ViewModels/HistoryViewModel.swift`, `ios/AIQ/Views/History/HistoryView.swift`
+**Description:** Implement pagination UI for iOS clients to support users with more than 50 test results.
+**Original Comment:** "Currently, iOS clients fetch only the first page (default limit=50). For users with >50 tests: No 'Load More' functionality implemented, HistoryViewModel doesn't track pagination state, DashboardViewModel only shows first 50 results."
+**Acceptance Criteria:**
+- [ ] Add `offset` and `hasMore` state properties to HistoryViewModel
+- [ ] Implement `loadMore()` method that increments offset and fetches next page
+- [ ] Add "Load More" button or infinite scroll to HistoryView
+- [ ] Use `has_more` flag from API to show/hide load more UI
+- [ ] Unit tests for pagination state management
+
+---
+
+### BCQ-043: Add iOS Tests for Pagination Metadata Validation
+**Status:** [ ] Not Started
+**Source:** PR #326 comment
+**Files:** `ios/AIQTests/`
+**Description:** Add tests that validate pagination metadata fields (totalCount, hasMore, limit, offset) from API responses.
+**Original Comment:** "No tests for pagination metadata validation (total_count, has_more, etc.)"
+**Acceptance Criteria:**
+- [ ] Create `testPaginatedResponseMetadata()` test
+- [ ] Verify totalCount matches expected value
+- [ ] Verify limit and offset are correctly populated
+- [ ] Verify hasMore is correctly calculated

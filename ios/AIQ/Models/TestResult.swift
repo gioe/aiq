@@ -1,6 +1,35 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Paginated Test History Response (BCQ-004)
+
+/// Response wrapper for paginated test history endpoint.
+/// The backend now returns paginated results with metadata for pagination UI.
+struct PaginatedTestHistoryResponse: Codable {
+    /// List of test results for the current page
+    let results: [TestResult]
+
+    /// Total number of test results available for this user
+    let totalCount: Int
+
+    /// Number of results per page (max 100)
+    let limit: Int
+
+    /// Offset from the start of the results
+    let offset: Int
+
+    /// Whether there are more results beyond this page
+    let hasMore: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case results
+        case totalCount = "total_count"
+        case limit
+        case offset
+        case hasMore = "has_more"
+    }
+}
+
 // MARK: - Confidence Interval
 
 /// Represents a confidence interval for an IQ score.

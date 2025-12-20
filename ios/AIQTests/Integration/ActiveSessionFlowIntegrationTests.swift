@@ -51,7 +51,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
     func testStartNewTest_WithNoActiveSession_StartsSuccessfully() async {
         // Given - Dashboard shows no active session
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -116,7 +116,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questions: nil
         )
 
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -147,7 +147,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questions: nil
         )
 
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -205,7 +205,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questionsCount: 3,
             questions: nil
         )
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -272,7 +272,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Set endpoint-specific responses for parallel API calls
         // This avoids race conditions that occur with queue-based responses
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -304,7 +304,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Set endpoint-specific responses for abandon operation
         // abandonActiveTest() calls: 1) abandon endpoint, 2) fetchDashboardData (parallel)
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // No active session after abandoning
 
         await dashboardViewModel.abandonActiveTest()
@@ -371,7 +371,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive)
 
         await dashboardViewModel.abandonActiveTest()
@@ -565,7 +565,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questions: nil
         )
 
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -585,7 +585,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questions: nil
         )
 
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(updatedActiveSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
@@ -610,7 +610,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         // Dashboard shows active session
-        await mockAPIClient.setResponse([], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
                 session: activeSession,
@@ -697,7 +697,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             completionTimeSeconds: testResult.completionTimeSeconds,
             completedAt: testResult.completedAt
         )
-        await mockAPIClient.setResponse([historyResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([historyResult])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // No active session after completion
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
@@ -728,7 +728,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questions: nil
         )
 
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -749,7 +749,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.reset()
 
         // When - Dashboard force refreshes (bypasses cache)
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // Session no longer active
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
@@ -761,7 +761,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
     func testStateSynchronization_MultipleRefreshes_MaintainConsistency() async {
         // Given - Dashboard in initial state
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(NSNull(), for: .testActive)
 
         await dashboardViewModel.fetchDashboardData()
@@ -782,7 +782,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         // First refresh - session appears
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
                 session: activeSession,
@@ -795,7 +795,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
 
         // Second refresh - session still active
-        await mockAPIClient.setResponse([] as [TestResult], for: .testHistory)
+        await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
                 session: activeSession,
@@ -809,7 +809,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 7)
 
         // Third refresh - session completed
-        await mockAPIClient.setResponse(
+        await mockAPIClient.setTestHistoryResponse(
             [TestResult(
                 id: 1,
                 testSessionId: sessionId,
@@ -821,8 +821,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 accuracyPercentage: 80.0,
                 completionTimeSeconds: 600,
                 completedAt: Date()
-            )] as [TestResult],
-            for: .testHistory
+            )]
         )
         await mockAPIClient.setResponse(NSNull(), for: .testActive)
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)

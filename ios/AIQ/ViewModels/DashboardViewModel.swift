@@ -114,7 +114,8 @@ class DashboardViewModel: BaseViewModel {
     /// - Note: Errors are logged and result in empty dashboard state
     func fetchTestHistory(forceRefresh: Bool = false) async {
         do {
-            let history: [TestResult] = try await apiClient.request(
+            // API now returns paginated response (BCQ-004)
+            let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
                 endpoint: .testHistory,
                 method: .get,
                 body: nil as String?,
@@ -124,8 +125,8 @@ class DashboardViewModel: BaseViewModel {
                 forceRefresh: forceRefresh
             )
 
-            // Update dashboard state
-            updateDashboardState(with: history)
+            // Update dashboard state with results array
+            updateDashboardState(with: paginatedResponse.results)
 
         } catch {
             #if DEBUG

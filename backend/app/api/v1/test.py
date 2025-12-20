@@ -4,7 +4,7 @@ Test session management endpoints.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import case
+from sqlalchemy import case, func
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,6 +21,9 @@ from app.schemas.responses import (
     SubmitTestResponse,
     TestResultResponse,
     ConfidenceIntervalSchema,
+    PaginatedTestHistoryResponse,
+    DEFAULT_HISTORY_PAGE_SIZE,
+    MAX_HISTORY_PAGE_SIZE,
 )
 from app.core.auth import get_current_user
 from app.core.scoring import (
@@ -991,30 +994,52 @@ def get_test_result(
     return build_test_result_response(test_result, db=db)
 
 
-@router.get("/history", response_model=list[TestResultResponse])
+@router.get("/history", response_model=PaginatedTestHistoryResponse)
 def get_test_history(
+    limit: int = Query(
+        default=DEFAULT_HISTORY_PAGE_SIZE,
+        ge=1,
+        le=MAX_HISTORY_PAGE_SIZE,
+        description=f"Maximum number of results to return (default {DEFAULT_HISTORY_PAGE_SIZE}, max {MAX_HISTORY_PAGE_SIZE})",
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Number of results to skip for pagination",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get all historical test results for the current user.
+    Get historical test results for the current user with pagination.
 
     Results are returned in reverse chronological order (most recent first).
 
     Args:
+        limit: Maximum number of results per page (default 50, max 100)
+        offset: Number of results to skip for pagination (default 0)
         current_user: Current authenticated user
         db: Database session
 
     Returns:
-        List of test results ordered by completion date (newest first)
+        Paginated test results with total count and pagination metadata
     """
     from app.models.models import TestResult
 
-    # Fetch all test results for the user, ordered by completion date
+    # Get total count for pagination (single efficient count query)
+    total_count = (
+        db.query(func.count(TestResult.id))
+        .filter(TestResult.user_id == current_user.id)
+        .scalar()
+    )
+
+    # Fetch paginated test results for the user, ordered by completion date
     test_results = (
         db.query(TestResult)
         .filter(TestResult.user_id == current_user.id)
         .order_by(TestResult.completed_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
@@ -1022,7 +1047,15 @@ def get_test_history(
     population_stats = get_domain_population_stats(db)
 
     # Convert to response format (pass pre-fetched stats to avoid N+1 queries)
-    return [
+    results = [
         build_test_result_response(test_result, population_stats=population_stats)
         for test_result in test_results
     ]
+
+    return PaginatedTestHistoryResponse(
+        results=results,
+        total_count=total_count,
+        limit=limit,
+        offset=offset,
+        has_more=(offset + len(results)) < total_count,
+    )
