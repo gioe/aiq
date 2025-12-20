@@ -166,15 +166,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-013: Extract Common Error Handling Pattern
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** Multiple (`notifications.py`, `admin.py`, `test.py`)
 **Description:** Identical rollback + HTTPException 500 pattern repeated throughout codebase. Create decorator or context manager.
 **Acceptance Criteria:**
-- [ ] New `@handle_db_error(operation_name)` decorator OR context manager
-- [ ] Handles rollback and HTTPException creation
-- [ ] Logs error with operation context
-- [ ] Applied to at least 5 instances
-- [ ] Unit test for error handling behavior
+- [x] New `@handle_db_error(operation_name)` decorator OR context manager
+- [x] Handles rollback and HTTPException creation
+- [x] Logs error with operation context
+- [x] Applied to at least 5 instances
+- [x] Unit test for error handling behavior
 
 ---
 
