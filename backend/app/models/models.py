@@ -351,7 +351,10 @@ class Response(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     question_id = Column(
-        Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("questions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_answer = Column(String(500), nullable=False)
     is_correct = Column(Boolean, nullable=False)
