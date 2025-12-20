@@ -24,6 +24,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _create_auth_tokens(user: User) -> tuple[str, str]:
+    """
+    Create access and refresh tokens for a user.
+
+    Args:
+        user: The user to create tokens for
+
+    Returns:
+        Tuple of (access_token, refresh_token)
+    """
+    token_data = {"user_id": user.id, "email": user.email}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"user_id": user.id})
+    return access_token, refresh_token
+
+
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     """
@@ -79,9 +95,7 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     )
 
     # Create tokens for immediate login after registration
-    token_data = {"user_id": new_user.id, "email": new_user.email}
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token({"user_id": new_user.id})
+    access_token, refresh_token = _create_auth_tokens(new_user)
 
     return {
         "access_token": access_token,
@@ -143,9 +157,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     )
 
     # Create tokens
-    token_data = {"user_id": user.id, "email": user.email}
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token({"user_id": user.id})
+    access_token, refresh_token = _create_auth_tokens(user)
 
     return {
         "access_token": access_token,
@@ -185,9 +197,7 @@ def refresh_access_token(
     db.refresh(current_user)
 
     # Create new tokens
-    token_data = {"user_id": current_user.id, "email": current_user.email}
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token({"user_id": current_user.id})
+    access_token, refresh_token = _create_auth_tokens(current_user)
 
     return {
         "access_token": access_token,
