@@ -736,3 +736,29 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 - [ ] Verify totalCount matches expected value
 - [ ] Verify limit and offset are correctly populated
 - [ ] Verify hasMore is correctly calculated
+
+---
+
+### BCQ-044: Add Logger Verification to Race Condition Test
+**Status:** [ ] Not Started
+**Source:** PR #328 comment
+**Files:** `backend/tests/test_test_sessions.py`
+**Description:** Enhance the race condition test to verify that the warning log is written when a concurrent session creation is detected.
+**Original Comment:** "The test verifies the 409 response but doesn't verify that the warning log was written. Consider adding: `with patch('app.api.v1.test.logger') as mock_logger: ... assert mock_logger.warning.called`"
+**Acceptance Criteria:**
+- [ ] Add mock for logger in test_concurrent_session_creation_returns_409
+- [ ] Assert warning was logged with appropriate message content
+- [ ] Ensure user_id is included in log context
+
+---
+
+### BCQ-045: Consolidate Duplicate Active Session Error Paths
+**Status:** [ ] Not Started
+**Source:** PR #328 comment
+**Files:** `backend/app/api/v1/test.py`
+**Description:** Review whether the application-level active session check (line ~280, returns 400 with session_id) and the database-level IntegrityError catch (returns 409 without session_id) should be consolidated or if both serve distinct purposes.
+**Original Comment:** "The PR description mentions checking for active sessions before creation... The app-level check provides a better UX (returns session_id in error). The database constraint prevents race conditions. Consider whether both checks serve distinct purposes or if one is redundant."
+**Acceptance Criteria:**
+- [ ] Document the intentional dual-check pattern (if keeping both)
+- [ ] OR consolidate to single error path if redundant
+- [ ] Ensure error messages are consistent and helpful
