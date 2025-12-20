@@ -286,6 +286,62 @@ class TestStartTest:
         assert "session" in data
         assert data["session"]["status"] == "in_progress"
 
+    def test_concurrent_session_creation_returns_409(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """
+        Test that concurrent session creation attempts return 409 Conflict.
+
+        BCQ-006: This test verifies the IntegrityError handling when the
+        database-level partial unique index prevents duplicate in_progress
+        sessions. The actual race condition is prevented by the partial
+        unique index ix_test_sessions_user_active in PostgreSQL.
+
+        Note: This test uses mocking since SQLite (used in tests) doesn't
+        have the same partial unique index enforcement as PostgreSQL.
+        The production PostgreSQL database has the index that triggers
+        IntegrityError on duplicate in_progress sessions.
+        """
+        from unittest.mock import patch
+        from sqlalchemy.exc import IntegrityError
+
+        # Start a test session first to verify normal operation
+        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response1.status_code == 200
+
+        # Complete the first session so the user can start another
+        from app.models import TestSession
+        from app.models.models import TestStatus
+
+        session_id = response1.json()["session"]["id"]
+        session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        session.status = TestStatus.COMPLETED
+        db_session.commit()
+
+        # Now mock db.flush() to raise IntegrityError, simulating what
+        # PostgreSQL's partial unique index would do on a race condition
+        def mock_flush_with_integrity_error(self):
+            raise IntegrityError(
+                statement="INSERT INTO test_sessions",
+                params={},
+                orig=Exception("duplicate key value violates unique constraint"),
+            )
+
+        with patch.object(
+            type(db_session),
+            "flush",
+            mock_flush_with_integrity_error,
+        ):
+            response2 = client.post(
+                "/v1/test/start?question_count=2", headers=auth_headers
+            )
+
+        # Should return 409 Conflict with appropriate message
+        assert response2.status_code == 409
+        assert "already in progress" in response2.json()["detail"]
+
 
 class TestGetTestSession:
     """Tests for GET /v1/test/session/{session_id} endpoint."""
