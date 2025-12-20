@@ -2137,3 +2137,91 @@ class TestConfidenceIntervalIntegration:
             f"expected_width_high={expected_width_high:.1f} should be < "
             f"width_low={width_low}"
         )
+
+
+class TestGetTestSessionOr404:
+    """Unit tests for get_test_session_or_404 helper function."""
+
+    def test_returns_session_when_found(self, db_session, test_user):
+        """Test that helper returns session when it exists."""
+        from app.api.v1.test import get_test_session_or_404
+        from app.models import TestSession
+        from app.models.models import TestStatus
+
+        # Create a test session
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.IN_PROGRESS,
+        )
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        # Call helper - should return the session
+        result = get_test_session_or_404(db_session, session.id)
+
+        assert result is not None
+        assert result.id == session.id
+        assert result.user_id == test_user.id
+        assert result.status == TestStatus.IN_PROGRESS
+
+    def test_raises_404_when_session_not_found(self, db_session):
+        """Test that helper raises HTTPException with 404 when session doesn't exist."""
+        from app.api.v1.test import get_test_session_or_404
+        from fastapi import HTTPException
+        import pytest
+
+        # Call helper with non-existent session ID
+        with pytest.raises(HTTPException) as exc_info:
+            get_test_session_or_404(db_session, 99999)
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Test session not found"
+
+    def test_error_message_is_consistent(self, db_session):
+        """Test that error message format is consistent."""
+        from app.api.v1.test import get_test_session_or_404
+        from fastapi import HTTPException
+        import pytest
+
+        # Try multiple non-existent IDs to verify consistent error message
+        for session_id in [1, 100, 99999]:
+            with pytest.raises(HTTPException) as exc_info:
+                get_test_session_or_404(db_session, session_id)
+
+            # Verify consistent error format
+            assert exc_info.value.status_code == 404
+            assert exc_info.value.detail == "Test session not found"
+
+    def test_returns_session_regardless_of_status(self, db_session, test_user):
+        """Test that helper returns sessions in any status (not just in_progress)."""
+        from app.api.v1.test import get_test_session_or_404
+        from app.models import TestSession
+        from app.models.models import TestStatus
+        from datetime import datetime, timezone
+
+        # Test with each status
+        statuses = [
+            TestStatus.IN_PROGRESS,
+            TestStatus.COMPLETED,
+            TestStatus.ABANDONED,
+        ]
+
+        for status in statuses:
+            session = TestSession(
+                user_id=test_user.id,
+                status=status,
+                completed_at=datetime.now(timezone.utc)
+                if status != TestStatus.IN_PROGRESS
+                else None,
+            )
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+
+            # Helper should return session regardless of status
+            result = get_test_session_or_404(db_session, session.id)
+
+            assert result is not None
+            assert result.id == session.id
+            assert result.status == status

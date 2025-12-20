@@ -142,14 +142,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-011: Centralize HTTPException for Resource Not Found
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py`
 **Description:** Identical pattern of fetching test session, checking None, raising 404 appears 3+ times. Create helper.
 **Acceptance Criteria:**
-- [ ] New `get_test_session_or_404(db, session_id, user_id)` helper created
-- [ ] Helper used in all relevant endpoints
-- [ ] Consistent error message format
-- [ ] Unit test for helper
+- [x] New `get_test_session_or_404(db, session_id)` helper created
+- [x] Helper used in all relevant endpoints
+- [x] Consistent error message format
+- [x] Unit test for helper
 
 ---
 

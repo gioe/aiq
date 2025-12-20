@@ -30,6 +30,17 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Factor analysis thresholds
+# Minimum number of items (questions) required for factor analysis
+# Below this, results are statistically unreliable
+MIN_ITEMS_FOR_FACTOR_ANALYSIS = 3
+
+# Kaiser-Meyer-Olkin (KMO) thresholds for sampling adequacy
+# KMO < 0.5 is considered unacceptable for factor analysis
+KMO_UNACCEPTABLE_THRESHOLD = 0.5
+# KMO between 0.5 and 0.6 is marginal/mediocre
+KMO_MARGINAL_THRESHOLD = 0.6
+
 
 class EventType(str, Enum):
     """Analytics event types."""
@@ -629,7 +640,9 @@ def _calculate_kmo(matrix: "NDArray[np.float64]") -> Tuple[np.ndarray, float]:
         - KMO < 0.5: Unacceptable
     """
     # Compute correlation matrix
-    corr_matrix = np.corrcoef(matrix, rowvar=False)
+    # np.atleast_2d ensures we always have a 2D array even for edge cases
+    # where np.corrcoef might return a scalar or 0-d array
+    corr_matrix = np.atleast_2d(np.corrcoef(matrix, rowvar=False))
 
     # Handle potential numerical issues
     corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
@@ -740,10 +753,10 @@ def calculate_g_loadings(
     valid_items_mask = item_variances >= min_variance_per_item
     n_valid_items = int(np.sum(valid_items_mask))
 
-    if n_valid_items < 3:
+    if n_valid_items < MIN_ITEMS_FOR_FACTOR_ANALYSIS:
         raise InsufficientSampleError(
             f"Only {n_valid_items} items have sufficient variance for analysis. "
-            "At least 3 items are required.",
+            f"At least {MIN_ITEMS_FOR_FACTOR_ANALYSIS} items are required.",
             sample_size=n_users,
             minimum_required=min_sample_size,
         )
@@ -761,12 +774,12 @@ def calculate_g_loadings(
     # Check KMO (Kaiser-Meyer-Olkin) measure of sampling adequacy
     try:
         kmo_per_item, kmo_model = _calculate_kmo(filtered_matrix)
-        if kmo_model < 0.5:
+        if kmo_model < KMO_UNACCEPTABLE_THRESHOLD:
             warnings.append(
-                f"KMO measure ({kmo_model:.3f}) is below 0.5, indicating the data "
-                "may not be suitable for factor analysis."
+                f"KMO measure ({kmo_model:.3f}) is below {KMO_UNACCEPTABLE_THRESHOLD}, "
+                "indicating the data may not be suitable for factor analysis."
             )
-        elif kmo_model < 0.6:
+        elif kmo_model < KMO_MARGINAL_THRESHOLD:
             warnings.append(
                 f"KMO measure ({kmo_model:.3f}) is marginal. Results should be "
                 "interpreted with caution."
