@@ -1,7 +1,7 @@
 """
 Notification endpoints for device token registration and preferences.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.models import get_db, User
@@ -12,6 +12,7 @@ from app.schemas.notifications import (
     NotificationPreferencesResponse,
 )
 from app.core.auth import get_current_user
+from app.core.db_error_handling import handle_db_error
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ def register_device_token(
     Returns:
         Success response with confirmation message
     """
-    try:
+    with handle_db_error(db, "register device token"):
         # Update the user's device token
         current_user.apns_device_token = token_data.device_token  # type: ignore
         db.commit()
@@ -46,12 +47,6 @@ def register_device_token(
         return DeviceTokenResponse(
             success=True,
             message="Device token registered successfully",
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register device token: {str(e)}",
         )
 
 
@@ -73,7 +68,7 @@ def unregister_device_token(
     Returns:
         Success response with confirmation message
     """
-    try:
+    with handle_db_error(db, "unregister device token"):
         # Clear the user's device token
         current_user.apns_device_token = None  # type: ignore
         db.commit()
@@ -82,12 +77,6 @@ def unregister_device_token(
         return DeviceTokenResponse(
             success=True,
             message="Device token unregistered successfully",
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to unregister device token: {str(e)}",
         )
 
 
@@ -111,7 +100,7 @@ def update_notification_preferences(
     Returns:
         Updated notification preferences
     """
-    try:
+    with handle_db_error(db, "update notification preferences"):
         # Update the user's notification preference
         current_user.notification_enabled = preferences.notification_enabled  # type: ignore
         db.commit()
@@ -120,12 +109,6 @@ def update_notification_preferences(
         return NotificationPreferencesResponse(
             notification_enabled=current_user.notification_enabled,  # type: ignore
             message="Notification preferences updated successfully",
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update notification preferences: {str(e)}",
         )
 
 

@@ -151,6 +151,7 @@ from app.core.reliability import (
     get_reliability_history,
     MetricTypeLiteral,
 )
+from app.core.db_error_handling import handle_db_error
 from app.models import Question, TestSession, TestResult, Response
 
 # Configure logger for admin operations
@@ -403,7 +404,7 @@ async def create_generation_run(
           }'
         ```
     """
-    try:
+    with handle_db_error(db, "create generation run record"):
         # Map schema enum to model enum
         status_mapping = {
             GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
@@ -458,13 +459,6 @@ async def create_generation_run(
             id=int(db_run.id),
             status=run_data.status,
             message=f"Generation run recorded successfully with status '{run_data.status.value}'",
-        )
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create generation run record: {str(e)}",
         )
 
 
@@ -2596,7 +2590,7 @@ async def override_session_validity(
           }'
         ```
     """
-    try:
+    with handle_db_error(db, "override session validity"):
         # Get test session
         test_session = (
             db.query(TestSession).filter(TestSession.id == session_id).first()
@@ -2659,16 +2653,6 @@ async def override_session_validity(
             override_reason=request.override_reason,
             overridden_by=admin_placeholder_id,
             overridden_at=override_time,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to override validity for session {session_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to override session validity: {str(e)}",
         )
 
 
