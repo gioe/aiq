@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -354,7 +355,23 @@ def start_test(
         composition_metadata=composition_metadata,
     )
     db.add(test_session)
-    db.flush()  # Get the session ID without committing yet
+
+    try:
+        db.flush()  # Get the session ID without committing yet
+    except IntegrityError:
+        # BCQ-006: Race condition detected - another session was created concurrently
+        # The partial unique index ix_test_sessions_user_active prevents duplicate
+        # in_progress sessions for the same user at the database level.
+        db.rollback()
+        logger.warning(
+            f"Race condition detected: user {current_user.id} attempted to start "
+            "multiple test sessions concurrently"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="A test session is already in progress. "
+            "Please complete or abandon the existing session before starting a new one.",
+        )
 
     # Mark questions as seen for this user
     for question in unseen_questions:
