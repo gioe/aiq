@@ -86,7 +86,7 @@ def valid_generation_run_data():
 class TestCreateGenerationRun:
     """Tests for POST /v1/admin/generation-runs endpoint."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_success(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -122,7 +122,7 @@ class TestCreateGenerationRun:
         assert db_run.provider_metrics is not None
         assert "openai" in db_run.provider_metrics
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_minimal_data(
         self, client, db_session, service_key_headers
     ):
@@ -156,7 +156,7 @@ class TestCreateGenerationRun:
         assert db_run.total_errors == 0
         assert db_run.completed_at is None
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_failed_status(
         self, client, db_session, service_key_headers
     ):
@@ -196,7 +196,7 @@ class TestCreateGenerationRun:
         assert db_run.exit_code == 1
         assert db_run.total_errors == 5
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_partial_failure_status(
         self, client, db_session, service_key_headers
     ):
@@ -240,7 +240,7 @@ class TestCreateGenerationRun:
 
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_invalid_auth(
         self, client, valid_generation_run_data
     ):
@@ -254,7 +254,7 @@ class TestCreateGenerationRun:
         assert response.status_code == 401
         assert "Invalid service API key" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "")
     def test_create_generation_run_key_not_configured(
         self, client, valid_generation_run_data, service_key_headers
     ):
@@ -268,7 +268,7 @@ class TestCreateGenerationRun:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_invalid_status(self, client, service_key_headers):
         """Test that invalid status value is rejected."""
         invalid_data = {
@@ -285,7 +285,7 @@ class TestCreateGenerationRun:
 
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_missing_required_field(
         self, client, service_key_headers
     ):
@@ -304,7 +304,7 @@ class TestCreateGenerationRun:
 
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_jsonb_fields_stored_correctly(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -341,7 +341,7 @@ class TestCreateGenerationRun:
         assert db_run.error_summary["by_category"]["rate_limit"] == 2
         assert db_run.error_summary["critical_count"] == 0
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_create_generation_run_timestamps_stored_correctly(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -370,7 +370,7 @@ class TestCreateGenerationRun:
 class TestListGenerationRuns:
     """Tests for GET /v1/admin/generation-runs endpoint."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_empty(self, client, db_session, service_key_headers):
         """Test listing runs when no runs exist."""
         response = client.get(
@@ -386,7 +386,7 @@ class TestListGenerationRuns:
         assert data["page_size"] == 20
         assert data["total_pages"] == 0
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_with_data(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -425,7 +425,7 @@ class TestListGenerationRuns:
         assert "difficulty_metrics" not in run
         assert "error_summary" not in run
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_pagination(
         self, client, db_session, service_key_headers
     ):
@@ -468,7 +468,7 @@ class TestListGenerationRuns:
         assert len(data["runs"]) == 1
         assert data["page"] == 3
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_filter_by_status(
         self, client, db_session, service_key_headers
     ):
@@ -509,7 +509,7 @@ class TestListGenerationRuns:
         assert data["total"] == 1
         assert data["runs"][0]["status"] == "failed"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_filter_by_environment(
         self, client, db_session, service_key_headers
     ):
@@ -540,7 +540,7 @@ class TestListGenerationRuns:
         for run in data["runs"]:
             assert run["environment"] == "production"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_filter_by_date_range(
         self, client, db_session, service_key_headers
     ):
@@ -574,7 +574,7 @@ class TestListGenerationRuns:
         data = response.json()
         assert data["total"] == 2
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_filter_by_success_rate(
         self, client, db_session, service_key_headers
     ):
@@ -629,7 +629,7 @@ class TestListGenerationRuns:
         for run in data["runs"]:
             assert 0.6 <= run["overall_success_rate"] <= 0.9
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_sorting(
         self, client, db_session, service_key_headers
     ):
@@ -703,7 +703,7 @@ class TestListGenerationRuns:
         assert data["runs"][1]["overall_success_rate"] == pytest.approx(0.7)
         assert data["runs"][2]["overall_success_rate"] == pytest.approx(0.9)
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_combined_filters(
         self, client, db_session, service_key_headers
     ):
@@ -759,7 +759,7 @@ class TestListGenerationRuns:
         response = client.get("/v1/admin/generation-runs")
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
         response = client.get(
@@ -769,7 +769,7 @@ class TestListGenerationRuns:
         assert response.status_code == 401
         assert "Invalid service API key" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_invalid_page(self, client, service_key_headers):
         """Test validation of page parameter."""
         response = client.get(
@@ -778,7 +778,7 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_invalid_page_size(self, client, service_key_headers):
         """Test validation of page_size parameter."""
         response = client.get(
@@ -787,7 +787,7 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_invalid_sort_by(self, client, service_key_headers):
         """Test validation of sort_by parameter."""
         response = client.get(
@@ -796,7 +796,7 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_invalid_success_rate(
         self, client, service_key_headers
     ):
@@ -815,7 +815,7 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_page_beyond_data(
         self, client, db_session, service_key_headers
     ):
@@ -850,7 +850,7 @@ class TestListGenerationRuns:
 class TestGetGenerationRun:
     """Tests for GET /v1/admin/generation-runs/{id} endpoint."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_success(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -897,7 +897,7 @@ class TestGetGenerationRun:
         assert data["arbiter_config_version"] == "v1.0"
         assert data["min_arbiter_score_threshold"] == pytest.approx(0.7)
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_pipeline_losses(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -954,7 +954,7 @@ class TestGetGenerationRun:
         )  # 2/45 * 100 (rounded)
         assert losses["insertion_loss_pct"] == pytest.approx(0.0)  # 0/43 * 100
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_pipeline_losses_with_zeros(
         self, client, db_session, service_key_headers
     ):
@@ -995,7 +995,7 @@ class TestGetGenerationRun:
         assert losses["deduplication_loss_pct"] is None
         assert losses["insertion_loss_pct"] is None
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_not_found(self, client, service_key_headers):
         """Test that 404 is returned for non-existent run."""
         response = client.get(
@@ -1011,7 +1011,7 @@ class TestGetGenerationRun:
         response = client.get("/v1/admin/generation-runs/1")
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
         response = client.get(
@@ -1021,7 +1021,7 @@ class TestGetGenerationRun:
         assert response.status_code == 401
         assert "Invalid service API key" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_all_fields_present(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -1087,7 +1087,7 @@ class TestGetGenerationRun:
         for field in expected_fields:
             assert field in data, f"Expected field '{field}' not in response"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_failed_status(
         self, client, db_session, service_key_headers
     ):
@@ -1126,7 +1126,7 @@ class TestGetGenerationRun:
         assert losses["generation_loss"] == 50  # All requested, none generated
         assert losses["total_loss"] == 50
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_partial_failure_status(
         self, client, db_session, service_key_headers
     ):
@@ -1177,7 +1177,7 @@ class TestGetGenerationRun:
 class TestGetGenerationRunStats:
     """Tests for GET /v1/admin/generation-runs/stats endpoint."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_empty_period(self, client, db_session, service_key_headers):
         """Test getting stats when no runs exist in the period."""
         response = client.get(
@@ -1204,7 +1204,7 @@ class TestGetGenerationRunStats:
         assert data["success_rate_trend"] is None
         assert data["approval_rate_trend"] is None
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_with_data(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -1242,7 +1242,7 @@ class TestGetGenerationRunStats:
         assert data["total_api_calls"] == 120
         assert data["total_errors"] == 4
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_multiple_runs(self, client, db_session, service_key_headers):
         """Test stats aggregation with multiple runs."""
         # Create runs with different statuses and values
@@ -1370,7 +1370,7 @@ class TestGetGenerationRunStats:
         expected_avg_api_per_q = round(310 / 105, 2)
         assert data["avg_api_calls_per_question"] == expected_avg_api_per_q
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_provider_summary(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -1439,7 +1439,7 @@ class TestGetGenerationRunStats:
             0.9091
         )
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_trend_improving(self, client, db_session, service_key_headers):
         """Test trend detection when metrics are improving."""
         # Create runs with improving success rates
@@ -1495,7 +1495,7 @@ class TestGetGenerationRunStats:
         assert data["success_rate_trend"] == "improving"
         assert data["approval_rate_trend"] == "improving"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_trend_declining(self, client, db_session, service_key_headers):
         """Test trend detection when metrics are declining."""
         # Create runs with declining success rates
@@ -1551,7 +1551,7 @@ class TestGetGenerationRunStats:
         assert data["success_rate_trend"] == "declining"
         assert data["approval_rate_trend"] == "declining"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_trend_stable(self, client, db_session, service_key_headers):
         """Test trend detection when metrics are stable."""
         # Create runs with stable success rates
@@ -1607,7 +1607,7 @@ class TestGetGenerationRunStats:
         assert data["success_rate_trend"] == "stable"
         assert data["approval_rate_trend"] == "stable"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_environment_filter(
         self, client, db_session, service_key_headers
     ):
@@ -1655,7 +1655,7 @@ class TestGetGenerationRunStats:
         assert data["total_questions_inserted"] == 80  # 40 * 2
         assert data["avg_overall_success_rate"] == pytest.approx(0.8)
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_date_range_filter(self, client, db_session, service_key_headers):
         """Test that date range correctly filters runs."""
         # Create runs on different dates
@@ -1691,7 +1691,7 @@ class TestGetGenerationRunStats:
         assert data["total_runs"] == 2
         assert data["total_questions_inserted"] == 90  # 45 * 2
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_single_run_no_trends(
         self, client, db_session, service_key_headers
     ):
@@ -1730,7 +1730,7 @@ class TestGetGenerationRunStats:
         )
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
         response = client.get(
@@ -1740,7 +1740,7 @@ class TestGetGenerationRunStats:
         assert response.status_code == 401
         assert "Invalid service API key" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_missing_required_params(self, client, service_key_headers):
         """Test that missing required parameters returns 422."""
         # Missing both dates
@@ -1764,7 +1764,7 @@ class TestGetGenerationRunStats:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_all_fields_present(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
@@ -1950,7 +1950,7 @@ def calibration_test_questions(db_session):
 class TestCalibrationHealth:
     """Tests for GET /v1/admin/questions/calibration-health endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -1974,7 +1974,7 @@ class TestCalibrationHealth:
         assert data["summary"]["miscalibrated"] == 3
         assert data["summary"]["total_questions_with_data"] == 6
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_severity_breakdown(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -1995,7 +1995,7 @@ class TestCalibrationHealth:
         assert data["by_severity"]["major"] == 1
         assert data["by_severity"]["minor"] == 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_difficulty_breakdown(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2019,7 +2019,7 @@ class TestCalibrationHealth:
         assert data["by_difficulty"]["hard"]["calibrated"] == 1
         assert data["by_difficulty"]["hard"]["miscalibrated"] == 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_worst_offenders(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2052,7 +2052,7 @@ class TestCalibrationHealth:
             assert "response_count" in offender
             assert "severity" in offender
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_custom_min_responses(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2069,7 +2069,7 @@ class TestCalibrationHealth:
         # Now should have 7 questions with data (including the 50-response one)
         assert data["summary"]["total_questions_with_data"] == 7
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_empty_database(
         self, client, db_session, admin_token_headers
     ):
@@ -2094,7 +2094,7 @@ class TestCalibrationHealth:
         response = client.get("/v1/admin/questions/calibration-health")
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_invalid_auth(self, client):
         """Test that request with invalid admin token is rejected."""
         response = client.get(
@@ -2104,7 +2104,7 @@ class TestCalibrationHealth:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_calibration_health_token_not_configured(self, client, admin_token_headers):
         """Test error when admin token is not configured on server."""
         response = client.get(
@@ -2114,7 +2114,7 @@ class TestCalibrationHealth:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_invalid_min_responses(
         self, client, admin_token_headers
     ):
@@ -2133,7 +2133,7 @@ class TestCalibrationHealth:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_miscalibration_rate(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2149,7 +2149,7 @@ class TestCalibrationHealth:
         # 3 miscalibrated / 6 total = 0.5
         assert data["summary"]["miscalibration_rate"] == pytest.approx(0.5)
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_all_calibrated(
         self, client, db_session, admin_token_headers
     ):
@@ -2194,7 +2194,7 @@ class TestCalibrationHealth:
 class TestRecalibrateQuestions:
     """Tests for POST /v1/admin/questions/recalibrate endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_dry_run_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2254,7 +2254,7 @@ class TestRecalibrateQuestions:
         assert severe_question is not None
         assert severe_question.difficulty_level == DifficultyLevel.HARD  # Unchanged
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_commit_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2313,7 +2313,7 @@ class TestRecalibrateQuestions:
             major_question.original_difficulty_level == DifficultyLevel.EASY
         )  # Preserved
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_severity_threshold_minor(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2334,7 +2334,7 @@ class TestRecalibrateQuestions:
         # Should include all miscalibrated: severe, major, minor
         assert data["total_recalibrated"] == 3
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_severity_threshold_severe(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2356,7 +2356,7 @@ class TestRecalibrateQuestions:
         assert data["total_recalibrated"] == 1
         assert data["recalibrated"][0]["severity"] == "severe"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_specific_question_ids(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2395,7 +2395,7 @@ class TestRecalibrateQuestions:
         ]
         assert len(skipped_not_in_ids) >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_min_responses_filter(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2418,7 +2418,7 @@ class TestRecalibrateQuestions:
         # Major is exactly at threshold, should be included
         assert data["total_recalibrated"] == 2
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_skipped_reasons(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2448,7 +2448,7 @@ class TestRecalibrateQuestions:
         # Insufficient data should be skipped
         assert "insufficient_data" in skip_reasons
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_empty_database(self, client, db_session, admin_token_headers):
         """Test recalibration with no questions."""
         response = client.post(
@@ -2468,7 +2468,7 @@ class TestRecalibrateQuestions:
         assert data["recalibrated"] == []
         assert data["skipped"] == []
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_all_calibrated(self, client, db_session, admin_token_headers):
         """Test recalibration when all questions are correctly calibrated."""
         # Create only correctly calibrated questions
@@ -2521,7 +2521,7 @@ class TestRecalibrateQuestions:
         )
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_invalid_auth(self, client):
         """Test that request with invalid admin token is rejected."""
         response = client.post(
@@ -2532,7 +2532,7 @@ class TestRecalibrateQuestions:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_recalibrate_token_not_configured(self, client, admin_token_headers):
         """Test error when admin token is not configured on server."""
         response = client.post(
@@ -2543,7 +2543,7 @@ class TestRecalibrateQuestions:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_invalid_min_responses(self, client, admin_token_headers):
         """Test validation of min_responses parameter."""
         # Below minimum (1)
@@ -2562,7 +2562,7 @@ class TestRecalibrateQuestions:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_invalid_severity_threshold(self, client, admin_token_headers):
         """Test validation of severity_threshold parameter."""
         response = client.post(
@@ -2572,7 +2572,7 @@ class TestRecalibrateQuestions:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_default_values(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2592,7 +2592,7 @@ class TestRecalibrateQuestions:
         # Should include major+ (not minor)
         assert data["total_recalibrated"] == 2
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_preserves_original_difficulty(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2628,7 +2628,7 @@ class TestRecalibrateQuestions:
         assert severe_question.difficulty_level == DifficultyLevel.EASY
         assert severe_question.difficulty_recalibrated_at is not None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_recalibrate_response_format(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
@@ -2751,7 +2751,7 @@ def free_response_question(db_session):
 class TestDistractorAnalysisEndpoint:
     """Tests for GET /v1/admin/questions/{id}/distractor-analysis endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_success(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -2787,7 +2787,7 @@ class TestDistractorAnalysisEndpoint:
         assert "recommendations" in data
         assert isinstance(data["recommendations"], list)
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_options_detail(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -2817,7 +2817,7 @@ class TestDistractorAnalysisEndpoint:
         assert option_c["is_correct"] is False
         assert option_c["selection_rate"] < 0.02  # Less than 2% threshold
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_insufficient_data(
         self,
         client,
@@ -2843,7 +2843,7 @@ class TestDistractorAnalysisEndpoint:
         assert len(data["recommendations"]) > 0
         assert "Insufficient data" in data["recommendations"][0]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_question_not_found(self, client, admin_token_headers):
         """Test 404 response when question doesn't exist."""
         response = client.get(
@@ -2854,7 +2854,7 @@ class TestDistractorAnalysisEndpoint:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_free_response_question(
         self, client, db_session, admin_token_headers, free_response_question
     ):
@@ -2875,7 +2875,7 @@ class TestDistractorAnalysisEndpoint:
 
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_invalid_token(
         self, client, distractor_analysis_question
     ):
@@ -2888,7 +2888,7 @@ class TestDistractorAnalysisEndpoint:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_distractor_analysis_token_not_configured(
         self, client, admin_token_headers, distractor_analysis_question
     ):
@@ -2900,7 +2900,7 @@ class TestDistractorAnalysisEndpoint:
 
         assert response.status_code == 500
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_custom_min_responses(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -2920,7 +2920,7 @@ class TestDistractorAnalysisEndpoint:
         assert "Insufficient data" in data["recommendations"][0]
         assert "500" in data["recommendations"][0]  # The threshold is mentioned
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_response_schema(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -2974,7 +2974,7 @@ class TestDistractorAnalysisEndpoint:
         for field in summary_fields:
             assert field in data["summary"], f"Missing summary field: {field}"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_analysis_status_values(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3007,7 +3007,7 @@ class TestDistractorAnalysisEndpoint:
 class TestDistractorSummaryEndpoint:
     """Tests for GET /v1/admin/questions/distractor-summary endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_success(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3036,7 +3036,7 @@ class TestDistractorSummaryEndpoint:
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_response_schema(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3076,7 +3076,7 @@ class TestDistractorSummaryEndpoint:
         assert 0.0 <= data["non_functioning_rate"] <= 1.0
         assert 0.0 <= data["inverted_rate"] <= 1.0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_includes_analyzed_question(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3093,7 +3093,7 @@ class TestDistractorSummaryEndpoint:
         # It should be included in the analysis
         assert data["total_questions_analyzed"] >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_worst_offenders_structure(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3131,7 +3131,7 @@ class TestDistractorSummaryEndpoint:
             assert isinstance(offender["total_responses"], int)
             assert isinstance(offender["effective_option_count"], (int, float))
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_with_question_type_filter(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3149,7 +3149,7 @@ class TestDistractorSummaryEndpoint:
         assert "total_questions_analyzed" in data
         assert "by_question_type" in data
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_with_min_responses_filter(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3167,14 +3167,14 @@ class TestDistractorSummaryEndpoint:
         # and total_questions_analyzed should be 0 (or less than with lower threshold)
         assert data["questions_below_threshold"] >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_without_auth(self, client, db_session):
         """Test that endpoint requires admin authentication."""
         response = client.get("/v1/admin/questions/distractor-summary")
 
         assert response.status_code == 422  # Missing header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_invalid_auth(self, client, db_session):
         """Test that endpoint rejects invalid admin token."""
         response = client.get(
@@ -3184,7 +3184,7 @@ class TestDistractorSummaryEndpoint:
 
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_empty_dataset(
         self, client, db_session, admin_token_headers
     ):
@@ -3209,7 +3209,7 @@ class TestDistractorSummaryEndpoint:
         assert data["worst_offenders"] == []
         assert data["avg_effective_option_count"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_invalid_question_type(
         self, client, db_session, admin_token_headers
     ):
@@ -3225,7 +3225,7 @@ class TestDistractorSummaryEndpoint:
         data = response.json()
         assert "total_questions_analyzed" in data
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_distractor_summary_totals_consistent(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
@@ -3419,7 +3419,7 @@ def unchecked_validity_test_session(db_session, test_user, test_questions):
 class TestSessionValidityEndpoint:
     """Tests for GET /v1/admin/sessions/{session_id}/validity endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_with_stored_data(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
@@ -3441,7 +3441,7 @@ class TestSessionValidityEndpoint:
         assert data["completed_at"] is not None
         assert data["validity_checked_at"] is not None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_with_suspect_status(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
@@ -3464,7 +3464,7 @@ class TestSessionValidityEndpoint:
         assert data["flag_details"][0]["severity"] == "high"
         assert data["flag_details"][0]["source"] == "time_check"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_on_demand(
         self, client, db_session, admin_token_headers, unchecked_validity_test_session
     ):
@@ -3492,7 +3492,7 @@ class TestSessionValidityEndpoint:
         # Not stored
         assert data["validity_checked_at"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_not_found(
         self, client, db_session, admin_token_headers
     ):
@@ -3505,14 +3505,14 @@ class TestSessionValidityEndpoint:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_requires_auth(self, client, db_session):
         """Test that the endpoint requires admin authentication."""
         response = client.get("/v1/admin/sessions/1/validity")
 
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_invalid_token(
         self, client, db_session, validity_test_session
     ):
@@ -3525,7 +3525,7 @@ class TestSessionValidityEndpoint:
         assert response.status_code == 401
         assert "invalid" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", None)
+    @patch("app.core.config.settings.ADMIN_TOKEN", None)
     def test_get_session_validity_token_not_configured(
         self, client, db_session, admin_token_headers
     ):
@@ -3538,7 +3538,7 @@ class TestSessionValidityEndpoint:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_session_validity_response_schema(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
@@ -3584,7 +3584,7 @@ class TestSessionValidityEndpoint:
 class TestValiditySummaryReport:
     """Tests for GET /v1/admin/validity-report endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_empty(self, client, db_session, admin_token_headers):
         """Test validity report with no test sessions."""
         response = client.get(
@@ -3616,7 +3616,7 @@ class TestValiditySummaryReport:
         # Verify no action needed
         assert data["action_needed"] == []
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_with_data(
         self,
         client,
@@ -3651,7 +3651,7 @@ class TestValiditySummaryReport:
         assert suspect_session is not None
         assert "multiple_rapid_responses" in suspect_session["flags"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_custom_days(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
@@ -3667,7 +3667,7 @@ class TestValiditySummaryReport:
         # Verify period_days reflects the custom value
         assert data["period_days"] == 7
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_status_filter(
         self,
         client,
@@ -3692,7 +3692,7 @@ class TestValiditySummaryReport:
         assert data["summary"]["invalid"] == 0
         assert data["summary"]["total_sessions_analyzed"] == 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_flag_breakdown(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
@@ -3719,7 +3719,7 @@ class TestValiditySummaryReport:
         # The suspect session has multiple_rapid_responses flag
         assert by_flag_type["multiple_rapid_responses"] == 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_trend_calculation(
         self,
         client,
@@ -3754,7 +3754,7 @@ class TestValiditySummaryReport:
         assert 0.0 <= trends["suspect_rate_7d"] <= 1.0
         assert 0.0 <= trends["suspect_rate_30d"] <= 1.0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_action_needed_sorted(
         self,
         client,
@@ -3780,7 +3780,7 @@ class TestValiditySummaryReport:
                     >= action_needed[i + 1]["severity_score"]
                 )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_session_needing_review_structure(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
@@ -3818,7 +3818,7 @@ class TestValiditySummaryReport:
 
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_invalid_auth(self, client, db_session):
         """Test that endpoint rejects invalid admin token."""
         response = client.get(
@@ -3829,7 +3829,7 @@ class TestValiditySummaryReport:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_validity_report_token_not_configured(
         self, client, db_session, admin_token_headers
     ):
@@ -3842,7 +3842,7 @@ class TestValiditySummaryReport:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_invalid_days_parameter(
         self, client, db_session, admin_token_headers
     ):
@@ -3861,7 +3861,7 @@ class TestValiditySummaryReport:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_response_schema(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
@@ -3907,7 +3907,7 @@ class TestValiditySummaryReport:
         for field in trends_fields:
             assert field in data["trends"], f"Missing trends field: {field}"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_excludes_valid_from_action_needed(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
@@ -3925,7 +3925,7 @@ class TestValiditySummaryReport:
         for session in data["action_needed"]:
             assert session["validity_status"] != "valid"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_action_needed_limit(
         self, client, db_session, admin_token_headers, test_user, test_questions
     ):
@@ -3986,7 +3986,7 @@ class TestFactorAnalysisEndpoint:
         """Create admin token headers for authentication."""
         return {"X-Admin-Token": "test-admin-token"}
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_requires_auth(self, client):
         """Test that factor analysis endpoint requires admin token."""
         # No headers
@@ -4000,7 +4000,7 @@ class TestFactorAnalysisEndpoint:
         )
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_insufficient_data_no_sessions(
         self, client, db_session, admin_token_headers
     ):
@@ -4018,7 +4018,7 @@ class TestFactorAnalysisEndpoint:
         assert detail["sample_size"] == 0
         assert detail["minimum_required"] == 500
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_insufficient_sample_below_500(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -4088,7 +4088,7 @@ class TestFactorAnalysisEndpoint:
         assert detail["minimum_required"] == 500
         assert "400" in detail["recommendation"]  # Should mention ~400 more needed
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_success_with_sufficient_data(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -4201,7 +4201,7 @@ class TestFactorAnalysisEndpoint:
             assert "severity" in rec
             assert rec["severity"] in ["info", "warning", "critical"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_custom_min_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -4268,7 +4268,7 @@ class TestFactorAnalysisEndpoint:
         data = response.json()
         assert data["sample_size"] >= 500
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_factor_analysis_min_responses_validation(
         self, client, admin_token_headers
     ):
@@ -4296,7 +4296,7 @@ class TestFactorAnalysisEndpoint:
 class TestDiscriminationReportEndpoint:
     """Tests for GET /v1/admin/questions/discrimination-report endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_report_success(
         self, client, db_session, admin_token_headers
     ):
@@ -4350,7 +4350,7 @@ class TestDiscriminationReportEndpoint:
         assert len(action_needed["immediate_review"]) == 1  # negative discrimination
         assert len(action_needed["monitor"]) == 1  # very_poor discrimination
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_report_empty_pool(
         self, client, db_session, admin_token_headers
     ):
@@ -4379,7 +4379,7 @@ class TestDiscriminationReportEndpoint:
         data = response.json()
         assert data["summary"]["total_questions_with_data"] == 0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_report_min_responses_filter(
         self, client, db_session, admin_token_headers
     ):
@@ -4416,7 +4416,7 @@ class TestDiscriminationReportEndpoint:
         assert response.status_code == 200
         assert response.json()["summary"]["total_questions_with_data"] == 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_report_requires_admin_token(self, client):
         """Test that endpoint requires admin authentication."""
         response = client.get("/v1/admin/questions/discrimination-report")
@@ -4428,7 +4428,7 @@ class TestDiscriminationReportEndpoint:
         )
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_discrimination_report_admin_token_not_configured(
         self, client, admin_token_headers
     ):
@@ -4440,7 +4440,7 @@ class TestDiscriminationReportEndpoint:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_report_by_difficulty_breakdown(
         self, client, db_session, admin_token_headers
     ):
@@ -4484,7 +4484,7 @@ class TestDiscriminationReportEndpoint:
 class TestDiscriminationDetailEndpoint:
     """Tests for GET /v1/admin/questions/{id}/discrimination-detail endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_success(
         self, client, db_session, admin_token_headers
     ):
@@ -4521,7 +4521,7 @@ class TestDiscriminationDetailEndpoint:
         assert "compared_to_difficulty_avg" in data
         assert "history" in data
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_question_not_found(
         self, client, admin_token_headers
     ):
@@ -4534,7 +4534,7 @@ class TestDiscriminationDetailEndpoint:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_no_discrimination_data(
         self, client, db_session, admin_token_headers
     ):
@@ -4566,7 +4566,7 @@ class TestDiscriminationDetailEndpoint:
         assert data["quality_tier"] is None
         assert data["percentile_rank"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_requires_admin_token(self, client):
         """Test that endpoint requires admin authentication."""
         response = client.get("/v1/admin/questions/1/discrimination-detail")
@@ -4578,7 +4578,7 @@ class TestDiscriminationDetailEndpoint:
         )
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_quality_tiers(
         self, client, db_session, admin_token_headers
     ):
@@ -4620,7 +4620,7 @@ class TestDiscriminationDetailEndpoint:
             assert response.status_code == 200
             assert response.json()["quality_tier"] == expected_tier
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_discrimination_detail_comparison_to_averages(
         self, client, db_session, admin_token_headers
     ):
@@ -4658,7 +4658,7 @@ class TestDiscriminationDetailEndpoint:
         assert data["compared_to_type_avg"] == "above"
         assert data["compared_to_difficulty_avg"] == "above"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.get_question_discrimination_detail")
     def test_discrimination_detail_invalid_tier_value_handled_gracefully(
         self, mock_get_detail, client, admin_token_headers
@@ -4700,7 +4700,7 @@ class TestDiscriminationDetailEndpoint:
 class TestQualityFlagManagementEndpoint:
     """Tests for PATCH /v1/admin/questions/{question_id}/quality-flag endpoint (IDA-010)."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_to_under_review(
         self, client, db_session, admin_token_headers
     ):
@@ -4745,7 +4745,7 @@ class TestQualityFlagManagementEndpoint:
         )
         assert question.quality_flag_updated_at is not None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_to_deactivated_with_reason(
         self, client, db_session, admin_token_headers
     ):
@@ -4778,7 +4778,7 @@ class TestQualityFlagManagementEndpoint:
         assert data["new_flag"] == "deactivated"
         assert data["reason"] == "Confirmed ambiguous wording after admin review"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_deactivated_requires_reason(
         self, client, db_session, admin_token_headers
     ):
@@ -4807,7 +4807,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 422
         assert "Reason is required" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_back_to_normal(
         self, client, db_session, admin_token_headers
     ):
@@ -4848,7 +4848,7 @@ class TestQualityFlagManagementEndpoint:
             == "Admin review completed - discrimination improved"
         )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_question_not_found(self, client, admin_token_headers):
         """Test that 404 is returned for non-existent question."""
         response = client.patch(
@@ -4862,7 +4862,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_requires_admin_token(self, client, db_session):
         """Test that endpoint requires admin token authentication."""
         question = Question(
@@ -4885,7 +4885,7 @@ class TestQualityFlagManagementEndpoint:
 
         assert response.status_code == 422  # Missing header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_invalid_token(self, client, db_session):
         """Test that invalid admin token is rejected."""
         question = Question(
@@ -4909,7 +4909,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_invalid_flag_value(
         self, client, db_session, admin_token_headers
     ):
@@ -4936,7 +4936,7 @@ class TestQualityFlagManagementEndpoint:
 
         assert response.status_code == 422  # Pydantic validation error
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_under_review_without_reason(
         self, client, db_session, admin_token_headers
     ):
@@ -4968,7 +4968,7 @@ class TestQualityFlagManagementEndpoint:
         assert data["new_flag"] == "under_review"
         assert data["reason"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_update_quality_flag_persists_timestamp(
         self, client, db_session, admin_token_headers
     ):
@@ -5015,7 +5015,7 @@ class TestDiscriminationReportCacheInvalidation:
     2. Subsequent calls to /v1/admin/questions/discrimination-report return fresh data
     """
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_quality_flag_update_invalidates_report_cache(
         self, client, db_session, admin_token_headers
     ):
@@ -5101,7 +5101,7 @@ class TestDiscriminationReportCacheInvalidation:
             f"but got '{question_in_review3['quality_flag']}'"
         )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_quality_flag_deactivation_updates_report_counts(
         self, client, db_session, admin_token_headers
     ):
@@ -5187,7 +5187,7 @@ class TestDiscriminationReportCacheInvalidation:
         # Here we just verify the endpoint returned successfully after the update
         assert data3["summary"]["total_questions_with_data"] >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_multiple_quality_flag_updates_invalidate_cache_each_time(
         self, client, db_session, admin_token_headers
     ):
@@ -5299,7 +5299,7 @@ class TestDiscriminationReportCacheInvalidation:
 class TestConstantTimeTokenComparison:
     """Tests verifying constant-time comparison is used for security tokens (BCQ-007)."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_verify_admin_token_accepts_valid_token(self, client, db_session):
         """Test that verify_admin_token accepts correct token."""
         response = client.get(
@@ -5309,7 +5309,7 @@ class TestConstantTimeTokenComparison:
         # Should not get 401 (may get different error if no data, but auth passed)
         assert response.status_code != 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_verify_admin_token_rejects_invalid_token(self, client, db_session):
         """Test that verify_admin_token rejects incorrect token."""
         response = client.get(
@@ -5319,7 +5319,7 @@ class TestConstantTimeTokenComparison:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_verify_service_key_accepts_valid_key(
         self, client, db_session, valid_generation_run_data
     ):
@@ -5332,7 +5332,7 @@ class TestConstantTimeTokenComparison:
         # Should not get 401 (auth passed)
         assert response.status_code != 401
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_verify_service_key_rejects_invalid_key(
         self, client, valid_generation_run_data
     ):

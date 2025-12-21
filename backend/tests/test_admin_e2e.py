@@ -238,7 +238,7 @@ class TestEndToEndRunReporting:
     These tests verify the integration between question-service and backend.
     """
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_successful_run_reporting(
         self, client, db_session, complete_metrics_summary
     ):
@@ -278,12 +278,12 @@ class TestEndToEndRunReporting:
         assert db_run.questions_requested == 50
         assert db_run.questions_generated == 48
         assert db_run.questions_inserted == 42
-        assert db_run.overall_success_rate == 0.84
+        assert db_run.overall_success_rate == pytest.approx(0.84)
         assert db_run.environment == "production"
         assert db_run.triggered_by == "scheduler"
         assert db_run.prompt_version == "v2.1"
         assert db_run.arbiter_config_version == "v1.0"
-        assert db_run.min_arbiter_score_threshold == 0.7
+        assert db_run.min_arbiter_score_threshold == pytest.approx(0.7)
 
         # Verify JSONB fields
         assert db_run.provider_metrics["openai"]["generated"] == 30
@@ -305,11 +305,11 @@ class TestEndToEndRunReporting:
         assert get_data["questions_requested"] == 50
         assert get_data["questions_generated"] == 48
         assert get_data["questions_inserted"] == 42
-        assert get_data["overall_success_rate"] == 0.84
+        assert get_data["overall_success_rate"] == pytest.approx(0.84)
         assert get_data["provider_metrics"]["openai"]["generated"] == 30
         assert get_data["pipeline_losses"]["total_loss"] == 8  # 50 - 42
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_failed_run_reporting(self, client, db_session):
         """
         Test E2E flow for a failed run: verify all failure metrics are captured.
@@ -396,7 +396,7 @@ class TestEndToEndRunReporting:
         assert get_data["status"] == "failed"
         assert get_data["pipeline_losses"]["total_loss"] == 50
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_partial_failure_run_reporting(self, client, db_session):
         """
         Test E2E flow for partial failure: some questions succeeded.
@@ -473,7 +473,7 @@ class TestEndToEndRunReporting:
         assert db_run.questions_inserted == 22
         assert db_run.total_errors == 20
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_multiple_runs_and_stats(
         self, client, db_session, complete_metrics_summary
     ):
@@ -541,7 +541,7 @@ class TestEndToEndRunReporting:
         assert stats["provider_summary"] is not None
         assert "openai" in stats["provider_summary"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_list_endpoint_returns_reported_runs(
         self, client, db_session, complete_metrics_summary
     ):
@@ -581,7 +581,7 @@ class TestEndToEndRunReporting:
         # Verify runs are sorted by started_at desc (most recent first)
         assert list_data["runs"][0]["started_at"] > list_data["runs"][1]["started_at"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_provider_metrics_correctly_aggregated(
         self, client, db_session, complete_metrics_summary
     ):
@@ -616,7 +616,7 @@ class TestEndToEndRunReporting:
         assert provider_metrics["anthropic"]["generated"] == 18
         assert provider_metrics["anthropic"]["api_calls"] == 45
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_pipeline_losses_calculated_correctly(
         self, client, db_session, complete_metrics_summary
     ):
@@ -658,7 +658,7 @@ class TestEndToEndRunReporting:
 class TestEndToEndFilteringAndSorting:
     """E2E tests for filtering and sorting functionality."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_filter_by_status(self, client, db_session, complete_metrics_summary):
         """Test filtering runs by status after reporting."""
         reporter = RunReporterSimulator(client, "test-service-key")
@@ -711,7 +711,7 @@ class TestEndToEndFilteringAndSorting:
         assert failed_response.json()["total"] == 1
         assert failed_response.json()["runs"][0]["status"] == "failed"
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_filter_by_environment(
         self, client, db_session, complete_metrics_summary
     ):
@@ -753,7 +753,7 @@ class TestEndToEndFilteringAndSorting:
 class TestEndToEndErrorHandling:
     """E2E tests for error handling in the complete flow."""
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_invalid_service_key(self, client, complete_metrics_summary):
         """Test that invalid service key is rejected."""
         reporter = RunReporterSimulator(client, "wrong-key")
@@ -767,7 +767,7 @@ class TestEndToEndErrorHandling:
         assert response.status_code == 401
         assert "Invalid service API key" in response.json()["detail"]
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_missing_required_fields(self, client):
         """Test that missing required fields are rejected."""
         # Send incomplete payload directly
@@ -785,7 +785,7 @@ class TestEndToEndErrorHandling:
 
         assert response.status_code == 422  # Validation error
 
-    @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_e2e_get_nonexistent_run(self, client):
         """Test retrieving a non-existent run returns 404."""
         response = client.get(

@@ -246,7 +246,7 @@ def integration_question_with_quartiles(db_session, integration_test_user):
 class TestSingleQuestionDistractorAnalysisIntegration:
     """Integration tests for GET /v1/admin/questions/{id}/distractor-analysis."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_with_simulated_responses(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -274,30 +274,30 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         option_b = next((o for o in data["options"] if o["option_key"] == "B"), None)
         assert option_b is not None
         assert option_b["is_correct"] is True
-        assert option_b["selection_rate"] == 0.6  # 60/100
+        assert option_b["selection_rate"] == pytest.approx(0.6)  # 60/100
 
         # Verify functioning distractor (A: 25% selection rate)
         option_a = next((o for o in data["options"] if o["option_key"] == "A"), None)
         assert option_a is not None
         assert option_a["is_correct"] is False
-        assert option_a["selection_rate"] == 0.25
+        assert option_a["selection_rate"] == pytest.approx(0.25)
         assert option_a["status"] == "functioning"  # >= 5%
 
         # Verify weak distractor (C: 10% selection rate)
         option_c = next((o for o in data["options"] if o["option_key"] == "C"), None)
         assert option_c is not None
         assert option_c["is_correct"] is False
-        assert option_c["selection_rate"] == 0.1
+        assert option_c["selection_rate"] == pytest.approx(0.1)
         assert option_c["status"] == "functioning"  # >= 5%
 
         # Verify non-functioning distractor (D: 5% selection rate)
         option_d = next((o for o in data["options"] if o["option_key"] == "D"), None)
         assert option_d is not None
         assert option_d["is_correct"] is False
-        assert option_d["selection_rate"] == 0.05
+        assert option_d["selection_rate"] == pytest.approx(0.05)
         assert option_d["status"] == "functioning"  # Exactly 5% = functioning threshold
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_with_quartile_data(
         self, client, db_session, admin_headers, integration_question_with_quartiles
     ):
@@ -328,7 +328,7 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         # Top quartile should select correct answer more
         assert option_b["top_quartile_rate"] > option_b["bottom_quartile_rate"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_insufficient_responses(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -349,7 +349,7 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert data["total_responses"] == 30
         assert "Insufficient data" in data["recommendations"][0]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_question_not_found(self, client, admin_headers):
         """Test 404 response for non-existent question."""
         response = client.get(
@@ -360,7 +360,7 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_free_response_question(self, client, db_session, admin_headers):
         """Test 400 response for free-response questions (no answer_options)."""
         # Create a free-response question
@@ -393,7 +393,7 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         # Missing header returns 422
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_analysis_invalid_token(self, client, integration_mc_question):
         """Test that endpoint rejects invalid admin token."""
         response = client.get(
@@ -413,7 +413,7 @@ class TestSingleQuestionDistractorAnalysisIntegration:
 class TestBulkDistractorSummaryIntegration:
     """Integration tests for GET /v1/admin/questions/distractor-summary."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_with_multiple_questions(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -441,7 +441,7 @@ class TestBulkDistractorSummaryIntegration:
         assert "by_question_type" in data
         assert "avg_effective_option_count" in data
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_by_question_type_filter(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -458,7 +458,7 @@ class TestBulkDistractorSummaryIntegration:
         # Should only include math questions
         assert data["total_questions_analyzed"] >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_empty_with_high_threshold(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -477,7 +477,7 @@ class TestBulkDistractorSummaryIntegration:
         assert data["worst_offenders"] == []
         assert data["avg_effective_option_count"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_worst_offenders_structure(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -504,7 +504,7 @@ class TestBulkDistractorSummaryIntegration:
             assert "total_responses" in offender
             assert "effective_option_count" in offender
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_by_question_type_breakdown(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -528,7 +528,7 @@ class TestBulkDistractorSummaryIntegration:
             assert "questions_with_issues" in by_type[qt]
             assert "avg_effective_options" in by_type[qt]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_nf_count_breakdown(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -563,7 +563,7 @@ class TestBulkDistractorSummaryIntegration:
         # Missing header returns 422
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_summary_invalid_token(self, client):
         """Test that endpoint rejects invalid admin token."""
         response = client.get(
@@ -582,7 +582,7 @@ class TestBulkDistractorSummaryIntegration:
 class TestDistractorEndpointSchemas:
     """Tests to verify response schemas match expected format."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_single_analysis_response_fields(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -644,7 +644,7 @@ class TestDistractorEndpointSchemas:
         for field in summary_fields:
             assert field in data["summary"], f"Missing summary field: {field}"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_bulk_summary_response_fields(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -686,7 +686,7 @@ class TestDistractorEndpointSchemas:
 class TestKnownDataPatterns:
     """Tests that verify analysis correctly identifies known data patterns."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_identifies_correct_answer(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -706,7 +706,7 @@ class TestKnownDataPatterns:
         assert len(correct_options) == 1
         assert correct_options[0]["option_key"] == "B"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calculates_selection_rates(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -725,12 +725,12 @@ class TestKnownDataPatterns:
         # Q0 responses: B=60, A=25, C=10, D=5 (total 100)
         options_by_key = {o["option_key"]: o for o in data["options"]}
 
-        assert options_by_key["B"]["selection_rate"] == 0.6
-        assert options_by_key["A"]["selection_rate"] == 0.25
-        assert options_by_key["C"]["selection_rate"] == 0.1
-        assert options_by_key["D"]["selection_rate"] == 0.05
+        assert options_by_key["B"]["selection_rate"] == pytest.approx(0.6)
+        assert options_by_key["A"]["selection_rate"] == pytest.approx(0.25)
+        assert options_by_key["C"]["selection_rate"] == pytest.approx(0.1)
+        assert options_by_key["D"]["selection_rate"] == pytest.approx(0.05)
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_effective_option_count_calculation(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
@@ -755,7 +755,7 @@ class TestKnownDataPatterns:
         # = 1 / (0.36 + 0.0625 + 0.01 + 0.0025) = 1 / 0.435 ≈ 2.30
         assert eff_count < 3.0  # Skewed distribution = lower effective count
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_guessing_probability_calculation(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):

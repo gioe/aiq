@@ -30,7 +30,7 @@ def admin_token_header():
 
 def with_admin_token(func):
     """Decorator to patch admin token setting for tests."""
-    return patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")(func)
+    return patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")(func)
 
 
 class TestWeightedScoringToggle:
@@ -295,7 +295,7 @@ class TestABComparisonCalculation:
 class TestWeightedScoringAdminEndpoints:
     """Tests for admin API endpoints for weighted scoring configuration."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_weighted_scoring_status_default(self, client, admin_token_header):
         """Test getting default weighted scoring status."""
         response = client.get(
@@ -307,7 +307,7 @@ class TestWeightedScoringAdminEndpoints:
         assert data["enabled"] is False
         assert data["domain_weights"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_toggle_weighted_scoring_on(self, client, admin_token_header, db_session):
         """Test enabling weighted scoring via API."""
         response = client.post(
@@ -320,7 +320,7 @@ class TestWeightedScoringAdminEndpoints:
         assert data["enabled"] is True
         assert "enabled" in data["message"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_toggle_weighted_scoring_off(self, client, admin_token_header, db_session):
         """Test disabling weighted scoring via API."""
         # First enable it
@@ -349,7 +349,7 @@ class TestWeightedScoringAdminEndpoints:
         )
         assert response.status_code == 422  # Missing required header
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_domain_weights_none(self, client, admin_token_header):
         """Test getting domain weights when none configured."""
         response = client.get(
@@ -360,7 +360,7 @@ class TestWeightedScoringAdminEndpoints:
         # Returns null when not configured
         assert response.json() is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_set_domain_weights(self, client, admin_token_header, db_session):
         """Test setting domain weights via API."""
         weights = {
@@ -383,7 +383,7 @@ class TestWeightedScoringAdminEndpoints:
             "updated" in data["message"].lower() or "success" in data["message"].lower()
         )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_set_invalid_domain_weights(self, client, admin_token_header):
         """Test setting weights with invalid domain name."""
         weights = {
@@ -398,7 +398,7 @@ class TestWeightedScoringAdminEndpoints:
         assert response.status_code == 400
         assert "invalid" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_set_negative_domain_weights(self, client, admin_token_header):
         """Test setting negative weights."""
         weights = {
@@ -413,7 +413,7 @@ class TestWeightedScoringAdminEndpoints:
         assert response.status_code == 400
         assert "negative" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_set_weights_not_summing_to_one_warning(
         self, client, admin_token_header, db_session
     ):
@@ -436,7 +436,7 @@ class TestWeightedScoringAdminEndpoints:
 class TestABComparisonEndpoint:
     """Tests for A/B comparison admin endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_ab_comparison_not_found(self, client, admin_token_header):
         """Test A/B comparison for non-existent session."""
         response = client.get(
