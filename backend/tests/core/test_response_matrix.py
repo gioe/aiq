@@ -607,7 +607,7 @@ class TestGetResponseMatrixStats:
         stats = get_response_matrix_stats(result)
 
         # 2/4 = 0.5 accuracy
-        assert stats["overall_accuracy"] == 0.5
+        assert stats["overall_accuracy"] == pytest.approx(0.5)
         assert stats["n_users"] == 2
         assert stats["n_items"] == 2
 
@@ -662,8 +662,8 @@ class TestGetResponseMatrixStats:
         assert result is not None
         stats = get_response_matrix_stats(result)
 
-        assert stats["domain_accuracies"]["pattern"] == 0.5
-        assert stats["domain_accuracies"]["logic"] == 1.0
+        assert stats["domain_accuracies"]["pattern"] == pytest.approx(0.5)
+        assert stats["domain_accuracies"]["logic"] == pytest.approx(1.0)
 
     def test_calculates_sparsity(self, db_session):
         """Calculates sparsity (proportion of zeros)."""
@@ -685,7 +685,7 @@ class TestGetResponseMatrixStats:
         assert result is not None
         stats = get_response_matrix_stats(result)
 
-        assert stats["sparsity"] == 1.0
+        assert stats["sparsity"] == pytest.approx(1.0)
 
 
 # =============================================================================

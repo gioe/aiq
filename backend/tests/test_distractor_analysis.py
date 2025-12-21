@@ -616,7 +616,7 @@ class TestCalculateDistractorDiscrimination:
         assert result["options"]["B"]["discrimination_index"] == pytest.approx(0.5)
 
         # Option A: bottom_rate (0.25) - top_rate (0.75) = -0.5 (negative = correct answer behavior)
-        assert result["options"]["A"]["discrimination_index"] == -0.5
+        assert result["options"]["A"]["discrimination_index"] == pytest.approx(-0.5)
 
     def test_discrimination_index_inverted(self, db_session):
         """Test discrimination index - inverted (problematic distractor)."""
@@ -642,7 +642,7 @@ class TestCalculateDistractorDiscrimination:
 
         # Total quartile counts: top = 25, bottom = 20
         # Option B: bottom_rate (3/20=0.15) - top_rate (10/25=0.4) = -0.25 (inverted!)
-        assert result["options"]["B"]["discrimination_index"] == -0.25
+        assert result["options"]["B"]["discrimination_index"] == pytest.approx(-0.25)
 
         # Option C: bottom_rate (13/20=0.65) - top_rate (3/25=0.12) = 0.53 (good distractor)
         assert result["options"]["C"]["discrimination_index"] == pytest.approx(0.53)
