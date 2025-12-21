@@ -290,14 +290,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-023: Move SQL Aggregations for Admin Stats to Database
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/admin.py:696-708`
 **Description:** Loads all generation runs into memory then aggregates in Python. Use SQL aggregations.
 **Acceptance Criteria:**
-- [ ] Use `func.sum()`, `func.avg()`, `func.count()` for aggregations
-- [ ] Remove `.all()` followed by Python loops
-- [ ] Verify results match original behavior
-- [ ] Performance improvement measurable with large datasets
+- [x] Use `func.sum()`, `func.avg()`, `func.count()` for aggregations
+- [x] Remove `.all()` followed by Python loops
+- [x] Verify results match original behavior
+- [x] Performance improvement measurable with large datasets
 
 ---
 
