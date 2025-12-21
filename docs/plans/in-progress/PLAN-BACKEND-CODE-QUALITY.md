@@ -191,14 +191,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-015: Consolidate String Sanitization Functions
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/validators.py:91-147`
 **Description:** `sanitize_string`, `sanitize_name`, `sanitize_answer` share common sanitization steps. Create base function.
 **Acceptance Criteria:**
-- [ ] New `_base_sanitize(value)` handles common steps
-- [ ] Each function calls base then applies specific rules
-- [ ] All validation tests pass
-- [ ] No change in sanitization behavior
+- [x] New `_base_sanitize(value)` handles common steps
+- [x] Each function calls base then applies specific rules
+- [x] All validation tests pass
+- [x] No change in sanitization behavior
 
 ---
 
