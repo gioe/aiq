@@ -324,18 +324,6 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 
 ---
 
-### BCQ-026: Document API Versioning Strategy
-**Status:** [ ] Not Started
-**Files:** `CLAUDE.md`
-**Description:** No documented strategy for introducing `/v2/` or deprecation process.
-**Acceptance Criteria:**
-- [ ] Document when to introduce new API versions
-- [ ] Document deprecation timeline (e.g., 6 months notice)
-- [ ] Document header-based versioning alternative
-- [ ] Added to CLAUDE.md under new "API Versioning" section
-
----
-
 ### BCQ-027: Standardize Error Response Format
 **Status:** [ ] Not Started
 **Files:** Various auth and test endpoints
