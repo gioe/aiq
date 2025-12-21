@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Optional, TypedDict
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
-from typing import Optional
 
 from app.models import get_db, User, Question, TestSession, UserQuestion
 from app.models.models import TestStatus
@@ -568,36 +568,77 @@ def abandon_test(
     )
 
 
-@router.post("/submit", response_model=SubmitTestResponse)
-def submit_test(
-    submission: ResponseSubmission,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Submit responses for a test session.
+# =============================================================================
+# Submit Test Helper Functions (BCQ-020)
+# =============================================================================
+# The following helper functions extract logical sections from submit_test()
+# to improve readability and maintainability. Each function handles one
+# responsibility in the test submission flow.
+# =============================================================================
 
-    Validates and stores all user responses, compares them against correct
-    answers, and marks the test session as completed.
+
+class SubmissionValidationResult(TypedDict):
+    """Result of validating a test submission."""
+
+    test_session: TestSession
+    questions_dict: dict
+    submitted_question_ids: set
+
+
+class ResponseProcessingResult(TypedDict):
+    """Result of processing responses."""
+
+    response_count: int
+    correct_count: int
+    response_objects: list
+
+
+class ValidityAnalysisResult(TypedDict):
+    """Result of validity analysis."""
+
+    validity_status: str
+    validity_flags: Optional[list]
+    validity_checked_at: Optional[datetime]
+
+
+class SEMCalculationResult(TypedDict):
+    """Result of SEM and confidence interval calculation."""
+
+    standard_error: Optional[float]
+    ci_lower: Optional[int]
+    ci_upper: Optional[int]
+
+
+# Time limit for test completion in seconds (30 minutes)
+TIME_LIMIT_SECONDS = 1800
+
+
+def _validate_submission(
+    db: Session,
+    submission: ResponseSubmission,
+    user_id: int,
+) -> SubmissionValidationResult:
+    """
+    Validate a test submission request.
+
+    Verifies the test session exists, belongs to the user, is in progress,
+    has responses, and all question IDs are valid for this session.
 
     Args:
-        submission: Response submission with session_id and responses
-        current_user: Current authenticated user
         db: Database session
+        submission: Response submission with session_id and responses
+        user_id: Current user's ID
 
     Returns:
-        Submission confirmation with updated session details
+        SubmissionValidationResult with session, questions dict, and question IDs
 
     Raises:
-        HTTPException: If session not found, not authorized, already completed,
-                      or validation fails
+        HTTPException: If validation fails
     """
-    from app.models.models import Response
-
     test_session = get_test_session_or_404(db, submission.session_id)
 
     # Verify session belongs to current user
-    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
+    verify_session_ownership(test_session, user_id)
 
     # Verify session is still in progress
     verify_session_in_progress(test_session)
@@ -611,7 +652,7 @@ def submit_test(
     session_question_ids = (
         db.query(UserQuestion.question_id)
         .filter(
-            UserQuestion.user_id == current_user.id,
+            UserQuestion.user_id == user_id,
             UserQuestion.seen_at >= test_session.started_at,
         )
         .all()
@@ -633,12 +674,44 @@ def submit_test(
     questions = db.query(Question).filter(Question.id.in_(submitted_question_ids)).all()
     questions_dict = {q.id: q for q in questions}
 
-    # Process each response and track correct answers
+    return {
+        "test_session": test_session,
+        "questions_dict": questions_dict,
+        "submitted_question_ids": submitted_question_ids,
+    }
+
+
+def _process_responses(
+    db: Session,
+    submission: ResponseSubmission,
+    test_session: TestSession,
+    user_id: int,
+    questions_dict: dict,
+) -> ResponseProcessingResult:
+    """
+    Process and store all responses for a test submission.
+
+    Validates each answer, determines correctness, creates Response records,
+    and updates distractor statistics.
+
+    Args:
+        db: Database session
+        submission: Response submission with responses list
+        test_session: The test session being submitted
+        user_id: Current user's ID
+        questions_dict: Dictionary mapping question IDs to Question objects
+
+    Returns:
+        ResponseProcessingResult with counts and response objects
+
+    Raises:
+        HTTPException: If a response validation fails
+    """
+    from app.models.models import Response
+
     response_count = 0
     correct_count = 0
-    response_objects: list[
-        Response
-    ] = []  # DW-003: Collect responses for domain scoring
+    response_objects: list[Response] = []
 
     for resp_item in submission.responses:
         # Validate user_answer is not empty
@@ -667,19 +740,18 @@ def submit_test(
         # Create Response record with optional time tracking (TS-003)
         response = Response(
             test_session_id=test_session.id,
-            user_id=current_user.id,
+            user_id=user_id,
             question_id=resp_item.question_id,
             user_answer=resp_item.user_answer.strip(),
             is_correct=is_correct,
             answered_at=utc_now(),
-            time_spent_seconds=resp_item.time_spent_seconds,  # TS-003: Store per-question time
+            time_spent_seconds=resp_item.time_spent_seconds,
         )
         db.add(response)
-        response_objects.append(response)  # DW-003: Collect for domain scoring
+        response_objects.append(response)
         response_count += 1
 
         # DA-006: Update distractor statistics for multiple-choice questions
-        # This tracks selection frequency for each answer option
         # Graceful degradation: failures are logged but don't block response recording
         with graceful_failure(
             f"update distractor stats for question {resp_item.question_id}",
@@ -691,6 +763,41 @@ def submit_test(
                 selected_answer=resp_item.user_answer.strip(),
             )
 
+    return {
+        "response_count": response_count,
+        "correct_count": correct_count,
+        "response_objects": response_objects,
+    }
+
+
+def _complete_session_and_calculate_score(
+    db: Session,
+    test_session: TestSession,
+    submission: ResponseSubmission,
+    response_objects: list,
+    questions_dict: dict,
+    correct_count: int,
+    response_count: int,
+) -> tuple:
+    """
+    Mark session as complete and calculate IQ score.
+
+    Updates session status, calculates completion time, checks time limit,
+    calculates domain scores and IQ score (weighted or standard).
+
+    Args:
+        db: Database session
+        test_session: Test session to complete
+        submission: Original submission for time limit flag
+        response_objects: List of Response objects for domain scoring
+        questions_dict: Dictionary of questions for domain scoring
+        correct_count: Number of correct answers
+        response_count: Total number of responses
+
+    Returns:
+        Tuple of (completion_time, completion_time_seconds, domain_scores,
+                  score_result, percentile)
+    """
     # Update test session status to completed
     completion_time = utc_now()
     test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
@@ -702,9 +809,6 @@ def submit_test(
     completion_time_seconds = int(time_delta.total_seconds())
 
     # TS-003/TS-010: Flag if time limit was exceeded
-    # Accept client-reported flag OR detect server-side if total time exceeds limit
-    # Using both ensures robustness: client knows about auto-submit, server validates
-    TIME_LIMIT_SECONDS = 1800  # 30 minutes
     if submission.time_limit_exceeded or completion_time_seconds > TIME_LIMIT_SECONDS:
         test_session.time_limit_exceeded = True  # type: ignore[assignment]
         logger.info(
@@ -715,19 +819,13 @@ def submit_test(
         )
 
     # DW-003: Calculate domain-specific performance breakdown
-    # This provides per-domain subscores for cognitive domain analysis
-    # Calculated first as it's needed for weighted scoring
     domain_scores = calculate_domain_scores(response_objects, questions_dict)  # type: ignore[arg-type]
 
     # DW-014: Calculate IQ score using weighted or equal weights based on config
-    # When weighted scoring is enabled and domain weights are configured,
-    # use the weighted scoring function which applies domain-specific weights
-    # reflecting each domain's correlation with general intelligence (g-loading)
     use_weighted = is_weighted_scoring_enabled(db)
     domain_weights = get_domain_weights(db) if use_weighted else None
 
     if use_weighted and domain_weights:
-        # Use weighted scoring with configured domain weights
         score_result = calculate_weighted_iq_score(
             domain_scores=domain_scores,
             weights=domain_weights,
@@ -736,7 +834,6 @@ def submit_test(
             f"Test session {test_session.id}: Using weighted scoring with weights={domain_weights}"
         )
     else:
-        # Use standard equal-weight scoring
         score_result = calculate_iq_score(
             correct_answers=correct_count, total_questions=response_count
         )
@@ -749,33 +846,71 @@ def submit_test(
     # Calculate percentile rank
     percentile = iq_to_percentile(score_result.iq_score)
 
-    # TS-005: Run response time anomaly detection
-    # This analysis runs after scoring to detect timing patterns that may indicate
-    # validity concerns (random clicking, external assistance, etc.)
+    return (
+        completion_time,
+        completion_time_seconds,
+        domain_scores,
+        score_result,
+        percentile,
+    )
+
+
+def _analyze_response_times(db: Session, session_id: int) -> Optional[dict]:
+    """
+    Analyze response times for anomaly detection.
+
+    Args:
+        db: Database session
+        session_id: Test session ID
+
+    Returns:
+        Response time flags dictionary or None if analysis fails
+    """
     response_time_flags = None
     with graceful_failure(
-        f"analyze response times for session {test_session.id}",
+        f"analyze response times for session {session_id}",
         logger,
         log_level=logging.ERROR,
     ):
-        time_analysis = analyze_response_times(db, int(test_session.id))  # type: ignore
+        time_analysis = analyze_response_times(db, session_id)
         response_time_flags = get_session_time_summary(time_analysis)
 
         if response_time_flags.get("validity_concern"):
             logger.info(
-                f"Test session {test_session.id} has validity concerns: "
+                f"Test session {session_id} has validity concerns: "
                 f"flags={response_time_flags.get('flags')}"
             )
 
-    # CD-007: Run validity analysis to detect aberrant response patterns
-    # This combines person-fit, response time plausibility, and Guttman error checks
-    # to identify potential cheating or invalid test-taking behavior
+    return response_time_flags
+
+
+def _run_validity_analysis(
+    session_id: int,
+    submission: ResponseSubmission,
+    questions_dict: dict,
+    correct_count: int,
+) -> ValidityAnalysisResult:
+    """
+    Run validity analysis to detect aberrant response patterns.
+
+    Combines person-fit, response time plausibility, and Guttman error checks
+    to identify potential cheating or invalid test-taking behavior.
+
+    Args:
+        session_id: Test session ID for logging
+        submission: Response submission with responses
+        questions_dict: Dictionary of questions
+        correct_count: Number of correct answers
+
+    Returns:
+        ValidityAnalysisResult with status, flags, and timestamp
+    """
     validity_status = "valid"
     validity_flags = None
     validity_checked_at = None
 
     with graceful_failure(
-        f"run validity analysis for session {test_session.id}",
+        f"run validity analysis for session {session_id}",
         logger,
         log_level=logging.ERROR,
         exc_info=True,
@@ -807,7 +942,6 @@ def submit_test(
         ]
 
         # Guttman check needs: (is_correct, empirical_difficulty) tuples
-        # empirical_difficulty is p-value (proportion correct), higher = easier
         guttman_data = [
             (
                 resp_item.user_answer.strip().lower()
@@ -834,8 +968,6 @@ def submit_test(
         )
 
         # Extract results for storage
-        # Store flag_details instead of flags for richer diagnostics
-        # flag_details includes type, severity, source, details, and additional context
         validity_status = validity_assessment["validity_status"]
         validity_flags = (
             validity_assessment["flag_details"]
@@ -847,124 +979,232 @@ def submit_test(
         # Log validity assessment results
         if validity_status != "valid":
             logger.warning(
-                f"Test session {test_session.id} validity assessment: "
+                f"Test session {session_id} validity assessment: "
                 f"status={validity_status}, severity={validity_assessment['severity_score']}, "
                 f"flags={[f['type'] for f in validity_assessment['flag_details']]}"
             )
         else:
             logger.info(
-                f"Test session {test_session.id} passed validity checks: "
+                f"Test session {session_id} passed validity checks: "
                 f"confidence={validity_assessment['confidence']}"
             )
 
-    # SEM-004: Calculate Standard Error of Measurement and Confidence Interval
-    # This provides measurement precision information for the IQ score
+    return {
+        "validity_status": validity_status,
+        "validity_flags": validity_flags,
+        "validity_checked_at": validity_checked_at,
+    }
+
+
+def _calculate_sem_and_ci(
+    db: Session, session_id: int, iq_score: int
+) -> SEMCalculationResult:
+    """
+    Calculate Standard Error of Measurement and confidence interval.
+
+    Args:
+        db: Database session
+        session_id: Test session ID for logging
+        iq_score: The calculated IQ score
+
+    Returns:
+        SEMCalculationResult with standard error and CI bounds
+    """
     standard_error: Optional[float] = None
     ci_lower: Optional[int] = None
     ci_upper: Optional[int] = None
 
     with graceful_failure(
-        f"calculate SEM for session {test_session.id}",
+        f"calculate SEM for session {session_id}",
         logger,
     ):
         # Get cached reliability coefficient (Cronbach's alpha)
-        # Returns None if insufficient data or reliability < 0.60
         reliability = get_cached_reliability(db)
 
         if reliability is not None:
-            # Calculate SEM using the reliability coefficient
             standard_error = calculate_sem(reliability)
-
-            # Calculate 95% confidence interval for the IQ score
             ci_lower, ci_upper = calculate_confidence_interval(
-                score=score_result.iq_score,
+                score=iq_score,
                 sem=standard_error,
                 confidence_level=CONFIDENCE_INTERVAL_LEVEL,
             )
 
             logger.info(
-                f"Test session {test_session.id}: SEM calculation successful - "
+                f"Test session {session_id}: SEM calculation successful - "
                 f"reliability={reliability:.3f}, SEM={standard_error:.2f}, "
                 f"CI=[{ci_lower}, {ci_upper}]"
             )
         else:
-            # Log why SEM calculation was skipped
             logger.info(
-                f"Test session {test_session.id}: SEM calculation skipped - "
+                f"Test session {session_id}: SEM calculation skipped - "
                 "insufficient data or reliability below threshold (< 0.60)"
             )
 
-    # Create TestResult record
+    return {
+        "standard_error": standard_error,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+    }
+
+
+def _run_post_submission_updates(
+    db: Session,
+    session_id: int,
+    correct_count: int,
+    response_count: int,
+) -> None:
+    """
+    Run post-submission updates for question statistics and distractor analysis.
+
+    These are non-critical operations that run after the main submission is committed.
+
+    Args:
+        db: Database session
+        session_id: Test session ID
+        correct_count: Number of correct answers
+        response_count: Total number of responses
+    """
+    # Update question performance statistics (P11-009)
+    with graceful_failure(
+        f"update question statistics for session {session_id}",
+        logger,
+        log_level=logging.ERROR,
+    ):
+        update_question_statistics(db, session_id)
+
+    # DA-007: Update quartile-based distractor stats after test completion
+    with graceful_failure(
+        f"update distractor quartile stats for session {session_id}",
+        logger,
+    ):
+        update_session_quartile_stats(
+            db=db,
+            test_session_id=session_id,
+            correct_answers=correct_count,
+            total_questions=response_count,
+        )
+
+
+@router.post("/submit", response_model=SubmitTestResponse)
+def submit_test(
+    submission: ResponseSubmission,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Submit responses for a test session.
+
+    Validates and stores all user responses, compares them against correct
+    answers, and marks the test session as completed.
+
+    Args:
+        submission: Response submission with session_id and responses
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Submission confirmation with updated session details
+
+    Raises:
+        HTTPException: If session not found, not authorized, already completed,
+                      or validation fails
+    """
     from app.models.models import TestResult
 
+    user_id = int(current_user.id)  # type: ignore
+
+    # Step 1: Validate submission
+    validation_result = _validate_submission(db, submission, user_id)
+    test_session = validation_result["test_session"]
+    questions_dict = validation_result["questions_dict"]
+
+    # Step 2: Process responses
+    processing_result = _process_responses(
+        db, submission, test_session, user_id, questions_dict
+    )
+    response_count = processing_result["response_count"]
+    correct_count = processing_result["correct_count"]
+    response_objects = processing_result["response_objects"]
+
+    # Step 3: Complete session and calculate score
+    (
+        completion_time,
+        completion_time_seconds,
+        domain_scores,
+        score_result,
+        percentile,
+    ) = _complete_session_and_calculate_score(
+        db,
+        test_session,
+        submission,
+        response_objects,
+        questions_dict,
+        correct_count,
+        response_count,
+    )
+
+    # Step 4: Analyze response times
+    response_time_flags = _analyze_response_times(db, int(test_session.id))  # type: ignore
+
+    # Step 5: Run validity analysis
+    validity_result = _run_validity_analysis(
+        int(test_session.id),  # type: ignore
+        submission,
+        questions_dict,
+        correct_count,
+    )
+
+    # Step 6: Calculate SEM and confidence interval
+    sem_result = _calculate_sem_and_ci(
+        db, int(test_session.id), score_result.iq_score  # type: ignore
+    )
+
+    # Step 7: Create TestResult record
     test_result = TestResult(
         test_session_id=test_session.id,
-        user_id=current_user.id,
+        user_id=user_id,
         iq_score=score_result.iq_score,
         percentile_rank=percentile,
         total_questions=score_result.total_questions,
         correct_answers=score_result.correct_answers,
         completion_time_seconds=completion_time_seconds,
         completed_at=completion_time,
-        response_time_flags=response_time_flags,  # TS-005: Store anomaly flags
-        domain_scores=domain_scores,  # DW-003: Store per-domain performance breakdown
-        # CD-007: Store validity analysis results
-        validity_status=validity_status,
-        validity_flags=validity_flags,
-        validity_checked_at=validity_checked_at,
-        # SEM-004: Store measurement precision data
-        standard_error=standard_error,
-        ci_lower=ci_lower,
-        ci_upper=ci_upper,
+        response_time_flags=response_time_flags,
+        domain_scores=domain_scores,
+        validity_status=validity_result["validity_status"],
+        validity_flags=validity_result["validity_flags"],
+        validity_checked_at=validity_result["validity_checked_at"],
+        standard_error=sem_result["standard_error"],
+        ci_lower=sem_result["ci_lower"],
+        ci_upper=sem_result["ci_upper"],
     )
     db.add(test_result)
 
-    # Commit all changes in a single transaction
+    # Step 8: Commit all changes
     db.commit()
     db.refresh(test_session)
     db.refresh(test_result)
 
-    # Update question performance statistics (P11-009)
-    # Track empirical difficulty and discrimination for each question
-    with graceful_failure(
-        f"update question statistics for session {test_session.id}",
-        logger,
-        log_level=logging.ERROR,
-    ):
-        update_question_statistics(db, int(test_session.id))  # type: ignore
+    # Step 9: Run post-submission updates (non-critical)
+    _run_post_submission_updates(
+        db,
+        int(test_session.id),  # type: ignore
+        correct_count,
+        response_count,
+    )
 
-    # DA-007: Update quartile-based distractor stats after test completion
-    # This enables discrimination analysis to identify which distractors attract
-    # high-ability vs low-ability test-takers
-    with graceful_failure(
-        f"update distractor quartile stats for session {test_session.id}",
-        logger,
-    ):
-        update_session_quartile_stats(
-            db=db,
-            test_session_id=int(test_session.id),  # type: ignore
-            correct_answers=correct_count,
-            total_questions=response_count,
-        )
-
-    # Track analytics event
+    # Step 10: Track analytics and invalidate caches
     AnalyticsTracker.track_test_completed(
-        user_id=int(current_user.id),  # type: ignore
+        user_id=user_id,
         session_id=int(test_session.id),  # type: ignore
         iq_score=score_result.iq_score,
         duration_seconds=completion_time_seconds,
         accuracy=score_result.accuracy_percentage,
     )
-
-    # Invalidate user's cached data after test submission
-    invalidate_user_cache(int(current_user.id))  # type: ignore[arg-type]
-
-    # RE-FI-031: Invalidate reliability report cache after test completion
-    # New test data affects reliability metrics (Cronbach's alpha, test-retest, split-half)
-    # so cached reports should be refreshed to include the new data
+    invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
 
-    # Build response with test result (pass db for domain percentile calculation)
+    # Step 11: Build and return response
     result_response = build_test_result_response(test_result, db=db)
 
     return SubmitTestResponse(
