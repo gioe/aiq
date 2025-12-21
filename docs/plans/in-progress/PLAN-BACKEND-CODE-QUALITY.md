@@ -396,19 +396,22 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-033: Split admin.py Into Separate Modules
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py` (3,889 lines)
-**Description:** Monolithic admin file contains all admin endpoints. Split into logical modules for maintainability.
+**Status:** [x] Complete
+**Files:** `backend/app/api/v1/admin/` (8 modules)
+**Description:** Monolithic admin file contained all admin endpoints. Split into logical modules for maintainability.
 **Acceptance Criteria:**
-- [ ] Create `backend/app/api/v1/admin/` directory structure
-- [ ] Extract generation endpoints to `admin/generation.py`
-- [ ] Extract discrimination endpoints to `admin/discrimination.py`
-- [ ] Extract reliability endpoints to `admin/reliability.py`
-- [ ] Extract question management to `admin/questions.py`
-- [ ] Extract stats/dashboard endpoints to `admin/stats.py`
-- [ ] Create `admin/__init__.py` with router aggregation
-- [ ] All admin endpoint tests pass
-- [ ] No change in API behavior
+- [x] Create `backend/app/api/v1/admin/` directory structure
+- [x] Extract generation endpoints to `admin/generation.py`
+- [x] Extract discrimination endpoints to `admin/discrimination.py`
+- [x] Extract reliability endpoints to `admin/reliability.py`
+- [x] Extract calibration endpoints to `admin/calibration.py`
+- [x] Extract distractors endpoints to `admin/distractors.py`
+- [x] Extract validity endpoints to `admin/validity.py`
+- [x] Extract config endpoints to `admin/config.py`
+- [x] Extract analytics endpoints to `admin/analytics.py`
+- [x] Create `admin/__init__.py` with router aggregation
+- [x] All admin endpoint tests pass (172/172)
+- [x] No change in API behavior
 
 ---
 
