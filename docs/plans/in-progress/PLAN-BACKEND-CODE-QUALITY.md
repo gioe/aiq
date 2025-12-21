@@ -302,13 +302,13 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-024: Add Error Tracking IDs to 500 Responses
-**Status:** [ ] Not Started
-**Files:** `backend/app/main.py:350-373`
+**Status:** [x] Complete
+**Files:** `backend/app/main.py:351-387`
 **Description:** Generic exception handler returns "Internal server error" without tracking ID.
 **Acceptance Criteria:**
-- [ ] Generate UUID error_id on exception
-- [ ] Log exception with error_id
-- [ ] Include error_id in response body
+- [x] Generate UUID error_id on exception
+- [x] Log exception with error_id
+- [x] Include error_id in response body
 - [ ] Document how to trace errors in support docs
 
 ---
