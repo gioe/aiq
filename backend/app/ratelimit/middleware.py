@@ -4,12 +4,16 @@ FastAPI middleware for automatic rate limiting.
 Provides middleware to automatically apply rate limiting to all requests
 with customizable identifier resolution and response headers.
 """
+import logging
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 
 class EndpointLimitConfig(TypedDict):
@@ -99,7 +103,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             identifier = self.identifier_resolver(request)
         except Exception as e:
             # If identifier resolution fails, allow request but log
-            print(f"Rate limit identifier resolution failed: {e}")
+            logger.warning(
+                "Rate limit identifier resolution failed: %s",
+                e,
+                exc_info=True,
+            )
             return await call_next(request)
 
         # Get endpoint-specific limits or use defaults
