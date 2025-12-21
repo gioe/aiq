@@ -9,17 +9,9 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.main import create_application
-
-
-def remove_route(app: FastAPI, path: str) -> None:
-    """Remove a route from the app by path."""
-    app.router.routes = [
-        r for r in app.router.routes if getattr(r, "path", None) != path
-    ]
 
 
 class TestErrorTracking:
