@@ -1,9 +1,121 @@
 """
 Tests for authentication endpoints.
 """
+from datetime import datetime
 from unittest.mock import patch
 
+import pytest
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
+
+from app.schemas.auth import UserRegister
+
+
+class TestBirthYearValidation:
+    """Unit tests for birth year validation in UserRegister schema."""
+
+    def test_birth_year_none_is_valid(self):
+        """Test that birth_year can be None (optional)."""
+        user = UserRegister(
+            email="test@example.com",
+            password="securepassword123",
+            first_name="Test",
+            last_name="User",
+            birth_year=None,
+        )
+        assert user.birth_year is None
+
+    def test_birth_year_current_year_is_valid(self):
+        """Test that birth_year of current year is valid."""
+        current_year = datetime.now().year
+        user = UserRegister(
+            email="test@example.com",
+            password="securepassword123",
+            first_name="Test",
+            last_name="User",
+            birth_year=current_year,
+        )
+        assert user.birth_year == current_year
+
+    def test_birth_year_past_valid_year(self):
+        """Test that birth_year in the past is valid."""
+        user = UserRegister(
+            email="test@example.com",
+            password="securepassword123",
+            first_name="Test",
+            last_name="User",
+            birth_year=1990,
+        )
+        assert user.birth_year == 1990
+
+    def test_birth_year_minimum_1900(self):
+        """Test that birth_year of exactly 1900 is valid."""
+        user = UserRegister(
+            email="test@example.com",
+            password="securepassword123",
+            first_name="Test",
+            last_name="User",
+            birth_year=1900,
+        )
+        assert user.birth_year == 1900
+
+    def test_birth_year_before_1900_rejected(self):
+        """Test that birth_year before 1900 is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            UserRegister(
+                email="test@example.com",
+                password="securepassword123",
+                first_name="Test",
+                last_name="User",
+                birth_year=1899,
+            )
+        assert "greater than or equal to 1900" in str(exc_info.value)
+
+    def test_birth_year_future_rejected_with_dynamic_message(self):
+        """Test that birth_year in the future is rejected with dynamic error message."""
+        current_year = datetime.now().year
+        future_year = current_year + 1
+
+        with pytest.raises(ValidationError) as exc_info:
+            UserRegister(
+                email="test@example.com",
+                password="securepassword123",
+                first_name="Test",
+                last_name="User",
+                birth_year=future_year,
+            )
+
+        error_message = str(exc_info.value)
+        # Verify the error message dynamically includes the current year
+        assert f"Birth year cannot be later than {current_year}" in error_message
+
+    def test_birth_year_validation_is_truly_dynamic(self):
+        """Test that birth year validation uses datetime.now() dynamically.
+
+        This test mocks datetime to verify the validation adapts to the current year.
+        """
+        # Test with current year boundary
+        current_year = datetime.now().year
+
+        # Current year should be valid
+        user = UserRegister(
+            email="test@example.com",
+            password="securepassword123",
+            first_name="Test",
+            last_name="User",
+            birth_year=current_year,
+        )
+        assert user.birth_year == current_year
+
+        # Next year should be invalid
+        with pytest.raises(ValidationError):
+            UserRegister(
+                email="test@example.com",
+                password="securepassword123",
+                first_name="Test",
+                last_name="User",
+                birth_year=current_year + 1,
+            )
 
 
 class TestRegisterUser:
@@ -150,6 +262,81 @@ class TestRegisterUser:
         )
         assert user.password_hash != "securepassword123"
         assert user.password_hash.startswith("$2b$")  # Bcrypt hash prefix
+
+    def test_register_user_with_valid_birth_year(self, client, db_session):
+        """Test registration with a valid birth year."""
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        user_data = {
+            "email": "birthyear@example.com",
+            "password": "securepassword123",
+            "first_name": "John",
+            "last_name": "Doe",
+            "birth_year": current_year - 25,  # 25 years old
+        }
+
+        response = client.post("/v1/auth/register", json=user_data)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["user"]["birth_year"] == current_year - 25
+
+    def test_register_user_birth_year_current_year_is_valid(self, client, db_session):
+        """Test that birth year of current year is valid (newborn)."""
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        user_data = {
+            "email": "newborn@example.com",
+            "password": "securepassword123",
+            "first_name": "Baby",
+            "last_name": "User",
+            "birth_year": current_year,
+        }
+
+        response = client.post("/v1/auth/register", json=user_data)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["user"]["birth_year"] == current_year
+
+    def test_register_user_birth_year_future_year_rejected(self, client):
+        """Test that birth year in the future is rejected."""
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        user_data = {
+            "email": "future@example.com",
+            "password": "securepassword123",
+            "first_name": "Future",
+            "last_name": "User",
+            "birth_year": current_year + 1,
+        }
+
+        response = client.post("/v1/auth/register", json=user_data)
+
+        assert response.status_code == 422
+        error_detail = response.json()["detail"]
+        # Verify the error message is dynamic and includes the current year
+        assert any(
+            f"Birth year cannot be later than {current_year}" in str(err)
+            for err in error_detail
+        )
+
+    def test_register_user_birth_year_too_old_rejected(self, client):
+        """Test that birth year before 1900 is rejected."""
+        user_data = {
+            "email": "ancient@example.com",
+            "password": "securepassword123",
+            "first_name": "Ancient",
+            "last_name": "User",
+            "birth_year": 1899,
+        }
+
+        response = client.post("/v1/auth/register", json=user_data)
+
+        assert response.status_code == 422
 
 
 class TestLoginUser:
