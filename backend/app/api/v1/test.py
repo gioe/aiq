@@ -62,6 +62,7 @@ from app.core.validity_analysis import (
     count_guttman_errors,
     assess_session_validity,
 )
+from app.core.graceful_failure import graceful_failure
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -683,15 +684,14 @@ def submit_test(
         # DA-006: Update distractor statistics for multiple-choice questions
         # This tracks selection frequency for each answer option
         # Graceful degradation: failures are logged but don't block response recording
-        try:
+        with graceful_failure(
+            f"update distractor stats for question {resp_item.question_id}",
+            logger,
+        ):
             update_distractor_stats(
                 db=db,
                 question_id=resp_item.question_id,
                 selected_answer=resp_item.user_answer.strip(),
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to update distractor stats for question {resp_item.question_id}: {e}"
             )
 
     # Update test session status to completed
@@ -756,7 +756,11 @@ def submit_test(
     # This analysis runs after scoring to detect timing patterns that may indicate
     # validity concerns (random clicking, external assistance, etc.)
     response_time_flags = None
-    try:
+    with graceful_failure(
+        f"analyze response times for session {test_session.id}",
+        logger,
+        log_level=logging.ERROR,
+    ):
         time_analysis = analyze_response_times(db, int(test_session.id))  # type: ignore
         response_time_flags = get_session_time_summary(time_analysis)
 
@@ -765,11 +769,6 @@ def submit_test(
                 f"Test session {test_session.id} has validity concerns: "
                 f"flags={response_time_flags.get('flags')}"
             )
-    except Exception as e:
-        # Log error but don't fail the submission - anomaly detection is non-critical
-        logger.error(
-            f"Failed to analyze response times for session {test_session.id}: {e}"
-        )
 
     # CD-007: Run validity analysis to detect aberrant response patterns
     # This combines person-fit, response time plausibility, and Guttman error checks
@@ -778,7 +777,12 @@ def submit_test(
     validity_flags = None
     validity_checked_at = None
 
-    try:
+    with graceful_failure(
+        f"run validity analysis for session {test_session.id}",
+        logger,
+        log_level=logging.ERROR,
+        exc_info=True,
+    ):
         # Prepare data for validity analysis
         # Person-fit needs: (is_correct, difficulty_level) tuples
         person_fit_data = [
@@ -856,21 +860,16 @@ def submit_test(
                 f"confidence={validity_assessment['confidence']}"
             )
 
-    except Exception as e:
-        # Validity check failures should not block test submission (graceful degradation)
-        # Log the error but continue with default "valid" status
-        logger.error(
-            f"Failed to run validity analysis for session {test_session.id}: {e}",
-            exc_info=True,
-        )
-
     # SEM-004: Calculate Standard Error of Measurement and Confidence Interval
     # This provides measurement precision information for the IQ score
     standard_error: Optional[float] = None
     ci_lower: Optional[int] = None
     ci_upper: Optional[int] = None
 
-    try:
+    with graceful_failure(
+        f"calculate SEM for session {test_session.id}",
+        logger,
+    ):
         # Get cached reliability coefficient (Cronbach's alpha)
         # Returns None if insufficient data or reliability < 0.60
         reliability = get_cached_reliability(db)
@@ -897,10 +896,6 @@ def submit_test(
                 f"Test session {test_session.id}: SEM calculation skipped - "
                 "insufficient data or reliability below threshold (< 0.60)"
             )
-
-    except Exception as e:
-        # SEM calculation failures should not block test submission (graceful degradation)
-        logger.warning(f"Test session {test_session.id}: Failed to calculate SEM - {e}")
 
     # Create TestResult record
     from app.models.models import TestResult
@@ -934,28 +929,25 @@ def submit_test(
 
     # Update question performance statistics (P11-009)
     # Track empirical difficulty and discrimination for each question
-    try:
+    with graceful_failure(
+        f"update question statistics for session {test_session.id}",
+        logger,
+        log_level=logging.ERROR,
+    ):
         update_question_statistics(db, int(test_session.id))  # type: ignore
-    except Exception as e:
-        # Log error but don't fail the submission
-        logger.error(
-            f"Failed to update question statistics for session {test_session.id}: {e}"
-        )
 
     # DA-007: Update quartile-based distractor stats after test completion
     # This enables discrimination analysis to identify which distractors attract
     # high-ability vs low-ability test-takers
-    try:
+    with graceful_failure(
+        f"update distractor quartile stats for session {test_session.id}",
+        logger,
+    ):
         update_session_quartile_stats(
             db=db,
             test_session_id=int(test_session.id),  # type: ignore
             correct_answers=correct_count,
             total_questions=response_count,
-        )
-    except Exception as e:
-        # Log error but don't fail the submission - quartile stats are non-critical
-        logger.warning(
-            f"Failed to update distractor quartile stats for session {test_session.id}: {e}"
         )
 
     # Track analytics event
