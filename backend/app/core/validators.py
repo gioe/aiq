@@ -77,6 +77,35 @@ class StringSanitizer:
     HTML_ENTITIES_PATTERN = re.compile(r"&[a-zA-Z0-9#]+;")
 
     @classmethod
+    def _base_sanitize(cls, value: str, escape_html: bool = True) -> str:
+        """
+        Base sanitization function with common steps shared by all sanitizers.
+
+        Performs the following operations:
+        1. Strips control characters (except newlines, tabs, carriage returns)
+        2. Strips leading/trailing whitespace
+        3. Optionally escapes HTML entities
+
+        Args:
+            value: String to sanitize
+            escape_html: Whether to escape HTML entities (default: True)
+
+        Returns:
+            Sanitized string with common steps applied
+        """
+        # Strip control characters
+        value = cls.CONTROL_CHARS_PATTERN.sub("", value)
+
+        # Strip leading/trailing whitespace
+        value = value.strip()
+
+        # Escape HTML entities if requested
+        if escape_html:
+            value = html.escape(value)
+
+        return value
+
+    @classmethod
     def sanitize_string(cls, value: str, allow_html: bool = False) -> str:
         """
         Sanitize string input to prevent XSS attacks.
@@ -88,17 +117,7 @@ class StringSanitizer:
         Returns:
             Sanitized string
         """
-        # Strip control characters
-        value = cls.CONTROL_CHARS_PATTERN.sub("", value)
-
-        # Strip leading/trailing whitespace
-        value = value.strip()
-
-        if not allow_html:
-            # Escape HTML entities
-            value = html.escape(value)
-
-        return value
+        return cls._base_sanitize(value, escape_html=not allow_html)
 
     @classmethod
     def sanitize_name(cls, name: str) -> str:
@@ -111,11 +130,8 @@ class StringSanitizer:
         Returns:
             Sanitized name
         """
-        # Remove control characters
-        name = cls.CONTROL_CHARS_PATTERN.sub("", name)
-
-        # Strip whitespace
-        name = name.strip()
+        # Apply base sanitization without HTML escaping (we'll escape after filtering)
+        name = cls._base_sanitize(name, escape_html=False)
 
         # Allow only letters, spaces, hyphens, and apostrophes
         # This covers most names while preventing code injection
@@ -140,11 +156,8 @@ class StringSanitizer:
         Returns:
             Sanitized answer
         """
-        # Strip control characters
-        answer = cls.CONTROL_CHARS_PATTERN.sub("", answer)
-
-        # Strip leading/trailing whitespace
-        answer = answer.strip()
+        # Apply base sanitization without HTML escaping (we'll escape after truncating)
+        answer = cls._base_sanitize(answer, escape_html=False)
 
         # Limit length to prevent abuse
         max_length = 1000
