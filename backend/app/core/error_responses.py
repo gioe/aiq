@@ -163,6 +163,29 @@ class ErrorMessages:
         """Generic message for database operation failures."""
         return f"Failed to {operation}. Please try again later."
 
+    @staticmethod
+    def invalid_question_ids(question_ids: set) -> str:
+        """Message when submitted question IDs don't belong to the test session."""
+        return (
+            f"Invalid question IDs: {question_ids}. "
+            "These questions do not belong to this test session."
+        )
+
+    @staticmethod
+    def empty_answer(question_id: int) -> str:
+        """Message when a user answer is empty."""
+        return f"User answer for question {question_id} cannot be empty."
+
+    @staticmethod
+    def question_not_found(question_id: int) -> str:
+        """Message when a specific question is not found."""
+        return f"Question {question_id} not found."
+
+    @staticmethod
+    def result_not_found(result_id: int) -> str:
+        """Message when a specific test result is not found."""
+        return f"Test result {result_id} not found."
+
 
 # ==============================================================================
 # HTTPException Builder Functions
