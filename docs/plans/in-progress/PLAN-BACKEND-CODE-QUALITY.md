@@ -361,13 +361,13 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-030: Increase time.sleep Values in Timing Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `tests/test_ratelimit_storage.py`, `tests/test_discrimination_analysis.py`, `tests/core/test_question_analytics.py`
 **Description:** Uses `time.sleep(0.2)` which may fail on slow CI runners.
 **Acceptance Criteria:**
-- [ ] Increase to at least 0.5s for timing-dependent tests
-- [ ] Consider using `freezegun` for deterministic tests (if available)
-- [ ] Document why delay is needed in test docstring
+- [x] Increase to at least 0.5s for timing-dependent tests
+- [x] Consider using `freezegun` for deterministic tests (if available)
+- [x] Document why delay is needed in test docstring
 
 ---
 
