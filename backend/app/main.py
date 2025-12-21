@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.v1.api import api_router
-from app.core import settings
+from app.core.config import settings
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
 from app.middleware import (
