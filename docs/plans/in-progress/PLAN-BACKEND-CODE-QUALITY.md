@@ -349,14 +349,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-029: Replace Direct Float Comparisons with pytest.approx()
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** Multiple test files
 **Description:** Tests use `== 0.5` instead of `pytest.approx(0.5)` for calculated floats.
 **Acceptance Criteria:**
-- [ ] Search for `== [0-9]+\\.[0-9]` pattern in tests
-- [ ] Replace with `pytest.approx()` where appropriate
-- [ ] Skip exact integer comparisons
-- [ ] All tests still pass
+- [x] Search for `== [0-9]+\\.[0-9]` pattern in tests
+- [x] Replace with `pytest.approx()` where appropriate
+- [x] Skip exact integer comparisons
+- [x] All tests still pass
 
 ---
 
