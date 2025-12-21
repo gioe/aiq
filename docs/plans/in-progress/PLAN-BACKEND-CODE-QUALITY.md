@@ -215,14 +215,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-017: Extract Graceful Degradation Pattern in submit_test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/test.py:660-911`
 **Description:** Same try-except-log-continue pattern repeated 5+ times in submit_test for non-critical operations.
 **Acceptance Criteria:**
-- [ ] New `@graceful_failure(operation_name, logger)` decorator
-- [ ] Decorator logs and swallows exceptions
-- [ ] Applied to all non-critical operations in submit_test
-- [ ] Reduces boilerplate while preserving behavior
+- [x] New `@graceful_failure(operation_name, logger)` decorator
+- [x] Decorator logs and swallows exceptions
+- [x] Applied to all non-critical operations in submit_test
+- [x] Reduces boilerplate while preserving behavior
 
 ---
 
