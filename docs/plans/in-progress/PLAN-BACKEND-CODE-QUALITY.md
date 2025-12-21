@@ -203,14 +203,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-016: Unify Admin Token and Service Key Verification
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/admin.py:175-232`
 **Description:** `verify_admin_token` and `verify_service_key` have nearly identical validation logic. Create generic function.
 **Acceptance Criteria:**
-- [ ] New `_verify_secret_header(header_value, setting_attr, error_prefix)` helper
-- [ ] Both verification functions use the helper
-- [ ] Error messages remain distinct for debugging
-- [ ] Admin endpoint tests pass
+- [x] New `_verify_secret_header(header_value, setting_attr, error_prefix)` helper
+- [x] Both verification functions use the helper
+- [x] Error messages remain distinct for debugging
+- [x] Admin endpoint tests pass
 
 ---
 
