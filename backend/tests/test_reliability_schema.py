@@ -304,7 +304,7 @@ class TestTestRetestMetricsValidator:
             meets_threshold=False,
             num_pairs=50,
         )
-        assert metrics.correlation == -0.25
+        assert metrics.correlation == pytest.approx(-0.25)
         assert metrics.meets_threshold is False
 
 
@@ -753,7 +753,7 @@ class TestTestRetestBidirectionalValidation:
             meets_threshold=False,
             num_pairs=50,
         )
-        assert metrics.correlation == -0.25
+        assert metrics.correlation == pytest.approx(-0.25)
         assert metrics.meets_threshold is False
 
     def test_invalid_negative_correlation_with_meets_threshold_true(self):

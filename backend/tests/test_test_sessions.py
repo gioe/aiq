@@ -2,6 +2,8 @@
 Tests for test session management endpoints.
 """
 
+import pytest
+
 
 class TestStartTest:
     """Tests for POST /v1/test/start endpoint."""
@@ -1222,8 +1224,8 @@ class TestSubmitTestWithDomainScores:
         # Verify domains with questions have 100% correct (answered correctly)
         for domain_data in domain_scores.values():
             if domain_data["total"] > 0:
-                assert (
-                    domain_data["pct"] == 100.0
+                assert domain_data["pct"] == pytest.approx(
+                    100.0
                 ), "All answered questions should be correct"
 
 

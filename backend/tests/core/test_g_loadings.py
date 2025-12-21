@@ -196,7 +196,7 @@ class TestCronbachsAlpha:
 
         alpha = calculate_cronbachs_alpha(matrix)
 
-        assert alpha == 0.0
+        assert alpha == pytest.approx(0.0)
 
     def test_alpha_zero_total_variance_returns_zero(self):
         """Zero total variance should return 0."""
@@ -206,7 +206,7 @@ class TestCronbachsAlpha:
         alpha = calculate_cronbachs_alpha(matrix)
 
         # Total score is always 1, so variance is 0
-        assert alpha == 0.0
+        assert alpha == pytest.approx(0.0)
 
 
 # =============================================================================

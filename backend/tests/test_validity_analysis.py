@@ -8,6 +8,8 @@ This module contains unit tests for:
 - CD-014: Session validity assessment
 """
 
+import pytest
+
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
     check_response_time_plausibility,
@@ -498,7 +500,7 @@ class TestCalculatePersonFitHeuristic:
         result = calculate_person_fit_heuristic([], 0)
 
         assert result["fit_flag"] == "normal"
-        assert result["fit_ratio"] == 0.0
+        assert result["fit_ratio"] == pytest.approx(0.0)
         assert result["total_responses"] == 0
         assert result["unexpected_correct"] == 0
         assert result["unexpected_incorrect"] == 0
@@ -1122,7 +1124,7 @@ class TestCheckResponseTimePlausibility:
 
         result = check_response_time_plausibility(responses)
 
-        assert result["total_time_seconds"] == 300.0
+        assert result["total_time_seconds"] == pytest.approx(300.0)
         assert not any(f["type"] == "total_time_too_fast" for f in result["flags"])
 
     def test_total_time_just_below_threshold(self):
@@ -1137,7 +1139,7 @@ class TestCheckResponseTimePlausibility:
 
         result = check_response_time_plausibility(responses)
 
-        assert result["total_time_seconds"] == 299.0
+        assert result["total_time_seconds"] == pytest.approx(299.0)
         assert any(f["type"] == "total_time_too_fast" for f in result["flags"])
 
     # =========================================================================
@@ -1193,7 +1195,7 @@ class TestCheckResponseTimePlausibility:
 
         result = check_response_time_plausibility(responses)
 
-        assert result["total_time_seconds"] == 7200.0
+        assert result["total_time_seconds"] == pytest.approx(7200.0)
         assert not any(f["type"] == "total_time_excessive" for f in result["flags"])
 
     def test_total_time_excessive_just_above_threshold(self):
@@ -1316,7 +1318,7 @@ class TestCheckResponseTimePlausibility:
 
         assert result["flags"] == []
         assert result["validity_concern"] is False
-        assert result["total_time_seconds"] == 0.0
+        assert result["total_time_seconds"] == pytest.approx(0.0)
         assert result["rapid_response_count"] == 0
         assert result["extended_pause_count"] == 0
         assert result["fast_hard_correct_count"] == 0
@@ -1330,7 +1332,7 @@ class TestCheckResponseTimePlausibility:
         result = check_response_time_plausibility(responses)
 
         assert result["statistics"]["total_responses"] == 1
-        assert result["total_time_seconds"] == 60.0
+        assert result["total_time_seconds"] == pytest.approx(60.0)
         # Single response under 300s total should flag total_time_too_fast
         assert any(f["type"] == "total_time_too_fast" for f in result["flags"])
 
@@ -1351,7 +1353,7 @@ class TestCheckResponseTimePlausibility:
 
         # Only 2 responses with valid time should be counted
         assert result["statistics"]["total_responses"] == 2
-        assert result["total_time_seconds"] == 150.0
+        assert result["total_time_seconds"] == pytest.approx(150.0)
 
     def test_all_responses_missing_time(self):
         """Test handling when all responses are missing time data."""
@@ -1376,7 +1378,7 @@ class TestCheckResponseTimePlausibility:
         result = check_response_time_plausibility(responses)
 
         assert result["statistics"]["total_responses"] == 2
-        assert result["total_time_seconds"] == 150.0
+        assert result["total_time_seconds"] == pytest.approx(150.0)
 
     def test_alternative_difficulty_key_name(self):
         """Test that difficulty_level is also accepted as a key name."""
@@ -1476,10 +1478,10 @@ class TestCheckResponseTimePlausibility:
         result = check_response_time_plausibility(responses)
 
         assert result["statistics"]["total_responses"] == 3
-        assert result["statistics"]["mean_time"] == 60.0  # (30+60+90)/3
-        assert result["statistics"]["min_time"] == 30.0
-        assert result["statistics"]["max_time"] == 90.0
-        assert result["total_time_seconds"] == 180.0
+        assert result["statistics"]["mean_time"] == pytest.approx(60.0)  # (30+60+90)/3
+        assert result["statistics"]["min_time"] == pytest.approx(30.0)
+        assert result["statistics"]["max_time"] == pytest.approx(90.0)
+        assert result["total_time_seconds"] == pytest.approx(180.0)
 
     def test_details_message_for_no_flags(self):
         """Test that details message is appropriate when no flags."""
@@ -1625,7 +1627,7 @@ class TestCountGuttmanErrors:
         result = count_guttman_errors(responses)
 
         assert result["error_count"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
         assert result["total_responses"] == 5
         assert result["correct_count"] == 3
@@ -1649,7 +1651,7 @@ class TestCountGuttmanErrors:
         # Only 1 incorrect item, 4 correct items
         # No Guttman errors because the only incorrect is the hardest item
         assert result["error_count"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
 
     def test_perfect_pattern_low_ability(self):
@@ -1670,7 +1672,7 @@ class TestCountGuttmanErrors:
         # 1 correct, 4 incorrect
         # No Guttman errors because the only correct is the easiest item
         assert result["error_count"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
 
     def test_near_perfect_pattern_minimal_errors(self):
@@ -1724,7 +1726,7 @@ class TestCountGuttmanErrors:
         # max_possible = 2 * 2 = 4
         # error_count = 4, error_rate = 1.0 (100%)
         assert result["error_count"] == 4
-        assert result["error_rate"] == 1.0
+        assert result["error_rate"] == pytest.approx(1.0)
         assert result["interpretation"] == "high_errors_aberrant"
         assert result["error_rate"] > GUTTMAN_ERROR_ABERRANT_THRESHOLD
 
@@ -1872,7 +1874,7 @@ class TestCountGuttmanErrors:
         # Perfect pattern: all correct are easier than all incorrect
         # No Guttman errors at all
         assert result["error_count"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
 
     def test_just_above_elevated_threshold(self):
@@ -1902,7 +1904,7 @@ class TestCountGuttmanErrors:
         # error_rate = 3/15 = 0.20 (exactly at threshold!)
         assert result["error_count"] == 3
         # At exactly 0.20, interpretation is "normal" (threshold is > 0.20)
-        assert result["error_rate"] == 0.2
+        assert result["error_rate"] == pytest.approx(0.2)
         # 0.20 is NOT > 0.20, so should be normal
         assert result["interpretation"] == "normal"
 
@@ -1946,7 +1948,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 0
         assert result["max_possible_errors"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
         assert result["total_responses"] == 0
         assert result["correct_count"] == 0
@@ -1962,7 +1964,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 0
         assert result["max_possible_errors"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
         assert result["total_responses"] == 1
         assert result["correct_count"] == 1
@@ -1998,7 +2000,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 0
         assert result["max_possible_errors"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
         assert result["correct_count"] == 5
         assert result["incorrect_count"] == 0
@@ -2021,7 +2023,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 0
         assert result["max_possible_errors"] == 0
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
         assert result["correct_count"] == 0
         assert result["incorrect_count"] == 5
@@ -2039,7 +2041,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 0
         assert result["max_possible_errors"] == 1  # 1 correct * 1 incorrect
-        assert result["error_rate"] == 0.0
+        assert result["error_rate"] == pytest.approx(0.0)
         assert result["interpretation"] == "normal"
 
     def test_two_items_one_error(self):
@@ -2054,7 +2056,7 @@ class TestCountGuttmanErrors:
 
         assert result["error_count"] == 1
         assert result["max_possible_errors"] == 1
-        assert result["error_rate"] == 1.0
+        assert result["error_rate"] == pytest.approx(1.0)
         assert result["interpretation"] == "high_errors_aberrant"
 
     # =========================================================================
@@ -2104,7 +2106,7 @@ class TestCountGuttmanErrors:
 
         # This is still an error even with tiny difference
         assert result["error_count"] == 1
-        assert result["error_rate"] == 1.0
+        assert result["error_rate"] == pytest.approx(1.0)
 
     def test_none_difficulty_values_filtered(self):
         """Test that None difficulty values are filtered out."""
@@ -2260,8 +2262,8 @@ class TestCountGuttmanErrors:
     def test_threshold_constants_accessible(self):
         """Test that Guttman threshold constants are exported and have expected values."""
         # Verify the constants match the documentation
-        assert GUTTMAN_ERROR_ABERRANT_THRESHOLD == 0.30
-        assert GUTTMAN_ERROR_ELEVATED_THRESHOLD == 0.20
+        assert GUTTMAN_ERROR_ABERRANT_THRESHOLD == pytest.approx(0.30)
+        assert GUTTMAN_ERROR_ELEVATED_THRESHOLD == pytest.approx(0.20)
 
     def test_threshold_boundaries_aberrant(self):
         """Test that error_rate > 0.30 produces 'high_errors_aberrant'."""
@@ -2303,7 +2305,7 @@ class TestCountGuttmanErrors:
 
         # So at exactly 0.30, it should be "elevated_errors"
         # This test validates the threshold constants are correct
-        assert GUTTMAN_ERROR_ABERRANT_THRESHOLD == 0.30
+        assert GUTTMAN_ERROR_ABERRANT_THRESHOLD == pytest.approx(0.30)
 
     # =========================================================================
     # Real-World-Like Scenarios
@@ -2579,7 +2581,7 @@ class TestAssessSessionValidity:
 
         assert result["validity_status"] == "valid"
         assert result["severity_score"] == 0
-        assert result["confidence"] == 1.0
+        assert result["confidence"] == pytest.approx(1.0)
         assert result["flags"] == []
         assert len(result["flag_details"]) == 0
         assert result["components"]["person_fit"] == "normal"
@@ -2633,7 +2635,7 @@ class TestAssessSessionValidity:
         assert result["severity_score"] == SEVERITY_GUTTMAN_ELEVATED  # 1
         assert "elevated_guttman_errors" in result["flags"]
         # Confidence should be reduced but still high
-        assert result["confidence"] == 0.85  # 1.0 - (1 * 0.15)
+        assert result["confidence"] == pytest.approx(0.85)  # 1.0 - (1 * 0.15)
 
     def test_valid_with_minor_flags_details_message(self):
         """Test that valid session with minor flags has appropriate details."""
@@ -2861,7 +2863,9 @@ class TestAssessSessionValidity:
 
         assert result["validity_status"] == "invalid"
         assert result["severity_score"] == 8  # 2 + 2 + 2 + 2
-        assert result["confidence"] == 0.0  # 1.0 - (8 * 0.15) = -0.2 -> clamped to 0.0
+        assert result["confidence"] == pytest.approx(
+            0.0
+        )  # 1.0 - (8 * 0.15) = -0.2 -> clamped to 0.0
 
     def test_invalid_details_message(self):
         """Test that invalid session has appropriate details message."""
@@ -2980,7 +2984,7 @@ class TestAssessSessionValidity:
 
         result = assess_session_validity(person_fit, time_check, guttman_check)
 
-        assert result["confidence"] == 1.0
+        assert result["confidence"] == pytest.approx(1.0)
 
     def test_confidence_calculation_severity_1(self):
         """Verify confidence is 0.85 when severity is 1."""
@@ -2991,7 +2995,7 @@ class TestAssessSessionValidity:
         result = assess_session_validity(person_fit, time_check, guttman_check)
 
         assert result["severity_score"] == 1
-        assert result["confidence"] == 0.85  # 1.0 - (1 * 0.15)
+        assert result["confidence"] == pytest.approx(0.85)  # 1.0 - (1 * 0.15)
 
     def test_confidence_calculation_severity_2(self):
         """Verify confidence is 0.70 when severity is 2."""
@@ -3002,7 +3006,7 @@ class TestAssessSessionValidity:
         result = assess_session_validity(person_fit, time_check, guttman_check)
 
         assert result["severity_score"] == 2
-        assert result["confidence"] == 0.7  # 1.0 - (2 * 0.15)
+        assert result["confidence"] == pytest.approx(0.7)  # 1.0 - (2 * 0.15)
 
     def test_confidence_calculation_severity_4(self):
         """Verify confidence is 0.40 when severity is 4."""
@@ -3013,7 +3017,7 @@ class TestAssessSessionValidity:
         result = assess_session_validity(person_fit, time_check, guttman_check)
 
         assert result["severity_score"] == 4
-        assert result["confidence"] == 0.4  # 1.0 - (4 * 0.15)
+        assert result["confidence"] == pytest.approx(0.4)  # 1.0 - (4 * 0.15)
 
     def test_confidence_clamped_at_zero(self):
         """Verify confidence is clamped to 0.0 for very high severity scores.
@@ -3062,7 +3066,7 @@ class TestAssessSessionValidity:
         # Severity = 2 + 2 + 2 + 2 + 2 = 10
         # Confidence = 1.0 - (10 * 0.15) = -0.5 -> clamped to 0.0
         assert result["severity_score"] == 10
-        assert result["confidence"] == 0.0
+        assert result["confidence"] == pytest.approx(0.0)
 
     # =========================================================================
     # Flag Aggregation Tests
@@ -3177,7 +3181,7 @@ class TestAssessSessionValidity:
             f for f in result["flag_details"] if f["type"] == "high_guttman_errors"
         )
         assert "error_rate" in flag_detail
-        assert flag_detail["error_rate"] == 0.40
+        assert flag_detail["error_rate"] == pytest.approx(0.40)
 
     def test_flag_details_include_count_for_time_flags(self):
         """Verify flag_details include count for time flags."""
@@ -3549,7 +3553,7 @@ class TestEdgeCaseHandling:
         result = calculate_person_fit_heuristic([], 0)
 
         assert result["fit_flag"] == "normal"
-        assert result["fit_ratio"] == 0.0
+        assert result["fit_ratio"] == pytest.approx(0.0)
         assert result["total_responses"] == 0
         assert result["is_short_test"] is True
         assert "No responses" in result["details"]
@@ -3562,7 +3566,7 @@ class TestEdgeCaseHandling:
 
         assert result["flags"] == []
         assert result["validity_concern"] is False
-        assert result["total_time_seconds"] == 0.0
+        assert result["total_time_seconds"] == pytest.approx(0.0)
         assert result["is_short_test"] is True
 
     def test_empty_responses_guttman_returns_normal(self):
@@ -3595,7 +3599,7 @@ class TestEdgeCaseHandling:
 
         # Should only count responses with valid time data
         assert result["statistics"]["total_responses"] == 2
-        assert result["total_time_seconds"] == 75.0  # 30 + 45
+        assert result["total_time_seconds"] == pytest.approx(75.0)  # 30 + 45
 
     def test_all_missing_time_data_returns_empty_result(self):
         """Verify all responses missing time data returns empty result with message."""
@@ -3656,12 +3660,14 @@ class TestEdgeCaseHandling:
         from app.core.validity_analysis import estimate_empirical_difficulty_from_level
 
         # Easy should have highest p-value (more people get it right)
-        assert estimate_empirical_difficulty_from_level("easy") == 0.75
-        assert estimate_empirical_difficulty_from_level("medium") == 0.50
-        assert estimate_empirical_difficulty_from_level("hard") == 0.25
+        assert estimate_empirical_difficulty_from_level("easy") == pytest.approx(0.75)
+        assert estimate_empirical_difficulty_from_level("medium") == pytest.approx(0.50)
+        assert estimate_empirical_difficulty_from_level("hard") == pytest.approx(0.25)
 
         # Default for unknown level
-        assert estimate_empirical_difficulty_from_level("unknown") == 0.50
+        assert estimate_empirical_difficulty_from_level("unknown") == pytest.approx(
+            0.50
+        )
 
     # =========================================================================
     # Abandoned Session Handling
@@ -3675,7 +3681,7 @@ class TestEdgeCaseHandling:
 
         assert result["validity_status"] == "incomplete"
         assert result["severity_score"] == 0
-        assert result["confidence"] == 1.0
+        assert result["confidence"] == pytest.approx(1.0)
         assert result["flags"] == []
         assert result["is_abandoned"] is True
         assert "abandoned" in result["details"].lower()

@@ -1648,7 +1648,7 @@ class TestAutoFlagNegativeDiscrimination:
 
         assert len(result) == 1
         assert result[0]["question_id"] == question.id
-        assert result[0]["discrimination"] == -0.15
+        assert result[0]["discrimination"] == pytest.approx(-0.15)
         assert result[0]["response_count"] == 60
         assert result[0]["previous_flag"] == "normal"
         assert result[0]["new_flag"] == "under_review"

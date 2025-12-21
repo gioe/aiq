@@ -12,6 +12,8 @@ Tests cover:
 - Edge cases (insufficient data, empty responses, etc.)
 """
 
+import pytest
+
 from app.core.time_analysis import (
     analyze_response_times,
     get_session_time_summary,
@@ -85,8 +87,8 @@ class TestAnalyzeResponseTimes:
         result = analyze_response_times(db_session, session_id=session.id)
 
         assert result["total_time_seconds"] == 200  # Sum of times
-        assert result["mean_time_per_question"] == 40.0
-        assert result["median_time_per_question"] == 40.0
+        assert result["mean_time_per_question"] == pytest.approx(40.0)
+        assert result["median_time_per_question"] == pytest.approx(40.0)
         assert result["std_time_per_question"] is not None
         assert result["response_count"] == 5
         assert result["responses_without_time"] == 0
@@ -397,7 +399,9 @@ class TestAnalyzeResponseTimes:
 
         assert result["response_count"] == 3
         assert result["responses_without_time"] == 2
-        assert result["mean_time_per_question"] == 30.0  # Only from responses with time
+        assert result["mean_time_per_question"] == pytest.approx(
+            30.0
+        )  # Only from responses with time
 
     def test_no_time_data_at_all(self, db_session, test_user, test_questions):
         """Test analysis when all responses are missing time data."""
@@ -498,8 +502,8 @@ class TestAnalyzeResponseTimes:
         result = analyze_response_times(db_session, session_id=session.id)
 
         assert result["response_count"] == 1
-        assert result["mean_time_per_question"] == 30.0
-        assert result["median_time_per_question"] == 30.0
+        assert result["mean_time_per_question"] == pytest.approx(30.0)
+        assert result["median_time_per_question"] == pytest.approx(30.0)
         assert (
             result["std_time_per_question"] is None
         )  # Can't calculate std with 1 item
@@ -631,7 +635,7 @@ class TestGetSessionTimeSummary:
         assert summary["extended_times"] == 1
         assert summary["rushed_session"] is True
         assert summary["validity_concern"] is True
-        assert summary["mean_time"] == 30.0
+        assert summary["mean_time"] == pytest.approx(30.0)
         assert summary["flags"] == ["rushed_session", "multiple_rapid_responses"]
 
     def test_handles_empty_analysis(self):
@@ -1111,7 +1115,7 @@ class TestGetAggregateResponseTimeAnalytics:
         assert result["overall"]["mean_per_question_seconds"] is None
         assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 0
         assert result["anomaly_summary"]["sessions_with_extended_times"] == 0
-        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+        assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(0.0)
 
     def test_with_completed_sessions(self, db_session, test_user, test_questions):
         """Test analytics with completed test sessions."""
@@ -1165,10 +1169,12 @@ class TestGetAggregateResponseTimeAnalytics:
 
         assert result["total_sessions_analyzed"] == 1
         assert result["total_responses_analyzed"] == 4
-        assert result["overall"]["mean_test_duration_seconds"] == 120.0
-        assert result["overall"]["median_test_duration_seconds"] == 120.0
-        assert result["overall"]["mean_per_question_seconds"] == 30.0  # 120/4
-        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+        assert result["overall"]["mean_test_duration_seconds"] == pytest.approx(120.0)
+        assert result["overall"]["median_test_duration_seconds"] == pytest.approx(120.0)
+        assert result["overall"]["mean_per_question_seconds"] == pytest.approx(
+            30.0
+        )  # 120/4
+        assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(0.0)
 
     def test_by_difficulty_breakdown(self, db_session, test_user):
         """Test that difficulty breakdown is calculated correctly."""
@@ -1250,9 +1256,9 @@ class TestGetAggregateResponseTimeAnalytics:
 
         result = get_aggregate_response_time_analytics(db_session)
 
-        assert result["by_difficulty"]["easy"]["mean_seconds"] == 20.0
-        assert result["by_difficulty"]["medium"]["mean_seconds"] == 40.0
-        assert result["by_difficulty"]["hard"]["mean_seconds"] == 60.0
+        assert result["by_difficulty"]["easy"]["mean_seconds"] == pytest.approx(20.0)
+        assert result["by_difficulty"]["medium"]["mean_seconds"] == pytest.approx(40.0)
+        assert result["by_difficulty"]["hard"]["mean_seconds"] == pytest.approx(60.0)
 
     def test_by_question_type_breakdown(self, db_session, test_user):
         """Test that question type breakdown is calculated correctly."""
@@ -1333,9 +1339,13 @@ class TestGetAggregateResponseTimeAnalytics:
 
         result = get_aggregate_response_time_analytics(db_session)
 
-        assert result["by_question_type"]["pattern"]["mean_seconds"] == 45.0
-        assert result["by_question_type"]["math"]["mean_seconds"] == 35.0
-        assert result["by_question_type"]["verbal"]["mean_seconds"] == 25.0
+        assert result["by_question_type"]["pattern"]["mean_seconds"] == pytest.approx(
+            45.0
+        )
+        assert result["by_question_type"]["math"]["mean_seconds"] == pytest.approx(35.0)
+        assert result["by_question_type"]["verbal"]["mean_seconds"] == pytest.approx(
+            25.0
+        )
         # Types without data should be None
         assert result["by_question_type"]["logic"]["mean_seconds"] is None
         assert result["by_question_type"]["spatial"]["mean_seconds"] is None
@@ -1403,7 +1413,9 @@ class TestGetAggregateResponseTimeAnalytics:
 
         assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 1
         assert result["anomaly_summary"]["sessions_with_extended_times"] == 1
-        assert result["anomaly_summary"]["pct_flagged"] == 50.0  # 1 out of 2
+        assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(
+            50.0
+        )  # 1 out of 2
 
     def test_in_progress_sessions_excluded(self, db_session, test_user, test_questions):
         """Test that in-progress sessions are not included in analytics."""
@@ -1476,7 +1488,7 @@ class TestGetAggregateResponseTimeAnalytics:
 
         # Only 1 response has time data
         assert result["total_responses_analyzed"] == 1
-        assert result["overall"]["mean_per_question_seconds"] == 30.0
+        assert result["overall"]["mean_per_question_seconds"] == pytest.approx(30.0)
 
 
 class TestEmptyAggregateAnalytics:
@@ -1503,7 +1515,7 @@ class TestEmptyAggregateAnalytics:
         # Check anomaly_summary
         assert result["anomaly_summary"]["sessions_with_rapid_responses"] == 0
         assert result["anomaly_summary"]["sessions_with_extended_times"] == 0
-        assert result["anomaly_summary"]["pct_flagged"] == 0.0
+        assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(0.0)
 
         # Check totals
         assert result["total_sessions_analyzed"] == 0

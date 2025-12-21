@@ -2,6 +2,8 @@
 Tests for response submission endpoints.
 """
 
+import pytest
+
 
 class TestSubmitTest:
     """Tests for POST /v1/test/submit endpoint."""
@@ -71,7 +73,7 @@ class TestSubmitTest:
         assert result["iq_score"] == 115  # 100% correct = IQ 115
         assert result["total_questions"] == 3
         assert result["correct_answers"] == 3
-        assert result["accuracy_percentage"] == 100.0
+        assert result["accuracy_percentage"] == pytest.approx(100.0)
         assert result["completion_time_seconds"] is not None
         assert result["completed_at"] is not None
 

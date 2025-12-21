@@ -714,7 +714,7 @@ class TestGetNegativeItemCorrelations:
         assert len(problematic) == 2
         # Should be sorted by correlation (most negative first)
         assert problematic[0]["question_id"] == 2
-        assert problematic[0]["correlation"] == -0.15
+        assert problematic[0]["correlation"] == pytest.approx(-0.15)
         assert problematic[1]["question_id"] == 4
 
     def test_identifies_low_correlations_with_custom_threshold(self):
@@ -1576,8 +1576,8 @@ class TestTestRetestPracticeEffect:
 
         result = calculate_test_retest_reliability(db_session, min_pairs=30)
 
-        assert result["score_change_stats"]["practice_effect"] == -5.0
-        assert result["score_change_stats"]["mean_change"] == -5.0
+        assert result["score_change_stats"]["practice_effect"] == pytest.approx(-5.0)
+        assert result["score_change_stats"]["mean_change"] == pytest.approx(-5.0)
 
     def test_std_change_calculated(self, db_session):
         """Standard deviation of score changes is calculated."""
@@ -1829,7 +1829,7 @@ class TestSpearmanBrownCorrection:
         """Handle edge case of r_half = -1.0."""
         r_full = _apply_spearman_brown_correction(-1.0)
         # Should return -1.0 to avoid division by zero
-        assert r_full == -1.0
+        assert r_full == pytest.approx(-1.0)
 
     def test_result_clamped_to_valid_range(self):
         """Results should be clamped to [-1.0, 1.0]."""
@@ -3131,7 +3131,7 @@ class TestStoreReliabilityMetric:
         """Accepts valid boundary values for coefficient."""
         # Test -1.0 boundary
         metric_low = store_reliability_metric(db_session, "cronbachs_alpha", -1.0, 100)
-        assert metric_low.value == -1.0
+        assert metric_low.value == pytest.approx(-1.0)
 
         # Test 1.0 boundary
         metric_high = store_reliability_metric(db_session, "test_retest", 1.0, 100)
