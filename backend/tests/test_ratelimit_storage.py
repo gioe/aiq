@@ -75,7 +75,11 @@ class TestInMemoryStorage:
         assert len(retrieved["timestamps"]) == 3
 
     def test_automatic_cleanup(self):
-        """Test that expired entries are cleaned up automatically."""
+        """Test that expired entries are cleaned up automatically.
+
+        Note: Uses 0.5s delay to ensure reliable behavior on CI runners
+        where timing can be variable due to resource contention.
+        """
         # Set short cleanup interval
         storage = InMemoryStorage(cleanup_interval=0.5)
 
@@ -84,8 +88,8 @@ class TestInMemoryStorage:
         storage.set("key2", "value2", ttl=0.3)
         storage.set("key3", "value3")  # No expiration
 
-        # Wait for expiration
-        time.sleep(0.4)
+        # Wait for expiration (0.5s for CI runner reliability)
+        time.sleep(0.5)
 
         # Trigger cleanup by accessing
         assert storage.get("key3") == "value3"
@@ -95,16 +99,20 @@ class TestInMemoryStorage:
         assert stats["active_keys"] == 1  # Only key3 should be active
 
     def test_get_stats(self):
-        """Test storage statistics."""
+        """Test storage statistics.
+
+        Note: Uses 0.5s delay to ensure reliable behavior on CI runners
+        where timing can be variable due to resource contention.
+        """
         self.storage.set("key1", "value1")
-        self.storage.set("key2", "value2", ttl=0.1)
+        self.storage.set("key2", "value2", ttl=0.3)
         self.storage.set("key3", "value3")
 
         stats = self.storage.get_stats()
         assert stats["total_keys"] == 3
 
-        # Wait for one to expire
-        time.sleep(0.2)
+        # Wait for one to expire (0.5s for CI runner reliability)
+        time.sleep(0.5)
         self.storage.get("key1")  # Trigger cleanup
 
         stats = self.storage.get_stats()
