@@ -2096,7 +2096,11 @@ class TestErrorCaching:
         assert cache.get(error_cache_key) is None
 
     def test_error_cache_expires_after_ttl(self, db_session):
-        """Test that error cache expires and subsequent call hits database."""
+        """Test that error cache expires and subsequent call hits database.
+
+        Note: Uses 0.5s delay to ensure reliable behavior on CI runners
+        where timing can be variable due to resource contention.
+        """
         cache = get_cache()
         params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
         error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
@@ -2105,10 +2109,10 @@ class TestErrorCaching:
         # Use ttl=0 to simulate expiry (cache.get will return None for expired)
         cache.set(error_cache_key, _get_empty_report(), ttl=0)
 
-        # Give it a moment to expire
+        # Give it a moment to expire (0.5s for CI runner reliability)
         import time
 
-        time.sleep(0.01)
+        time.sleep(0.5)
 
         # Cache should be expired
         assert cache.get(error_cache_key) is None

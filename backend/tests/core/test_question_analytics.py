@@ -1433,7 +1433,11 @@ class TestRecalibratedAtTimestamp:
         assert recal_time <= after_recalibration
 
     def test_recalibrated_at_updated_on_subsequent_recalibration(self, db_session):
-        """difficulty_recalibrated_at is updated on each recalibration."""
+        """difficulty_recalibrated_at is updated on each recalibration.
+
+        Note: Uses 0.5s delay to ensure reliable behavior on CI runners
+        where timing can be variable due to resource contention.
+        """
         import time
 
         question = create_test_question(
@@ -1452,8 +1456,8 @@ class TestRecalibratedAtTimestamp:
         )
         first_timestamp = question_after_first.difficulty_recalibrated_at
 
-        # Small delay to ensure different timestamp
-        time.sleep(0.01)
+        # Delay to ensure different timestamp (0.5s for CI runner reliability)
+        time.sleep(0.5)
 
         # Simulate further drift
         question_after_first.empirical_difficulty = 0.85  # Now easy range
