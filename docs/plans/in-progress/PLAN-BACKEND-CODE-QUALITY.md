@@ -372,14 +372,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-031: Add Boundary Condition Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_test_sessions.py`
 **Description:** Missing tests for boundary values (exactly at 90-day cadence, empty responses).
 **Acceptance Criteria:**
-- [ ] Test starting test exactly 90 days after last (should succeed)
-- [ ] Test starting test at 89 days (should fail)
-- [ ] Test with empty response list
-- [ ] Test with maximum concurrent sessions
+- [x] Test starting test exactly 90 days after last (should succeed)
+- [x] Test starting test at 89 days (should fail)
+- [x] Test with empty response list
+- [x] Test with maximum concurrent sessions
 
 ---
 
