@@ -44,10 +44,10 @@ class UserRegister(BaseModel):
     )
 
     # Optional demographic data for norming study (P13-001)
+    # Minimum birth year is 1900; maximum is validated dynamically
     birth_year: Optional[int] = Field(
         None,
         ge=1900,
-        le=2025,
         description="Year of birth (optional, for norming study)",
     )
     education_level: Optional[EducationLevelSchema] = Field(
@@ -127,6 +127,19 @@ class UserRegister(BaseModel):
             raise ValueError("Location contains invalid characters")
 
         return sanitized
+
+    @field_validator("birth_year")
+    @classmethod
+    def validate_birth_year(cls, v: Optional[int]) -> Optional[int]:
+        """Validate birth year is not in the future."""
+        if v is None:
+            return v
+
+        current_year = datetime.now().year
+        if v > current_year:
+            raise ValueError(f"Birth year cannot be later than {current_year}")
+
+        return v
 
 
 class UserLogin(BaseModel):
