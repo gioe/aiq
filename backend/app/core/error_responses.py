@@ -30,8 +30,9 @@ Usage:
     raise_bad_request("Custom message for specific case.")
 """
 
+from typing import NoReturn, Optional
+
 from fastapi import HTTPException, status
-from typing import Optional
 
 
 class ErrorMessages:
@@ -168,7 +169,7 @@ class ErrorMessages:
 # ==============================================================================
 
 
-def raise_bad_request(detail: str) -> None:
+def raise_bad_request(detail: str) -> NoReturn:
     """Raise a 400 Bad Request exception.
 
     Use for client errors where the request is malformed or invalid.
@@ -188,7 +189,7 @@ def raise_bad_request(detail: str) -> None:
 def raise_unauthorized(
     detail: str,
     include_www_authenticate: bool = True,
-) -> None:
+) -> NoReturn:
     """Raise a 401 Unauthorized exception.
 
     Use for authentication failures (invalid/missing credentials).
@@ -208,7 +209,7 @@ def raise_unauthorized(
     )
 
 
-def raise_forbidden(detail: str) -> None:
+def raise_forbidden(detail: str) -> NoReturn:
     """Raise a 403 Forbidden exception.
 
     Use for authorization failures (valid credentials but insufficient permissions).
@@ -225,7 +226,7 @@ def raise_forbidden(detail: str) -> None:
     )
 
 
-def raise_not_found(detail: str) -> None:
+def raise_not_found(detail: str) -> NoReturn:
     """Raise a 404 Not Found exception.
 
     Use when a requested resource doesn't exist.
@@ -242,7 +243,7 @@ def raise_not_found(detail: str) -> None:
     )
 
 
-def raise_conflict(detail: str) -> None:
+def raise_conflict(detail: str) -> NoReturn:
     """Raise a 409 Conflict exception.
 
     Use when the request conflicts with current state (e.g., duplicate creation).
@@ -262,7 +263,7 @@ def raise_conflict(detail: str) -> None:
 def raise_server_error(
     detail: str,
     error_id: Optional[str] = None,
-) -> None:
+) -> NoReturn:
     """Raise a 500 Internal Server Error exception.
 
     Use for unexpected server errors. Always use user-friendly messages;
@@ -285,7 +286,7 @@ def raise_server_error(
     )
 
 
-def raise_not_configured(detail: str) -> None:
+def raise_not_configured(detail: str) -> NoReturn:
     """Raise a 500 error for missing server configuration.
 
     Use when required server configuration (e.g., API keys) is missing.

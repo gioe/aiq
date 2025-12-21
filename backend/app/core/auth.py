@@ -2,12 +2,13 @@
 FastAPI authentication dependencies.
 """
 from typing import Literal
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.models import get_db, User
 from .security import decode_token, verify_token_type
+from .error_responses import ErrorMessages, raise_unauthorized
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -32,41 +33,24 @@ def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
     """
     # Error messages based on token type
     invalid_token_msg = (
-        "Invalid authentication token"
+        ErrorMessages.INVALID_TOKEN
         if expected_type == "access"
-        else "Invalid refresh token"
-    )
-    invalid_type_msg = (
-        "Invalid token type"
-        if expected_type == "access"
-        else "Invalid token type, expected refresh token"
+        else ErrorMessages.INVALID_REFRESH_TOKEN
     )
 
     # Decode and verify token
     payload = decode_token(token)
     if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=invalid_token_msg,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_unauthorized(invalid_token_msg)
 
     # Verify token type
     if not verify_token_type(payload, expected_type):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=invalid_type_msg,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_unauthorized(ErrorMessages.INVALID_TOKEN_TYPE)
 
     # Extract user_id from payload
     user_id = payload.get("user_id")
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_unauthorized(ErrorMessages.INVALID_TOKEN_PAYLOAD)
 
     return user_id
 
@@ -87,11 +71,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
     """
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_unauthorized(ErrorMessages.USER_NOT_FOUND_AUTH)
     return user
 
 
