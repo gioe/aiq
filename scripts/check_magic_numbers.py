@@ -195,7 +195,35 @@ def check_file(file_path: Path) -> list[str]:
     except (OSError, UnicodeDecodeError) as e:
         return [f"{file_path}: Error reading file: {e}"]
 
+    # Track multi-line string state
+    in_multiline_string = False
+    multiline_string_char = None
+
     for line_number, line in enumerate(content.split("\n"), start=1):
+        stripped = line.strip()
+
+        # Handle multi-line string tracking
+        if in_multiline_string:
+            # Check if this line ends the multi-line string
+            if multiline_string_char and multiline_string_char in stripped:
+                in_multiline_string = False
+                multiline_string_char = None
+            continue  # Skip lines inside multi-line strings
+
+        # Check for start of multi-line docstring
+        if '"""' in stripped or "'''" in stripped:
+            quote_char = '"""' if '"""' in stripped else "'''"
+            # Count occurrences to see if it opens and closes on same line
+            count = stripped.count(quote_char)
+            if count == 1:
+                # Opens but doesn't close - start of multi-line string
+                in_multiline_string = True
+                multiline_string_char = quote_char
+                continue
+            elif count == 2 and stripped.startswith(quote_char):
+                # Docstring that opens and closes on same line
+                continue
+
         issue = check_line(line, line_number, file_path)
         if issue:
             issues.append(issue)
