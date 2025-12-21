@@ -18,7 +18,9 @@ Reference:
     docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md (IDA-011)
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+
+from app.core.datetime_utils import utc_now
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -833,7 +835,7 @@ class TestGetDiscriminationReport:
 
     def test_trends_new_negative_this_week(self, db_session):
         """Trends tracks newly flagged questions this week."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         three_days_ago = now - timedelta(days=3)
         ten_days_ago = now - timedelta(days=10)
 
@@ -1687,10 +1689,10 @@ class TestGetEmptyReport:
         report = _get_empty_report()
         dist = report["quality_distribution"]
 
-        assert dist["excellent_pct"] == 0.0
-        assert dist["good_pct"] == 0.0
-        assert dist["acceptable_pct"] == 0.0
-        assert dist["problematic_pct"] == 0.0
+        assert dist["excellent_pct"] == pytest.approx(0.0)
+        assert dist["good_pct"] == pytest.approx(0.0)
+        assert dist["acceptable_pct"] == pytest.approx(0.0)
+        assert dist["problematic_pct"] == pytest.approx(0.0)
 
     def test_by_difficulty_has_all_levels(self):
         """Test that by_difficulty includes all difficulty levels."""
@@ -1703,7 +1705,7 @@ class TestGetEmptyReport:
         assert "hard" in by_difficulty
 
         for level_data in by_difficulty.values():
-            assert level_data["mean_discrimination"] == 0.0
+            assert level_data["mean_discrimination"] == pytest.approx(0.0)
             assert level_data["negative_count"] == 0
 
     def test_by_type_has_all_question_types(self):
@@ -1721,7 +1723,7 @@ class TestGetEmptyReport:
         assert "memory" in by_type
 
         for type_data in by_type.values():
-            assert type_data["mean_discrimination"] == 0.0
+            assert type_data["mean_discrimination"] == pytest.approx(0.0)
             assert type_data["negative_count"] == 0
 
     def test_action_needed_has_empty_lists(self):
@@ -1825,7 +1827,7 @@ class TestDatabaseErrorHandling:
             assert report["summary"]["total_questions_with_data"] == 0
             assert report["summary"]["excellent"] == 0
             assert report["summary"]["negative"] == 0
-            assert report["quality_distribution"]["excellent_pct"] == 0.0
+            assert report["quality_distribution"]["excellent_pct"] == pytest.approx(0.0)
             assert report["action_needed"]["immediate_review"] == []
             assert report["action_needed"]["monitor"] == []
             assert report["trends"]["mean_discrimination_30d"] is None

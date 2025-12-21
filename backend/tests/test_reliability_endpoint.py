@@ -14,7 +14,9 @@ Reference:
 
 import pytest
 from unittest.mock import patch
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
+
+from app.core.datetime_utils import utc_now
 
 from app.core.cache import get_cache
 from app.models.models import (
@@ -71,7 +73,7 @@ def create_test_questions(db_session, count=20):
 def create_test_sessions_with_responses(db_session, user, questions, num_sessions=10):
     """Helper to create test sessions with responses."""
     sessions = []
-    base_time = datetime.now(timezone.utc)
+    base_time = utc_now()
 
     for i in range(num_sessions):
         session = TestSession(
@@ -457,7 +459,7 @@ class TestReliabilityHistoryEndpoint:
     def test_returns_stored_metrics(self, client, db_session, admin_token_headers):
         """Test endpoint returns previously stored metrics."""
         # Create some reliability metrics directly
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         metrics_data = [
             {
                 "metric_type": "cronbachs_alpha",
@@ -522,7 +524,7 @@ class TestReliabilityHistoryEndpoint:
     def test_filters_by_metric_type(self, client, db_session, admin_token_headers):
         """Test filtering by metric_type parameter."""
         # Create metrics of different types
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         for i, metric_type in enumerate(
             ["cronbachs_alpha", "test_retest", "split_half"]
         ):
@@ -568,7 +570,7 @@ class TestReliabilityHistoryEndpoint:
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_filters_by_days(self, client, db_session, admin_token_headers):
         """Test filtering by days parameter."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         # Create metrics at different ages (avoid boundary values)
         # Use ages well within and well outside the filter boundaries
@@ -648,7 +650,7 @@ class TestReliabilityHistoryEndpoint:
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_response_schema_structure(self, client, db_session, admin_token_headers):
         """Test response matches expected schema structure."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         metric = ReliabilityMetric(
             metric_type="cronbachs_alpha",
             value=0.78,
@@ -702,7 +704,7 @@ class TestReliabilityHistoryEndpoint:
         self, client, db_session, admin_token_headers
     ):
         """Test combining metric_type and days filters."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         # Create old and new metrics of different types
         old_alpha = ReliabilityMetric(
@@ -742,7 +744,7 @@ class TestReliabilityHistoryEndpoint:
         # Should only get the new alpha (not old alpha, not retest)
         assert data["total_count"] == 1
         assert data["metrics"][0]["metric_type"] == "cronbachs_alpha"
-        assert data["metrics"][0]["value"] == 0.78
+        assert data["metrics"][0]["value"] == pytest.approx(0.78)
 
 
 class TestReliabilityReportCaching:
@@ -933,7 +935,7 @@ class TestRandomizedDataPatterns:
         random.seed(42)  # Fixed seed for reproducibility
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 20 sessions with random responses (high variance)
         for i in range(20):
@@ -1005,7 +1007,7 @@ class TestRandomizedDataPatterns:
         random.seed(123)  # Fixed seed for reproducibility
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 20 sessions with bimodal distribution
         for i in range(20):
@@ -1076,7 +1078,7 @@ class TestRandomizedDataPatterns:
         patterns, which can cause issues with variance calculations.
         """
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 15 sessions with nearly identical responses
         # First 12 questions correct, last 3 wrong for everyone
@@ -1155,7 +1157,7 @@ class TestRandomizedDataPatterns:
         4. Include an appropriate error or recommendation
         """
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 15 sessions with EXACTLY identical responses
         for i in range(15):
@@ -1255,7 +1257,7 @@ class TestRandomizedDataPatterns:
         random.seed(456)
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 35 sessions where almost everyone gets almost everything right
         # (need at least 30 sessions for MIN_QUESTION_APPEARANCE_ABSOLUTE threshold)
@@ -1347,7 +1349,7 @@ class TestRandomizedDataPatterns:
         random.seed(789)
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 20 sessions where almost everyone gets almost everything wrong
         for i in range(20):
@@ -1425,7 +1427,7 @@ class TestRandomizedDataPatterns:
         random.seed(20241217)  # Fixed seed for reproducibility
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create data with near-random response patterns that lack consistency
         # between items. This will produce low inter-item correlations and
@@ -1553,7 +1555,7 @@ class TestRandomizedDataPatterns:
         random.seed(999)
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Assign difficulty to each question (success probability)
         # Mix of easy (0.85), medium (0.5-0.7), and hard (0.25) items
@@ -1652,7 +1654,7 @@ class TestRandomizedDataPatterns:
         random.seed(2024)
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 30 sessions with structured + noisy responses
         for i in range(30):
@@ -1735,7 +1737,7 @@ class TestRandomizedDataPatterns:
         random.seed(555)
 
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 19 normal sessions
         for i in range(19):
@@ -1865,7 +1867,7 @@ class TestLargeDatasetPerformance:
         # Create 10,000 sessions using bulk inserts for efficiency
         NUM_SESSIONS = 10000
         BATCH_SIZE = 500  # Insert in batches to avoid memory issues
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         start_setup = time.time()
 
@@ -1993,7 +1995,7 @@ class TestLargeDatasetPerformance:
 
         # Create test data (smaller dataset for concurrent test)
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 50 sessions for reasonable test data
         for i in range(50):
@@ -2106,7 +2108,7 @@ class TestLargeDatasetPerformance:
         This tests that the endpoint handles this gracefully.
         """
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create multiple users, each with exactly the same score
         IDENTICAL_SCORE = 100
@@ -2232,7 +2234,7 @@ class TestLargeDatasetPerformance:
 
         # Create 200 sessions with 50 questions each = 10,000 responses
         NUM_SESSIONS = 200
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         for i in range(NUM_SESSIONS):
             session = TestSession(
@@ -2324,7 +2326,7 @@ class TestLargeDatasetPerformance:
 
         # Create test data
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 30 sessions
         for i in range(30):
@@ -2439,7 +2441,7 @@ class TestAutomaticCacheInvalidation:
 
         # Create test questions
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create existing sessions for baseline reliability data
         for i in range(20):
@@ -2500,7 +2502,7 @@ class TestAutomaticCacheInvalidation:
         new_session = TestSession(
             user_id=user.id,
             status=TestStatus.IN_PROGRESS,
-            started_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
         )
         db_session.add(new_session)
         db_session.flush()
@@ -2511,7 +2513,7 @@ class TestAutomaticCacheInvalidation:
                 user_id=user.id,
                 question_id=question.id,
                 test_session_id=new_session.id,
-                seen_at=datetime.now(timezone.utc),
+                seen_at=utc_now(),
             )
             db_session.add(user_question)
         db_session.commit()
@@ -2599,7 +2601,7 @@ class TestAutomaticCacheInvalidation:
         session = TestSession(
             user_id=user.id,
             status=TestStatus.IN_PROGRESS,
-            started_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
         )
         db_session.add(session)
         db_session.flush()
@@ -2610,7 +2612,7 @@ class TestAutomaticCacheInvalidation:
                 user_id=user.id,
                 question_id=question.id,
                 test_session_id=session.id,
-                seen_at=datetime.now(timezone.utc),
+                seen_at=utc_now(),
             )
             db_session.add(user_question)
         db_session.commit()
@@ -2677,7 +2679,7 @@ class TestAutomaticCacheInvalidation:
 
         # Create test questions
         questions = create_test_questions(db_session, count=15)
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create initial sessions (20 sessions)
         initial_session_count = 20
@@ -2729,7 +2731,7 @@ class TestAutomaticCacheInvalidation:
         new_session = TestSession(
             user_id=user.id,
             status=TestStatus.IN_PROGRESS,
-            started_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
         )
         db_session.add(new_session)
         db_session.flush()
@@ -2740,7 +2742,7 @@ class TestAutomaticCacheInvalidation:
                 user_id=user.id,
                 question_id=question.id,
                 test_session_id=new_session.id,
-                seen_at=datetime.now(timezone.utc),
+                seen_at=utc_now(),
             )
             db_session.add(user_question)
         db_session.commit()

@@ -239,14 +239,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-019: Create Centralized UTC Timestamp Utility
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** New file `backend/app/core/datetime_utils.py` OR add to existing
 **Description:** `datetime.now(timezone.utc)` appears in 11+ files. Create utility for consistency and testability.
 **Acceptance Criteria:**
-- [ ] New `utc_now()` function in datetime_utils.py
-- [ ] Replace `datetime.now(timezone.utc)` with `utc_now()` across codebase
-- [ ] Function can be easily mocked in tests
-- [ ] No behavioral change
+- [x] New `utc_now()` function in datetime_utils.py
+- [x] Replace `datetime.now(timezone.utc)` with `utc_now()` across codebase
+- [x] Function can be easily mocked in tests
+- [x] No behavioral change
 
 ---
 

@@ -124,7 +124,7 @@ class TestCorrectlyCalibrated:
 
         calibrated = result["correctly_calibrated"][0]
         assert calibrated["assigned_difficulty"] == "easy"
-        assert calibrated["empirical_difficulty"] == 0.80
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.80)
         assert calibrated["expected_range"] == [0.70, 0.90]
 
     def test_medium_question_within_range(self, db_session):
@@ -141,7 +141,7 @@ class TestCorrectlyCalibrated:
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
         assert calibrated["assigned_difficulty"] == "medium"
-        assert calibrated["empirical_difficulty"] == 0.55
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.55)
         assert calibrated["expected_range"] == [0.40, 0.70]
 
     def test_hard_question_within_range(self, db_session):
@@ -158,7 +158,7 @@ class TestCorrectlyCalibrated:
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
         assert calibrated["assigned_difficulty"] == "hard"
-        assert calibrated["empirical_difficulty"] == 0.25
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.25)
         assert calibrated["expected_range"] == [0.15, 0.40]
 
 
@@ -184,7 +184,7 @@ class TestBoundaryConditions:
         assert len(result["correctly_calibrated"]) == 1
         assert len(result["miscalibrated"]) == 0
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.70
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.70)
 
     def test_easy_at_upper_boundary(self, db_session):
         """Easy question with p-value exactly 0.90 (upper boundary) is correctly calibrated."""
@@ -199,7 +199,7 @@ class TestBoundaryConditions:
 
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.90
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.90)
 
     def test_medium_at_lower_boundary(self, db_session):
         """Medium question with p-value exactly 0.40 (lower boundary) is correctly calibrated."""
@@ -214,7 +214,7 @@ class TestBoundaryConditions:
 
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.40
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.40)
 
     def test_medium_at_upper_boundary(self, db_session):
         """Medium question with p-value exactly 0.70 (upper boundary) is correctly calibrated."""
@@ -229,7 +229,7 @@ class TestBoundaryConditions:
 
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.70
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.70)
 
     def test_hard_at_lower_boundary(self, db_session):
         """Hard question with p-value exactly 0.15 (lower boundary) is correctly calibrated."""
@@ -244,7 +244,7 @@ class TestBoundaryConditions:
 
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.15
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.15)
 
     def test_hard_at_upper_boundary(self, db_session):
         """Hard question with p-value exactly 0.40 (upper boundary) is correctly calibrated."""
@@ -259,7 +259,7 @@ class TestBoundaryConditions:
 
         assert len(result["correctly_calibrated"]) == 1
         calibrated = result["correctly_calibrated"][0]
-        assert calibrated["empirical_difficulty"] == 0.40
+        assert calibrated["empirical_difficulty"] == pytest.approx(0.40)
 
     def test_exact_threshold_response_count(self, db_session):
         """Question with exactly min_responses (100) is included in validation."""
@@ -300,7 +300,7 @@ class TestMiscalibratedMinorSeverity:
         miscalibrated = result["miscalibrated"][0]
         assert miscalibrated["severity"] == "minor"
         assert miscalibrated["assigned_difficulty"] == "easy"
-        assert miscalibrated["empirical_difficulty"] == 0.65
+        assert miscalibrated["empirical_difficulty"] == pytest.approx(0.65)
         assert miscalibrated["suggested_label"] == "medium"
 
     def test_easy_question_minor_drift_above_range(self, db_session):
@@ -405,7 +405,7 @@ class TestMiscalibratedSevereSeverity:
         miscalibrated = result["miscalibrated"][0]
         assert miscalibrated["severity"] == "severe"
         assert miscalibrated["assigned_difficulty"] == "hard"
-        assert miscalibrated["empirical_difficulty"] == 0.82
+        assert miscalibrated["empirical_difficulty"] == pytest.approx(0.82)
         assert miscalibrated["suggested_label"] == "easy"
 
     def test_easy_question_severe_drift_low_pvalue(self, db_session):
@@ -554,7 +554,7 @@ class TestExtremePValues:
         # But suggested label should still be "hard" (it's even harder)
         assert len(result["miscalibrated"]) == 1
         miscalibrated = result["miscalibrated"][0]
-        assert miscalibrated["empirical_difficulty"] == 0.0
+        assert miscalibrated["empirical_difficulty"] == pytest.approx(0.0)
         assert miscalibrated["suggested_label"] == "hard"
         # Distance from 0.15 is 0.15, which is major severity
         assert miscalibrated["severity"] == "major"
@@ -574,7 +574,7 @@ class TestExtremePValues:
         # But suggested label should be "easy" (it's even easier)
         assert len(result["miscalibrated"]) == 1
         miscalibrated = result["miscalibrated"][0]
-        assert miscalibrated["empirical_difficulty"] == 1.0
+        assert miscalibrated["empirical_difficulty"] == pytest.approx(1.0)
         assert miscalibrated["suggested_label"] == "easy"
         # Distance from 0.90 is 0.10, which is minor severity
         assert miscalibrated["severity"] == "minor"
@@ -978,7 +978,7 @@ class TestRecalibrateDryRun:
         assert recalibrated["question_id"] == original_id
         assert recalibrated["old_label"] == "hard"
         assert recalibrated["new_label"] == "easy"
-        assert recalibrated["empirical_difficulty"] == 0.82
+        assert recalibrated["empirical_difficulty"] == pytest.approx(0.82)
         assert recalibrated["response_count"] == 156
         assert recalibrated["severity"] == "severe"
 
@@ -1403,7 +1403,7 @@ class TestRecalibratedAtTimestamp:
 
     def test_recalibrated_at_set_on_recalibration(self, db_session):
         """difficulty_recalibrated_at is set when recalibration occurs."""
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now, ensure_timezone_aware
 
         question = create_test_question(
             db_session,
@@ -1415,9 +1415,9 @@ class TestRecalibratedAtTimestamp:
         # Verify timestamp is None before recalibration
         assert question.difficulty_recalibrated_at is None
 
-        before_recalibration = datetime.now(timezone.utc)
+        before_recalibration = utc_now()
         recalibrate_questions(db_session, min_responses=100, dry_run=False)
-        after_recalibration = datetime.now(timezone.utc)
+        after_recalibration = utc_now()
 
         db_session.expire_all()
         question_after = (
@@ -1427,11 +1427,8 @@ class TestRecalibratedAtTimestamp:
         # Timestamp should be set and within expected range
         assert question_after.difficulty_recalibrated_at is not None
         # SQLite may return naive datetime, so we compare just the timestamp values
-        # by converting to the same format
-        recal_time = question_after.difficulty_recalibrated_at
-        # Handle both naive and aware datetimes from SQLite
-        if recal_time.tzinfo is None:
-            recal_time = recal_time.replace(tzinfo=timezone.utc)
+        # by converting to the same format using ensure_timezone_aware
+        recal_time = ensure_timezone_aware(question_after.difficulty_recalibrated_at)
         assert before_recalibration <= recal_time
         assert recal_time <= after_recalibration
 
@@ -2028,7 +2025,7 @@ class TestAutoFlagDatabaseUpdates:
 
     def test_quality_flag_updated_at_set(self, db_session):
         """quality_flag_updated_at timestamp is set when flagging."""
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now, ensure_timezone_aware
 
         question = create_test_question(
             db_session,
@@ -2039,9 +2036,9 @@ class TestAutoFlagDatabaseUpdates:
             quality_flag="normal",
         )
 
-        before_flag = datetime.now(timezone.utc)
+        before_flag = utc_now()
         auto_flag_problematic_questions(db_session)
-        after_flag = datetime.now(timezone.utc)
+        after_flag = utc_now()
 
         db_session.expire_all()
         question_after = (
@@ -2049,10 +2046,8 @@ class TestAutoFlagDatabaseUpdates:
         )
 
         assert question_after.quality_flag_updated_at is not None
-        # Handle SQLite returning naive datetime
-        updated_at = question_after.quality_flag_updated_at
-        if updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        # Handle SQLite returning naive datetime using ensure_timezone_aware
+        updated_at = ensure_timezone_aware(question_after.quality_flag_updated_at)
         assert before_flag <= updated_at <= after_flag
 
     def test_quality_flag_reason_format(self, db_session):
@@ -2148,7 +2143,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
         # Since we can't easily create 50+ realistic responses to get negative
         # discrimination, we verify the inline auto-flag logic directly by
         # checking the conditions that would trigger flagging
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Simulate what happens at the end of update_question_statistics()
         # when response_count >= 50 and discrimination < 0
@@ -2164,7 +2159,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
             question.quality_flag_reason = (
                 f"Negative discrimination: {discrimination:.3f}"
             )
-            question.quality_flag_updated_at = datetime.now(timezone.utc)
+            question.quality_flag_updated_at = utc_now()
 
         db_session.commit()
 
@@ -2254,9 +2249,9 @@ class TestUpdateQuestionStatisticsAutoFlag:
         """
         Question already flagged as 'under_review' is NOT re-flagged during update.
         """
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now, ensure_timezone_aware
 
-        original_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        original_time = utc_now()  # Use current time as original
         original_reason = "Previously flagged reason"
 
         question = create_test_question(
@@ -2285,7 +2280,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
             question.quality_flag_reason = (
                 f"Negative discrimination: {discrimination:.3f}"
             )
-            question.quality_flag_updated_at = datetime.now(timezone.utc)
+            question.quality_flag_updated_at = utc_now()
 
         db_session.commit()
 
@@ -2297,17 +2292,15 @@ class TestUpdateQuestionStatisticsAutoFlag:
 
         assert question_after.quality_flag == "under_review"
         assert question_after.quality_flag_reason == original_reason
-        # Handle SQLite returning naive datetime
-        updated_at = question_after.quality_flag_updated_at
-        if updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        # Handle SQLite returning naive datetime using ensure_timezone_aware
+        updated_at = ensure_timezone_aware(question_after.quality_flag_updated_at)
         assert updated_at == original_time
 
     def test_flags_exactly_50_responses_during_update(self, db_session):
         """
         Question with exactly 50 responses and negative discrimination is flagged.
         """
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         question = create_test_question(
             db_session,
@@ -2331,7 +2324,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
             question.quality_flag_reason = (
                 f"Negative discrimination: {discrimination:.3f}"
             )
-            question.quality_flag_updated_at = datetime.now(timezone.utc)
+            question.quality_flag_updated_at = utc_now()
 
         db_session.commit()
 
@@ -2348,7 +2341,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
         """
         Quality flag reason contains discrimination value with 3 decimal precision.
         """
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         question = create_test_question(
             db_session,
@@ -2372,7 +2365,7 @@ class TestUpdateQuestionStatisticsAutoFlag:
             question.quality_flag_reason = (
                 f"Negative discrimination: {discrimination:.3f}"
             )
-            question.quality_flag_updated_at = datetime.now(timezone.utc)
+            question.quality_flag_updated_at = utc_now()
 
         db_session.commit()
 

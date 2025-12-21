@@ -1,7 +1,9 @@
 """
 Security utilities for password hashing and JWT token management.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from app.core.datetime_utils import utc_now
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -57,7 +59,7 @@ def _create_token(
         Encoded JWT token string
     """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or default_expires)
+    expire = utc_now() + (expires_delta or default_expires)
     to_encode.update({"exp": expire, "type": token_type})
     return jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM

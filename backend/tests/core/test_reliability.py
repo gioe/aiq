@@ -167,13 +167,13 @@ def create_completed_test_session(
         questions: List of Question objects
         responses_correct: List of booleans indicating if each response is correct
     """
-    from datetime import datetime, timezone
+    from app.core.datetime_utils import utc_now
 
     # Create test session
     session = TestSession(
         user_id=user.id,
         status=TestStatus.COMPLETED,
-        completed_at=datetime.now(timezone.utc),
+        completed_at=utc_now(),
     )
     db_session.add(session)
     db_session.commit()
@@ -252,15 +252,15 @@ class TestInterpretationThresholds:
 
     def test_threshold_constants_exist(self):
         """Verify ALPHA_THRESHOLDS constants are defined correctly."""
-        assert ALPHA_THRESHOLDS["excellent"] == 0.90
-        assert ALPHA_THRESHOLDS["good"] == 0.80
-        assert ALPHA_THRESHOLDS["acceptable"] == 0.70
-        assert ALPHA_THRESHOLDS["questionable"] == 0.60
-        assert ALPHA_THRESHOLDS["poor"] == 0.50
+        assert ALPHA_THRESHOLDS["excellent"] == pytest.approx(0.90)
+        assert ALPHA_THRESHOLDS["good"] == pytest.approx(0.80)
+        assert ALPHA_THRESHOLDS["acceptable"] == pytest.approx(0.70)
+        assert ALPHA_THRESHOLDS["questionable"] == pytest.approx(0.60)
+        assert ALPHA_THRESHOLDS["poor"] == pytest.approx(0.50)
 
     def test_aiq_threshold_constant(self):
         """Verify AIQ target threshold is set correctly."""
-        assert AIQ_ALPHA_THRESHOLD == 0.70
+        assert AIQ_ALPHA_THRESHOLD == pytest.approx(0.70)
 
 
 # =============================================================================
@@ -679,7 +679,7 @@ class TestItemTotalCorrelations:
 
         correlation = _calculate_item_total_correlation(item_scores, total_scores)
 
-        assert correlation == 0.0
+        assert correlation == pytest.approx(0.0)
 
     def test_calculate_item_total_correlation_no_variance(self):
         """Returns 0 when all same scores (no variance)."""
@@ -688,7 +688,7 @@ class TestItemTotalCorrelations:
 
         correlation = _calculate_item_total_correlation(item_scores, total_scores)
 
-        assert correlation == 0.0
+        assert correlation == pytest.approx(0.0)
 
 
 # =============================================================================
@@ -1068,13 +1068,13 @@ class TestTestRetestInterpretation:
 
     def test_threshold_constants_exist(self):
         """Verify TEST_RETEST_THRESHOLDS constants are defined correctly."""
-        assert TEST_RETEST_THRESHOLDS["excellent"] == 0.90
-        assert TEST_RETEST_THRESHOLDS["good"] == 0.70
-        assert TEST_RETEST_THRESHOLDS["acceptable"] == 0.50
+        assert TEST_RETEST_THRESHOLDS["excellent"] == pytest.approx(0.90)
+        assert TEST_RETEST_THRESHOLDS["good"] == pytest.approx(0.70)
+        assert TEST_RETEST_THRESHOLDS["acceptable"] == pytest.approx(0.50)
 
     def test_aiq_test_retest_threshold_constant(self):
         """Verify AIQ target threshold is set correctly."""
-        assert AIQ_TEST_RETEST_THRESHOLD == 0.50
+        assert AIQ_TEST_RETEST_THRESHOLD == pytest.approx(0.50)
 
     def test_min_retest_pairs_constant(self):
         """Verify minimum retest pairs constant is set correctly."""
@@ -1096,14 +1096,15 @@ class TestTestRetestInsufficientData:
 
     def test_below_min_pairs_threshold(self, db_session):
         """Returns error when retest pairs are below minimum threshold."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 20 users with 2 tests each = 20 pairs (below 30)
         for i in range(20):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # First test
             create_completed_test_with_score(
@@ -1131,14 +1132,15 @@ class TestTestRetestInsufficientData:
 
     def test_custom_min_pairs(self, db_session):
         """Respects custom min_pairs parameter."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 20 users with 2 tests each
         for i in range(20):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1166,7 +1168,7 @@ class TestTestRetestInsufficientData:
 
     def test_only_single_tests_per_user(self, db_session):
         """Returns error when users only have single tests (no retest pairs)."""
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
@@ -1178,7 +1180,7 @@ class TestTestRetestInsufficientData:
                 user,
                 questions,
                 iq_score=100 + i,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
 
         result = calculate_test_retest_reliability(db_session, min_pairs=30)
@@ -1193,14 +1195,15 @@ class TestTestRetestIntervalFiltering:
 
     def test_excludes_tests_below_min_interval(self, db_session):
         """Tests closer than min_interval_days are excluded."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 40 users with tests 3 days apart (below default 7-day minimum)
         for i in range(40):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1227,14 +1230,15 @@ class TestTestRetestIntervalFiltering:
 
     def test_excludes_tests_above_max_interval(self, db_session):
         """Tests farther than max_interval_days are excluded."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 40 users with tests 200 days apart (above default 180-day maximum)
         for i in range(40):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1261,14 +1265,15 @@ class TestTestRetestIntervalFiltering:
 
     def test_includes_tests_within_interval(self, db_session):
         """Tests within min/max interval are included."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 35 users with tests 30 days apart (within 7-180 day range)
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1294,14 +1299,15 @@ class TestTestRetestIntervalFiltering:
 
     def test_custom_interval_range(self, db_session):
         """Respects custom interval range parameters."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 35 users with tests 5 days apart
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1334,14 +1340,15 @@ class TestTestRetestCalculation:
 
     def test_calculates_correlation_with_valid_data(self, db_session):
         """Calculates test-retest correlation when sufficient valid data exists."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 35 users with 2 tests each, with correlated scores
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # First score based on user index
             score1 = 80 + i * 2  # 80 to 148
@@ -1377,13 +1384,14 @@ class TestTestRetestCalculation:
 
     def test_result_structure(self, db_session):
         """Verify result contains all required fields."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1418,14 +1426,15 @@ class TestTestRetestCalculation:
 
     def test_meets_threshold_true_when_r_high(self, db_session):
         """meets_threshold is True when r > 0.50."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create highly correlated test pairs
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             score1 = 80 + i * 2
             score2 = score1 + 2  # Perfect correlation with offset
@@ -1453,7 +1462,8 @@ class TestTestRetestCalculation:
 
     def test_meets_threshold_false_when_r_low(self, db_session):
         """meets_threshold is False when r < 0.50."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
         import random
 
         random.seed(789)
@@ -1462,7 +1472,7 @@ class TestTestRetestCalculation:
         # Create uncorrelated test pairs (random scores)
         for i in range(40):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             score1 = random.randint(80, 120)
             score2 = random.randint(80, 120)  # Independent of score1
@@ -1499,14 +1509,15 @@ class TestTestRetestPracticeEffect:
 
     def test_positive_practice_effect(self, db_session):
         """Calculates positive practice effect when scores improve."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create pairs where second score is always 5 points higher (with variance)
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # Add variance to scores while maintaining +5 practice effect
             score1 = 90 + i  # 90 to 124
@@ -1529,19 +1540,20 @@ class TestTestRetestPracticeEffect:
 
         result = calculate_test_retest_reliability(db_session, min_pairs=30)
 
-        assert result["score_change_stats"]["practice_effect"] == 5.0
-        assert result["score_change_stats"]["mean_change"] == 5.0
+        assert result["score_change_stats"]["practice_effect"] == pytest.approx(5.0)
+        assert result["score_change_stats"]["mean_change"] == pytest.approx(5.0)
 
     def test_negative_practice_effect(self, db_session):
         """Calculates negative practice effect when scores decrease."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create pairs where second score is always 5 points lower (with variance)
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # Add variance to scores while maintaining -5 regression
             score1 = 100 + i  # 100 to 134
@@ -1569,14 +1581,15 @@ class TestTestRetestPracticeEffect:
 
     def test_std_change_calculated(self, db_session):
         """Standard deviation of score changes is calculated."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create pairs with varying score changes
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # Add variance to score1 to ensure valid correlation calculation
             score1 = 90 + i  # 90 to 124
@@ -1610,14 +1623,15 @@ class TestTestRetestMeanInterval:
 
     def test_mean_interval_calculated(self, db_session):
         """Mean interval in days is calculated correctly."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create pairs all with 30-day intervals
         for i in range(35):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1637,18 +1651,19 @@ class TestTestRetestMeanInterval:
         result = calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Mean interval should be 30 days
-        assert result["mean_interval_days"] == 30.0
+        assert result["mean_interval_days"] == pytest.approx(30.0)
 
     def test_mean_interval_with_varied_intervals(self, db_session):
         """Mean interval calculated correctly with varying intervals."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 15 pairs with 14-day intervals and 15 pairs with 28-day intervals
         for i in range(15):
             user = create_test_user(db_session, f"user_short_{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1667,7 +1682,7 @@ class TestTestRetestMeanInterval:
 
         for i in range(20):
             user = create_test_user(db_session, f"user_long_{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             create_completed_test_with_score(
                 db_session,
@@ -1697,14 +1712,15 @@ class TestTestRetestMultipleTestsPerUser:
 
     def test_multiple_tests_creates_multiple_pairs(self, db_session):
         """Users with 3+ tests create multiple consecutive pairs."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 12 users with 4 tests each = 36 pairs (3 pairs per user)
         for i in range(12):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # Four tests at 30-day intervals
             for j in range(4):
@@ -1724,7 +1740,8 @@ class TestTestRetestMultipleTestsPerUser:
 
     def test_only_consecutive_pairs_used(self, db_session):
         """Only consecutive test pairs are used, not all combinations."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
@@ -1732,7 +1749,7 @@ class TestTestRetestMultipleTestsPerUser:
         # If we used all combinations, it would be 3 pairs per user
         for i in range(18):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # Three tests at 30-day intervals
             for j in range(3):
@@ -1761,12 +1778,12 @@ class TestSpearmanBrownCorrection:
     def test_perfect_half_correlation(self):
         """Perfect half correlation (r=1.0) should give perfect full (r=1.0)."""
         r_full = _apply_spearman_brown_correction(1.0)
-        assert r_full == 1.0
+        assert r_full == pytest.approx(1.0)
 
     def test_zero_half_correlation(self):
         """Zero half correlation should give zero full correlation."""
         r_full = _apply_spearman_brown_correction(0.0)
-        assert r_full == 0.0
+        assert r_full == pytest.approx(0.0)
 
     def test_moderate_half_correlation(self):
         """
@@ -1863,15 +1880,15 @@ class TestSplitHalfInterpretation:
 
     def test_threshold_constants_exist(self):
         """Verify SPLIT_HALF_THRESHOLDS constants are defined correctly."""
-        assert SPLIT_HALF_THRESHOLDS["excellent"] == 0.90
-        assert SPLIT_HALF_THRESHOLDS["good"] == 0.80
-        assert SPLIT_HALF_THRESHOLDS["acceptable"] == 0.70
-        assert SPLIT_HALF_THRESHOLDS["questionable"] == 0.60
-        assert SPLIT_HALF_THRESHOLDS["poor"] == 0.50
+        assert SPLIT_HALF_THRESHOLDS["excellent"] == pytest.approx(0.90)
+        assert SPLIT_HALF_THRESHOLDS["good"] == pytest.approx(0.80)
+        assert SPLIT_HALF_THRESHOLDS["acceptable"] == pytest.approx(0.70)
+        assert SPLIT_HALF_THRESHOLDS["questionable"] == pytest.approx(0.60)
+        assert SPLIT_HALF_THRESHOLDS["poor"] == pytest.approx(0.50)
 
     def test_aiq_threshold_constant(self):
         """Verify AIQ target threshold is set correctly."""
-        assert AIQ_SPLIT_HALF_THRESHOLD == 0.70
+        assert AIQ_SPLIT_HALF_THRESHOLD == pytest.approx(0.70)
 
 
 class TestSplitHalfInsufficientData:
@@ -2781,7 +2798,8 @@ class TestGetReliabilityReport:
 
     def test_report_with_valid_data(self, db_session):
         """Report generates correctly with sufficient valid data."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create questions
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
@@ -2796,7 +2814,7 @@ class TestGetReliabilityReport:
         # Create some retest pairs
         for i in range(35):
             user = create_test_user(db_session, f"retest{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # First test
             create_completed_test_with_score(
@@ -2849,11 +2867,11 @@ class TestGetReliabilityReport:
 
     def test_last_calculated_timestamp(self, db_session):
         """last_calculated timestamps are set to current time."""
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         report = get_reliability_report(db_session)
 
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         # All last_calculated should be within a few seconds of now
         ic_time = report["internal_consistency"]["last_calculated"]
@@ -2871,7 +2889,8 @@ class TestReliabilityReportIntegration:
 
     def test_excellent_status_with_high_reliability(self, db_session):
         """Returns 'excellent' status when all metrics are excellent."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create questions
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
@@ -2887,7 +2906,7 @@ class TestReliabilityReportIntegration:
         # Create perfectly correlated retest pairs
         for i in range(35):
             user = create_test_user(db_session, f"retest{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             score = 80 + i * 2
             create_completed_test_with_score(
@@ -2976,7 +2995,7 @@ class TestStoreReliabilityMetric:
 
         assert metric.id is not None
         assert metric.metric_type == "cronbachs_alpha"
-        assert metric.value == 0.85
+        assert metric.value == pytest.approx(0.85)
         assert metric.sample_size == 150
         assert metric.calculated_at is not None
         assert metric.details is None
@@ -2991,7 +3010,7 @@ class TestStoreReliabilityMetric:
         )
 
         assert metric.metric_type == "test_retest"
-        assert metric.value == 0.72
+        assert metric.value == pytest.approx(0.72)
         assert metric.sample_size == 45
 
     def test_store_split_half_metric(self, db_session):
@@ -3004,7 +3023,7 @@ class TestStoreReliabilityMetric:
         )
 
         assert metric.metric_type == "split_half"
-        assert metric.value == 0.78
+        assert metric.value == pytest.approx(0.78)
         assert metric.sample_size == 200
 
     def test_store_metric_with_details(self, db_session):
@@ -3075,7 +3094,7 @@ class TestStoreReliabilityMetric:
 
         assert retrieved is not None
         assert retrieved.metric_type == "cronbachs_alpha"
-        assert retrieved.value == 0.90
+        assert retrieved.value == pytest.approx(0.90)
         assert retrieved.sample_size == 250
 
     def test_store_metric_validates_type(self, db_session):
@@ -3116,7 +3135,7 @@ class TestStoreReliabilityMetric:
 
         # Test 1.0 boundary
         metric_high = store_reliability_metric(db_session, "test_retest", 1.0, 100)
-        assert metric_high.value == 1.0
+        assert metric_high.value == pytest.approx(1.0)
 
         # Test minimum sample size
         metric_min = store_reliability_metric(db_session, "split_half", 0.5, 1)
@@ -3137,7 +3156,7 @@ class TestStoreReliabilityMetric:
         # Verify the metric was actually committed (visible in query)
         queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
         assert queried is not None
-        assert queried.value == 0.85
+        assert queried.value == pytest.approx(0.85)
 
     def test_commit_false_does_not_commit(self, db_session):
         """Verifies commit=False does not commit the transaction."""
@@ -3151,7 +3170,7 @@ class TestStoreReliabilityMetric:
 
         # Metric should have an ID (from flush)
         assert metric.id is not None
-        assert metric.value == 0.72
+        assert metric.value == pytest.approx(0.72)
         assert metric.sample_size == 50
         assert metric.metric_type == "test_retest"
 
@@ -3243,7 +3262,7 @@ class TestStoreReliabilityMetric:
         # Verify with a fresh query
         queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
         assert queried is not None
-        assert queried.value == 0.80
+        assert queried.value == pytest.approx(0.80)
 
 
 class TestGetReliabilityHistory:
@@ -3286,7 +3305,8 @@ class TestGetReliabilityHistory:
 
     def test_filter_by_days(self, db_session):
         """Filters history by time period correctly."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Store a recent metric
         store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
@@ -3296,7 +3316,7 @@ class TestGetReliabilityHistory:
             metric_type="cronbachs_alpha",
             value=0.75,
             sample_size=80,
-            calculated_at=datetime.now(timezone.utc) - timedelta(days=120),
+            calculated_at=utc_now() - timedelta(days=120),
         )
         db_session.add(old_metric)
         db_session.commit()
@@ -3304,7 +3324,7 @@ class TestGetReliabilityHistory:
         # Get history with 90-day filter (default)
         history = get_reliability_history(db_session, days=90)
         assert len(history) == 1
-        assert history[0]["value"] == 0.85
+        assert history[0]["value"] == pytest.approx(0.85)
 
         # Get history with 180-day filter
         history_longer = get_reliability_history(db_session, days=180)
@@ -3312,10 +3332,11 @@ class TestGetReliabilityHistory:
 
     def test_history_ordered_by_date_desc(self, db_session):
         """Returns metrics ordered by calculated_at descending (most recent first)."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Store metrics with different timestamps
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         metric1 = ReliabilityMetric(
             metric_type="cronbachs_alpha",
@@ -3343,9 +3364,9 @@ class TestGetReliabilityHistory:
 
         assert len(history) == 3
         # Most recent first
-        assert history[0]["value"] == 0.90
-        assert history[1]["value"] == 0.85
-        assert history[2]["value"] == 0.80
+        assert history[0]["value"] == pytest.approx(0.90)
+        assert history[1]["value"] == pytest.approx(0.85)
+        assert history[2]["value"] == pytest.approx(0.80)
 
     def test_history_includes_all_fields(self, db_session):
         """Returns all required fields in history entries."""
@@ -3371,15 +3392,16 @@ class TestGetReliabilityHistory:
         assert "details" in entry
 
         assert entry["metric_type"] == "cronbachs_alpha"
-        assert entry["value"] == 0.82
+        assert entry["value"] == pytest.approx(0.82)
         assert entry["sample_size"] == 150
         assert entry["details"]["interpretation"] == "good"
 
     def test_combined_filters(self, db_session):
         """Supports combining metric_type and days filters."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         # Recent alpha
         metric1 = ReliabilityMetric(
@@ -3414,7 +3436,7 @@ class TestGetReliabilityHistory:
         )
 
         assert len(history) == 1
-        assert history[0]["value"] == 0.85
+        assert history[0]["value"] == pytest.approx(0.85)
         assert history[0]["metric_type"] == "cronbachs_alpha"
 
     def test_handles_null_details(self, db_session):
@@ -3484,14 +3506,15 @@ class TestInsufficientDataIndicator:
 
     def test_test_retest_insufficient_data_true_when_below_min_pairs(self, db_session):
         """Test-retest sets insufficient_data=True when pairs < min."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create only 10 retest pairs (below 30 minimum)
         for i in range(10):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # First test
             create_completed_test_with_score(
@@ -3522,14 +3545,15 @@ class TestInsufficientDataIndicator:
         self, db_session
     ):
         """Test-retest sets insufficient_data=False when data is sufficient."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 40 retest pairs (above 30 minimum)
         for i in range(40):
             user = create_test_user(db_session, f"user{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
 
             # First test
             create_completed_test_with_score(
@@ -3702,7 +3726,8 @@ class TestDefensiveErrorHandling:
         from app.core import reliability
 
         # Create test data for test-retest and split-half
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
@@ -3716,7 +3741,7 @@ class TestDefensiveErrorHandling:
         # Create retest pairs
         for i in range(35):
             user = create_test_user(db_session, f"retest{i}@example.com")
-            base_time = datetime.now(timezone.utc)
+            base_time = utc_now()
             create_completed_test_with_score(
                 db_session,
                 user,
@@ -4005,13 +4030,14 @@ class TestCorrelationEdgeCases:
 
         Creates score pairs with no linear relationship (uncorrelated).
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create uncorrelated score pairs
         # First scores increase, second scores follow a different pattern
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Pattern that should produce near-zero correlation:
         # Pairs: (90, 110), (100, 90), (110, 110), (120, 90), (130, 110), etc.
@@ -4078,10 +4104,11 @@ class TestCorrelationEdgeCases:
 
         Creates score pairs with inverse relationship (higher first = lower second).
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create negatively correlated score pairs
         # First score increases, second score decreases
@@ -4129,16 +4156,17 @@ class TestCorrelationEdgeCases:
         Practice effect exactly at threshold (5.0) is handled correctly.
 
         The LARGE_PRACTICE_EFFECT_THRESHOLD is 5.0 IQ points.
-        Values > 5.0 should trigger warnings, values == 5.0 should not.
+        Values > 5.0 should trigger warnings, values == pytest.approx(5.0) should not.
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
         from app.core.reliability import LARGE_PRACTICE_EFFECT_THRESHOLD
 
         # Verify threshold value
-        assert LARGE_PRACTICE_EFFECT_THRESHOLD == 5.0
+        assert LARGE_PRACTICE_EFFECT_THRESHOLD == pytest.approx(5.0)
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create pairs where second score is exactly 5 points higher
         for i in range(35):
@@ -4166,8 +4194,8 @@ class TestCorrelationEdgeCases:
         result = calculate_test_retest_reliability(db_session)
 
         # Practice effect should be exactly 5.0
-        assert result["score_change_stats"]["practice_effect"] == 5.0
-        assert result["score_change_stats"]["mean_change"] == 5.0
+        assert result["score_change_stats"]["practice_effect"] == pytest.approx(5.0)
+        assert result["score_change_stats"]["mean_change"] == pytest.approx(5.0)
 
     def test_practice_effect_at_threshold_no_warning(self):
         """
@@ -4362,11 +4390,12 @@ class TestReliabilityDataLoader:
         cached data without additional database queries.
         """
         from app.core.reliability import ReliabilityDataLoader
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create test data with retests
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         for i in range(10):
             user = create_test_user(db_session, f"retest{i}@example.com")
@@ -4470,11 +4499,12 @@ class TestReliabilityDataLoader:
         calculate_test_retest_reliability works correctly with data_loader parameter.
         """
         from app.core.reliability import ReliabilityDataLoader
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create test data with retests
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         for i in range(35):
             user = create_test_user(db_session, f"retest{i}@example.com")
@@ -4564,11 +4594,12 @@ class TestReliabilityDataLoader:
         preload_all() method loads both response and test-retest data.
         """
         from app.core.reliability import ReliabilityDataLoader
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         for i in range(10):
             user = create_test_user(db_session, f"user{i}@example.com")
@@ -4600,11 +4631,12 @@ class TestReliabilityDataLoader:
         This integration test verifies that the report generation works correctly
         when using the shared data loader introduced in RE-FI-020.
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create substantial test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
-        base_time = datetime.now(timezone.utc)
+        base_time = utc_now()
 
         # Create 120 sessions for alpha and split-half
         for i in range(120):

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, List
 import statistics
 
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 from typing import Any, Optional
 
 from app.models.models import DifficultyLevel, Question, Response, TestResult
@@ -62,6 +62,46 @@ DIFFICULTY_RANGES: dict[str, tuple[float, float]] = {
 # With fewer responses, p-value estimates are unstable and shouldn't be used
 # for recalibration decisions. 100 is a common psychometric threshold.
 MIN_RESPONSES_FOR_CALIBRATION: int = 100
+
+# Minimum responses for stable p-value estimates (common psychometric rule of thumb)
+MIN_RESPONSES_FOR_SUFFICIENT_DATA: int = 30
+
+# =============================================================================
+# PROBLEMATIC QUESTION THRESHOLDS (EIC/identify_problematic_questions)
+# =============================================================================
+#
+# Thresholds for identifying questions with poor psychometric properties.
+# Based on standard CTT guidelines and psychometric best practices.
+#
+# Reference:
+#   - IQ_TEST_RESEARCH_FINDINGS.txt, Part 2.6 (Item Analysis)
+#   - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 425-455
+
+# Questions above this p-value threshold are "too easy" (almost everyone gets them right)
+# Above 95% correct provides little discriminatory information
+TOO_EASY_P_VALUE_THRESHOLD: float = 0.95
+
+# Questions below this p-value threshold are "too hard" (almost no one gets them right)
+# Below 5% correct provides little discriminatory information
+TOO_HARD_P_VALUE_THRESHOLD: float = 0.05
+
+# Minimum acceptable discrimination for a question to be useful
+# Questions with discrimination < 0.2 don't effectively separate high/low ability
+POOR_DISCRIMINATION_THRESHOLD: float = 0.2
+
+# =============================================================================
+# CALIBRATION SEVERITY THRESHOLDS
+# =============================================================================
+#
+# Distance thresholds for determining how severely miscalibrated a question is.
+# Based on how far the empirical p-value is from the expected difficulty range.
+
+# Distance within this threshold is considered "minor" miscalibration
+MINOR_MISCALIBRATION_DISTANCE: float = 0.10
+
+# Distance within this threshold (but beyond minor) is "major" miscalibration
+# Beyond this is considered "severe" miscalibration
+MAJOR_MISCALIBRATION_DISTANCE: float = 0.25
 
 
 def calculate_point_biserial_correlation(
@@ -275,7 +315,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
             ):
                 question.quality_flag = "under_review"  # type: ignore
                 question.quality_flag_reason = f"Negative discrimination: {discrimination:.3f}"  # type: ignore
-                question.quality_flag_updated_at = datetime.now(timezone.utc)  # type: ignore
+                question.quality_flag_updated_at = utc_now()  # type: ignore
                 logger.warning(
                     f"Question {question_id} flagged: negative discrimination "
                     f"{discrimination:.3f}"
@@ -348,9 +388,11 @@ def get_question_statistics(db: Session, question_id: int) -> Dict:
             "has_sufficient_data": False,
         }
 
-    # Consider data "sufficient" if we have at least 30 responses
+    # Consider data "sufficient" if we have at least the minimum responses
     # (common rule of thumb in psychometrics)
-    has_sufficient_data = (question.response_count or 0) >= 30
+    has_sufficient_data = (
+        question.response_count or 0
+    ) >= MIN_RESPONSES_FOR_SUFFICIENT_DATA
 
     return {
         "question_id": question_id,
@@ -378,7 +420,9 @@ def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dic
 
     results = []
     for question in questions:
-        has_sufficient_data = (question.response_count or 0) >= 30
+        has_sufficient_data = (
+            question.response_count or 0
+        ) >= MIN_RESPONSES_FOR_SUFFICIENT_DATA
 
         results.append(
             {
@@ -452,16 +496,25 @@ def identify_problematic_questions(
             "response_count": question.response_count,
         }
 
-        # Check if too easy (> 95% correct)
-        if question.empirical_difficulty and question.empirical_difficulty > 0.95:
+        # Check if too easy (above threshold)
+        if (
+            question.empirical_difficulty
+            and question.empirical_difficulty > TOO_EASY_P_VALUE_THRESHOLD
+        ):
             results["too_easy"].append(q_data)
 
-        # Check if too hard (< 5% correct)
-        if question.empirical_difficulty and question.empirical_difficulty < 0.05:
+        # Check if too hard (below threshold)
+        if (
+            question.empirical_difficulty
+            and question.empirical_difficulty < TOO_HARD_P_VALUE_THRESHOLD
+        ):
             results["too_hard"].append(q_data)
 
-        # Check for poor discrimination (< 0.2)
-        if question.discrimination is not None and 0 <= question.discrimination < 0.2:
+        # Check for poor discrimination (below minimum threshold)
+        if (
+            question.discrimination is not None
+            and 0 <= question.discrimination < POOR_DISCRIMINATION_THRESHOLD
+        ):
             results["poor_discrimination"].append(q_data)
 
         # Check for negative discrimination (< 0)
@@ -501,21 +554,21 @@ def _get_suggested_difficulty_label(empirical_difficulty: float) -> str:
     """
     # Check each range in order (hard -> medium -> easy)
     # to find where the p-value falls
-    if empirical_difficulty <= DIFFICULTY_RANGES["hard"][1]:  # <= 0.40
-        if empirical_difficulty >= DIFFICULTY_RANGES["hard"][0]:  # >= 0.15
+    if empirical_difficulty <= DIFFICULTY_RANGES["hard"][1]:
+        if empirical_difficulty >= DIFFICULTY_RANGES["hard"][0]:
             return "hard"
         else:
-            # Below 0.15 - still classify as "hard" (it's even harder)
+            # Below hard's lower bound - still classify as "hard" (it's even harder)
             return "hard"
 
-    if empirical_difficulty <= DIFFICULTY_RANGES["medium"][1]:  # <= 0.70
-        if empirical_difficulty >= DIFFICULTY_RANGES["medium"][0]:  # >= 0.40
+    if empirical_difficulty <= DIFFICULTY_RANGES["medium"][1]:
+        if empirical_difficulty >= DIFFICULTY_RANGES["medium"][0]:
             return "medium"
 
-    if empirical_difficulty >= DIFFICULTY_RANGES["easy"][0]:  # >= 0.70
+    if empirical_difficulty >= DIFFICULTY_RANGES["easy"][0]:
         return "easy"
 
-    # Above 0.90 - still classify as "easy" (it's even easier)
+    # Above easy's upper bound - still classify as "easy" (it's even easier)
     return "easy"
 
 
@@ -534,9 +587,9 @@ def _calculate_calibration_severity(
         Severity level: "minor", "major", or "severe"
 
     Severity definitions:
-        - minor: Within 0.10 of expected range boundary
-        - major: 0.10-0.25 outside expected range
-        - severe: >0.25 outside expected range
+        - minor: Within MINOR_MISCALIBRATION_DISTANCE of expected range boundary
+        - major: Between MINOR_MISCALIBRATION_DISTANCE and MAJOR_MISCALIBRATION_DISTANCE
+        - severe: Beyond MAJOR_MISCALIBRATION_DISTANCE outside expected range
     """
     min_range, max_range = expected_range
 
@@ -550,9 +603,9 @@ def _calculate_calibration_severity(
         return "minor"
 
     # Determine severity based on distance
-    if distance <= 0.10:
+    if distance <= MINOR_MISCALIBRATION_DISTANCE:
         return "minor"
-    elif distance <= 0.25:
+    elif distance <= MAJOR_MISCALIBRATION_DISTANCE:
         return "major"
     else:
         return "severe"
@@ -823,7 +876,7 @@ def auto_flag_problematic_questions(
     )
 
     flagged_questions = []
-    now = datetime.now(timezone.utc)
+    now = utc_now()
 
     for question in questions_to_flag:
         previous_flag = question.quality_flag
@@ -1002,7 +1055,7 @@ def recalibrate_questions(
 
                     # Update to new difficulty level using enum member lookup
                     question.difficulty_level = DifficultyLevel[new_label.upper()]  # type: ignore
-                    question.difficulty_recalibrated_at = datetime.now(timezone.utc)  # type: ignore
+                    question.difficulty_recalibrated_at = utc_now()  # type: ignore
 
                     logger.info(
                         f"Recalibrated question {question_id}: "

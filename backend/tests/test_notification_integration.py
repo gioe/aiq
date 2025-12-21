@@ -7,7 +7,9 @@ Tests the end-to-end notification flow including:
 - Notification payload formatting
 - APNs service configuration (without actually sending)
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from app.core.datetime_utils import utc_now
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -55,8 +57,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -82,8 +83,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -109,8 +109,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -137,7 +136,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc) - timedelta(days=30),
+            completed_at=utc_now() - timedelta(days=30),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -173,7 +172,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=utc_now(),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -200,8 +199,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -226,8 +224,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -251,7 +248,7 @@ class TestNotificationScheduler:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc) - timedelta(days=30),
+            completed_at=utc_now() - timedelta(days=30),
         )
         db_session.add(test_result)
         db_session.commit()
@@ -328,8 +325,7 @@ class TestNotificationPayloadFormatting:
             total_questions=20,
             correct_answers=15,
             completion_time_seconds=900,
-            completed_at=datetime.now(timezone.utc)
-            - timedelta(days=settings.TEST_CADENCE_DAYS),
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
         db_session.commit()

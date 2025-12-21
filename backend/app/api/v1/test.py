@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from app.core.datetime_utils import ensure_timezone_aware, utc_now
 from typing import Optional
 
 from app.models import get_db, User, Question, TestSession, UserQuestion
@@ -55,7 +57,6 @@ from app.core.distractor_analysis import (
     update_session_quartile_stats,
 )
 from app.core.question_utils import question_to_response
-from app.core.datetime_utils import ensure_timezone_aware
 from app.core.validity_analysis import (
     calculate_person_fit_heuristic,
     check_response_time_plausibility,
@@ -325,9 +326,7 @@ def start_test(
 
     # Check 6-month test cadence: user cannot take another test within 180 days
     # of their last completed test
-    cadence_cutoff = datetime.now(timezone.utc) - timedelta(
-        days=settings.TEST_CADENCE_DAYS
-    )
+    cadence_cutoff = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
     recent_completed_session = (
         db.query(TestSession)
         .filter(
@@ -343,9 +342,7 @@ def start_test(
         # Calculate next eligible date
         completed_at = ensure_timezone_aware(recent_completed_session.completed_at)  # type: ignore[arg-type]
         next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
-        days_remaining = (
-            next_eligible - datetime.now(timezone.utc)
-        ).days + 1  # Round up
+        days_remaining = (next_eligible - utc_now()).days + 1  # Round up
 
         raise HTTPException(
             status_code=400,
@@ -377,7 +374,7 @@ def start_test(
     test_session = TestSession(
         user_id=current_user.id,
         status=TestStatus.IN_PROGRESS,
-        started_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
         composition_metadata=composition_metadata,
     )
     db.add(test_session)
@@ -405,7 +402,7 @@ def start_test(
             user_id=current_user.id,
             question_id=question.id,
             test_session_id=test_session.id,
-            seen_at=datetime.now(timezone.utc),
+            seen_at=utc_now(),
         )
         db.add(user_question)
 
@@ -552,7 +549,7 @@ def abandon_test(
 
     # Mark session as abandoned
     test_session.status = TestStatus.ABANDONED  # type: ignore[assignment]
-    test_session.completed_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+    test_session.completed_at = utc_now()  # type: ignore[assignment]
 
     db.commit()
     db.refresh(test_session)
@@ -674,7 +671,7 @@ def submit_test(
             question_id=resp_item.question_id,
             user_answer=resp_item.user_answer.strip(),
             is_correct=is_correct,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
             time_spent_seconds=resp_item.time_spent_seconds,  # TS-003: Store per-question time
         )
         db.add(response)
@@ -695,7 +692,7 @@ def submit_test(
             )
 
     # Update test session status to completed
-    completion_time = datetime.now(timezone.utc)
+    completion_time = utc_now()
     test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
     test_session.completed_at = completion_time  # type: ignore[assignment]
 
@@ -845,7 +842,7 @@ def submit_test(
             if validity_assessment["flag_details"]
             else None
         )
-        validity_checked_at = datetime.now(timezone.utc)
+        validity_checked_at = utc_now()
 
         # Log validity assessment results
         if validity_status != "valid":

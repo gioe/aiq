@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSON
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 import enum
 
 from .base import Base
@@ -85,7 +85,7 @@ class User(Base):
     last_name = Column(String(100))
     created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
     last_login_at = Column(DateTime(timezone=True))
@@ -138,7 +138,7 @@ class Question(Base):
     )  # Version of prompts used for generation
     created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -267,7 +267,7 @@ class UserQuestion(Base):
     )
     seen_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
 
@@ -295,7 +295,7 @@ class TestSession(Base):
     )
     started_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
     completed_at = Column(DateTime(timezone=True), index=True)
@@ -360,7 +360,7 @@ class Response(Base):
     is_correct = Column(Boolean, nullable=False)
     answered_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
 
@@ -399,7 +399,7 @@ class TestResult(Base):
     completion_time_seconds = Column(Integer)
     completed_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
 
@@ -573,7 +573,7 @@ class QuestionGenerationRun(Base):
     # Metadata
     created_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
 
@@ -606,8 +606,8 @@ class SystemConfig(Base):
     value = Column(JSON, nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -645,7 +645,7 @@ class ReliabilityMetric(Base):
     # Timestamp
     calculated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=utc_now,
         nullable=False,
     )
 

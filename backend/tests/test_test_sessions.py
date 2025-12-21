@@ -2198,7 +2198,7 @@ class TestGetTestSessionOr404:
         from app.api.v1.test import get_test_session_or_404
         from app.models import TestSession
         from app.models.models import TestStatus
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Test with each status
         statuses = [
@@ -2211,9 +2211,7 @@ class TestGetTestSessionOr404:
             session = TestSession(
                 user_id=test_user.id,
                 status=status,
-                completed_at=datetime.now(timezone.utc)
-                if status != TestStatus.IN_PROGRESS
-                else None,
+                completed_at=utc_now() if status != TestStatus.IN_PROGRESS else None,
             )
             db_session.add(session)
             db_session.commit()

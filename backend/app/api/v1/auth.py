@@ -2,7 +2,7 @@
 Authentication endpoints for user registration and login.
 """
 import logging
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
@@ -136,7 +136,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         )
 
     # Update last login timestamp
-    user.last_login_at = datetime.now(timezone.utc)  # type: ignore
+    user.last_login_at = utc_now()  # type: ignore
     try:
         db.commit()
         db.refresh(user)

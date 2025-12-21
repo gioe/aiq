@@ -2,7 +2,7 @@
 Tests for SystemConfig model and helper functions.
 """
 import pytest
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 
 from app.models.models import SystemConfig
 from app.core.system_config import (
@@ -28,7 +28,7 @@ class TestSystemConfigModel:
         config = SystemConfig(
             key="test_key",
             value={"test": "value"},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config)
         db_session.commit()
@@ -43,7 +43,7 @@ class TestSystemConfigModel:
         config1 = SystemConfig(
             key="unique_key",
             value={"first": True},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config1)
         db_session.commit()
@@ -52,7 +52,7 @@ class TestSystemConfigModel:
         config2 = SystemConfig(
             key="unique_key",
             value={"second": True},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config2)
         with pytest.raises(Exception):  # IntegrityError
@@ -71,9 +71,7 @@ class TestSystemConfigModel:
         ]
 
         for key, value in test_cases:
-            config = SystemConfig(
-                key=key, value=value, updated_at=datetime.now(timezone.utc)
-            )
+            config = SystemConfig(key=key, value=value, updated_at=utc_now())
             db_session.add(config)
 
         db_session.commit()
@@ -94,7 +92,7 @@ class TestGetConfig:
         config = SystemConfig(
             key="existing_key",
             value={"data": "test"},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config)
         db_session.commit()
@@ -138,7 +136,7 @@ class TestSetConfig:
         config = SystemConfig(
             key="update_key",
             value={"original": True},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config)
         db_session.commit()
@@ -168,7 +166,7 @@ class TestDeleteConfig:
         config = SystemConfig(
             key="delete_key",
             value={"to_delete": True},
-            updated_at=datetime.now(timezone.utc),
+            updated_at=utc_now(),
         )
         db_session.add(config)
         db_session.commit()
@@ -201,17 +199,13 @@ class TestGetAllConfigs:
     def test_get_all_configs_multiple(self, db_session):
         """Test getting all configs with multiple entries."""
         configs = [
-            SystemConfig(
-                key="key1", value="value1", updated_at=datetime.now(timezone.utc)
-            ),
+            SystemConfig(key="key1", value="value1", updated_at=utc_now()),
             SystemConfig(
                 key="key2",
                 value={"nested": True},
-                updated_at=datetime.now(timezone.utc),
+                updated_at=utc_now(),
             ),
-            SystemConfig(
-                key="key3", value=[1, 2, 3], updated_at=datetime.now(timezone.utc)
-            ),
+            SystemConfig(key="key3", value=[1, 2, 3], updated_at=utc_now()),
         ]
         for config in configs:
             db_session.add(config)
@@ -230,9 +224,7 @@ class TestConfigExists:
 
     def test_config_exists_true(self, db_session):
         """Test that config_exists returns True for existing key."""
-        config = SystemConfig(
-            key="exists_key", value="exists", updated_at=datetime.now(timezone.utc)
-        )
+        config = SystemConfig(key="exists_key", value="exists", updated_at=utc_now())
         db_session.add(config)
         db_session.commit()
 

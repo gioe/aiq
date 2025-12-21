@@ -7,7 +7,7 @@ This module provides:
 """
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 from enum import Enum
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -107,7 +107,7 @@ class AnalyticsTracker:
         """
         event_data = {
             "event": event_type.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now().isoformat(),
             "user_id": user_id,
             "properties": properties or {},
             "environment": settings.ENV,
