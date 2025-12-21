@@ -286,6 +286,44 @@ class ReliabilityTestRetestData(TypedDict):
     test_results: List[Tuple[int, int, datetime]]  # (user_id, iq_score, completed_at)
 
 
+class CronbachsAlphaResult(TypedDict):
+    """
+    Result structure for Cronbach's alpha calculation.
+
+    This TypedDict defines the return type for calculate_cronbachs_alpha(),
+    providing type safety for all callers and improving IDE support.
+
+    Fields:
+        cronbachs_alpha: The calculated alpha coefficient (0-1 scale), or None if
+            calculation failed. Values >= 0.70 are considered acceptable for AIQ.
+        num_sessions: Number of test sessions used in the calculation.
+        num_items: Number of questions (items) used in the calculation.
+        interpretation: Human-readable interpretation of the alpha value
+            ("excellent", "good", "acceptable", "questionable", "poor", or
+            "unacceptable"), or None if calculation failed.
+        meets_threshold: Whether the alpha meets AIQ's minimum threshold (>= 0.70).
+        item_total_correlations: Mapping of question_id to its item-total
+            correlation, indicating how well each item contributes to overall
+            reliability.
+        error: Error message if calculation failed, None otherwise.
+        insufficient_data: True if calculation failed due to insufficient data
+            (not enough sessions or items), False otherwise.
+
+    Reference:
+        docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-002)
+        IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+    """
+
+    cronbachs_alpha: Optional[float]
+    num_sessions: int
+    num_items: int
+    interpretation: Optional[str]
+    meets_threshold: bool
+    item_total_correlations: Dict[int, float]
+    error: Optional[str]
+    insufficient_data: bool
+
+
 class ReliabilityDataLoader:
     """
     Shared data loader for reliability calculations.
@@ -530,7 +568,7 @@ def calculate_cronbachs_alpha(
     db: Session,
     min_sessions: int = 100,
     data_loader: Optional["ReliabilityDataLoader"] = None,
-) -> Dict:
+) -> CronbachsAlphaResult:
     """
     Calculate Cronbach's alpha for test internal consistency.
 
@@ -564,21 +602,21 @@ def calculate_cronbachs_alpha(
             (RE-FI-020)
 
     Returns:
-        {
-            "cronbachs_alpha": float or None,
-            "num_sessions": int,
-            "num_items": int,
-            "interpretation": str or None,
-            "meets_threshold": bool,
-            "item_total_correlations": Dict[int, float],  # question_id -> correlation
-            "error": str or None  # Present if calculation failed
-        }
+        CronbachsAlphaResult: A TypedDict containing:
+            - cronbachs_alpha: The calculated alpha (0-1), or None if failed
+            - num_sessions: Number of sessions used
+            - num_items: Number of items used
+            - interpretation: Human-readable interpretation, or None
+            - meets_threshold: Whether alpha >= 0.70
+            - item_total_correlations: Dict mapping question_id to correlation
+            - error: Error message if failed, None otherwise
+            - insufficient_data: True if failed due to insufficient data
 
     Reference:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-002)
         IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
     """
-    result: Dict = {
+    result: CronbachsAlphaResult = {
         "cronbachs_alpha": None,
         "num_sessions": 0,
         "num_items": 0,
@@ -1567,7 +1605,7 @@ def get_reliability_interpretation(
 
 
 def generate_reliability_recommendations(
-    alpha_result: Dict,
+    alpha_result: CronbachsAlphaResult,
     test_retest_result: Dict,
     split_half_result: Dict,
 ) -> List[Dict[str, str]]:
@@ -1795,7 +1833,7 @@ def generate_reliability_recommendations(
 
 
 def _determine_overall_status(
-    alpha_result: Dict,
+    alpha_result: CronbachsAlphaResult,
     test_retest_result: Dict,
     split_half_result: Dict,
 ) -> str:
@@ -1971,17 +2009,17 @@ def get_reliability_report(
         )
     except Exception as e:
         logger.exception(f"Unexpected error calculating Cronbach's alpha: {e}")
-        alpha_result = _create_error_result(f"Calculation error: {str(e)}")
-        alpha_result.update(
-            {
-                "cronbachs_alpha": None,
-                "num_sessions": 0,
-                "num_items": 0,
-                "interpretation": None,
-                "meets_threshold": False,
-                "item_total_correlations": {},
-            }
-        )
+        # Create error result matching CronbachsAlphaResult structure
+        alpha_result = {
+            "cronbachs_alpha": None,
+            "num_sessions": 0,
+            "num_items": 0,
+            "interpretation": None,
+            "meets_threshold": False,
+            "item_total_correlations": {},
+            "error": f"Calculation error: {str(e)}",
+            "insufficient_data": True,
+        }
 
     try:
         test_retest_result = calculate_test_retest_reliability(
