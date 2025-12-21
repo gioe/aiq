@@ -94,6 +94,9 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         email=new_user.email,  # type: ignore
     )
 
+    # Log successful registration (user_id only, no PII)
+    logger.info(f"User registration successful: user_id={new_user.id}")
+
     # Create tokens for immediate login after registration
     access_token, refresh_token = _create_auth_tokens(new_user)
 
@@ -123,10 +126,16 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     # Find user by email
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
+        logger.warning(
+            f"Login attempt failed: user not found for email={credentials.email}"
+        )
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Verify password
     if not verify_password(credentials.password, user.password_hash):  # type: ignore
+        logger.warning(
+            f"Login attempt failed: invalid password for email={credentials.email}"
+        )
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Update last login timestamp
@@ -146,6 +155,9 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         user_id=int(user.id),  # type: ignore
         email=user.email,  # type: ignore
     )
+
+    # Log successful login (user_id only, no PII)
+    logger.info(f"User login successful: user_id={user.id}")
 
     # Create tokens
     access_token, refresh_token = _create_auth_tokens(user)
@@ -183,6 +195,9 @@ def refresh_access_token(
         EventType.TOKEN_REFRESHED,
         user_id=int(current_user.id),  # type: ignore
     )
+
+    # Log token refresh event (user_id only, no PII)
+    logger.info(f"Token refresh successful: user_id={current_user.id}")
 
     # Refresh user data from database to ensure it's current
     db.refresh(current_user)
