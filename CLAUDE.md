@@ -681,6 +681,96 @@ def outer_function():
 - Use `logger.debug()` in inner functions to avoid duplicate ERROR logs
 - Only log at ERROR level once per error chain (usually at the outermost handler)
 
+## Standardized Error Responses
+
+### Error Message Format Guidelines
+All user-facing API error messages should follow these conventions:
+- Use sentence case (capitalize first letter only)
+- End with a period for complete sentences
+- Include relevant IDs in parentheses when helpful for debugging: "(ID: 123)"
+- Use "Please try again later." for transient server errors
+- Use action-oriented language ("Please complete..." not "You must complete...")
+
+### Using the Error Response Module
+All HTTPExceptions should use the centralized error_responses module:
+
+```python
+from app.core.error_responses import (
+    ErrorMessages,
+    raise_bad_request,
+    raise_unauthorized,
+    raise_forbidden,
+    raise_not_found,
+    raise_conflict,
+    raise_server_error,
+)
+
+# Using predefined constants
+if not user:
+    raise_not_found(ErrorMessages.USER_NOT_FOUND)
+
+# Using template methods for dynamic messages
+if active_session:
+    raise_bad_request(
+        ErrorMessages.active_session_exists(session_id=active_session.id)
+    )
+
+# For unique one-off errors
+raise_bad_request("Custom message for this specific case.")
+```
+
+### Available Error Constants
+
+**Authentication (401):**
+- `INVALID_CREDENTIALS` - "Invalid email or password."
+- `INVALID_TOKEN` - "Invalid authentication token."
+- `INVALID_REFRESH_TOKEN` - "Invalid refresh token."
+
+**Authorization (403):**
+- `SESSION_ACCESS_DENIED` - "Not authorized to access this test session."
+- `RESULT_ACCESS_DENIED` - "Not authorized to access this test result."
+- `ADMIN_TOKEN_INVALID` - "Invalid admin token."
+
+**Not Found (404):**
+- `TEST_SESSION_NOT_FOUND` - "Test session not found."
+- `TEST_RESULT_NOT_FOUND` - "Test result not found."
+- `NO_QUESTIONS_AVAILABLE` - "No unseen questions available. Question pool may be exhausted."
+
+**Conflict (409):**
+- `EMAIL_ALREADY_REGISTERED` - "Email already registered."
+- `SESSION_ALREADY_IN_PROGRESS` - "A test session is already in progress..."
+
+**Server Error (500):**
+- `ACCOUNT_CREATION_FAILED` - "Failed to create user account. Please try again later."
+- `LOGIN_FAILED` - "Login failed due to a server error. Please try again later."
+
+### Template Methods for Dynamic Messages
+For errors that need to include specific IDs or values:
+
+```python
+# Include session ID in error
+ErrorMessages.active_session_exists(session_id=123)
+
+# Include cadence information
+ErrorMessages.test_cadence_not_met(
+    cadence_days=90,
+    last_completed="2024-01-01",
+    next_eligible="2024-04-01",
+    days_remaining=45,
+)
+
+# Include question ID
+ErrorMessages.question_not_found(question_id=456)
+```
+
+### Adding New Error Messages
+When adding new error messages:
+1. Add constant to `ErrorMessages` class in `app/core/error_responses.py`
+2. Use SCREAMING_SNAKE_CASE for static messages
+3. Use snake_case methods for templates that accept parameters
+4. Ensure message follows the formatting guidelines above
+5. Use appropriate `raise_*` helper function (not raw HTTPException)
+
 ## Type Safety Best Practices
 
 ### Use Enums Instead of String Literals

@@ -2,7 +2,7 @@
 Test session management endpoints.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +13,13 @@ from app.core.datetime_utils import ensure_timezone_aware, utc_now
 
 from app.models import get_db, User, Question, TestSession, UserQuestion
 from app.models.models import TestStatus
+from app.core.error_responses import (
+    ErrorMessages,
+    raise_bad_request,
+    raise_forbidden,
+    raise_not_found,
+    raise_conflict,
+)
 from app.schemas.test_sessions import (
     StartTestResponse,
     TestSessionResponse,
@@ -146,9 +153,7 @@ def verify_session_ownership(test_session: TestSession, user_id: int) -> None:
         HTTPException: If session doesn't belong to user
     """
     if test_session.user_id != user_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this test session"
-        )
+        raise_forbidden(ErrorMessages.SESSION_ACCESS_DENIED)
 
 
 def verify_session_in_progress(test_session: TestSession) -> None:
@@ -162,10 +167,10 @@ def verify_session_in_progress(test_session: TestSession) -> None:
         HTTPException: If session is not in progress
     """
     if test_session.status != TestStatus.IN_PROGRESS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Test session is already {test_session.status.value}. "  # type: ignore[attr-defined]
-            "Only in-progress sessions can be modified.",
+        raise_bad_request(
+            ErrorMessages.session_already_completed(
+                test_session.status.value  # type: ignore[attr-defined]
+            )
         )
 
 
@@ -189,7 +194,7 @@ def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
     test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
 
     if not test_session:
-        raise HTTPException(status_code=404, detail="Test session not found")
+        raise_not_found(ErrorMessages.TEST_SESSION_NOT_FOUND)
 
     return test_session
 
@@ -318,10 +323,8 @@ def start_test(
     )
 
     if active_session:
-        raise HTTPException(
-            status_code=400,
-            detail=f"User already has an active test session (ID: {active_session.id}). "
-            "Please complete or abandon the existing session before starting a new one.",
+        raise_bad_request(
+            ErrorMessages.active_session_exists(int(active_session.id))  # type: ignore
         )
 
     # Check 6-month test cadence: user cannot take another test within 180 days
@@ -344,12 +347,13 @@ def start_test(
         next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
         days_remaining = (next_eligible - utc_now()).days + 1  # Round up
 
-        raise HTTPException(
-            status_code=400,
-            detail=f"You must wait {settings.TEST_CADENCE_DAYS} days (3 months) between tests. "
-            f"Your last test was completed on {completed_at.strftime('%Y-%m-%d')}. "
-            f"You can take your next test on {next_eligible.strftime('%Y-%m-%d')} "
-            f"({days_remaining} days remaining).",
+        raise_bad_request(
+            ErrorMessages.test_cadence_not_met(
+                cadence_days=settings.TEST_CADENCE_DAYS,
+                last_completed=completed_at.strftime("%Y-%m-%d"),
+                next_eligible=next_eligible.strftime("%Y-%m-%d"),
+                days_remaining=days_remaining,
+            )
         )
 
     # P11-005: Use stratified question selection for balanced test composition
@@ -360,10 +364,7 @@ def start_test(
     )
 
     if len(unseen_questions) == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="No unseen questions available. Question pool may be exhausted.",
-        )
+        raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
 
     if len(unseen_questions) < question_count:
         # Warning: fewer questions available than requested
@@ -390,11 +391,7 @@ def start_test(
             f"Race condition detected: user {current_user.id} attempted to start "
             "multiple test sessions concurrently"
         )
-        raise HTTPException(
-            status_code=409,
-            detail="A test session is already in progress. "
-            "Please complete or abandon the existing session before starting a new one.",
-        )
+        raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
 
     # Mark questions as seen for this user
     for question in unseen_questions:
@@ -645,7 +642,7 @@ def _validate_submission(
 
     # Validate that responses list is not empty
     if not submission.responses:
-        raise HTTPException(status_code=400, detail="Response list cannot be empty")
+        raise_bad_request(ErrorMessages.EMPTY_RESPONSE_LIST)
 
     # Fetch all questions that were part of this test session
     # (questions seen by user at the time of session start)
@@ -664,11 +661,7 @@ def _validate_submission(
     invalid_questions = submitted_question_ids - valid_question_ids
 
     if invalid_questions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid question IDs: {invalid_questions}. "
-            "These questions do not belong to this test session.",
-        )
+        raise_bad_request(ErrorMessages.invalid_question_ids(invalid_questions))
 
     # Fetch questions to compare answers
     questions = db.query(Question).filter(Question.id.in_(submitted_question_ids)).all()
@@ -716,17 +709,11 @@ def _process_responses(
     for resp_item in submission.responses:
         # Validate user_answer is not empty
         if not resp_item.user_answer or not resp_item.user_answer.strip():
-            raise HTTPException(
-                status_code=400,
-                detail=f"User answer for question {resp_item.question_id} cannot be empty",
-            )
+            raise_bad_request(ErrorMessages.empty_answer(resp_item.question_id))
 
         question = questions_dict.get(resp_item.question_id)  # type: ignore[call-overload]
         if not question:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Question {resp_item.question_id} not found",
-            )
+            raise_not_found(ErrorMessages.question_not_found(resp_item.question_id))
 
         # Compare user answer with correct answer (case-insensitive)
         is_correct = (
@@ -1241,13 +1228,11 @@ def get_test_result(
     test_result = db.query(TestResult).filter(TestResult.id == result_id).first()
 
     if not test_result:
-        raise HTTPException(status_code=404, detail="Test result not found")
+        raise_not_found(ErrorMessages.TEST_RESULT_NOT_FOUND)
 
     # Verify result belongs to current user
     if test_result.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this test result"
-        )
+        raise_forbidden(ErrorMessages.RESULT_ACCESS_DENIED)
 
     return build_test_result_response(test_result, db=db)
 

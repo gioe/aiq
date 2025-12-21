@@ -4,7 +4,7 @@ Authentication endpoints for user registration and login.
 import logging
 from app.core.datetime_utils import utc_now
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,12 @@ from app.core.security import (
 )
 from app.core.auth import get_current_user, get_current_user_from_refresh_token
 from app.core.analytics import AnalyticsTracker
+from app.core.error_responses import (
+    ErrorMessages,
+    raise_conflict,
+    raise_unauthorized,
+    raise_server_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +64,7 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
-        )
+        raise_conflict(ErrorMessages.EMAIL_ALREADY_REGISTERED)
 
     # Create new user
     new_user = User(
@@ -83,10 +86,7 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         logger.error(f"Database error during user registration: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user account. Please try again later.",
-        )
+        raise_server_error(ErrorMessages.ACCOUNT_CREATION_FAILED)
 
     # Track analytics event
     AnalyticsTracker.track_user_registered(
@@ -123,17 +123,11 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     # Find user by email
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+        raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Verify password
     if not verify_password(credentials.password, user.password_hash):  # type: ignore
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+        raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Update last login timestamp
     user.last_login_at = utc_now()  # type: ignore
@@ -145,10 +139,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         logger.error(
             f"Database error during login timestamp update for user {user.id}: {e}"
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed due to a server error. Please try again later.",
-        )
+        raise_server_error(ErrorMessages.LOGIN_FAILED)
 
     # Track analytics event
     AnalyticsTracker.track_user_login(
