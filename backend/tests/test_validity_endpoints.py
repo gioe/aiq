@@ -14,7 +14,7 @@ These tests verify:
 
 import pytest
 from unittest.mock import patch
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 
 from app.models import Question
 from app.models.models import (
@@ -131,8 +131,8 @@ def valid_session_with_normal_pattern(db_session, test_user, validity_questions)
     """
     session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(session)
@@ -173,7 +173,7 @@ def valid_session_with_normal_pattern(db_session, test_user, validity_questions)
         completion_time_seconds=210,
         validity_status="valid",
         validity_flags=None,
-        validity_checked_at=datetime.now(timezone.utc),
+        validity_checked_at=utc_now(),
     )
     db_session.add(result)
     db_session.commit()
@@ -190,8 +190,8 @@ def suspect_session_with_rapid_responses(db_session, test_user, validity_questio
     """
     session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(session)
@@ -227,7 +227,7 @@ def suspect_session_with_rapid_responses(db_session, test_user, validity_questio
                 "count": 4,
             }
         ],
-        validity_checked_at=datetime.now(timezone.utc),
+        validity_checked_at=utc_now(),
     )
     db_session.add(result)
     db_session.commit()
@@ -246,8 +246,8 @@ def invalid_session_with_multiple_flags(db_session, test_user, validity_question
     """
     session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(session)
@@ -308,7 +308,7 @@ def invalid_session_with_multiple_flags(db_session, test_user, validity_question
                 "error_rate": 0.35,
             },
         ],
-        validity_checked_at=datetime.now(timezone.utc),
+        validity_checked_at=utc_now(),
     )
     db_session.add(result)
     db_session.commit()
@@ -325,8 +325,8 @@ def unchecked_session(db_session, test_user, validity_questions):
     """
     session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(session)
@@ -390,7 +390,7 @@ class TestGetSessionValidity:
         assert data["session_id"] == session_id
         assert data["validity_status"] == "valid"
         assert data["severity_score"] == 0
-        assert data["confidence"] == 1.0
+        assert data["confidence"] == pytest.approx(1.0)
         assert data["flags"] == []
         assert data["flag_details"] == []
         assert data["validity_checked_at"] is not None
@@ -926,8 +926,8 @@ class TestGetValidityReport:
         for i in range(55):
             session = TestSession(
                 user_id=test_user.id,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
@@ -949,7 +949,7 @@ class TestGetValidityReport:
                         "details": "Test flag",
                     }
                 ],
-                validity_checked_at=datetime.now(timezone.utc),
+                validity_checked_at=utc_now(),
             )
             db_session.add(result)
 
@@ -1106,7 +1106,7 @@ class TestOverrideSessionValidity:
         # Create session without a result
         session = TestSession(
             user_id=test_user.id,
-            started_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
             status=TestStatus.IN_PROGRESS,  # Not completed, no result
         )
         db_session.add(session)

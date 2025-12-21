@@ -10,7 +10,7 @@ Common configuration keys:
 - use_weighted_scoring: {"enabled": false}
 - domain_population_stats: {"pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18}, ...}
 """
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -53,13 +53,11 @@ def set_config(db: Session, key: str, value: Any) -> SystemConfig:
     config = db.query(SystemConfig).filter(SystemConfig.key == key).first()
 
     if config is None:
-        config = SystemConfig(
-            key=key, value=value, updated_at=datetime.now(timezone.utc)
-        )
+        config = SystemConfig(key=key, value=value, updated_at=utc_now())
         db.add(config)
     else:
         config.value = value
-        config.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+        config.updated_at = utc_now()  # type: ignore[assignment]
 
     db.commit()
     db.refresh(config)

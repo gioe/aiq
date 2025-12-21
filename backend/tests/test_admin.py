@@ -115,7 +115,7 @@ class TestCreateGenerationRun:
         assert db_run.questions_requested == 50
         assert db_run.questions_generated == 48
         assert db_run.questions_inserted == 43
-        assert db_run.overall_success_rate == 0.86
+        assert db_run.overall_success_rate == pytest.approx(0.86)
         assert db_run.environment == "production"
         assert db_run.triggered_by == "scheduler"
         assert db_run.prompt_version == "v2.1"
@@ -364,7 +364,7 @@ class TestCreateGenerationRun:
         assert db_run.started_at is not None
         assert db_run.completed_at is not None
         assert db_run.created_at is not None
-        assert db_run.duration_seconds == 300.5
+        assert db_run.duration_seconds == pytest.approx(300.5)
 
 
 class TestListGenerationRuns:
@@ -415,7 +415,7 @@ class TestListGenerationRuns:
         assert run["status"] == "success"
         assert run["questions_requested"] == 50
         assert run["questions_inserted"] == 43
-        assert run["overall_success_rate"] == 0.86
+        assert run["overall_success_rate"] == pytest.approx(0.86)
         assert run["environment"] == "production"
         assert run["triggered_by"] == "scheduler"
 
@@ -688,9 +688,9 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["runs"][0]["duration_seconds"] == 300.0
-        assert data["runs"][1]["duration_seconds"] == 200.0
-        assert data["runs"][2]["duration_seconds"] == 100.0
+        assert data["runs"][0]["duration_seconds"] == pytest.approx(300.0)
+        assert data["runs"][1]["duration_seconds"] == pytest.approx(200.0)
+        assert data["runs"][2]["duration_seconds"] == pytest.approx(100.0)
 
         # Sort by overall_success_rate ascending
         response = client.get(
@@ -699,9 +699,9 @@ class TestListGenerationRuns:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["runs"][0]["overall_success_rate"] == 0.5
-        assert data["runs"][1]["overall_success_rate"] == 0.7
-        assert data["runs"][2]["overall_success_rate"] == 0.9
+        assert data["runs"][0]["overall_success_rate"] == pytest.approx(0.5)
+        assert data["runs"][1]["overall_success_rate"] == pytest.approx(0.7)
+        assert data["runs"][2]["overall_success_rate"] == pytest.approx(0.9)
 
     @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
     def test_list_generation_runs_combined_filters(
@@ -879,7 +879,7 @@ class TestGetGenerationRun:
         assert data["questions_requested"] == 50
         assert data["questions_generated"] == 48
         assert data["questions_inserted"] == 43
-        assert data["overall_success_rate"] == 0.86
+        assert data["overall_success_rate"] == pytest.approx(0.86)
         assert data["environment"] == "production"
         assert data["triggered_by"] == "scheduler"
 
@@ -895,7 +895,7 @@ class TestGetGenerationRun:
         # Verify configuration fields
         assert data["prompt_version"] == "v2.1"
         assert data["arbiter_config_version"] == "v1.0"
-        assert data["min_arbiter_score_threshold"] == 0.7
+        assert data["min_arbiter_score_threshold"] == pytest.approx(0.7)
 
     @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_pipeline_losses(
@@ -946,11 +946,13 @@ class TestGetGenerationRun:
         assert losses["total_loss"] == 7
 
         # Check percentage values
-        assert losses["generation_loss_pct"] == 4.0  # 2/50 * 100
-        assert losses["evaluation_loss_pct"] == 0.0  # 0/48 * 100
-        assert losses["rejection_loss_pct"] == 6.25  # 3/48 * 100
-        assert losses["deduplication_loss_pct"] == 4.44  # 2/45 * 100 (rounded)
-        assert losses["insertion_loss_pct"] == 0.0  # 0/43 * 100
+        assert losses["generation_loss_pct"] == pytest.approx(4.0)  # 2/50 * 100
+        assert losses["evaluation_loss_pct"] == pytest.approx(0.0)  # 0/48 * 100
+        assert losses["rejection_loss_pct"] == pytest.approx(6.25)  # 3/48 * 100
+        assert losses["deduplication_loss_pct"] == pytest.approx(
+            4.44
+        )  # 2/45 * 100 (rounded)
+        assert losses["insertion_loss_pct"] == pytest.approx(0.0)  # 0/43 * 100
 
     @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_pipeline_losses_with_zeros(
@@ -986,7 +988,7 @@ class TestGetGenerationRun:
         assert losses["total_loss"] == 50
 
         # Percentages should handle division by zero gracefully
-        assert losses["generation_loss_pct"] == 100.0  # 50/50 * 100
+        assert losses["generation_loss_pct"] == pytest.approx(100.0)  # 50/50 * 100
         # evaluation_loss_pct should be None (generated is 0)
         assert losses["evaluation_loss_pct"] is None
         assert losses["rejection_loss_pct"] is None
@@ -1229,14 +1231,14 @@ class TestGetGenerationRunStats:
         assert data["total_questions_requested"] == 50
         assert data["total_questions_generated"] == 48
         assert data["total_questions_inserted"] == 43
-        assert data["avg_overall_success_rate"] == 0.86
-        assert data["avg_approval_rate"] == 0.9375
-        assert data["avg_arbiter_score"] == 0.85
-        assert data["min_arbiter_score"] == 0.65
-        assert data["max_arbiter_score"] == 0.98
+        assert data["avg_overall_success_rate"] == pytest.approx(0.86)
+        assert data["avg_approval_rate"] == pytest.approx(0.9375)
+        assert data["avg_arbiter_score"] == pytest.approx(0.85)
+        assert data["min_arbiter_score"] == pytest.approx(0.65)
+        assert data["max_arbiter_score"] == pytest.approx(0.98)
         assert data["total_duplicates_found"] == 2
-        assert data["avg_duplicate_rate"] == 0.04
-        assert data["avg_duration_seconds"] == 300.5
+        assert data["avg_duplicate_rate"] == pytest.approx(0.04)
+        assert data["avg_duration_seconds"] == pytest.approx(300.5)
         assert data["total_api_calls"] == 120
         assert data["total_errors"] == 4
 
@@ -1341,7 +1343,7 @@ class TestGetGenerationRunStats:
 
         # Verify averages
         # avg_overall_success_rate = (0.9 + 0.8 + 0.0 + 0.4) / 4 = 0.525
-        assert data["avg_overall_success_rate"] == 0.525
+        assert data["avg_overall_success_rate"] == pytest.approx(0.525)
 
         # avg_approval_rate = (0.92 + 0.88 + 0.80) / 3 (only runs with approval_rate)
         expected_avg_approval = round((0.92 + 0.88 + 0.80) / 3, 4)
@@ -1352,8 +1354,8 @@ class TestGetGenerationRunStats:
         assert data["avg_arbiter_score"] == expected_avg_arbiter
 
         # min/max arbiter scores across all runs
-        assert data["min_arbiter_score"] == 0.65
-        assert data["max_arbiter_score"] == 0.95
+        assert data["min_arbiter_score"] == pytest.approx(0.65)
+        assert data["max_arbiter_score"] == pytest.approx(0.95)
 
         # Verify totals
         assert data["total_duplicates_found"] == 6  # 3 + 2 + 0 + 1
@@ -1415,21 +1417,27 @@ class TestGetGenerationRunStats:
         assert data["provider_summary"]["openai"]["total_api_calls"] == 130  # 60 + 70
         assert data["provider_summary"]["openai"]["total_failures"] == 1  # 1 + 0
         # success_rate = 55 / (55 + 1) = 0.9821
-        assert data["provider_summary"]["openai"]["success_rate"] == 0.9821
+        assert data["provider_summary"]["openai"]["success_rate"] == pytest.approx(
+            0.9821
+        )
 
         # Verify Anthropic aggregation
         assert data["provider_summary"]["anthropic"]["total_generated"] == 35  # 20 + 15
         assert data["provider_summary"]["anthropic"]["total_api_calls"] == 90  # 50 + 40
         assert data["provider_summary"]["anthropic"]["total_failures"] == 5  # 2 + 3
         # success_rate = 35 / (35 + 5) = 0.875
-        assert data["provider_summary"]["anthropic"]["success_rate"] == 0.875
+        assert data["provider_summary"]["anthropic"]["success_rate"] == pytest.approx(
+            0.875
+        )
 
         # Verify Google (only in run2)
         assert data["provider_summary"]["google"]["total_generated"] == 10
         assert data["provider_summary"]["google"]["total_api_calls"] == 25
         assert data["provider_summary"]["google"]["total_failures"] == 1
         # success_rate = 10 / (10 + 1) = 0.9091
-        assert data["provider_summary"]["google"]["success_rate"] == 0.9091
+        assert data["provider_summary"]["google"]["success_rate"] == pytest.approx(
+            0.9091
+        )
 
     @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_trend_improving(self, client, db_session, service_key_headers):
@@ -1632,7 +1640,7 @@ class TestGetGenerationRunStats:
 
         assert data["total_runs"] == 3
         assert data["total_questions_inserted"] == 135  # 45 * 3
-        assert data["avg_overall_success_rate"] == 0.9
+        assert data["avg_overall_success_rate"] == pytest.approx(0.9)
 
         # Get stats for staging only
         response = client.get(
@@ -1645,7 +1653,7 @@ class TestGetGenerationRunStats:
 
         assert data["total_runs"] == 2
         assert data["total_questions_inserted"] == 80  # 40 * 2
-        assert data["avg_overall_success_rate"] == 0.8
+        assert data["avg_overall_success_rate"] == pytest.approx(0.8)
 
     @patch("app.core.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_stats_date_range_filter(self, client, db_session, service_key_headers):
@@ -2032,7 +2040,7 @@ class TestCalibrationHealth:
         assert first["severity"] == "severe"
         assert first["assigned_difficulty"] == "hard"
         assert first["suggested_label"] == "easy"
-        assert first["empirical_difficulty"] == 0.85
+        assert first["empirical_difficulty"] == pytest.approx(0.85)
 
         # Verify structure of worst offenders
         for offender in data["worst_offenders"]:
@@ -2078,7 +2086,7 @@ class TestCalibrationHealth:
         assert data["summary"]["total_questions_with_data"] == 0
         assert data["summary"]["correctly_calibrated"] == 0
         assert data["summary"]["miscalibrated"] == 0
-        assert data["summary"]["miscalibration_rate"] == 0.0
+        assert data["summary"]["miscalibration_rate"] == pytest.approx(0.0)
         assert data["worst_offenders"] == []
 
     def test_calibration_health_no_auth(self, client):
@@ -2139,7 +2147,7 @@ class TestCalibrationHealth:
         data = response.json()
 
         # 3 miscalibrated / 6 total = 0.5
-        assert data["summary"]["miscalibration_rate"] == 0.5
+        assert data["summary"]["miscalibration_rate"] == pytest.approx(0.5)
 
     @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
     def test_calibration_health_all_calibrated(
@@ -2179,7 +2187,7 @@ class TestCalibrationHealth:
 
         assert data["summary"]["correctly_calibrated"] == 3
         assert data["summary"]["miscalibrated"] == 0
-        assert data["summary"]["miscalibration_rate"] == 0.0
+        assert data["summary"]["miscalibration_rate"] == pytest.approx(0.0)
         assert data["worst_offenders"] == []
 
 
@@ -2229,7 +2237,7 @@ class TestRecalibrateQuestions:
         assert severe_q is not None
         assert severe_q["old_label"] == "hard"
         assert severe_q["new_label"] == "easy"
-        assert severe_q["empirical_difficulty"] == 0.85
+        assert severe_q["empirical_difficulty"] == pytest.approx(0.85)
 
         # Verify database NOT changed (dry run)
         for q in calibration_test_questions:
@@ -3196,8 +3204,8 @@ class TestDistractorSummaryEndpoint:
         assert data["total_questions_analyzed"] == 0
         assert data["questions_with_non_functioning_distractors"] == 0
         assert data["questions_with_inverted_distractors"] == 0
-        assert data["non_functioning_rate"] == 0.0
-        assert data["inverted_rate"] == 0.0
+        assert data["non_functioning_rate"] == pytest.approx(0.0)
+        assert data["inverted_rate"] == pytest.approx(0.0)
         assert data["worst_offenders"] == []
         assert data["avg_effective_option_count"] is None
 
@@ -3259,13 +3267,13 @@ def validity_test_session(db_session, test_user, test_questions):
     session validity endpoint.
     """
     from app.models.models import TestSession, TestResult, Response, TestStatus
-    from datetime import datetime, timezone
+    from app.core.datetime_utils import utc_now
 
     # Create a test session
     test_session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
@@ -3293,7 +3301,7 @@ def validity_test_session(db_session, test_user, test_questions):
         completion_time_seconds=280,
         validity_status="valid",
         validity_flags=None,
-        validity_checked_at=datetime.now(timezone.utc),
+        validity_checked_at=utc_now(),
     )
     db_session.add(test_result)
     db_session.commit()
@@ -3308,13 +3316,13 @@ def suspect_validity_test_session(db_session, test_user, test_questions):
     Create a test session with suspect validity status and flags.
     """
     from app.models.models import TestSession, TestResult, Response, TestStatus
-    from datetime import datetime, timezone
+    from app.core.datetime_utils import utc_now
 
     # Create a test session
     test_session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
@@ -3350,7 +3358,7 @@ def suspect_validity_test_session(db_session, test_user, test_questions):
                 "count": 3,
             }
         ],
-        validity_checked_at=datetime.now(timezone.utc),
+        validity_checked_at=utc_now(),
     )
     db_session.add(test_result)
     db_session.commit()
@@ -3365,13 +3373,13 @@ def unchecked_validity_test_session(db_session, test_user, test_questions):
     Create a test session without validity data (simulates pre-CD-007 sessions).
     """
     from app.models.models import TestSession, TestResult, Response, TestStatus
-    from datetime import datetime, timezone
+    from app.core.datetime_utils import utc_now
 
     # Create a test session
     test_session = TestSession(
         user_id=test_user.id,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=utc_now(),
+        completed_at=utc_now(),
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
@@ -3427,7 +3435,7 @@ class TestSessionValidityEndpoint:
         assert data["session_id"] == validity_test_session.id
         assert data["validity_status"] == "valid"
         assert data["severity_score"] == 0
-        assert data["confidence"] == 1.0
+        assert data["confidence"] == pytest.approx(1.0)
         assert data["flags"] == []
         assert data["flag_details"] == []
         assert data["completed_at"] is not None
@@ -3602,8 +3610,8 @@ class TestValiditySummaryReport:
         assert data["summary"]["invalid"] == 0
 
         # Verify trends with no data
-        assert data["trends"]["invalid_rate_7d"] == 0.0
-        assert data["trends"]["invalid_rate_30d"] == 0.0
+        assert data["trends"]["invalid_rate_7d"] == pytest.approx(0.0)
+        assert data["trends"]["invalid_rate_30d"] == pytest.approx(0.0)
 
         # Verify no action needed
         assert data["action_needed"] == []
@@ -3923,14 +3931,14 @@ class TestValiditySummaryReport:
     ):
         """Test that action_needed is limited to 50 sessions."""
         from app.models.models import TestSession, TestResult, TestStatus
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Create 55 suspect sessions
         for i in range(55):
             session = TestSession(
                 user_id=test_user.id,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
@@ -3947,7 +3955,7 @@ class TestValiditySummaryReport:
                 validity_flags=[
                     {"type": "multiple_rapid_responses", "severity": "medium"}
                 ],
-                validity_checked_at=datetime.now(timezone.utc),
+                validity_checked_at=utc_now(),
             )
             db_session.add(result)
 
@@ -4023,7 +4031,7 @@ class TestFactorAnalysisEndpoint:
             QuestionType,
             DifficultyLevel,
         )
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Create our own questions to ensure proper response counts
         questions = []
@@ -4044,8 +4052,8 @@ class TestFactorAnalysisEndpoint:
         for i in range(100):
             session = TestSession(
                 user_id=test_user.id,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
@@ -4093,7 +4101,7 @@ class TestFactorAnalysisEndpoint:
             QuestionType,
             DifficultyLevel,
         )
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
         import random
 
         # Create questions of different types with varying difficulties
@@ -4125,8 +4133,8 @@ class TestFactorAnalysisEndpoint:
         for i in range(550):
             session = TestSession(
                 user_id=test_user.id,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
@@ -4206,7 +4214,7 @@ class TestFactorAnalysisEndpoint:
             QuestionType,
             DifficultyLevel,
         )
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
         import random
 
         # Create questions
@@ -4229,8 +4237,8 @@ class TestFactorAnalysisEndpoint:
         for i in range(600):
             session = TestSession(
                 user_id=test_user.id,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
@@ -4468,9 +4476,9 @@ class TestDiscriminationReportEndpoint:
         assert "easy" in by_difficulty
         assert "medium" in by_difficulty
         assert "hard" in by_difficulty
-        assert by_difficulty["easy"]["mean_discrimination"] == 0.25
-        assert by_difficulty["medium"]["mean_discrimination"] == 0.35
-        assert by_difficulty["hard"]["mean_discrimination"] == 0.40
+        assert by_difficulty["easy"]["mean_discrimination"] == pytest.approx(0.25)
+        assert by_difficulty["medium"]["mean_discrimination"] == pytest.approx(0.35)
+        assert by_difficulty["hard"]["mean_discrimination"] == pytest.approx(0.40)
 
 
 class TestDiscriminationDetailEndpoint:
@@ -4504,7 +4512,7 @@ class TestDiscriminationDetailEndpoint:
         data = response.json()
 
         assert data["question_id"] == q.id
-        assert data["discrimination"] == 0.42
+        assert data["discrimination"] == pytest.approx(0.42)
         assert data["quality_tier"] == "excellent"
         assert data["response_count"] == 100
         assert data["quality_flag"] == "normal"
@@ -4683,7 +4691,7 @@ class TestDiscriminationDetailEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["question_id"] == 123
-        assert data["discrimination"] == 0.35
+        assert data["discrimination"] == pytest.approx(0.35)
         assert data["quality_tier"] is None  # Invalid tier converted to None
         assert data["response_count"] == 100
         assert data["quality_flag"] == "normal"

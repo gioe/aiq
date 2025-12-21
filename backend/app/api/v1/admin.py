@@ -4,7 +4,9 @@ Admin operations endpoints.
 import logging
 import secrets
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
+
+from app.core.datetime_utils import utc_now
 from pathlib import Path
 from typing import Optional, Literal, Dict, Any, List
 
@@ -2360,9 +2362,9 @@ async def get_validity_report(
         ```
     """
     try:
-        from datetime import timedelta, timezone
+        from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         period_start = now - timedelta(days=days)
         seven_days_ago = now - timedelta(days=7)
 
@@ -2647,7 +2649,7 @@ async def override_session_validity(
         previous_status = test_result.validity_status or "valid"
 
         # Set override timestamp
-        override_time = datetime.now(timezone.utc)
+        override_time = utc_now()
 
         # Update the test result
         # Note: Using placeholder admin_id since current auth is token-based
@@ -2927,7 +2929,7 @@ async def get_factor_analysis(
         )
 
         return FactorAnalysisResponse(
-            analysis_date=datetime.now(timezone.utc),
+            analysis_date=utc_now(),
             sample_size=g_result.sample_size,
             n_items=g_result.n_items,
             g_loadings=g_result.domain_loadings,
@@ -3129,7 +3131,7 @@ async def get_domain_weights_config(
         record = (
             db.query(SystemConfig).filter(SystemConfig.key == "domain_weights").first()
         )
-        updated_at = record.updated_at if record else datetime.now(timezone.utc)
+        updated_at = record.updated_at if record else utc_now()
 
         return DomainWeightsResponse(
             weights=weights,
@@ -3617,7 +3619,7 @@ async def update_quality_flag(
     previous_flag: str = question.quality_flag  # type: ignore
 
     # Update the quality flag fields
-    update_time = datetime.now(timezone.utc)
+    update_time = utc_now()
     question.quality_flag = request.quality_flag  # type: ignore
     question.quality_flag_reason = request.reason  # type: ignore
     question.quality_flag_updated_at = update_time  # type: ignore

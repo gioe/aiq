@@ -67,7 +67,9 @@ Generate a comprehensive reliability report:
 
 import logging
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from app.core.datetime_utils import utc_now
 from typing import Dict, List, Literal, Tuple, Optional, TypedDict
 from collections import defaultdict
 import statistics
@@ -251,6 +253,14 @@ SESSION_COMPLETION_FALLBACK_RATIO = 0.80
 # This threshold is used to identify items for low-priority review,
 # as they may still be acceptable but could be improved.
 LOW_ITEM_CORRELATION_THRESHOLD = 0.15
+
+# Minimum number of problematic items to trigger priority escalation.
+# When 3 or more items have issues (e.g., negative correlations or very low
+# correlations), this indicates a systemic quality problem rather than isolated
+# item issues, warranting higher priority review.
+# - 1-2 items: May be outliers, addressed with medium/low priority
+# - 3+ items: Pattern suggests broader quality issues, high priority
+PROBLEMATIC_ITEM_COUNT_THRESHOLD = 3
 
 
 # =============================================================================
@@ -1666,7 +1676,7 @@ def generate_reliability_recommendations(
         )
         if negative_items:
             count = len(negative_items)
-            priority = "high" if count >= 3 else "medium"
+            priority = "high" if count >= PROBLEMATIC_ITEM_COUNT_THRESHOLD else "medium"
             recommendations.append(
                 {
                     "category": "item_review",
@@ -1688,7 +1698,7 @@ def generate_reliability_recommendations(
             if item["correlation"] >= 0
             and item["correlation"] < LOW_ITEM_CORRELATION_THRESHOLD
         ]
-        if len(low_but_positive) >= 3:
+        if len(low_but_positive) >= PROBLEMATIC_ITEM_COUNT_THRESHOLD:
             recommendations.append(
                 {
                     "category": "item_review",
@@ -1931,8 +1941,6 @@ def get_reliability_report(
     Reference:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006, RE-FI-019)
     """
-    from datetime import datetime, timezone
-
     # Generate cache key from parameters (RE-FI-019)
     cache = get_cache()
     params_hash = generate_cache_key(
@@ -2018,7 +2026,7 @@ def get_reliability_report(
         )
 
     # Current timestamp for last_calculated
-    now = datetime.now(timezone.utc)
+    now = utc_now()
 
     # Build internal consistency metrics
     internal_consistency = {
@@ -2217,7 +2225,7 @@ def get_reliability_history(
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-007)
     """
     # Calculate the cutoff date
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_date = utc_now() - timedelta(days=days)
 
     # Build query
     query = db.query(ReliabilityMetric).filter(

@@ -116,7 +116,7 @@ threshold (for test-retest).
 =============================================================================
 """
 import pytest
-from datetime import datetime, timezone
+from app.core.datetime_utils import utc_now
 from pydantic import ValidationError
 
 from app.schemas.reliability import (
@@ -142,7 +142,7 @@ class TestInternalConsistencyMetricsValidator:
             num_sessions=150,
             num_items=20,
         )
-        assert metrics.cronbachs_alpha == 0.85
+        assert metrics.cronbachs_alpha == pytest.approx(0.85)
         assert metrics.meets_threshold is True
 
     def test_valid_when_alpha_present_and_meets_threshold_false(self):
@@ -154,7 +154,7 @@ class TestInternalConsistencyMetricsValidator:
             num_sessions=150,
             num_items=20,
         )
-        assert metrics.cronbachs_alpha == 0.55
+        assert metrics.cronbachs_alpha == pytest.approx(0.55)
         assert metrics.meets_threshold is False
 
     def test_valid_when_alpha_none_and_meets_threshold_false(self):
@@ -189,7 +189,7 @@ class TestInternalConsistencyMetricsValidator:
 
     def test_valid_with_all_optional_fields(self):
         """Valid with all optional fields present."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         metrics = InternalConsistencyMetrics(
             cronbachs_alpha=0.78,
             interpretation=ReliabilityInterpretation.GOOD,
@@ -199,7 +199,7 @@ class TestInternalConsistencyMetricsValidator:
             last_calculated=now,
             item_total_correlations={1: 0.45, 2: 0.52, 3: 0.38},
         )
-        assert metrics.cronbachs_alpha == 0.78
+        assert metrics.cronbachs_alpha == pytest.approx(0.78)
         assert metrics.item_total_correlations == {1: 0.45, 2: 0.52, 3: 0.38}
 
     def test_valid_at_boundary_alpha_zero(self):
@@ -211,7 +211,7 @@ class TestInternalConsistencyMetricsValidator:
             num_sessions=100,
             num_items=10,
         )
-        assert metrics.cronbachs_alpha == 0.0
+        assert metrics.cronbachs_alpha == pytest.approx(0.0)
         assert metrics.meets_threshold is False
 
 
@@ -228,7 +228,7 @@ class TestTestRetestMetricsValidator:
             mean_interval_days=45.0,
             practice_effect=2.1,
         )
-        assert metrics.correlation == 0.75
+        assert metrics.correlation == pytest.approx(0.75)
         assert metrics.meets_threshold is True
 
     def test_valid_when_correlation_present_and_meets_threshold_false(self):
@@ -240,7 +240,7 @@ class TestTestRetestMetricsValidator:
             num_pairs=50,
             mean_interval_days=45.0,
         )
-        assert metrics.correlation == 0.35
+        assert metrics.correlation == pytest.approx(0.35)
         assert metrics.meets_threshold is False
 
     def test_valid_when_correlation_none_and_meets_threshold_false(self):
@@ -272,7 +272,7 @@ class TestTestRetestMetricsValidator:
 
     def test_valid_with_all_optional_fields(self):
         """Valid with all optional fields present."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         metrics = TestRetestMetrics(
             correlation=0.65,
             interpretation=ReliabilityInterpretation.ACCEPTABLE,
@@ -282,8 +282,8 @@ class TestTestRetestMetricsValidator:
             practice_effect=1.8,
             last_calculated=now,
         )
-        assert metrics.correlation == 0.65
-        assert metrics.practice_effect == 1.8
+        assert metrics.correlation == pytest.approx(0.65)
+        assert metrics.practice_effect == pytest.approx(1.8)
 
     def test_valid_at_boundary_correlation_zero(self):
         """Valid when correlation is exactly 0 (a valid calculated value)."""
@@ -293,7 +293,7 @@ class TestTestRetestMetricsValidator:
             meets_threshold=False,
             num_pairs=50,
         )
-        assert metrics.correlation == 0.0
+        assert metrics.correlation == pytest.approx(0.0)
         assert metrics.meets_threshold is False
 
     def test_valid_with_negative_correlation(self):
@@ -319,7 +319,7 @@ class TestSplitHalfMetricsValidator:
             meets_threshold=True,
             num_sessions=150,
         )
-        assert metrics.spearman_brown == 0.82
+        assert metrics.spearman_brown == pytest.approx(0.82)
         assert metrics.meets_threshold is True
 
     def test_valid_when_spearman_brown_present_and_meets_threshold_false(self):
@@ -330,7 +330,7 @@ class TestSplitHalfMetricsValidator:
             meets_threshold=False,
             num_sessions=150,
         )
-        assert metrics.spearman_brown == 0.62
+        assert metrics.spearman_brown == pytest.approx(0.62)
         assert metrics.meets_threshold is False
 
     def test_valid_when_spearman_brown_none_and_meets_threshold_false(self):
@@ -363,7 +363,7 @@ class TestSplitHalfMetricsValidator:
 
     def test_valid_with_all_optional_fields(self):
         """Valid with all optional fields present."""
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         metrics = SplitHalfMetrics(
             raw_correlation=0.68,
             spearman_brown=0.81,
@@ -371,8 +371,8 @@ class TestSplitHalfMetricsValidator:
             num_sessions=200,
             last_calculated=now,
         )
-        assert metrics.raw_correlation == 0.68
-        assert metrics.spearman_brown == 0.81
+        assert metrics.raw_correlation == pytest.approx(0.68)
+        assert metrics.spearman_brown == pytest.approx(0.81)
 
     def test_valid_at_boundary_spearman_brown_zero(self):
         """Valid when spearman_brown is exactly 0 (a valid calculated value)."""
@@ -382,7 +382,7 @@ class TestSplitHalfMetricsValidator:
             meets_threshold=False,
             num_sessions=100,
         )
-        assert metrics.spearman_brown == 0.0
+        assert metrics.spearman_brown == pytest.approx(0.0)
         assert metrics.meets_threshold is False
 
     def test_invalid_when_raw_correlation_none_but_spearman_brown_present(self):
@@ -513,7 +513,7 @@ class TestValidatorIntegrationWithBusinessLogic:
         When business logic has sufficient data, it should create valid schemas
         with calculated values and appropriate meets_threshold values.
         """
-        now = datetime.now(timezone.utc)
+        now = utc_now()
 
         internal = InternalConsistencyMetrics(
             cronbachs_alpha=0.78,
@@ -543,11 +543,11 @@ class TestValidatorIntegrationWithBusinessLogic:
             last_calculated=now,
         )
 
-        assert internal.cronbachs_alpha == 0.78
+        assert internal.cronbachs_alpha == pytest.approx(0.78)
         assert internal.meets_threshold is True
-        assert test_retest.correlation == 0.65
+        assert test_retest.correlation == pytest.approx(0.65)
         assert test_retest.meets_threshold is True
-        assert split_half.spearman_brown == 0.83
+        assert split_half.spearman_brown == pytest.approx(0.83)
         assert split_half.meets_threshold is True
 
 
@@ -647,7 +647,7 @@ class TestInternalConsistencyBidirectionalValidation:
             num_sessions=150,
             num_items=20,
         )
-        assert metrics.cronbachs_alpha == 0.699
+        assert metrics.cronbachs_alpha == pytest.approx(0.699)
         assert metrics.meets_threshold is False
 
 
@@ -740,7 +740,7 @@ class TestTestRetestBidirectionalValidation:
             num_pairs=50,
             mean_interval_days=45.0,
         )
-        assert metrics.correlation == 0.499
+        assert metrics.correlation == pytest.approx(0.499)
         assert metrics.meets_threshold is False
 
     def test_valid_with_negative_correlation_below_threshold(self):
@@ -858,7 +858,7 @@ class TestSplitHalfBidirectionalValidation:
             meets_threshold=False,
             num_sessions=150,
         )
-        assert metrics.spearman_brown == 0.699
+        assert metrics.spearman_brown == pytest.approx(0.699)
         assert metrics.meets_threshold is False
 
     def test_invalid_when_raw_correlation_none_but_spearman_brown_present(self):
@@ -905,15 +905,15 @@ class TestBidirectionalValidationThresholdConstants:
 
     def test_alpha_threshold_is_070(self):
         """Verify ALPHA_THRESHOLD constant is 0.70."""
-        assert ALPHA_THRESHOLD == 0.70
+        assert ALPHA_THRESHOLD == pytest.approx(0.70)
 
     def test_test_retest_threshold_is_050(self):
         """Verify TEST_RETEST_THRESHOLD constant is 0.50."""
-        assert TEST_RETEST_THRESHOLD == 0.50
+        assert TEST_RETEST_THRESHOLD == pytest.approx(0.50)
 
     def test_split_half_threshold_is_070(self):
         """Verify SPLIT_HALF_THRESHOLD constant is 0.70."""
-        assert SPLIT_HALF_THRESHOLD == 0.70
+        assert SPLIT_HALF_THRESHOLD == pytest.approx(0.70)
 
 
 # =============================================================================
@@ -1020,8 +1020,8 @@ class TestSpearmanBrownRequiresRawCorrelation:
             meets_threshold=True,
             num_sessions=150,
         )
-        assert metrics.raw_correlation == 0.70
-        assert metrics.spearman_brown == 0.82
+        assert metrics.raw_correlation == pytest.approx(0.70)
+        assert metrics.spearman_brown == pytest.approx(0.82)
         assert metrics.meets_threshold is True
 
     def test_valid_both_correlations_none(self):
@@ -1053,7 +1053,7 @@ class TestSpearmanBrownRequiresRawCorrelation:
             meets_threshold=False,
             num_sessions=100,
         )
-        assert metrics.raw_correlation == 0.65
+        assert metrics.raw_correlation == pytest.approx(0.65)
         assert metrics.spearman_brown is None
         assert metrics.meets_threshold is False
 
@@ -1110,8 +1110,8 @@ class TestSpearmanBrownRequiresRawCorrelation:
             meets_threshold=True,
             num_sessions=150,
         )
-        assert metrics.raw_correlation == 0.538
-        assert metrics.spearman_brown == 0.70
+        assert metrics.raw_correlation == pytest.approx(0.538)
+        assert metrics.spearman_brown == pytest.approx(0.70)
         assert metrics.meets_threshold is True
 
     def test_valid_with_very_low_correlations(self):
@@ -1124,6 +1124,6 @@ class TestSpearmanBrownRequiresRawCorrelation:
             meets_threshold=False,
             num_sessions=100,
         )
-        assert metrics.raw_correlation == 0.05
-        assert metrics.spearman_brown == 0.095
+        assert metrics.raw_correlation == pytest.approx(0.05)
+        assert metrics.spearman_brown == pytest.approx(0.095)
         assert metrics.meets_threshold is False

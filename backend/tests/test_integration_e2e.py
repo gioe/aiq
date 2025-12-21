@@ -4,7 +4,9 @@ End-to-end integration tests for complete user journeys.
 These tests verify that multiple components work together correctly
 to support complete user workflows from registration to viewing results.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from app.core.datetime_utils import utc_now
 
 
 class TestCompleteUserJourney:
@@ -191,12 +193,12 @@ class TestCompleteUserJourney:
             .filter(TestResultModel.test_session_id == session1_id)
             .first()
         )
-        test_result.completed_at = datetime.now(timezone.utc) - timedelta(days=180)
+        test_result.completed_at = utc_now() - timedelta(days=180)
 
         test_session = (
             db_session.query(TestSession).filter(TestSession.id == session1_id).first()
         )
-        test_session.completed_at = datetime.now(timezone.utc) - timedelta(days=180)
+        test_session.completed_at = utc_now() - timedelta(days=180)
         db_session.commit()
 
         # Take second test with 2 questions

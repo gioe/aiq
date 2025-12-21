@@ -553,10 +553,10 @@ class TestCalculateDistractorDiscrimination:
 
         assert "insufficient_data" not in result
         assert result["total_responses"] == 100
-        assert result["options"]["A"]["selection_rate"] == 0.50
-        assert result["options"]["B"]["selection_rate"] == 0.25
-        assert result["options"]["C"]["selection_rate"] == 0.15
-        assert result["options"]["D"]["selection_rate"] == 0.10
+        assert result["options"]["A"]["selection_rate"] == pytest.approx(0.50)
+        assert result["options"]["B"]["selection_rate"] == pytest.approx(0.25)
+        assert result["options"]["C"]["selection_rate"] == pytest.approx(0.15)
+        assert result["options"]["D"]["selection_rate"] == pytest.approx(0.10)
 
     def test_quartile_rate_calculation(self, db_session):
         """Test that quartile rates are calculated correctly."""
@@ -585,12 +585,12 @@ class TestCalculateDistractorDiscrimination:
         assert result["quartile_responses"]["bottom"] == 25
 
         # Option A: top_q_rate = 20/25 = 0.8, bottom_q_rate = 5/25 = 0.2
-        assert result["options"]["A"]["top_quartile_rate"] == 0.8
-        assert result["options"]["A"]["bottom_quartile_rate"] == 0.2
+        assert result["options"]["A"]["top_quartile_rate"] == pytest.approx(0.8)
+        assert result["options"]["A"]["bottom_quartile_rate"] == pytest.approx(0.2)
 
         # Option B: top_q_rate = 5/25 = 0.2, bottom_q_rate = 20/25 = 0.8
-        assert result["options"]["B"]["top_quartile_rate"] == 0.2
-        assert result["options"]["B"]["bottom_quartile_rate"] == 0.8
+        assert result["options"]["B"]["top_quartile_rate"] == pytest.approx(0.2)
+        assert result["options"]["B"]["bottom_quartile_rate"] == pytest.approx(0.8)
 
     def test_discrimination_index_positive(self, db_session):
         """Test discrimination index calculation - positive (good for distractors)."""
@@ -613,7 +613,7 @@ class TestCalculateDistractorDiscrimination:
         result = calculate_distractor_discrimination(db_session, question.id)
 
         # Option B: bottom_rate (0.75) - top_rate (0.25) = 0.5 (positive = good distractor)
-        assert result["options"]["B"]["discrimination_index"] == 0.5
+        assert result["options"]["B"]["discrimination_index"] == pytest.approx(0.5)
 
         # Option A: bottom_rate (0.25) - top_rate (0.75) = -0.5 (negative = correct answer behavior)
         assert result["options"]["A"]["discrimination_index"] == -0.5
@@ -645,7 +645,7 @@ class TestCalculateDistractorDiscrimination:
         assert result["options"]["B"]["discrimination_index"] == -0.25
 
         # Option C: bottom_rate (13/20=0.65) - top_rate (3/25=0.12) = 0.53 (good distractor)
-        assert result["options"]["C"]["discrimination_index"] == 0.53
+        assert result["options"]["C"]["discrimination_index"] == pytest.approx(0.53)
 
     def test_discrimination_index_neutral(self, db_session):
         """Test discrimination index - neutral (similar selection across ability levels)."""
@@ -669,8 +669,8 @@ class TestCalculateDistractorDiscrimination:
         result = calculate_distractor_discrimination(db_session, question.id)
 
         # Both options have equal top/bottom rates, so discrimination_index = 0
-        assert result["options"]["A"]["discrimination_index"] == 0.0
-        assert result["options"]["B"]["discrimination_index"] == 0.0
+        assert result["options"]["A"]["discrimination_index"] == pytest.approx(0.0)
+        assert result["options"]["B"]["discrimination_index"] == pytest.approx(0.0)
 
     def test_zero_quartile_data(self, db_session):
         """Test handling when quartile data is zero."""
@@ -695,9 +695,9 @@ class TestCalculateDistractorDiscrimination:
 
         # Should not raise division by zero
         assert "insufficient_data" not in result
-        assert result["options"]["A"]["top_quartile_rate"] == 0.0
-        assert result["options"]["A"]["bottom_quartile_rate"] == 0.0
-        assert result["options"]["A"]["discrimination_index"] == 0.0
+        assert result["options"]["A"]["top_quartile_rate"] == pytest.approx(0.0)
+        assert result["options"]["A"]["bottom_quartile_rate"] == pytest.approx(0.0)
+        assert result["options"]["A"]["discrimination_index"] == pytest.approx(0.0)
 
     def test_complete_response_structure(self, db_session):
         """Test that the complete response structure is correct."""
@@ -1097,7 +1097,7 @@ class TestAnalyzeDistractorEffectiveness:
 
         # With perfectly equal distribution, effective_option_count should be 4.0
         # 1 / (0.25^2 + 0.25^2 + 0.25^2 + 0.25^2) = 1 / 0.25 = 4.0
-        assert result["summary"]["effective_option_count"] == 4.0
+        assert result["summary"]["effective_option_count"] == pytest.approx(4.0)
 
     def test_effective_option_count_skewed_distribution(self, db_session):
         """Test effective option count with skewed distribution."""
@@ -1280,7 +1280,7 @@ class TestAnalyzeDistractorEffectiveness:
         # All distractors are implicitly non-functioning (0%)
         assert result["summary"]["functioning_distractors"] == 0
         # Effective option count should be 1 (only one option used)
-        assert result["summary"]["effective_option_count"] == 1.0
+        assert result["summary"]["effective_option_count"] == pytest.approx(1.0)
 
 
 class TestCalculateEffectiveOptionCount:
@@ -1295,7 +1295,7 @@ class TestCalculateEffectiveOptionCount:
             "D": {"selection_rate": 0.25},
         }
         result = _calculate_effective_option_count(options_data, 100)
-        assert result == 4.0
+        assert result == pytest.approx(4.0)
 
     def test_equal_distribution_two_options(self):
         """Test with equal distribution across 2 options."""
@@ -1304,7 +1304,7 @@ class TestCalculateEffectiveOptionCount:
             "B": {"selection_rate": 0.50},
         }
         result = _calculate_effective_option_count(options_data, 100)
-        assert result == 2.0
+        assert result == pytest.approx(2.0)
 
     def test_single_option_dominates(self):
         """Test when one option has 100% of responses."""
@@ -1313,7 +1313,7 @@ class TestCalculateEffectiveOptionCount:
             "B": {"selection_rate": 0.0},
         }
         result = _calculate_effective_option_count(options_data, 100)
-        assert result == 1.0
+        assert result == pytest.approx(1.0)
 
     def test_zero_responses(self):
         """Test with zero total responses."""
@@ -1322,7 +1322,7 @@ class TestCalculateEffectiveOptionCount:
             "B": {"selection_rate": 0.0},
         }
         result = _calculate_effective_option_count(options_data, 0)
-        assert result == 0.0
+        assert result == pytest.approx(0.0)
 
     def test_skewed_distribution(self):
         """Test with a skewed distribution."""
@@ -1448,7 +1448,8 @@ class TestDistractorStatsIntegration:
         """Test that distractor_stats accumulate across multiple test submissions."""
         from app.core.security import hash_password, create_access_token
         from app.models import User
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
 
         # Create a question specifically for this test
         question = Question(
@@ -1520,7 +1521,7 @@ class TestDistractorStatsIntegration:
                 .filter(TestSession.id == session_id)
                 .first()
             )
-            session.completed_at = datetime.now(timezone.utc) - timedelta(days=200)
+            session.completed_at = utc_now() - timedelta(days=200)
             db_session.commit()
 
         # Refresh the question and check stats
@@ -1670,7 +1671,7 @@ class TestDetermineScoreQuartile:
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Create a test user
         user = User(
@@ -1691,8 +1692,8 @@ class TestDetermineScoreQuartile:
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(session)
             db_session.commit()
@@ -1705,7 +1706,7 @@ class TestDetermineScoreQuartile:
                 total_questions=20,
                 correct_answers=5 + i,  # Scores from 5 to 24
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(test_result)
 
@@ -1727,7 +1728,7 @@ class TestDetermineScoreQuartile:
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         # Create a test user
         user = User(
@@ -1745,8 +1746,8 @@ class TestDetermineScoreQuartile:
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(session)
             db_session.commit()
@@ -1759,7 +1760,7 @@ class TestDetermineScoreQuartile:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(test_result)
 
@@ -1781,7 +1782,7 @@ class TestDetermineScoreQuartile:
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="quartile_middle@example.com",
@@ -1798,8 +1799,8 @@ class TestDetermineScoreQuartile:
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(session)
             db_session.commit()
@@ -1812,7 +1813,7 @@ class TestDetermineScoreQuartile:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(test_result)
 
@@ -1834,7 +1835,7 @@ class TestDetermineScoreQuartile:
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="quartile_filter@example.com",
@@ -1851,8 +1852,8 @@ class TestDetermineScoreQuartile:
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(session)
             db_session.commit()
@@ -1865,7 +1866,7 @@ class TestDetermineScoreQuartile:
                 total_questions=20,  # These should be considered
                 correct_answers=10 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(test_result)
 
@@ -1874,8 +1875,8 @@ class TestDetermineScoreQuartile:
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(session)
             db_session.commit()
@@ -1888,7 +1889,7 @@ class TestDetermineScoreQuartile:
                 total_questions=50,  # These should NOT be considered
                 correct_answers=30 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(test_result)
 
@@ -1916,7 +1917,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_quartile@example.com",
@@ -1932,8 +1933,8 @@ class TestUpdateSessionQuartileStats:
         session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(session)
         db_session.commit()
@@ -1955,7 +1956,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_middle@example.com",
@@ -1972,8 +1973,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -1986,7 +1987,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -1996,8 +1997,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2023,7 +2024,7 @@ class TestUpdateSessionQuartileStats:
             question_id=question.id,
             user_answer="B",
             is_correct=False,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
         )
         db_session.add(response)
         db_session.commit()
@@ -2049,7 +2050,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_top@example.com",
@@ -2066,8 +2067,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -2080,7 +2081,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -2090,8 +2091,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2117,7 +2118,7 @@ class TestUpdateSessionQuartileStats:
             question_id=question.id,
             user_answer="B",
             is_correct=False,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
         )
         db_session.add(response)
         db_session.commit()
@@ -2143,7 +2144,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_bottom@example.com",
@@ -2160,8 +2161,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -2174,7 +2175,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -2184,8 +2185,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2211,7 +2212,7 @@ class TestUpdateSessionQuartileStats:
             question_id=question.id,
             user_answer="B",
             is_correct=False,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
         )
         db_session.add(response)
         db_session.commit()
@@ -2237,7 +2238,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_multi@example.com",
@@ -2254,8 +2255,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -2268,7 +2269,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -2278,8 +2279,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2310,7 +2311,7 @@ class TestUpdateSessionQuartileStats:
                 question_id=q.id,
                 user_answer="B",
                 is_correct=False,
-                answered_at=datetime.now(timezone.utc),
+                answered_at=utc_now(),
             )
             db_session.add(response)
 
@@ -2337,7 +2338,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_free@example.com",
@@ -2354,8 +2355,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -2368,7 +2369,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -2378,8 +2379,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2417,7 +2418,7 @@ class TestUpdateSessionQuartileStats:
             question_id=mc_question.id,
             user_answer="B",
             is_correct=False,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
         )
         response2 = Response(
             test_session_id=test_session.id,
@@ -2425,7 +2426,7 @@ class TestUpdateSessionQuartileStats:
             question_id=free_response.id,
             user_answer="Some answer",
             is_correct=True,
-            answered_at=datetime.now(timezone.utc),
+            answered_at=utc_now(),
         )
         db_session.add(response1)
         db_session.add(response2)
@@ -2456,7 +2457,7 @@ class TestUpdateSessionQuartileStats:
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
         from app.core.security import hash_password
-        from datetime import datetime, timezone
+        from app.core.datetime_utils import utc_now
 
         user = User(
             email="session_empty@example.com",
@@ -2473,8 +2474,8 @@ class TestUpdateSessionQuartileStats:
             s = TestSession(
                 user_id=user.id,
                 status=TestStatus.COMPLETED,
-                started_at=datetime.now(timezone.utc),
-                completed_at=datetime.now(timezone.utc),
+                started_at=utc_now(),
+                completed_at=utc_now(),
             )
             db_session.add(s)
             db_session.commit()
@@ -2487,7 +2488,7 @@ class TestUpdateSessionQuartileStats:
                 total_questions=20,
                 correct_answers=5 + i,
                 completion_time_seconds=600,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=utc_now(),
             )
             db_session.add(r)
 
@@ -2497,8 +2498,8 @@ class TestUpdateSessionQuartileStats:
         test_session = TestSession(
             user_id=user.id,
             status=TestStatus.COMPLETED,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=utc_now(),
+            completed_at=utc_now(),
         )
         db_session.add(test_session)
         db_session.commit()
@@ -2954,7 +2955,7 @@ class TestGetBulkDistractorSummary:
 
         # Both questions have effective_option_count = 2.0
         # Average should be 2.0
-        assert result["avg_effective_option_count"] == 2.0
+        assert result["avg_effective_option_count"] == pytest.approx(2.0)
 
     def test_worst_offenders_structure(self, db_session):
         """Test that worst offenders have the correct structure."""
@@ -3381,7 +3382,7 @@ class TestEdgeCases:
 
         assert not result.get("insufficient_data")
         # With perfectly equal distribution across 6 options, effective_option_count = 6.0
-        assert result["summary"]["effective_option_count"] == 6.0
+        assert result["summary"]["effective_option_count"] == pytest.approx(6.0)
 
     def test_empty_selected_answer_rejected(self, db_session):
         """Test that empty selected answers are rejected gracefully."""
