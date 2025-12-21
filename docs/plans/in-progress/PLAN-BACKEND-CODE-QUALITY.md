@@ -384,14 +384,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-032: Verify Values Not Just Structure in Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/tests/test_test_sessions.py`
 **Description:** Some tests verify response structure but not correctness of values.
 **Acceptance Criteria:**
-- [ ] Identify tests that only check structure
-- [ ] Add assertions for expected calculated values
-- [ ] Verify enum values match expected (e.g., "in_progress")
-- [ ] Verify calculated fields are correct
+- [x] Identify tests that only check structure
+- [x] Add assertions for expected calculated values
+- [x] Verify enum values match expected (e.g., "in_progress")
+- [x] Verify calculated fields are correct
 
 ---
 
