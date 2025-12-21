@@ -154,6 +154,13 @@ from app.core.reliability import (
     MetricTypeLiteral,
 )
 from app.core.db_error_handling import handle_db_error
+from app.core.error_responses import (
+    ErrorMessages,
+    raise_bad_request,
+    raise_server_error,
+    raise_unauthorized,
+    raise_not_configured,
+)
 from app.models import Question, TestSession, TestResult, Response
 
 # Configure logger for admin operations
@@ -201,16 +208,10 @@ def _verify_secret_header(
         HTTPException: 500 if secret not configured, 401 if invalid
     """
     if not expected_secret:
-        raise HTTPException(
-            status_code=500,
-            detail=not_configured_detail,
-        )
+        raise_not_configured(not_configured_detail)
 
     if not secrets.compare_digest(header_value, expected_secret):
-        raise HTTPException(
-            status_code=401,
-            detail=invalid_detail,
-        )
+        raise_unauthorized(invalid_detail, include_www_authenticate=False)
 
     return True
 
@@ -231,8 +232,8 @@ async def verify_admin_token(x_admin_token: str = Header(...)) -> bool:
     return _verify_secret_header(
         header_value=x_admin_token,
         expected_secret=settings.ADMIN_TOKEN,
-        not_configured_detail="Admin token not configured on server",
-        invalid_detail="Invalid admin token",
+        not_configured_detail=ErrorMessages.ADMIN_TOKEN_NOT_CONFIGURED,
+        invalid_detail=ErrorMessages.ADMIN_TOKEN_INVALID,
     )
 
 
@@ -256,8 +257,8 @@ async def verify_service_key(x_service_key: str = Header(...)) -> bool:
     return _verify_secret_header(
         header_value=x_service_key,
         expected_secret=settings.SERVICE_API_KEY,
-        not_configured_detail="Service API key not configured on server",
-        invalid_detail="Invalid service API key",
+        not_configured_detail=ErrorMessages.SERVICE_KEY_NOT_CONFIGURED,
+        invalid_detail=ErrorMessages.SERVICE_KEY_INVALID,
     )
 
 
@@ -324,14 +325,10 @@ async def trigger_question_generation(
         )
 
     except FileNotFoundError:
-        raise HTTPException(
-            status_code=500,
-            detail="Question generation script not found",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to trigger question generation: {str(e)}",
+        raise_server_error(ErrorMessages.SCRIPT_NOT_FOUND)
+    except Exception:
+        raise_server_error(
+            ErrorMessages.database_operation_failed("trigger question generation")
         )
 
 
@@ -372,15 +369,9 @@ async def get_question_generation_status(
             }
 
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid job ID",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to check job status: {str(e)}",
-        )
+        raise_bad_request(ErrorMessages.INVALID_JOB_ID)
+    except Exception:
+        raise_server_error(ErrorMessages.database_operation_failed("check job status"))
 
 
 @router.post(
@@ -3888,10 +3879,7 @@ async def get_reliability_report_endpoint(
     except Exception as e:
         # Log full error details but return generic message to client
         logger.error(f"Failed to generate reliability report: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to generate reliability report. Please try again later.",
-        )
+        raise_server_error(ErrorMessages.RELIABILITY_REPORT_FAILED)
 
 
 # =============================================================================
@@ -3972,7 +3960,4 @@ async def get_reliability_history_endpoint(
     except Exception as e:
         # Log full error details but return generic message to client
         logger.error(f"Failed to retrieve reliability history: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to retrieve reliability history. Please try again later.",
-        )
+        raise_server_error(ErrorMessages.RELIABILITY_HISTORY_FAILED)

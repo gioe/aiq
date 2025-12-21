@@ -1,7 +1,7 @@
 """
 Question serving endpoints for IQ tests.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 
@@ -9,6 +9,7 @@ from app.models import get_db, User, Question, UserQuestion
 from app.schemas.questions import UnseenQuestionsResponse
 from app.core.auth import get_current_user
 from app.core.question_utils import question_to_response
+from app.core.error_responses import ErrorMessages, raise_not_found
 
 router = APIRouter()
 
@@ -70,10 +71,7 @@ def get_unseen_questions(
         pass
 
     if len(unseen_questions) == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="No unseen questions available. Question pool may be exhausted.",
-        )
+        raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
 
     # Convert to response schema (which excludes correct_answer and sensitive fields)
     questions_response = [
