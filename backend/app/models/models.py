@@ -2,26 +2,26 @@
 Database models for AIQ application.
 
 Based on schema defined in PLAN.md Section 4.
+
+This module uses SQLAlchemy 2.0 style type annotations with Mapped[] and
+mapped_column() for proper mypy type checking support. See BCQ-035 for details.
 """
+from datetime import datetime
+from typing import Any, Optional, List
+import enum
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    DateTime,
     ForeignKey,
     Text,
-    Enum,
-    Float,
+    String,
     UniqueConstraint,
     Index,
     CheckConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSON
-from app.core.datetime_utils import utc_now
-import enum
 
+from app.core.datetime_utils import utc_now
 from .base import Base
 
 
@@ -78,43 +78,43 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    first_name = Column(String(100))
-    last_name = Column(String(100))
-    created_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
-    last_login_at = Column(DateTime(timezone=True))
-    notification_enabled = Column(Boolean, default=True, nullable=False)
-    apns_device_token = Column(String(255))
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    notification_enabled: Mapped[bool] = mapped_column(default=True)
+    apns_device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation
-    birth_year = Column(Integer, nullable=True)  # Year of birth (e.g., 1990)
-    education_level = Column(
-        Enum(EducationLevel), nullable=True
+    birth_year: Mapped[Optional[int]] = mapped_column(
+        nullable=True
+    )  # Year of birth (e.g., 1990)
+    education_level: Mapped[Optional[EducationLevel]] = mapped_column(
+        nullable=True
     )  # Highest education level attained
-    country = Column(
+    country: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
     )  # Country of residence (ISO country name or code)
-    region = Column(String(100), nullable=True)  # State/Province/Region within country
+    region: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # State/Province/Region within country
 
     # Relationships
-    test_sessions = relationship(
-        "TestSession", back_populates="user", cascade="all, delete-orphan"
+    test_sessions: Mapped[List["TestSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
-    responses = relationship(
-        "Response", back_populates="user", cascade="all, delete-orphan"
+    responses: Mapped[List["Response"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
-    test_results = relationship(
-        "TestResult", back_populates="user", cascade="all, delete-orphan"
+    test_results: Mapped[List["TestResult"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
-    user_questions = relationship(
-        "UserQuestion", back_populates="user", cascade="all, delete-orphan"
+    user_questions: Mapped[List["UserQuestion"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -123,69 +123,75 @@ class Question(Base):
 
     __tablename__ = "questions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    question_text = Column(Text, nullable=False)
-    question_type = Column(Enum(QuestionType), nullable=False)
-    difficulty_level = Column(Enum(DifficultyLevel), nullable=False)
-    correct_answer = Column(String(500), nullable=False)
-    answer_options = Column(JSON)  # JSON array for multiple choice, null for open-ended
-    explanation = Column(Text)  # Optional explanation for the correct answer
-    question_metadata = Column(JSON)  # Flexible field for additional data
-    source_llm = Column(String(100))  # Which LLM generated this question
-    arbiter_score = Column(Float)  # Quality score from arbiter LLM
-    prompt_version = Column(
-        String(50), default="1.0"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    question_text: Mapped[str] = mapped_column(Text)
+    question_type: Mapped[QuestionType] = mapped_column()
+    difficulty_level: Mapped[DifficultyLevel] = mapped_column()
+    correct_answer: Mapped[str] = mapped_column(String(500))
+    answer_options: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # JSON array for multiple choice, null for open-ended
+    explanation: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )  # Optional explanation for the correct answer
+    question_metadata: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # Flexible field for additional data
+    source_llm: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # Which LLM generated this question
+    arbiter_score: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Quality score from arbiter LLM
+    prompt_version: Mapped[Optional[str]] = mapped_column(
+        String(50), default="1.0", nullable=True
     )  # Version of prompts used for generation
-    created_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
-    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    is_active: Mapped[bool] = mapped_column(default=True, index=True)
 
     # Question Performance Statistics (P11-007)
     # These fields track empirical question performance and are populated by P11-009
     # as users complete tests. They remain NULL until sufficient response data exists.
 
     # Classical Test Theory (CTT) metrics
-    empirical_difficulty = Column(
-        Float, nullable=True
+    empirical_difficulty: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # P-value: proportion of users answering correctly (0.0-1.0)
     # Lower values = harder questions. Calculated as: correct_responses / total_responses
     # Populated by P11-009 after each test submission
 
-    discrimination = Column(
-        Float, nullable=True
+    discrimination: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # Item-total correlation: how well this question discriminates ability (-1.0 to 1.0)
     # Higher values = better discrimination. Calculated using point-biserial correlation
     # between question correctness and total test score. Populated by P11-009
 
-    response_count = Column(
-        Integer, nullable=True, default=0
+    response_count: Mapped[Optional[int]] = mapped_column(
+        default=0, nullable=True
     )  # Number of times this question has been answered
     # Incremented by P11-009 after each test submission
     # Used to determine statistical reliability of empirical_difficulty and discrimination
 
     # Item Response Theory (IRT) parameters (for future use in Phase 12+)
     # These require specialized IRT calibration and will be NULL until IRT analysis is implemented
-    irt_difficulty = Column(
-        Float, nullable=True
+    irt_difficulty: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # IRT difficulty parameter (b): location on ability scale
     # Typically ranges from -3 to +3, with 0 being average difficulty
 
-    irt_discrimination = Column(
-        Float, nullable=True
+    irt_discrimination: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # IRT discrimination parameter (a): slope of item characteristic curve
     # Higher values indicate steeper curves (better discrimination)
 
-    irt_guessing = Column(
-        Float, nullable=True
+    irt_guessing: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # IRT guessing parameter (c): lower asymptote (0.0-1.0)
     # Probability of correct answer by random guessing (e.g., 0.25 for 4-option multiple choice)
 
     # Distractor Analysis (DA-001)
     # Tracks selection statistics for each answer option to enable distractor quality analysis
-    distractor_stats = Column(
+    distractor_stats: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=True
     )  # Selection counts and quartile-based stats per answer option
     # Format: {"option_text": {"count": 50, "top_q": 10, "bottom_q": 25}, ...}
@@ -196,13 +202,13 @@ class Question(Base):
 
     # Recalibration tracking (EIC-001)
     # These fields track when difficulty labels are recalibrated based on empirical data
-    original_difficulty_level = Column(
-        Enum(DifficultyLevel), nullable=True
+    original_difficulty_level: Mapped[Optional[DifficultyLevel]] = mapped_column(
+        nullable=True
     )  # Preserves arbiter's original judgment before recalibration
     # NULL indicates the question has never been recalibrated
 
-    difficulty_recalibrated_at = Column(
-        DateTime(timezone=True), nullable=True
+    difficulty_recalibrated_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
     )  # Timestamp of most recent recalibration
     # NULL indicates the question has never been recalibrated
 
@@ -211,8 +217,8 @@ class Question(Base):
     # to prevent problematic questions from appearing in tests while allowing
     # admin review before permanent deactivation.
 
-    quality_flag = Column(
-        String(20), default="normal", nullable=False
+    quality_flag: Mapped[str] = mapped_column(
+        String(20), default="normal"
     )  # Quality status: "normal", "under_review", "deactivated"
     # - "normal": Question is in good standing, eligible for test composition
     # - "under_review": Question has negative discrimination, excluded from tests
@@ -221,21 +227,23 @@ class Question(Base):
     # Automatically set to "under_review" when discrimination < 0 and
     # response_count >= 50 (see IDA-003, IDA-004)
 
-    quality_flag_reason = Column(
+    quality_flag_reason: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )  # Human-readable reason for current flag status
     # Example: "Negative discrimination: -0.15" or "Admin review: ambiguous wording"
     # NULL when quality_flag is "normal" (no reason needed)
 
-    quality_flag_updated_at = Column(
-        DateTime(timezone=True), nullable=True
+    quality_flag_updated_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
     )  # Timestamp when quality_flag was last updated
     # NULL for questions that have never been flagged (always "normal")
     # Used for audit trail and to identify recently flagged questions
 
     # Relationships
-    responses = relationship("Response", back_populates="question")
-    user_questions = relationship("UserQuestion", back_populates="question")
+    responses: Mapped[List["Response"]] = relationship(back_populates="question")
+    user_questions: Mapped[List["UserQuestion"]] = relationship(
+        back_populates="question"
+    )
 
     # Indexes and Constraints
     __table_args__ = (
@@ -255,26 +263,22 @@ class UserQuestion(Base):
 
     __tablename__ = "user_questions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE")
     )
-    question_id = Column(
-        Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
+    test_session_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=True
     )
-    test_session_id = Column(
-        Integer, ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=True
-    )
-    seen_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
+    seen_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     # Relationships
-    user = relationship("User", back_populates="user_questions")
-    question = relationship("Question", back_populates="user_questions")
-    test_session = relationship("TestSession", back_populates="user_questions")
+    user: Mapped["User"] = relationship(back_populates="user_questions")
+    question: Mapped["Question"] = relationship(back_populates="user_questions")
+    test_session: Mapped[Optional["TestSession"]] = relationship(
+        back_populates="user_questions"
+    )
 
     # Constraints and indexes
     __table_args__ = (
@@ -289,43 +293,38 @@ class TestSession(Base):
 
     __tablename__ = "test_sessions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    started_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
+    started_at: Mapped[datetime] = mapped_column(default=utc_now)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True, index=True)
+    status: Mapped[TestStatus] = mapped_column(
+        default=TestStatus.IN_PROGRESS, index=True
     )
-    completed_at = Column(DateTime(timezone=True), index=True)
-    status = Column(
-        Enum(TestStatus), default=TestStatus.IN_PROGRESS, nullable=False, index=True
-    )
-    composition_metadata = Column(
+    composition_metadata: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=True
     )  # Test composition metadata (P11-006)
 
     # Time standardization (TS-001)
-    time_limit_exceeded = Column(
-        Boolean, default=False, nullable=False
+    time_limit_exceeded: Mapped[bool] = mapped_column(
+        default=False
     )  # Flag indicating submission exceeded 30-minute time limit
     # Set by backend during submission if total test time > 1800 seconds
     # Over-time submissions are still accepted but flagged for validity analysis
 
     # Relationships
-    user = relationship("User", back_populates="test_sessions")
-    responses = relationship(
-        "Response", back_populates="test_session", cascade="all, delete-orphan"
+    user: Mapped["User"] = relationship(back_populates="test_sessions")
+    responses: Mapped[List["Response"]] = relationship(
+        back_populates="test_session", cascade="all, delete-orphan"
     )
-    test_result = relationship(
-        "TestResult",
+    test_result: Mapped[Optional["TestResult"]] = relationship(
         back_populates="test_session",
         uselist=False,
         cascade="all, delete-orphan",
     )
-    user_questions = relationship(
-        "UserQuestion", back_populates="test_session", cascade="all, delete-orphan"
+    user_questions: Mapped[List["UserQuestion"]] = relationship(
+        back_populates="test_session", cascade="all, delete-orphan"
     )
 
     # Performance indexes for common query patterns
@@ -340,41 +339,31 @@ class Response(Base):
 
     __tablename__ = "responses"
 
-    id = Column(Integer, primary_key=True, index=True)
-    test_session_id = Column(
-        Integer,
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    test_session_id: Mapped[int] = mapped_column(
         ForeignKey("test_sessions.id", ondelete="CASCADE"),
-        nullable=False,
         index=True,
     )
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    question_id = Column(
-        Integer,
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    question_id: Mapped[int] = mapped_column(
         ForeignKey("questions.id", ondelete="CASCADE"),
-        nullable=False,
         index=True,
     )
-    user_answer = Column(String(500), nullable=False)
-    is_correct = Column(Boolean, nullable=False)
-    answered_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
+    user_answer: Mapped[str] = mapped_column(String(500))
+    is_correct: Mapped[bool] = mapped_column()
+    answered_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     # Time standardization (TS-001)
-    time_spent_seconds = Column(
-        Integer, nullable=True
+    time_spent_seconds: Mapped[Optional[int]] = mapped_column(
+        nullable=True
     )  # Time spent on this question in seconds
     # Tracked by iOS app, submitted with batch response data
     # Used for response time anomaly detection and speed-accuracy analysis
 
     # Relationships
-    test_session = relationship("TestSession", back_populates="responses")
-    user = relationship("User", back_populates="responses")
-    question = relationship("Question", back_populates="responses")
+    test_session: Mapped["TestSession"] = relationship(back_populates="responses")
+    user: Mapped["User"] = relationship(back_populates="responses")
+    question: Mapped["Question"] = relationship(back_populates="responses")
 
 
 class TestResult(Base):
@@ -382,36 +371,38 @@ class TestResult(Base):
 
     __tablename__ = "test_results"
 
-    id = Column(Integer, primary_key=True, index=True)
-    test_session_id = Column(
-        Integer,
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    test_session_id: Mapped[int] = mapped_column(
         ForeignKey("test_sessions.id", ondelete="CASCADE"),
         unique=True,
-        nullable=False,
     )
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    iq_score = Column(Integer, nullable=False)
-    percentile_rank = Column(Float, nullable=True)  # Percentile rank (0-100)
-    total_questions = Column(Integer, nullable=False)
-    correct_answers = Column(Integer, nullable=False)
-    completion_time_seconds = Column(Integer)
-    completed_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
+    iq_score: Mapped[int] = mapped_column()
+    percentile_rank: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Percentile rank (0-100)
+    total_questions: Mapped[int] = mapped_column()
+    correct_answers: Mapped[int] = mapped_column()
+    completion_time_seconds: Mapped[Optional[int]] = mapped_column(nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     # Confidence interval fields (P11-008)
     # These fields prepare for Phase 12 when we can calculate actual SEM
     # and provide confidence intervals for IQ scores
-    standard_error = Column(Float, nullable=True)  # Standard Error of Measurement (SEM)
-    ci_lower = Column(Integer, nullable=True)  # Lower bound of confidence interval
-    ci_upper = Column(Integer, nullable=True)  # Upper bound of confidence interval
+    standard_error: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Standard Error of Measurement (SEM)
+    ci_lower: Mapped[Optional[int]] = mapped_column(
+        nullable=True
+    )  # Lower bound of confidence interval
+    ci_upper: Mapped[Optional[int]] = mapped_column(
+        nullable=True
+    )  # Upper bound of confidence interval
 
     # Time standardization (TS-001)
-    response_time_flags = Column(
+    response_time_flags: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=True
     )  # Summary of response time anomalies detected during submission
     # Example: {"rapid_responses": 2, "extended_times": 1, "rushed_session": false, "validity_concern": false}
@@ -419,42 +410,42 @@ class TestResult(Base):
 
     # Cheating detection / validity analysis (CD-001)
     # These fields store results of validity checks performed after test submission
-    validity_status = Column(
-        String(20), default="valid", nullable=False, index=True
+    validity_status: Mapped[str] = mapped_column(
+        String(20), default="valid", index=True
     )  # Overall validity: "valid", "suspect", or "invalid"
     # Determined by combining person-fit, Guttman error, and response time analyses
     # "valid" = no significant concerns
     # "suspect" = moderate concerns, flagged for admin review
     # "invalid" = high severity concerns, requires human review before trust
 
-    validity_flags = Column(
+    validity_flags: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=True
     )  # List of detected validity flags with details
     # Example: ["aberrant_response_pattern", "multiple_rapid_responses", "high_guttman_errors"]
     # Each flag represents a specific type of aberrant behavior detected
     # NULL indicates no validity checks have been run (pre-CD implementation sessions)
 
-    validity_checked_at = Column(
-        DateTime(timezone=True), nullable=True
+    validity_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
     )  # Timestamp when validity assessment was performed
     # NULL indicates validity has not been checked yet
     # Used to track when checks were run and for potential re-analysis
 
     # Admin override fields (CD-017)
     # These fields track when an admin manually overrides validity status after review
-    validity_override_reason = Column(
+    validity_override_reason: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
     )  # Required explanation when admin overrides validity status
     # Must be at least 10 characters per API validation
     # Provides audit trail for why original assessment was changed
 
-    validity_overridden_at = Column(
-        DateTime(timezone=True), nullable=True
+    validity_overridden_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
     )  # Timestamp when admin override was performed
     # NULL indicates no override has occurred (original assessment stands)
 
-    validity_overridden_by = Column(
-        Integer, nullable=True
+    validity_overridden_by: Mapped[Optional[int]] = mapped_column(
+        nullable=True
     )  # Admin user ID who performed the override
     # Values: 0 = token-based auth (current implementation), NULL = no override
     # Note: Not a foreign key since admin identity may be external to users table
@@ -463,7 +454,9 @@ class TestResult(Base):
 
     # Domain-specific subscores (DW-001)
     # Stores per-domain performance breakdown for cognitive domain analysis
-    domain_scores = Column(JSON, nullable=True)  # Per-domain performance breakdown
+    domain_scores: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # Per-domain performance breakdown
     # Format: {"pattern": {"correct": 3, "total": 4, "pct": 75.0}, "logic": {...}, ...}
     # - correct: number of questions answered correctly in this domain
     # - total: total number of questions in this domain
@@ -471,8 +464,8 @@ class TestResult(Base):
     # NULL for pre-DW test results; populated by DW-003 during test submission
 
     # Relationships
-    test_session = relationship("TestSession", back_populates="test_result")
-    user = relationship("User", back_populates="test_results")
+    test_session: Mapped["TestSession"] = relationship(back_populates="test_result")
+    user: Mapped["User"] = relationship(back_populates="test_results")
 
     # Table-level constraints
     __table_args__ = (
@@ -498,84 +491,86 @@ class QuestionGenerationRun(Base):
     __tablename__ = "question_generation_runs"
 
     # Identity
-    id = Column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     # Execution timing
-    started_at = Column(DateTime(timezone=True), nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    duration_seconds = Column(Float, nullable=True)
+    started_at: Mapped[datetime] = mapped_column()
+    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Status & outcome
-    status = Column(Enum(GenerationRunStatus), nullable=False)
-    exit_code = Column(Integer, nullable=True)  # 0-6 matching run_generation.py codes
+    status: Mapped[GenerationRunStatus] = mapped_column()
+    exit_code: Mapped[Optional[int]] = mapped_column(
+        nullable=True
+    )  # 0-6 matching run_generation.py codes
 
     # Generation metrics
-    questions_requested = Column(Integer, nullable=False)
-    questions_generated = Column(Integer, nullable=False, default=0)
-    generation_failures = Column(Integer, nullable=False, default=0)
-    generation_success_rate = Column(Float, nullable=True)
+    questions_requested: Mapped[int] = mapped_column()
+    questions_generated: Mapped[int] = mapped_column(default=0)
+    generation_failures: Mapped[int] = mapped_column(default=0)
+    generation_success_rate: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Evaluation metrics
-    questions_evaluated = Column(Integer, nullable=False, default=0)
-    questions_approved = Column(Integer, nullable=False, default=0)
-    questions_rejected = Column(Integer, nullable=False, default=0)
-    approval_rate = Column(Float, nullable=True)
-    avg_arbiter_score = Column(Float, nullable=True)
-    min_arbiter_score = Column(Float, nullable=True)
-    max_arbiter_score = Column(Float, nullable=True)
+    questions_evaluated: Mapped[int] = mapped_column(default=0)
+    questions_approved: Mapped[int] = mapped_column(default=0)
+    questions_rejected: Mapped[int] = mapped_column(default=0)
+    approval_rate: Mapped[Optional[float]] = mapped_column(nullable=True)
+    avg_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
+    min_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
+    max_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Deduplication metrics
-    duplicates_found = Column(Integer, nullable=False, default=0)
-    exact_duplicates = Column(Integer, nullable=False, default=0)
-    semantic_duplicates = Column(Integer, nullable=False, default=0)
-    duplicate_rate = Column(Float, nullable=True)
+    duplicates_found: Mapped[int] = mapped_column(default=0)
+    exact_duplicates: Mapped[int] = mapped_column(default=0)
+    semantic_duplicates: Mapped[int] = mapped_column(default=0)
+    duplicate_rate: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Database metrics
-    questions_inserted = Column(Integer, nullable=False, default=0)
-    insertion_failures = Column(Integer, nullable=False, default=0)
+    questions_inserted: Mapped[int] = mapped_column(default=0)
+    insertion_failures: Mapped[int] = mapped_column(default=0)
 
     # Overall success
-    overall_success_rate = Column(
-        Float, nullable=True
+    overall_success_rate: Mapped[Optional[float]] = mapped_column(
+        nullable=True
     )  # questions_inserted / questions_requested
-    total_errors = Column(Integer, nullable=False, default=0)
+    total_errors: Mapped[int] = mapped_column(default=0)
 
     # API usage
-    total_api_calls = Column(Integer, nullable=False, default=0)
+    total_api_calls: Mapped[int] = mapped_column(default=0)
 
     # Breakdown by provider (JSON for flexibility)
     # Example: {"openai": {"generated": 10, "api_calls": 15, "failures": 1}, ...}
-    provider_metrics = Column(JSON, nullable=True)
+    provider_metrics: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     # Breakdown by question type (JSON)
     # Example: {"pattern_recognition": 8, "logical_reasoning": 12, ...}
-    type_metrics = Column(JSON, nullable=True)
+    type_metrics: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     # Breakdown by difficulty (JSON)
     # Example: {"easy": 15, "medium": 22, "hard": 13}
-    difficulty_metrics = Column(JSON, nullable=True)
+    difficulty_metrics: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     # Error tracking
     # Example: {"by_category": {"rate_limit": 2}, "by_severity": {"high": 1}, "critical_count": 0}
-    error_summary = Column(JSON, nullable=True)
+    error_summary: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     # Configuration used
-    prompt_version = Column(String(50), nullable=True)
-    arbiter_config_version = Column(String(50), nullable=True)
-    min_arbiter_score_threshold = Column(Float, nullable=True)
+    prompt_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    arbiter_config_version: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )
+    min_arbiter_score_threshold: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Environment context
-    environment = Column(
+    environment: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True
     )  # 'production', 'staging', 'development'
-    triggered_by = Column(String(50), nullable=True)  # 'scheduler', 'manual', 'webhook'
+    triggered_by: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )  # 'scheduler', 'manual', 'webhook'
 
     # Metadata
-    created_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     # Indexes for common queries
     __table_args__ = (
@@ -602,14 +597,9 @@ class SystemConfig(Base):
 
     __tablename__ = "system_config"
 
-    key = Column(String(100), primary_key=True)
-    value = Column(JSON, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        onupdate=utc_now,
-        nullable=False,
-    )
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[Any] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
 
 
 class ReliabilityMetric(Base):
@@ -629,28 +619,22 @@ class ReliabilityMetric(Base):
 
     __tablename__ = "reliability_metrics"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     # Metric identification
-    metric_type = Column(
-        String(50), nullable=False, index=True
+    metric_type: Mapped[str] = mapped_column(
+        String(50), index=True
     )  # "cronbachs_alpha", "test_retest", "split_half"
 
     # Core values
-    value = Column(Float, nullable=False)  # The reliability coefficient
-    sample_size = Column(
-        Integer, nullable=False
-    )  # Number of sessions/pairs used in calculation
+    value: Mapped[float] = mapped_column()  # The reliability coefficient
+    sample_size: Mapped[int] = mapped_column()  # Number of sessions/pairs used
 
     # Timestamp
-    calculated_at = Column(
-        DateTime(timezone=True),
-        default=utc_now,
-        nullable=False,
-    )
+    calculated_at: Mapped[datetime] = mapped_column(default=utc_now)
 
     # Additional context (interpretation, thresholds, item correlations, etc.)
-    details = Column(JSON, nullable=True)
+    details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     # Indexes for common query patterns
     __table_args__ = (

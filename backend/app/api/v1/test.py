@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.models import Response as ResponseModel
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 
@@ -168,9 +171,7 @@ def verify_session_in_progress(test_session: TestSession) -> None:
     """
     if test_session.status != TestStatus.IN_PROGRESS:
         raise_bad_request(
-            ErrorMessages.session_already_completed(
-                test_session.status.value  # type: ignore[attr-defined]
-            )
+            ErrorMessages.session_already_completed(test_session.status.value)
         )
 
 
@@ -266,18 +267,18 @@ def build_test_result_response(
         )
 
     return TestResultResponse(
-        id=test_result.id,  # type: ignore[arg-type]
-        test_session_id=test_result.test_session_id,  # type: ignore[arg-type]
-        user_id=test_result.user_id,  # type: ignore[arg-type]
-        iq_score=test_result.iq_score,  # type: ignore[arg-type]
-        percentile_rank=test_result.percentile_rank,  # type: ignore[arg-type]
-        total_questions=test_result.total_questions,  # type: ignore[arg-type]
-        correct_answers=test_result.correct_answers,  # type: ignore[arg-type]
+        id=test_result.id,
+        test_session_id=test_result.test_session_id,
+        user_id=test_result.user_id,
+        iq_score=test_result.iq_score,
+        percentile_rank=test_result.percentile_rank,
+        total_questions=test_result.total_questions,
+        correct_answers=test_result.correct_answers,
         accuracy_percentage=accuracy_percentage,
-        completion_time_seconds=test_result.completion_time_seconds,  # type: ignore[arg-type]
-        completed_at=test_result.completed_at,  # type: ignore[arg-type]
-        response_time_flags=test_result.response_time_flags,  # type: ignore[arg-type]
-        domain_scores=domain_scores,  # type: ignore[arg-type]
+        completion_time_seconds=test_result.completion_time_seconds,
+        completed_at=test_result.completed_at,
+        response_time_flags=test_result.response_time_flags,
+        domain_scores=domain_scores,
         strongest_domain=strongest_domain,
         weakest_domain=weakest_domain,
         confidence_interval=confidence_interval,
@@ -323,9 +324,7 @@ def start_test(
     )
 
     if active_session:
-        raise_bad_request(
-            ErrorMessages.active_session_exists(int(active_session.id))  # type: ignore
-        )
+        raise_bad_request(ErrorMessages.active_session_exists(active_session.id))
 
     # Check 6-month test cadence: user cannot take another test within 180 days
     # of their last completed test
@@ -343,7 +342,7 @@ def start_test(
 
     if recent_completed_session:
         # Calculate next eligible date
-        completed_at = ensure_timezone_aware(recent_completed_session.completed_at)  # type: ignore[arg-type]
+        completed_at = ensure_timezone_aware(recent_completed_session.completed_at)
         next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
         days_remaining = (next_eligible - utc_now()).days + 1  # Round up
 
@@ -359,7 +358,7 @@ def start_test(
     # P11-005: Use stratified question selection for balanced test composition
     unseen_questions, composition_metadata = select_stratified_questions(
         db=db,
-        user_id=int(current_user.id),  # type: ignore
+        user_id=current_user.id,
         total_count=question_count,
     )
 
@@ -408,8 +407,8 @@ def start_test(
 
     # Track analytics event
     AnalyticsTracker.track_test_started(
-        user_id=int(current_user.id),  # type: ignore
-        session_id=int(test_session.id),  # type: ignore
+        user_id=current_user.id,
+        session_id=test_session.id,
         question_count=len(unseen_questions),
     )
 
@@ -448,7 +447,7 @@ def get_test_session(
     test_session = get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
-    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
+    verify_session_ownership(test_session, current_user.id)
 
     # Count responses for this session
     questions_count = count_session_responses(db, session_id)
@@ -457,7 +456,7 @@ def get_test_session(
     questions_response = None
     if test_session.status == TestStatus.IN_PROGRESS:
         questions_response = get_session_questions(
-            db, int(current_user.id), session_id, include_explanation=False  # type: ignore
+            db, current_user.id, session_id, include_explanation=False
         )
 
     return TestSessionStatusResponse(
@@ -495,11 +494,11 @@ def get_active_test_session(
         return None
 
     # Count responses for this session
-    questions_count = count_session_responses(db, int(active_session.id))  # type: ignore
+    questions_count = count_session_responses(db, active_session.id)
 
     # Get questions for the active session
     questions_response = get_session_questions(
-        db, int(current_user.id), int(active_session.id), include_explanation=False  # type: ignore
+        db, current_user.id, active_session.id, include_explanation=False
     )
 
     return TestSessionStatusResponse(
@@ -536,7 +535,7 @@ def abandon_test(
     test_session = get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
-    verify_session_ownership(test_session, int(current_user.id))  # type: ignore
+    verify_session_ownership(test_session, current_user.id)
 
     # Verify session is in progress
     verify_session_in_progress(test_session)
@@ -545,15 +544,15 @@ def abandon_test(
     responses_saved = count_session_responses(db, session_id)
 
     # Mark session as abandoned
-    test_session.status = TestStatus.ABANDONED  # type: ignore[assignment]
-    test_session.completed_at = utc_now()  # type: ignore[assignment]
+    test_session.status = TestStatus.ABANDONED
+    test_session.completed_at = utc_now()
 
     db.commit()
     db.refresh(test_session)
 
     # Track analytics event
     AnalyticsTracker.track_test_abandoned(
-        user_id=int(current_user.id),  # type: ignore
+        user_id=current_user.id,
         session_id=session_id,
         answered_count=responses_saved,
     )
@@ -679,7 +678,7 @@ def _process_responses(
     submission: ResponseSubmission,
     test_session: TestSession,
     user_id: int,
-    questions_dict: dict,
+    questions_dict: dict[int, Question],
 ) -> ResponseProcessingResult:
     """
     Process and store all responses for a test submission.
@@ -711,7 +710,7 @@ def _process_responses(
         if not resp_item.user_answer or not resp_item.user_answer.strip():
             raise_bad_request(ErrorMessages.empty_answer(resp_item.question_id))
 
-        question = questions_dict.get(resp_item.question_id)  # type: ignore[call-overload]
+        question = questions_dict.get(resp_item.question_id)
         if not question:
             raise_not_found(ErrorMessages.question_not_found(resp_item.question_id))
 
@@ -761,8 +760,8 @@ def _complete_session_and_calculate_score(
     db: Session,
     test_session: TestSession,
     submission: ResponseSubmission,
-    response_objects: list,
-    questions_dict: dict,
+    response_objects: list["ResponseModel"],
+    questions_dict: dict[int, Question],
     correct_count: int,
     response_count: int,
 ) -> tuple:
@@ -787,17 +786,17 @@ def _complete_session_and_calculate_score(
     """
     # Update test session status to completed
     completion_time = utc_now()
-    test_session.status = TestStatus.COMPLETED  # type: ignore[assignment]
-    test_session.completed_at = completion_time  # type: ignore[assignment]
+    test_session.status = TestStatus.COMPLETED
+    test_session.completed_at = completion_time
 
     # Calculate completion time in seconds
-    started_at = ensure_timezone_aware(test_session.started_at)  # type: ignore[arg-type]
+    started_at = ensure_timezone_aware(test_session.started_at)
     time_delta = completion_time - started_at
     completion_time_seconds = int(time_delta.total_seconds())
 
     # TS-003/TS-010: Flag if time limit was exceeded
     if submission.time_limit_exceeded or completion_time_seconds > TIME_LIMIT_SECONDS:
-        test_session.time_limit_exceeded = True  # type: ignore[assignment]
+        test_session.time_limit_exceeded = True
         logger.info(
             f"Test session {test_session.id} exceeded time limit: "
             f"client_reported={submission.time_limit_exceeded}, "
@@ -806,7 +805,7 @@ def _complete_session_and_calculate_score(
         )
 
     # DW-003: Calculate domain-specific performance breakdown
-    domain_scores = calculate_domain_scores(response_objects, questions_dict)  # type: ignore[arg-type]
+    domain_scores = calculate_domain_scores(response_objects, questions_dict)
 
     # DW-014: Calculate IQ score using weighted or equal weights based on config
     use_weighted = is_weighted_scoring_enabled(db)
@@ -874,7 +873,7 @@ def _analyze_response_times(db: Session, session_id: int) -> Optional[dict]:
 def _run_validity_analysis(
     session_id: int,
     submission: ResponseSubmission,
-    questions_dict: dict,
+    questions_dict: dict[int, Question],
     correct_count: int,
 ) -> ValidityAnalysisResult:
     """
@@ -904,41 +903,36 @@ def _run_validity_analysis(
     ):
         # Prepare data for validity analysis
         # Person-fit needs: (is_correct, difficulty_level) tuples
-        person_fit_data = [
-            (
-                resp_item.user_answer.strip().lower()
-                == questions_dict.get(resp_item.question_id).correct_answer.strip().lower(),  # type: ignore[call-overload,union-attr]
-                questions_dict.get(resp_item.question_id).difficulty_level or "medium",  # type: ignore[call-overload,union-attr]
-            )
-            for resp_item in submission.responses
-            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
-        ]
+        person_fit_data: list[tuple[bool, str]] = []
+        time_check_data: list[dict[str, object]] = []
+        guttman_data: list[tuple[bool, float]] = []
 
-        # Time plausibility needs: dicts with time_seconds, is_correct, difficulty
-        time_check_data = [
-            {
-                "time_seconds": resp_item.time_spent_seconds,
-                "is_correct": (
-                    resp_item.user_answer.strip().lower()
-                    == questions_dict.get(resp_item.question_id).correct_answer.strip().lower()  # type: ignore[call-overload,union-attr]
-                ),
-                "difficulty": questions_dict.get(resp_item.question_id).difficulty_level or "medium",  # type: ignore[call-overload,union-attr]
-            }
-            for resp_item in submission.responses
-            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
-        ]
+        for resp_item in submission.responses:
+            question = questions_dict.get(resp_item.question_id)
+            if question is None:
+                continue
 
-        # Guttman check needs: (is_correct, empirical_difficulty) tuples
-        guttman_data = [
-            (
+            is_correct = (
                 resp_item.user_answer.strip().lower()
-                == questions_dict.get(resp_item.question_id).correct_answer.strip().lower(),  # type: ignore[call-overload,union-attr]
-                questions_dict.get(resp_item.question_id).empirical_difficulty,  # type: ignore[call-overload,union-attr]
+                == question.correct_answer.strip().lower()
             )
-            for resp_item in submission.responses
-            if questions_dict.get(resp_item.question_id) is not None  # type: ignore[call-overload]
-            and questions_dict.get(resp_item.question_id).empirical_difficulty is not None  # type: ignore[call-overload,union-attr]
-        ]
+            difficulty = (
+                question.difficulty_level.value
+                if question.difficulty_level
+                else "medium"
+            )
+
+            person_fit_data.append((is_correct, difficulty))
+            time_check_data.append(
+                {
+                    "time_seconds": resp_item.time_spent_seconds,
+                    "is_correct": is_correct,
+                    "difficulty": difficulty,
+                }
+            )
+
+            if question.empirical_difficulty is not None:
+                guttman_data.append((is_correct, question.empirical_difficulty))
 
         # Run individual validity checks
         person_fit_result = calculate_person_fit_heuristic(
@@ -1098,7 +1092,7 @@ def submit_test(
     """
     from app.models.models import TestResult
 
-    user_id = int(current_user.id)  # type: ignore
+    user_id = current_user.id
 
     # Step 1: Validate submission
     validation_result = _validate_submission(db, submission, user_id)
@@ -1131,20 +1125,18 @@ def submit_test(
     )
 
     # Step 4: Analyze response times
-    response_time_flags = _analyze_response_times(db, int(test_session.id))  # type: ignore
+    response_time_flags = _analyze_response_times(db, test_session.id)
 
     # Step 5: Run validity analysis
     validity_result = _run_validity_analysis(
-        int(test_session.id),  # type: ignore
+        test_session.id,
         submission,
         questions_dict,
         correct_count,
     )
 
     # Step 6: Calculate SEM and confidence interval
-    sem_result = _calculate_sem_and_ci(
-        db, int(test_session.id), score_result.iq_score  # type: ignore
-    )
+    sem_result = _calculate_sem_and_ci(db, test_session.id, score_result.iq_score)
 
     # Step 7: Create TestResult record
     test_result = TestResult(
@@ -1175,7 +1167,7 @@ def submit_test(
     # Step 9: Run post-submission updates (non-critical)
     _run_post_submission_updates(
         db,
-        int(test_session.id),  # type: ignore
+        test_session.id,
         correct_count,
         response_count,
     )
@@ -1183,7 +1175,7 @@ def submit_test(
     # Step 10: Track analytics and invalidate caches
     AnalyticsTracker.track_test_completed(
         user_id=user_id,
-        session_id=int(test_session.id),  # type: ignore
+        session_id=test_session.id,
         iq_score=score_result.iq_score,
         duration_seconds=completion_time_seconds,
         accuracy=score_result.accuracy_percentage,
