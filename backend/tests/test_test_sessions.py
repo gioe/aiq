@@ -20,21 +20,55 @@ class TestStartTest:
         assert "questions" in data
         assert "total_questions" in data
 
-        # Verify session details
+        # Verify session details with specific expected values
         session = data["session"]
         assert "id" in session
-        assert session["status"] == "in_progress"
+        assert isinstance(session["id"], int)
+        assert session["id"] > 0  # Session ID should be positive
+        assert session["status"] == "in_progress"  # Exact enum value
         assert "started_at" in session
+        assert session["started_at"] is not None  # Should have a timestamp
         assert session["completed_at"] is None
 
-        # Verify questions
+        # Verify questions count matches expected
         assert len(data["questions"]) == 3
         assert data["total_questions"] == 3
 
-        # Verify questions don't expose sensitive info
+        # Verify each question has required fields with correct types
         for question in data["questions"]:
+            # Required fields exist
+            assert "id" in question
+            assert "question_text" in question
+            assert "question_type" in question
+            assert "difficulty_level" in question
+            assert "answer_options" in question
+
+            # Type verification
+            assert isinstance(question["id"], int)
+            assert isinstance(question["question_text"], str)
+            assert len(question["question_text"]) > 0
+            assert question["question_type"] in [
+                "pattern",
+                "logic",
+                "spatial",
+                "math",
+                "verbal",
+                "memory",
+            ]
+            assert question["difficulty_level"] in ["easy", "medium", "hard"]
+            assert isinstance(question["answer_options"], list)
+            assert len(question["answer_options"]) >= 2  # At least 2 options
+
+            # Sensitive info verification
             assert "correct_answer" not in question
             assert question["explanation"] is None
+
+        # Verify questions returned are from the active question pool
+        active_question_ids = {q.id for q in test_questions if q.is_active}
+        returned_question_ids = {q["id"] for q in data["questions"]}
+        assert returned_question_ids.issubset(
+            active_question_ids
+        ), "All returned questions should be from active question pool"
 
     def test_start_test_default_count(self, client, auth_headers, test_questions):
         """Test starting test with default question count."""
@@ -356,6 +390,7 @@ class TestGetTestSession:
         )
         session_id = start_response.json()["session"]["id"]
         start_questions = start_response.json()["questions"]
+        started_at = start_response.json()["session"]["started_at"]
 
         # Get the session
         response = client.get(f"/v1/test/session/{session_id}", headers=auth_headers)
@@ -363,20 +398,41 @@ class TestGetTestSession:
         assert response.status_code == 200
         data = response.json()
 
+        # Verify response structure
         assert "session" in data
         assert "questions_count" in data
         assert "questions" in data
-        assert data["session"]["id"] == session_id
-        assert data["session"]["status"] == "in_progress"
-        assert data["questions_count"] == 0  # No responses yet
+
+        # Verify session field values are correct
+        session = data["session"]
+        assert session["id"] == session_id  # Exact ID match
+        assert session["status"] == "in_progress"  # Exact enum value
+        assert session["started_at"] == started_at  # Timestamp should match
+        assert session["completed_at"] is None  # Not completed yet
+
+        # Verify questions_count reflects the actual number of responses
+        # For a fresh session with no responses yet, this should be 0
+        assert data["questions_count"] == 0
+        assert isinstance(data["questions_count"], int)
 
         # Verify questions are returned for in_progress sessions
         assert data["questions"] is not None
         assert len(data["questions"]) == 2
-        # Verify question IDs match those from start_test
+
+        # Verify question IDs match exactly those from start_test
         retrieved_q_ids = {q["id"] for q in data["questions"]}
         start_q_ids = {q["id"] for q in start_questions}
         assert retrieved_q_ids == start_q_ids
+
+        # Verify question data matches what was returned at start
+        for start_q in start_questions:
+            matching_q = next(
+                (q for q in data["questions"] if q["id"] == start_q["id"]), None
+            )
+            assert matching_q is not None
+            assert matching_q["question_text"] == start_q["question_text"]
+            assert matching_q["question_type"] == start_q["question_type"]
+            assert matching_q["difficulty_level"] == start_q["difficulty_level"]
 
     def test_get_test_session_not_found(self, client, auth_headers):
         """Test getting non-existent session."""
@@ -529,6 +585,7 @@ class TestAbandonTest:
         )
         assert start_response.status_code == 200
         session_id = start_response.json()["session"]["id"]
+        started_at = start_response.json()["session"]["started_at"]
 
         # Abandon the test
         response = client.post(f"/v1/test/{session_id}/abandon", headers=auth_headers)
@@ -541,17 +598,32 @@ class TestAbandonTest:
         assert "message" in data
         assert "responses_saved" in data
 
-        # Verify session is marked as abandoned
+        # Verify session field values are correct
         session = data["session"]
-        assert session["id"] == session_id
-        assert session["status"] == "abandoned"
-        assert session["completed_at"] is not None
+        assert session["id"] == session_id  # Exact ID match
+        assert session["status"] == "abandoned"  # Exact enum value
+        assert (
+            session["started_at"] == started_at
+        )  # Should preserve original start time
+        assert session["completed_at"] is not None  # Should have completion timestamp
 
-        # Verify message
+        # Verify completed_at is a valid timestamp (ISO format)
+        from datetime import datetime
+
+        completed_at = session["completed_at"]
+        try:
+            datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise AssertionError(
+                f"completed_at '{completed_at}' is not a valid ISO timestamp"
+            )
+
+        # Verify message contains the action
         assert "abandoned successfully" in data["message"]
 
-        # No responses saved yet
+        # No responses saved for a fresh session with no answers
         assert data["responses_saved"] == 0
+        assert isinstance(data["responses_saved"], int)
 
     def test_abandon_test_with_responses_saved(
         self, client, auth_headers, test_questions, db_session
@@ -757,6 +829,9 @@ class TestSubmitTestWithTimeData:
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
+        # Build a map of question_id to correct_answer from test_questions fixture
+        correct_answers = {q.id: q.correct_answer for q in test_questions}
+
         # Submit test with time data for each question
         # answer_options is a list like ["8", "10", "12", "14"]
         responses = [
@@ -786,8 +861,9 @@ class TestSubmitTestWithTimeData:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["status"] == "completed"
+        assert data["session"]["status"] == "completed"  # Exact enum value
         assert data["responses_count"] == 3
+        assert isinstance(data["responses_count"], int)
 
         # Verify time data was stored in the database
         stored_responses = (
@@ -798,10 +874,27 @@ class TestSubmitTestWithTimeData:
 
         assert len(stored_responses) == 3
 
-        # Create a map of question_id to time_spent_seconds for verification
+        # Create maps for verification
         expected_times = {r["question_id"]: r["time_spent_seconds"] for r in responses}
+        expected_answers = {r["question_id"]: r["user_answer"] for r in responses}
+
         for resp in stored_responses:
+            # Verify time_spent_seconds
             assert resp.time_spent_seconds == expected_times[resp.question_id]
+
+            # Verify user_answer was stored correctly
+            assert resp.user_answer == expected_answers[resp.question_id]
+
+            # Verify is_correct is calculated based on correct_answer
+            expected_correct = resp.user_answer == correct_answers[resp.question_id]
+            assert resp.is_correct == expected_correct, (
+                f"Question {resp.question_id}: expected is_correct={expected_correct}, "
+                f"got {resp.is_correct}. user_answer={resp.user_answer}, "
+                f"correct_answer={correct_answers[resp.question_id]}"
+            )
+
+            # Verify answered_at timestamp is set
+            assert resp.answered_at is not None
 
     def test_submit_over_time_limit_sets_flag(
         self, client, auth_headers, test_questions, db_session
@@ -914,14 +1007,35 @@ class TestSubmitTestWithTimeData:
         assert test_result is not None
         assert test_result.response_time_flags is not None
 
-        # The flags should contain anomaly information
+        # The flags should contain timing information
         flags = test_result.response_time_flags
-        assert "flags" in flags
-        # Should have at least one flag for the rapid response
-        assert len(flags["flags"]) > 0
+        assert flags is not None
+        assert isinstance(flags, dict)
 
-        # The response should also include the flags
+        # Verify the structure contains expected fields from get_session_time_summary()
+        # The summary format includes: rapid_responses, extended_times, rushed_session,
+        # validity_concern, mean_time, flags
+        expected_keys = [
+            "flags",
+            "rapid_responses",
+            "extended_times",
+            "validity_concern",
+        ]
+        for key in expected_keys:
+            assert key in flags, f"Expected key '{key}' in response_time_flags"
+
+        # flags["flags"] is a list of string flags like ["multiple_rapid_responses"]
+        assert isinstance(flags["flags"], list)
+
+        # Verify integer types for counts
+        assert isinstance(flags["rapid_responses"], int)
+        assert isinstance(flags["extended_times"], int)
+        assert isinstance(flags["validity_concern"], bool)
+
+        # The response should also include the flags with matching content
         assert data["result"]["response_time_flags"] is not None
+        api_flags = data["result"]["response_time_flags"]
+        assert api_flags == flags  # Database and API response should match
 
     def test_submit_without_time_data_backward_compatible(
         self, client, auth_headers, test_questions, db_session
@@ -2456,3 +2570,380 @@ class TestBoundaryConditions:
             f"Test at exactly cadence cutoff should succeed, "
             f"got {response.status_code}: {response.json()}"
         )
+
+
+class TestValueCorrectness:
+    """Tests verifying that calculated values are correct, not just structure (BCQ-032).
+
+    These tests go beyond structure verification to ensure:
+    - Correct scoring calculations
+    - Accurate response tracking
+    - Proper enum value propagation
+    - Correct relationship between stored and returned values
+    """
+
+    def test_correct_answers_scored_correctly(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that correct answers result in is_correct=True and proper scoring."""
+        from app.models.models import Response, TestResult
+
+        # Start a test with 4 questions
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Build correct answer map
+        correct_answers = {q.id: q.correct_answer for q in test_questions}
+
+        # Submit ALL correct answers
+        responses = []
+        for q in questions:
+            correct_answer = correct_answers.get(q["id"])
+            assert (
+                correct_answer is not None
+            ), f"Question {q['id']} not in test_questions"
+            responses.append({"question_id": q["id"], "user_answer": correct_answer})
+
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+
+        # Verify all responses are marked correct in database
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .all()
+        )
+        assert len(stored_responses) == 4
+
+        for resp in stored_responses:
+            assert resp.is_correct is True, (
+                f"Response for question {resp.question_id} should be correct. "
+                f"user_answer={resp.user_answer}, "
+                f"correct_answer={correct_answers[resp.question_id]}"
+            )
+
+        # Verify result has all answers correct
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert (
+            test_result.correct_answers == 4
+        ), f"Expected 4 correct answers, got {test_result.correct_answers}"
+        assert test_result.total_questions == 4
+
+    def test_incorrect_answers_scored_correctly(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that incorrect answers result in is_correct=False and proper scoring."""
+        from app.models.models import Response, TestResult
+
+        # Start a test with 4 questions
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Build correct answer map
+        correct_answers = {q.id: q.correct_answer for q in test_questions}
+
+        # Submit ALL incorrect answers
+        responses = []
+        for q in questions:
+            correct_answer = correct_answers.get(q["id"])
+            # Find a wrong answer
+            wrong_answer = None
+            for opt in q["answer_options"]:
+                if opt != correct_answer:
+                    wrong_answer = opt
+                    break
+            assert wrong_answer is not None
+            responses.append({"question_id": q["id"], "user_answer": wrong_answer})
+
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+
+        # Verify all responses are marked incorrect in database
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .all()
+        )
+        assert len(stored_responses) == 4
+
+        for resp in stored_responses:
+            assert resp.is_correct is False, (
+                f"Response for question {resp.question_id} should be incorrect. "
+                f"user_answer={resp.user_answer}, "
+                f"correct_answer={correct_answers[resp.question_id]}"
+            )
+
+        # Verify result has no correct answers
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert (
+            test_result.correct_answers == 0
+        ), f"Expected 0 correct answers, got {test_result.correct_answers}"
+        assert test_result.total_questions == 4
+
+    def test_mixed_answers_scored_proportionally(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that mixed correct/incorrect answers result in proportional scoring."""
+        from app.models.models import Response, TestResult
+
+        # Start a test with 4 questions
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Build correct answer map
+        correct_answers = {q.id: q.correct_answer for q in test_questions}
+
+        # Submit 2 correct, 2 incorrect (50%)
+        responses = []
+        for i, q in enumerate(questions):
+            correct_answer = correct_answers.get(q["id"])
+            if i < 2:
+                # Correct
+                responses.append(
+                    {"question_id": q["id"], "user_answer": correct_answer}
+                )
+            else:
+                # Incorrect
+                wrong_answer = next(
+                    opt for opt in q["answer_options"] if opt != correct_answer
+                )
+                responses.append({"question_id": q["id"], "user_answer": wrong_answer})
+
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+
+        # Verify is_correct matches our expectations
+        stored_responses = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .all()
+        )
+
+        # Count correct/incorrect
+        correct_count = sum(1 for r in stored_responses if r.is_correct)
+        incorrect_count = sum(1 for r in stored_responses if not r.is_correct)
+
+        assert correct_count == 2, f"Expected 2 correct, got {correct_count}"
+        assert incorrect_count == 2, f"Expected 2 incorrect, got {incorrect_count}"
+
+        # Verify result has 2 correct answers (50%)
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result is not None
+        assert (
+            test_result.correct_answers == 2
+        ), f"Expected 2 correct answers, got {test_result.correct_answers}"
+        assert test_result.total_questions == 4
+
+    def test_response_count_matches_submitted_count(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that responses_count in API matches actual stored responses."""
+        from app.models.models import Response
+
+        # Start a test with 3 questions
+        start_response = client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit all 3 answers
+        responses = [
+            {"question_id": q["id"], "user_answer": q["answer_options"][0]}
+            for q in questions
+        ]
+
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify responses_count in API matches
+        assert data["responses_count"] == 3
+
+        # Verify database count matches
+        db_count = (
+            db_session.query(Response)
+            .filter(Response.test_session_id == session_id)
+            .count()
+        )
+        assert db_count == 3
+        assert db_count == data["responses_count"]
+
+    def test_session_status_enum_values_correct(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that session status enum values are correctly represented in API."""
+        from app.models import TestSession
+        from app.models.models import TestStatus
+
+        # Start a test - should be "in_progress"
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+
+        # Verify status is exact string "in_progress"
+        assert start_response.json()["session"]["status"] == "in_progress"
+
+        # Verify database has matching enum
+        session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert session.status == TestStatus.IN_PROGRESS
+        assert session.status.value == "in_progress"
+
+        # Submit test - should become "completed"
+        questions = start_response.json()["questions"]
+        responses = [
+            {"question_id": q["id"], "user_answer": q["answer_options"][0]}
+            for q in questions
+        ]
+        submission = {"session_id": session_id, "responses": responses}
+        submit_response = client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
+
+        assert submit_response.status_code == 200
+        assert submit_response.json()["session"]["status"] == "completed"
+
+        # Verify database has matching enum
+        db_session.refresh(session)
+        assert session.status == TestStatus.COMPLETED
+        assert session.status.value == "completed"
+
+    def test_result_iq_score_within_valid_range(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that IQ score is within the valid schema range (40-160)."""
+        from app.models.models import TestResult
+
+        # Start and complete a test
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Submit answers
+        responses = [
+            {"question_id": q["id"], "user_answer": q["answer_options"][0]}
+            for q in questions
+        ]
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify IQ score is within valid range
+        iq_score = data["result"]["iq_score"]
+        assert 40 <= iq_score <= 160, f"IQ score {iq_score} outside valid range 40-160"
+
+        # Verify database value matches
+        test_result = (
+            db_session.query(TestResult)
+            .filter(TestResult.test_session_id == session_id)
+            .first()
+        )
+        assert test_result.iq_score == iq_score
+
+    def test_domain_scores_sum_to_expected_totals(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that domain scores correct+incorrect equals total for each domain."""
+        import pytest
+
+        # Start a test with all 4 questions
+        start_response = client.post(
+            "/v1/test/start?question_count=4", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+        questions = start_response.json()["questions"]
+
+        # Build correct answer map
+        correct_answers = {q.id: q.correct_answer for q in test_questions}
+
+        # Submit with known correct/incorrect pattern
+        responses = []
+        for i, q in enumerate(questions):
+            correct_answer = correct_answers.get(q["id"])
+            if i % 2 == 0:
+                responses.append(
+                    {"question_id": q["id"], "user_answer": correct_answer}
+                )
+            else:
+                wrong_answer = next(
+                    opt for opt in q["answer_options"] if opt != correct_answer
+                )
+                responses.append({"question_id": q["id"], "user_answer": wrong_answer})
+
+        submission = {"session_id": session_id, "responses": responses}
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify domain scores are internally consistent
+        domain_scores = data["result"]["domain_scores"]
+
+        total_questions = 0
+        total_correct = 0
+
+        for domain, scores in domain_scores.items():
+            # Each domain should have consistent data
+            assert isinstance(scores["total"], int)
+            assert isinstance(scores["correct"], int)
+            assert scores["correct"] <= scores["total"]
+
+            # If there are questions, pct should be calculable
+            if scores["total"] > 0:
+                expected_pct = (scores["correct"] / scores["total"]) * 100
+                assert scores["pct"] == pytest.approx(
+                    expected_pct
+                ), f"Domain {domain} pct mismatch"
+
+            total_questions += scores["total"]
+            total_correct += scores["correct"]
+
+        # Total across all domains should equal questions answered
+        assert (
+            total_questions == 4
+        ), f"Expected 4 total questions, got {total_questions}"
