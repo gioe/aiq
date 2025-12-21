@@ -337,14 +337,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-028: Add Logging to Auth Module
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/api/v1/auth.py`
 **Description:** No logger set up for authentication events.
 **Acceptance Criteria:**
-- [ ] Add logger at module level
-- [ ] Log successful logins with user_id (no PII)
-- [ ] Log failed login attempts with email (warning level)
-- [ ] Log token refresh events
+- [x] Add logger at module level
+- [x] Log successful logins with user_id (no PII)
+- [x] Log failed login attempts with email (warning level)
+- [x] Log token refresh events
 
 ---
 
