@@ -2176,7 +2176,7 @@ class TestGetTestSessionOr404:
             get_test_session_or_404(db_session, 99999)
 
         assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == "Test session not found"
+        assert exc_info.value.detail == "Test session not found."
 
     def test_error_message_is_consistent(self, db_session):
         """Test that error message format is consistent."""
@@ -2191,7 +2191,7 @@ class TestGetTestSessionOr404:
 
             # Verify consistent error format
             assert exc_info.value.status_code == 404
-            assert exc_info.value.detail == "Test session not found"
+            assert exc_info.value.detail == "Test session not found."
 
     def test_returns_session_regardless_of_status(self, db_session, test_user):
         """Test that helper returns sessions in any status (not just in_progress)."""

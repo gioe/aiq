@@ -73,7 +73,7 @@ class TestGetTestResult:
         response = client.get("/v1/test/results/99999", headers=auth_headers)
 
         assert response.status_code == 404
-        assert response.json()["detail"] == "Test result not found"
+        assert response.json()["detail"] == "Test result not found."
 
     def test_get_test_result_unauthorized(
         self, client, auth_headers, test_questions, db_session, test_user
@@ -124,7 +124,7 @@ class TestGetTestResult:
         )
 
         assert response.status_code == 403
-        assert response.json()["detail"] == "Not authorized to access this test result"
+        assert response.json()["detail"] == "Not authorized to access this test result."
 
     def test_get_test_result_unauthenticated(self, client, test_questions, db_session):
         """Test that unauthenticated requests are rejected."""
