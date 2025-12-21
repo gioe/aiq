@@ -371,7 +371,7 @@ def unchecked_session(db_session, test_user, validity_questions):
 class TestGetSessionValidity:
     """Integration tests for GET /v1/admin/sessions/{session_id}/validity endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_for_valid_session(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -395,7 +395,7 @@ class TestGetSessionValidity:
         assert data["flag_details"] == []
         assert data["validity_checked_at"] is not None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_for_suspect_session(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):
@@ -424,7 +424,7 @@ class TestGetSessionValidity:
         assert flag["source"] == "time_check"
         assert "count" in flag
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_for_invalid_session(
         self, client, db_session, admin_headers, invalid_session_with_multiple_flags
     ):
@@ -449,7 +449,7 @@ class TestGetSessionValidity:
         # Verify confidence is low for invalid sessions
         assert data["confidence"] < 0.5
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_on_demand_analysis(
         self, client, db_session, admin_headers, unchecked_session
     ):
@@ -480,7 +480,7 @@ class TestGetSessionValidity:
         # Not stored (on-demand)
         assert data["validity_checked_at"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_session_not_found(self, client, db_session, admin_headers):
         """Test 404 response for non-existent session."""
         response = client.get(
@@ -491,7 +491,7 @@ class TestGetSessionValidity:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_requires_auth(self, client, db_session):
         """Test that endpoint requires authentication header."""
         response = client.get("/v1/admin/sessions/1/validity")
@@ -499,7 +499,7 @@ class TestGetSessionValidity:
         # Missing header results in 422 (validation error)
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_invalid_token(
         self, client, db_session, valid_session_with_normal_pattern
     ):
@@ -514,7 +514,7 @@ class TestGetSessionValidity:
         assert response.status_code == 401
         assert "invalid" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", None)
+    @patch("app.core.config.settings.ADMIN_TOKEN", None)
     def test_get_validity_token_not_configured(self, client, db_session, admin_headers):
         """Test error when admin token is not configured on server."""
         response = client.get(
@@ -525,7 +525,7 @@ class TestGetSessionValidity:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_get_validity_response_schema_validation(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -578,7 +578,7 @@ class TestGetSessionValidity:
 class TestGetValidityReport:
     """Integration tests for GET /v1/admin/validity-report endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_empty_database(self, client, db_session, admin_headers):
         """Test validity report with no test sessions."""
         response = client.get(
@@ -604,7 +604,7 @@ class TestGetValidityReport:
         assert data["summary"]["invalid"] == 0
         assert data["action_needed"] == []
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_with_mixed_sessions(
         self,
         client,
@@ -638,7 +638,7 @@ class TestGetValidityReport:
         assert "invalid" in statuses
         assert "valid" not in statuses
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_flag_type_breakdown(
         self, client, db_session, admin_headers, invalid_session_with_multiple_flags
     ):
@@ -674,7 +674,7 @@ class TestGetValidityReport:
         assert by_flag["aberrant_response_pattern"] >= 1
         assert by_flag["high_guttman_errors"] >= 1
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_custom_days_parameter(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -689,7 +689,7 @@ class TestGetValidityReport:
 
         assert data["period_days"] == 7
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_status_filter(
         self,
         client,
@@ -726,7 +726,7 @@ class TestGetValidityReport:
         assert data["summary"]["suspect"] == 1
         assert data["summary"]["valid"] == 0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_trend_calculation(
         self,
         client,
@@ -762,7 +762,7 @@ class TestGetValidityReport:
         # Verify trend is valid enum
         assert trends["trend"] in ["improving", "stable", "worsening"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_action_needed_sorted_by_severity(
         self,
         client,
@@ -790,7 +790,7 @@ class TestGetValidityReport:
                 >= action_needed[i + 1]["severity_score"]
             ), "action_needed not sorted by severity_score descending"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_action_needed_structure(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):
@@ -821,14 +821,14 @@ class TestGetValidityReport:
         assert isinstance(session["flags"], list)
         assert session["validity_status"] in ["invalid", "suspect"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_requires_auth(self, client, db_session):
         """Test that endpoint requires authentication header."""
         response = client.get("/v1/admin/validity-report")
 
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_invalid_token(self, client, db_session):
         """Test that invalid admin token is rejected."""
         response = client.get(
@@ -839,7 +839,7 @@ class TestGetValidityReport:
         assert response.status_code == 401
         assert "Invalid admin token" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "")
     def test_validity_report_token_not_configured(
         self, client, db_session, admin_headers
     ):
@@ -852,7 +852,7 @@ class TestGetValidityReport:
         assert response.status_code == 500
         assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_invalid_days_parameter(
         self, client, db_session, admin_headers
     ):
@@ -871,7 +871,7 @@ class TestGetValidityReport:
         )
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_response_schema_validation(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -917,7 +917,7 @@ class TestGetValidityReport:
         assert isinstance(data["generated_at"], str)
         assert isinstance(data["action_needed"], list)
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_action_needed_limit(
         self, client, db_session, admin_headers, test_user, validity_questions
     ):
@@ -966,7 +966,7 @@ class TestGetValidityReport:
         # Should be limited to 50
         assert len(data["action_needed"]) <= 50
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_validity_report_excludes_valid_from_action_needed(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -992,7 +992,7 @@ class TestGetValidityReport:
 class TestOverrideSessionValidity:
     """Integration tests for PATCH /v1/admin/sessions/{session_id}/validity endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_suspect_to_valid(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):
@@ -1033,7 +1033,7 @@ class TestOverrideSessionValidity:
         assert result.validity_overridden_at is not None
         assert result.validity_overridden_by == 0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_invalid_to_suspect(
         self, client, db_session, admin_headers, invalid_session_with_multiple_flags
     ):
@@ -1057,7 +1057,7 @@ class TestOverrideSessionValidity:
         assert data["previous_status"] == "invalid"
         assert data["new_status"] == "suspect"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_valid_to_invalid(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -1081,7 +1081,7 @@ class TestOverrideSessionValidity:
         assert data["previous_status"] == "valid"
         assert data["new_status"] == "invalid"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_session_not_found(self, client, db_session, admin_headers):
         """Test 404 response for non-existent session."""
         override_data = {
@@ -1098,7 +1098,7 @@ class TestOverrideSessionValidity:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_session_without_result(
         self, client, db_session, admin_headers, test_user
     ):
@@ -1127,7 +1127,7 @@ class TestOverrideSessionValidity:
         assert response.status_code == 404
         assert "result" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_requires_auth(self, client, db_session):
         """Test that endpoint requires authentication header."""
         override_data = {
@@ -1143,7 +1143,7 @@ class TestOverrideSessionValidity:
         # Missing header results in 422 (validation error for required header)
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_invalid_auth(
         self, client, db_session, valid_session_with_normal_pattern
     ):
@@ -1162,7 +1162,7 @@ class TestOverrideSessionValidity:
         assert response.status_code == 401
         assert "invalid" in response.json()["detail"].lower()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_reason_too_short(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -1181,7 +1181,7 @@ class TestOverrideSessionValidity:
         assert response.status_code == 422
         # Pydantic should reject reason < 10 chars
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_missing_reason(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -1199,7 +1199,7 @@ class TestOverrideSessionValidity:
 
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_invalid_status_value(
         self, client, db_session, admin_headers, valid_session_with_normal_pattern
     ):
@@ -1217,7 +1217,7 @@ class TestOverrideSessionValidity:
 
         assert response.status_code == 422
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_same_status_allowed(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):
@@ -1244,7 +1244,7 @@ class TestOverrideSessionValidity:
         assert data["override_reason"] == override_data["override_reason"]
         assert data["overridden_at"] is not None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_updates_existing_override(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):
@@ -1292,7 +1292,7 @@ class TestOverrideSessionValidity:
         assert result.validity_status == "suspect"
         assert result.validity_override_reason == second_override["override_reason"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_override_preserves_original_flags(
         self, client, db_session, admin_headers, suspect_session_with_rapid_responses
     ):

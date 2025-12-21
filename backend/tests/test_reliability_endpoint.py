@@ -134,7 +134,7 @@ def test_user(db_session):
 class TestReliabilityEndpoint:
     """Tests for GET /v1/admin/reliability endpoint."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_returns_insufficient_data_gracefully(
         self, client, db_session, admin_token_headers
     ):
@@ -178,7 +178,7 @@ class TestReliabilityEndpoint:
         categories = [r["category"] for r in data["recommendations"]]
         assert "data_collection" in categories
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_requires_admin_token(self, client, db_session):
         """Test endpoint requires valid admin token."""
         # No token
@@ -192,7 +192,7 @@ class TestReliabilityEndpoint:
         )
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_min_sessions_parameter(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -225,7 +225,7 @@ class TestReliabilityEndpoint:
         # Should attempt calculation with lower threshold
         assert data["internal_consistency"]["num_sessions"] >= 0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_min_retest_pairs_parameter(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -246,7 +246,7 @@ class TestReliabilityEndpoint:
         data = response.json()
         assert data["test_retest"]["correlation"] is None
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_store_metrics_true_persists_data(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -277,7 +277,7 @@ class TestReliabilityEndpoint:
         # At least no error occurred - actual storage depends on calculations succeeding
         assert new_metrics_count >= existing_metrics
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_store_metrics_false_no_persistence(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -307,7 +307,7 @@ class TestReliabilityEndpoint:
         new_metrics_count = db_session.query(ReliabilityMetric).count()
         assert new_metrics_count == existing_metrics
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_response_schema_structure(self, client, db_session, admin_token_headers):
         """Test response matches expected schema structure."""
         response = client.get(
@@ -372,7 +372,7 @@ class TestReliabilityEndpoint:
             ]
             assert rec["priority"] in ["high", "medium", "low"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_parameter_validation(self, client, db_session, admin_token_headers):
         """Test query parameter validation."""
         # min_sessions must be >= 10
@@ -393,7 +393,7 @@ class TestReliabilityEndpoint:
 
     def test_admin_token_not_configured(self, client, db_session):
         """Test handling when admin token is not configured on server."""
-        with patch("app.core.settings.ADMIN_TOKEN", None):
+        with patch("app.core.config.settings.ADMIN_TOKEN", None):
             response = client.get(
                 "/v1/admin/reliability",
                 headers={"X-Admin-Token": "any-token"},
@@ -401,7 +401,7 @@ class TestReliabilityEndpoint:
             assert response.status_code == 500
             assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_last_calculated_timestamp_present(
         self, client, db_session, admin_token_headers
     ):
@@ -423,7 +423,7 @@ class TestReliabilityEndpoint:
 class TestReliabilityHistoryEndpoint:
     """Tests for GET /v1/admin/reliability/history endpoint (RE-009)."""
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_returns_empty_history_when_no_metrics(
         self, client, db_session, admin_token_headers
     ):
@@ -441,7 +441,7 @@ class TestReliabilityHistoryEndpoint:
         assert data["metrics"] == []
         assert data["total_count"] == 0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_requires_admin_token(self, client, db_session):
         """Test endpoint requires valid admin token."""
         # No token
@@ -455,7 +455,7 @@ class TestReliabilityHistoryEndpoint:
         )
         assert response.status_code == 401
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_returns_stored_metrics(self, client, db_session, admin_token_headers):
         """Test endpoint returns previously stored metrics."""
         # Create some reliability metrics directly
@@ -520,7 +520,7 @@ class TestReliabilityHistoryEndpoint:
         assert data["metrics"][1]["metric_type"] == "test_retest"
         assert data["metrics"][2]["metric_type"] == "split_half"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_filters_by_metric_type(self, client, db_session, admin_token_headers):
         """Test filtering by metric_type parameter."""
         # Create metrics of different types
@@ -567,7 +567,7 @@ class TestReliabilityHistoryEndpoint:
         for metric in data["metrics"]:
             assert metric["metric_type"] == "test_retest"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_filters_by_days(self, client, db_session, admin_token_headers):
         """Test filtering by days parameter."""
         now = utc_now()
@@ -612,7 +612,7 @@ class TestReliabilityHistoryEndpoint:
         # Should get metrics from last 90 days (ages 5, 25, 50)
         assert data["total_count"] == 3
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_days_parameter_validation(self, client, db_session, admin_token_headers):
         """Test days parameter validation (1-365)."""
         # days must be >= 1
@@ -647,7 +647,7 @@ class TestReliabilityHistoryEndpoint:
         )
         assert response.status_code == 200
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_response_schema_structure(self, client, db_session, admin_token_headers):
         """Test response matches expected schema structure."""
         now = utc_now()
@@ -691,7 +691,7 @@ class TestReliabilityHistoryEndpoint:
 
     def test_admin_token_not_configured(self, client, db_session):
         """Test handling when admin token is not configured on server."""
-        with patch("app.core.settings.ADMIN_TOKEN", None):
+        with patch("app.core.config.settings.ADMIN_TOKEN", None):
             response = client.get(
                 "/v1/admin/reliability/history",
                 headers={"X-Admin-Token": "any-token"},
@@ -699,7 +699,7 @@ class TestReliabilityHistoryEndpoint:
             assert response.status_code == 500
             assert "not configured" in response.json()["detail"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_combines_metric_type_and_days_filters(
         self, client, db_session, admin_token_headers
     ):
@@ -757,7 +757,7 @@ class TestReliabilityReportCaching:
     - Different parameters result in different cache keys
     """
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_used_when_store_metrics_false(
         self, client, db_session, admin_token_headers
     ):
@@ -785,7 +785,7 @@ class TestReliabilityReportCaching:
         # Timestamps should be identical (from cache)
         assert timestamp1 == timestamp2
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_bypassed_when_store_metrics_true(
         self, client, db_session, admin_token_headers
     ):
@@ -816,7 +816,7 @@ class TestReliabilityReportCaching:
         # Timestamps should be different (fresh calculation)
         assert timestamp1 != timestamp2
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_different_parameters_use_different_cache_keys(
         self, client, db_session, admin_token_headers
     ):
@@ -842,7 +842,7 @@ class TestReliabilityReportCaching:
         assert "internal_consistency" in response1.json()
         assert "internal_consistency" in response2.json()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_invalidation_works(self, client, db_session, admin_token_headers):
         """Test that cache can be invalidated."""
         from app.core.reliability import invalidate_reliability_report_cache
@@ -875,7 +875,7 @@ class TestReliabilityReportCaching:
         # Timestamps should be different after cache invalidation
         assert timestamp1 != timestamp2
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_does_not_affect_response_structure(
         self, client, db_session, admin_token_headers
     ):
@@ -921,7 +921,7 @@ class TestRandomizedDataPatterns:
     - Random noise in data
     """
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_high_variance_random_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -993,7 +993,7 @@ class TestRandomizedDataPatterns:
         assert "cronbachs_alpha" in data["internal_consistency"]
         assert "overall_status" in data
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_bimodal_score_distribution(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1068,7 +1068,7 @@ class TestRandomizedDataPatterns:
         # The endpoint should still return valid structure
         assert "cronbachs_alpha" in data["internal_consistency"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_low_variance_nearly_identical_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1140,7 +1140,7 @@ class TestRandomizedDataPatterns:
         assert "cronbachs_alpha" in data["internal_consistency"]
         assert data["internal_consistency"]["num_sessions"] >= 10
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_zero_variance_all_same_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1230,7 +1230,7 @@ class TestRandomizedDataPatterns:
             f"got {data['overall_status']}"
         )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_skewed_difficulty_easy_items_only(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1335,7 +1335,7 @@ class TestRandomizedDataPatterns:
         # Note: Very easy items reduce variance, which deflates alpha
         # This is expected psychometric behavior, not a bug
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_skewed_difficulty_hard_items_only(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1403,7 +1403,7 @@ class TestRandomizedDataPatterns:
         # May have low alpha due to floor effect but should not error
         assert "cronbachs_alpha" in data["internal_consistency"]
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_enum_validation_questionable_unacceptable_interpretations(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1541,7 +1541,7 @@ class TestRandomizedDataPatterns:
             interpretation is not None or alpha is None
         ), "If alpha is calculated, interpretation should be provided"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_mixed_item_difficulty_realistic(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1640,7 +1640,7 @@ class TestRandomizedDataPatterns:
         if alpha is not None:
             assert -1.0 <= alpha <= 1.0  # Alpha should be in valid range
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_random_noise_with_some_structure(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1722,7 +1722,7 @@ class TestRandomizedDataPatterns:
         if alpha is not None:
             assert -1.0 <= alpha <= 1.0
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_extreme_outlier_session(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -1830,7 +1830,7 @@ class TestLargeDatasetPerformance:
     - Concurrent request handling works correctly
     """
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_large_dataset_10000_sessions(
         self, client, db_session, admin_token_headers
     ):
@@ -1976,7 +1976,7 @@ class TestLargeDatasetPerformance:
                 f"  Cronbach's alpha: {data['internal_consistency']['cronbachs_alpha']:.4f}"
             )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_concurrent_request_handling(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -2097,7 +2097,7 @@ class TestLargeDatasetPerformance:
         print(f"  Avg time per request: {total_time / NUM_CONCURRENT:.2f}s")
         print(f"  Unique timestamps: {len(unique_timestamps)}")
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_all_users_identical_scores_zero_variance(
         self, client, db_session, admin_token_headers
     ):
@@ -2199,7 +2199,7 @@ class TestLargeDatasetPerformance:
         print(f"  Test-retest r: {data['test_retest']['correlation']}")
         print(f"  Overall status: {data['overall_status']}")
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_large_dataset_with_many_questions(
         self, client, db_session, admin_token_headers
     ):
@@ -2310,7 +2310,7 @@ class TestLargeDatasetPerformance:
         # Performance should still be reasonable
         assert request_time < 30, f"Request took {request_time:.2f}s, expected < 30s"
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_stress_test_rapid_sequential_requests(
         self, client, db_session, admin_token_headers, test_user
     ):
@@ -2410,7 +2410,7 @@ class TestAutomaticCacheInvalidation:
     always see up-to-date reliability metrics.
     """
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_invalidated_on_test_submit(
         self, client, db_session, admin_token_headers
     ):
@@ -2569,7 +2569,7 @@ class TestAutomaticCacheInvalidation:
             f"timestamp1={timestamp1}, timestamp3={timestamp3}"
         )
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_cache_invalidation_function_called_on_submit(
         self, client, db_session, admin_token_headers
     ):
@@ -2649,7 +2649,7 @@ class TestAutomaticCacheInvalidation:
             # Verify the cache invalidation function was called exactly once
             mock_invalidate.assert_called_once()
 
-    @patch("app.core.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     def test_new_test_data_reflected_in_reliability_after_invalidation(
         self, client, db_session, admin_token_headers
     ):
