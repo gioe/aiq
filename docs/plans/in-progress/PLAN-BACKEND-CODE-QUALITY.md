@@ -325,14 +325,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-027: Standardize Error Response Format
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** Various auth and test endpoints
 **Description:** Inconsistent detail messages in error responses.
 **Acceptance Criteria:**
-- [ ] Create error message constants or response builders
-- [ ] Apply to all HTTPExceptions
-- [ ] Consistent format (include/exclude IDs, formatting)
-- [ ] Document format in CLAUDE.md
+- [x] Create error message constants or response builders
+- [x] Apply to all HTTPExceptions
+- [x] Consistent format (include/exclude IDs, formatting)
+- [x] Document format in CLAUDE.md
 
 ---
 
