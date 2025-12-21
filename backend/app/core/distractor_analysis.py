@@ -14,13 +14,91 @@ Based on:
 - docs/plans/drafts/PLAN-DISTRACTOR-ANALYSIS.md
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.models import Question
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_and_prepare_distractor_update(
+    db: Session,
+    question_id: int,
+    selected_answer: str,
+    operation_name: str = "distractor stats update",
+) -> Optional[Tuple["Question", Dict[str, Dict[str, int]], str]]:
+    """
+    Validate inputs and prepare data for distractor stats updates.
+
+    This helper consolidates the common validation and initialization logic
+    shared between update_distractor_stats and update_distractor_quartile_stats.
+
+    Args:
+        db: Database session
+        question_id: ID of the question
+        selected_answer: The answer option selected by the user
+        operation_name: Name of the operation for logging context
+
+    Returns:
+        Tuple of (question, current_stats, normalized_answer) if validation passes,
+        None if validation fails (with appropriate logging).
+
+        - question: The Question ORM object
+        - current_stats: The current distractor_stats dict (initialized if null)
+        - normalized_answer: The normalized and validated answer string
+
+    Note:
+        When this function returns None, appropriate warning/error messages have
+        already been logged. Callers should simply return False.
+    """
+    # Validate non-empty answer
+    if not selected_answer:
+        logger.warning(
+            f"{operation_name} called with empty selected_answer "
+            f"for question {question_id}"
+        )
+        return None
+
+    # Fetch question
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        logger.error(f"Question {question_id} not found for {operation_name}")
+        return None
+
+    # Skip questions without answer_options (free-response questions)
+    if question.answer_options is None:
+        logger.debug(
+            f"Skipping {operation_name} for question {question_id}: "
+            f"no answer_options (likely free-response)"
+        )
+        return None
+
+    # Initialize distractor_stats if null
+    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}  # type: ignore[assignment]
+
+    # Normalize the selected answer for consistent storage
+    normalized_answer = str(selected_answer).strip()
+
+    # Validate that the selected answer is a valid option key
+    if normalized_answer not in question.answer_options:
+        logger.warning(
+            f"Invalid option '{normalized_answer}' for {operation_name} on question {question_id}. "
+            f"Valid options: {list(question.answer_options.keys())}"
+        )
+        return None
+
+    # Initialize stats for this option if not present
+    if normalized_answer not in current_stats:
+        current_stats[normalized_answer] = {
+            "count": 0,
+            "top_q": 0,
+            "bottom_q": 0,
+        }
+
+    return (question, current_stats, normalized_answer)
 
 
 def update_distractor_stats(
@@ -60,50 +138,14 @@ def update_distractor_stats(
             ...
         }
     """
-    if not selected_answer:
-        logger.warning(
-            f"update_distractor_stats called with empty selected_answer "
-            f"for question {question_id}"
-        )
+    # Validate inputs and prepare data
+    result = _validate_and_prepare_distractor_update(
+        db, question_id, selected_answer, "distractor stats update"
+    )
+    if result is None:
         return False
 
-    question = db.query(Question).filter(Question.id == question_id).first()
-
-    if not question:
-        logger.error(f"Question {question_id} not found for distractor stats update")
-        return False
-
-    # Skip questions without answer_options (free-response questions)
-    if question.answer_options is None:
-        logger.debug(
-            f"Skipping distractor stats for question {question_id}: "
-            f"no answer_options (likely free-response)"
-        )
-        return False
-
-    # Initialize distractor_stats if null
-    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}  # type: ignore[assignment]
-
-    # Normalize the selected answer for consistent storage
-    # Handle both cases where answer could be the option key ("A") or option text
-    normalized_answer = str(selected_answer).strip()
-
-    # Validate that the selected answer is a valid option key
-    # This helps catch data quality issues (e.g., frontend sending wrong values)
-    if normalized_answer not in question.answer_options:
-        logger.warning(
-            f"Invalid option '{normalized_answer}' selected for question {question_id}. "
-            f"Valid options: {list(question.answer_options.keys())}"
-        )
-        return False
-
-    # Initialize stats for this option if not present
-    if normalized_answer not in current_stats:
-        current_stats[normalized_answer] = {
-            "count": 0,
-            "top_q": 0,
-            "bottom_q": 0,
-        }
+    question, current_stats, normalized_answer = result
 
     # Increment selection count
     current_stats[normalized_answer]["count"] += 1
@@ -146,48 +188,14 @@ def update_distractor_quartile_stats(
     Note:
         This function does NOT commit the transaction.
     """
-    if not selected_answer:
-        logger.warning(
-            f"update_distractor_quartile_stats called with empty selected_answer "
-            f"for question {question_id}"
-        )
+    # Validate inputs and prepare data
+    result = _validate_and_prepare_distractor_update(
+        db, question_id, selected_answer, "distractor quartile stats update"
+    )
+    if result is None:
         return False
 
-    question = db.query(Question).filter(Question.id == question_id).first()
-
-    if not question:
-        logger.error(
-            f"Question {question_id} not found for distractor quartile stats update"
-        )
-        return False
-
-    # Skip questions without answer_options (free-response questions)
-    if question.answer_options is None:
-        logger.debug(
-            f"Skipping distractor quartile stats for question {question_id}: "
-            f"no answer_options (likely free-response)"
-        )
-        return False
-
-    # Get current stats
-    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}  # type: ignore[assignment]
-    normalized_answer = str(selected_answer).strip()
-
-    # Validate that the selected answer is a valid option key
-    if normalized_answer not in question.answer_options:
-        logger.warning(
-            f"Invalid option '{normalized_answer}' for quartile stats on question {question_id}. "
-            f"Valid options: {list(question.answer_options.keys())}"
-        )
-        return False
-
-    # Initialize stats for this option if not present
-    if normalized_answer not in current_stats:
-        current_stats[normalized_answer] = {
-            "count": 0,
-            "top_q": 0,
-            "bottom_q": 0,
-        }
+    question, current_stats, normalized_answer = result
 
     # Increment the appropriate quartile counter
     if is_top_quartile:
