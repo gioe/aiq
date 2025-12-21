@@ -2,6 +2,7 @@
 Main FastAPI application.
 """
 import logging
+import uuid
 from typing import Union
 
 from fastapi import FastAPI, Request, status
@@ -351,11 +352,21 @@ def create_application() -> FastAPI:
     async def generic_exception_handler(request: Request, exc: Exception):
         """
         Handle unexpected exceptions and track them.
-        """
-        # Log the full exception
-        logger.exception(f"Unhandled exception: {exc}")
 
-        # Track the error
+        Generates a unique error_id (UUID) for each exception to enable
+        support teams to trace specific errors in logs. The error_id is
+        included in the response body and logged with the full exception.
+        """
+        # Generate unique error ID for tracing
+        error_id = str(uuid.uuid4())
+
+        # Log the full exception with error_id for tracing
+        logger.exception(
+            f"Unhandled exception [error_id={error_id}]: {exc}",
+            extra={"error_id": error_id},
+        )
+
+        # Track the error with analytics
         user_id = getattr(request.state, "user_id", None)
 
         AnalyticsTracker.track_api_error(
@@ -366,10 +377,13 @@ def create_application() -> FastAPI:
             user_id=user_id,
         )
 
-        # Return generic error response (don't leak internal details)
+        # Return error response with tracking ID (don't leak internal details)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Internal server error"},
+            content={
+                "detail": "Internal server error",
+                "error_id": error_id,
+            },
         )
 
     return app
