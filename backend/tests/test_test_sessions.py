@@ -2225,3 +2225,234 @@ class TestGetTestSessionOr404:
             assert result is not None
             assert result.id == session.id
             assert result.status == status
+
+
+class TestBoundaryConditions:
+    """Tests for boundary conditions and edge cases (BCQ-031).
+
+    These tests verify behavior at exact boundary values for:
+    - Test cadence (exactly at 90 days vs 89 days)
+    - Empty response submissions
+    - Maximum concurrent sessions
+    """
+
+    def test_start_test_exactly_at_cadence_boundary_succeeds(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that starting a test exactly 90 days after last completed test succeeds.
+
+        This tests the boundary condition where completed_at is exactly TEST_CADENCE_DAYS
+        ago. The user should be allowed to start a new test.
+
+        Boundary: completed_at == utc_now() - timedelta(days=90) should succeed.
+        """
+        from datetime import timedelta
+
+        from app.core.config import settings
+        from app.core.datetime_utils import utc_now
+        from app.models import TestSession, User
+        from app.models.models import TestStatus
+
+        # Get test user
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create a completed test session exactly TEST_CADENCE_DAYS (90 days) ago
+        # Using exactly 90 days, no extra hours
+        completed_time = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        completed_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+            started_at=completed_time - timedelta(hours=1),
+            completed_at=completed_time,
+        )
+        db_session.add(completed_session)
+        db_session.commit()
+
+        # Try to start a new test - should succeed
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200, (
+            f"Expected 200 OK at exactly {settings.TEST_CADENCE_DAYS} days, "
+            f"got {response.status_code}: {response.json()}"
+        )
+        data = response.json()
+        assert "session" in data
+        assert data["session"]["status"] == "in_progress"
+
+    def test_start_test_one_day_before_cadence_fails(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that starting a test 89 days after last completed test fails.
+
+        This tests the boundary condition where completed_at is one day short of
+        TEST_CADENCE_DAYS. The user should NOT be allowed to start a new test.
+
+        Boundary: completed_at == utc_now() - timedelta(days=89) should fail.
+        """
+        from datetime import timedelta
+
+        from app.core.config import settings
+        from app.core.datetime_utils import utc_now
+        from app.models import TestSession, User
+        from app.models.models import TestStatus
+
+        # Get test user
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create a completed test session exactly (TEST_CADENCE_DAYS - 1) days ago
+        days_since_last = settings.TEST_CADENCE_DAYS - 1  # 89 days
+        completed_time = utc_now() - timedelta(days=days_since_last)
+        completed_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+            started_at=completed_time - timedelta(hours=1),
+            completed_at=completed_time,
+        )
+        db_session.add(completed_session)
+        db_session.commit()
+
+        # Try to start a new test - should fail with 400
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 400, (
+            f"Expected 400 Bad Request at {days_since_last} days, "
+            f"got {response.status_code}"
+        )
+        detail = response.json()["detail"]
+        # Verify the error message mentions the cadence period
+        assert (
+            f"{settings.TEST_CADENCE_DAYS} days" in detail or "3 months" in detail
+        ), f"Error should mention cadence period: {detail}"
+        # Verify remaining days is mentioned (should be 1 day remaining)
+        assert (
+            "1 day" in detail or "days remaining" in detail
+        ), f"Error should mention days remaining: {detail}"
+
+    def test_submit_with_empty_response_list(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that submitting a test with empty response list fails validation.
+
+        Empty response lists should be rejected - a test must have at least one response.
+        This tests the edge case where the client submits without answering any questions.
+        """
+        # Start a test first
+        start_response = client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
+        assert start_response.status_code == 200
+        session_id = start_response.json()["session"]["id"]
+
+        # Submit with empty responses list
+        submission = {
+            "session_id": session_id,
+            "responses": [],  # Empty list
+        }
+
+        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+
+        # Empty response list should be rejected with 422 (validation error)
+        # or 400 (bad request)
+        assert response.status_code in [
+            400,
+            422,
+        ], f"Expected 400 or 422 for empty responses, got {response.status_code}"
+
+    def test_maximum_concurrent_sessions_is_one(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test that maximum concurrent in_progress sessions is exactly 1.
+
+        The system should enforce that a user can only have ONE in_progress session
+        at any time. This is enforced by:
+        1. Application-level check (returns 400 with session_id)
+        2. Database-level partial unique index (returns 409 on race condition)
+
+        This test verifies the application-level enforcement.
+        """
+        # Start first session
+        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response1.status_code == 200
+        session1_id = response1.json()["session"]["id"]
+
+        # Attempt to start second session - should be blocked
+        response2 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response2.status_code == 400
+        assert "already has an active test session" in response2.json()["detail"]
+        assert str(session1_id) in response2.json()["detail"]
+
+        # Attempt to start third session - still blocked (same session active)
+        response3 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response3.status_code == 400
+        assert str(session1_id) in response3.json()["detail"]
+
+        # Complete the first session
+        from app.models import TestSession
+        from app.models.models import TestStatus
+
+        session = (
+            db_session.query(TestSession).filter(TestSession.id == session1_id).first()
+        )
+        session.status = TestStatus.COMPLETED
+        db_session.commit()
+
+        # Now we can start a new session
+        response4 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response4.status_code == 200
+        session2_id = response4.json()["session"]["id"]
+        assert session2_id != session1_id
+
+    def test_cadence_boundary_with_timezone_edge_case(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Test cadence boundary when completed_at is exactly at the cutoff with timezone.
+
+        This tests a subtle edge case: if the completed_at timestamp is exactly
+        at the cadence cutoff point, the comparison should correctly allow the test.
+        The cadence check uses: completed_at > cadence_cutoff
+        So completed_at == cadence_cutoff should NOT block (since > not >=).
+
+        Verifies that the boundary is handled correctly: exactly 90 days is allowed.
+        """
+        from datetime import timedelta
+
+        from app.core.config import settings
+        from app.core.datetime_utils import utc_now
+        from app.models import TestSession, User
+        from app.models.models import TestStatus
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create session completed exactly at the cadence cutoff
+        # The query is: TestSession.completed_at > cadence_cutoff
+        # Where cadence_cutoff = utc_now() - timedelta(days=TEST_CADENCE_DAYS)
+        # So if completed_at == cadence_cutoff, the condition is False (not >)
+        # meaning no recent session is found, and test is allowed
+        now = utc_now()
+        cadence_cutoff = now - timedelta(days=settings.TEST_CADENCE_DAYS)
+
+        # Set completed_at exactly at the cutoff
+        completed_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+            started_at=cadence_cutoff - timedelta(hours=1),
+            completed_at=cadence_cutoff,  # Exactly at cutoff
+        )
+        db_session.add(completed_session)
+        db_session.commit()
+
+        # The query checks: completed_at > cadence_cutoff
+        # Since completed_at == cadence_cutoff, the condition is False
+        # So no "recent" completed session is found, and test should be allowed
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200, (
+            f"Test at exactly cadence cutoff should succeed, "
+            f"got {response.status_code}: {response.json()}"
+        )
