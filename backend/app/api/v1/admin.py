@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, asc
 
-from app.core import settings
+from app.core.config import settings
 from app.models import get_db, QuestionGenerationRun, GenerationRunStatus
 from app.schemas.generation_runs import (
     QuestionGenerationRunCreate,

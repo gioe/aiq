@@ -1,10 +1,12 @@
 """
 Core module for application configuration and utilities.
 
-Note: auth and security modules are not imported at package level to avoid
-circular imports with app.models (which imports datetime_utils from app.core).
-Import them directly: from app.core.auth import ... or from app.core.security import ...
+Note: No modules are imported at package level to avoid circular imports
+and premature settings validation. Import modules directly:
+  - from app.core.config import settings
+  - from app.core.auth import get_current_user
+  - from app.core.security import create_access_token
+  - from app.core.datetime_utils import utc_now
 """
-from .config import settings
 
-__all__ = ["settings"]
+__all__: list[str] = []
