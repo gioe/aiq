@@ -142,6 +142,7 @@ class ErrorMessages:
         days_remaining: int,
     ) -> str:
         """Message for when user tries to start a test too soon."""
+        # Approximate months for display purposes only (30 days per month)
         months = cadence_days // 30
         return (
             f"You must wait {cadence_days} days ({months} months) between tests. "
@@ -166,8 +167,10 @@ class ErrorMessages:
     @staticmethod
     def invalid_question_ids(question_ids: set) -> str:
         """Message when submitted question IDs don't belong to the test session."""
+        # Sort for consistent, readable output (avoids curly brace set notation)
+        ids_str = ", ".join(str(qid) for qid in sorted(question_ids))
         return (
-            f"Invalid question IDs: {question_ids}. "
+            f"Invalid question IDs: {ids_str}. "
             "These questions do not belong to this test session."
         )
 
