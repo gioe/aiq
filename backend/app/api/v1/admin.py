@@ -13,7 +13,7 @@ from typing import Optional, Literal, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func, case
 
 from app.core.config import settings
 from app.models import get_db, QuestionGenerationRun, GenerationRunStatus
@@ -715,23 +715,94 @@ async def get_generation_runs_stats(
         ```
     """
     try:
-        # Build base query for the period
-        query = db.query(QuestionGenerationRun).filter(
+        # Build base filters for the period
+        base_filters = [
             QuestionGenerationRun.started_at >= start_date,
             QuestionGenerationRun.started_at <= end_date,
+        ]
+        if environment is not None:
+            base_filters.append(QuestionGenerationRun.environment == environment)
+
+        # Single SQL query for all aggregations - avoids loading all rows into memory
+        stats = (
+            db.query(
+                # Count total runs
+                func.count(QuestionGenerationRun.id).label("total_runs"),
+                # Count by status using conditional aggregation
+                func.sum(
+                    case(
+                        (
+                            QuestionGenerationRun.status == GenerationRunStatus.SUCCESS,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("successful_runs"),
+                func.sum(
+                    case(
+                        (QuestionGenerationRun.status == GenerationRunStatus.FAILED, 1),
+                        else_=0,
+                    )
+                ).label("failed_runs"),
+                func.sum(
+                    case(
+                        (
+                            QuestionGenerationRun.status
+                            == GenerationRunStatus.PARTIAL_FAILURE,
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("partial_failure_runs"),
+                # Sum totals (coalesce handles NULL values)
+                func.coalesce(
+                    func.sum(QuestionGenerationRun.questions_requested), 0
+                ).label("total_questions_requested"),
+                func.coalesce(
+                    func.sum(QuestionGenerationRun.questions_generated), 0
+                ).label("total_questions_generated"),
+                func.coalesce(
+                    func.sum(QuestionGenerationRun.questions_inserted), 0
+                ).label("total_questions_inserted"),
+                func.coalesce(
+                    func.sum(QuestionGenerationRun.duplicates_found), 0
+                ).label("total_duplicates_found"),
+                func.coalesce(func.sum(QuestionGenerationRun.total_api_calls), 0).label(
+                    "total_api_calls"
+                ),
+                func.coalesce(func.sum(QuestionGenerationRun.total_errors), 0).label(
+                    "total_errors"
+                ),
+                # Averages (avg automatically ignores NULL values)
+                func.avg(QuestionGenerationRun.overall_success_rate).label(
+                    "avg_overall_success_rate"
+                ),
+                func.avg(QuestionGenerationRun.approval_rate).label(
+                    "avg_approval_rate"
+                ),
+                func.avg(QuestionGenerationRun.avg_arbiter_score).label(
+                    "avg_arbiter_score"
+                ),
+                func.avg(QuestionGenerationRun.duplicate_rate).label(
+                    "avg_duplicate_rate"
+                ),
+                func.avg(QuestionGenerationRun.duration_seconds).label(
+                    "avg_duration_seconds"
+                ),
+                # Min/Max
+                func.min(QuestionGenerationRun.min_arbiter_score).label(
+                    "min_arbiter_score"
+                ),
+                func.max(QuestionGenerationRun.max_arbiter_score).label(
+                    "max_arbiter_score"
+                ),
+            )
+            .filter(*base_filters)
+            .first()
         )
 
-        # Apply environment filter if provided
-        if environment is not None:
-            query = query.filter(QuestionGenerationRun.environment == environment)
-
-        # Get all runs in the period for detailed analysis
-        runs = query.all()
-
-        total_runs = len(runs)
-
-        # If no runs, return zeros
-        if total_runs == 0:
+        # Handle empty result case
+        if stats is None or stats.total_runs == 0:
             return QuestionGenerationRunStats(
                 period_start=start_date,
                 period_end=end_date,
@@ -758,105 +829,78 @@ async def get_generation_runs_stats(
                 approval_rate_trend=None,
             )
 
-        # Count runs by status
-        successful_runs = sum(
-            1 for r in runs if r.status == GenerationRunStatus.SUCCESS
-        )
-        failed_runs = sum(1 for r in runs if r.status == GenerationRunStatus.FAILED)
-        partial_failure_runs = sum(
-            1 for r in runs if r.status == GenerationRunStatus.PARTIAL_FAILURE
-        )
+        # Extract values from the aggregation result
+        total_runs: int = stats.total_runs
+        successful_runs: int = stats.successful_runs or 0
+        failed_runs: int = stats.failed_runs or 0
+        partial_failure_runs: int = stats.partial_failure_runs or 0
 
-        # Aggregate generation metrics (type ignores needed for SQLAlchemy Column types)
-        total_questions_requested: int = sum(
-            r.questions_requested or 0 for r in runs  # type: ignore[misc]
-        )
-        total_questions_generated: int = sum(
-            r.questions_generated or 0 for r in runs  # type: ignore[misc]
-        )
-        total_questions_inserted: int = sum(
-            r.questions_inserted or 0 for r in runs  # type: ignore[misc]
-        )
+        total_questions_requested: int = stats.total_questions_requested
+        total_questions_generated: int = stats.total_questions_generated
+        total_questions_inserted: int = stats.total_questions_inserted
+        total_duplicates_found: int = stats.total_duplicates_found
+        total_api_calls: int = stats.total_api_calls
+        total_errors: int = stats.total_errors
 
-        # Calculate average success rate (only from runs that have it)
-        success_rates = [
-            r.overall_success_rate for r in runs if r.overall_success_rate is not None
-        ]
-        avg_overall_success_rate = (
-            round(sum(success_rates) / len(success_rates), 4) if success_rates else None
+        # Round float averages (may be None)
+        avg_overall_success_rate: Optional[float] = (
+            round(float(stats.avg_overall_success_rate), 4)
+            if stats.avg_overall_success_rate is not None
+            else None
         )
-
-        # Aggregate evaluation metrics
-        approval_rates = [r.approval_rate for r in runs if r.approval_rate is not None]
-        avg_approval_rate = (
-            round(sum(approval_rates) / len(approval_rates), 4)
-            if approval_rates
+        avg_approval_rate: Optional[float] = (
+            round(float(stats.avg_approval_rate), 4)
+            if stats.avg_approval_rate is not None
+            else None
+        )
+        avg_arbiter_score: Optional[float] = (
+            round(float(stats.avg_arbiter_score), 4)
+            if stats.avg_arbiter_score is not None
+            else None
+        )
+        avg_duplicate_rate: Optional[float] = (
+            round(float(stats.avg_duplicate_rate), 4)
+            if stats.avg_duplicate_rate is not None
+            else None
+        )
+        avg_duration_seconds: Optional[float] = (
+            round(float(stats.avg_duration_seconds), 2)
+            if stats.avg_duration_seconds is not None
             else None
         )
 
-        arbiter_scores = [
-            r.avg_arbiter_score for r in runs if r.avg_arbiter_score is not None
-        ]
-        avg_arbiter_score = (
-            round(sum(arbiter_scores) / len(arbiter_scores), 4)
-            if arbiter_scores
-            else None
-        )
-
-        min_arbiter_scores: list[float] = [
-            r.min_arbiter_score  # type: ignore[misc]
-            for r in runs
-            if r.min_arbiter_score is not None
-        ]
         min_arbiter_score: Optional[float] = (
-            min(min_arbiter_scores) if min_arbiter_scores else None
+            float(stats.min_arbiter_score)
+            if stats.min_arbiter_score is not None
+            else None
         )
-
-        max_arbiter_scores: list[float] = [
-            r.max_arbiter_score  # type: ignore[misc]
-            for r in runs
-            if r.max_arbiter_score is not None
-        ]
         max_arbiter_score: Optional[float] = (
-            max(max_arbiter_scores) if max_arbiter_scores else None
-        )
-
-        # Aggregate deduplication metrics
-        total_duplicates_found: int = sum(
-            r.duplicates_found or 0 for r in runs  # type: ignore[misc]
-        )
-        duplicate_rates = [
-            r.duplicate_rate for r in runs if r.duplicate_rate is not None
-        ]
-        avg_duplicate_rate = (
-            round(sum(duplicate_rates) / len(duplicate_rates), 4)
-            if duplicate_rates
+            float(stats.max_arbiter_score)
+            if stats.max_arbiter_score is not None
             else None
         )
 
-        # Performance metrics
-        durations = [r.duration_seconds for r in runs if r.duration_seconds is not None]
-        avg_duration_seconds = (
-            round(sum(durations) / len(durations), 2) if durations else None
-        )
-
-        total_api_calls: int = sum(
-            r.total_api_calls or 0 for r in runs  # type: ignore[misc]
-        )
-        avg_api_calls_per_question = (
+        # Calculate avg_api_calls_per_question (derived metric)
+        avg_api_calls_per_question: Optional[float] = (
             round(total_api_calls / total_questions_inserted, 2)
             if total_questions_inserted > 0
             else None
         )
 
-        # Error summary
-        total_errors: int = sum(r.total_errors or 0 for r in runs)  # type: ignore[misc]
+        # For JSONB provider_metrics aggregation and trend calculations,
+        # we need to query only specific columns (not all rows) to minimize memory usage.
+        # Query only provider_metrics column for runs that have it.
+        provider_metrics_rows = (
+            db.query(QuestionGenerationRun.provider_metrics)
+            .filter(*base_filters)
+            .filter(QuestionGenerationRun.provider_metrics.isnot(None))
+            .all()
+        )
 
-        # Aggregate provider metrics from JSONB
         provider_summary: Dict[str, Dict[str, Any]] = {}
-        for run in runs:
-            if run.provider_metrics:
-                for provider, metrics in run.provider_metrics.items():
+        for (provider_metrics,) in provider_metrics_rows:
+            if provider_metrics:
+                for provider, metrics in provider_metrics.items():
                     if provider not in provider_summary:
                         provider_summary[provider] = {
                             "total_generated": 0,
@@ -882,31 +926,36 @@ async def get_generation_runs_stats(
             else:
                 metrics["success_rate"] = None
 
-        # Calculate trend indicators by comparing first half vs second half of period
-        # Sort runs by started_at
-        sorted_runs = sorted(
-            runs, key=lambda r: r.started_at  # type: ignore[arg-type,return-value]
-        )
-        midpoint = len(sorted_runs) // 2
-
+        # Calculate trend indicators using SQL to fetch only needed columns
+        # We need to split runs by time into halves and compute averages per half
         success_rate_trend: Optional[str] = None
         approval_rate_trend: Optional[str] = None
 
+        midpoint = total_runs // 2
         if midpoint > 0:
-            # Split into two halves
-            older_runs = sorted_runs[:midpoint]
-            recent_runs = sorted_runs[midpoint:]
+            # Query runs ordered by started_at, fetching only trend-related columns
+            trend_data = (
+                db.query(
+                    QuestionGenerationRun.overall_success_rate,
+                    QuestionGenerationRun.approval_rate,
+                )
+                .filter(*base_filters)
+                .order_by(QuestionGenerationRun.started_at)
+                .all()
+            )
 
-            # Calculate success rate trend
-            older_success_rates: list[float] = [
-                r.overall_success_rate  # type: ignore[misc]
-                for r in older_runs
+            # Split into older (first half) and recent (second half)
+            older_data = trend_data[:midpoint]
+            recent_data = trend_data[midpoint:]
+
+            # Calculate older half averages
+            older_success_rates = [
+                r.overall_success_rate
+                for r in older_data
                 if r.overall_success_rate is not None
             ]
-            recent_success_rates: list[float] = [
-                r.overall_success_rate  # type: ignore[misc]
-                for r in recent_runs
-                if r.overall_success_rate is not None
+            older_approval_rates = [
+                r.approval_rate for r in older_data if r.approval_rate is not None
             ]
 
             older_avg_success: Optional[float] = (
@@ -914,28 +963,25 @@ async def get_generation_runs_stats(
                 if older_success_rates
                 else None
             )
-            recent_avg_success: Optional[float] = (
-                sum(recent_success_rates) / len(recent_success_rates)
-                if recent_success_rates
-                else None
-            )
-            success_rate_trend = _compute_trend(recent_avg_success, older_avg_success)
-
-            # Calculate approval rate trend
-            older_approval_rates: list[float] = [
-                r.approval_rate  # type: ignore[misc]
-                for r in older_runs
-                if r.approval_rate is not None
-            ]
-            recent_approval_rates: list[float] = [
-                r.approval_rate  # type: ignore[misc]
-                for r in recent_runs
-                if r.approval_rate is not None
-            ]
-
             older_avg_approval: Optional[float] = (
                 sum(older_approval_rates) / len(older_approval_rates)
                 if older_approval_rates
+                else None
+            )
+
+            # Calculate recent half averages
+            recent_success_rates = [
+                r.overall_success_rate
+                for r in recent_data
+                if r.overall_success_rate is not None
+            ]
+            recent_approval_rates = [
+                r.approval_rate for r in recent_data if r.approval_rate is not None
+            ]
+
+            recent_avg_success: Optional[float] = (
+                sum(recent_success_rates) / len(recent_success_rates)
+                if recent_success_rates
                 else None
             )
             recent_avg_approval: Optional[float] = (
@@ -943,6 +989,8 @@ async def get_generation_runs_stats(
                 if recent_approval_rates
                 else None
             )
+
+            success_rate_trend = _compute_trend(recent_avg_success, older_avg_success)
             approval_rate_trend = _compute_trend(
                 recent_avg_approval, older_avg_approval
             )
