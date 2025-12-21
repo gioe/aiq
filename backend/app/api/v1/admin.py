@@ -175,6 +175,44 @@ class TriggerQuestionGenerationResponse(BaseModel):
     status: str
 
 
+def _verify_secret_header(
+    header_value: str,
+    expected_secret: Optional[str],
+    not_configured_detail: str,
+    invalid_detail: str,
+) -> bool:
+    """
+    Generic helper to verify a secret header value against an expected secret.
+
+    Uses constant-time comparison to prevent timing attacks.
+
+    Args:
+        header_value: The value from the request header
+        expected_secret: The expected secret value from settings (may be None if not configured)
+        not_configured_detail: Error message when secret is not configured
+        invalid_detail: Error message when header value doesn't match
+
+    Returns:
+        bool: True if verification passes
+
+    Raises:
+        HTTPException: 500 if secret not configured, 401 if invalid
+    """
+    if not expected_secret:
+        raise HTTPException(
+            status_code=500,
+            detail=not_configured_detail,
+        )
+
+    if not secrets.compare_digest(header_value, expected_secret):
+        raise HTTPException(
+            status_code=401,
+            detail=invalid_detail,
+        )
+
+    return True
+
+
 async def verify_admin_token(x_admin_token: str = Header(...)) -> bool:
     """
     Verify admin token from request header.
@@ -188,19 +226,12 @@ async def verify_admin_token(x_admin_token: str = Header(...)) -> bool:
     Raises:
         HTTPException: If token is invalid
     """
-    if not settings.ADMIN_TOKEN:
-        raise HTTPException(
-            status_code=500,
-            detail="Admin token not configured on server",
-        )
-
-    if not secrets.compare_digest(x_admin_token, settings.ADMIN_TOKEN):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid admin token",
-        )
-
-    return True
+    return _verify_secret_header(
+        header_value=x_admin_token,
+        expected_secret=settings.ADMIN_TOKEN,
+        not_configured_detail="Admin token not configured on server",
+        invalid_detail="Invalid admin token",
+    )
 
 
 async def verify_service_key(x_service_key: str = Header(...)) -> bool:
@@ -220,19 +251,12 @@ async def verify_service_key(x_service_key: str = Header(...)) -> bool:
     Raises:
         HTTPException: If key is invalid or not configured
     """
-    if not settings.SERVICE_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="Service API key not configured on server",
-        )
-
-    if not secrets.compare_digest(x_service_key, settings.SERVICE_API_KEY):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid service API key",
-        )
-
-    return True
+    return _verify_secret_header(
+        header_value=x_service_key,
+        expected_secret=settings.SERVICE_API_KEY,
+        not_configured_detail="Service API key not configured on server",
+        invalid_detail="Invalid service API key",
+    )
 
 
 @router.post(
@@ -2267,6 +2291,9 @@ def _run_validity_analysis_on_demand(
 # VALIDITY SUMMARY REPORT ENDPOINT (CD-010)
 # =============================================================================
 
+# Number of days used for trend comparison in validity reports
+VALIDITY_TREND_COMPARISON_DAYS = 7
+
 
 @router.get(
     "/validity-report",
@@ -2403,8 +2430,8 @@ async def get_validity_report(
         # Calculate trend data (7-day vs full period)
         # Filter from already-fetched results to avoid redundant database query
         # TestSession is eagerly loaded via joinedload for in-memory filtering
-        if days <= 7:
-            # If period is 7 days or less, 7-day and full period are the same
+        if days <= VALIDITY_TREND_COMPARISON_DAYS:
+            # If period is equal to or less than trend window, they are the same
             seven_day_results = results
         else:
             # Filter in memory using the eagerly-loaded test_session relationship
@@ -2663,6 +2690,18 @@ async def override_session_validity(
 
 MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS = 500
 
+# Psychometric thresholds for factor analysis recommendations
+# Based on commonly accepted standards in psychometric literature
+TREND_COMPARISON_DAYS = 7  # Days for comparing recent vs full period trends
+ALPHA_POOR_THRESHOLD = 0.6  # Below this is unacceptable reliability
+ALPHA_QUESTIONABLE_THRESHOLD = 0.7  # Below this is questionable reliability
+ALPHA_GOOD_THRESHOLD = 0.8  # At or above this is good reliability
+VARIANCE_LOW_THRESHOLD = 0.20  # Below this suggests weak g-factor
+VARIANCE_STRONG_THRESHOLD = 0.40  # At or above this suggests strong g-factor
+LOW_G_LOADING_THRESHOLD = (
+    0.3  # Domains with loadings below this may measure distinct constructs
+)
+
 
 def _generate_recommendations(
     g_loadings: Dict[str, float],
@@ -2697,7 +2736,7 @@ def _generate_recommendations(
         )
 
     # Reliability recommendations
-    if cronbachs_alpha < 0.6:
+    if cronbachs_alpha < ALPHA_POOR_THRESHOLD:
         recommendations.append(
             FactorAnalysisRecommendation(
                 category="reliability",
@@ -2707,7 +2746,7 @@ def _generate_recommendations(
                 severity="critical",
             )
         )
-    elif cronbachs_alpha < 0.7:
+    elif cronbachs_alpha < ALPHA_QUESTIONABLE_THRESHOLD:
         recommendations.append(
             FactorAnalysisRecommendation(
                 category="reliability",
@@ -2716,7 +2755,7 @@ def _generate_recommendations(
                 severity="warning",
             )
         )
-    elif cronbachs_alpha >= 0.8:
+    elif cronbachs_alpha >= ALPHA_GOOD_THRESHOLD:
         recommendations.append(
             FactorAnalysisRecommendation(
                 category="reliability",
@@ -2726,7 +2765,7 @@ def _generate_recommendations(
         )
 
     # Variance explained recommendations
-    if variance_explained < 0.20:
+    if variance_explained < VARIANCE_LOW_THRESHOLD:
         recommendations.append(
             FactorAnalysisRecommendation(
                 category="variance",
@@ -2736,7 +2775,7 @@ def _generate_recommendations(
                 severity="warning",
             )
         )
-    elif variance_explained >= 0.40:
+    elif variance_explained >= VARIANCE_STRONG_THRESHOLD:
         recommendations.append(
             FactorAnalysisRecommendation(
                 category="variance",
@@ -2764,13 +2803,16 @@ def _generate_recommendations(
 
         # Flag domains with very low loadings
         low_loading_domains = [
-            domain for domain, loading in g_loadings.items() if loading < 0.3
+            domain
+            for domain, loading in g_loadings.items()
+            if loading < LOW_G_LOADING_THRESHOLD
         ]
         if low_loading_domains:
             recommendations.append(
                 FactorAnalysisRecommendation(
                     category="loadings",
-                    message=f"Domains with low g-loadings (<0.30): {', '.join(low_loading_domains)}. "
+                    message=f"Domains with low g-loadings (<{LOW_G_LOADING_THRESHOLD:.2f}): "
+                    f"{', '.join(low_loading_domains)}. "
                     "These domains may be measuring something distinct from general intelligence. "
                     "Consider reviewing or reducing their weight in composite scoring.",
                     severity="warning",
@@ -3046,6 +3088,11 @@ async def toggle_weighted_scoring(
         )
 
 
+# Tolerance for checking if domain weights sum to 1.0
+# Allows for small floating-point rounding differences
+WEIGHT_SUM_TOLERANCE = 0.01
+
+
 @router.get(
     "/config/domain-weights",
     response_model=Optional[DomainWeightsResponse],
@@ -3157,7 +3204,7 @@ async def set_domain_weights_config(
         # Warn if weights don't sum to 1.0 (but allow it, scoring normalizes)
         weight_sum = sum(request.weights.values())
         message = "Domain weights updated successfully."
-        if abs(weight_sum - 1.0) > 0.01:
+        if abs(weight_sum - 1.0) > WEIGHT_SUM_TOLERANCE:
             message += (
                 f" Note: Weights sum to {weight_sum:.3f}, not 1.0. "
                 "They will be normalized during scoring calculations."
