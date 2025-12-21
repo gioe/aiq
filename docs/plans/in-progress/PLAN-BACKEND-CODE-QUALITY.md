@@ -314,13 +314,13 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-025: Dynamic Birth Year Validation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/schemas/auth.py:49-51`
 **Description:** Birth year maximum hardcoded to 2025.
 **Acceptance Criteria:**
-- [ ] Use `@field_validator` with `datetime.now().year`
-- [ ] Validation error message is dynamic
-- [ ] Unit test verifies dynamic behavior
+- [x] Use `@field_validator` with `datetime.now().year`
+- [x] Validation error message is dynamic
+- [x] Unit test verifies dynamic behavior
 
 ---
 
