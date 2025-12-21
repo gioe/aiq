@@ -416,19 +416,19 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-034: Split reliability.py Into Submodules
-**Status:** [ ] Not Started
-**Files:** `backend/app/core/reliability.py` (2,254 lines)
+**Status:** [x] Complete
+**Files:** `backend/app/core/reliability/` (new package)
 **Description:** While well-documented, the reliability module is very long. Split by reliability type for better maintainability.
 **Acceptance Criteria:**
-- [ ] Create `backend/app/core/reliability/` directory
-- [ ] Extract Cronbach's alpha to `reliability/cronbach.py`
-- [ ] Extract test-retest to `reliability/test_retest.py`
-- [ ] Extract split-half to `reliability/split_half.py`
-- [ ] Extract report generation to `reliability/report.py`
-- [ ] Extract metrics persistence to `reliability/storage.py`
-- [ ] Create `reliability/__init__.py` with public API exports
-- [ ] All reliability tests pass
-- [ ] No change in function signatures
+- [x] Create `backend/app/core/reliability/` directory
+- [x] Extract Cronbach's alpha to `reliability/cronbach.py`
+- [x] Extract test-retest to `reliability/test_retest.py`
+- [x] Extract split-half to `reliability/split_half.py`
+- [x] Extract report generation to `reliability/report.py`
+- [x] Extract metrics persistence to `reliability/storage.py`
+- [x] Create `reliability/__init__.py` with public API exports
+- [x] All reliability tests pass (196 tests)
+- [x] No change in function signatures
 
 ---
 

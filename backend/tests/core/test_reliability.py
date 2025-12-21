@@ -3723,7 +3723,7 @@ class TestDefensiveErrorHandling:
         self, db_session, monkeypatch
     ):
         """Report returns partial results when Cronbach's alpha calculation raises."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         # Create test data for test-retest and split-half
         from datetime import timedelta
@@ -3761,7 +3761,10 @@ class TestDefensiveErrorHandling:
         def raise_error(*args, **kwargs):
             raise RuntimeError("Simulated database connection error")
 
-        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+        # Patch where the function is used (in report.py), not where it's defined
+        monkeypatch.setattr(
+            reliability_report, "calculate_cronbachs_alpha", raise_error
+        )
 
         # Get report - should still work with partial results
         report = get_reliability_report(
@@ -3792,7 +3795,7 @@ class TestDefensiveErrorHandling:
         self, db_session, monkeypatch
     ):
         """Report returns partial results when test-retest calculation raises."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
@@ -3807,8 +3810,9 @@ class TestDefensiveErrorHandling:
         def raise_error(*args, **kwargs):
             raise ValueError("Simulated query error")
 
+        # Patch where the function is used (in report.py), not where it's defined
         monkeypatch.setattr(
-            reliability, "calculate_test_retest_reliability", raise_error
+            reliability_report, "calculate_test_retest_reliability", raise_error
         )
 
         # Get report - should still work with partial results
@@ -3830,7 +3834,7 @@ class TestDefensiveErrorHandling:
         self, db_session, monkeypatch
     ):
         """Report returns partial results when split-half calculation raises."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
@@ -3845,8 +3849,9 @@ class TestDefensiveErrorHandling:
         def raise_error(*args, **kwargs):
             raise TypeError("Simulated type error in calculation")
 
+        # Patch where the function is used (in report.py), not where it's defined
         monkeypatch.setattr(
-            reliability, "calculate_split_half_reliability", raise_error
+            reliability_report, "calculate_split_half_reliability", raise_error
         )
 
         # Get report - should still work with partial results
@@ -3866,7 +3871,7 @@ class TestDefensiveErrorHandling:
         self, db_session, monkeypatch
     ):
         """Report returns valid structure even when all calculations raise."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         # Make all calculations raise exceptions
         def raise_alpha_error(*args, **kwargs):
@@ -3878,12 +3883,19 @@ class TestDefensiveErrorHandling:
         def raise_split_half_error(*args, **kwargs):
             raise TypeError("Split-half calculation failed")
 
-        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_alpha_error)
+        # Patch where the functions are used (in report.py), not where they're defined
         monkeypatch.setattr(
-            reliability, "calculate_test_retest_reliability", raise_test_retest_error
+            reliability_report, "calculate_cronbachs_alpha", raise_alpha_error
         )
         monkeypatch.setattr(
-            reliability, "calculate_split_half_reliability", raise_split_half_error
+            reliability_report,
+            "calculate_test_retest_reliability",
+            raise_test_retest_error,
+        )
+        monkeypatch.setattr(
+            reliability_report,
+            "calculate_split_half_reliability",
+            raise_split_half_error,
         )
 
         # Get report - should still return valid structure
@@ -3913,13 +3925,16 @@ class TestDefensiveErrorHandling:
 
     def test_error_result_structure_has_required_fields(self, db_session, monkeypatch):
         """Error results from exceptions contain all required fields."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         # Make alpha calculation raise
         def raise_error(*args, **kwargs):
             raise RuntimeError("Test error message")
 
-        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+        # Patch where the function is used (in report.py), not where it's defined
+        monkeypatch.setattr(
+            reliability_report, "calculate_cronbachs_alpha", raise_error
+        )
 
         report = get_reliability_report(db_session)
 
@@ -3945,7 +3960,7 @@ class TestDefensiveErrorHandling:
         self, db_session, monkeypatch
     ):
         """Recommendations are still generated when some calculations fail."""
-        from app.core import reliability
+        from app.core.reliability import report as reliability_report
 
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
@@ -3960,7 +3975,10 @@ class TestDefensiveErrorHandling:
         def raise_error(*args, **kwargs):
             raise RuntimeError("Alpha calculation failed")
 
-        monkeypatch.setattr(reliability, "calculate_cronbachs_alpha", raise_error)
+        # Patch where the function is used (in report.py), not where it's defined
+        monkeypatch.setattr(
+            reliability_report, "calculate_cronbachs_alpha", raise_error
+        )
 
         report = get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
