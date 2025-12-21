@@ -227,14 +227,14 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-018: Consolidate Distractor Stats Initialization
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/core/distractor_analysis.py:62-198`
 **Description:** `update_distractor_stats` and `update_distractor_quartile_stats` share nearly identical validation and initialization.
 **Acceptance Criteria:**
-- [ ] New `_validate_and_prepare_distractor_update(db, question_id, answer)` helper
-- [ ] Returns (question, current_stats, normalized_answer) tuple
-- [ ] Both functions use the helper
-- [ ] All distractor tests pass
+- [x] New `_validate_and_prepare_distractor_update(db, question_id, answer)` helper
+- [x] Returns (question, current_stats, normalized_answer) tuple
+- [x] Both functions use the helper
+- [x] All distractor tests pass
 
 ---
 
