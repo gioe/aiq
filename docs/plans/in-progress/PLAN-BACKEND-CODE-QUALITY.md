@@ -703,17 +703,17 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-042: Add iOS Pagination State Management
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #326 comment
 **Files:** `ios/AIQ/ViewModels/HistoryViewModel.swift`, `ios/AIQ/Views/History/HistoryView.swift`
 **Description:** Implement pagination UI for iOS clients to support users with more than 50 test results.
 **Original Comment:** "Currently, iOS clients fetch only the first page (default limit=50). For users with >50 tests: No 'Load More' functionality implemented, HistoryViewModel doesn't track pagination state, DashboardViewModel only shows first 50 results."
 **Acceptance Criteria:**
-- [ ] Add `offset` and `hasMore` state properties to HistoryViewModel
-- [ ] Implement `loadMore()` method that increments offset and fetches next page
-- [ ] Add "Load More" button or infinite scroll to HistoryView
-- [ ] Use `has_more` flag from API to show/hide load more UI
-- [ ] Unit tests for pagination state management
+- [x] Add `offset` and `hasMore` state properties to HistoryViewModel
+- [x] Implement `loadMore()` method that increments offset and fetches next page
+- [x] Add "Load More" button or infinite scroll to HistoryView
+- [x] Use `has_more` flag from API to show/hide load more UI
+- [x] Unit tests for pagination state management
 
 ---
 

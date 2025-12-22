@@ -293,7 +293,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
         // When - API now returns paginated response (BCQ-004)
         let paginatedResponse: PaginatedTestHistoryResponse = try await sut.request(
-            endpoint: .testHistory,
+            endpoint: .testHistory(limit: nil, offset: nil),
             method: .get,
             body: nil as String?,
             requiresAuth: true

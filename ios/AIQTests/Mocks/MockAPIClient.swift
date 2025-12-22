@@ -67,7 +67,8 @@ actor MockAPIClient: APIClientProtocol {
         allMethods.append(method)
 
         // Check endpoint-specific error first
-        let endpointKey = endpoint.path
+        // Strip query parameters for lookup since responses are registered by base path
+        let endpointKey = endpoint.path.components(separatedBy: "?").first ?? endpoint.path
         if let endpointError = endpointErrors[endpointKey] {
             throw endpointError
         }
@@ -137,17 +138,46 @@ actor MockAPIClient: APIClientProtocol {
     }
 
     /// Set test history response, automatically wrapping in paginated format (BCQ-004)
-    /// - Parameter results: Array of test results to return
+    /// - Parameters:
+    ///   - results: Array of test results to return
+    ///   - totalCount: Total count to report (defaults to results.count)
+    ///   - hasMore: Whether there are more results (defaults to false)
     /// - Note: The backend now returns `PaginatedTestHistoryResponse` instead of `[TestResult]`
-    func setTestHistoryResponse(_ results: [TestResult]) {
+    func setTestHistoryResponse(_ results: [TestResult], totalCount: Int? = nil, hasMore: Bool = false) {
         let paginatedResponse = PaginatedTestHistoryResponse(
             results: results,
-            totalCount: results.count,
+            totalCount: totalCount ?? results.count,
             limit: 50,
             offset: 0,
-            hasMore: false
+            hasMore: hasMore
         )
-        endpointResponses[APIEndpoint.testHistory.path] = paginatedResponse
+        // Use base path without query params since endpoint.path includes them
+        endpointResponses["/v1/test/history"] = paginatedResponse
+    }
+
+    /// Set paginated test history response for a specific page
+    /// - Parameters:
+    ///   - results: Array of test results for this page
+    ///   - totalCount: Total count across all pages
+    ///   - limit: Page size
+    ///   - offset: Offset for this page
+    ///   - hasMore: Whether there are more results after this page
+    func setPaginatedTestHistoryResponse(
+        results: [TestResult],
+        totalCount: Int,
+        limit: Int,
+        offset: Int,
+        hasMore: Bool
+    ) {
+        let paginatedResponse = PaginatedTestHistoryResponse(
+            results: results,
+            totalCount: totalCount,
+            limit: limit,
+            offset: offset,
+            hasMore: hasMore
+        )
+        // Use base path without query params since endpoint.path includes them
+        endpointResponses["/v1/test/history"] = paginatedResponse
     }
 
     /// Set error for a specific endpoint
