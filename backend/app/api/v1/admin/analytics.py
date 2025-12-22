@@ -42,6 +42,13 @@ router = APIRouter()
 
 MINIMUM_SAMPLE_SIZE_FOR_FACTOR_ANALYSIS = 500
 
+# Maximum response limit for bulk data retrieval operations.
+# Set to 1 million to provide a practical upper bound that prevents
+# accidental unbounded queries while allowing legitimate large-scale
+# analytics. At ~100 bytes per response record, 1M responses would use
+# approximately 100MB of memory - acceptable for admin analytics workloads.
+MAX_RESPONSE_LIMIT = 1_000_000
+
 # Psychometric thresholds for factor analysis recommendations
 # Based on commonly accepted standards in psychometric literature
 ALPHA_POOR_THRESHOLD = 0.6  # Below this is unacceptable reliability
@@ -330,7 +337,7 @@ async def get_factor_analysis(
     max_responses: int = Query(
         default=10000,
         ge=0,
-        le=1000000,
+        le=MAX_RESPONSE_LIMIT,
         description="Maximum responses to fetch. Set to 0 for no limit (use with caution).",
     ),
 ):
