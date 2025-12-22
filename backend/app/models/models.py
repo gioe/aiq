@@ -467,12 +467,14 @@ class TestResult(Base):
     test_session: Mapped["TestSession"] = relationship(back_populates="test_result")
     user: Mapped["User"] = relationship(back_populates="test_results")
 
-    # Table-level constraints
+    # Table-level constraints and indexes
     __table_args__ = (
         CheckConstraint(
             "validity_overridden_by IS NULL OR validity_overridden_by >= 0",
             name="ck_test_results_validity_overridden_by_non_negative",
         ),
+        # Composite index for /test/history endpoint: filters by user_id and orders by completed_at DESC
+        Index("ix_test_results_user_completed", "user_id", completed_at.desc()),
     )
 
 
