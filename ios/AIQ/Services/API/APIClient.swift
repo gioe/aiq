@@ -88,8 +88,8 @@ enum APIEndpoint: Equatable {
     case testSession(Int)
     /// Get test results by ID
     case testResults(String)
-    /// Get test history endpoint
-    case testHistory
+    /// Get test history endpoint with pagination
+    case testHistory(limit: Int?, offset: Int?)
     /// Register device for push notifications
     case notificationRegisterDevice
     /// Update notification preferences
@@ -120,8 +120,21 @@ enum APIEndpoint: Equatable {
             "/v1/test/session/\(sessionId)"
         case let .testResults(testId):
             "/v1/test/results/\(testId)"
-        case .testHistory:
-            "/v1/test/history"
+        case let .testHistory(limit, offset):
+            {
+                var path = "/v1/test/history"
+                var queryParams: [String] = []
+                if let limit {
+                    queryParams.append("limit=\(limit)")
+                }
+                if let offset {
+                    queryParams.append("offset=\(offset)")
+                }
+                if !queryParams.isEmpty {
+                    path += "?" + queryParams.joined(separator: "&")
+                }
+                return path
+            }()
         case .notificationRegisterDevice:
             "/v1/notifications/register-device"
         case .notificationPreferences:

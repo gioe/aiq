@@ -111,12 +111,14 @@ class DashboardViewModel: BaseViewModel {
 
     /// Fetch test history from API with caching and update dashboard state
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
-    /// - Note: Errors are logged and result in empty dashboard state
+    /// - Note: Errors are logged and result in empty dashboard state.
+    ///         Dashboard only needs the first page of results for summary stats.
     func fetchTestHistory(forceRefresh: Bool = false) async {
         do {
             // API now returns paginated response (BCQ-004)
+            // Dashboard only needs the first page to show summary stats
             let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
-                endpoint: .testHistory,
+                endpoint: .testHistory(limit: nil, offset: nil),
                 method: .get,
                 body: nil as String?,
                 requiresAuth: true,
@@ -126,14 +128,16 @@ class DashboardViewModel: BaseViewModel {
             )
 
             // Update dashboard state with results array
-            updateDashboardState(with: paginatedResponse.results)
+            // Note: For users with >50 tests, this only shows stats from first 50
+            // but that's acceptable for dashboard summary display
+            updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
 
         } catch {
             #if DEBUG
                 print("⚠️ Failed to fetch test history: \(error)")
             #endif
             // Set empty state on error
-            updateDashboardState(with: [])
+            updateDashboardState(with: [], totalCount: 0)
         }
     }
 
@@ -165,16 +169,20 @@ class DashboardViewModel: BaseViewModel {
     }
 
     /// Update dashboard state from test history
-    /// - Parameter history: Array of test results
-    private func updateDashboardState(with history: [TestResult]) {
+    /// - Parameters:
+    ///   - history: Array of test results (may be partial if paginated)
+    ///   - totalCount: Total number of tests across all pages
+    private func updateDashboardState(with history: [TestResult], totalCount: Int) {
         if !history.isEmpty {
             // Sort by date (newest first)
             let sortedHistory = history.sorted { $0.completedAt > $1.completedAt }
             latestTestResult = sortedHistory.first
 
-            testCount = history.count
+            // Use server's totalCount instead of array count for accuracy
+            testCount = totalCount
 
-            // Calculate average score
+            // Calculate average score from available results
+            // Note: This may be approximate for users with >50 tests
             let totalScore = history.reduce(0) { $0 + $1.iqScore }
             averageScore = totalScore / history.count
         } else {

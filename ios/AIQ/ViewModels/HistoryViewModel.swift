@@ -46,11 +46,28 @@ class HistoryViewModel: BaseViewModel {
     @Published var sortOrder: TestHistorySortOrder = .newestFirst
     @Published var dateFilter: TestHistoryDateFilter = .all
 
+    // MARK: - Pagination State
+
+    /// Whether there are more results to load from the server
+    @Published private(set) var hasMore: Bool = false
+
+    /// Whether we're currently loading more results
+    @Published private(set) var isLoadingMore: Bool = false
+
+    /// Total number of test results on the server
+    @Published private(set) var totalCount: Int = 0
+
     // MARK: - Private Properties
 
     private let apiClient: APIClientProtocol
     private var allTestHistory: [TestResult] = []
     private var cachedInsights: PerformanceInsights?
+
+    /// Current offset for pagination
+    private var currentOffset: Int = 0
+
+    /// Page size for API requests
+    private let pageSize: Int = 50
 
     // MARK: - Initialization
 
@@ -65,27 +82,89 @@ class HistoryViewModel: BaseViewModel {
     func fetchHistory(forceRefresh: Bool = false) async {
         setLoading(true)
         clearError()
+        currentOffset = 0
+
+        // Try to get from cache first if not forcing refresh
+        if !forceRefresh, let cached = await loadFromCache() {
+            updateState(with: cached, fromCache: true)
+            return
+        }
 
         do {
-            // Try to get from cache first if not forcing refresh
-            if !forceRefresh,
-               let cachedHistory: [TestResult] = await DataCache.shared.get(
-                   forKey: DataCache.Key.testHistory
-               ) {
-                allTestHistory = cachedHistory
-                cachedInsights = nil // Invalidate insights cache
-                applyFiltersAndSort()
-                setLoading(false)
+            let response = try await fetchFromAPI()
+            await cacheResults(response.results)
+            updateState(with: response, fromCache: false)
+        } catch {
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .unknown(),
+                operation: .fetchHistory
+            )
+            handleError(contextualError, retryOperation: { [weak self] in
+                await self?.fetchHistory(forceRefresh: forceRefresh)
+            })
+        }
+    }
 
-                #if DEBUG
-                    print("✅ Loaded \(cachedHistory.count) test results from cache")
-                #endif
-                return
-            }
+    // MARK: - Private Fetch Helpers
 
-            // Fetch from API (now returns paginated response)
+    private func loadFromCache() async -> [TestResult]? {
+        await DataCache.shared.get(forKey: DataCache.Key.testHistory)
+    }
+
+    private func fetchFromAPI() async throws -> PaginatedTestHistoryResponse {
+        try await apiClient.request(
+            endpoint: .testHistory(limit: pageSize, offset: 0),
+            method: .get,
+            body: nil as String?,
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
+        )
+    }
+
+    private func cacheResults(_ results: [TestResult]) async {
+        await DataCache.shared.set(results, forKey: DataCache.Key.testHistory)
+    }
+
+    private func updateState(with cached: [TestResult], fromCache _: Bool) {
+        allTestHistory = cached
+        cachedInsights = nil
+        hasMore = false
+        totalCount = cached.count
+        applyFiltersAndSort()
+        setLoading(false)
+
+        #if DEBUG
+            print("✅ Loaded \(cached.count) test results from cache")
+        #endif
+    }
+
+    private func updateState(with response: PaginatedTestHistoryResponse, fromCache _: Bool) {
+        allTestHistory = response.results
+        cachedInsights = nil
+        hasMore = response.hasMore
+        totalCount = response.totalCount
+        currentOffset = response.results.count
+        applyFiltersAndSort()
+        setLoading(false)
+
+        #if DEBUG
+            print("✅ Fetched \(response.results.count) of \(totalCount) from API (hasMore: \(hasMore))")
+        #endif
+    }
+
+    /// Load more test results from the next page
+    func loadMore() async {
+        // Guard against duplicate requests or when there's nothing more to load
+        guard hasMore, !isLoadingMore, !isLoading else { return }
+
+        isLoadingMore = true
+        clearError()
+
+        do {
             let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
-                endpoint: .testHistory,
+                endpoint: .testHistory(limit: pageSize, offset: currentOffset),
                 method: .get,
                 body: nil as String?,
                 requiresAuth: true,
@@ -94,26 +173,35 @@ class HistoryViewModel: BaseViewModel {
                 forceRefresh: false
             )
 
-            let history = paginatedResponse.results
+            let newResults = paginatedResponse.results
 
-            // Cache the results (5 minute expiration)
-            await DataCache.shared.set(history, forKey: DataCache.Key.testHistory)
+            // Append new results to existing history
+            allTestHistory.append(contentsOf: newResults)
 
-            allTestHistory = history
+            // Update pagination state
+            hasMore = paginatedResponse.hasMore
+            totalCount = paginatedResponse.totalCount
+            currentOffset += newResults.count
+
+            // Update cache with all results
+            await DataCache.shared.set(allTestHistory, forKey: DataCache.Key.testHistory)
+
             cachedInsights = nil // Invalidate insights cache
             applyFiltersAndSort()
-            setLoading(false)
+            isLoadingMore = false
 
             #if DEBUG
-                print("✅ Fetched \(history.count) test results from API")
+                let loaded = allTestHistory.count
+                print("✅ Loaded \(newResults.count) more results (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
             #endif
         } catch {
+            isLoadingMore = false
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(),
                 operation: .fetchHistory
             )
             handleError(contextualError, retryOperation: { [weak self] in
-                await self?.fetchHistory(forceRefresh: forceRefresh)
+                await self?.loadMore()
             })
         }
     }
@@ -153,6 +241,9 @@ class HistoryViewModel: BaseViewModel {
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
         isRefreshing = true
+        // Reset pagination state
+        currentOffset = 0
+        hasMore = false
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
         await fetchHistory(forceRefresh: true)

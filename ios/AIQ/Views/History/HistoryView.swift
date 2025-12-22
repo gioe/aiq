@@ -150,6 +150,21 @@ struct HistoryView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal)
                 }
+
+                // Load More Button
+                if viewModel.hasMore {
+                    LoadMoreButton(
+                        isLoading: viewModel.isLoadingMore,
+                        loadedCount: viewModel.testHistory.count,
+                        totalCount: viewModel.totalCount
+                    ) {
+                        Task {
+                            await viewModel.loadMore()
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
             }
             .padding(.vertical)
         }
@@ -194,6 +209,48 @@ private struct HistoryStatCard: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
+    }
+}
+
+/// Button for loading more paginated results
+private struct LoadMoreButton: View {
+    let isLoading: Bool
+    let loadedCount: Int
+    let totalCount: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .imageScale(.medium)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isLoading ? "Loading..." : "Load More")
+                        .font(.subheadline.weight(.medium))
+
+                    Text("Showing \(loadedCount) of \(totalCount) tests")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+        .accessibilityLabel(isLoading ? "Loading more results" : "Load more results")
+        .accessibilityHint("Showing \(loadedCount) of \(totalCount) tests. Double tap to load more.")
     }
 }
 
