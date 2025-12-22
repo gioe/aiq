@@ -810,7 +810,13 @@ class TestBuildResponseMatrixMaxResponses:
     """Tests for max_responses limit behavior."""
 
     def test_respects_max_responses_limit(self, db_session):
-        """Limits the number of responses fetched from database."""
+        """Limits the number of responses fetched from database.
+
+        Test scenario: 5 users, each answering 1 question = 5 total responses.
+        With max_responses=3, exactly 3 responses should be fetched, which
+        means exactly 3 users should appear in the matrix (since each user
+        contributes exactly 1 response).
+        """
         # Create 5 users with 1 question each = 5 responses
         users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
         sessions = [create_test_session(db_session, user) for user in users]
@@ -829,9 +835,16 @@ class TestBuildResponseMatrixMaxResponses:
         )
 
         assert result is not None
-        # Should only include responses up to the limit
-        # The exact number of users depends on how the limit is applied
-        assert result.n_users <= 3
+        # With 5 users and 1 question each, limit of 3 responses means exactly
+        # 3 users should be included (each user = 1 response, so 3 responses = 3 users)
+        assert (
+            result.n_users == 3
+        ), f"Expected exactly 3 users with max_responses=3, got {result.n_users}"
+        # Verify there's at least 1 question in the matrix
+        assert result.n_items >= 1, "Expected at least 1 question in the matrix"
+        # Verify all included session IDs exist in the original set
+        original_session_ids = {s.id for s in sessions}
+        assert all(sid in original_session_ids for sid in result.session_ids)
 
     def test_logs_warning_when_limit_reached(self, db_session):
         """Logs a warning when max_responses limit is reached.
