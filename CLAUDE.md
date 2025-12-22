@@ -313,6 +313,9 @@ LIMIT N
 - `SECRET_KEY` - Application secret
 - `JWT_SECRET_KEY` - JWT token secret
 - `DEBUG` - Enable debug mode (True for development)
+- `RATE_LIMIT_ENABLED` - Enable rate limiting (True for production)
+- `RATE_LIMIT_STORAGE` - Storage backend: "memory" (default) or "redis"
+- `RATE_LIMIT_REDIS_URL` - Redis connection URL (required if using Redis storage)
 
 **Database Setup**:
 ```bash
@@ -981,6 +984,12 @@ def validate_meets_threshold_consistency(self) -> Self:
 - Run stuck in "running" status: Generation job may have crashed; check question-service logs
 - Missing provider metrics: Ensure `MetricsTracker` is properly recording generation events
 - Query generation runs: `GET /v1/admin/generation-runs?status=failed` to find failed runs
+
+**Rate limiting issues**:
+- Rate limits not shared across workers: Set `RATE_LIMIT_STORAGE=redis` and configure `RATE_LIMIT_REDIS_URL`
+- Redis connection failing: Verify Redis is running and accessible at the configured URL
+- Fallback to memory: If Redis is unavailable, the system automatically falls back to in-memory storage (with a warning log). Rate limits won't be shared across workers in this mode.
+- To enable Redis: Uncomment `redis==5.0.1` in requirements.txt and set env vars
 
 ## Additional Documentation
 
