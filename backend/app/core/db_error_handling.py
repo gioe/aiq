@@ -141,6 +141,38 @@ def handle_db_error(
         ...     notification = Notification(user_id=user.id)
         ...     db.add(notification)
         ...     db.commit()
+
+    Note on Return-Inside-Context-Manager Pattern:
+        It is **intentional** that the return statement for the endpoint response
+        should be placed **inside** the context manager block, not outside it.
+
+        Example (recommended pattern)::
+
+            @router.post("/items")
+            def create_item(item_data: ItemCreate, db: Session = Depends(get_db)):
+                with handle_db_error(db, "create item"):
+                    item = Item(**item_data.dict())
+                    db.add(item)
+                    db.commit()
+                    db.refresh(item)
+                    return item  # Return INSIDE the context manager
+
+        Trade-offs of this approach:
+
+        **Pros:**
+        - Response construction failures (e.g., Pydantic serialization errors during
+          response model validation) are also caught and logged with context
+        - Provides uniform error handling for the entire endpoint operation
+        - Stack traces in logs include the full operation context
+
+        **Cons:**
+        - Response construction failures trigger a database rollback, which is
+          unnecessary since the DB operation already succeeded
+        - The rollback on a committed transaction is a no-op in most databases,
+          so this is primarily a semantic concern rather than a functional issue
+
+        The benefits of consistent error handling and logging outweigh the minor
+        semantic concern of calling rollback after a successful commit.
     """
     try:
         yield

@@ -772,14 +772,14 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-047: Document Return-Inside-Context-Manager Pattern
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #335 comment
 **Files:** `backend/app/core/db_error_handling.py`
 **Description:** Add documentation clarifying that returning response inside the context manager is intentional (catches response construction failures too).
 **Original Comment:** "Is this the intended pattern, or should returns happen outside the context manager? Pro (current approach): Response construction failures also get caught and logged. Con: Response construction failures trigger database rollback (which may be unnecessary)."
 **Acceptance Criteria:**
-- [ ] Add code comment or docstring clarifying the pattern is intentional
-- [ ] Document trade-offs in the docstring
+- [x] Add code comment or docstring clarifying the pattern is intentional
+- [x] Document trade-offs in the docstring
 
 ---
 
