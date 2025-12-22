@@ -30,6 +30,7 @@ from app.ratelimit import (
     RateLimitConfig,
     RateLimiter,
     RateLimitMiddleware,
+    RateLimiterStorage,
     SlidingWindowStrategy,
     TokenBucketStrategy,
     get_user_identifier,
@@ -39,6 +40,52 @@ from app.ratelimit import (
 setup_logging()
 
 logger = logging.getLogger(__name__)
+
+
+def _create_rate_limit_storage() -> RateLimiterStorage:
+    """
+    Create rate limit storage backend based on configuration.
+
+    Attempts to create the configured storage backend (memory or redis).
+    If Redis is configured but unavailable, falls back to in-memory storage.
+
+    Returns:
+        RateLimiterStorage: The configured storage backend
+    """
+    if settings.RATE_LIMIT_STORAGE == "redis":
+        try:
+            # Import RedisStorage only when needed (redis-py is optional)
+            from app.ratelimit.storage import RedisStorage
+
+            storage = RedisStorage(redis_url=settings.RATE_LIMIT_REDIS_URL)
+            # Test connection - RedisStorage logs warning if it fails
+            if storage.is_connected():
+                logger.info(
+                    f"Rate limiting using Redis storage at {settings.RATE_LIMIT_REDIS_URL}"
+                )
+                return storage
+            else:
+                logger.warning(
+                    "Redis not available for rate limiting, falling back to in-memory storage. "
+                    "Rate limits will NOT be shared across workers."
+                )
+                return InMemoryStorage()
+        except ImportError:
+            logger.warning(
+                "Redis storage configured but redis-py not installed. "
+                "Falling back to in-memory storage. "
+                "Install redis-py with: pip install redis"
+            )
+            return InMemoryStorage()
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize Redis storage: {e}. "
+                "Falling back to in-memory storage."
+            )
+            return InMemoryStorage()
+    else:
+        logger.info("Rate limiting using in-memory storage")
+        return InMemoryStorage()
 
 
 @asynccontextmanager
@@ -180,8 +227,8 @@ def create_application() -> FastAPI:
 
     # Configure Rate Limiting
     if settings.RATE_LIMIT_ENABLED:
-        # Create storage backend
-        storage = InMemoryStorage()
+        # Create storage backend based on configuration
+        storage: RateLimiterStorage = _create_rate_limit_storage()
 
         # Select strategy based on configuration
         strategy: Union[TokenBucketStrategy, SlidingWindowStrategy, FixedWindowStrategy]
