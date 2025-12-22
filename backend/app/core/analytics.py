@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -373,23 +374,31 @@ def build_response_matrix(
     session_ids: List[int] = [session.id for session in completed_sessions]
 
     # Step 2: Get responses for completed sessions (with optional limit)
-    query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
+    base_query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
+
+    # Get total count before applying limit (for informative warning message)
+    total_response_count: Optional[int] = None
+    if max_responses:
+        total_response_count = base_query.with_entities(func.count()).scalar()
 
     # Apply limit if specified (0 or None disables the limit)
     # Use ascending order to maintain consistency with session_ids ordering
     # (completed_sessions are ordered by TestSession.id ascending)
     if max_responses:
-        query = query.order_by(Response.test_session_id.asc()).limit(max_responses)
+        base_query = base_query.order_by(Response.test_session_id.asc()).limit(
+            max_responses
+        )
 
-    responses = query.all()
+    responses = base_query.all()
 
     if not responses:
         return None
 
     # Log warning if limit was reached (indicates potential data truncation)
-    if max_responses and len(responses) >= max_responses:
+    if max_responses and len(responses) >= max_responses and total_response_count:
         logger.warning(
-            f"build_response_matrix: Response limit ({max_responses}) reached. "
+            f"build_response_matrix: Fetched {len(responses):,} of "
+            f"{total_response_count:,} total responses (limit: {max_responses:,}). "
             f"Matrix may be incomplete. Consider increasing max_responses "
             f"for comprehensive factor analysis."
         )

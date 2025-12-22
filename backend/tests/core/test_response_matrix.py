@@ -834,7 +834,12 @@ class TestBuildResponseMatrixMaxResponses:
         assert result.n_users <= 3
 
     def test_logs_warning_when_limit_reached(self, db_session):
-        """Logs a warning when max_responses limit is reached."""
+        """Logs a warning when max_responses limit is reached.
+
+        The warning message should include both the fetched count and the
+        total available count for actionable information to administrators.
+        (BCQ-038: Improved message format)
+        """
         from unittest.mock import patch
 
         # Create enough data to hit the limit
@@ -848,7 +853,7 @@ class TestBuildResponseMatrixMaxResponses:
 
         # Patch the logger to capture the warning call
         with patch("app.core.analytics.logger") as mock_logger:
-            # Set limit lower than total responses
+            # Set limit lower than total responses (10 total, limit 5)
             build_response_matrix(
                 db_session,
                 min_responses_per_question=1,
@@ -859,9 +864,12 @@ class TestBuildResponseMatrixMaxResponses:
             # Check that warning was logged
             mock_logger.warning.assert_called_once()
             warning_msg = mock_logger.warning.call_args[0][0]
-            assert "Response limit" in warning_msg
-            assert "5" in warning_msg  # The limit value
-            assert "reached" in warning_msg
+
+            # BCQ-038: Verify improved message format includes both counts
+            # Format: "Fetched X of Y total responses (limit: Z)"
+            assert "Fetched 5 of 10 total responses" in warning_msg
+            assert "limit: 5" in warning_msg
+            assert "Matrix may be incomplete" in warning_msg
 
     def test_no_warning_when_limit_not_reached(self, db_session):
         """No warning logged when responses are below the limit."""
