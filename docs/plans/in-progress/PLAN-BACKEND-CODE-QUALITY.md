@@ -732,15 +732,15 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-044: Add Logger Verification to Race Condition Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #328 comment
 **Files:** `backend/tests/test_test_sessions.py`
 **Description:** Enhance the race condition test to verify that the warning log is written when a concurrent session creation is detected.
 **Original Comment:** "The test verifies the 409 response but doesn't verify that the warning log was written. Consider adding: `with patch('app.api.v1.test.logger') as mock_logger: ... assert mock_logger.warning.called`"
 **Acceptance Criteria:**
-- [ ] Add mock for logger in test_concurrent_session_creation_returns_409
-- [ ] Assert warning was logged with appropriate message content
-- [ ] Ensure user_id is included in log context
+- [x] Add mock for logger in test_concurrent_session_creation_returns_409
+- [x] Assert warning was logged with appropriate message content
+- [x] Ensure user_id is included in log context
 
 ---
 
