@@ -457,7 +457,6 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 - [x] Add endpoint to check status of specific job by PID
 - [x] Implement cleanup of finished processes
 - [x] Add signal handler to terminate child processes on server shutdown
-- [ ] Consider migration to proper job queue (Celery/RQ) as future enhancement
 
 ---
 
@@ -490,15 +489,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-039: Strengthen test_respects_max_responses_limit Assertion
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #324 comment
 **Files:** `backend/tests/core/test_response_matrix.py:834`
 **Description:** The test assertion `assert result.n_users <= 3` is too permissive. Should verify exact expected behavior.
 **Original Comment:** "This test is too permissive... Even better: be more specific about expected behavior. With 5 users, 1 question each, limit of 3 responses → should get 3 users"
 **Acceptance Criteria:**
-- [ ] Change assertion to verify exact user count when limit is hit
-- [ ] Add assertion that at least some users are included
-- [ ] Add comment explaining expected behavior
+- [x] Change assertion to verify exact user count when limit is hit
+- [x] Add assertion that at least some users are included
+- [x] Add comment explaining expected behavior
 
 ---
 
