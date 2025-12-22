@@ -7,7 +7,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.ratelimit.storage import InMemoryStorage, RedisStorage
+from app.ratelimit.storage import InMemoryStorage
+
+# Check if redis-py is available for testing
+try:
+    import redis as _redis_check  # noqa: F401
+
+    del _redis_check  # Remove from namespace, just checking importability
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 
 class TestInMemoryStorage:
@@ -152,8 +161,20 @@ class TestInMemoryStorage:
         assert True
 
 
+@pytest.mark.skipif(not REDIS_AVAILABLE, reason="redis-py not installed")
 class TestRedisStorage:
-    """Tests for RedisStorage with mocked Redis client."""
+    """Tests for RedisStorage with mocked Redis client.
+
+    These tests require redis-py to be installed for mocking to work,
+    even though the actual Redis server is not needed.
+    """
+
+    @pytest.fixture(autouse=True)
+    def import_redis_storage(self):
+        """Import RedisStorage only when redis-py is available."""
+        from app.ratelimit.storage import RedisStorage
+
+        self.RedisStorage = RedisStorage
 
     @pytest.fixture
     def mock_redis(self):
@@ -181,7 +202,7 @@ class TestRedisStorage:
 
     def test_init_success(self, mock_redis):
         """Test successful initialization with Redis connection."""
-        RedisStorage(redis_url="redis://localhost:6379/0")
+        self.RedisStorage(redis_url="redis://localhost:6379/0")
 
         # Verify connection pool was created with correct parameters
         mock_redis["pool_class"].from_url.assert_called_once()
@@ -195,7 +216,7 @@ class TestRedisStorage:
 
     def test_init_with_custom_params(self, mock_redis):
         """Test initialization with custom parameters."""
-        RedisStorage(
+        self.RedisStorage(
             redis_url="redis://custom:6380/1",
             key_prefix="myapp:",
             connection_pool_size=20,
@@ -215,12 +236,12 @@ class TestRedisStorage:
         )
 
         # Should not raise, just log a warning
-        storage = RedisStorage(redis_url="redis://localhost:6379/0")
+        storage = self.RedisStorage(redis_url="redis://localhost:6379/0")
         assert storage is not None
 
     def test_set_and_get(self, mock_redis):
         """Test basic set and get operations."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         # Configure mock get to return a JSON-encoded value
         mock_redis["client"].get.return_value = b'{"count": 5}'
@@ -240,7 +261,7 @@ class TestRedisStorage:
 
     def test_set_with_ttl(self, mock_redis):
         """Test setting a value with TTL."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         storage.set("key1", "value1", ttl=60)
 
@@ -252,7 +273,7 @@ class TestRedisStorage:
 
     def test_set_with_zero_ttl(self, mock_redis):
         """Test that zero TTL uses set (not setex)."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         storage.set("key1", "value1", ttl=0)
 
@@ -262,7 +283,7 @@ class TestRedisStorage:
 
     def test_get_nonexistent_key(self, mock_redis):
         """Test getting a key that doesn't exist."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].get.return_value = None
 
         result = storage.get("nonexistent")
@@ -272,7 +293,7 @@ class TestRedisStorage:
         """Test get handles Redis errors gracefully."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].get.side_effect = redis.RedisError("Connection lost")
 
         result = storage.get("key1")
@@ -280,7 +301,7 @@ class TestRedisStorage:
 
     def test_get_handles_json_decode_error(self, mock_redis):
         """Test get handles invalid JSON gracefully."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].get.return_value = b"not valid json"
 
         result = storage.get("key1")
@@ -290,7 +311,7 @@ class TestRedisStorage:
         """Test set handles Redis errors gracefully."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].set.side_effect = redis.RedisError("Connection lost")
 
         # Should not raise
@@ -298,7 +319,7 @@ class TestRedisStorage:
 
     def test_delete(self, mock_redis):
         """Test deleting a key."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         storage.delete("key1")
 
@@ -308,7 +329,7 @@ class TestRedisStorage:
         """Test delete handles Redis errors gracefully."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].delete.side_effect = redis.RedisError("Connection lost")
 
         # Should not raise
@@ -316,7 +337,7 @@ class TestRedisStorage:
 
     def test_clear(self, mock_redis):
         """Test clearing all rate limit keys."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         # Mock scan to return some keys
         mock_redis["client"].scan.side_effect = [
@@ -339,7 +360,7 @@ class TestRedisStorage:
         """Test clear handles Redis errors gracefully."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].scan.side_effect = redis.RedisError("Connection lost")
 
         # Should not raise
@@ -347,7 +368,7 @@ class TestRedisStorage:
 
     def test_get_stats_success(self, mock_redis):
         """Test getting storage statistics."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         # Mock scan to return some keys
         mock_redis["client"].scan.side_effect = [
@@ -372,7 +393,7 @@ class TestRedisStorage:
         """Test get_stats handles Redis errors gracefully."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].scan.side_effect = redis.RedisError("Connection lost")
 
         stats = storage.get_stats()
@@ -383,7 +404,7 @@ class TestRedisStorage:
 
     def test_is_connected_true(self, mock_redis):
         """Test is_connected returns True when connected."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].ping.return_value = True
 
         assert storage.is_connected() is True
@@ -392,14 +413,14 @@ class TestRedisStorage:
         """Test is_connected returns False when disconnected."""
         import redis
 
-        storage = RedisStorage()
+        storage = self.RedisStorage()
         mock_redis["client"].ping.side_effect = redis.RedisError("Connection refused")
 
         assert storage.is_connected() is False
 
     def test_close(self, mock_redis):
         """Test closing the connection pool."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         storage.close()
 
@@ -407,7 +428,7 @@ class TestRedisStorage:
 
     def test_custom_key_prefix(self, mock_redis):
         """Test using a custom key prefix."""
-        storage = RedisStorage(key_prefix="myapp:ratelimit:")
+        storage = self.RedisStorage(key_prefix="myapp:ratelimit:")
 
         storage.set("key1", "value1")
 
@@ -416,7 +437,7 @@ class TestRedisStorage:
 
     def test_complex_values(self, mock_redis):
         """Test storing complex data structures."""
-        storage = RedisStorage()
+        storage = self.RedisStorage()
 
         data = {"count": 5, "timestamps": [1.0, 2.0, 3.0], "nested": {"key": "value"}}
         mock_redis["client"].get.return_value = json.dumps(data).encode("utf-8")
