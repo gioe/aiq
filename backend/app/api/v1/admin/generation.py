@@ -7,7 +7,7 @@ and recording/querying generation run metrics.
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -18,8 +18,10 @@ from app.core.db_error_handling import handle_db_error
 from app.core.error_responses import (
     ErrorMessages,
     raise_bad_request,
+    raise_not_found,
     raise_server_error,
 )
+from app.core.process_registry import JobStatus, process_registry
 from app.models import GenerationRunStatus, QuestionGenerationRun, get_db
 from app.schemas.generation_runs import (
     GenerationRunStatusSchema,
@@ -48,8 +50,44 @@ class TriggerQuestionGenerationResponse(BaseModel):
     """Response model for question generation trigger."""
 
     message: str
-    job_id: Optional[str] = None
+    job_id: str
+    pid: int
     status: str
+
+
+class BackgroundJobResponse(BaseModel):
+    """Response model for background job status."""
+
+    job_id: str
+    pid: int
+    job_type: str
+    started_at: str
+    status: str
+    exit_code: Optional[int] = None
+    finished_at: Optional[str] = None
+    command: List[str]
+    working_directory: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class BackgroundJobListResponse(BaseModel):
+    """Response model for listing background jobs."""
+
+    jobs: List[BackgroundJobResponse]
+    total: int
+    running: int
+    completed: int
+    failed: int
+
+
+class BackgroundJobStatsResponse(BaseModel):
+    """Response model for background job statistics."""
+
+    total_registered: int
+    running: int
+    completed: int
+    failed: int
+    terminated: int
 
 
 @router.post(
@@ -65,6 +103,10 @@ async def trigger_question_generation(
     This endpoint allows administrators to trigger the question generation
     process on-demand instead of waiting for the scheduled cron job.
 
+    The job is registered in the process registry for tracking. Use
+    GET /v1/admin/background-jobs to list all registered jobs and
+    GET /v1/admin/background-jobs/{job_id} to check status.
+
     Requires X-Admin-Token header with valid admin token.
 
     Args:
@@ -72,7 +114,7 @@ async def trigger_question_generation(
         _: Admin token validation dependency
 
     Returns:
-        TriggerQuestionGenerationResponse with job status
+        TriggerQuestionGenerationResponse with job_id for tracking
 
     Example:
         ```
@@ -99,20 +141,35 @@ async def trigger_question_generation(
         if request.dry_run:
             cmd.append("--dry-run")
 
+        working_dir = str(question_service_path)
+
         # Run the command in the background
         process = subprocess.Popen(
             cmd,
-            cwd=str(question_service_path),
+            cwd=working_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
 
+        # Register the process in the registry for tracking
+        job_info = process_registry.register(
+            process=process,
+            job_type="question_generation",
+            command=cmd,
+            working_directory=working_dir,
+            metadata={
+                "count": request.count,
+                "dry_run": request.dry_run,
+            },
+        )
+
         # Don't wait for completion - return immediately
         return TriggerQuestionGenerationResponse(
             message=f"Question generation job started with count={request.count}",
-            job_id=str(process.pid),
-            status="running",
+            job_id=job_info.job_id,
+            pid=job_info.pid,
+            status=job_info.status.value,
         )
 
     except FileNotFoundError:
@@ -129,40 +186,324 @@ async def get_question_generation_status(
     _: bool = Depends(verify_admin_token),
 ):
     """
-    Check the status of a question generation job.
+    Check the status of a question generation job by job ID.
+
+    This endpoint is deprecated. Use GET /v1/admin/background-jobs/{job_id} instead
+    for more detailed job information from the process registry.
+
+    For legacy compatibility, this endpoint also accepts a PID as job_id
+    and will look up the job in the registry by PID.
 
     Args:
-        job_id: Process ID of the job
+        job_id: Job ID (from registry) or Process ID (legacy)
         _: Admin token validation dependency
 
     Returns:
         Job status information
     """
+    # First, try to find by job_id in the registry
+    job_info = process_registry.get_job_status(job_id)
+
+    if job_info:
+        return {
+            "job_id": job_info.job_id,
+            "pid": job_info.pid,
+            "status": job_info.status.value,
+            "started_at": job_info.started_at.isoformat(),
+            "finished_at": job_info.finished_at.isoformat()
+            if job_info.finished_at
+            else None,
+            "exit_code": job_info.exit_code,
+        }
+
+    # Legacy fallback: try to parse as PID and look up by PID
     try:
+        pid = int(job_id)
+        job_info = process_registry.get_job_by_pid(pid)
+
+        if job_info:
+            return {
+                "job_id": job_info.job_id,
+                "pid": job_info.pid,
+                "status": job_info.status.value,
+                "started_at": job_info.started_at.isoformat(),
+                "finished_at": job_info.finished_at.isoformat()
+                if job_info.finished_at
+                else None,
+                "exit_code": job_info.exit_code,
+            }
+
+        # Fall back to psutil for processes not in registry (legacy behavior)
         import psutil
 
-        pid = int(job_id)
-
-        # Check if process exists
         if psutil.pid_exists(pid):
             process = psutil.Process(pid)
-
             return {
                 "job_id": job_id,
+                "pid": pid,
                 "status": "running" if process.is_running() else "completed",
                 "cpu_percent": process.cpu_percent(),
                 "memory_mb": process.memory_info().rss / 1024 / 1024,
+                "note": "Process not in registry - limited information available",
             }
         else:
             return {
                 "job_id": job_id,
+                "pid": pid,
                 "status": "completed",
+                "note": "Process not in registry - may have been started before registry was implemented",
             }
 
     except ValueError:
         raise_bad_request(ErrorMessages.INVALID_JOB_ID)
     except Exception:
         raise_server_error(ErrorMessages.database_operation_failed("check job status"))
+
+
+@router.get("/background-jobs", response_model=BackgroundJobListResponse)
+async def list_background_jobs(
+    job_type: Optional[str] = Query(
+        None, description="Filter by job type (e.g., 'question_generation')"
+    ),
+    status: Optional[str] = Query(
+        None, description="Filter by status (running, completed, failed, terminated)"
+    ),
+    include_finished: bool = Query(
+        True, description="Include finished jobs in results"
+    ),
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    List all registered background jobs.
+
+    Returns a list of all jobs registered in the process registry,
+    optionally filtered by job type and/or status.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    Args:
+        job_type: Optional filter by job type
+        status: Optional filter by status
+        include_finished: Whether to include finished jobs
+        _: Admin token validation dependency
+
+    Returns:
+        BackgroundJobListResponse with list of jobs and counts
+
+    Example:
+        ```
+        # List all running jobs
+        curl "https://api.example.com/v1/admin/background-jobs?status=running" \
+          -H "X-Admin-Token: your-admin-token"
+
+        # List only question generation jobs
+        curl "https://api.example.com/v1/admin/background-jobs?job_type=question_generation" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    # Parse status filter if provided
+    status_filter = None
+    if status:
+        try:
+            status_filter = JobStatus(status)
+        except ValueError:
+            raise_bad_request(
+                f"Invalid status: {status}. "
+                f"Valid values: {', '.join(s.value for s in JobStatus)}"
+            )
+
+    jobs = process_registry.list_jobs(
+        job_type=job_type,
+        status=status_filter,
+        include_finished=include_finished,
+    )
+
+    # Convert JobInfo objects to response models
+    job_responses = [
+        BackgroundJobResponse(
+            job_id=job.job_id,
+            pid=job.pid,
+            job_type=job.job_type,
+            started_at=job.started_at.isoformat(),
+            status=job.status.value,
+            exit_code=job.exit_code,
+            finished_at=job.finished_at.isoformat() if job.finished_at else None,
+            command=job.command,
+            working_directory=job.working_directory,
+            metadata=job.metadata,
+        )
+        for job in jobs
+    ]
+
+    # Count by status
+    stats = process_registry.get_stats()
+
+    return BackgroundJobListResponse(
+        jobs=job_responses,
+        total=len(job_responses),
+        running=stats["running"],
+        completed=stats["completed"],
+        failed=stats["failed"],
+    )
+
+
+@router.get("/background-jobs/stats", response_model=BackgroundJobStatsResponse)
+async def get_background_job_stats(
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Get statistics about registered background jobs.
+
+    Returns counts of jobs by status (running, completed, failed, terminated).
+
+    Requires X-Admin-Token header with valid admin token.
+
+    Returns:
+        BackgroundJobStatsResponse with job counts
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/background-jobs/stats" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    stats = process_registry.get_stats()
+    return BackgroundJobStatsResponse(**stats)
+
+
+@router.get("/background-jobs/{job_id}", response_model=BackgroundJobResponse)
+async def get_background_job(
+    job_id: str,
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Get detailed information about a specific background job.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    Args:
+        job_id: The unique job ID from the registry
+        _: Admin token validation dependency
+
+    Returns:
+        BackgroundJobResponse with job details
+
+    Raises:
+        HTTPException 404: If the job is not found
+
+    Example:
+        ```
+        curl "https://api.example.com/v1/admin/background-jobs/question_generation_20241221120000_1_12345" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    job_info = process_registry.get_job_status(job_id)
+
+    if not job_info:
+        raise_not_found(f"Background job not found: {job_id}")
+
+    return BackgroundJobResponse(
+        job_id=job_info.job_id,
+        pid=job_info.pid,
+        job_type=job_info.job_type,
+        started_at=job_info.started_at.isoformat(),
+        status=job_info.status.value,
+        exit_code=job_info.exit_code,
+        finished_at=job_info.finished_at.isoformat() if job_info.finished_at else None,
+        command=job_info.command,
+        working_directory=job_info.working_directory,
+        metadata=job_info.metadata,
+    )
+
+
+@router.delete("/background-jobs/{job_id}")
+async def terminate_background_job(
+    job_id: str,
+    force: bool = Query(False, description="Use SIGKILL instead of SIGTERM"),
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Terminate a running background job.
+
+    Sends SIGTERM (or SIGKILL if force=True) to the process.
+    This is useful for stopping runaway or stuck jobs.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    Args:
+        job_id: The unique job ID from the registry
+        force: If True, use SIGKILL instead of SIGTERM
+        _: Admin token validation dependency
+
+    Returns:
+        Termination status
+
+    Raises:
+        HTTPException 404: If the job is not found
+        HTTPException 400: If the job is not running
+
+    Example:
+        ```
+        # Graceful termination
+        curl -X DELETE "https://api.example.com/v1/admin/background-jobs/question_generation_20241221120000_1_12345" \
+          -H "X-Admin-Token: your-admin-token"
+
+        # Force kill
+        curl -X DELETE "https://api.example.com/v1/admin/background-jobs/question_generation_20241221120000_1_12345?force=true" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    job_info = process_registry.get_job_status(job_id)
+
+    if not job_info:
+        raise_not_found(f"Background job not found: {job_id}")
+
+    if job_info.status != JobStatus.RUNNING:
+        raise_bad_request(
+            f"Job is not running (current status: {job_info.status.value})"
+        )
+
+    success = process_registry.terminate_job(job_id, force=force)
+
+    if success:
+        return {
+            "message": f"Job terminated successfully: {job_id}",
+            "job_id": job_id,
+            "method": "SIGKILL" if force else "SIGTERM",
+        }
+    else:
+        raise_server_error(f"Failed to terminate job: {job_id}")
+
+
+@router.post("/background-jobs/cleanup")
+async def cleanup_finished_jobs(
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Remove finished jobs from the registry.
+
+    This endpoint triggers cleanup of all completed, failed, and terminated
+    jobs from the registry. This is useful for freeing memory and keeping
+    the job list manageable.
+
+    Note: Cleanup also happens automatically when the server shuts down.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    Returns:
+        Number of jobs cleaned up
+
+    Example:
+        ```
+        curl -X POST "https://api.example.com/v1/admin/background-jobs/cleanup" \
+          -H "X-Admin-Token: your-admin-token"
+        ```
+    """
+    cleaned = process_registry.cleanup_finished()
+    return {
+        "message": f"Cleaned up {cleaned} finished jobs",
+        "cleaned_count": cleaned,
+    }
 
 
 @router.post(
