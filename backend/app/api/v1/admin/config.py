@@ -80,12 +80,12 @@ async def get_weighted_scoring_status(
                 .first()
             )
             if record:
-                updated_at = record.updated_at  # type: ignore[assignment]
+                updated_at = record.updated_at
 
         return WeightedScoringStatus(
             enabled=enabled,
             domain_weights=weights,
-            updated_at=updated_at,  # type: ignore[arg-type]
+            updated_at=updated_at,
         )
 
     except Exception as e:
@@ -148,7 +148,7 @@ async def toggle_weighted_scoring(
         return WeightedScoringToggleResponse(
             enabled=request.enabled,
             message=message,
-            updated_at=result.updated_at,  # type: ignore[arg-type]
+            updated_at=result.updated_at,
         )
 
     except Exception as e:
@@ -200,7 +200,7 @@ async def get_domain_weights_config(
         return DomainWeightsResponse(
             weights=weights,
             message="Domain weights retrieved successfully.",
-            updated_at=updated_at,  # type: ignore[arg-type]
+            updated_at=updated_at,
         )
 
     except Exception as e:
@@ -281,7 +281,7 @@ async def set_domain_weights_config(
         return DomainWeightsResponse(
             weights=request.weights,
             message=message,
-            updated_at=result.updated_at,  # type: ignore[arg-type]
+            updated_at=result.updated_at,
         )
 
     except HTTPException:
@@ -339,7 +339,7 @@ async def compare_scoring_methods(
             )
 
         # Get domain scores from the test result
-        domain_scores = test_result.domain_scores  # type: ignore[union-attr]
+        domain_scores = test_result.domain_scores
         if domain_scores is None:
             raise HTTPException(
                 status_code=400,
@@ -349,7 +349,7 @@ async def compare_scoring_methods(
 
         # Calculate equal-weight score
         equal_score = calculate_weighted_iq_score(
-            domain_scores=domain_scores,  # type: ignore[arg-type]
+            domain_scores=domain_scores,
             weights=None,  # Equal weights
         )
 
@@ -368,7 +368,7 @@ async def compare_scoring_methods(
 
         if weights:
             weighted_score = calculate_weighted_iq_score(
-                domain_scores=domain_scores,  # type: ignore[arg-type]
+                domain_scores=domain_scores,
                 weights=weights,
             )
             weighted_score_result = ABComparisonScore(
@@ -382,7 +382,7 @@ async def compare_scoring_methods(
             equal_weights_score=equal_weights_result,
             weighted_score=weighted_score_result,
             score_difference=score_difference,
-            domain_scores=domain_scores,  # type: ignore[arg-type]
+            domain_scores=domain_scores,
             weights_used=weights,
             session_id=session_id,
         )

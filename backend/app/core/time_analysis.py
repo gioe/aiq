@@ -58,6 +58,14 @@ MIN_AVERAGE_TIME_SECONDS = 15
 # Values beyond ±2 standard deviations are flagged
 Z_SCORE_THRESHOLD = 2.0
 
+# Number of extended response times that triggers validity concern
+# More than this many responses with unusually long times suggests distraction
+EXTENDED_RESPONSE_VALIDITY_THRESHOLD = 3
+
+# Negative correlation threshold for identifying faster incorrect responses
+# When correlation is strongly negative, incorrect responses are faster (guessing)
+FASTER_INCORRECT_CORRELATION_THRESHOLD = -0.2
+
 
 def analyze_response_times(db: Session, session_id: int) -> Dict[str, Any]:
     """
@@ -250,7 +258,7 @@ def analyze_response_times(db: Session, session_id: int) -> Dict[str, Any]:
     validity_concern = (
         "rushed_session" in flags
         or "multiple_rapid_responses" in flags
-        or extended_count > 3
+        or extended_count > EXTENDED_RESPONSE_VALIDITY_THRESHOLD
     )
 
     logger.info(
@@ -408,7 +416,10 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict[str, Any]:
     incorrect_times: List[int] = []
 
     for response in responses:
-        time_value: int = response.time_spent_seconds  # type: ignore[assignment]
+        # time_spent_seconds is guaranteed to be not None due to the filter above
+        time_value = response.time_spent_seconds
+        if time_value is None:
+            continue
         if response.is_correct:
             correct_times.append(time_value)
         else:
@@ -621,7 +632,10 @@ def _interpret_speed_accuracy(
         # Correct responses are slower (positive difference)
         # This could mean the question requires careful thought
         # OR incorrect responders are guessing quickly
-        if correlation is not None and correlation < -0.2:
+        if (
+            correlation is not None
+            and correlation < FASTER_INCORRECT_CORRELATION_THRESHOLD
+        ):
             return "faster_incorrect"
         return "slower_correct"
 

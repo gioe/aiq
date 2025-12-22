@@ -209,7 +209,7 @@ class NotificationScheduler:
             # User has never taken a test
             return None
 
-        completed_at = ensure_timezone_aware(latest_result.completed_at)  # type: ignore
+        completed_at = ensure_timezone_aware(latest_result.completed_at)
         return calculate_next_test_date(completed_at)
 
     def is_user_due_for_test(self, user_id: int) -> bool:

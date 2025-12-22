@@ -287,9 +287,9 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
         question = db.query(Question).filter(Question.id == question_id).first()
 
         if question:
-            question.empirical_difficulty = empirical_difficulty  # type: ignore
-            question.discrimination = discrimination  # type: ignore
-            question.response_count = response_count  # type: ignore
+            question.empirical_difficulty = empirical_difficulty
+            question.discrimination = discrimination
+            question.response_count = response_count
 
             results[question_id] = {
                 "empirical_difficulty": empirical_difficulty,
@@ -313,9 +313,11 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
                 and discrimination < 0
                 and question.quality_flag == "normal"
             ):
-                question.quality_flag = "under_review"  # type: ignore
-                question.quality_flag_reason = f"Negative discrimination: {discrimination:.3f}"  # type: ignore
-                question.quality_flag_updated_at = utc_now()  # type: ignore
+                question.quality_flag = "under_review"
+                question.quality_flag_reason = (
+                    f"Negative discrimination: {discrimination:.3f}"
+                )
+                question.quality_flag_updated_at = utc_now()
                 logger.warning(
                     f"Question {question_id} flagged: negative discrimination "
                     f"{discrimination:.3f}"
@@ -339,7 +341,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
         else:
             logger.error(f"Question {question_id} not found in database")
             # mypy: ignore - None values intentional for missing questions
-            results[question_id] = {  # type: ignore
+            results[question_id] = {
                 "empirical_difficulty": None,
                 "discrimination": None,
                 "response_count": response_count,
@@ -729,7 +731,7 @@ def validate_difficulty_labels(
             response_count = question.response_count or 0
             assigned_difficulty = question.difficulty_level.value.lower()
             # Cast to Optional[float] for type checker - at runtime this is already float | None
-            empirical_diff: float | None = question.empirical_difficulty  # type: ignore[assignment]
+            empirical_diff: float | None = question.empirical_difficulty
 
             # Check if we have sufficient data for validation
             if response_count < min_responses:
@@ -883,9 +885,9 @@ def auto_flag_problematic_questions(
         reason = f"Negative discrimination: {question.discrimination:.3f}"
 
         # Update question with quality flag
-        question.quality_flag = "under_review"  # type: ignore
-        question.quality_flag_reason = reason  # type: ignore
-        question.quality_flag_updated_at = now  # type: ignore
+        question.quality_flag = "under_review"
+        question.quality_flag_reason = reason
+        question.quality_flag_updated_at = now
 
         logger.warning(
             f"Question {question.id} flagged for review: {reason} "
@@ -1054,8 +1056,8 @@ def recalibrate_questions(
                         question.original_difficulty_level = question.difficulty_level
 
                     # Update to new difficulty level using enum member lookup
-                    question.difficulty_level = DifficultyLevel[new_label.upper()]  # type: ignore
-                    question.difficulty_recalibrated_at = utc_now()  # type: ignore
+                    question.difficulty_level = DifficultyLevel[new_label.upper()]
+                    question.difficulty_recalibrated_at = utc_now()
 
                     logger.info(
                         f"Recalibrated question {question_id}: "

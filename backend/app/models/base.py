@@ -1,8 +1,11 @@
 """
 Database base configuration for SQLAlchemy models.
+
+This module uses SQLAlchemy 2.0 style with DeclarativeBase and Mapped types
+for proper type checking support. See BCQ-035 for migration details.
 """
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import QueuePool
 from typing import Generator
 import os
@@ -51,8 +54,16 @@ engine = create_engine(
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create Base class for models
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """
+    SQLAlchemy 2.0 declarative base class with type annotation support.
+
+    Using DeclarativeBase instead of declarative_base() enables proper
+    type checking for model attributes when using Mapped[] annotations.
+    """
+
+    pass
 
 
 def get_db() -> Generator:

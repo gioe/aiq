@@ -433,15 +433,17 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-035: Reduce Type Ignore Comments
-**Status:** [ ] Not Started
-**Files:** Multiple (192 occurrences across 17 files)
-**Description:** Heavy use of `# type: ignore` indicates incomplete type annotations. Primary hotspots: admin.py (93), test.py (47).
+**Status:** [x] Complete
+**Files:** Multiple (183 occurrences reduced to 2 across codebase)
+**Description:** Heavy use of `# type: ignore` indicated incomplete type annotations. Migrated to SQLAlchemy 2.0 Mapped[] types.
 **Acceptance Criteria:**
-- [ ] Add proper type stubs for SQLAlchemy model Column access
-- [ ] Use `TYPE_CHECKING` imports with forward references where needed
-- [ ] Reduce type ignore count by at least 50%
-- [ ] Mypy passes with stricter settings
-- [ ] Document remaining necessary type ignores
+- [x] Add proper type stubs for SQLAlchemy model Column access (via Mapped[] annotations)
+- [x] Use `TYPE_CHECKING` imports with forward references where needed
+- [x] Reduce type ignore count by at least 50% (achieved 98.9% reduction: 183 -> 2)
+- [x] Mypy passes with stricter settings
+- [x] Document remaining necessary type ignores:
+  - `config.py:100` - pydantic-settings required field limitation
+  - `test_reliability.py:2349` - intentional for testing invalid input
 
 ---
 

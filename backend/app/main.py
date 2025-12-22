@@ -172,7 +172,7 @@ def create_application() -> FastAPI:
         # Create rate limit configuration with endpoint-specific limits
         # mypy: ignore - we're using the literal from settings
         rate_limit_config = RateLimitConfig(
-            strategy=settings.RATE_LIMIT_STRATEGY,  # type: ignore[arg-type]
+            strategy=settings.RATE_LIMIT_STRATEGY,
             default_limit=settings.RATE_LIMIT_DEFAULT_LIMIT,
             default_window=settings.RATE_LIMIT_DEFAULT_WINDOW,
             enabled=True,

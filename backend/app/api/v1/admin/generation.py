@@ -827,14 +827,14 @@ def _compute_pipeline_losses(run: QuestionGenerationRun) -> PipelineLosses:
     Returns:
         PipelineLosses with absolute and percentage values
     """
-    # Extract values from SQLAlchemy model (mypy sees Column types, runtime has values)
-    requested: int = run.questions_requested  # type: ignore[assignment]
-    generated: int = run.questions_generated  # type: ignore[assignment]
-    evaluated: int = run.questions_evaluated  # type: ignore[assignment]
-    rejected: int = run.questions_rejected  # type: ignore[assignment]
-    approved: int = run.questions_approved  # type: ignore[assignment]
-    duplicates: int = run.duplicates_found  # type: ignore[assignment]
-    inserted: int = run.questions_inserted  # type: ignore[assignment]
+    # Extract values from SQLAlchemy model
+    requested = run.questions_requested
+    generated = run.questions_generated
+    evaluated = run.questions_evaluated
+    rejected = run.questions_rejected
+    approved = run.questions_approved
+    duplicates = run.duplicates_found
+    inserted = run.questions_inserted
 
     # Calculate absolute losses at each stage
     generation_loss = requested - generated
@@ -953,44 +953,44 @@ async def get_generation_run(
             GenerationRunStatus.FAILED: GenerationRunStatusSchema.FAILED,
         }
 
-        # Build the response (type: ignore for SQLAlchemy Column types)
+        # Build the response
         return QuestionGenerationRunDetail(
-            id=db_run.id,  # type: ignore[arg-type]
-            started_at=db_run.started_at,  # type: ignore[arg-type]
-            completed_at=db_run.completed_at,  # type: ignore[arg-type]
-            duration_seconds=db_run.duration_seconds,  # type: ignore[arg-type]
-            status=status_mapping[db_run.status],  # type: ignore[index]
-            exit_code=db_run.exit_code,  # type: ignore[arg-type]
-            questions_requested=db_run.questions_requested,  # type: ignore[arg-type]
-            questions_generated=db_run.questions_generated,  # type: ignore[arg-type]
-            generation_failures=db_run.generation_failures,  # type: ignore[arg-type]
-            generation_success_rate=db_run.generation_success_rate,  # type: ignore[arg-type]
-            questions_evaluated=db_run.questions_evaluated,  # type: ignore[arg-type]
-            questions_approved=db_run.questions_approved,  # type: ignore[arg-type]
-            questions_rejected=db_run.questions_rejected,  # type: ignore[arg-type]
-            approval_rate=db_run.approval_rate,  # type: ignore[arg-type]
-            avg_arbiter_score=db_run.avg_arbiter_score,  # type: ignore[arg-type]
-            min_arbiter_score=db_run.min_arbiter_score,  # type: ignore[arg-type]
-            max_arbiter_score=db_run.max_arbiter_score,  # type: ignore[arg-type]
-            duplicates_found=db_run.duplicates_found,  # type: ignore[arg-type]
-            exact_duplicates=db_run.exact_duplicates,  # type: ignore[arg-type]
-            semantic_duplicates=db_run.semantic_duplicates,  # type: ignore[arg-type]
-            duplicate_rate=db_run.duplicate_rate,  # type: ignore[arg-type]
-            questions_inserted=db_run.questions_inserted,  # type: ignore[arg-type]
-            insertion_failures=db_run.insertion_failures,  # type: ignore[arg-type]
-            overall_success_rate=db_run.overall_success_rate,  # type: ignore[arg-type]
-            total_errors=db_run.total_errors,  # type: ignore[arg-type]
-            total_api_calls=db_run.total_api_calls,  # type: ignore[arg-type]
-            provider_metrics=db_run.provider_metrics,  # type: ignore[arg-type]
-            type_metrics=db_run.type_metrics,  # type: ignore[arg-type]
-            difficulty_metrics=db_run.difficulty_metrics,  # type: ignore[arg-type]
-            error_summary=db_run.error_summary,  # type: ignore[arg-type]
-            prompt_version=db_run.prompt_version,  # type: ignore[arg-type]
-            arbiter_config_version=db_run.arbiter_config_version,  # type: ignore[arg-type]
-            min_arbiter_score_threshold=db_run.min_arbiter_score_threshold,  # type: ignore[arg-type]
-            environment=db_run.environment,  # type: ignore[arg-type]
-            triggered_by=db_run.triggered_by,  # type: ignore[arg-type]
-            created_at=db_run.created_at,  # type: ignore[arg-type]
+            id=db_run.id,
+            started_at=db_run.started_at,
+            completed_at=db_run.completed_at,
+            duration_seconds=db_run.duration_seconds,
+            status=status_mapping[db_run.status],
+            exit_code=db_run.exit_code,
+            questions_requested=db_run.questions_requested,
+            questions_generated=db_run.questions_generated,
+            generation_failures=db_run.generation_failures,
+            generation_success_rate=db_run.generation_success_rate,
+            questions_evaluated=db_run.questions_evaluated,
+            questions_approved=db_run.questions_approved,
+            questions_rejected=db_run.questions_rejected,
+            approval_rate=db_run.approval_rate,
+            avg_arbiter_score=db_run.avg_arbiter_score,
+            min_arbiter_score=db_run.min_arbiter_score,
+            max_arbiter_score=db_run.max_arbiter_score,
+            duplicates_found=db_run.duplicates_found,
+            exact_duplicates=db_run.exact_duplicates,
+            semantic_duplicates=db_run.semantic_duplicates,
+            duplicate_rate=db_run.duplicate_rate,
+            questions_inserted=db_run.questions_inserted,
+            insertion_failures=db_run.insertion_failures,
+            overall_success_rate=db_run.overall_success_rate,
+            total_errors=db_run.total_errors,
+            total_api_calls=db_run.total_api_calls,
+            provider_metrics=db_run.provider_metrics,
+            type_metrics=db_run.type_metrics,
+            difficulty_metrics=db_run.difficulty_metrics,
+            error_summary=db_run.error_summary,
+            prompt_version=db_run.prompt_version,
+            arbiter_config_version=db_run.arbiter_config_version,
+            min_arbiter_score_threshold=db_run.min_arbiter_score_threshold,
+            environment=db_run.environment,
+            triggered_by=db_run.triggered_by,
+            created_at=db_run.created_at,
             pipeline_losses=pipeline_losses,
         )
 

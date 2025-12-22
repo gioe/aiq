@@ -90,8 +90,8 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
 
     # Track analytics event
     AnalyticsTracker.track_user_registered(
-        user_id=int(new_user.id),  # type: ignore
-        email=new_user.email,  # type: ignore
+        user_id=int(new_user.id),
+        email=new_user.email,
     )
 
     # Log successful registration (user_id only, no PII)
@@ -132,14 +132,14 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Verify password
-    if not verify_password(credentials.password, user.password_hash):  # type: ignore
+    if not verify_password(credentials.password, user.password_hash):
         logger.warning(
             f"Login attempt failed: invalid password for email={credentials.email}"
         )
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Update last login timestamp
-    user.last_login_at = utc_now()  # type: ignore
+    user.last_login_at = utc_now()
     try:
         db.commit()
         db.refresh(user)
@@ -152,8 +152,8 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
 
     # Track analytics event
     AnalyticsTracker.track_user_login(
-        user_id=int(user.id),  # type: ignore
-        email=user.email,  # type: ignore
+        user_id=int(user.id),
+        email=user.email,
     )
 
     # Log successful login (user_id only, no PII)
@@ -193,7 +193,7 @@ def refresh_access_token(
 
     AnalyticsTracker.track_event(
         EventType.TOKEN_REFRESHED,
-        user_id=int(current_user.id),  # type: ignore
+        user_id=int(current_user.id),
     )
 
     # Log token refresh event (user_id only, no PII)
@@ -233,7 +233,7 @@ def logout_user(current_user: User = Depends(get_current_user)):
 
     AnalyticsTracker.track_event(
         EventType.USER_LOGOUT,
-        user_id=int(current_user.id),  # type: ignore
+        user_id=int(current_user.id),
     )
 
     # For JWT, logout is handled client-side by discarding tokens

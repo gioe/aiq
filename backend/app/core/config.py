@@ -3,7 +3,7 @@ Application configuration settings.
 """
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Literal
 
 
 class Settings(BaseSettings):
@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     # IMPORTANT: Set to True in production via .env file
     RATE_LIMIT_ENABLED: bool = False
-    RATE_LIMIT_STRATEGY: str = (
-        "token_bucket"  # token_bucket, sliding_window, fixed_window
-    )
+    RATE_LIMIT_STRATEGY: Literal[
+        "token_bucket", "sliding_window", "fixed_window"
+    ] = "token_bucket"
     RATE_LIMIT_DEFAULT_LIMIT: int = 100  # requests
     RATE_LIMIT_DEFAULT_WINDOW: int = 60  # seconds
 
@@ -96,4 +96,5 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()  # type: ignore[call-arg]  # Pydantic loads from .env
+# mypy doesn't understand that pydantic_settings loads required fields from env vars
+settings = Settings()  # type: ignore[call-arg]

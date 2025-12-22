@@ -57,7 +57,7 @@ def set_config(db: Session, key: str, value: Any) -> SystemConfig:
         db.add(config)
     else:
         config.value = value
-        config.updated_at = utc_now()  # type: ignore[assignment]
+        config.updated_at = utc_now()
 
     db.commit()
     db.refresh(config)
