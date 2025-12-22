@@ -477,15 +477,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-038: Improve build_response_matrix Warning Message
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #324 comment
 **Files:** `backend/app/core/analytics.py:382`
 **Description:** Improve the warning message when max_responses limit is reached by including the actual total count of responses available.
 **Original Comment:** "This warning only triggers if we fetch exactly `max_responses` rows... Consider checking the actual total count and including it in the warning message for more actionable information to administrators."
 **Acceptance Criteria:**
-- [ ] Add count query to get total responses available
-- [ ] Include "Fetched X of Y total responses" in warning message
-- [ ] Unit test verifies improved message format
+- [x] Add count query to get total responses available
+- [x] Include "Fetched X of Y total responses" in warning message
+- [x] Unit test verifies improved message format
 
 ---
 
