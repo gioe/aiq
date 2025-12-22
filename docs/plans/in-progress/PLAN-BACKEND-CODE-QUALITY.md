@@ -462,17 +462,17 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-037: Implement Redis Storage for Rate Limiting
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/ratelimit/storage.py`
 **Description:** Only `InMemoryStorage` is implemented. Redis implementation exists as commented stub. Required for multi-worker deployments.
 **Acceptance Criteria:**
-- [ ] Uncomment and complete `RedisStorage` class
-- [ ] Add redis-py to requirements.txt (optional dependency)
-- [ ] Make storage backend configurable via environment variable
-- [ ] Add connection pooling and error handling
-- [ ] Add fallback to in-memory if Redis unavailable
-- [ ] Document configuration in CLAUDE.md
-- [ ] Integration test with Redis
+- [x] Uncomment and complete `RedisStorage` class
+- [x] Add redis-py to requirements.txt (optional dependency)
+- [x] Make storage backend configurable via environment variable
+- [x] Add connection pooling and error handling
+- [x] Add fallback to in-memory if Redis unavailable
+- [x] Document configuration in CLAUDE.md
+- [x] Integration test with Redis
 
 ---
 
