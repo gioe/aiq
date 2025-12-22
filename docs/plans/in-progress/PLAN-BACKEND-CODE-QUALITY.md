@@ -792,3 +792,68 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 **Acceptance Criteria:**
 - [ ] Add note in docstring about sync-only session support
 - [ ] Consider Protocol-based check for future async support
+
+---
+
+### BCQ-049: Add Opportunistic Cleanup to ProcessRegistry
+**Status:** [ ] Not Started
+**Source:** PR #357 comment
+**Files:** `backend/app/core/process_registry.py`
+**Description:** Add automatic cleanup of old finished jobs to prevent memory leaks in long-running applications. Currently finished processes remain in registry indefinitely until manual cleanup.
+**Original Comment:** "The registry keeps references to subprocess.Popen objects indefinitely until manually cleaned up. If jobs are triggered frequently and cleanup isn't called, this could accumulate memory. Consider adding automatic cleanup to list_jobs() or get_stats()."
+**Acceptance Criteria:**
+- [ ] Add `_cleanup_old_finished_jobs(max_age_hours=1)` private method
+- [ ] Call opportunistic cleanup in `list_jobs()` and `get_stats()`
+- [ ] Document cleanup behavior in module docstring
+
+---
+
+### BCQ-050: Add Shutdown Flag to ProcessRegistry
+**Status:** [ ] Not Started
+**Source:** PR #357 comment
+**Files:** `backend/app/core/process_registry.py`
+**Description:** Add `_shutting_down` flag to prevent new process registrations during shutdown sequence.
+**Original Comment:** "The shutdown logic releases the lock between the SIGTERM phase and the wait phase. This could allow new processes to be registered during shutdown. Add a `_shutting_down` flag to prevent new registrations during shutdown."
+**Acceptance Criteria:**
+- [ ] Add `_shutting_down: bool = False` to __init__
+- [ ] Check flag in `register()` and raise RuntimeError if True
+- [ ] Set flag to True at start of `shutdown_all()`
+
+---
+
+### BCQ-051: Improve ProcessRegistry Job ID Uniqueness
+**Status:** [ ] Not Started
+**Source:** PR #357 comment
+**Files:** `backend/app/core/process_registry.py`
+**Description:** Job IDs use second-precision timestamps which could cause collisions on application restart. Consider using microsecond precision or UUID.
+**Original Comment:** "If multiple processes are spawned within the same second, uniqueness relies solely on the counter. While this is fine for sequential registration, the counter could reset if the application restarts."
+**Acceptance Criteria:**
+- [ ] Change timestamp format to include microseconds: `%Y%m%d%H%M%S%f`
+- [ ] OR use UUID hex prefix instead of counter
+- [ ] Update tests if ID format changes
+
+---
+
+### BCQ-052: Fix ProcessRegistry Type Annotations
+**Status:** [ ] Not Started
+**Source:** PR #357 comment
+**Files:** `backend/app/core/process_registry.py`
+**Description:** Some return types use bare `Dict` instead of `Dict[str, Any]` for consistency.
+**Original Comment:** "Some return types use bare `Dict` instead of `Dict[str, Any]`. Be consistent with type annotations."
+**Acceptance Criteria:**
+- [ ] Update `to_dict()` return type to `Dict[str, Any]`
+- [ ] Update `get_stats()` return type to `Dict[str, Any]`
+- [ ] Run mypy to verify no type errors introduced
+
+---
+
+### BCQ-053: Add ProcessRegistry Stress and Edge Case Tests
+**Status:** [ ] Not Started
+**Source:** PR #357 comment
+**Files:** `backend/tests/core/test_process_registry.py`
+**Description:** Add additional tests for stress scenarios and edge cases not currently covered.
+**Original Comment:** "Could use additional tests: Stress test (register 100+ jobs concurrently), Memory leak test (verify cleanup actually frees memory), Shutdown during active registration."
+**Acceptance Criteria:**
+- [ ] Add test_concurrent_registration_stress with 100+ jobs
+- [ ] Add test_shutdown_during_registration
+- [ ] Consider adding memory usage verification test
