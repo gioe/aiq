@@ -312,8 +312,27 @@ def start_test(
 
     Raises:
         HTTPException: If user has active test or insufficient questions
+
+    Note:
+        Active Session Prevention Strategy (BCQ-045):
+        This endpoint uses a dual-check pattern to prevent duplicate active sessions:
+
+        1. Application-level check (below): Queries for existing active session BEFORE
+           creating a new one. Returns HTTP 400 with session_id in error message,
+           allowing clients to offer "Resume existing session" functionality.
+
+        2. Database-level check (in db.flush()): The partial unique index
+           ix_test_sessions_user_active catches race conditions when two requests
+           pass the app-level check simultaneously. Returns HTTP 409 without
+           session_id (unavailable due to rollback).
+
+        Both checks are intentionally kept because:
+        - App-level provides better UX (session_id for recovery options)
+        - DB-level is a last-resort safeguard for race conditions
+        - The DB constraint guarantees correctness even if app logic is bypassed
     """
-    # Check if user already has an active (in_progress) test session
+    # BCQ-045: Application-level active session check (provides session_id for UX)
+    # See docstring "Active Session Prevention Strategy" for why both checks exist
     active_session = (
         db.query(TestSession)
         .filter(
@@ -382,9 +401,10 @@ def start_test(
     try:
         db.flush()  # Get the session ID without committing yet
     except IntegrityError:
-        # BCQ-006: Race condition detected - another session was created concurrently
-        # The partial unique index ix_test_sessions_user_active prevents duplicate
-        # in_progress sessions for the same user at the database level.
+        # BCQ-006/BCQ-045: Database-level race condition prevention
+        # This catches the rare case where two requests pass the app-level check
+        # simultaneously. Returns 409 without session_id (lost due to rollback).
+        # See docstring "Active Session Prevention Strategy" for full explanation.
         db.rollback()
         logger.warning(
             f"Race condition detected: user {current_user.id} attempted to start "

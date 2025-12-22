@@ -78,6 +78,9 @@ class ErrorMessages:
     # Conflict Errors (409)
     # ==========================================================================
     EMAIL_ALREADY_REGISTERED = "Email already registered."
+    # BCQ-045: Used for database-level race condition detection (IntegrityError).
+    # Cannot include session_id because the transaction was rolled back.
+    # For app-level detection with session_id, use active_session_exists() below.
     SESSION_ALREADY_IN_PROGRESS = (
         "A test session is already in progress. "
         "Please complete or abandon the existing session before starting a new one."
@@ -120,7 +123,12 @@ class ErrorMessages:
     # ==========================================================================
     @staticmethod
     def active_session_exists(session_id: int) -> str:
-        """Message for when user has an active session blocking a new one."""
+        """Message for when user has an active session blocking a new one.
+
+        BCQ-045: Used for app-level active session detection (returns 400).
+        Includes session_id so clients can offer "Resume session" functionality.
+        For database-level race condition detection, use SESSION_ALREADY_IN_PROGRESS.
+        """
         return (
             f"User already has an active test session (ID: {session_id}). "
             "Please complete or abandon the existing session before starting a new one."
