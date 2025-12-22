@@ -769,4 +769,339 @@ final class TestResultTests: XCTestCase {
         XCTAssertEqual(ci99.confidencePercentage, 99)
         XCTAssertEqual(ci99.fullDescription, "99% confidence interval: 99-117")
     }
+
+    // MARK: - PaginatedTestHistoryResponse Metadata Validation Tests (BCQ-043)
+
+    func testPaginatedResponseMetadataDecoding() throws {
+        let json = """
+        {
+            "results": [
+                {
+                    "id": 1,
+                    "test_session_id": 10,
+                    "user_id": 100,
+                    "iq_score": 115,
+                    "percentile_rank": 84.0,
+                    "total_questions": 20,
+                    "correct_answers": 14,
+                    "accuracy_percentage": 70.0,
+                    "completion_time_seconds": 1200,
+                    "completed_at": "2025-12-13T10:00:00Z"
+                }
+            ],
+            "total_count": 100,
+            "limit": 50,
+            "offset": 0,
+            "has_more": true
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        // Verify pagination metadata fields are correctly populated
+        XCTAssertEqual(response.totalCount, 100, "totalCount should match expected value")
+        XCTAssertEqual(response.limit, 50, "limit should match expected value")
+        XCTAssertEqual(response.offset, 0, "offset should match expected value")
+        XCTAssertTrue(response.hasMore, "hasMore should be true when total exceeds current page")
+        XCTAssertEqual(response.results.count, 1, "results array should contain one test result")
+    }
+
+    func testPaginatedResponseTotalCountMatchesExpectedValue() throws {
+        // Test various total counts to ensure consistent handling
+        let testCases: [(totalCount: Int, results: Int, description: String)] = [
+            (0, 0, "empty results"),
+            (1, 1, "single result"),
+            (50, 50, "exactly one page"),
+            (100, 50, "multiple pages - first page"),
+            (1000, 50, "large total count")
+        ]
+
+        for testCase in testCases {
+            let resultsJson = (0 ..< testCase.results).map { i in
+                """
+                {
+                    "id": \(i + 1),
+                    "test_session_id": \(i + 10),
+                    "user_id": 100,
+                    "iq_score": 115,
+                    "total_questions": 20,
+                    "correct_answers": 14,
+                    "accuracy_percentage": 70.0,
+                    "completed_at": "2025-12-13T10:00:00Z"
+                }
+                """
+            }.joined(separator: ",")
+
+            let json = """
+            {
+                "results": [\(resultsJson)],
+                "total_count": \(testCase.totalCount),
+                "limit": 50,
+                "offset": 0,
+                "has_more": \(testCase.totalCount > testCase.results ? "true" : "false")
+            }
+            """
+
+            let data = json.data(using: .utf8)!
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+            XCTAssertEqual(
+                response.totalCount,
+                testCase.totalCount,
+                "totalCount should be \(testCase.totalCount) for \(testCase.description)"
+            )
+            XCTAssertEqual(
+                response.results.count,
+                testCase.results,
+                "results count should be \(testCase.results) for \(testCase.description)"
+            )
+        }
+    }
+
+    func testPaginatedResponseLimitAndOffsetAreCorrectlyPopulated() throws {
+        // Test various limit/offset combinations
+        let testCases: [(limit: Int, offset: Int, description: String)] = [
+            (50, 0, "first page with default limit"),
+            (100, 0, "first page with max limit"),
+            (25, 0, "first page with custom limit"),
+            (50, 50, "second page"),
+            (50, 100, "third page"),
+            (10, 90, "last partial page")
+        ]
+
+        for testCase in testCases {
+            let json = """
+            {
+                "results": [],
+                "total_count": 100,
+                "limit": \(testCase.limit),
+                "offset": \(testCase.offset),
+                "has_more": \(testCase.offset + testCase.limit < 100 ? "true" : "false")
+            }
+            """
+
+            let data = json.data(using: .utf8)!
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+            XCTAssertEqual(
+                response.limit,
+                testCase.limit,
+                "limit should be \(testCase.limit) for \(testCase.description)"
+            )
+            XCTAssertEqual(
+                response.offset,
+                testCase.offset,
+                "offset should be \(testCase.offset) for \(testCase.description)"
+            )
+        }
+    }
+
+    func testPaginatedResponseHasMoreIsCorrectlyCalculated() throws {
+        // Test hasMore flag with various scenarios
+        let testCases: [(totalCount: Int, offset: Int, limit: Int, hasMore: Bool, description: String)] = [
+            (100, 0, 50, true, "first page with more results"),
+            (100, 50, 50, false, "last page - exactly at end"),
+            (50, 0, 50, false, "single page - exact fit"),
+            (45, 0, 50, false, "single page - partial"),
+            (0, 0, 50, false, "empty results"),
+            (150, 100, 50, false, "final page of multiple pages"),
+            (150, 50, 50, true, "middle page")
+        ]
+
+        for testCase in testCases {
+            let json = """
+            {
+                "results": [],
+                "total_count": \(testCase.totalCount),
+                "limit": \(testCase.limit),
+                "offset": \(testCase.offset),
+                "has_more": \(testCase.hasMore)
+            }
+            """
+
+            let data = json.data(using: .utf8)!
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+            XCTAssertEqual(
+                response.hasMore,
+                testCase.hasMore,
+                "hasMore should be \(testCase.hasMore) for \(testCase.description)"
+            )
+        }
+    }
+
+    func testPaginatedResponseWithEmptyResults() throws {
+        let json = """
+        {
+            "results": [],
+            "total_count": 0,
+            "limit": 50,
+            "offset": 0,
+            "has_more": false
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        XCTAssertTrue(response.results.isEmpty, "results should be empty")
+        XCTAssertEqual(response.totalCount, 0, "totalCount should be 0 for empty results")
+        XCTAssertFalse(response.hasMore, "hasMore should be false for empty results")
+    }
+
+    func testPaginatedResponseWithSingleResult() throws {
+        let json = """
+        {
+            "results": [
+                {
+                    "id": 1,
+                    "test_session_id": 10,
+                    "user_id": 100,
+                    "iq_score": 108,
+                    "total_questions": 20,
+                    "correct_answers": 14,
+                    "accuracy_percentage": 70.0,
+                    "completed_at": "2025-12-13T10:00:00Z"
+                }
+            ],
+            "total_count": 1,
+            "limit": 50,
+            "offset": 0,
+            "has_more": false
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        XCTAssertEqual(response.results.count, 1, "results should contain exactly one item")
+        XCTAssertEqual(response.totalCount, 1, "totalCount should be 1")
+        XCTAssertFalse(response.hasMore, "hasMore should be false for single result")
+        XCTAssertEqual(response.results[0].iqScore, 108, "result IQ score should match")
+    }
+
+    func testPaginatedResponseWithMaxLimit() throws {
+        // Test with maximum allowed limit (100)
+        let json = """
+        {
+            "results": [],
+            "total_count": 500,
+            "limit": 100,
+            "offset": 0,
+            "has_more": true
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        XCTAssertEqual(response.limit, 100, "limit should be 100 (max)")
+        XCTAssertEqual(response.totalCount, 500, "totalCount should reflect full dataset")
+        XCTAssertTrue(response.hasMore, "hasMore should be true when more results exist")
+    }
+
+    func testPaginatedResponseCodingKeys() throws {
+        // Verify snake_case to camelCase mapping works correctly
+        let json = """
+        {
+            "results": [],
+            "total_count": 42,
+            "limit": 25,
+            "offset": 10,
+            "has_more": true
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        // These assertions verify the CodingKeys enum properly maps snake_case
+        XCTAssertEqual(response.totalCount, 42, "total_count should map to totalCount")
+        XCTAssertEqual(response.hasMore, true, "has_more should map to hasMore")
+    }
+
+    func testPaginatedResponseWithResultsContainingOptionalFields() throws {
+        // Test that results with optional fields decode correctly within paginated response
+        let json = """
+        {
+            "results": [
+                {
+                    "id": 1,
+                    "test_session_id": 10,
+                    "user_id": 100,
+                    "iq_score": 115,
+                    "percentile_rank": 84.0,
+                    "total_questions": 20,
+                    "correct_answers": 14,
+                    "accuracy_percentage": 70.0,
+                    "completion_time_seconds": 1200,
+                    "completed_at": "2025-12-13T10:00:00Z",
+                    "confidence_interval": {
+                        "lower": 108,
+                        "upper": 122,
+                        "confidence_level": 0.95,
+                        "standard_error": 3.5
+                    },
+                    "domain_scores": {
+                        "pattern": {"correct": 3, "total": 4, "pct": 75.0}
+                    }
+                },
+                {
+                    "id": 2,
+                    "test_session_id": 11,
+                    "user_id": 100,
+                    "iq_score": 100,
+                    "percentile_rank": null,
+                    "total_questions": 20,
+                    "correct_answers": 10,
+                    "accuracy_percentage": 50.0,
+                    "completion_time_seconds": null,
+                    "completed_at": "2025-12-12T10:00:00Z",
+                    "confidence_interval": null,
+                    "domain_scores": null
+                }
+            ],
+            "total_count": 2,
+            "limit": 50,
+            "offset": 0,
+            "has_more": false
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
+
+        XCTAssertEqual(response.results.count, 2, "should decode both results")
+        XCTAssertEqual(response.totalCount, 2, "totalCount should be 2")
+
+        // First result with optional fields present
+        let firstResult = response.results[0]
+        XCTAssertNotNil(firstResult.confidenceInterval, "first result should have CI")
+        XCTAssertNotNil(firstResult.domainScores, "first result should have domain scores")
+        XCTAssertEqual(firstResult.completionTimeSeconds, 1200, "first result should have completion time")
+
+        // Second result with optional fields null
+        let secondResult = response.results[1]
+        XCTAssertNil(secondResult.confidenceInterval, "second result should have nil CI")
+        XCTAssertNil(secondResult.domainScores, "second result should have nil domain scores")
+        XCTAssertNil(secondResult.completionTimeSeconds, "second result should have nil completion time")
+    }
 }
