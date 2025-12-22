@@ -167,44 +167,239 @@ class InMemoryStorage(RateLimiterStorage):
             }
 
 
-# Future: RedisStorage implementation
-#
-# class RedisStorage(RateLimiterStorage):
-#     """
-#     Redis storage backend.
-#
-#     Provides distributed rate limiting across multiple workers/servers.
-#     Requires redis-py package.
-#     """
-#
-#     def __init__(self, redis_client):
-#         """
-#         Initialize Redis storage.
-#
-#         Args:
-#             redis_client: redis.Redis instance
-#         """
-#         self.redis = redis_client
-#
-#     def get(self, key: str) -> Optional[Any]:
-#         """Get value from Redis."""
-#         import pickle
-#         value = self.redis.get(key)
-#         return pickle.loads(value) if value else None
-#
-#     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-#         """Set value in Redis with optional TTL."""
-#         import pickle
-#         serialized = pickle.dumps(value)
-#         if ttl:
-#             self.redis.setex(key, ttl, serialized)
-#         else:
-#             self.redis.set(key, serialized)
-#
-#     def delete(self, key: str) -> None:
-#         """Delete key from Redis."""
-#         self.redis.delete(key)
-#
-#     def clear(self) -> None:
-#         """Clear all keys (use with caution in production!)."""
-#         self.redis.flushdb()
+class RedisStorage(RateLimiterStorage):
+    """
+    Redis storage backend for rate limiting.
+
+    Provides distributed rate limiting across multiple workers/servers.
+    Requires redis-py package (optional dependency).
+
+    Features:
+    - Connection pooling for efficient resource usage
+    - Automatic reconnection on connection failures
+    - JSON serialization for cross-platform compatibility
+    - Namespaced keys to avoid collisions with other Redis data
+    - Graceful error handling with logging
+
+    Note: For production use, ensure Redis is configured with appropriate
+    persistence and replication settings.
+    """
+
+    # Key prefix to namespace rate limit data in Redis
+    KEY_PREFIX = "ratelimit:"
+
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379/0",
+        key_prefix: Optional[str] = None,
+        connection_pool_size: int = 10,
+        socket_timeout: float = 5.0,
+        socket_connect_timeout: float = 5.0,
+        retry_on_timeout: bool = True,
+    ):
+        """
+        Initialize Redis storage with connection pooling.
+
+        Args:
+            redis_url: Redis connection URL (e.g., redis://localhost:6379/0
+                       or redis://:password@host:port/db)
+            key_prefix: Optional custom prefix for rate limit keys
+                        (defaults to "ratelimit:")
+            connection_pool_size: Maximum number of connections in the pool
+            socket_timeout: Timeout for socket operations in seconds
+            socket_connect_timeout: Timeout for socket connections in seconds
+            retry_on_timeout: Whether to retry on timeout errors
+
+        Raises:
+            ImportError: If redis-py is not installed
+        """
+        try:
+            import redis  # type: ignore[import-untyped]
+        except ImportError:
+            raise ImportError(
+                "redis-py is required for RedisStorage. "
+                "Install it with: pip install redis"
+            )
+
+        import json
+        import logging
+
+        self._json = json
+        self._logger = logging.getLogger(__name__)
+
+        self._key_prefix = key_prefix or self.KEY_PREFIX
+
+        # Create connection pool for efficient connection management
+        self._pool = redis.ConnectionPool.from_url(
+            redis_url,
+            max_connections=connection_pool_size,
+            socket_timeout=socket_timeout,
+            socket_connect_timeout=socket_connect_timeout,
+            retry_on_timeout=retry_on_timeout,
+        )
+
+        # Create Redis client using the connection pool
+        self._redis = redis.Redis(connection_pool=self._pool)
+
+        # Test connection on startup
+        try:
+            self._redis.ping()
+            self._logger.info("Successfully connected to Redis for rate limiting")
+        except redis.ConnectionError as e:
+            self._logger.warning(
+                f"Could not connect to Redis on startup: {e}. "
+                "Rate limiting will fail until Redis is available."
+            )
+
+    def _make_key(self, key: str) -> str:
+        """Create a namespaced key to avoid collisions."""
+        return f"{self._key_prefix}{key}"
+
+    def get(self, key: str) -> Optional[Any]:
+        """
+        Get value from Redis.
+
+        Args:
+            key: Storage key
+
+        Returns:
+            Stored value or None if not found or on error
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            value = self._redis.get(self._make_key(key))
+            if value is None:
+                return None
+            # redis-py returns bytes for sync client
+            return self._json.loads(value.decode("utf-8"))  # type: ignore[union-attr]
+        except redis.RedisError as e:
+            self._logger.error(f"Redis error during get({key}): {e}")
+            return None
+        except (ValueError, self._json.JSONDecodeError) as e:
+            self._logger.error(f"JSON decode error during get({key}): {e}")
+            return None
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """
+        Set value in Redis with optional TTL.
+
+        Args:
+            key: Storage key
+            value: Value to store (must be JSON-serializable)
+            ttl: Time-to-live in seconds (None = no expiration)
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            serialized = self._json.dumps(value)
+            full_key = self._make_key(key)
+
+            if ttl is not None and ttl > 0:
+                self._redis.setex(full_key, ttl, serialized)
+            else:
+                self._redis.set(full_key, serialized)
+        except redis.RedisError as e:
+            self._logger.error(f"Redis error during set({key}): {e}")
+        except (TypeError, ValueError) as e:
+            self._logger.error(f"JSON encode error during set({key}): {e}")
+
+    def delete(self, key: str) -> None:
+        """
+        Delete a key from Redis.
+
+        Args:
+            key: Storage key to delete
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            self._redis.delete(self._make_key(key))
+        except redis.RedisError as e:
+            self._logger.error(f"Redis error during delete({key}): {e}")
+
+    def clear(self) -> None:
+        """
+        Clear all rate limit keys.
+
+        Only clears keys with the rate limit prefix, not the entire database.
+        This is safer for production use where Redis may contain other data.
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            # Use SCAN to safely iterate over keys without blocking
+            pattern = f"{self._key_prefix}*"
+            cursor: int = 0
+            while True:
+                # redis-py scan returns (cursor, keys) tuple for sync client
+                result = self._redis.scan(cursor, match=pattern, count=100)
+                cursor, keys = result  # type: ignore[misc]
+                if keys:
+                    self._redis.delete(*keys)
+                if cursor == 0:
+                    break
+        except redis.RedisError as e:
+            self._logger.error(f"Redis error during clear(): {e}")
+
+    def get_stats(self) -> dict:
+        """
+        Get storage statistics for monitoring.
+
+        Returns:
+            Dict with keys: total_keys, redis_info (subset), connected
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            # Count keys with our prefix
+            pattern = f"{self._key_prefix}*"
+            total_keys = 0
+            cursor: int = 0
+            while True:
+                # redis-py scan returns (cursor, keys) tuple for sync client
+                result = self._redis.scan(cursor, match=pattern, count=100)
+                cursor, keys = result  # type: ignore[misc]
+                total_keys += len(keys)
+                if cursor == 0:
+                    break
+
+            # Get relevant Redis info
+            info = self._redis.info("memory")
+
+            return {
+                "total_keys": total_keys,
+                "connected": True,
+                "used_memory": info.get("used_memory", 0),  # type: ignore[union-attr]
+                "used_memory_human": info.get("used_memory_human", "unknown"),  # type: ignore[union-attr]
+            }
+        except redis.RedisError as e:
+            self._logger.error(f"Redis error during get_stats(): {e}")
+            return {
+                "total_keys": -1,
+                "connected": False,
+                "error": str(e),
+            }
+
+    def is_connected(self) -> bool:
+        """
+        Check if Redis connection is healthy.
+
+        Returns:
+            True if connected and responsive, False otherwise
+        """
+        import redis  # type: ignore[import-untyped]
+
+        try:
+            self._redis.ping()
+            return True
+        except redis.RedisError:
+            return False
+
+    def close(self) -> None:
+        """
+        Close the Redis connection pool.
+
+        Should be called when shutting down the application.
+        """
+        self._pool.disconnect()

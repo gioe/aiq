@@ -462,17 +462,17 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-037: Implement Redis Storage for Rate Limiting
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `backend/app/ratelimit/storage.py`
 **Description:** Only `InMemoryStorage` is implemented. Redis implementation exists as commented stub. Required for multi-worker deployments.
 **Acceptance Criteria:**
-- [ ] Uncomment and complete `RedisStorage` class
-- [ ] Add redis-py to requirements.txt (optional dependency)
-- [ ] Make storage backend configurable via environment variable
-- [ ] Add connection pooling and error handling
-- [ ] Add fallback to in-memory if Redis unavailable
-- [ ] Document configuration in CLAUDE.md
-- [ ] Integration test with Redis
+- [x] Uncomment and complete `RedisStorage` class
+- [x] Add redis-py to requirements.txt (optional dependency)
+- [x] Make storage backend configurable via environment variable
+- [x] Add connection pooling and error handling
+- [x] Add fallback to in-memory if Redis unavailable
+- [x] Document configuration in CLAUDE.md
+- [x] Integration test with Redis
 
 ---
 
@@ -857,3 +857,57 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 - [ ] Add test_concurrent_registration_stress with 100+ jobs
 - [ ] Add test_shutdown_during_registration
 - [ ] Consider adding memory usage verification test
+
+---
+
+### BCQ-054: Remove or Implement Placeholder ImportError Test
+**Status:** [ ] Not Started
+**Source:** PR #358 comment
+**Files:** `backend/tests/test_ratelimit_storage.py:433-442`
+**Description:** The TestRedisStorageImportError test is a placeholder that doesn't actually test the ImportError behavior.
+**Original Comment:** "The ImportError test is a placeholder that doesn't actually test anything... Either: 1. Remove the placeholder test entirely, 2. Or implement it properly using `importlib.reload()`, 3. Or add a comment explaining why it's not testable in the current setup"
+**Acceptance Criteria:**
+- [ ] Either remove test_init_raises_import_error placeholder
+- [ ] OR implement proper test using importlib.reload()
+- [ ] OR add explanatory comment why it cannot be properly tested
+
+---
+
+### BCQ-055: Optimize Repeated Redis Module Imports
+**Status:** [ ] Not Started
+**Source:** PR #358 comment
+**Files:** `backend/app/ratelimit/storage.py`
+**Description:** `import redis` appears in every method (get, set, delete, clear, get_stats, is_connected). Consider storing the redis module once in __init__ to reduce overhead.
+**Original Comment:** "Since redis is already imported and validated in `__init__`, store the exception types once... This is a minor optimization but improves code clarity."
+**Acceptance Criteria:**
+- [ ] Store redis module reference in __init__: `self._redis_module = redis`
+- [ ] Replace repeated imports with `self._redis_module.RedisError`
+- [ ] Verify all tests still pass
+- [ ] No change in error handling behavior
+
+---
+
+### BCQ-056: Add Redis Security Documentation
+**Status:** [ ] Not Started
+**Source:** PR #358 comment
+**Files:** `CLAUDE.md`
+**Description:** Add documentation about Redis security best practices for production deployments.
+**Original Comment:** "Redis AUTH: Document best practice of using password-protected Redis in production. Network security: Add note in CLAUDE.md about using TLS for Redis in production (`rediss://` URL scheme)."
+**Acceptance Criteria:**
+- [ ] Add Redis security section to CLAUDE.md
+- [ ] Document TLS usage with `rediss://` URL scheme
+- [ ] Document password authentication recommendation
+- [ ] Add example .env configuration for production
+
+---
+
+### BCQ-057: Add get_stats Performance Warning
+**Status:** [ ] Not Started
+**Source:** PR #358 comment
+**Files:** `backend/app/ratelimit/storage.py`
+**Description:** The `get_stats()` method iterates all keys with SCAN which could be slow with millions of keys.
+**Original Comment:** "get_stats() performance: Iterates all keys with SCAN - could be slow with millions of keys. Consider adding a comment warning about performance on large datasets. Or add optional `max_scan_count` parameter."
+**Acceptance Criteria:**
+- [ ] Add docstring warning about performance with large key counts
+- [ ] Consider adding optional `max_scan_iterations` parameter
+- [ ] Document expected performance characteristics

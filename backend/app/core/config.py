@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     ] = "token_bucket"
     RATE_LIMIT_DEFAULT_LIMIT: int = 100  # requests
     RATE_LIMIT_DEFAULT_WINDOW: int = 60  # seconds
+    # Storage backend: "memory" for single-worker, "redis" for multi-worker deployments
+    RATE_LIMIT_STORAGE: Literal["memory", "redis"] = "memory"
+    # Redis connection URL (required if RATE_LIMIT_STORAGE="redis")
+    RATE_LIMIT_REDIS_URL: str = "redis://localhost:6379/0"
 
     # Notification Scheduling
     TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days

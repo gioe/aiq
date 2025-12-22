@@ -5,6 +5,7 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Union
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -30,6 +31,7 @@ from app.ratelimit import (
     RateLimitConfig,
     RateLimiter,
     RateLimitMiddleware,
+    RateLimiterStorage,
     SlidingWindowStrategy,
     TokenBucketStrategy,
     get_user_identifier,
@@ -41,6 +43,72 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_redis_url(url: str) -> str:
+    """
+    Remove password from Redis URL for safe logging.
+
+    Args:
+        url: Redis connection URL (e.g., redis://:password@host:port/db)
+
+    Returns:
+        URL with password redacted
+    """
+    parsed = urlparse(url)
+    if parsed.password:
+        # Reconstruct URL without password
+        netloc = parsed.hostname or "localhost"
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        return f"{parsed.scheme}://{netloc}{parsed.path}"
+    return url
+
+
+def _create_rate_limit_storage() -> RateLimiterStorage:
+    """
+    Create rate limit storage backend based on configuration.
+
+    Attempts to create the configured storage backend (memory or redis).
+    If Redis is configured but unavailable, falls back to in-memory storage.
+
+    Returns:
+        RateLimiterStorage: The configured storage backend
+    """
+    if settings.RATE_LIMIT_STORAGE == "redis":
+        try:
+            # Import RedisStorage only when needed (redis-py is optional)
+            from app.ratelimit.storage import RedisStorage
+
+            storage = RedisStorage(redis_url=settings.RATE_LIMIT_REDIS_URL)
+            # Test connection - RedisStorage logs warning if it fails
+            if storage.is_connected():
+                logger.info(
+                    f"Rate limiting using Redis storage at {_sanitize_redis_url(settings.RATE_LIMIT_REDIS_URL)}"
+                )
+                return storage
+            else:
+                logger.warning(
+                    "Redis not available for rate limiting, falling back to in-memory storage. "
+                    "Rate limits will NOT be shared across workers."
+                )
+                return InMemoryStorage()
+        except ImportError:
+            logger.warning(
+                "Redis storage configured but redis-py not installed. "
+                "Falling back to in-memory storage. "
+                "Install redis-py with: pip install redis"
+            )
+            return InMemoryStorage()
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize Redis storage: {e}. "
+                "Falling back to in-memory storage."
+            )
+            return InMemoryStorage()
+    else:
+        logger.info("Rate limiting using in-memory storage")
+        return InMemoryStorage()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -48,7 +116,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     Manages startup and shutdown events for the application.
     - On startup: Registers signal handlers for graceful process shutdown
-    - On shutdown: Terminates any running background processes
+    - On shutdown: Terminates any running background processes and closes connections
     """
     # Startup
     process_registry.register_shutdown_handler()
@@ -66,6 +134,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         process_registry.shutdown_all(timeout=10.0)
     else:
         logger.info("Application shutting down - no running background jobs")
+
+    # Close rate limit storage connection pool if using Redis
+    if hasattr(app.state, "rate_limit_storage"):
+        storage = app.state.rate_limit_storage
+        if hasattr(storage, "close"):
+            storage.close()
+            logger.info("Closed rate limit storage connection pool")
 
 
 # OpenAPI tags metadata
@@ -180,8 +255,11 @@ def create_application() -> FastAPI:
 
     # Configure Rate Limiting
     if settings.RATE_LIMIT_ENABLED:
-        # Create storage backend
-        storage = InMemoryStorage()
+        # Create storage backend based on configuration
+        storage: RateLimiterStorage = _create_rate_limit_storage()
+
+        # Store storage in app state for cleanup on shutdown
+        app.state.rate_limit_storage = storage
 
         # Select strategy based on configuration
         strategy: Union[TokenBucketStrategy, SlidingWindowStrategy, FixedWindowStrategy]

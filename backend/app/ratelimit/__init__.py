@@ -76,7 +76,7 @@ from .strategies import (
 )
 
 # Storage
-from .storage import RateLimiterStorage, InMemoryStorage
+from .storage import RateLimiterStorage, InMemoryStorage, RedisStorage
 
 # FastAPI integration
 from .middleware import RateLimitMiddleware, get_user_identifier, EndpointLimitConfig
@@ -96,6 +96,7 @@ __all__ = [
     # Storage
     "RateLimiterStorage",
     "InMemoryStorage",
+    "RedisStorage",
     # Middleware
     "RateLimitMiddleware",
     "get_user_identifier",

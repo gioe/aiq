@@ -74,6 +74,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/iq_tracker_test
           SECRET_KEY: test-secret-key
           JWT_SECRET_KEY: test-jwt-secret-key
+          ADMIN_TOKEN: test-admin-token
+          SERVICE_API_KEY: test-service-key
         run: |
           cd backend
           pytest -v
