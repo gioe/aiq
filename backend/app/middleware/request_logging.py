@@ -94,7 +94,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     async def receive():
                         return {"type": "http.request", "body": body}
 
-                    request._receive = receive  # type: ignore
+                    request._receive = receive
             except Exception as e:
                 logger.debug(f"Could not read request body: {e}")
 

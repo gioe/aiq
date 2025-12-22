@@ -63,7 +63,7 @@ def select_stratified_questions(
     3. Fall back gracefully if insufficient questions in specific strata
     """
     # Get list of seen question IDs for this user
-    seen_question_ids_query = select(UserQuestion.question_id).where(  # type: ignore
+    seen_question_ids_query = select(UserQuestion.question_id).where(
         UserQuestion.user_id == user_id
     )
     seen_question_ids = db.execute(seen_question_ids_query).scalars().all()

@@ -23,10 +23,7 @@ from app.models.models import (
 )
 
 # Type alias for numpy array typing
-try:
-    from numpy.typing import NDArray
-except ImportError:
-    NDArray = np.ndarray  # type: ignore
+from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -373,9 +370,7 @@ def build_response_matrix(
         return None
 
     # session.id is int at runtime despite SQLAlchemy Column typing
-    session_ids: List[int] = [
-        session.id for session in completed_sessions  # type: ignore[misc]
-    ]
+    session_ids: List[int] = [session.id for session in completed_sessions]
 
     # Step 2: Get responses for completed sessions (with optional limit)
     query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
@@ -403,7 +398,7 @@ def build_response_matrix(
     question_response_counts: Dict[int, int] = {}
     for response in responses:
         # question_id is int at runtime despite SQLAlchemy Column typing
-        q_id: int = response.question_id  # type: ignore[assignment]
+        q_id: int = response.question_id
         question_response_counts[q_id] = question_response_counts.get(q_id, 0) + 1
 
     # Filter questions by minimum response threshold
@@ -435,7 +430,7 @@ def build_response_matrix(
 
     for idx, question in enumerate(questions):
         # question.id is int at runtime despite SQLAlchemy Column typing
-        qid: int = question.id  # type: ignore[assignment]
+        qid: int = question.id
         question_id_to_idx[qid] = idx
         question_ids_list.append(qid)
         question_domains.append(question.question_type.value)
@@ -447,8 +442,8 @@ def build_response_matrix(
     response_lookup: Dict[int, Dict[int, int]] = {}
     for response in responses:
         # IDs are int at runtime despite SQLAlchemy Column typing
-        resp_sess_id: int = response.test_session_id  # type: ignore[assignment]
-        resp_q_id: int = response.question_id  # type: ignore[assignment]
+        resp_sess_id: int = response.test_session_id
+        resp_q_id: int = response.question_id
 
         # Only include responses for questions that passed the filter
         if resp_q_id not in question_id_to_idx:

@@ -77,7 +77,7 @@ def _validate_and_prepare_distractor_update(
         return None
 
     # Initialize distractor_stats if null
-    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}  # type: ignore[assignment]
+    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}
 
     # Normalize the selected answer for consistent storage
     normalized_answer = str(selected_answer).strip()
@@ -152,7 +152,7 @@ def update_distractor_stats(
 
     # Update the question's distractor_stats
     # SQLAlchemy requires explicit assignment for JSON field mutation detection
-    question.distractor_stats = current_stats  # type: ignore[assignment]
+    question.distractor_stats = current_stats
 
     logger.debug(
         f"Updated distractor stats for question {question_id}: "
@@ -204,7 +204,7 @@ def update_distractor_quartile_stats(
         current_stats[normalized_answer]["bottom_q"] += 1
 
     # Update the question's distractor_stats
-    question.distractor_stats = current_stats  # type: ignore[assignment]
+    question.distractor_stats = current_stats
     # Flag the JSONB column as modified so SQLAlchemy detects the change
     flag_modified(question, "distractor_stats")
 
@@ -677,9 +677,7 @@ def get_bulk_distractor_summary(
         total_analyzed += 1
 
         # Get full analysis for this question
-        analysis = analyze_distractor_effectiveness(
-            db, int(question.id), min_responses  # type: ignore[arg-type]
-        )
+        analysis = analyze_distractor_effectiveness(db, int(question.id), min_responses)
 
         if analysis.get("insufficient_data"):
             # Shouldn't happen but handle gracefully
@@ -991,7 +989,7 @@ def update_session_quartile_stats(
         try:
             success = update_distractor_quartile_stats(
                 db=db,
-                question_id=int(response.question_id),  # type: ignore[arg-type]
+                question_id=int(response.question_id),
                 selected_answer=str(response.user_answer),
                 is_top_quartile=is_top_quartile,
             )

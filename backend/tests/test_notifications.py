@@ -268,7 +268,7 @@ class TestUpdateNotificationPreferences:
 
         # Disable first
         user = db_session.query(User).filter(User.id == test_user.id).first()
-        user.notification_enabled = False  # type: ignore
+        user.notification_enabled = False
         db_session.commit()
 
         # Enable via API
@@ -397,7 +397,7 @@ class TestGetNotificationPreferences:
 
         # Disable notifications
         user = db_session.query(User).filter(User.id == test_user.id).first()
-        user.notification_enabled = False  # type: ignore
+        user.notification_enabled = False
         db_session.commit()
 
         response = client.get(

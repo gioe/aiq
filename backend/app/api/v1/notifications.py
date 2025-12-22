@@ -40,7 +40,7 @@ def register_device_token(
     """
     with handle_db_error(db, "register device token"):
         # Update the user's device token
-        current_user.apns_device_token = token_data.device_token  # type: ignore
+        current_user.apns_device_token = token_data.device_token
         db.commit()
         db.refresh(current_user)
 
@@ -70,7 +70,7 @@ def unregister_device_token(
     """
     with handle_db_error(db, "unregister device token"):
         # Clear the user's device token
-        current_user.apns_device_token = None  # type: ignore
+        current_user.apns_device_token = None
         db.commit()
         db.refresh(current_user)
 
@@ -102,12 +102,12 @@ def update_notification_preferences(
     """
     with handle_db_error(db, "update notification preferences"):
         # Update the user's notification preference
-        current_user.notification_enabled = preferences.notification_enabled  # type: ignore
+        current_user.notification_enabled = preferences.notification_enabled
         db.commit()
         db.refresh(current_user)
 
         return NotificationPreferencesResponse(
-            notification_enabled=current_user.notification_enabled,  # type: ignore
+            notification_enabled=current_user.notification_enabled,
             message="Notification preferences updated successfully",
         )
 
@@ -126,6 +126,6 @@ def get_notification_preferences(
         Current notification preferences
     """
     return NotificationPreferencesResponse(
-        notification_enabled=current_user.notification_enabled,  # type: ignore
+        notification_enabled=current_user.notification_enabled,
         message="Notification preferences retrieved successfully",
     )

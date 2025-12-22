@@ -67,7 +67,7 @@ def _build_validity_response_from_stored_data(
     """
     # Extract stored values
     validity_status = test_result.validity_status or "valid"
-    stored_flags: list[dict[str, Any]] = test_result.validity_flags or []  # type: ignore[assignment]
+    stored_flags: list[dict[str, Any]] = test_result.validity_flags or []
 
     # Convert stored flag details to ValidityFlag objects
     flag_details: list[ValidityFlag] = []
@@ -124,8 +124,8 @@ def _build_validity_response_from_stored_data(
         flags=flag_types,
         flag_details=flag_details,
         details=None,  # Full details require re-running analysis
-        completed_at=test_session.completed_at,  # type: ignore[arg-type]
-        validity_checked_at=test_result.validity_checked_at,  # type: ignore[arg-type]
+        completed_at=test_session.completed_at,
+        validity_checked_at=test_result.validity_checked_at,
     )
 
 
@@ -157,14 +157,14 @@ def _run_validity_analysis_on_demand(
         # Session with no responses - return empty validity
         return SessionValidityResponse(
             session_id=session_id,
-            user_id=int(test_session.user_id),  # type: ignore[arg-type]
+            user_id=test_session.user_id,
             validity_status=ValidityStatus.VALID,
             severity_score=0,
             confidence=1.0,
             flags=[],
             flag_details=[],
             details=None,
-            completed_at=test_session.completed_at,  # type: ignore[arg-type]
+            completed_at=test_session.completed_at,
             validity_checked_at=None,
         )
 
@@ -176,43 +176,33 @@ def _run_validity_analysis_on_demand(
     # Calculate correct count for person-fit analysis
     correct_count = sum(1 for r in responses if r.is_correct)
 
-    # Prepare person-fit data: (is_correct, difficulty_level) tuples
-    person_fit_data: list[tuple[bool, str]] = [
-        (
-            bool(r.is_correct),  # type: ignore[arg-type]
-            str(questions_dict[r.question_id].difficulty_level.value)  # type: ignore[union-attr]
-            if r.question_id in questions_dict
-            and questions_dict[r.question_id].difficulty_level is not None
-            else "medium",
-        )
-        for r in responses
-        if r.question_id in questions_dict
-    ]
+    # Prepare data for validity analysis using an explicit loop for better typing
+    person_fit_data: list[tuple[bool, str]] = []
+    time_check_data: list[dict[str, object]] = []
+    guttman_data: list[tuple[bool, float]] = []
 
-    # Prepare time check data
-    time_check_data = [
-        {
-            "time_seconds": r.time_spent_seconds,
-            "is_correct": r.is_correct,
-            "difficulty": str(questions_dict[r.question_id].difficulty_level.value)  # type: ignore[union-attr]
-            if r.question_id in questions_dict
-            and questions_dict[r.question_id].difficulty_level is not None
-            else "medium",
-        }
-        for r in responses
-        if r.question_id in questions_dict
-    ]
+    for r in responses:
+        if r.question_id not in questions_dict:
+            continue
 
-    # Prepare Guttman data: (is_correct, empirical_difficulty) tuples
-    guttman_data: list[tuple[bool, float]] = [
-        (
-            bool(r.is_correct),  # type: ignore[arg-type]
-            float(questions_dict[r.question_id].empirical_difficulty),  # type: ignore[arg-type]
+        question = questions_dict[r.question_id]
+        difficulty = (
+            question.difficulty_level.value
+            if question.difficulty_level is not None
+            else "medium"
         )
-        for r in responses
-        if r.question_id in questions_dict
-        and questions_dict[r.question_id].empirical_difficulty is not None
-    ]
+
+        person_fit_data.append((r.is_correct, difficulty))
+        time_check_data.append(
+            {
+                "time_seconds": r.time_spent_seconds,
+                "is_correct": r.is_correct,
+                "difficulty": difficulty,
+            }
+        )
+
+        if question.empirical_difficulty is not None:
+            guttman_data.append((r.is_correct, question.empirical_difficulty))
 
     # Run validity checks
     person_fit_result = calculate_person_fit_heuristic(
@@ -299,14 +289,14 @@ def _run_validity_analysis_on_demand(
 
     return SessionValidityResponse(
         session_id=session_id,
-        user_id=int(test_session.user_id),  # type: ignore[arg-type]
+        user_id=test_session.user_id,
         validity_status=ValidityStatus(validity_assessment["validity_status"]),
         severity_score=validity_assessment["severity_score"],
         confidence=validity_assessment["confidence"],
         flags=validity_assessment["flags"],
         flag_details=flag_details,
         details=details,
-        completed_at=test_session.completed_at,  # type: ignore[arg-type]
+        completed_at=test_session.completed_at,
         validity_checked_at=None,  # Not stored since this is on-demand
     )
 
@@ -394,7 +384,7 @@ async def get_session_validity(
             # Use stored validity data
             return _build_validity_response_from_stored_data(
                 session_id=session_id,
-                user_id=int(test_session.user_id),  # type: ignore[arg-type]
+                user_id=test_session.user_id,
                 test_result=test_result,
                 test_session=test_session,
             )
@@ -529,7 +519,7 @@ async def get_validity_report(
         }
 
         for result in results:
-            flags_list: list[dict[str, Any]] = result.validity_flags or []  # type: ignore[assignment]
+            flags_list: list[dict[str, Any]] = result.validity_flags or []
             for flag_data in flags_list:
                 flag_type = flag_data.get("type", "")
                 if flag_type in flag_counts:
@@ -622,7 +612,7 @@ async def get_validity_report(
         # Build action_needed list with severity scores
         action_needed: List[SessionNeedingReview] = []
         for test_result in sessions_needing_review:
-            flags_list_review: list[dict[str, Any]] = test_result.validity_flags or []  # type: ignore[assignment]
+            flags_list_review: list[dict[str, Any]] = test_result.validity_flags or []
             flag_types = [f.get("type", "") for f in flags_list_review]
 
             # Calculate severity score from flags
@@ -638,14 +628,14 @@ async def get_validity_report(
             test_session = test_result.test_session
             action_needed.append(
                 SessionNeedingReview(
-                    session_id=int(test_session.id),  # type: ignore[arg-type]
-                    user_id=int(test_session.user_id),  # type: ignore[arg-type]
+                    session_id=test_session.id,
+                    user_id=test_session.user_id,
                     validity_status=ValidityStatus(
                         test_result.validity_status or "valid"
                     ),
                     severity_score=severity_score,
                     flags=flag_types,
-                    completed_at=test_session.completed_at,  # type: ignore[arg-type]
+                    completed_at=test_session.completed_at,
                 )
             )
 
@@ -766,10 +756,10 @@ async def override_session_validity(
         # In future, when admin user management is added, this would be the admin user ID
         admin_placeholder_id = 0
 
-        test_result.validity_status = request.validity_status.value  # type: ignore[assignment]
-        test_result.validity_override_reason = request.override_reason  # type: ignore[assignment]
-        test_result.validity_overridden_at = override_time  # type: ignore[assignment]
-        test_result.validity_overridden_by = admin_placeholder_id  # type: ignore[assignment]
+        test_result.validity_status = request.validity_status.value
+        test_result.validity_override_reason = request.override_reason
+        test_result.validity_overridden_at = override_time
+        test_result.validity_overridden_by = admin_placeholder_id
 
         # Commit changes
         db.commit()

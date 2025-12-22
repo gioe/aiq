@@ -311,13 +311,13 @@ async def update_quality_flag(
         )
 
     # Store previous value for response
-    previous_flag: str = question.quality_flag  # type: ignore
+    previous_flag: str = question.quality_flag
 
     # Update the quality flag fields
     update_time = utc_now()
-    question.quality_flag = request.quality_flag  # type: ignore
-    question.quality_flag_reason = request.reason  # type: ignore
-    question.quality_flag_updated_at = update_time  # type: ignore
+    question.quality_flag = request.quality_flag
+    question.quality_flag_reason = request.reason
+    question.quality_flag_updated_at = update_time
 
     db.commit()
     db.refresh(question)
@@ -331,8 +331,8 @@ async def update_quality_flag(
         + (f" (reason: {request.reason})" if request.reason else "")
     )
 
-    new_flag: str = question.quality_flag  # type: ignore
-    reason: Optional[str] = question.quality_flag_reason  # type: ignore
+    new_flag: str = question.quality_flag
+    reason: Optional[str] = question.quality_flag_reason
 
     return QualityFlagUpdateResponse(
         question_id=question_id,

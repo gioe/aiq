@@ -47,7 +47,7 @@ class TestGetUserProfile:
 
         # Update user in database
         user = db_session.query(User).filter(User.id == test_user.id).first()
-        user.first_name = "Updated"  # type: ignore
+        user.first_name = "Updated"
         db_session.commit()
 
         # Get profile should return updated data

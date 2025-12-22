@@ -983,7 +983,7 @@ def calculate_domain_scores(
     # Aggregate responses by domain
     for response in responses:
         # question_id is int at runtime despite SQLAlchemy Column typing
-        question_id: int = response.question_id  # type: ignore[assignment]
+        question_id: int = response.question_id
         question = questions.get(question_id)
         if question is None:
             # Skip responses for questions not in our dictionary
@@ -1138,15 +1138,15 @@ def backfill_confidence_intervals(
         try:
             # Calculate CI for this result's IQ score
             ci_lower, ci_upper = calculate_confidence_interval(
-                score=test_result.iq_score,  # type: ignore[arg-type]
+                score=test_result.iq_score,
                 sem=sem,
                 confidence_level=0.95,
             )
 
             if not dry_run:
-                test_result.standard_error = sem  # type: ignore[assignment]
-                test_result.ci_lower = ci_lower  # type: ignore[assignment]
-                test_result.ci_upper = ci_upper  # type: ignore[assignment]
+                test_result.standard_error = sem
+                test_result.ci_lower = ci_lower
+                test_result.ci_upper = ci_upper
 
             updated_count += 1
 

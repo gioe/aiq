@@ -45,7 +45,7 @@ def get_unseen_questions(
     """
     # Subquery to get question IDs the user has already seen
     seen_question_ids = (
-        select(UserQuestion.question_id)  # type: ignore[arg-type]
+        select(UserQuestion.question_id)
         .where(UserQuestion.user_id == current_user.id)
         .scalar_subquery()
     )

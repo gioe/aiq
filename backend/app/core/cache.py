@@ -167,7 +167,7 @@ def cached(ttl: int = 300, key_prefix: str = ""):
             return result
 
         # Add cache control methods to the wrapper
-        wrapper.cache_clear = lambda: _cache.clear()  # type: ignore[attr-defined]
+        wrapper.cache_clear = lambda: _cache.clear()
 
         return wrapper
 
