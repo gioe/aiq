@@ -745,15 +745,16 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-045: Consolidate Duplicate Active Session Error Paths
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #328 comment
-**Files:** `backend/app/api/v1/test.py`
+**Files:** `backend/app/api/v1/test.py`, `backend/app/core/error_responses.py`
 **Description:** Review whether the application-level active session check (line ~280, returns 400 with session_id) and the database-level IntegrityError catch (returns 409 without session_id) should be consolidated or if both serve distinct purposes.
 **Original Comment:** "The PR description mentions checking for active sessions before creation... The app-level check provides a better UX (returns session_id in error). The database constraint prevents race conditions. Consider whether both checks serve distinct purposes or if one is redundant."
+**Resolution:** Both checks are intentionally kept - app-level provides better UX (session_id for recovery), DB-level prevents race conditions. Documentation added to explain the dual-check pattern.
 **Acceptance Criteria:**
-- [ ] Document the intentional dual-check pattern (if keeping both)
-- [ ] OR consolidate to single error path if redundant
-- [ ] Ensure error messages are consistent and helpful
+- [x] Document the intentional dual-check pattern (if keeping both)
+- [x] OR consolidate to single error path if redundant
+- [x] Ensure error messages are consistent and helpful
 
 ---
 
