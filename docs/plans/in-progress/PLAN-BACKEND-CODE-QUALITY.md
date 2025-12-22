@@ -502,15 +502,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-040: Extract MAX_RESPONSE_LIMIT Constant
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #324 comment
-**Files:** `backend/app/api/v1/admin.py:2818`
+**Files:** `backend/app/api/v1/admin/analytics.py:50`
 **Description:** The magic number 1000000 for the maximum response limit should be extracted to a named constant.
 **Original Comment:** "Extract to named constant per CLAUDE.md guidelines: MAX_RESPONSE_LIMIT = 1_000_000"
 **Acceptance Criteria:**
-- [ ] Create constant with descriptive name and comment explaining rationale
-- [ ] Use constant in Query parameter definition
-- [ ] Document memory implications in comment
+- [x] Create constant with descriptive name and comment explaining rationale
+- [x] Use constant in Query parameter definition
+- [x] Document memory implications in comment
 
 ---
 
