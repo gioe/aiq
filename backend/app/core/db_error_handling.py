@@ -22,6 +22,33 @@ Usage:
     def create_user(db: Session, user_data: dict):
         ...
 
+Compatibility Notes:
+    **Synchronous Sessions Only (BCQ-048)**
+
+    This module currently only supports SQLAlchemy's synchronous ``Session``.
+    It does NOT support ``AsyncSession`` from ``sqlalchemy.ext.asyncio``.
+
+    Technical details:
+    - The context manager type hints specify ``Session`` (sync)
+    - The decorator's ``isinstance(arg, Session)`` check will not match
+      ``AsyncSession`` since it is not a subclass of ``Session``
+    - The ``db.rollback()`` call is synchronous and would need to be
+      ``await db.rollback()`` for async sessions
+
+    If async session support is needed in the future, consider:
+    1. Creating a separate ``async_handle_db_error`` async context manager
+    2. Using a Protocol-based type check that works with both session types::
+
+           from typing import Protocol, runtime_checkable
+
+           @runtime_checkable
+           class SessionLike(Protocol):
+               def rollback(self) -> None: ...
+               def commit(self) -> None: ...
+
+    3. Or using duck-typing with ``hasattr(arg, 'rollback')`` instead of
+       ``isinstance`` checks
+
 Reference:
     docs/plans/in-progress/PLAN-BACKEND-CODE-QUALITY.md (BCQ-013)
 """
@@ -106,7 +133,9 @@ def handle_db_error(
     2. On exception: rollback the session, log the error, raise HTTPException
 
     Args:
-        db: The SQLAlchemy database session to rollback on error.
+        db: The SQLAlchemy database session to rollback on error. Must be a
+            synchronous Session; AsyncSession is not supported (see module
+            docstring for details).
         operation_name: Human-readable name of the operation for error messages
             and logging (e.g., "register device token", "update preferences").
         reraise_http_exceptions: If True (default), HTTPExceptions raised within
@@ -232,7 +261,10 @@ class HandleDbErrorDecorator:
 
     Note:
         The decorated function must have a 'db' parameter (either positional
-        or keyword argument) that is a SQLAlchemy Session.
+        or keyword argument) that is a SQLAlchemy synchronous Session.
+        AsyncSession is not supported; the ``isinstance(arg, Session)`` check
+        will not match AsyncSession instances. See the module docstring for
+        details on async session compatibility.
     """
 
     def __init__(
