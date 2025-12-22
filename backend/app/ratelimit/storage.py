@@ -214,7 +214,7 @@ class RedisStorage(RateLimiterStorage):
             ImportError: If redis-py is not installed
         """
         try:
-            import redis  # type: ignore[import-untyped]  # type: ignore[import-untyped]
+            import redis  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
                 "redis-py is required for RedisStorage. "
