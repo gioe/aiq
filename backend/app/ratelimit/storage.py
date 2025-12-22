@@ -214,7 +214,7 @@ class RedisStorage(RateLimiterStorage):
             ImportError: If redis-py is not installed
         """
         try:
-            import redis
+            import redis  # type: ignore[import-untyped]  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
                 "redis-py is required for RedisStorage. "
@@ -265,7 +265,7 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             Stored value or None if not found or on error
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             value = self._redis.get(self._make_key(key))
@@ -289,7 +289,7 @@ class RedisStorage(RateLimiterStorage):
             value: Value to store (must be JSON-serializable)
             ttl: Time-to-live in seconds (None = no expiration)
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             serialized = self._json.dumps(value)
@@ -311,7 +311,7 @@ class RedisStorage(RateLimiterStorage):
         Args:
             key: Storage key to delete
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             self._redis.delete(self._make_key(key))
@@ -325,7 +325,7 @@ class RedisStorage(RateLimiterStorage):
         Only clears keys with the rate limit prefix, not the entire database.
         This is safer for production use where Redis may contain other data.
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             # Use SCAN to safely iterate over keys without blocking
@@ -349,7 +349,7 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             Dict with keys: total_keys, redis_info (subset), connected
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             # Count keys with our prefix
@@ -388,7 +388,7 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             True if connected and responsive, False otherwise
         """
-        import redis
+        import redis  # type: ignore[import-untyped]
 
         try:
             self._redis.ping()
