@@ -448,15 +448,15 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 ---
 
 ### BCQ-036: Add Process Tracking for Background Question Generation
-**Status:** [ ] Not Started
-**Files:** `backend/app/api/v1/admin.py:283`
+**Status:** [x] Complete
+**Files:** `backend/app/core/process_registry.py`, `backend/app/api/v1/admin/generation.py`, `backend/app/main.py`
 **Description:** `subprocess.Popen` spawns question generation without server-side tracking. Risk of orphaned processes and no visibility into running jobs.
 **Acceptance Criteria:**
-- [ ] Create process registry to track running generation jobs
-- [ ] Add endpoint to list running generation jobs
-- [ ] Add endpoint to check status of specific job by PID
-- [ ] Implement cleanup of finished processes
-- [ ] Add signal handler to terminate child processes on server shutdown
+- [x] Create process registry to track running generation jobs
+- [x] Add endpoint to list running generation jobs
+- [x] Add endpoint to check status of specific job by PID
+- [x] Implement cleanup of finished processes
+- [x] Add signal handler to terminate child processes on server shutdown
 - [ ] Consider migration to proper job queue (Celery/RQ) as future enhancement
 
 ---
