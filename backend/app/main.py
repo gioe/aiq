@@ -3,7 +3,8 @@ Main FastAPI application.
 """
 import logging
 import uuid
-from typing import Union
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Union
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -16,6 +17,7 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
+from app.core.process_registry import process_registry
 from app.middleware import (
     PerformanceMonitoringMiddleware,
     RequestLoggingMiddleware,
@@ -37,6 +39,34 @@ from app.ratelimit import (
 setup_logging()
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Application lifespan event handler.
+
+    Manages startup and shutdown events for the application.
+    - On startup: Registers signal handlers for graceful process shutdown
+    - On shutdown: Terminates any running background processes
+    """
+    # Startup
+    process_registry.register_shutdown_handler()
+    logger.info("Process registry shutdown handlers registered")
+
+    yield
+
+    # Shutdown
+    stats = process_registry.get_stats()
+    if stats["running"] > 0:
+        logger.info(
+            f"Application shutting down with {stats['running']} "
+            "running background jobs - terminating..."
+        )
+        process_registry.shutdown_all(timeout=10.0)
+    else:
+        logger.info("Application shutting down - no running background jobs")
+
 
 # OpenAPI tags metadata
 tags_metadata = [
@@ -70,6 +100,7 @@ def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
+        lifespan=lifespan,
         description=(
             "**AIQ API** - A backend service for AI-generated cognitive assessments.\n\n"
             "This API provides:\n"
