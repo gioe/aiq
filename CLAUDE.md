@@ -684,6 +684,92 @@ def outer_function():
 - Use `logger.debug()` in inner functions to avoid duplicate ERROR logs
 - Only log at ERROR level once per error chain (usually at the outermost handler)
 
+### Using handle_db_error Context Manager
+
+For FastAPI endpoints with database operations, use the `handle_db_error` context manager from `app/core/db_error_handling.py`. It provides consistent error handling by:
+
+1. Rolling back the database session on any exception
+2. Logging the error with context
+3. Raising an appropriate HTTPException
+
+**Basic Usage:**
+```python
+from app.core.db_error_handling import handle_db_error
+
+@router.post("/items")
+def create_item(item_data: ItemCreate, db: Session = Depends(get_db)):
+    with handle_db_error(db, "create item"):
+        item = Item(**item_data.dict())
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+```
+
+**With Custom Options:**
+```python
+from fastapi import status
+import logging
+
+with handle_db_error(
+    db,
+    "update user preferences",
+    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    detail_template="Service temporarily unavailable: {error}",
+    log_level=logging.WARNING,
+):
+    user.theme = new_theme
+    db.commit()
+```
+
+**Configurable Options:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `db` | (required) | SQLAlchemy Session to rollback on error |
+| `operation_name` | (required) | Human-readable name for logs and error messages |
+| `reraise_http_exceptions` | `True` | If True, HTTPExceptions pass through unchanged |
+| `status_code` | `500` | HTTP status code for the raised exception |
+| `detail_template` | `None` | Custom template with `{operation_name}` and `{error}` placeholders |
+| `log_level` | `logging.ERROR` | Logging level for error messages |
+
+**When to Use:**
+- Any endpoint that performs database writes (INSERT, UPDATE, DELETE)
+- Operations that need atomic rollback on failure
+- Replacing manual try-except-rollback-raise patterns
+
+**Real Example from Codebase:**
+```python
+# From app/api/v1/notifications.py
+@router.post("/register-device", response_model=DeviceTokenResponse)
+def register_device_token(
+    token_data: DeviceTokenRegister,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    with handle_db_error(db, "register device token"):
+        current_user.apns_device_token = token_data.device_token
+        db.commit()
+        db.refresh(current_user)
+        return DeviceTokenResponse(
+            success=True,
+            message="Device token registered successfully",
+        )
+```
+
+**Decorator Alternative:**
+For functions where the entire body should be wrapped:
+```python
+from app.core.db_error_handling import handle_db_error_decorator
+
+@handle_db_error_decorator("create user")
+def create_user(db: Session, user_data: dict):
+    user = User(**user_data)
+    db.add(user)
+    db.commit()
+    return user
+```
+
 ## Standardized Error Responses
 
 ### Error Message Format Guidelines
