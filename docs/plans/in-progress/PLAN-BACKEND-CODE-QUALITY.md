@@ -689,16 +689,16 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ## Deferred Items from PR Reviews
 
 ### BCQ-041: Add Composite Index on test_results (user_id, completed_at)
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #326 comment
-**Files:** `backend/alembic/versions/`
+**Files:** `backend/alembic/versions/bcq041_composite_idx_test_results.py`, `backend/app/models/models.py`
 **Description:** Add composite index to optimize both the count query and paginated fetch for the /test/history endpoint.
 **Original Comment:** "Ensure composite index exists: `CREATE INDEX CONCURRENTLY idx_test_results_user_completed ON test_results (user_id, completed_at DESC);` This optimizes both the count query and the paginated fetch."
 **Acceptance Criteria:**
-- [ ] Create Alembic migration for composite index
-- [ ] Use `op.create_index()` with `postgresql_concurrently=True` for non-blocking creation
-- [ ] Verify query plan shows index usage with `EXPLAIN ANALYZE`
-- [ ] Document index in schema documentation
+- [x] Create Alembic migration for composite index
+- [x] Use `op.create_index()` with `postgresql_concurrently=True` for non-blocking creation
+- [x] Verify query plan shows index usage with `EXPLAIN ANALYZE`
+- [x] Document index in schema documentation (added to TestResult model __table_args__)
 
 ---
 
