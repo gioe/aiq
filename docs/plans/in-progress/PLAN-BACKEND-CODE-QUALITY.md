@@ -718,16 +718,16 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-043: Add iOS Tests for Pagination Metadata Validation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #326 comment
-**Files:** `ios/AIQTests/`
+**Files:** `ios/AIQTests/Models/TestResultTests.swift`
 **Description:** Add tests that validate pagination metadata fields (totalCount, hasMore, limit, offset) from API responses.
 **Original Comment:** "No tests for pagination metadata validation (total_count, has_more, etc.)"
 **Acceptance Criteria:**
-- [ ] Create `testPaginatedResponseMetadata()` test
-- [ ] Verify totalCount matches expected value
-- [ ] Verify limit and offset are correctly populated
-- [ ] Verify hasMore is correctly calculated
+- [x] Create `testPaginatedResponseMetadata()` test
+- [x] Verify totalCount matches expected value
+- [x] Verify limit and offset are correctly populated
+- [x] Verify hasMore is correctly calculated
 
 ---
 
