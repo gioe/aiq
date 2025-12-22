@@ -333,6 +333,9 @@ class TestStartTest:
         sessions. The actual race condition is prevented by the partial
         unique index ix_test_sessions_user_active in PostgreSQL.
 
+        BCQ-044: Also verifies that a warning log is written when a concurrent
+        session creation is detected, including the user_id for debugging.
+
         Note: This test uses mocking since SQLite (used in tests) doesn't
         have the same partial unique index enforcement as PostgreSQL.
         The production PostgreSQL database has the index that triggers
@@ -346,7 +349,7 @@ class TestStartTest:
         assert response1.status_code == 200
 
         # Complete the first session so the user can start another
-        from app.models import TestSession
+        from app.models import TestSession, User
         from app.models.models import TestStatus
 
         session_id = response1.json()["session"]["id"]
@@ -355,6 +358,10 @@ class TestStartTest:
         )
         session.status = TestStatus.COMPLETED
         db_session.commit()
+
+        # Get the user_id for later verification in log message
+        user = db_session.query(User).first()
+        user_id = user.id
 
         # Now mock db.flush() to raise IntegrityError, simulating what
         # PostgreSQL's partial unique index would do on a race condition
@@ -365,11 +372,12 @@ class TestStartTest:
                 orig=Exception("duplicate key value violates unique constraint"),
             )
 
+        # BCQ-044: Also mock the logger to verify warning is logged
         with patch.object(
             type(db_session),
             "flush",
             mock_flush_with_integrity_error,
-        ):
+        ), patch("app.api.v1.test.logger") as mock_logger:
             response2 = client.post(
                 "/v1/test/start?question_count=2", headers=auth_headers
             )
@@ -377,6 +385,14 @@ class TestStartTest:
         # Should return 409 Conflict with appropriate message
         assert response2.status_code == 409
         assert "already in progress" in response2.json()["detail"]
+
+        # BCQ-044: Verify warning was logged with user_id context
+        assert mock_logger.warning.called, "Expected warning log on race condition"
+        warning_call_args = mock_logger.warning.call_args[0][0]
+        assert "Race condition detected" in warning_call_args
+        assert (
+            str(user_id) in warning_call_args
+        ), f"Expected user_id {user_id} in log message: {warning_call_args}"
 
 
 class TestGetTestSession:
