@@ -338,6 +338,61 @@ cd ios
 open AIQ.xcodeproj  # Select your development team in project settings
 ```
 
+## Redis Security (Production)
+
+When using Redis for rate limiting in production, follow these security best practices:
+
+### Use TLS Encryption
+
+Always use encrypted connections in production by using the `rediss://` URL scheme (note the double 's'):
+
+```bash
+# Development (unencrypted - local only)
+RATE_LIMIT_REDIS_URL=redis://localhost:6379/0
+
+# Production (TLS encrypted)
+RATE_LIMIT_REDIS_URL=rediss://your-redis-host:6379/0
+```
+
+### Enable Password Authentication
+
+Configure Redis to require authentication and include credentials in the connection URL:
+
+```bash
+# Production with authentication
+RATE_LIMIT_REDIS_URL=rediss://:your-strong-password@your-redis-host:6379/0
+
+# With username (Redis 6+ ACL)
+RATE_LIMIT_REDIS_URL=rediss://username:password@your-redis-host:6379/0
+```
+
+### Production .env Example
+
+```bash
+# Rate limiting configuration for production
+RATE_LIMIT_ENABLED=True
+RATE_LIMIT_STORAGE=redis
+RATE_LIMIT_REDIS_URL=rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/0
+```
+
+### Security Checklist
+
+- [ ] Use `rediss://` (TLS) instead of `redis://` in production
+- [ ] Enable Redis AUTH with a strong password (32+ characters recommended)
+- [ ] Bind Redis to private network interfaces only (not 0.0.0.0)
+- [ ] Use Redis ACLs (Redis 6+) for granular access control
+- [ ] Keep Redis behind a firewall, not exposed to the public internet
+- [ ] Regularly rotate Redis credentials
+- [ ] Monitor Redis logs for unauthorized access attempts
+
+### Managed Redis Services
+
+Cloud providers offer managed Redis with built-in security:
+- **AWS ElastiCache**: Enable encryption in-transit and at-rest
+- **Azure Cache for Redis**: Use Premium tier for VNet integration
+- **Google Cloud Memorystore**: Configure private IP and AUTH
+- **Railway/Render**: Follow provider-specific security documentation
+
 ## Code Quality Standards
 
 **Backend (Python)**:
