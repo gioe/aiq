@@ -80,890 +80,1701 @@ App Store submission is blocked until P0 items are complete. The current state e
 | Accessibility audit reveals major issues | High | Early audit in Phase 1, buffer time for fixes |
 | Privacy policy delays submission | Critical | Parallel legal review during technical work |
 
+---
+
 ## Implementation Plan
 
-### Phase 0: Critical Bug Fixes (Immediate - 0.5 days)
+---
+
+## Phase 0: Critical Bug Fixes (Immediate)
 
 **Goal**: Eliminate production-breaking bugs before any other work
-**Duration**: 4 hours
-
-| Task ID | Task | Dependencies | Complexity | Files Affected | Status |
-|---------|------|--------------|------------|----------------|--------|
-| ICG-001 | Fix AppConfig URL bug - Remove `/v1` from base URL to prevent double path segments | None | Small | `Utilities/Helpers/AppConfig.swift` | ✅ Complete |
-
-**Acceptance Criteria ICG-001:**
-- Base URL changed from `https://aiq-backend-production.up.railway.app/v1` to `https://aiq-backend-production.up.railway.app`
-- All API endpoints tested and working (login, registration, test start, test submit)
-- No breaking changes to existing API calls
 
 ---
 
-### Phase 1: Production Infrastructure (Week 1 - 5 days)
+### ICG-001: Fix AppConfig URL Bug
+**Status:** [x] Complete
+**Files:** `Utilities/Helpers/AppConfig.swift`
+**Description:** Remove `/v1` from base URL to prevent double path segments. The API endpoints already include `/v1` in their paths, so having it in the base URL causes double path segments.
+**Acceptance Criteria:**
+- [x] Base URL changed from `https://aiq-backend-production.up.railway.app/v1` to `https://aiq-backend-production.up.railway.app`
+- [x] All API endpoints tested and working (login, registration, test start, test submit)
+- [x] No breaking changes to existing API calls
+
+---
+
+## Phase 1: Production Infrastructure
 
 **Goal**: Establish crash reporting and analytics backend integration for production visibility
-**Duration**: 5 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected | Status |
-|---------|------|--------------|------------|----------------|--------|
-| ICG-002 | Integrate Firebase Crashlytics SDK - Add SPM dependency, initialize in `AIQApp.swift`, test crash reporting | ICG-001 | Medium | `AIQApp.swift`, `project.yml` | ✅ Complete |
-| ICG-003 | Create Firebase project and configure iOS app - Download GoogleService-Info.plist, configure APNs certificates | ICG-002 | Small | New: `GoogleService-Info.plist` | ✅ Complete |
-| ICG-004 | Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint | ICG-001 | Medium | `Services/Analytics/AnalyticsService.swift` | |
-| ICG-005 | Add Crashlytics logging to all ViewModel error handlers - Replace OSLog with Crashlytics.recordError() in catch blocks | ICG-002, ICG-003 | Medium | All ViewModels | |
-| ICG-006 | Test crash reporting in TestFlight build - Force crash, verify appears in Firebase console | ICG-002, ICG-003, ICG-005 | Small | Test only | |
-
-**Acceptance Criteria ICG-002:**
-- Firebase SDK integrated via Swift Package Manager
-- Crashlytics initialized in app launch
-- Test crash successfully reported to Firebase console
-
-**Acceptance Criteria ICG-003:**
-- Firebase project created with iOS app configuration
-- GoogleService-Info.plist added to Xcode project
-- Build succeeds with Firebase integration
-
-**Acceptance Criteria ICG-004:**
-- AnalyticsService sends events to backend API
-- Event payloads match backend schema
-- Network errors handled gracefully with retry logic
-- Events logged locally if offline (queue for later sync)
-
-**Acceptance Criteria ICG-005:**
-- All ViewModel error handlers record non-fatal errors to Crashlytics
-- User-facing errors still logged to OSLog for debugging
-- No duplicate error logging
-
-**Acceptance Criteria ICG-006:**
-- TestFlight build uploaded with Crashlytics enabled
-- Forced crash appears in Firebase console within 5 minutes
-- Crash report includes stack trace and device metadata
 
 ---
 
-### Phase 2: Deep Linking & Navigation (Week 2 - 5 days)
+### ICG-002: Integrate Firebase Crashlytics SDK
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`, `Package.swift`
+**Dependencies:** ICG-001
+**Description:** Add Firebase Crashlytics via Swift Package Manager, initialize in app launch, and test crash reporting functionality.
+**Acceptance Criteria:**
+- [ ] Firebase SDK integrated via Swift Package Manager
+- [ ] Crashlytics initialized in app launch
+- [ ] Test crash successfully reported to Firebase console
+
+---
+
+### ICG-003: Create Firebase Project and Configure iOS App
+**Status:** [ ] Not Started
+**Files:** `GoogleService-Info.plist` (new)
+**Dependencies:** ICG-002
+**Description:** Create Firebase project, download GoogleService-Info.plist, and configure APNs certificates.
+**Acceptance Criteria:**
+- [ ] Firebase project created with iOS app configuration
+- [ ] GoogleService-Info.plist added to Xcode project
+- [ ] Build succeeds with Firebase integration
+
+---
+
+### ICG-004: Update AnalyticsService for Backend Integration
+**Status:** [ ] Not Started
+**Files:** `Services/Analytics/AnalyticsService.swift`
+**Dependencies:** ICG-001
+**Description:** Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint.
+**Acceptance Criteria:**
+- [ ] AnalyticsService sends events to backend API
+- [ ] Event payloads match backend schema
+- [ ] Network errors handled gracefully with retry logic
+- [ ] Events logged locally if offline (queue for later sync)
+
+---
+
+### ICG-005: Add Crashlytics Logging to ViewModels
+**Status:** [ ] Not Started
+**Files:** All ViewModels
+**Dependencies:** ICG-002, ICG-003
+**Description:** Replace OSLog with Crashlytics.recordError() in catch blocks across all ViewModel error handlers.
+**Acceptance Criteria:**
+- [ ] All ViewModel error handlers record non-fatal errors to Crashlytics
+- [ ] User-facing errors still logged to OSLog for debugging
+- [ ] No duplicate error logging
+
+---
+
+### ICG-006: Test Crash Reporting in TestFlight
+**Status:** [ ] Not Started
+**Files:** Test only
+**Dependencies:** ICG-002, ICG-003, ICG-005
+**Description:** Force crash in TestFlight build and verify it appears in Firebase console.
+**Acceptance Criteria:**
+- [ ] TestFlight build uploaded with Crashlytics enabled
+- [ ] Forced crash appears in Firebase console within 5 minutes
+- [ ] Crash report includes stack trace and device metadata
+
+---
+
+## Phase 2: Deep Linking & Navigation
 
 **Goal**: Implement centralized navigation and deep linking to enable notification-driven user flows
-**Duration**: 5 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-007 | Create AppRouter with NavigationPath-based coordinator pattern | None | Large | New: `Services/Navigation/AppRouter.swift` |
-| ICG-008 | Create DeepLinkHandler to parse URL schemes and universal links | None | Medium | New: `Services/Navigation/DeepLinkHandler.swift` |
-| ICG-009 | Register URL schemes in Info.plist - Add `aiq://` custom scheme | None | Small | `Info.plist` |
-| ICG-010 | Configure universal links - Add Associated Domains entitlement for `applinks:aiq.app` | ICG-009 | Small | `AIQ.entitlements`, Apple Developer Portal |
-| ICG-011 | Integrate AppRouter into AIQApp.swift - Replace root view navigation with router | ICG-007 | Medium | `AIQApp.swift` |
-| ICG-012 | Migrate DashboardView navigation to use AppRouter | ICG-007, ICG-011 | Medium | `Views/Dashboard/DashboardView.swift` |
-| ICG-013 | Migrate TestTakingView navigation to use AppRouter | ICG-007, ICG-011 | Medium | `Views/Test/TestTakingView.swift` |
-| ICG-014 | Migrate HistoryView navigation to use AppRouter | ICG-007, ICG-011 | Medium | `Views/History/HistoryView.swift` |
-| ICG-015 | Migrate SettingsView navigation to use AppRouter | ICG-007, ICG-011 | Medium | `Views/Settings/SettingsView.swift` |
-| ICG-016 | Implement deep link handling in AppDelegate - Handle `application(_:open:options:)` | ICG-008, ICG-009, ICG-010 | Medium | `AppDelegate.swift` |
-| ICG-017 | Add deep link routes: `aiq://test/results/{id}`, `aiq://test/resume/{sessionId}`, `aiq://settings` | ICG-008, ICG-016 | Medium | `Services/Navigation/DeepLinkHandler.swift` |
-| ICG-018 | Test deep links from push notifications - Verify notification tap navigates correctly | ICG-016, ICG-017 | Small | Test only |
-
-**Acceptance Criteria ICG-007:**
-- AppRouter class created with NavigationPath state management
-- Router supports push, pop, popToRoot, and direct navigation methods
-- Router is observable and injectable via environment
-
-**Acceptance Criteria ICG-008:**
-- DeepLinkHandler parses URL schemes (aiq://)
-- DeepLinkHandler parses universal links (https://aiq.app/...)
-- Returns structured DeepLink enum with associated data
-
-**Acceptance Criteria ICG-009:**
-- `aiq://` URL scheme registered in Info.plist
-- App responds to `aiq://` URLs from Safari and other apps
-
-**Acceptance Criteria ICG-010:**
-- Associated Domains entitlement added
-- Universal link domain verified in Apple Developer Portal
-- App responds to `https://aiq.app/...` links
-
-**Acceptance Criteria ICG-011:**
-- AppRouter initialized in AIQApp.swift
-- Router injected into environment
-- Root navigation controlled by router
-
-**Acceptance Criteria ICG-012-015:**
-- All sheet/fullScreenCover modifiers replaced with router calls
-- Navigation state removed from ViewModels
-- Back navigation works correctly
-- Deep state restoration supported
-
-**Acceptance Criteria ICG-016:**
-- AppDelegate handles URL opening callbacks
-- URLs parsed by DeepLinkHandler
-- Router navigates to correct destination
-
-**Acceptance Criteria ICG-017:**
-- All three route types implemented and tested
-- Invalid routes handled gracefully with error state
-- Routes work from cold start and background state
-
-**Acceptance Criteria ICG-018:**
-- Push notification tap opens app to correct screen
-- Notification payload structure tested
-- Works in foreground, background, and terminated states
 
 ---
 
-### Phase 3: UI Testing Infrastructure (Week 3 - 5 days)
+### ICG-007: Create AppRouter with NavigationPath
+**Status:** [ ] Not Started
+**Files:** `Services/Navigation/AppRouter.swift` (new)
+**Dependencies:** None
+**Description:** Create AppRouter class with NavigationPath-based coordinator pattern for centralized navigation management.
+**Acceptance Criteria:**
+- [ ] AppRouter class created with NavigationPath state management
+- [ ] Router supports push, pop, popToRoot, and direct navigation methods
+- [ ] Router is observable and injectable via environment
+
+---
+
+### ICG-008: Create DeepLinkHandler
+**Status:** [ ] Not Started
+**Files:** `Services/Navigation/DeepLinkHandler.swift` (new)
+**Dependencies:** None
+**Description:** Create DeepLinkHandler to parse URL schemes and universal links into structured navigation commands.
+**Acceptance Criteria:**
+- [ ] DeepLinkHandler parses URL schemes (aiq://)
+- [ ] DeepLinkHandler parses universal links (https://aiq.app/...)
+- [ ] Returns structured DeepLink enum with associated data
+
+---
+
+### ICG-009: Register URL Schemes in Info.plist
+**Status:** [ ] Not Started
+**Files:** `Info.plist`
+**Dependencies:** None
+**Description:** Add `aiq://` custom URL scheme to Info.plist.
+**Acceptance Criteria:**
+- [ ] `aiq://` URL scheme registered in Info.plist
+- [ ] App responds to `aiq://` URLs from Safari and other apps
+
+---
+
+### ICG-010: Configure Universal Links
+**Status:** [ ] Not Started
+**Files:** `AIQ.entitlements`, Apple Developer Portal
+**Dependencies:** ICG-009
+**Description:** Add Associated Domains entitlement for `applinks:aiq.app`.
+**Acceptance Criteria:**
+- [ ] Associated Domains entitlement added
+- [ ] Universal link domain verified in Apple Developer Portal
+- [ ] App responds to `https://aiq.app/...` links
+
+---
+
+### ICG-011: Integrate AppRouter into AIQApp.swift
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`
+**Dependencies:** ICG-007
+**Description:** Replace root view navigation with router-based navigation.
+**Acceptance Criteria:**
+- [ ] AppRouter initialized in AIQApp.swift
+- [ ] Router injected into environment
+- [ ] Root navigation controlled by router
+
+---
+
+### ICG-012: Migrate DashboardView Navigation
+**Status:** [ ] Not Started
+**Files:** `Views/Dashboard/DashboardView.swift`
+**Dependencies:** ICG-007, ICG-011
+**Description:** Replace sheet/fullScreenCover modifiers with AppRouter calls.
+**Acceptance Criteria:**
+- [ ] All sheet/fullScreenCover modifiers replaced with router calls
+- [ ] Navigation state removed from ViewModel
+- [ ] Back navigation works correctly
+- [ ] Deep state restoration supported
+
+---
+
+### ICG-013: Migrate TestTakingView Navigation
+**Status:** [ ] Not Started
+**Files:** `Views/Test/TestTakingView.swift`
+**Dependencies:** ICG-007, ICG-011
+**Description:** Replace navigation state management with AppRouter calls.
+**Acceptance Criteria:**
+- [ ] All sheet/fullScreenCover modifiers replaced with router calls
+- [ ] Navigation state removed from ViewModel
+- [ ] Back navigation works correctly
+- [ ] Deep state restoration supported
+
+---
+
+### ICG-014: Migrate HistoryView Navigation
+**Status:** [ ] Not Started
+**Files:** `Views/History/HistoryView.swift`
+**Dependencies:** ICG-007, ICG-011
+**Description:** Replace navigation state management with AppRouter calls.
+**Acceptance Criteria:**
+- [ ] All sheet/fullScreenCover modifiers replaced with router calls
+- [ ] Navigation state removed from ViewModel
+- [ ] Back navigation works correctly
+- [ ] Deep state restoration supported
+
+---
+
+### ICG-015: Migrate SettingsView Navigation
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/SettingsView.swift`
+**Dependencies:** ICG-007, ICG-011
+**Description:** Replace navigation state management with AppRouter calls.
+**Acceptance Criteria:**
+- [ ] All sheet/fullScreenCover modifiers replaced with router calls
+- [ ] Navigation state removed from ViewModel
+- [ ] Back navigation works correctly
+- [ ] Deep state restoration supported
+
+---
+
+### ICG-016: Implement Deep Link Handling in AppDelegate
+**Status:** [ ] Not Started
+**Files:** `AppDelegate.swift`
+**Dependencies:** ICG-008, ICG-009, ICG-010
+**Description:** Handle `application(_:open:options:)` callback to process deep links.
+**Acceptance Criteria:**
+- [ ] AppDelegate handles URL opening callbacks
+- [ ] URLs parsed by DeepLinkHandler
+- [ ] Router navigates to correct destination
+
+---
+
+### ICG-017: Add Deep Link Routes
+**Status:** [ ] Not Started
+**Files:** `Services/Navigation/DeepLinkHandler.swift`
+**Dependencies:** ICG-008, ICG-016
+**Description:** Implement routes for `aiq://test/results/{id}`, `aiq://test/resume/{sessionId}`, `aiq://settings`.
+**Acceptance Criteria:**
+- [ ] All three route types implemented and tested
+- [ ] Invalid routes handled gracefully with error state
+- [ ] Routes work from cold start and background state
+
+---
+
+### ICG-018: Test Deep Links from Push Notifications
+**Status:** [ ] Not Started
+**Files:** Test only
+**Dependencies:** ICG-016, ICG-017
+**Description:** Verify notification tap navigates correctly to target screens.
+**Acceptance Criteria:**
+- [ ] Push notification tap opens app to correct screen
+- [ ] Notification payload structure tested
+- [ ] Works in foreground, background, and terminated states
+
+---
+
+## Phase 3: UI Testing Infrastructure
 
 **Goal**: Create UI test target and cover all critical user flows with automated tests
-**Duration**: 5 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-019 | Create AIQUITests target in Xcode - Configure test host, bundle ID, signing | None | Small | New: `AIQUITests/` directory |
-| ICG-020 | Create UI test helpers - LoginHelper, TestTakingHelper, NavigationHelper | ICG-019 | Medium | New: `AIQUITests/Helpers/` |
-| ICG-021 | Write registration flow UI test - Complete registration from start to dashboard | ICG-019, ICG-020 | Medium | New: `AIQUITests/RegistrationFlowTests.swift` |
-| ICG-022 | Write login/logout flow UI test - Login, verify dashboard, logout, verify welcome screen | ICG-019, ICG-020 | Medium | New: `AIQUITests/AuthenticationFlowTests.swift` |
-| ICG-023 | Write test-taking flow UI test - Start test, answer all questions, submit, verify results | ICG-019, ICG-020 | Large | New: `AIQUITests/TestTakingFlowTests.swift` |
-| ICG-024 | Write test abandonment UI test - Start test, abandon, verify can resume | ICG-019, ICG-020 | Medium | New: `AIQUITests/TestAbandonmentTests.swift` |
-| ICG-025 | Write deep link navigation UI test - Test all deep link routes from terminated state | ICG-017, ICG-019, ICG-020 | Medium | New: `AIQUITests/DeepLinkTests.swift` |
-| ICG-026 | Write error state handling UI test - Network errors, invalid responses, retry logic | ICG-019, ICG-020 | Medium | New: `AIQUITests/ErrorHandlingTests.swift` |
-| ICG-027 | Configure UI tests in CI/CD - Add to GitHub Actions or Xcode Cloud | ICG-019 | Small | `.github/workflows/ios-tests.yml` |
-
-**Acceptance Criteria ICG-019:**
-- AIQUITests target created with correct configuration
-- Test target builds successfully
-- Can run UI tests from Xcode
-
-**Acceptance Criteria ICG-020:**
-- LoginHelper provides authenticated test sessions
-- TestTakingHelper handles test data setup
-- NavigationHelper verifies screen transitions
-- Helpers reduce test boilerplate
-
-**Acceptance Criteria ICG-021:**
-- Test completes full registration flow
-- Validates field validation errors
-- Verifies successful registration leads to dashboard
-- Runs reliably without flakiness
-
-**Acceptance Criteria ICG-022:**
-- Test covers login with valid credentials
-- Test covers login with invalid credentials
-- Test covers logout flow
-- Verifies session persistence
-
-**Acceptance Criteria ICG-023:**
-- Test starts a new test session
-- Test answers all questions (mocked question data)
-- Test submits answers and verifies results screen
-- Verifies score display and history update
-
-**Acceptance Criteria ICG-024:**
-- Test starts test and abandons mid-flow
-- Test verifies saved progress
-- Test resumes test and completes
-- Verifies no data loss on abandonment
-
-**Acceptance Criteria ICG-025:**
-- Test all deep link routes (results, resume, settings)
-- Test from app terminated state
-- Test from app backgrounded state
-- Verifies correct screen displayed
-
-**Acceptance Criteria ICG-026:**
-- Test network error handling with retry
-- Test invalid API response handling
-- Test timeout scenarios
-- Verifies user-facing error messages
-
-**Acceptance Criteria ICG-027:**
-- UI tests run automatically on pull requests
-- Test failures block merge
-- Test reports uploaded as artifacts
 
 ---
 
-### Phase 4: Privacy & Compliance (Week 4 - 3 days)
+### ICG-019: Create AIQUITests Target
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/` (new directory)
+**Dependencies:** None
+**Description:** Create UI test target in Xcode with correct configuration, test host, bundle ID, and signing.
+**Acceptance Criteria:**
+- [ ] AIQUITests target created with correct configuration
+- [ ] Test target builds successfully
+- [ ] Can run UI tests from Xcode
+
+---
+
+### ICG-020: Create UI Test Helpers
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/Helpers/` (new)
+**Dependencies:** ICG-019
+**Description:** Create LoginHelper, TestTakingHelper, and NavigationHelper for test code reuse.
+**Acceptance Criteria:**
+- [ ] LoginHelper provides authenticated test sessions
+- [ ] TestTakingHelper handles test data setup
+- [ ] NavigationHelper verifies screen transitions
+- [ ] Helpers reduce test boilerplate
+
+---
+
+### ICG-021: Write Registration Flow UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/RegistrationFlowTests.swift` (new)
+**Dependencies:** ICG-019, ICG-020
+**Description:** Complete registration from start to dashboard with validation testing.
+**Acceptance Criteria:**
+- [ ] Test completes full registration flow
+- [ ] Validates field validation errors
+- [ ] Verifies successful registration leads to dashboard
+- [ ] Runs reliably without flakiness
+
+---
+
+### ICG-022: Write Login/Logout Flow UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/AuthenticationFlowTests.swift` (new)
+**Dependencies:** ICG-019, ICG-020
+**Description:** Test login with valid/invalid credentials and logout flow.
+**Acceptance Criteria:**
+- [ ] Test covers login with valid credentials
+- [ ] Test covers login with invalid credentials
+- [ ] Test covers logout flow
+- [ ] Verifies session persistence
+
+---
+
+### ICG-023: Write Test-Taking Flow UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/TestTakingFlowTests.swift` (new)
+**Dependencies:** ICG-019, ICG-020
+**Description:** Start test, answer all questions, submit, and verify results.
+**Acceptance Criteria:**
+- [ ] Test starts a new test session
+- [ ] Test answers all questions (mocked question data)
+- [ ] Test submits answers and verifies results screen
+- [ ] Verifies score display and history update
+
+---
+
+### ICG-024: Write Test Abandonment UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/TestAbandonmentTests.swift` (new)
+**Dependencies:** ICG-019, ICG-020
+**Description:** Start test, abandon mid-flow, verify saved progress, and resume.
+**Acceptance Criteria:**
+- [ ] Test starts test and abandons mid-flow
+- [ ] Test verifies saved progress
+- [ ] Test resumes test and completes
+- [ ] Verifies no data loss on abandonment
+
+---
+
+### ICG-025: Write Deep Link Navigation UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/DeepLinkTests.swift` (new)
+**Dependencies:** ICG-017, ICG-019, ICG-020
+**Description:** Test all deep link routes from terminated state.
+**Acceptance Criteria:**
+- [ ] Test all deep link routes (results, resume, settings)
+- [ ] Test from app terminated state
+- [ ] Test from app backgrounded state
+- [ ] Verifies correct screen displayed
+
+---
+
+### ICG-026: Write Error State Handling UI Test
+**Status:** [ ] Not Started
+**Files:** `AIQUITests/ErrorHandlingTests.swift` (new)
+**Dependencies:** ICG-019, ICG-020
+**Description:** Test network errors, invalid responses, and retry logic.
+**Acceptance Criteria:**
+- [ ] Test network error handling with retry
+- [ ] Test invalid API response handling
+- [ ] Test timeout scenarios
+- [ ] Verifies user-facing error messages
+
+---
+
+### ICG-027: Configure UI Tests in CI/CD
+**Status:** [ ] Not Started
+**Files:** `.github/workflows/ios-tests.yml`
+**Dependencies:** ICG-019
+**Description:** Add UI tests to GitHub Actions or Xcode Cloud.
+**Acceptance Criteria:**
+- [ ] UI tests run automatically on pull requests
+- [ ] Test failures block merge
+- [ ] Test reports uploaded as artifacts
+
+---
+
+## Phase 4: Privacy & Compliance
 
 **Goal**: Meet App Store privacy and compliance requirements
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-028 | Create PrivacyInfo.xcprivacy manifest - Declare data collection and usage | None | Small | New: `PrivacyInfo.xcprivacy` |
-| ICG-029 | Draft privacy policy document - Cover data collection, storage, sharing, deletion | None | Medium | External: Privacy policy website/PDF |
-| ICG-030 | Draft terms of service document - User agreements, disclaimers, liability | None | Medium | External: Terms of service website/PDF |
-| ICG-031 | Implement consent management screen - Display privacy policy, require acceptance on first launch | ICG-029 | Medium | New: `Views/Onboarding/PrivacyConsentView.swift` |
-| ICG-032 | Add data deletion capability - Settings option to delete account and all data | None | Medium | `Views/Settings/SettingsView.swift`, Backend: New endpoint `/v1/user/delete-account` |
-| ICG-033 | Update App Store metadata - Privacy questions, data usage descriptions, screenshots | ICG-028, ICG-029, ICG-030 | Small | App Store Connect |
-
-**Acceptance Criteria ICG-028:**
-- PrivacyInfo.xcprivacy created with all required fields
-- Declares analytics, crash reporting, authentication data
-- Passes App Store privacy validation
-
-**Acceptance Criteria ICG-029:**
-- Privacy policy covers all data collected
-- Explains data retention and deletion
-- Complies with GDPR and CCPA requirements
-- Hosted at publicly accessible URL
-
-**Acceptance Criteria ICG-030:**
-- Terms of service cover liability disclaimers
-- Addresses intellectual property
-- Hosted at publicly accessible URL
-- Legal review completed
-
-**Acceptance Criteria ICG-031:**
-- Privacy consent screen shown on first launch
-- User must accept to continue
-- Consent timestamp stored locally
-- Links to full privacy policy and terms
-
-**Acceptance Criteria ICG-032:**
-- Settings screen includes "Delete Account" option
-- Confirmation dialog warns of irreversible action
-- Backend endpoint deletes all user data (GDPR right to erasure)
-- User logged out and returned to welcome screen
-
-**Acceptance Criteria ICG-033:**
-- App Store Connect metadata updated
-- Privacy questions answered accurately
-- Screenshots show current UI
-- App description mentions privacy compliance
 
 ---
 
-### Phase 5: Localization Infrastructure (Week 4-5 - 3 days)
+### ICG-028: Create PrivacyInfo.xcprivacy Manifest
+**Status:** [ ] Not Started
+**Files:** `PrivacyInfo.xcprivacy` (new)
+**Dependencies:** None
+**Description:** Declare data collection and usage for App Store privacy requirements.
+**Acceptance Criteria:**
+- [ ] PrivacyInfo.xcprivacy created with all required fields
+- [ ] Declares analytics, crash reporting, authentication data
+- [ ] Passes App Store privacy validation
+
+---
+
+### ICG-029: Draft Privacy Policy Document
+**Status:** [ ] Not Started
+**Files:** External: Privacy policy website/PDF
+**Dependencies:** None
+**Description:** Cover data collection, storage, sharing, and deletion policies.
+**Acceptance Criteria:**
+- [ ] Privacy policy covers all data collected
+- [ ] Explains data retention and deletion
+- [ ] Complies with GDPR and CCPA requirements
+- [ ] Hosted at publicly accessible URL
+
+---
+
+### ICG-030: Draft Terms of Service Document
+**Status:** [ ] Not Started
+**Files:** External: Terms of service website/PDF
+**Dependencies:** None
+**Description:** Cover user agreements, disclaimers, and liability.
+**Acceptance Criteria:**
+- [ ] Terms of service cover liability disclaimers
+- [ ] Addresses intellectual property
+- [ ] Hosted at publicly accessible URL
+- [ ] Legal review completed
+
+---
+
+### ICG-031: Implement Consent Management Screen
+**Status:** [ ] Not Started
+**Files:** `Views/Onboarding/PrivacyConsentView.swift` (new)
+**Dependencies:** ICG-029
+**Description:** Display privacy policy and require acceptance on first launch.
+**Acceptance Criteria:**
+- [ ] Privacy consent screen shown on first launch
+- [ ] User must accept to continue
+- [ ] Consent timestamp stored locally
+- [ ] Links to full privacy policy and terms
+
+---
+
+### ICG-032: Add Data Deletion Capability
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/SettingsView.swift`, Backend: `/v1/user/delete-account` (new)
+**Dependencies:** None
+**Description:** Add settings option to delete account and all user data (GDPR right to erasure).
+**Acceptance Criteria:**
+- [ ] Settings screen includes "Delete Account" option
+- [ ] Confirmation dialog warns of irreversible action
+- [ ] Backend endpoint deletes all user data (GDPR right to erasure)
+- [ ] User logged out and returned to welcome screen
+
+---
+
+### ICG-033: Update App Store Metadata
+**Status:** [ ] Not Started
+**Files:** App Store Connect
+**Dependencies:** ICG-028, ICG-029, ICG-030
+**Description:** Update privacy questions, data usage descriptions, and screenshots.
+**Acceptance Criteria:**
+- [ ] App Store Connect metadata updated
+- [ ] Privacy questions answered accurately
+- [ ] Screenshots show current UI
+- [ ] App description mentions privacy compliance
+
+---
+
+## Phase 5: Localization Infrastructure
 
 **Goal**: Prepare app for internationalization and localization
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-034 | Create Localizable.strings file for English (base localization) | None | Medium | New: `en.lproj/Localizable.strings` |
-| ICG-035 | Create String+Localization extension - Add `.localized` helper for string keys | None | Small | `Utilities/Extensions/String+Localization.swift` |
-| ICG-036 | Extract all hardcoded strings from Views to Localizable.strings | ICG-034, ICG-035 | Large | All View files |
-| ICG-037 | Extract all hardcoded strings from ViewModels to Localizable.strings | ICG-034, ICG-035 | Medium | All ViewModel files |
-| ICG-038 | Extract all error messages to Localizable.strings | ICG-034, ICG-035 | Medium | All Service files |
-| ICG-039 | Add RTL (Right-to-Left) layout support - Test with Arabic/Hebrew simulators | ICG-036 | Small | Test only |
-| ICG-040 | Configure locale-aware date/number formatting - Ensure all formatters respect user locale | ICG-036 | Small | `Utilities/Extensions/Date+Extensions.swift` |
-
-**Acceptance Criteria ICG-034:**
-- Localizable.strings file created in Xcode
-- All strings have unique keys
-- Base localization (English) complete
-
-**Acceptance Criteria ICG-035:**
-- String extension provides `.localized` computed property
-- Extension handles missing keys gracefully
-- Works with string interpolation
-
-**Acceptance Criteria ICG-036:**
-- All user-facing strings in Views use localization keys
-- No hardcoded English strings remain
-- App builds and runs with localized strings
-
-**Acceptance Criteria ICG-037:**
-- All user-facing strings in ViewModels use localization
-- Validation messages localized
-- Success/error messages localized
-
-**Acceptance Criteria ICG-038:**
-- All error messages use localization keys
-- Error codes preserved for debugging
-- User-friendly error messages in all cases
-
-**Acceptance Criteria ICG-039:**
-- App layout tested in RTL languages
-- No UI overlaps or truncation
-- Navigation behaves correctly in RTL
-
-**Acceptance Criteria ICG-040:**
-- DateFormatter respects user locale
-- Number formatting uses locale-specific separators
-- Currency formatting works for all supported locales
 
 ---
 
-### Phase 6: Security Hardening (Week 5 - 3 days)
+### ICG-034: Create Localizable.strings File
+**Status:** [ ] Not Started
+**Files:** `en.lproj/Localizable.strings` (new)
+**Dependencies:** None
+**Description:** Create base English localization file with all string keys.
+**Acceptance Criteria:**
+- [ ] Localizable.strings file created in Xcode
+- [ ] All strings have unique keys
+- [ ] Base localization (English) complete
+
+---
+
+### ICG-035: Create String+Localization Extension
+**Status:** [ ] Not Started
+**Files:** `Utilities/Extensions/String+Localization.swift`
+**Dependencies:** None
+**Description:** Add `.localized` helper for string keys.
+**Acceptance Criteria:**
+- [ ] String extension provides `.localized` computed property
+- [ ] Extension handles missing keys gracefully
+- [ ] Works with string interpolation
+
+---
+
+### ICG-036: Extract Hardcoded Strings from Views
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** ICG-034, ICG-035
+**Description:** Replace all hardcoded strings in Views with localization keys.
+**Acceptance Criteria:**
+- [ ] All user-facing strings in Views use localization keys
+- [ ] No hardcoded English strings remain
+- [ ] App builds and runs with localized strings
+
+---
+
+### ICG-037: Extract Hardcoded Strings from ViewModels
+**Status:** [ ] Not Started
+**Files:** All ViewModel files
+**Dependencies:** ICG-034, ICG-035
+**Description:** Replace all hardcoded strings in ViewModels with localization keys.
+**Acceptance Criteria:**
+- [ ] All user-facing strings in ViewModels use localization
+- [ ] Validation messages localized
+- [ ] Success/error messages localized
+
+---
+
+### ICG-038: Extract Error Messages to Localizable.strings
+**Status:** [ ] Not Started
+**Files:** All Service files
+**Dependencies:** ICG-034, ICG-035
+**Description:** Replace all error message strings with localization keys.
+**Acceptance Criteria:**
+- [ ] All error messages use localization keys
+- [ ] Error codes preserved for debugging
+- [ ] User-friendly error messages in all cases
+
+---
+
+### ICG-039: Add RTL Layout Support
+**Status:** [ ] Not Started
+**Files:** Test only
+**Dependencies:** ICG-036
+**Description:** Test with Arabic/Hebrew simulators to verify RTL layout support.
+**Acceptance Criteria:**
+- [ ] App layout tested in RTL languages
+- [ ] No UI overlaps or truncation
+- [ ] Navigation behaves correctly in RTL
+
+---
+
+### ICG-040: Configure Locale-Aware Formatting
+**Status:** [ ] Not Started
+**Files:** `Utilities/Extensions/Date+Extensions.swift`
+**Dependencies:** ICG-036
+**Description:** Ensure all formatters respect user locale for dates and numbers.
+**Acceptance Criteria:**
+- [ ] DateFormatter respects user locale
+- [ ] Number formatting uses locale-specific separators
+- [ ] Currency formatting works for all supported locales
+
+---
+
+## Phase 6: Security Hardening
 
 **Goal**: Eliminate security vulnerabilities before App Store submission
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-041 | Wrap sensitive logging in DEBUG guards - Email, tokens, user data | None | Medium | `Services/Auth/AuthService.swift` (lines 42-45, 70-73, 99-103) |
-| ICG-042 | Audit all OSLog calls for sensitive data - Remove or wrap in DEBUG | ICG-041 | Medium | All files with OSLog usage |
-| ICG-043 | Integrate TrustKit for certificate pinning | None | Medium | `AIQApp.swift`, New: `TrustKit.plist` |
-| ICG-044 | Configure production SSL certificate pins - Extract public key hashes from Railway certificates | ICG-043 | Small | `TrustKit.plist` |
-| ICG-045 | Test certificate pinning - Verify blocks MITM attacks, allows valid certificates | ICG-043, ICG-044 | Small | Test with proxy tool (Charles/mitmproxy) |
-| ICG-046 | Add environment-specific pinning config - Disable pinning in DEBUG builds | ICG-043, ICG-044 | Small | `TrustKit.plist`, `AppConfig.swift` |
-
-**Acceptance Criteria ICG-041:**
-- All email logging wrapped in `#if DEBUG` blocks
-- All token logging wrapped in `#if DEBUG` blocks
-- All user PII logging wrapped in `#if DEBUG` blocks
-- Production builds log no sensitive data
-
-**Acceptance Criteria ICG-042:**
-- Full codebase audit completed
-- Spreadsheet/report of all logging calls created
-- All sensitive logging wrapped or removed
-- Non-sensitive logging preserved for debugging
-
-**Acceptance Criteria ICG-043:**
-- TrustKit integrated via Swift Package Manager
-- TrustKit.plist configuration file created
-- TrustKit initialized in app launch
-
-**Acceptance Criteria ICG-044:**
-- Production backend SSL certificate analyzed
-- Public key hashes extracted and configured
-- Backup pins configured for rotation safety
-- Pin expiration dates documented
-
-**Acceptance Criteria ICG-045:**
-- Valid certificates accepted (app works normally)
-- Invalid certificates rejected (network calls fail)
-- Self-signed certificates blocked
-- MITM proxy blocked
-
-**Acceptance Criteria ICG-046:**
-- DEBUG builds skip certificate pinning
-- RELEASE builds enforce certificate pinning
-- Staging environment uses separate pin config
-- Environment switching tested
 
 ---
 
-### Phase 7: Test Coverage Expansion (Week 6 - 5 days)
+### ICG-041: Wrap Sensitive Logging in DEBUG Guards
+**Status:** [ ] Not Started
+**Files:** `Services/Auth/AuthService.swift` (lines 42-45, 70-73, 99-103)
+**Dependencies:** None
+**Description:** Wrap email, token, and user data logging in `#if DEBUG` blocks.
+**Acceptance Criteria:**
+- [ ] All email logging wrapped in `#if DEBUG` blocks
+- [ ] All token logging wrapped in `#if DEBUG` blocks
+- [ ] All user PII logging wrapped in `#if DEBUG` blocks
+- [ ] Production builds log no sensitive data
+
+---
+
+### ICG-042: Audit All OSLog Calls for Sensitive Data
+**Status:** [ ] Not Started
+**Files:** All files with OSLog usage
+**Dependencies:** ICG-041
+**Description:** Remove or wrap all sensitive data logging in DEBUG guards.
+**Acceptance Criteria:**
+- [ ] Full codebase audit completed
+- [ ] Spreadsheet/report of all logging calls created
+- [ ] All sensitive logging wrapped or removed
+- [ ] Non-sensitive logging preserved for debugging
+
+---
+
+### ICG-043: Integrate TrustKit for Certificate Pinning
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`, `TrustKit.plist` (new)
+**Dependencies:** None
+**Description:** Add TrustKit via SPM and create configuration file.
+**Acceptance Criteria:**
+- [ ] TrustKit integrated via Swift Package Manager
+- [ ] TrustKit.plist configuration file created
+- [ ] TrustKit initialized in app launch
+
+---
+
+### ICG-044: Configure Production SSL Certificate Pins
+**Status:** [ ] Not Started
+**Files:** `TrustKit.plist`
+**Dependencies:** ICG-043
+**Description:** Extract public key hashes from Railway certificates and configure pins.
+**Acceptance Criteria:**
+- [ ] Production backend SSL certificate analyzed
+- [ ] Public key hashes extracted and configured
+- [ ] Backup pins configured for rotation safety
+- [ ] Pin expiration dates documented
+
+---
+
+### ICG-045: Test Certificate Pinning
+**Status:** [ ] Not Started
+**Files:** Test only
+**Dependencies:** ICG-043, ICG-044
+**Description:** Verify pinning blocks MITM attacks and allows valid certificates.
+**Acceptance Criteria:**
+- [ ] Valid certificates accepted (app works normally)
+- [ ] Invalid certificates rejected (network calls fail)
+- [ ] Self-signed certificates blocked
+- [ ] MITM proxy blocked
+
+---
+
+### ICG-046: Add Environment-Specific Pinning Config
+**Status:** [ ] Not Started
+**Files:** `TrustKit.plist`, `AppConfig.swift`
+**Dependencies:** ICG-043, ICG-044
+**Description:** Disable pinning in DEBUG builds to allow development proxies.
+**Acceptance Criteria:**
+- [ ] DEBUG builds skip certificate pinning
+- [ ] RELEASE builds enforce certificate pinning
+- [ ] Staging environment uses separate pin config
+- [ ] Environment switching tested
+
+---
+
+## Phase 7: Test Coverage Expansion
 
 **Goal**: Achieve 80% code coverage with comprehensive unit tests
-**Duration**: 5 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-047 | Write unit tests for AuthService - Login, logout, registration, token refresh | None | Medium | New: `AIQTests/Services/AuthServiceTests.swift` |
-| ICG-048 | Write unit tests for NotificationService - Device registration, preference updates | None | Medium | New: `AIQTests/Services/NotificationServiceTests.swift` |
-| ICG-049 | Write unit tests for NotificationManager - Scheduling, permission handling | None | Medium | New: `AIQTests/Services/NotificationManagerTests.swift` |
-| ICG-050 | Write unit tests for AnalyticsService - Event tracking, backend sync | None | Medium | New: `AIQTests/Services/AnalyticsServiceTests.swift` |
-| ICG-051 | Write unit tests for KeychainStorage - Token storage, retrieval, deletion | None | Medium | New: `AIQTests/Storage/KeychainStorageTests.swift` |
-| ICG-052 | Write unit tests for LocalAnswerStorage - Answer persistence, retrieval | None | Medium | New: `AIQTests/Storage/LocalAnswerStorageTests.swift` |
-| ICG-053 | Write unit tests for DataCache - Cache storage, expiration, invalidation | None | Medium | New: `AIQTests/Storage/DataCacheTests.swift` |
-| ICG-054 | Write unit tests for RetryPolicy - Exponential backoff, max retries | None | Small | New: `AIQTests/Network/RetryPolicyTests.swift` |
-| ICG-055 | Write unit tests for TokenRefreshInterceptor - Concurrent request handling, race conditions | None | Medium | New: `AIQTests/Network/TokenRefreshInterceptorTests.swift` |
-| ICG-056 | Write unit tests for NetworkMonitor - Connection status changes | None | Small | New: `AIQTests/Network/NetworkMonitorTests.swift` |
-| ICG-057 | Write unit tests for User model - Validation, serialization | None | Small | New: `AIQTests/Models/UserTests.swift` |
-| ICG-058 | Write unit tests for Question model - Validation, answer checking | None | Small | New: `AIQTests/Models/QuestionTests.swift` |
-| ICG-059 | Write unit tests for TestSession model - Status transitions, validation | None | Small | New: `AIQTests/Models/TestSessionTests.swift` |
-| ICG-060 | Run code coverage report and identify remaining gaps | ICG-047 to ICG-059 | Small | Xcode coverage tool |
-| ICG-061 | Write additional tests to reach 80% coverage target | ICG-060 | Medium | Various test files |
-
-**Acceptance Criteria ICG-047:**
-- All AuthService methods tested
-- Success and error cases covered
-- Mock APIClient used for isolation
-- Edge cases tested (expired tokens, network errors)
-
-**Acceptance Criteria ICG-048-050:**
-- All public methods tested
-- Success and error paths covered
-- Dependencies mocked
-- Async operations tested correctly
-
-**Acceptance Criteria ICG-051-053:**
-- All storage operations tested
-- Data persistence verified
-- Error handling tested
-- Concurrent access tested
-
-**Acceptance Criteria ICG-054-056:**
-- All network layer logic tested
-- Edge cases covered
-- Threading safety verified
-- Mock URLSession used
-
-**Acceptance Criteria ICG-057-059:**
-- All model validation tested
-- Serialization/deserialization tested
-- Edge cases covered
-- Invalid data handled
-
-**Acceptance Criteria ICG-060:**
-- Code coverage report generated
-- Coverage percentage by file documented
-- Gaps identified and prioritized
-
-**Acceptance Criteria ICG-061:**
-- Code coverage reaches 80% or higher
-- Critical paths have 100% coverage
-- Remaining gaps documented with justification
 
 ---
 
-### Phase 8: Accessibility Audit (Week 7 - 4 days)
+### ICG-047: Write AuthService Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Services/AuthServiceTests.swift` (new)
+**Dependencies:** None
+**Description:** Test login, logout, registration, and token refresh with mocked dependencies.
+**Acceptance Criteria:**
+- [ ] All AuthService methods tested
+- [ ] Success and error cases covered
+- [ ] Mock APIClient used for isolation
+- [ ] Edge cases tested (expired tokens, network errors)
+
+---
+
+### ICG-048: Write NotificationService Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Services/NotificationServiceTests.swift` (new)
+**Dependencies:** None
+**Description:** Test device registration and preference updates.
+**Acceptance Criteria:**
+- [ ] All public methods tested
+- [ ] Success and error paths covered
+- [ ] Dependencies mocked
+- [ ] Async operations tested correctly
+
+---
+
+### ICG-049: Write NotificationManager Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Services/NotificationManagerTests.swift` (new)
+**Dependencies:** None
+**Description:** Test scheduling and permission handling.
+**Acceptance Criteria:**
+- [ ] All public methods tested
+- [ ] Success and error paths covered
+- [ ] Dependencies mocked
+- [ ] Async operations tested correctly
+
+---
+
+### ICG-050: Write AnalyticsService Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Services/AnalyticsServiceTests.swift` (new)
+**Dependencies:** None
+**Description:** Test event tracking and backend sync.
+**Acceptance Criteria:**
+- [ ] All public methods tested
+- [ ] Success and error paths covered
+- [ ] Dependencies mocked
+- [ ] Async operations tested correctly
+
+---
+
+### ICG-051: Write KeychainStorage Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Storage/KeychainStorageTests.swift` (new)
+**Dependencies:** None
+**Description:** Test token storage, retrieval, and deletion.
+**Acceptance Criteria:**
+- [ ] All storage operations tested
+- [ ] Data persistence verified
+- [ ] Error handling tested
+- [ ] Concurrent access tested
+
+---
+
+### ICG-052: Write LocalAnswerStorage Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Storage/LocalAnswerStorageTests.swift` (new)
+**Dependencies:** None
+**Description:** Test answer persistence and retrieval.
+**Acceptance Criteria:**
+- [ ] All storage operations tested
+- [ ] Data persistence verified
+- [ ] Error handling tested
+- [ ] Concurrent access tested
+
+---
+
+### ICG-053: Write DataCache Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Storage/DataCacheTests.swift` (new)
+**Dependencies:** None
+**Description:** Test cache storage, expiration, and invalidation.
+**Acceptance Criteria:**
+- [ ] All storage operations tested
+- [ ] Data persistence verified
+- [ ] Error handling tested
+- [ ] Concurrent access tested
+
+---
+
+### ICG-054: Write RetryPolicy Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Network/RetryPolicyTests.swift` (new)
+**Dependencies:** None
+**Description:** Test exponential backoff and max retries.
+**Acceptance Criteria:**
+- [ ] All retry logic tested
+- [ ] Exponential backoff verified
+- [ ] Max retry limit enforced
+- [ ] Edge cases covered
+
+---
+
+### ICG-055: Write TokenRefreshInterceptor Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Network/TokenRefreshInterceptorTests.swift` (new)
+**Dependencies:** None
+**Description:** Test concurrent request handling and race conditions.
+**Acceptance Criteria:**
+- [ ] All interceptor logic tested
+- [ ] Concurrent request handling verified
+- [ ] Race conditions prevented
+- [ ] Token refresh flow tested
+
+---
+
+### ICG-056: Write NetworkMonitor Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Network/NetworkMonitorTests.swift` (new)
+**Dependencies:** None
+**Description:** Test connection status changes.
+**Acceptance Criteria:**
+- [ ] All monitor logic tested
+- [ ] Connection status changes verified
+- [ ] Callbacks fired correctly
+- [ ] Edge cases covered
+
+---
+
+### ICG-057: Write User Model Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Models/UserTests.swift` (new)
+**Dependencies:** None
+**Description:** Test validation and serialization.
+**Acceptance Criteria:**
+- [ ] All model validation tested
+- [ ] Serialization/deserialization tested
+- [ ] Edge cases covered
+- [ ] Invalid data handled
+
+---
+
+### ICG-058: Write Question Model Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Models/QuestionTests.swift` (new)
+**Dependencies:** None
+**Description:** Test validation and answer checking.
+**Acceptance Criteria:**
+- [ ] All model validation tested
+- [ ] Serialization/deserialization tested
+- [ ] Edge cases covered
+- [ ] Invalid data handled
+
+---
+
+### ICG-059: Write TestSession Model Unit Tests
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Models/TestSessionTests.swift` (new)
+**Dependencies:** None
+**Description:** Test status transitions and validation.
+**Acceptance Criteria:**
+- [ ] All model validation tested
+- [ ] Serialization/deserialization tested
+- [ ] Edge cases covered
+- [ ] Invalid data handled
+
+---
+
+### ICG-060: Run Code Coverage Report
+**Status:** [ ] Not Started
+**Files:** Xcode coverage tool
+**Dependencies:** ICG-047 to ICG-059
+**Description:** Generate coverage report and identify remaining gaps.
+**Acceptance Criteria:**
+- [ ] Code coverage report generated
+- [ ] Coverage percentage by file documented
+- [ ] Gaps identified and prioritized
+
+---
+
+### ICG-061: Write Additional Tests for 80% Coverage
+**Status:** [ ] Not Started
+**Files:** Various test files
+**Dependencies:** ICG-060
+**Description:** Fill coverage gaps to reach 80% target.
+**Acceptance Criteria:**
+- [ ] Code coverage reaches 80% or higher
+- [ ] Critical paths have 100% coverage
+- [ ] Remaining gaps documented with justification
+
+---
+
+## Phase 8: Accessibility Audit
 
 **Goal**: Ensure WCAG AA compliance and excellent VoiceOver experience
-**Duration**: 4 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-062 | Audit all views with VoiceOver - Test every screen with VoiceOver enabled | None | Large | Test audit (documentation only) |
-| ICG-063 | Add accessibility labels to all interactive elements | ICG-062 | Medium | All View files |
-| ICG-064 | Add accessibility hints for non-obvious interactions | ICG-062 | Small | All View files |
-| ICG-065 | Verify color contrast meets WCAG AA standards - Use contrast checker tool | None | Small | `Utilities/Design/ColorPalette.swift` |
-| ICG-066 | Fix any color contrast failures - Adjust colors to meet 4.5:1 ratio | ICG-065 | Small | `Utilities/Design/ColorPalette.swift` |
-| ICG-067 | Verify touch targets meet 44x44pt minimum - Audit all buttons and interactive elements | None | Small | All View files |
-| ICG-068 | Fix undersized touch targets - Add padding or minimum frame sizes | ICG-067 | Small | All View files |
-| ICG-069 | Test Dynamic Type support - Verify all text scales correctly at all sizes | None | Medium | All View files |
-| ICG-070 | Fix Dynamic Type issues - Use relative spacing, avoid fixed heights | ICG-069 | Medium | All View files |
-| ICG-071 | Test Reduce Motion support - Verify animations respect accessibility settings | None | Small | All animated views |
-| ICG-072 | Add Reduce Motion alternatives - Disable or simplify animations when enabled | ICG-071 | Small | All animated views |
-| ICG-073 | Document accessibility features in App Store metadata | ICG-062 to ICG-072 | Small | App Store Connect |
-
-**Acceptance Criteria ICG-062:**
-- All screens tested with VoiceOver
-- Navigation flow logical and clear
-- All interactive elements reachable
-- Issues documented with severity
-
-**Acceptance Criteria ICG-063:**
-- All buttons have descriptive labels
-- All images have alt text
-- Form fields have labels
-- No unlabeled interactive elements
-
-**Acceptance Criteria ICG-064:**
-- Non-obvious gestures have hints
-- Complex interactions explained
-- Hints concise and helpful
-
-**Acceptance Criteria ICG-065:**
-- All color combinations tested
-- Contrast ratios documented
-- Failing combinations identified
-
-**Acceptance Criteria ICG-066:**
-- All color contrast meets 4.5:1 for normal text
-- All color contrast meets 3:1 for large text
-- Visual design preserved where possible
-
-**Acceptance Criteria ICG-067:**
-- All buttons and tap targets measured
-- Undersized targets documented
-- Priority list created
-
-**Acceptance Criteria ICG-068:**
-- All touch targets 44x44pt or larger
-- No tappable elements too small
-- Visual design preserved
-
-**Acceptance Criteria ICG-069:**
-- App tested at all Dynamic Type sizes (XS to XXXL)
-- Text truncation issues identified
-- Layout issues documented
-
-**Acceptance Criteria ICG-070:**
-- All text scales without truncation
-- Layouts adapt to large text
-- Scrollable regions used where needed
-
-**Acceptance Criteria ICG-071:**
-- All animations tested with Reduce Motion enabled
-- Disorienting animations identified
-
-**Acceptance Criteria ICG-072:**
-- Animations disabled or simplified when Reduce Motion enabled
-- Transitions remain functional
-- User experience preserved
-
-**Acceptance Criteria ICG-073:**
-- Accessibility features listed in App Store description
-- VoiceOver support highlighted
-- Dynamic Type support mentioned
 
 ---
 
-### Phase 9: User Experience Enhancements (Week 8 - 3 days)
+### ICG-062: Audit All Views with VoiceOver
+**Status:** [ ] Not Started
+**Files:** Test audit (documentation only)
+**Dependencies:** None
+**Description:** Test every screen with VoiceOver enabled and document issues.
+**Acceptance Criteria:**
+- [ ] All screens tested with VoiceOver
+- [ ] Navigation flow logical and clear
+- [ ] All interactive elements reachable
+- [ ] Issues documented with severity
+
+---
+
+### ICG-063: Add Accessibility Labels to Interactive Elements
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** ICG-062
+**Description:** Add descriptive accessibility labels to all buttons, images, and form fields.
+**Acceptance Criteria:**
+- [ ] All buttons have descriptive labels
+- [ ] All images have alt text
+- [ ] Form fields have labels
+- [ ] No unlabeled interactive elements
+
+---
+
+### ICG-064: Add Accessibility Hints for Non-Obvious Interactions
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** ICG-062
+**Description:** Add hints for gestures and complex interactions.
+**Acceptance Criteria:**
+- [ ] Non-obvious gestures have hints
+- [ ] Complex interactions explained
+- [ ] Hints concise and helpful
+
+---
+
+### ICG-065: Verify Color Contrast Meets WCAG AA
+**Status:** [ ] Not Started
+**Files:** `Utilities/Design/ColorPalette.swift`
+**Dependencies:** None
+**Description:** Use contrast checker tool to verify all color combinations.
+**Acceptance Criteria:**
+- [ ] All color combinations tested
+- [ ] Contrast ratios documented
+- [ ] Failing combinations identified
+
+---
+
+### ICG-066: Fix Color Contrast Failures
+**Status:** [ ] Not Started
+**Files:** `Utilities/Design/ColorPalette.swift`
+**Dependencies:** ICG-065
+**Description:** Adjust colors to meet 4.5:1 ratio for normal text.
+**Acceptance Criteria:**
+- [ ] All color contrast meets 4.5:1 for normal text
+- [ ] All color contrast meets 3:1 for large text
+- [ ] Visual design preserved where possible
+
+---
+
+### ICG-067: Verify Touch Targets Meet 44x44pt Minimum
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** None
+**Description:** Audit all buttons and interactive elements for minimum touch target size.
+**Acceptance Criteria:**
+- [ ] All buttons and tap targets measured
+- [ ] Undersized targets documented
+- [ ] Priority list created
+
+---
+
+### ICG-068: Fix Undersized Touch Targets
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** ICG-067
+**Description:** Add padding or minimum frame sizes to undersized targets.
+**Acceptance Criteria:**
+- [ ] All touch targets 44x44pt or larger
+- [ ] No tappable elements too small
+- [ ] Visual design preserved
+
+---
+
+### ICG-069: Test Dynamic Type Support
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** None
+**Description:** Verify all text scales correctly at all Dynamic Type sizes.
+**Acceptance Criteria:**
+- [ ] App tested at all Dynamic Type sizes (XS to XXXL)
+- [ ] Text truncation issues identified
+- [ ] Layout issues documented
+
+---
+
+### ICG-070: Fix Dynamic Type Issues
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** ICG-069
+**Description:** Use relative spacing and avoid fixed heights for text containers.
+**Acceptance Criteria:**
+- [ ] All text scales without truncation
+- [ ] Layouts adapt to large text
+- [ ] Scrollable regions used where needed
+
+---
+
+### ICG-071: Test Reduce Motion Support
+**Status:** [ ] Not Started
+**Files:** All animated views
+**Dependencies:** None
+**Description:** Verify animations respect accessibility Reduce Motion setting.
+**Acceptance Criteria:**
+- [ ] All animations tested with Reduce Motion enabled
+- [ ] Disorienting animations identified
+
+---
+
+### ICG-072: Add Reduce Motion Alternatives
+**Status:** [ ] Not Started
+**Files:** All animated views
+**Dependencies:** ICG-071
+**Description:** Disable or simplify animations when Reduce Motion is enabled.
+**Acceptance Criteria:**
+- [ ] Animations disabled or simplified when Reduce Motion enabled
+- [ ] Transitions remain functional
+- [ ] User experience preserved
+
+---
+
+### ICG-073: Document Accessibility Features in App Store
+**Status:** [ ] Not Started
+**Files:** App Store Connect
+**Dependencies:** ICG-062 to ICG-072
+**Description:** List accessibility features in App Store description.
+**Acceptance Criteria:**
+- [ ] Accessibility features listed in App Store description
+- [ ] VoiceOver support highlighted
+- [ ] Dynamic Type support mentioned
+
+---
+
+## Phase 9: User Experience Enhancements
 
 **Goal**: Improve first-run experience and user feedback mechanisms
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-074 | Design onboarding flow - 3-4 screens explaining app value and test mechanics | None | Small | Design mockups |
-| ICG-075 | Create OnboardingView with page indicators and skip option | ICG-074 | Medium | New: `Views/Onboarding/OnboardingView.swift` |
-| ICG-076 | Create onboarding content - App value, test mechanics, recommended frequency, privacy | ICG-075 | Small | `Views/Onboarding/OnboardingView.swift` |
-| ICG-077 | Integrate onboarding into first-launch flow - Show after registration or on first open | ICG-075, ICG-076 | Small | `AIQApp.swift` |
-| ICG-078 | Add "View Onboarding Again" option to Settings | ICG-075 | Small | `Views/Settings/SettingsView.swift` |
-| ICG-079 | Create FeedbackView with form fields - Name, email, category, description | None | Medium | New: `Views/Settings/FeedbackView.swift` |
-| ICG-080 | Implement feedback submission to backend - New endpoint `/v1/feedback/submit` | ICG-079 | Medium | Backend: New endpoint, iOS: `Views/Settings/FeedbackView.swift` |
-| ICG-081 | Add "Send Feedback" option to Settings menu | ICG-079 | Small | `Views/Settings/SettingsView.swift` |
-
-**Acceptance Criteria ICG-074:**
-- Onboarding flow designed with 3-4 screens
-- Content finalized and approved
-- Illustrations or graphics sourced
-
-**Acceptance Criteria ICG-075:**
-- OnboardingView created with SwiftUI TabView
-- Page indicators show progress
-- Skip button allows bypassing
-- "Get Started" button on final screen
-
-**Acceptance Criteria ICG-076:**
-- Screen 1: App value proposition
-- Screen 2: How tests work
-- Screen 3: Recommended 3-month frequency
-- Screen 4: Privacy and data handling
-
-**Acceptance Criteria ICG-077:**
-- Onboarding shown on first launch after registration
-- Onboarding shown on first launch for existing users (migration)
-- Flag stored to prevent repeated display
-
-**Acceptance Criteria ICG-078:**
-- Settings includes "View Onboarding Again" option
-- Tapping option displays onboarding flow
-- User can skip through quickly
-
-**Acceptance Criteria ICG-079:**
-- Feedback form includes all required fields
-- Form validation prevents empty submissions
-- Category dropdown includes common feedback types
-
-**Acceptance Criteria ICG-080:**
-- Backend endpoint created and tested
-- Feedback stored in database
-- Email notification sent to admin
-- Success/error handling in iOS app
-
-**Acceptance Criteria ICG-081:**
-- Settings menu includes "Send Feedback" option
-- Tapping option navigates to FeedbackView
-- Submission shows success confirmation
 
 ---
 
-### Phase 10: Code Quality - Redundancy Elimination (Week 9 - 4 days)
+### ICG-074: Design Onboarding Flow
+**Status:** [ ] Not Started
+**Files:** Design mockups
+**Dependencies:** None
+**Description:** Design 3-4 screens explaining app value and test mechanics.
+**Acceptance Criteria:**
+- [ ] Onboarding flow designed with 3-4 screens
+- [ ] Content finalized and approved
+- [ ] Illustrations or graphics sourced
+
+---
+
+### ICG-075: Create OnboardingView
+**Status:** [ ] Not Started
+**Files:** `Views/Onboarding/OnboardingView.swift` (new)
+**Dependencies:** ICG-074
+**Description:** Create OnboardingView with page indicators and skip option.
+**Acceptance Criteria:**
+- [ ] OnboardingView created with SwiftUI TabView
+- [ ] Page indicators show progress
+- [ ] Skip button allows bypassing
+- [ ] "Get Started" button on final screen
+
+---
+
+### ICG-076: Create Onboarding Content
+**Status:** [ ] Not Started
+**Files:** `Views/Onboarding/OnboardingView.swift`
+**Dependencies:** ICG-075
+**Description:** Add content for app value, test mechanics, recommended frequency, and privacy.
+**Acceptance Criteria:**
+- [ ] Screen 1: App value proposition
+- [ ] Screen 2: How tests work
+- [ ] Screen 3: Recommended 3-month frequency
+- [ ] Screen 4: Privacy and data handling
+
+---
+
+### ICG-077: Integrate Onboarding into First-Launch Flow
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`
+**Dependencies:** ICG-075, ICG-076
+**Description:** Show onboarding after registration or on first open.
+**Acceptance Criteria:**
+- [ ] Onboarding shown on first launch after registration
+- [ ] Onboarding shown on first launch for existing users (migration)
+- [ ] Flag stored to prevent repeated display
+
+---
+
+### ICG-078: Add View Onboarding Again to Settings
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/SettingsView.swift`
+**Dependencies:** ICG-075
+**Description:** Add option to re-view onboarding from Settings.
+**Acceptance Criteria:**
+- [ ] Settings includes "View Onboarding Again" option
+- [ ] Tapping option displays onboarding flow
+- [ ] User can skip through quickly
+
+---
+
+### ICG-079: Create FeedbackView
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/FeedbackView.swift` (new)
+**Dependencies:** None
+**Description:** Create feedback form with name, email, category, and description fields.
+**Acceptance Criteria:**
+- [ ] Feedback form includes all required fields
+- [ ] Form validation prevents empty submissions
+- [ ] Category dropdown includes common feedback types
+
+---
+
+### ICG-080: Implement Feedback Submission to Backend
+**Status:** [ ] Not Started
+**Files:** Backend: `/v1/feedback/submit` (new), `Views/Settings/FeedbackView.swift`
+**Dependencies:** ICG-079
+**Description:** Create backend endpoint and connect iOS form submission.
+**Acceptance Criteria:**
+- [ ] Backend endpoint created and tested
+- [ ] Feedback stored in database
+- [ ] Email notification sent to admin
+- [ ] Success/error handling in iOS app
+
+---
+
+### ICG-081: Add Send Feedback to Settings Menu
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/SettingsView.swift`
+**Dependencies:** ICG-079
+**Description:** Add "Send Feedback" option to Settings menu.
+**Acceptance Criteria:**
+- [ ] Settings menu includes "Send Feedback" option
+- [ ] Tapping option navigates to FeedbackView
+- [ ] Submission shows success confirmation
+
+---
+
+## Phase 10: Code Quality - Redundancy Elimination
 
 **Goal**: Eliminate code duplication and improve maintainability
-**Duration**: 4 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-082 | Consolidate email validation - Use `String+Extensions.swift` consistently | None | Small | `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift` |
-| ICG-083 | Consolidate password validation - Use `Validators.swift` or create shared validator | None | Small | `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift` |
-| ICG-084 | Extract IQ score classification to shared utility - Create `IQScoreUtility.swift` | None | Small | New: `Utilities/Helpers/IQScoreUtility.swift`, `Views/Test/TestResultsView.swift`, `Views/History/TestDetailView+Helpers.swift` |
-| ICG-085 | Remove duplicate IQ classification code from views | ICG-084 | Small | `Views/Test/TestResultsView.swift`, `Views/History/TestDetailView+Helpers.swift` |
-| ICG-086 | Audit DateFormatter usage - Identify all instances creating formatters | None | Small | Documentation only |
-| ICG-087 | Migrate to Date+Extensions helpers - Replace formatter creation with extension methods | ICG-086 | Medium | `ViewModels/DashboardViewModel.swift`, `Views/Test/TestResultsView.swift`, `Views/History/IQTrendChart.swift`, others |
-| ICG-088 | Create reusable InfoCard component - Extract from WelcomeView and RegistrationView | None | Medium | New: `Views/Common/InfoCard.swift` |
-| ICG-089 | Replace FeatureCard with InfoCard in WelcomeView | ICG-088 | Small | `Views/Auth/WelcomeView.swift` |
-| ICG-090 | Replace RegistrationBenefitCard with InfoCard in RegistrationView | ICG-088 | Small | `Views/Auth/RegistrationView.swift` |
-
-**Acceptance Criteria ICG-082:**
-- All email validation uses single implementation
-- Validation logic identical across all call sites
-- Unit tests verify validation consistency
-
-**Acceptance Criteria ICG-083:**
-- All password validation uses single implementation
-- Validation rules identical across all call sites
-- Password requirements documented
-
-**Acceptance Criteria ICG-084:**
-- IQScoreUtility.swift created with classification method
-- Method accepts IQ score, returns category and color
-- Unit tests verify all score ranges
-
-**Acceptance Criteria ICG-085:**
-- TestResultsView uses IQScoreUtility
-- TestDetailView+Helpers uses IQScoreUtility
-- Duplicate switch statements removed
-- Visual output identical to before
-
-**Acceptance Criteria ICG-086:**
-- All DateFormatter usage documented
-- Call sites categorized by format type
-- Migration plan created
-
-**Acceptance Criteria ICG-087:**
-- All DateFormatter creation replaced with extensions
-- Date formatting consistent across app
-- Performance improved (fewer formatter allocations)
-
-**Acceptance Criteria ICG-088:**
-- InfoCard component supports title, description, icon
-- Component supports customization (colors, sizing)
-- Component previews created
-
-**Acceptance Criteria ICG-089-090:**
-- WelcomeView uses InfoCard
-- RegistrationView uses InfoCard
-- Visual output identical to before
-- Code duplication eliminated
 
 ---
 
-### Phase 11: Code Quality - Architecture Fixes (Week 9-10 - 3 days)
+### ICG-082: Consolidate Email Validation
+**Status:** [ ] Not Started
+**Files:** `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift`
+**Dependencies:** None
+**Description:** Use `String+Extensions.swift` consistently for email validation.
+**Acceptance Criteria:**
+- [ ] All email validation uses single implementation
+- [ ] Validation logic identical across all call sites
+- [ ] Unit tests verify validation consistency
+
+---
+
+### ICG-083: Consolidate Password Validation
+**Status:** [ ] Not Started
+**Files:** `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift`
+**Dependencies:** None
+**Description:** Use `Validators.swift` or create shared validator for passwords.
+**Acceptance Criteria:**
+- [ ] All password validation uses single implementation
+- [ ] Validation rules identical across all call sites
+- [ ] Password requirements documented
+
+---
+
+### ICG-084: Extract IQ Score Classification to Shared Utility
+**Status:** [ ] Not Started
+**Files:** `Utilities/Helpers/IQScoreUtility.swift` (new), `Views/Test/TestResultsView.swift`, `Views/History/TestDetailView+Helpers.swift`
+**Dependencies:** None
+**Description:** Create shared utility for IQ score classification and color mapping.
+**Acceptance Criteria:**
+- [ ] IQScoreUtility.swift created with classification method
+- [ ] Method accepts IQ score, returns category and color
+- [ ] Unit tests verify all score ranges
+
+---
+
+### ICG-085: Remove Duplicate IQ Classification Code
+**Status:** [ ] Not Started
+**Files:** `Views/Test/TestResultsView.swift`, `Views/History/TestDetailView+Helpers.swift`
+**Dependencies:** ICG-084
+**Description:** Replace duplicate switch statements with IQScoreUtility calls.
+**Acceptance Criteria:**
+- [ ] TestResultsView uses IQScoreUtility
+- [ ] TestDetailView+Helpers uses IQScoreUtility
+- [ ] Duplicate switch statements removed
+- [ ] Visual output identical to before
+
+---
+
+### ICG-086: Audit DateFormatter Usage
+**Status:** [ ] Not Started
+**Files:** Documentation only
+**Dependencies:** None
+**Description:** Identify all instances creating DateFormatters across codebase.
+**Acceptance Criteria:**
+- [ ] All DateFormatter usage documented
+- [ ] Call sites categorized by format type
+- [ ] Migration plan created
+
+---
+
+### ICG-087: Migrate to Date+Extensions Helpers
+**Status:** [ ] Not Started
+**Files:** `ViewModels/DashboardViewModel.swift`, `Views/Test/TestResultsView.swift`, `Views/History/IQTrendChart.swift`, others
+**Dependencies:** ICG-086
+**Description:** Replace formatter creation with Date+Extensions methods.
+**Acceptance Criteria:**
+- [ ] All DateFormatter creation replaced with extensions
+- [ ] Date formatting consistent across app
+- [ ] Performance improved (fewer formatter allocations)
+
+---
+
+### ICG-088: Create Reusable InfoCard Component
+**Status:** [ ] Not Started
+**Files:** `Views/Common/InfoCard.swift` (new)
+**Dependencies:** None
+**Description:** Extract common card pattern from WelcomeView and RegistrationView.
+**Acceptance Criteria:**
+- [ ] InfoCard component supports title, description, icon
+- [ ] Component supports customization (colors, sizing)
+- [ ] Component previews created
+
+---
+
+### ICG-089: Replace FeatureCard with InfoCard in WelcomeView
+**Status:** [ ] Not Started
+**Files:** `Views/Auth/WelcomeView.swift`
+**Dependencies:** ICG-088
+**Description:** Use new InfoCard component instead of custom FeatureCard.
+**Acceptance Criteria:**
+- [ ] WelcomeView uses InfoCard
+- [ ] Visual output identical to before
+- [ ] Code duplication eliminated
+
+---
+
+### ICG-090: Replace RegistrationBenefitCard with InfoCard
+**Status:** [ ] Not Started
+**Files:** `Views/Auth/RegistrationView.swift`
+**Dependencies:** ICG-088
+**Description:** Use new InfoCard component instead of custom RegistrationBenefitCard.
+**Acceptance Criteria:**
+- [ ] RegistrationView uses InfoCard
+- [ ] Visual output identical to before
+- [ ] Code duplication eliminated
+
+---
+
+## Phase 11: Code Quality - Architecture Fixes
 
 **Goal**: Fix architectural issues (StateObject misuse, race conditions, retain cycles)
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-091 | Fix StateObject misuse in DashboardView - Change to @ObservedObject for singleton | None | Small | `Views/Dashboard/DashboardView.swift` |
-| ICG-092 | Convert TokenRefreshInterceptor to actor - Eliminate race condition on concurrent requests | None | Medium | `Services/Auth/TokenRefreshInterceptor.swift` |
-| ICG-093 | Test TokenRefreshInterceptor thread safety - Concurrent request stress test | ICG-092 | Small | New: `AIQTests/Network/TokenRefreshInterceptorConcurrencyTests.swift` |
-| ICG-094 | Fix retain cycle in DashboardViewModel - Add [weak self] to retry closure | None | Small | `ViewModels/DashboardViewModel.swift` |
-| ICG-095 | Audit all timer closures for retain cycles - Search for Timer usage without weak self | None | Small | Documentation only |
-| ICG-096 | Fix timer retain cycles - Add [weak self] to all timer closures | ICG-095 | Small | Various ViewModel files |
-| ICG-097 | Run memory leak detection - Use Xcode Instruments to verify no leaks | ICG-094, ICG-096 | Small | Test only |
-
-**Acceptance Criteria ICG-091:**
-- DashboardView uses @ObservedObject instead of @StateObject
-- AuthManager.shared still works correctly
-- No duplicate instances created
-
-**Acceptance Criteria ICG-092:**
-- TokenRefreshInterceptor converted to Swift actor
-- All properties accessed via async/await
-- Compilation succeeds
-
-**Acceptance Criteria ICG-093:**
-- Stress test creates 10+ concurrent requests
-- Token refresh only happens once
-- No race condition errors
-- All requests succeed
-
-**Acceptance Criteria ICG-094:**
-- Retry closure uses [weak self]
-- Memory leak resolved
-- Functionality unchanged
-
-**Acceptance Criteria ICG-095:**
-- All Timer usage documented
-- Retain cycle risks identified
-- Priority fixes listed
-
-**Acceptance Criteria ICG-096:**
-- All timer closures use [weak self]
-- No compiler warnings
-- Functionality unchanged
-
-**Acceptance Criteria ICG-097:**
-- Instruments Leaks tool run on app
-- No memory leaks detected
-- Memory graph verified clean
 
 ---
 
-### Phase 12: Code Quality - Magic Numbers (Week 10 - 2 days)
+### ICG-091: Fix StateObject Misuse in DashboardView
+**Status:** [ ] Not Started
+**Files:** `Views/Dashboard/DashboardView.swift`
+**Dependencies:** None
+**Description:** Change @StateObject to @ObservedObject for singleton AuthManager.
+**Acceptance Criteria:**
+- [ ] DashboardView uses @ObservedObject instead of @StateObject
+- [ ] AuthManager.shared still works correctly
+- [ ] No duplicate instances created
+
+---
+
+### ICG-092: Convert TokenRefreshInterceptor to Actor
+**Status:** [ ] Not Started
+**Files:** `Services/Auth/TokenRefreshInterceptor.swift`
+**Dependencies:** None
+**Description:** Eliminate race condition on concurrent requests by using Swift actor.
+**Acceptance Criteria:**
+- [ ] TokenRefreshInterceptor converted to Swift actor
+- [ ] All properties accessed via async/await
+- [ ] Compilation succeeds
+
+---
+
+### ICG-093: Test TokenRefreshInterceptor Thread Safety
+**Status:** [ ] Not Started
+**Files:** `AIQTests/Network/TokenRefreshInterceptorConcurrencyTests.swift` (new)
+**Dependencies:** ICG-092
+**Description:** Create stress test with concurrent requests to verify thread safety.
+**Acceptance Criteria:**
+- [ ] Stress test creates 10+ concurrent requests
+- [ ] Token refresh only happens once
+- [ ] No race condition errors
+- [ ] All requests succeed
+
+---
+
+### ICG-094: Fix Retain Cycle in DashboardViewModel
+**Status:** [ ] Not Started
+**Files:** `ViewModels/DashboardViewModel.swift`
+**Dependencies:** None
+**Description:** Add [weak self] to retry closure.
+**Acceptance Criteria:**
+- [ ] Retry closure uses [weak self]
+- [ ] Memory leak resolved
+- [ ] Functionality unchanged
+
+---
+
+### ICG-095: Audit Timer Closures for Retain Cycles
+**Status:** [ ] Not Started
+**Files:** Documentation only
+**Dependencies:** None
+**Description:** Search for Timer usage without weak self references.
+**Acceptance Criteria:**
+- [ ] All Timer usage documented
+- [ ] Retain cycle risks identified
+- [ ] Priority fixes listed
+
+---
+
+### ICG-096: Fix Timer Retain Cycles
+**Status:** [ ] Not Started
+**Files:** Various ViewModel files
+**Dependencies:** ICG-095
+**Description:** Add [weak self] to all timer closures.
+**Acceptance Criteria:**
+- [ ] All timer closures use [weak self]
+- [ ] No compiler warnings
+- [ ] Functionality unchanged
+
+---
+
+### ICG-097: Run Memory Leak Detection
+**Status:** [ ] Not Started
+**Files:** Test only
+**Dependencies:** ICG-094, ICG-096
+**Description:** Use Xcode Instruments to verify no memory leaks.
+**Acceptance Criteria:**
+- [ ] Instruments Leaks tool run on app
+- [ ] No memory leaks detected
+- [ ] Memory graph verified clean
+
+---
+
+## Phase 12: Code Quality - Magic Numbers
 
 **Goal**: Extract magic numbers to named constants for maintainability
-**Duration**: 2 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-098 | Create Constants.swift file - Organize by domain (Timing, Network, Test) | None | Small | New: `Utilities/Helpers/Constants.swift` |
-| ICG-099 | Extract timer critical threshold (60 seconds) to constant | ICG-098 | Small | `ViewModels/TestTimerManager.swift`, `Utilities/Helpers/Constants.swift` |
-| ICG-100 | Extract slow request threshold (2.0 seconds) to constant | ICG-098 | Small | `Services/API/APIClient.swift`, `Utilities/Helpers/Constants.swift` |
-| ICG-101 | Extract auto-save delay (1.0 seconds) to constant | ICG-098 | Small | `ViewModels/TestTakingViewModel.swift`, `Utilities/Helpers/Constants.swift` |
-| ICG-102 | Extract progress validity (24 hours) to constant | ICG-098 | Small | `Models/SavedTestProgress.swift`, `Utilities/Helpers/Constants.swift` |
-| ICG-103 | Audit codebase for additional magic numbers | ICG-098 | Small | Documentation only |
-| ICG-104 | Extract remaining magic numbers to constants | ICG-103 | Small | Various files |
-
-**Acceptance Criteria ICG-098:**
-- Constants.swift file created
-- Organized into nested structs by domain
-- Documentation comments explain each constant
-
-**Acceptance Criteria ICG-099-102:**
-- Magic number replaced with named constant
-- Constant value identical to original
-- All references updated
-- Code more readable
-
-**Acceptance Criteria ICG-103:**
-- Full codebase search completed
-- Magic numbers categorized by priority
-- List of remaining numbers documented
-
-**Acceptance Criteria ICG-104:**
-- All high-priority magic numbers extracted
-- Constants well-named and documented
-- Code maintainability improved
 
 ---
 
-### Phase 13: Code Quality - Final Touches (Week 10 - 2 days)
+### ICG-098: Create Constants.swift File
+**Status:** [ ] Not Started
+**Files:** `Utilities/Helpers/Constants.swift` (new)
+**Dependencies:** None
+**Description:** Organize constants by domain (Timing, Network, Test).
+**Acceptance Criteria:**
+- [ ] Constants.swift file created
+- [ ] Organized into nested structs by domain
+- [ ] Documentation comments explain each constant
+
+---
+
+### ICG-099: Extract Timer Critical Threshold
+**Status:** [ ] Not Started
+**Files:** `ViewModels/TestTimerManager.swift`, `Utilities/Helpers/Constants.swift`
+**Dependencies:** ICG-098
+**Description:** Extract 60 seconds threshold to named constant.
+**Acceptance Criteria:**
+- [ ] Magic number replaced with named constant
+- [ ] Constant value identical to original
+- [ ] All references updated
+- [ ] Code more readable
+
+---
+
+### ICG-100: Extract Slow Request Threshold
+**Status:** [ ] Not Started
+**Files:** `Services/API/APIClient.swift`, `Utilities/Helpers/Constants.swift`
+**Dependencies:** ICG-098
+**Description:** Extract 2.0 seconds threshold to named constant.
+**Acceptance Criteria:**
+- [ ] Magic number replaced with named constant
+- [ ] Constant value identical to original
+- [ ] All references updated
+- [ ] Code more readable
+
+---
+
+### ICG-101: Extract Auto-Save Delay
+**Status:** [ ] Not Started
+**Files:** `ViewModels/TestTakingViewModel.swift`, `Utilities/Helpers/Constants.swift`
+**Dependencies:** ICG-098
+**Description:** Extract 1.0 seconds delay to named constant.
+**Acceptance Criteria:**
+- [ ] Magic number replaced with named constant
+- [ ] Constant value identical to original
+- [ ] All references updated
+- [ ] Code more readable
+
+---
+
+### ICG-102: Extract Progress Validity Duration
+**Status:** [ ] Not Started
+**Files:** `Models/SavedTestProgress.swift`, `Utilities/Helpers/Constants.swift`
+**Dependencies:** ICG-098
+**Description:** Extract 24 hours validity to named constant.
+**Acceptance Criteria:**
+- [ ] Magic number replaced with named constant
+- [ ] Constant value identical to original
+- [ ] All references updated
+- [ ] Code more readable
+
+---
+
+### ICG-103: Audit Codebase for Additional Magic Numbers
+**Status:** [ ] Not Started
+**Files:** Documentation only
+**Dependencies:** ICG-098
+**Description:** Search for remaining magic numbers and categorize by priority.
+**Acceptance Criteria:**
+- [ ] Full codebase search completed
+- [ ] Magic numbers categorized by priority
+- [ ] List of remaining numbers documented
+
+---
+
+### ICG-104: Extract Remaining Magic Numbers
+**Status:** [ ] Not Started
+**Files:** Various files
+**Dependencies:** ICG-103
+**Description:** Extract all high-priority magic numbers to constants.
+**Acceptance Criteria:**
+- [ ] All high-priority magic numbers extracted
+- [ ] Constants well-named and documented
+- [ ] Code maintainability improved
+
+---
+
+## Phase 13: Code Quality - Final Touches
 
 **Goal**: Address remaining code quality issues
-**Duration**: 2 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-105 | Add birth year validation to RegistrationViewModel - Validate 1900 <= year <= currentYear | None | Small | `ViewModels/RegistrationViewModel.swift` |
-| ICG-106 | Create ServiceContainer for dependency injection | None | Medium | New: `Utilities/DI/ServiceContainer.swift` |
-| ICG-107 | Migrate ViewModels to use ServiceContainer - Inject dependencies instead of singletons | ICG-106 | Medium | All ViewModels |
-| ICG-108 | Create environment key for ServiceContainer | ICG-106 | Small | `Utilities/DI/ServiceContainer.swift` |
-| ICG-109 | Inject ServiceContainer into app environment | ICG-106, ICG-108 | Small | `AIQApp.swift` |
-
-**Acceptance Criteria ICG-105:**
-- Birth year validation added to ViewModel
-- Rejects years before 1900
-- Rejects years after current year
-- User-friendly error message displayed
-
-**Acceptance Criteria ICG-106:**
-- ServiceContainer class created
-- Supports registration and resolution of dependencies
-- Thread-safe implementation
-- Supports protocol-based injection
-
-**Acceptance Criteria ICG-107:**
-- All ViewModels accept dependencies via initializer
-- No direct singleton usage in ViewModels
-- Testability improved
-- Functionality unchanged
-
-**Acceptance Criteria ICG-108:**
-- Environment key created for ServiceContainer
-- SwiftUI environment integration working
-
-**Acceptance Criteria ICG-109:**
-- ServiceContainer initialized in AIQApp.swift
-- All services registered
-- Injected into environment
-- App launches successfully
 
 ---
 
-### Phase 14: P2 Enhancements - Offline & State (Week 11 - 3 days)
+### ICG-105: Add Birth Year Validation
+**Status:** [ ] Not Started
+**Files:** `ViewModels/RegistrationViewModel.swift`
+**Dependencies:** None
+**Description:** Validate birth year is between 1900 and current year.
+**Acceptance Criteria:**
+- [ ] Birth year validation added to ViewModel
+- [ ] Rejects years before 1900
+- [ ] Rejects years after current year
+- [ ] User-friendly error message displayed
+
+---
+
+### ICG-106: Create ServiceContainer for Dependency Injection
+**Status:** [ ] Not Started
+**Files:** `Utilities/DI/ServiceContainer.swift` (new)
+**Dependencies:** None
+**Description:** Create container for registering and resolving dependencies.
+**Acceptance Criteria:**
+- [ ] ServiceContainer class created
+- [ ] Supports registration and resolution of dependencies
+- [ ] Thread-safe implementation
+- [ ] Supports protocol-based injection
+
+---
+
+### ICG-107: Migrate ViewModels to Use ServiceContainer
+**Status:** [ ] Not Started
+**Files:** All ViewModels
+**Dependencies:** ICG-106
+**Description:** Inject dependencies instead of using singletons directly.
+**Acceptance Criteria:**
+- [ ] All ViewModels accept dependencies via initializer
+- [ ] No direct singleton usage in ViewModels
+- [ ] Testability improved
+- [ ] Functionality unchanged
+
+---
+
+### ICG-108: Create Environment Key for ServiceContainer
+**Status:** [ ] Not Started
+**Files:** `Utilities/DI/ServiceContainer.swift`
+**Dependencies:** ICG-106
+**Description:** Create SwiftUI environment key for container injection.
+**Acceptance Criteria:**
+- [ ] Environment key created for ServiceContainer
+- [ ] SwiftUI environment integration working
+
+---
+
+### ICG-109: Inject ServiceContainer into App Environment
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`
+**Dependencies:** ICG-106, ICG-108
+**Description:** Initialize and inject ServiceContainer at app launch.
+**Acceptance Criteria:**
+- [ ] ServiceContainer initialized in AIQApp.swift
+- [ ] All services registered
+- [ ] Injected into environment
+- [ ] App launches successfully
+
+---
+
+## Phase 14: P2 Enhancements - Offline & State
 
 **Goal**: Improve offline capabilities and state persistence
-**Duration**: 3 days
-
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-110 | Create operation queue for offline mutations - Queue profile updates, settings changes | None | Large | New: `Services/Storage/OfflineOperationQueue.swift` |
-| ICG-111 | Implement background sync for offline operations - Sync when network returns | ICG-110 | Medium | `Services/Storage/OfflineOperationQueue.swift` |
-| ICG-112 | Add retry logic for failed mutations | ICG-110 | Medium | `Services/Storage/OfflineOperationQueue.swift` |
-| ICG-113 | Create AppStateStorage for UI state persistence | None | Medium | New: `Services/Storage/AppStateStorage.swift` |
-| ICG-114 | Persist tab selection across app launches | ICG-113 | Small | `Views/MainTabView.swift` |
-| ICG-115 | Persist filter preferences in HistoryView | ICG-113 | Small | `Views/History/HistoryView.swift` |
-| ICG-116 | Persist scroll positions in long lists (optional, nice-to-have) | ICG-113 | Small | Various list views |
-
-**Acceptance Criteria ICG-110:**
-- OfflineOperationQueue created
-- Supports queuing mutations when offline
-- Persists queue to disk
-- Operations have retry logic
-
-**Acceptance Criteria ICG-111:**
-- Queue monitors network status
-- Syncs operations when network returns
-- Handles conflicts gracefully
-- User notified of sync status
-
-**Acceptance Criteria ICG-112:**
-- Failed operations retry with exponential backoff
-- Max retry limit enforced
-- Permanently failed operations reported to user
-
-**Acceptance Criteria ICG-113:**
-- AppStateStorage created with UserDefaults backend
-- Supports reading/writing various state types
-- Type-safe API
-
-**Acceptance Criteria ICG-114:**
-- Selected tab saved on change
-- Restored on app launch
-- Defaults to dashboard if no saved state
-
-**Acceptance Criteria ICG-115:**
-- Filter selections saved on change
-- Restored on view appear
-- Defaults to "All" if no saved state
-
-**Acceptance Criteria ICG-116:**
-- Scroll position saved for long lists
-- Restored on view appear (if feasible with SwiftUI)
-- Degrades gracefully if not possible
 
 ---
 
-### Phase 15: P3 Enhancements - Nice-to-Have Features (Week 12 - 5 days)
+### ICG-110: Create Offline Operation Queue
+**Status:** [ ] Not Started
+**Files:** `Services/Storage/OfflineOperationQueue.swift` (new)
+**Dependencies:** None
+**Description:** Queue profile updates and settings changes when offline.
+**Acceptance Criteria:**
+- [ ] OfflineOperationQueue created
+- [ ] Supports queuing mutations when offline
+- [ ] Persists queue to disk
+- [ ] Operations have retry logic
 
-**Goal**: Add polish features for enhanced user experience
-**Duration**: 5 days (optional, can be deferred post-launch)
+---
 
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-117 | Create BiometricAuthManager - Face ID / Touch ID support | None | Medium | New: `Services/Auth/BiometricAuthManager.swift` |
-| ICG-118 | Add biometric authentication option to Settings | ICG-117 | Small | `Views/Settings/SettingsView.swift` |
-| ICG-119 | Implement biometric auth on app launch | ICG-117, ICG-118 | Medium | `AIQApp.swift` |
-| ICG-120 | Create HapticManager for haptic feedback | None | Small | New: `Utilities/Helpers/HapticManager.swift` |
-| ICG-121 | Add haptic feedback to button taps | ICG-120 | Small | `Views/Common/PrimaryButton.swift`, others |
-| ICG-122 | Add haptic feedback to success/error states | ICG-120 | Small | All ViewModels |
-| ICG-123 | Add haptic feedback to timer warnings | ICG-120 | Small | `ViewModels/TestTimerManager.swift` |
-| ICG-124 | Optimize layouts for iPad - Multi-column layouts, larger screens | None | Large | All View files |
-| ICG-125 | Add keyboard shortcuts for iPad | ICG-124 | Medium | Various views |
-| ICG-126 | Add split view support for iPad | ICG-124 | Medium | `AIQApp.swift` |
-| ICG-127 | Create widget extension - Show latest score or next test date | None | Large | New: Widget extension target |
-| ICG-128 | Add snapshot testing with swift-snapshot-testing | None | Medium | New: Snapshot test files |
-| ICG-129 | Add background refresh capability | None | Medium | `AIQApp.swift`, `AppDelegate.swift` |
+### ICG-111: Implement Background Sync for Offline Operations
+**Status:** [ ] Not Started
+**Files:** `Services/Storage/OfflineOperationQueue.swift`
+**Dependencies:** ICG-110
+**Description:** Sync queued operations when network returns.
+**Acceptance Criteria:**
+- [ ] Queue monitors network status
+- [ ] Syncs operations when network returns
+- [ ] Handles conflicts gracefully
+- [ ] User notified of sync status
 
-**Acceptance Criteria ICG-117:**
-- BiometricAuthManager supports Face ID and Touch ID
-- Handles permission requests
-- Fallback to passcode if biometric fails
+---
 
-**Acceptance Criteria ICG-118:**
-- Settings toggle for biometric auth
-- Disabled if device doesn't support biometrics
-- Preference saved securely
+### ICG-112: Add Retry Logic for Failed Mutations
+**Status:** [ ] Not Started
+**Files:** `Services/Storage/OfflineOperationQueue.swift`
+**Dependencies:** ICG-110
+**Description:** Implement exponential backoff and max retry limits.
+**Acceptance Criteria:**
+- [ ] Failed operations retry with exponential backoff
+- [ ] Max retry limit enforced
+- [ ] Permanently failed operations reported to user
 
-**Acceptance Criteria ICG-119:**
-- Biometric prompt shown on app launch if enabled
-- Successful auth shows app content
-- Failed auth shows retry or exit options
+---
 
-**Acceptance Criteria ICG-120:**
-- HapticManager provides simple API for common feedback types
-- Supports success, error, warning, selection
-- Respects system haptic settings
+### ICG-113: Create AppStateStorage for UI State Persistence
+**Status:** [ ] Not Started
+**Files:** `Services/Storage/AppStateStorage.swift` (new)
+**Dependencies:** None
+**Description:** Persist UI state like tab selection and filter preferences.
+**Acceptance Criteria:**
+- [ ] AppStateStorage created with UserDefaults backend
+- [ ] Supports reading/writing various state types
+- [ ] Type-safe API
 
-**Acceptance Criteria ICG-121-123:**
-- Appropriate haptic feedback added
-- Not overused (only meaningful interactions)
-- Respects accessibility settings
+---
 
-**Acceptance Criteria ICG-124:**
-- Layouts use adaptive sizing
-- Multi-column layouts on larger screens
-- No awkward stretching on iPad
+### ICG-114: Persist Tab Selection Across App Launches
+**Status:** [ ] Not Started
+**Files:** `Views/MainTabView.swift`
+**Dependencies:** ICG-113
+**Description:** Save and restore selected tab on app launch.
+**Acceptance Criteria:**
+- [ ] Selected tab saved on change
+- [ ] Restored on app launch
+- [ ] Defaults to dashboard if no saved state
 
-**Acceptance Criteria ICG-125:**
-- Common actions have keyboard shortcuts (Cmd+N, Cmd+R, etc.)
-- Shortcuts discoverable
-- Don't conflict with system shortcuts
+---
 
-**Acceptance Criteria ICG-126:**
-- App supports split view multitasking
-- Layouts adapt to narrow widths
-- No crashes in split view
+### ICG-115: Persist Filter Preferences in HistoryView
+**Status:** [ ] Not Started
+**Files:** `Views/History/HistoryView.swift`
+**Dependencies:** ICG-113
+**Description:** Save and restore filter selections.
+**Acceptance Criteria:**
+- [ ] Filter selections saved on change
+- [ ] Restored on view appear
+- [ ] Defaults to "All" if no saved state
 
-**Acceptance Criteria ICG-127:**
-- Widget shows latest IQ score
-- Widget shows days until next test
-- Tapping widget opens app to relevant screen
+---
 
-**Acceptance Criteria ICG-128:**
-- Snapshot tests created for key views
-- Tests run in CI/CD
-- Failures detected on UI changes
+### ICG-116: Persist Scroll Positions in Long Lists
+**Status:** [ ] Not Started
+**Files:** Various list views
+**Dependencies:** ICG-113
+**Description:** Save and restore scroll positions (nice-to-have).
+**Acceptance Criteria:**
+- [ ] Scroll position saved for long lists
+- [ ] Restored on view appear (if feasible with SwiftUI)
+- [ ] Degrades gracefully if not possible
 
-**Acceptance Criteria ICG-129:**
-- Background refresh fetches new data
-- User notified of updates if relevant
-- Battery impact minimized
+---
+
+## Phase 15: P3 Enhancements - Nice-to-Have Features
+
+**Goal**: Add polish features for enhanced user experience (can be deferred post-launch)
+
+---
+
+### ICG-117: Create BiometricAuthManager
+**Status:** [ ] Not Started
+**Files:** `Services/Auth/BiometricAuthManager.swift` (new)
+**Dependencies:** None
+**Description:** Add Face ID / Touch ID support with fallback to passcode.
+**Acceptance Criteria:**
+- [ ] BiometricAuthManager supports Face ID and Touch ID
+- [ ] Handles permission requests
+- [ ] Fallback to passcode if biometric fails
+
+---
+
+### ICG-118: Add Biometric Authentication Option to Settings
+**Status:** [ ] Not Started
+**Files:** `Views/Settings/SettingsView.swift`
+**Dependencies:** ICG-117
+**Description:** Add toggle for enabling/disabling biometric auth.
+**Acceptance Criteria:**
+- [ ] Settings toggle for biometric auth
+- [ ] Disabled if device doesn't support biometrics
+- [ ] Preference saved securely
+
+---
+
+### ICG-119: Implement Biometric Auth on App Launch
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`
+**Dependencies:** ICG-117, ICG-118
+**Description:** Prompt for biometric auth when app launches if enabled.
+**Acceptance Criteria:**
+- [ ] Biometric prompt shown on app launch if enabled
+- [ ] Successful auth shows app content
+- [ ] Failed auth shows retry or exit options
+
+---
+
+### ICG-120: Create HapticManager
+**Status:** [ ] Not Started
+**Files:** `Utilities/Helpers/HapticManager.swift` (new)
+**Dependencies:** None
+**Description:** Create simple API for common haptic feedback types.
+**Acceptance Criteria:**
+- [ ] HapticManager provides simple API for common feedback types
+- [ ] Supports success, error, warning, selection
+- [ ] Respects system haptic settings
+
+---
+
+### ICG-121: Add Haptic Feedback to Button Taps
+**Status:** [ ] Not Started
+**Files:** `Views/Common/PrimaryButton.swift`, others
+**Dependencies:** ICG-120
+**Description:** Add tactile feedback to button interactions.
+**Acceptance Criteria:**
+- [ ] Appropriate haptic feedback added
+- [ ] Not overused (only meaningful interactions)
+- [ ] Respects accessibility settings
+
+---
+
+### ICG-122: Add Haptic Feedback to Success/Error States
+**Status:** [ ] Not Started
+**Files:** All ViewModels
+**Dependencies:** ICG-120
+**Description:** Add tactile feedback for operation outcomes.
+**Acceptance Criteria:**
+- [ ] Appropriate haptic feedback added
+- [ ] Not overused (only meaningful interactions)
+- [ ] Respects accessibility settings
+
+---
+
+### ICG-123: Add Haptic Feedback to Timer Warnings
+**Status:** [ ] Not Started
+**Files:** `ViewModels/TestTimerManager.swift`
+**Dependencies:** ICG-120
+**Description:** Add tactile feedback when timer reaches warning threshold.
+**Acceptance Criteria:**
+- [ ] Appropriate haptic feedback added
+- [ ] Not overused (only meaningful interactions)
+- [ ] Respects accessibility settings
+
+---
+
+### ICG-124: Optimize Layouts for iPad
+**Status:** [ ] Not Started
+**Files:** All View files
+**Dependencies:** None
+**Description:** Create multi-column layouts for larger screens.
+**Acceptance Criteria:**
+- [ ] Layouts use adaptive sizing
+- [ ] Multi-column layouts on larger screens
+- [ ] No awkward stretching on iPad
+
+---
+
+### ICG-125: Add Keyboard Shortcuts for iPad
+**Status:** [ ] Not Started
+**Files:** Various views
+**Dependencies:** ICG-124
+**Description:** Add discoverable keyboard shortcuts for common actions.
+**Acceptance Criteria:**
+- [ ] Common actions have keyboard shortcuts (Cmd+N, Cmd+R, etc.)
+- [ ] Shortcuts discoverable
+- [ ] Don't conflict with system shortcuts
+
+---
+
+### ICG-126: Add Split View Support for iPad
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`
+**Dependencies:** ICG-124
+**Description:** Support iPad multitasking split view mode.
+**Acceptance Criteria:**
+- [ ] App supports split view multitasking
+- [ ] Layouts adapt to narrow widths
+- [ ] No crashes in split view
+
+---
+
+### ICG-127: Create Widget Extension
+**Status:** [ ] Not Started
+**Files:** Widget extension target (new)
+**Dependencies:** None
+**Description:** Show latest score or next test date on home screen widget.
+**Acceptance Criteria:**
+- [ ] Widget shows latest IQ score
+- [ ] Widget shows days until next test
+- [ ] Tapping widget opens app to relevant screen
+
+---
+
+### ICG-128: Add Snapshot Testing
+**Status:** [ ] Not Started
+**Files:** Snapshot test files (new)
+**Dependencies:** None
+**Description:** Add visual regression testing with swift-snapshot-testing.
+**Acceptance Criteria:**
+- [ ] Snapshot tests created for key views
+- [ ] Tests run in CI/CD
+- [ ] Failures detected on UI changes
+
+---
+
+### ICG-129: Add Background Refresh Capability
+**Status:** [ ] Not Started
+**Files:** `AIQApp.swift`, `AppDelegate.swift`
+**Dependencies:** None
+**Description:** Fetch new data in background and notify user of updates.
+**Acceptance Criteria:**
+- [ ] Background refresh fetches new data
+- [ ] User notified of updates if relevant
+- [ ] Battery impact minimized
 
 ---
 
@@ -993,6 +1804,8 @@ App Store submission is blocked until P0 items are complete. The current state e
 8. **P3 Feature Priority**: Are any P3 features required for initial launch, or can all be deferred?
    - **Recommendation**: Defer all P3 features to post-launch (focus on P0-P2)
 
+---
+
 ## Testing Strategy
 
 ### Unit Testing
@@ -1018,9 +1831,10 @@ App Store submission is blocked until P0 items are complete. The current state e
 - **Edge Cases**: Low connectivity, expired tokens, concurrent sessions
 
 ### TestFlight Beta Testing
-- **Duration**: 2 weeks before App Store submission
 - **Participants**: 20-50 beta testers
 - **Focus**: Real-world usage, crash reporting validation, feedback collection
+
+---
 
 ## Appendix
 
@@ -1029,48 +1843,6 @@ App Store submission is blocked until P0 items are complete. The current state e
 - **Small**: 1-4 hours, single file change, low risk, no dependencies
 - **Medium**: 4-8 hours, multiple files, moderate risk, some dependencies
 - **Large**: 1-3 days, significant changes, high risk, complex dependencies
-
-### Estimated Effort Summary
-
-| Priority | Phase | Tasks | Estimated Effort |
-|----------|-------|-------|------------------|
-| P0 | Phase 0 | 1 | 0.5 days |
-| P0 | Phase 1 | 5 | 5 days |
-| P0 | Phase 2 | 12 | 5 days |
-| P0 | Phase 3 | 9 | 5 days |
-| P0 | Phase 4 | 6 | 3 days |
-| P0 | Phase 5 | 7 | 3 days |
-| P1 | Phase 6 | 6 | 3 days |
-| P1 | Phase 7 | 15 | 5 days |
-| P1 | Phase 8 | 12 | 4 days |
-| P1 | Phase 9 | 8 | 3 days |
-| P2 | Phase 10 | 9 | 4 days |
-| P2 | Phase 11 | 7 | 3 days |
-| P2 | Phase 12 | 7 | 2 days |
-| P2 | Phase 13 | 5 | 2 days |
-| P2 | Phase 14 | 7 | 3 days |
-| P3 | Phase 15 | 13 | 5 days |
-| **Total** | **15 Phases** | **129 Tasks** | **55.5 days** |
-
-### Critical Path
-
-The critical path to App Store submission includes only P0 and P1 items:
-
-1. Phase 0: Critical Bug Fixes (0.5 days)
-2. Phase 1: Production Infrastructure (5 days)
-3. Phase 2: Deep Linking & Navigation (5 days)
-4. Phase 3: UI Testing (5 days)
-5. Phase 4: Privacy & Compliance (3 days)
-6. Phase 5: Localization (3 days)
-7. Phase 6: Security (3 days)
-8. Phase 7: Test Coverage (5 days)
-9. Phase 8: Accessibility (4 days)
-10. Phase 9: UX Enhancements (3 days)
-
-**Critical Path Duration**: 36.5 days (~7.5 weeks)
-
-P2 items add 14 days (3 weeks), bringing total to 50.5 days (~10 weeks).
-P3 items add 5 days (1 week), bringing total to 55.5 days (~11 weeks).
 
 ### Dependencies on Other Teams
 
@@ -1114,7 +1886,7 @@ P3 items add 5 days (1 week), bringing total to 55.5 days (~11 weeks).
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Created:** 2025-12-23
 **Author:** Technical Product Manager
 **Status:** Ready for Implementation

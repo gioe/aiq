@@ -8,7 +8,7 @@ enum AppConfig {
             return "http://localhost:8000"
         #else
             // Railway production backend
-            return "https://aiq-backend-production.up.railway.app/v1"
+            return "https://aiq-backend-production.up.railway.app"
         #endif
     }
 
