@@ -338,10 +338,10 @@ test_results
 - correct_answers
 - completion_time_seconds
 - completed_at
-# Confidence interval fields (Phase 12+)
-- standard_error (float, nullable)
-- ci_lower (int, nullable)
-- ci_upper (int, nullable)
+# Confidence interval fields (Standard Error of Measurement)
+- standard_error (float, nullable) - SEM calculated as SD × √(1 - reliability)
+- ci_lower (int, nullable) - Lower bound of 95% confidence interval (clamped to 40)
+- ci_upper (int, nullable) - Upper bound of 95% confidence interval (clamped to 160)
 # Response time analysis
 - response_time_flags (JSON, nullable) - Anomaly analysis summary (validity concerns, rapid/extended responses)
 ```

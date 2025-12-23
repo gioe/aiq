@@ -248,7 +248,7 @@ Optional longer explanation if needed.
 - `user_questions` - Junction table tracking which questions each user has seen (prevents repetition)
 - `test_sessions` - Individual test attempts (tracks in_progress, completed, abandoned, time_limit_exceeded)
 - `responses` - User answers to specific questions (includes time_spent_seconds per question)
-- `test_results` - Calculated IQ scores, test metadata, and response_time_flags (anomaly analysis)
+- `test_results` - Calculated IQ scores, test metadata, response_time_flags (anomaly analysis), and confidence intervals (standard_error, ci_lower, ci_upper)
 - `reliability_metrics` - Historical reliability metrics (Cronbach's alpha, test-retest, split-half) for trend analysis
 
 **Key Query Pattern** (filtering unseen questions):
