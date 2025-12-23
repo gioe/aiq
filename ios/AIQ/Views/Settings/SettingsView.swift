@@ -1,3 +1,4 @@
+import FirebaseCrashlytics
 import SwiftUI
 
 /// Settings view for user preferences and account management
@@ -5,6 +6,7 @@ struct SettingsView: View {
     @StateObject private var authManager = AuthManager.shared
     @State private var showLogoutConfirmation = false
     @State private var isLoggingOut = false
+    @State private var showCrashConfirmation = false
 
     var body: some View {
         ZStack {
@@ -78,6 +80,30 @@ struct SettingsView: View {
                         }
                     )
                 }
+
+                #if DEBUG
+                    // Debug Section - Only visible in DEBUG builds
+                    Section {
+                        Button(
+                            role: .destructive,
+                            action: {
+                                showCrashConfirmation = true
+                            },
+                            label: {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundColor(.orange)
+                                    Text("Test Crash")
+                                }
+                            }
+                        )
+                    } header: {
+                        Text("Debug")
+                    } footer: {
+                        Text("Force a crash to test Crashlytics. Reported on next app launch.")
+                            .font(.caption)
+                    }
+                #endif
             }
             .navigationTitle("Settings")
             .confirmationDialog(
@@ -94,6 +120,19 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            #if DEBUG
+            .confirmationDialog(
+                    "This will crash the app to test Crashlytics",
+                    isPresented: $showCrashConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Crash App", role: .destructive) {
+                        // Force a crash for testing Crashlytics
+                        fatalError("Test crash for Crashlytics")
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+            #endif
 
             // Loading overlay
             if isLoggingOut {

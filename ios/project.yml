@@ -5,6 +5,11 @@ options:
     iOS: 16.0
   developmentLanguage: en
 
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    version: 11.6.0
+
 settings:
   SWIFT_VERSION: 5.9
   IPHONEOS_DEPLOYMENT_TARGET: 16.0
@@ -30,6 +35,10 @@ targets:
       Push Notifications: true
     dependencies:
       - sdk: SwiftUI.framework
+      - package: Firebase
+        product: FirebaseAnalytics
+      - package: Firebase
+        product: FirebaseCrashlytics
 
   AIQTests:
     type: bundle.unit-test

@@ -87,9 +87,9 @@ App Store submission is blocked until P0 items are complete. The current state e
 **Goal**: Eliminate production-breaking bugs before any other work
 **Duration**: 4 hours
 
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-001 | Fix AppConfig URL bug - Remove `/v1` from base URL to prevent double path segments | None | Small | `Utilities/Helpers/AppConfig.swift` |
+| Task ID | Task | Dependencies | Complexity | Files Affected | Status |
+|---------|------|--------------|------------|----------------|--------|
+| ICG-001 | Fix AppConfig URL bug - Remove `/v1` from base URL to prevent double path segments | None | Small | `Utilities/Helpers/AppConfig.swift` | ✅ Complete |
 
 **Acceptance Criteria ICG-001:**
 - Base URL changed from `https://aiq-backend-production.up.railway.app/v1` to `https://aiq-backend-production.up.railway.app`
@@ -103,13 +103,13 @@ App Store submission is blocked until P0 items are complete. The current state e
 **Goal**: Establish crash reporting and analytics backend integration for production visibility
 **Duration**: 5 days
 
-| Task ID | Task | Dependencies | Complexity | Files Affected |
-|---------|------|--------------|------------|----------------|
-| ICG-002 | Integrate Firebase Crashlytics SDK - Add SPM dependency, initialize in `AIQApp.swift`, test crash reporting | ICG-001 | Medium | `AIQApp.swift`, `Package.swift` |
-| ICG-003 | Create Firebase project and configure iOS app - Download GoogleService-Info.plist, configure APNs certificates | ICG-002 | Small | New: `GoogleService-Info.plist` |
-| ICG-004 | Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint | ICG-001 | Medium | `Services/Analytics/AnalyticsService.swift` |
-| ICG-005 | Add Crashlytics logging to all ViewModel error handlers - Replace OSLog with Crashlytics.recordError() in catch blocks | ICG-002, ICG-003 | Medium | All ViewModels |
-| ICG-006 | Test crash reporting in TestFlight build - Force crash, verify appears in Firebase console | ICG-002, ICG-003, ICG-005 | Small | Test only |
+| Task ID | Task | Dependencies | Complexity | Files Affected | Status |
+|---------|------|--------------|------------|----------------|--------|
+| ICG-002 | Integrate Firebase Crashlytics SDK - Add SPM dependency, initialize in `AIQApp.swift`, test crash reporting | ICG-001 | Medium | `AIQApp.swift`, `project.yml` | ✅ Complete |
+| ICG-003 | Create Firebase project and configure iOS app - Download GoogleService-Info.plist, configure APNs certificates | ICG-002 | Small | New: `GoogleService-Info.plist` | ✅ Complete |
+| ICG-004 | Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint | ICG-001 | Medium | `Services/Analytics/AnalyticsService.swift` | |
+| ICG-005 | Add Crashlytics logging to all ViewModel error handlers - Replace OSLog with Crashlytics.recordError() in catch blocks | ICG-002, ICG-003 | Medium | All ViewModels | |
+| ICG-006 | Test crash reporting in TestFlight build - Force crash, verify appears in Firebase console | ICG-002, ICG-003, ICG-005 | Small | Test only | |
 
 **Acceptance Criteria ICG-002:**
 - Firebase SDK integrated via Swift Package Manager
