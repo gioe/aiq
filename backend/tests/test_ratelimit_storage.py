@@ -452,12 +452,57 @@ class TestRedisStorage:
 
 
 class TestRedisStorageImportError:
-    """Test RedisStorage behavior when redis-py is not installed."""
+    """Test RedisStorage behavior when redis-py is not installed.
 
-    def test_init_raises_import_error(self):
-        """Test that ImportError is raised when redis-py is not installed."""
-        with patch.dict("sys.modules", {"redis": None}):
-            # We need to reimport to trigger the ImportError
-            # This is tricky because the module is already imported
-            # For now, we'll just verify the error message would be correct
-            pass  # Covered by the actual ImportError check in RedisStorage.__init__
+    The ImportError check happens inside RedisStorage.__init__, so we can test it
+    by temporarily making the redis module unimportable when creating a new instance.
+    """
+
+    def test_init_raises_import_error_when_redis_unavailable(self):
+        """Test that ImportError is raised with helpful message when redis-py is not installed.
+
+        This test simulates the redis module being unavailable by patching
+        builtins.__import__ to block the import that happens inside RedisStorage.__init__.
+        """
+        import builtins
+        import sys
+
+        # First, import RedisStorage normally (the class definition)
+        from app.ratelimit.storage import RedisStorage
+
+        # Remove redis and related modules from cache to force re-import in __init__
+        redis_modules = [
+            key for key in list(sys.modules.keys()) if key.startswith("redis")
+        ]
+        saved_modules = {
+            key: sys.modules.pop(key) for key in redis_modules if key in sys.modules
+        }
+
+        # Store original import function
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            """Block import of redis module to simulate it not being installed."""
+            if name == "redis" or name.startswith("redis."):
+                raise ImportError("No module named 'redis'")
+            return original_import(name, *args, **kwargs)
+
+        try:
+            # Patch builtins.__import__ to block redis import
+            builtins.__import__ = mock_import
+
+            # Attempt to create a RedisStorage instance - this should fail
+            # because __init__ tries to import redis
+            with pytest.raises(ImportError) as exc_info:
+                RedisStorage()
+
+            # Verify the error message is helpful
+            assert "redis-py is required" in str(exc_info.value)
+            assert "pip install redis" in str(exc_info.value)
+
+        finally:
+            # Restore original import function
+            builtins.__import__ = original_import
+
+            # Restore redis modules to not break other tests
+            sys.modules.update(saved_modules)
