@@ -835,15 +835,16 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-052: Fix ProcessRegistry Type Annotations
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #357 comment
 **Files:** `backend/app/core/process_registry.py`
 **Description:** Some return types use bare `Dict` instead of `Dict[str, Any]` for consistency.
 **Original Comment:** "Some return types use bare `Dict` instead of `Dict[str, Any]`. Be consistent with type annotations."
 **Acceptance Criteria:**
-- [ ] Update `to_dict()` return type to `Dict[str, Any]`
-- [ ] Update `get_stats()` return type to `Dict[str, Any]`
-- [ ] Run mypy to verify no type errors introduced
+- [x] Update `to_dict()` return type to `Dict[str, Any]` (already correct)
+- [x] Update `get_stats()` return type to `Dict[str, Any]` (already correct)
+- [x] Fix `register()` metadata parameter: `Optional[Dict]` → `Optional[Dict[str, Any]]`
+- [x] Run mypy to verify no type errors introduced
 
 ---
 

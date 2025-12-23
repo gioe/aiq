@@ -181,7 +181,7 @@ class ProcessRegistry:
         job_type: str = "question_generation",
         command: Optional[List[str]] = None,
         working_directory: Optional[str] = None,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> JobInfo:
         """
         Register a new subprocess in the registry.
