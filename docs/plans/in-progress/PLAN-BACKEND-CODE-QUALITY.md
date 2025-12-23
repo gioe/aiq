@@ -796,15 +796,15 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-049: Add Opportunistic Cleanup to ProcessRegistry
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #357 comment
 **Files:** `backend/app/core/process_registry.py`
 **Description:** Add automatic cleanup of old finished jobs to prevent memory leaks in long-running applications. Currently finished processes remain in registry indefinitely until manual cleanup.
 **Original Comment:** "The registry keeps references to subprocess.Popen objects indefinitely until manually cleaned up. If jobs are triggered frequently and cleanup isn't called, this could accumulate memory. Consider adding automatic cleanup to list_jobs() or get_stats()."
 **Acceptance Criteria:**
-- [ ] Add `_cleanup_old_finished_jobs(max_age_hours=1)` private method
-- [ ] Call opportunistic cleanup in `list_jobs()` and `get_stats()`
-- [ ] Document cleanup behavior in module docstring
+- [x] Add `_cleanup_old_finished_jobs(max_age_hours=1)` private method
+- [x] Call opportunistic cleanup in `list_jobs()` and `get_stats()`
+- [x] Document cleanup behavior in module docstring
 
 ---
 
