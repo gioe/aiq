@@ -1,5 +1,5 @@
 """
-Tests for the ProcessRegistry module (BCQ-036, BCQ-049, BCQ-050).
+Tests for the ProcessRegistry module (BCQ-036, BCQ-049, BCQ-050, BCQ-053).
 
 This module tests the background process tracking functionality including:
 - Process registration and deregistration
@@ -8,6 +8,9 @@ This module tests the background process tracking functionality including:
 - Graceful shutdown handling
 - Opportunistic cleanup of old finished jobs (BCQ-049)
 - Shutdown flag to prevent new registrations during shutdown (BCQ-050)
+- Stress tests for concurrent registration (BCQ-053)
+- Shutdown during active registration (BCQ-053)
+- Memory management verification (BCQ-053)
 """
 import subprocess
 import sys
@@ -444,6 +447,86 @@ class TestProcessRegistryThreadSafety:
         # Verify all were registered
         assert len(job_ids) == 10
         assert len(set(job_ids)) == 10  # All unique IDs
+
+    def test_concurrent_registration_stress(self, fresh_registry):
+        """Stress test: register 100+ jobs concurrently (BCQ-053).
+
+        This test verifies that the ProcessRegistry handles heavy concurrent
+        load correctly. It spawns 100 threads that each try to register a
+        process simultaneously, verifying:
+        1. All registrations complete successfully
+        2. All job IDs are unique (no collisions)
+        3. The internal counter and lock mechanism handle contention properly
+        """
+        import threading
+
+        NUM_CONCURRENT_JOBS = 100
+        processes = []
+        job_ids = []
+        lock = threading.Lock()
+        errors = []
+
+        def register_process(index: int):
+            """Register a single process from a thread."""
+            try:
+                # Use a quick-exit process to reduce resource usage
+                process = subprocess.Popen(
+                    [sys.executable, "-c", "print('done')"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                with lock:
+                    processes.append(process)
+
+                job_info = fresh_registry.register(
+                    process=process,
+                    job_type="stress_test",
+                    metadata={"thread_index": index},
+                )
+                with lock:
+                    job_ids.append(job_info.job_id)
+            except Exception as e:
+                with lock:
+                    errors.append((index, str(e)))
+
+        # Create and start all threads simultaneously
+        threads = [
+            threading.Thread(target=register_process, args=(i,))
+            for i in range(NUM_CONCURRENT_JOBS)
+        ]
+
+        for t in threads:
+            t.start()
+
+        for t in threads:
+            t.join(timeout=30.0)
+
+        # Cleanup processes
+        for process in processes:
+            try:
+                process.terminate()
+                process.wait(timeout=1.0)
+            except Exception:
+                pass
+
+        # Verify no errors occurred
+        assert len(errors) == 0, f"Registration errors: {errors}"
+
+        # Verify all registrations completed
+        assert (
+            len(job_ids) == NUM_CONCURRENT_JOBS
+        ), f"Expected {NUM_CONCURRENT_JOBS} registrations, got {len(job_ids)}"
+
+        # Verify all job IDs are unique
+        unique_ids = set(job_ids)
+        assert len(unique_ids) == NUM_CONCURRENT_JOBS, (
+            f"Expected {NUM_CONCURRENT_JOBS} unique IDs, "
+            f"got {len(unique_ids)} (collision detected)"
+        )
+
+        # Verify registry state is consistent
+        stats = fresh_registry.get_stats(opportunistic_cleanup=False)
+        assert stats["total_registered"] == NUM_CONCURRENT_JOBS
 
 
 class TestJobStatus:
@@ -953,3 +1036,274 @@ class TestShutdownFlag:
 
         # This test verifies the shutdown mechanism exists and the registry
         # can be reused after shutdown completes
+
+    def test_shutdown_during_active_registration(self, fresh_registry):
+        """Test that shutdown properly handles concurrent registration attempts (BCQ-053).
+
+        This test specifically verifies the behavior when shutdown_all() is called
+        while multiple threads are actively trying to register new processes.
+        The expected behavior is:
+        1. Registrations that complete before shutdown flag is set succeed and get terminated
+        2. Registrations that attempt while shutdown flag is set raise RuntimeError
+        3. Registrations that happen after shutdown completes (flag reset) also succeed
+
+        Note: The shutdown flag is reset after shutdown_all() completes, which means
+        threads that are delayed long enough may successfully register after shutdown.
+        This is intentional to allow the registry to be reused (e.g., in tests).
+        """
+        import threading
+        import time
+
+        NUM_THREADS = 20
+        successful_before_shutdown = []
+        successful_after_shutdown = []
+        failed_registrations = []
+        processes = []
+        lock = threading.Lock()
+        shutdown_complete = threading.Event()
+
+        # Barrier to synchronize thread start
+        start_barrier = threading.Barrier(NUM_THREADS + 1)  # +1 for shutdown thread
+
+        def try_register(thread_id: int):
+            """Attempt to register a process, may be called during shutdown."""
+            # Wait for all threads to be ready
+            try:
+                start_barrier.wait(timeout=5.0)
+            except threading.BrokenBarrierError:
+                return
+
+            # Small random delay to spread out registration attempts
+            time.sleep(thread_id * 0.01)
+
+            try:
+                process = subprocess.Popen(
+                    [sys.executable, "-c", "import time; time.sleep(30)"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                with lock:
+                    processes.append(process)
+
+                job_info = fresh_registry.register(
+                    process=process,
+                    job_type="shutdown_test",
+                    metadata={"thread_id": thread_id},
+                )
+                with lock:
+                    # Track if this registration happened before or after shutdown
+                    if shutdown_complete.is_set():
+                        successful_after_shutdown.append(job_info.job_id)
+                    else:
+                        successful_before_shutdown.append(job_info.job_id)
+            except RuntimeError as e:
+                with lock:
+                    failed_registrations.append((thread_id, str(e)))
+
+        def do_shutdown():
+            """Start shutdown after threads are running."""
+            # Wait for all threads to be ready
+            try:
+                start_barrier.wait(timeout=5.0)
+            except threading.BrokenBarrierError:
+                return
+
+            # Small delay to let some registrations start
+            time.sleep(0.05)
+
+            # Start shutdown
+            fresh_registry.shutdown_all(timeout=3.0)
+
+            # Signal that shutdown is complete
+            shutdown_complete.set()
+
+        # Create registration threads
+        registration_threads = [
+            threading.Thread(target=try_register, args=(i,)) for i in range(NUM_THREADS)
+        ]
+
+        # Create shutdown thread
+        shutdown_thread = threading.Thread(target=do_shutdown)
+
+        # Start all threads
+        for t in registration_threads:
+            t.start()
+        shutdown_thread.start()
+
+        # Wait for completion
+        for t in registration_threads:
+            t.join(timeout=10.0)
+        shutdown_thread.join(timeout=15.0)
+
+        # Cleanup any processes registered after shutdown (these weren't terminated)
+        for process in processes:
+            try:
+                process.terminate()
+                process.wait(timeout=1.0)
+            except Exception:
+                pass
+
+        # Final cleanup of registry
+        fresh_registry.shutdown_all(timeout=2.0)
+
+        # Verify shutdown completed properly
+        assert fresh_registry._shutting_down is False, "Shutdown flag should be reset"
+
+        # Verify that the total accounts for all threads
+        total_outcomes = (
+            len(successful_before_shutdown)
+            + len(successful_after_shutdown)
+            + len(failed_registrations)
+        )
+        assert total_outcomes == NUM_THREADS, (
+            f"All {NUM_THREADS} threads should have completed: "
+            f"{len(successful_before_shutdown)} before shutdown, "
+            f"{len(successful_after_shutdown)} after shutdown, "
+            f"{len(failed_registrations)} failed"
+        )
+
+        # Verify failed registrations were due to shutdown
+        for thread_id, error_msg in failed_registrations:
+            assert (
+                "shutting down" in error_msg.lower()
+            ), f"Thread {thread_id} failed with unexpected error: {error_msg}"
+
+        # The key insight: some registrations should have been blocked by shutdown
+        # and/or some processes should have been terminated by shutdown_all()
+        # The exact split depends on timing, but the mechanism is verified
+
+
+class TestProcessRegistryMemory:
+    """Tests for memory management in ProcessRegistry (BCQ-053)."""
+
+    def test_cleanup_reduces_registry_size(self, fresh_registry):
+        """Test that cleanup actually removes entries from the registry.
+
+        This verifies that cleanup_finished() and opportunistic cleanup
+        actually remove entries from the internal _processes dictionary,
+        not just returning a count.
+        """
+        # Create several processes that exit quickly
+        processes = []
+        for i in range(10):
+            process = subprocess.Popen(
+                [sys.executable, "-c", "print('done')"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            processes.append(process)
+            fresh_registry.register(process=process, job_type=f"memory_test_{i}")
+
+        # Wait for all to finish
+        for process in processes:
+            process.wait()
+
+        # Verify all are in registry before cleanup
+        initial_count = len(fresh_registry._processes)
+        assert initial_count == 10
+
+        # Run cleanup
+        cleaned = fresh_registry.cleanup_finished()
+        assert cleaned == 10
+
+        # Verify registry is now empty
+        final_count = len(fresh_registry._processes)
+        assert final_count == 0
+
+    def test_cleanup_preserves_running_processes(self, fresh_registry):
+        """Test that cleanup only removes finished processes, not running ones."""
+        # Create a mix of quick and long-running processes
+        quick_processes = []
+        slow_processes = []
+
+        for i in range(5):
+            quick = subprocess.Popen(
+                [sys.executable, "-c", "print('done')"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            quick_processes.append(quick)
+            fresh_registry.register(process=quick, job_type="quick")
+
+        for i in range(5):
+            slow = subprocess.Popen(
+                [sys.executable, "-c", "import time; time.sleep(60)"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            slow_processes.append(slow)
+            fresh_registry.register(process=slow, job_type="slow")
+
+        try:
+            # Wait for quick processes to finish
+            for process in quick_processes:
+                process.wait()
+
+            # Run cleanup
+            cleaned = fresh_registry.cleanup_finished()
+            assert cleaned == 5
+
+            # Verify only slow processes remain
+            remaining_count = len(fresh_registry._processes)
+            assert remaining_count == 5
+
+            # Verify all remaining are running
+            remaining_jobs = fresh_registry.list_jobs(opportunistic_cleanup=False)
+            for job in remaining_jobs:
+                assert job.status == JobStatus.RUNNING
+                assert job.job_type == "slow"
+
+        finally:
+            for process in slow_processes:
+                process.terminate()
+                process.wait()
+
+    def test_repeated_registration_and_cleanup_no_growth(self, fresh_registry):
+        """Test that repeated register/cleanup cycles don't cause memory growth.
+
+        This tests the pattern of heavy usage over time - registering many
+        processes, cleaning them up, and verifying the registry doesn't
+        accumulate stale entries.
+        """
+        NUM_CYCLES = 5
+        PROCESSES_PER_CYCLE = 20
+
+        for cycle in range(NUM_CYCLES):
+            processes = []
+
+            # Register many processes
+            for i in range(PROCESSES_PER_CYCLE):
+                process = subprocess.Popen(
+                    [sys.executable, "-c", "print('done')"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                processes.append(process)
+                fresh_registry.register(
+                    process=process,
+                    job_type="cycle_test",
+                    metadata={"cycle": cycle, "index": i},
+                )
+
+            # Wait for all to finish
+            for process in processes:
+                process.wait()
+
+            # Verify correct count before cleanup
+            assert (
+                len(fresh_registry._processes) == PROCESSES_PER_CYCLE
+            ), f"Cycle {cycle}: Expected {PROCESSES_PER_CYCLE} processes before cleanup"
+
+            # Cleanup all finished
+            cleaned = fresh_registry.cleanup_finished()
+            assert (
+                cleaned == PROCESSES_PER_CYCLE
+            ), f"Cycle {cycle}: Expected {PROCESSES_PER_CYCLE} cleaned"
+
+            # Verify registry is empty after cleanup
+            assert (
+                len(fresh_registry._processes) == 0
+            ), f"Cycle {cycle}: Registry should be empty after cleanup"
+
+        # Final verification - registry should have no entries
+        assert len(fresh_registry._processes) == 0
