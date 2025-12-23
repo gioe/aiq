@@ -32,6 +32,11 @@ Shutdown Flag Behavior (BCQ-050):
     RuntimeError with the message: "Cannot register new processes:
     ProcessRegistry is shutting down"
 
+    After shutdown_all() completes (all processes terminated and registry
+    cleared), the flag is reset to False so the registry can be reused.
+    This is particularly useful in testing scenarios where the same
+    singleton instance may need to be used across multiple tests.
+
 Usage:
     from app.core.process_registry import process_registry
 
@@ -457,6 +462,9 @@ class ProcessRegistry:
         2. Sends SIGTERM to all running processes
         3. Waits up to `timeout` seconds for graceful shutdown
         4. Sends SIGKILL to any processes still running
+        5. Clears the registry and resets the shutdown flag
+
+        After this method completes, the registry can be reused (e.g., in tests).
 
         Args:
             timeout: Seconds to wait for graceful shutdown before force kill
@@ -486,6 +494,8 @@ class ProcessRegistry:
 
         if not running_processes:
             logger.info("No running processes to shutdown")
+            # Reset shutdown flag so registry can be reused (e.g., in tests)
+            self._shutting_down = False
             return 0
 
         # Wait for graceful shutdown
@@ -521,6 +531,9 @@ class ProcessRegistry:
         # Clear the registry
         with self._registry_lock:
             self._processes.clear()
+
+        # Reset shutdown flag so registry can be reused (e.g., in tests)
+        self._shutting_down = False
 
         logger.info(f"Shutdown complete. Terminated {terminated} processes")
         return terminated

@@ -771,16 +771,22 @@ class TestShutdownFlag:
             process.terminate()
             process.wait()
 
-    def test_shutdown_all_sets_shutdown_flag(self, fresh_registry):
-        """Test that shutdown_all() sets the _shutting_down flag."""
+    def test_shutdown_all_resets_shutdown_flag_after_completion(self, fresh_registry):
+        """Test that shutdown_all() resets the _shutting_down flag after completion.
+
+        The shutdown flag is set to True at the start of shutdown_all() to prevent
+        new registrations during the shutdown sequence. After shutdown completes,
+        the flag is reset to False so the registry can be reused (e.g., in tests).
+        """
         # Verify flag is initially False
         assert fresh_registry._shutting_down is False
 
         # Call shutdown_all (with no processes)
         fresh_registry.shutdown_all(timeout=1.0)
 
-        # Verify flag is now True
-        assert fresh_registry._shutting_down is True
+        # Verify flag is reset to False after shutdown completes
+        # This allows the registry to be reused
+        assert fresh_registry._shutting_down is False
 
     def test_register_before_shutdown_succeeds(self, fresh_registry):
         """Test that register() works normally before shutdown."""
@@ -920,13 +926,14 @@ class TestShutdownFlag:
             except Exception:
                 pass
 
-        # After shutdown, we expect some registrations to have failed
-        # due to the shutdown flag being set
-        # At minimum, the shutdown flag should have prevented ALL registrations
-        # from succeeding after it was set
-        assert fresh_registry._shutting_down is True
+        # After shutdown completes, the flag is reset to False to allow reuse
+        assert fresh_registry._shutting_down is False
 
-        # The flag prevents any new registrations, so either:
-        # 1. Some registrations failed with RuntimeError, OR
+        # The shutdown mechanism prevents new registrations during shutdown, so either:
+        # 1. Some registrations failed with RuntimeError (if they raced with shutdown), OR
         # 2. All registrations completed before shutdown_all was called
-        # This test verifies the mechanism exists and works
+        # The key is that the registry is now empty and ready for reuse
+        assert len(fresh_registry._processes) == 0
+
+        # This test verifies the shutdown mechanism exists and the registry
+        # can be reused after shutdown completes
