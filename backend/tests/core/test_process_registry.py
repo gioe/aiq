@@ -1,18 +1,25 @@
 """
-Tests for the ProcessRegistry module (BCQ-036).
+Tests for the ProcessRegistry module (BCQ-036, BCQ-049).
 
 This module tests the background process tracking functionality including:
 - Process registration and deregistration
 - Status updates and monitoring
 - Cleanup of finished processes
 - Graceful shutdown handling
+- Opportunistic cleanup of old finished jobs (BCQ-049)
 """
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
-from app.core.process_registry import JobStatus, ProcessRegistry
+from app.core.process_registry import (
+    DEFAULT_CLEANUP_MAX_AGE_HOURS,
+    JobStatus,
+    ProcessRegistry,
+)
 
 
 @pytest.fixture
@@ -453,3 +460,286 @@ class TestJobStatus:
         """Test that JobStatus is a str enum."""
         assert isinstance(JobStatus.RUNNING, str)
         assert JobStatus.RUNNING == "running"
+
+
+class TestOpportunisticCleanup:
+    """Tests for opportunistic cleanup of old finished jobs (BCQ-049)."""
+
+    def test_cleanup_old_finished_jobs_removes_old_jobs(self, fresh_registry):
+        """Test that _cleanup_old_finished_jobs removes jobs older than max_age_hours."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="old_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Manually backdate the finished_at to 2 hours ago
+        with fresh_registry._registry_lock:
+            _, stored_job_info = fresh_registry._processes[job_info.job_id]
+            stored_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                hours=2
+            )
+
+        # Verify job is still in registry before cleanup
+        assert len(fresh_registry.list_jobs(opportunistic_cleanup=False)) == 1
+
+        # Run cleanup with max_age of 1 hour - should remove the job
+        cleaned = fresh_registry._cleanup_old_finished_jobs(max_age_hours=1)
+        assert cleaned == 1
+
+        # Verify job was removed
+        assert len(fresh_registry.list_jobs(opportunistic_cleanup=False)) == 0
+
+    def test_cleanup_old_finished_jobs_preserves_recent_jobs(self, fresh_registry):
+        """Test that _cleanup_old_finished_jobs preserves recently finished jobs."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="recent_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set (to now)
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Run cleanup with max_age of 1 hour - should NOT remove the job
+        cleaned = fresh_registry._cleanup_old_finished_jobs(max_age_hours=1)
+        assert cleaned == 0
+
+        # Verify job is still in registry
+        assert len(fresh_registry.list_jobs(opportunistic_cleanup=False)) == 1
+
+    def test_cleanup_old_finished_jobs_preserves_running_jobs(self, fresh_registry):
+        """Test that _cleanup_old_finished_jobs never removes running jobs."""
+        # Create a long-running process
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            fresh_registry.register(process=process, job_type="running_job")
+
+            # Run cleanup - should NOT remove running job
+            cleaned = fresh_registry._cleanup_old_finished_jobs(max_age_hours=0)
+            assert cleaned == 0
+
+            # Verify job is still in registry
+            assert len(fresh_registry.list_jobs(opportunistic_cleanup=False)) == 1
+        finally:
+            process.terminate()
+            process.wait()
+
+    def test_list_jobs_triggers_opportunistic_cleanup(self, fresh_registry):
+        """Test that list_jobs() triggers opportunistic cleanup by default."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="old_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Manually backdate the finished_at to 2 hours ago
+        with fresh_registry._registry_lock:
+            _, stored_job_info = fresh_registry._processes[job_info.job_id]
+            stored_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                hours=2
+            )
+
+        # list_jobs with opportunistic_cleanup=True (default) should remove old job
+        with patch.object(
+            fresh_registry,
+            "_cleanup_old_finished_jobs",
+            wraps=fresh_registry._cleanup_old_finished_jobs,
+        ) as mock_cleanup:
+            jobs = fresh_registry.list_jobs()
+            mock_cleanup.assert_called_once()
+            # Job should be removed
+            assert len(jobs) == 0
+
+    def test_list_jobs_can_skip_opportunistic_cleanup(self, fresh_registry):
+        """Test that list_jobs() can skip opportunistic cleanup."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="old_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Manually backdate the finished_at to 2 hours ago
+        with fresh_registry._registry_lock:
+            _, stored_job_info = fresh_registry._processes[job_info.job_id]
+            stored_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                hours=2
+            )
+
+        # list_jobs with opportunistic_cleanup=False should NOT remove old job
+        with patch.object(fresh_registry, "_cleanup_old_finished_jobs") as mock_cleanup:
+            jobs = fresh_registry.list_jobs(opportunistic_cleanup=False)
+            mock_cleanup.assert_not_called()
+            # Job should still be there
+            assert len(jobs) == 1
+
+    def test_get_stats_triggers_opportunistic_cleanup(self, fresh_registry):
+        """Test that get_stats() triggers opportunistic cleanup by default."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="old_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Manually backdate the finished_at to 2 hours ago
+        with fresh_registry._registry_lock:
+            _, stored_job_info = fresh_registry._processes[job_info.job_id]
+            stored_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                hours=2
+            )
+
+        # get_stats with opportunistic_cleanup=True (default) should trigger cleanup
+        with patch.object(
+            fresh_registry,
+            "_cleanup_old_finished_jobs",
+            wraps=fresh_registry._cleanup_old_finished_jobs,
+        ) as mock_cleanup:
+            stats = fresh_registry.get_stats()
+            mock_cleanup.assert_called_once()
+            # Job should be removed, so total_registered should be 0
+            assert stats["total_registered"] == 0
+
+    def test_get_stats_can_skip_opportunistic_cleanup(self, fresh_registry):
+        """Test that get_stats() can skip opportunistic cleanup."""
+        # Create a quick process that finishes immediately
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        job_info = fresh_registry.register(process=process, job_type="old_job")
+
+        # Wait for process to complete
+        process.wait()
+
+        # Update job status so finished_at is set
+        fresh_registry.get_job_status(job_info.job_id)
+
+        # Manually backdate the finished_at to 2 hours ago
+        with fresh_registry._registry_lock:
+            _, stored_job_info = fresh_registry._processes[job_info.job_id]
+            stored_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                hours=2
+            )
+
+        # get_stats with opportunistic_cleanup=False should NOT trigger cleanup
+        with patch.object(fresh_registry, "_cleanup_old_finished_jobs") as mock_cleanup:
+            stats = fresh_registry.get_stats(opportunistic_cleanup=False)
+            mock_cleanup.assert_not_called()
+            # Job should still be there
+            assert stats["total_registered"] == 1
+
+    def test_default_cleanup_max_age_hours_constant(self):
+        """Test that the default cleanup max age constant is exported."""
+        assert DEFAULT_CLEANUP_MAX_AGE_HOURS == 1
+
+    def test_cleanup_mixed_jobs_only_removes_old_finished(self, fresh_registry):
+        """Test cleanup with a mix of running, recent finished, and old finished jobs."""
+        # Create a running process
+        running_process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Create a recently finished process
+        recent_process = subprocess.Popen(
+            [sys.executable, "-c", "print('recent')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Create an old finished process
+        old_process = subprocess.Popen(
+            [sys.executable, "-c", "print('old')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            fresh_registry.register(process=running_process, job_type="running")
+            recent_job = fresh_registry.register(
+                process=recent_process, job_type="recent"
+            )
+            old_job = fresh_registry.register(process=old_process, job_type="old")
+
+            # Wait for finished processes to complete
+            recent_process.wait()
+            old_process.wait()
+
+            # Update job statuses
+            fresh_registry.get_job_status(recent_job.job_id)
+            fresh_registry.get_job_status(old_job.job_id)
+
+            # Backdate only the old job
+            with fresh_registry._registry_lock:
+                _, old_job_info = fresh_registry._processes[old_job.job_id]
+                old_job_info.finished_at = datetime.now(timezone.utc) - timedelta(
+                    hours=2
+                )
+
+            # Verify we have 3 jobs before cleanup
+            assert len(fresh_registry.list_jobs(opportunistic_cleanup=False)) == 3
+
+            # Run cleanup - should only remove the old job
+            cleaned = fresh_registry._cleanup_old_finished_jobs(max_age_hours=1)
+            assert cleaned == 1
+
+            # Verify we now have 2 jobs (running + recent)
+            remaining_jobs = fresh_registry.list_jobs(opportunistic_cleanup=False)
+            assert len(remaining_jobs) == 2
+
+            job_types = {job.job_type for job in remaining_jobs}
+            assert job_types == {"running", "recent"}
+
+        finally:
+            running_process.terminate()
+            running_process.wait()
