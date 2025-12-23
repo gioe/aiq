@@ -158,10 +158,21 @@ class ProcessRegistry:
         logger.info("ProcessRegistry initialized")
 
     def _generate_job_id(self, job_type: str, pid: int) -> str:
-        """Generate a unique job ID."""
+        """Generate a unique job ID.
+
+        The job ID includes:
+        - job_type: The type of job (e.g., "question_generation")
+        - timestamp: UTC timestamp with microsecond precision (BCQ-051)
+        - counter: Monotonically increasing counter for additional uniqueness
+        - pid: Process ID for debugging
+
+        Using microsecond precision (%Y%m%d%H%M%S%f) ensures that even if the
+        application restarts and the counter resets, IDs are unlikely to collide
+        due to the 6-digit microsecond component.
+        """
         with self._registry_lock:
             self._job_counter += 1
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
             return f"{job_type}_{timestamp}_{self._job_counter}_{pid}"
 
     def register(
