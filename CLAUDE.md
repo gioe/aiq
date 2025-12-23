@@ -16,49 +16,16 @@ AIQ is a monorepo containing an iOS app, FastAPI backend, and AI-powered questio
 | **Project Plans** | [docs/plans/](docs/plans/) | Feature-specific implementation plans |
 | **Backend Details** | [backend/README.md](backend/README.md) | API endpoints, admin API, validity system |
 | **iOS Architecture** | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | MVVM patterns, services, data flow |
+| **Psychometrics** | [docs/methodology/](docs/methodology/) | IQ testing methodology, scoring formulas, validation standards |
 | **Code Review Patterns** | [docs/code-review-patterns.md](docs/code-review-patterns.md) | Common issues from PR reviews with examples |
 
-## Architecture Summary
+## Architecture
 
-### Backend (FastAPI)
-- **`app/api/v1/`**: API endpoints (auth, user, test, questions, admin)
-- **`app/core/`**: Configuration, database, security, scoring, reliability analysis
-- **`app/models/`**: SQLAlchemy ORM models
-- **`app/schemas/`**: Pydantic request/response schemas
-
-### iOS (SwiftUI + MVVM)
-- All ViewModels inherit from `BaseViewModel` (error handling, loading states)
-- `APIClient` with `TokenRefreshInterceptor` for automatic token refresh
-- JWT tokens stored in Keychain via `KeychainStorage`
-
-### Question Service
-- Multi-LLM generation (OpenAI, Anthropic, Google, xAI)
-- Specialized arbiter models per question type
-- Metrics reporting to backend via `RunReporter`
-
-## Database Schema
-
-**Core Tables**:
-- `users` - User accounts with auth credentials
-- `questions` - AI-generated questions with metadata (type, difficulty, empirical_difficulty, discrimination, quality_flag)
-- `user_questions` - Junction table tracking which questions each user has seen
-- `test_sessions` - Test attempts (in_progress, completed, abandoned, time_limit_exceeded)
-- `responses` - User answers with time_spent_seconds
-- `test_results` - IQ scores with confidence intervals (standard_error, ci_lower, ci_upper)
-- `reliability_metrics` - Historical reliability metrics for trend analysis
-- `question_generation_runs` - Metrics from question-service execution
-
-**Key Query Pattern** (filtering unseen questions):
-```sql
-SELECT * FROM questions
-WHERE id NOT IN (SELECT question_id FROM user_questions WHERE user_id = ?)
-AND is_active = true AND quality_flag = 'normal'
-LIMIT N
-```
+For architectural details (database schema, component design, API endpoints), consult the docs in Quick Reference above. Read the relevant doc before modifying backend/iOS code.
 
 ## Important Context for Development
 
-**IQ Score Calculation**: Current implementation in `app/core/scoring.py` uses a simplified algorithm. Scientific validity improvements are planned post-MVP.
+**IQ Score Calculation**: Current implementation in `app/core/scoring.py` uses a simplified algorithm. See [docs/methodology/IQ_SCORING.md](docs/methodology/IQ_SCORING.md) for methodology details.
 
 **Test Submission Pattern**: Batch submission (all answers submitted together) rather than real-time.
 
