@@ -133,7 +133,7 @@ source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 ```
 
-**Note**: Question generation functionality will be implemented in Phase 6.
+The question service is fully implemented and can be run locally for testing or triggered via Railway in production.
 
 ### 5. Set Up iOS App
 
@@ -156,21 +156,30 @@ aiq/
 ├── backend/              # FastAPI backend server
 │   ├── app/              # Application code
 │   ├── alembic/          # Database migrations
-│   ├── venv/             # Python virtual environment
+│   ├── tests/            # pytest test suite
 │   └── requirements.txt  # Python dependencies
 │
 ├── question-service/     # AI question generation service
-│   ├── venv/             # Python virtual environment
+│   ├── app/              # Generation and evaluation logic
+│   ├── tests/            # pytest test suite
+│   ├── config/           # Arbiter configuration
 │   └── requirements.txt  # Python dependencies
 │
 ├── ios/                  # iOS application
 │   ├── AIQ.xcodeproj
-│   └── AIQ/        # Swift source files
+│   └── AIQ/              # Swift source files
 │
-├── shared/               # Shared documentation and schemas
-├── PLAN.md              # Detailed project plan and roadmap
-├── DEVELOPMENT.md       # This file
-└── README.md            # Project overview
+├── docs/                 # Project documentation
+│   ├── plans/            # Feature implementation plans
+│   └── gaps/             # Gap analysis documents
+│
+├── .claude/              # Claude Code configuration
+│   ├── commands/         # Slash commands
+│   └── agents/           # Custom agents
+│
+├── CLAUDE.md             # Claude Code guidance
+├── DEVELOPMENT.md        # This file
+└── README.md             # Project overview
 ```
 
 ## Development Workflow
@@ -191,7 +200,7 @@ aiq/
 
 3. **Make your changes** (multiple commits are fine)
 
-4. **Update PLAN.md** to check off the task (final commit)
+4. **Update the relevant plan file** to check off the task (final commit, if applicable)
 
 5. **Push and create Pull Request:**
    ```bash
@@ -205,8 +214,6 @@ aiq/
    git pull origin main
    git branch -d feature/P#-###-brief-description
    ```
-
-See `PLAN.md` for detailed workflow documentation.
 
 ### Code Quality Standards
 
@@ -233,9 +240,9 @@ flake8 .
 mypy .
 ```
 
-iOS project will use:
-- **SwiftLint** - Linting (to be configured in P1-012)
-- **SwiftFormat** - Code formatting (to be configured in P1-012)
+iOS project uses:
+- **SwiftLint** - Linting (configured in `ios/.swiftlint.yml`)
+- **SwiftFormat** - Code formatting
 
 ### Code Review Patterns
 
@@ -467,18 +474,16 @@ Key variables:
 
 ## Getting Help
 
-- **Project Plan**: See `PLAN.md` for detailed roadmap and task list
+- **Implementation Plans**: See `docs/plans/` for feature-specific implementation plans
 - **Component READMEs**: Each directory has its own README with specific setup instructions
+- **Coding Standards**: See `CLAUDE.md` for coding guidelines and best practices
 - **Issues**: Report bugs at https://github.com/gioe/aiq/issues
-- **Pull Requests**: Follow the workflow in `PLAN.md`
 
 ## Next Steps
 
 After completing setup:
 
-1. Review `PLAN.md` to understand the project roadmap
-2. Check the "Current Status" section to see what's been completed
-3. Look at "Next Steps" to see what tasks are coming up
+1. Review the relevant plan file in `docs/plans/` for current work
+2. Check component READMEs for specific setup instructions
+3. Review `CLAUDE.md` for coding standards
 4. Pick a task and create a feature branch to start contributing
-
-Happy coding! 🚀

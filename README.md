@@ -11,7 +11,7 @@ aiq/
 ├── ios/                    # SwiftUI iOS application
 ├── backend/                # Backend API server
 ├── question-service/       # AI-powered question generation service
-├── shared/                 # Shared schemas, types, and documentation
+├── shared/                 # Placeholder for shared resources
 ├── .github/workflows/      # CI/CD pipelines
 └── README.md              # This file
 ```
@@ -64,10 +64,11 @@ See **[DEVELOPMENT.md](DEVELOPMENT.md)** for:
 - Testing procedures
 - Troubleshooting guide
 
-For project planning and task tracking, see **[PLAN.md](PLAN.md)**
-
-For extracting reusable components for future projects, see **[REUSABLE_COMPONENTS_PLAN.md](REUSABLE_COMPONENTS_PLAN.md)**
-
 ## Deployment
 
-(Deployment instructions to be added)
+See **[RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)** for production deployment on Railway.
+
+Additional deployment documentation:
+- [docs/deployment/RAILWAY.md](docs/deployment/RAILWAY.md) - Railway-specific configuration
+- [docs/deployment/AWS.md](docs/deployment/AWS.md) - AWS deployment guide
+- [docs/deployment/SERVICES.md](docs/deployment/SERVICES.md) - Service architecture
