@@ -583,7 +583,8 @@ See `deployment/RAILWAY_DEPLOYMENT.md` for deployment details.
 
 - `CLAUDE.md` - Development commands and patterns
 - `PLAN.md` - Project roadmap and task tracking
-- `IQ_METHODOLOGY.md` - IQ testing methodology and scoring
+- `docs/methodology/PSYCHOMETRICS.md` - IQ testing methodology, question categories, validation standards
+- `docs/methodology/IQ_SCORING.md` - Scoring formulas and normalization
 - `backend/README.md` - Backend-specific documentation
 - `ios/README.md` - iOS app documentation
 - `question-service/README.md` - Question service documentation

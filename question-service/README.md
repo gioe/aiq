@@ -1,88 +1,348 @@
-# IQ Tracker Question Generation Service
+# AIQ Question Generation Service
 
-AI-powered service for generating novel IQ test questions using multiple LLMs.
+AI-powered service for generating novel IQ test questions using multiple LLMs with automated quality evaluation and deduplication.
 
-**Status**: ✅ Implemented (Phase 6)
+## Overview
 
-## Quick Links
+This service generates IQ test questions through a multi-stage pipeline:
 
-- **[OPERATIONS.md](OPERATIONS.md)** - Complete operations guide (setup, configuration, running, monitoring)
-- **[docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md)** - Arbiter model selection guide
-- **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling guide (cron, systemd, cloud schedulers)
-- **[config/README.md](config/README.md)** - Arbiter configuration reference
+1. **Generation**: Multiple LLM providers create candidate questions
+2. **Evaluation**: Specialized arbiter models evaluate question quality
+3. **Deduplication**: Semantic similarity checking prevents duplicates
+4. **Storage**: Approved questions are inserted into the database
 
 ## Quick Start
 
 ```bash
 cd question-service
+python -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
 
-# Copy environment template
+# Configure environment
 cp .env.example .env
-# Edit .env and add your API keys
+# Edit .env with your API keys
 
-# Test setup
+# Test setup (no database writes)
 python run_generation.py --dry-run --count 5 --verbose
 
 # Generate questions
-python run_generation.py --count 10
+python run_generation.py --count 50
 ```
-
-For complete setup and operational procedures, see **[OPERATIONS.md](OPERATIONS.md)**.
 
 ## Architecture
 
-**Multi-LLM Design**:
-1. **Generator LLMs**: Multiple models (OpenAI, Anthropic, Google) create candidate questions
-2. **Specialized Arbiters**: Different LLM models evaluate questions by type based on benchmark performance
-3. **Deduplication**: Check against existing questions to ensure novelty
-4. **Scheduled Execution**: Runs periodically (not continuously)
+### Core Components
 
-**Question Types**:
-- Pattern recognition
-- Logical reasoning
-- Spatial reasoning
-- Mathematical
-- Verbal reasoning
-- Memory
+| Component | File | Description |
+|-----------|------|-------------|
+| Pipeline | `app/pipeline.py` | Orchestrates the complete generation flow |
+| Generator | `app/generator.py` | Manages multi-LLM question generation |
+| Arbiter | `app/arbiter.py` | Evaluates question quality using specialized models |
+| Deduplicator | `app/deduplicator.py` | Semantic similarity checking via embeddings |
+| Models | `app/models.py` | Pydantic data models for questions and evaluations |
+| Database | `app/database.py` | PostgreSQL storage via SQLAlchemy |
+| Config | `app/arbiter_config.py` | YAML-based arbiter configuration loader |
 
-**Arbiter Configuration**: YAML/JSON mapping of question types to best-performing arbiter models based on public benchmarks.
+### LLM Providers
 
-## Development Commands
+The service supports four LLM providers for question generation:
 
-```bash
-# Run tests (when implemented)
-pytest
+| Provider | Model | SDK |
+|----------|-------|-----|
+| OpenAI | gpt-4-turbo-preview | `openai` |
+| Anthropic | claude-sonnet-4-5 | `anthropic` |
+| Google | gemini-pro | `google-generativeai` |
+| xAI | grok-4 | Custom via `httpx` |
 
-# Code quality
-black . --check
-flake8 .
-mypy .
-```
+Provider implementations are in `app/providers/`.
+
+### Question Types
+
+- `pattern_recognition` - Visual and sequence pattern identification
+- `logical_reasoning` - Deductive and inductive reasoning
+- `spatial_reasoning` - 3D visualization and spatial relationships
+- `mathematical` - Numerical and algebraic problems
+- `verbal_reasoning` - Language comprehension and analogies
+- `memory` - Working memory and recall tasks
+
+### Difficulty Levels
+
+- `easy` - Introductory difficulty
+- `medium` - Standard difficulty
+- `hard` - Advanced difficulty
 
 ## Configuration
 
-Arbiter model mappings are configured via YAML in `config/arbiters.yaml`.
+### Environment Variables
 
-**Configuration System**: ✅ Implemented (P6-004)
-- Type-safe configuration with Pydantic validation
-- Maps question types to arbiter models
-- Configurable evaluation criteria weights
-- Supports model enable/disable flags
-- Comprehensive test coverage
+Create a `.env` file from `.env.example`:
 
-See [config/README.md](config/README.md) for complete documentation.
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/aiq
 
-Example usage:
-```python
-from app import initialize_arbiter_config, get_arbiter_config
+# LLM API Keys (at least one required)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+XAI_API_KEY=...
 
-# Initialize configuration
-initialize_arbiter_config("./config/arbiters.yaml")
+# Generation Settings
+QUESTIONS_PER_RUN=50
+MIN_ARBITER_SCORE=0.7
+ARBITER_CONFIG_PATH=./config/arbiters.yaml
 
-# Get arbiter for question type
-config = get_arbiter_config()
-arbiter = config.get_arbiter_for_question_type("mathematical")
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=./logs/generation.log
 ```
 
-For a complete working example, see `examples/arbiter_config_example.py`.
+### Arbiter Configuration
+
+The arbiter system uses specialized models for different question types, configured in `config/arbiters.yaml`:
+
+```yaml
+arbiters:
+  mathematical:
+    model: "grok-4"
+    provider: "xai"
+    rationale: "Strong math performance on GSM8K and AIME benchmarks"
+    enabled: true
+
+  logical_reasoning:
+    model: "claude-sonnet-4-5"
+    provider: "anthropic"
+    rationale: "Excellent on HumanEval and GPQA benchmarks"
+    enabled: true
+
+evaluation_criteria:
+  clarity: 0.25
+  difficulty: 0.20
+  validity: 0.30
+  formatting: 0.15
+  creativity: 0.10
+
+min_arbiter_score: 0.7
+```
+
+See [config/README.md](config/README.md) for full configuration reference.
+
+## Usage
+
+### Command Line Options
+
+```bash
+python run_generation.py [OPTIONS]
+
+Options:
+  --count N              Number of questions to generate (default: from config)
+  --types TYPE [TYPE...] Question types to generate (default: all)
+  --dry-run              Generate without database insertion
+  --skip-deduplication   Skip duplicate checking
+  --min-score FLOAT      Override minimum arbiter score threshold
+  --verbose, -v          Enable DEBUG logging
+  --log-file PATH        Custom log file path
+  --no-console           Disable console logging
+  --triggered-by TYPE    Source: scheduler, manual, or webhook
+```
+
+### Examples
+
+```bash
+# Generate 100 questions
+python run_generation.py --count 100
+
+# Generate only math and logic questions
+python run_generation.py --types mathematical logical_reasoning
+
+# Dry run with verbose output
+python run_generation.py --dry-run --count 10 --verbose
+
+# Lower approval threshold
+python run_generation.py --min-score 0.6
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success - questions generated and inserted |
+| 1 | Partial failure - some questions failed |
+| 2 | Complete failure - no questions generated |
+| 3 | Configuration error |
+| 4 | Database connection error |
+| 5 | Billing/quota error |
+| 6 | Authentication error |
+
+## Pipeline Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Question Generation Pipeline                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. GENERATION                                                   │
+│     ┌──────────┐  ┌───────────┐  ┌────────┐  ┌──────┐          │
+│     │  OpenAI  │  │ Anthropic │  │ Google │  │ xAI  │          │
+│     └────┬─────┘  └─────┬─────┘  └───┬────┘  └──┬───┘          │
+│          │              │            │          │               │
+│          └──────────────┴────────────┴──────────┘               │
+│                         │                                        │
+│                         ▼                                        │
+│  2. EVALUATION    ┌─────────────┐                               │
+│                   │   Arbiter   │  Type-specific models          │
+│                   │  Evaluation │  Weighted scoring              │
+│                   └──────┬──────┘                               │
+│                          │                                       │
+│                          ▼                                       │
+│  3. DEDUPLICATION ┌─────────────┐                               │
+│                   │  Semantic   │  OpenAI embeddings             │
+│                   │  Similarity │  Cosine similarity             │
+│                   └──────┬──────┘                               │
+│                          │                                       │
+│                          ▼                                       │
+│  4. STORAGE       ┌─────────────┐                               │
+│                   │  PostgreSQL │  With evaluation scores        │
+│                   │  Database   │                               │
+│                   └─────────────┘                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Monitoring
+
+### Heartbeat
+
+The script writes heartbeat files to `logs/heartbeat.json` for scheduler monitoring:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "status": "completed",
+  "exit_code": 0,
+  "stats": {
+    "questions_generated": 50,
+    "questions_inserted": 42,
+    "approval_rate": 84.0,
+    "duration_seconds": 120.5
+  }
+}
+```
+
+### Success Logging
+
+Successful runs are logged to `logs/success_runs.jsonl` in JSONL format for historical tracking.
+
+### Alerting
+
+Configure email alerts for failures:
+
+```bash
+ENABLE_EMAIL_ALERTS=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=alerts@example.com
+SMTP_PASSWORD=...
+ALERT_FROM_EMAIL=alerts@example.com
+ALERT_TO_EMAILS=admin@example.com,oncall@example.com
+```
+
+File-based alerts are written to `ALERT_FILE_PATH` (default: `logs/alerts.jsonl`).
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app
+
+# Run specific test file
+pytest tests/test_generator.py -v
+```
+
+### Code Quality
+
+```bash
+# Format code
+black .
+
+# Lint
+flake8 .
+
+# Type checking
+mypy .
+```
+
+### Project Structure
+
+```
+question-service/
+├── app/
+│   ├── __init__.py          # Package exports
+│   ├── alerting.py          # Email/file alerting
+│   ├── arbiter.py           # Question evaluation
+│   ├── arbiter_config.py    # YAML config loader
+│   ├── config.py            # Settings management
+│   ├── database.py          # PostgreSQL operations
+│   ├── deduplicator.py      # Semantic deduplication
+│   ├── error_classifier.py  # Error categorization
+│   ├── generator.py         # Multi-LLM generation
+│   ├── logging_config.py    # Logging setup
+│   ├── metrics.py           # Run metrics tracking
+│   ├── models.py            # Pydantic models
+│   ├── pipeline.py          # Orchestration
+│   ├── prompts.py           # LLM prompt templates
+│   ├── reporter.py          # Backend API reporting
+│   └── providers/           # LLM provider implementations
+│       ├── base.py
+│       ├── openai_provider.py
+│       ├── anthropic_provider.py
+│       ├── google_provider.py
+│       └── xai_provider.py
+├── config/
+│   └── arbiters.yaml        # Arbiter model configuration
+├── tests/                   # Test suite
+├── logs/                    # Runtime logs
+├── run_generation.py        # Main entry point
+├── trigger_server.py        # HTTP trigger endpoint
+├── requirements.txt
+├── Dockerfile
+└── Dockerfile.trigger
+```
+
+## Deployment
+
+### Docker
+
+```bash
+# Build image
+docker build -t question-service .
+
+# Run container
+docker run -e DATABASE_URL=... -e OPENAI_API_KEY=... question-service
+```
+
+### Scheduling
+
+See [docs/OPERATIONS.md](docs/OPERATIONS.md) for complete scheduling guide including:
+- Cron configuration
+- Systemd timers
+- Cloud scheduler setup (Railway, AWS, GCP)
+
+### Railway Deployment
+
+See [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) for Railway-specific deployment instructions.
+
+## Documentation
+
+- **[docs/OPERATIONS.md](docs/OPERATIONS.md)** - Complete operations guide
+- **[docs/ALERTING.md](docs/ALERTING.md)** - Alert configuration and handling
+- **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling options
+- **[docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)** - Railway deployment guide
+- **[docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md)** - Model selection rationale
+- **[config/README.md](config/README.md)** - Arbiter configuration reference

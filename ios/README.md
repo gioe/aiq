@@ -4,14 +4,15 @@ Native iOS application for tracking IQ scores over time.
 
 ## Setup
 
-**For complete setup instructions**, see [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
-
-Quick start:
 ```bash
 cd ios
 open AIQ.xcodeproj
-# Select your development team in Xcode, then ⌘+R to build and run
 ```
+
+In Xcode:
+1. Select your development team in project settings (Signing & Capabilities)
+2. Choose a simulator or connected device
+3. Build and run (⌘+R)
 
 ## Features
 
@@ -24,7 +25,7 @@ open AIQ.xcodeproj
 
 ## Architecture
 
-**For detailed architecture documentation**, see [ARCHITECTURE.md](ARCHITECTURE.md).
+**For detailed architecture documentation**, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 The app follows MVVM architecture with:
 - **Models**: Data structures (User, Question, TestResult, etc.)
@@ -74,8 +75,9 @@ AIQ/
 │   ├── Settings/       # Settings and notifications
 │   └── Common/         # Reusable components
 ├── Services/            # Business logic layer
+│   ├── Analytics/      # User behavior tracking
 │   ├── API/            # Network client with retry and token refresh
-│   ├── Auth/           # AuthManager and token management
+│   ├── Auth/           # AuthManager, token management, and push notifications
 │   └── Storage/        # Keychain and local storage
 └── Utilities/           # Extensions, helpers, and design system
     ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)

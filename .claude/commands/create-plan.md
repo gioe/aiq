@@ -6,7 +6,7 @@ args:
     required: true
 ---
 
-You are generating a technical implementation plan based on a gap analysis document.
+We need to make an implementation plan based on the findings in the gap file provided. Work with your technical-product-manager subagent to generate a technical implementation plan based on the document.
 
 **Gap File**: docs/gaps/{{gap_file}}
 

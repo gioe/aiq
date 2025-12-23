@@ -16,8 +16,8 @@ Models represent the data structures used throughout the app. They are typically
 
 **Example:**
 ```swift
-struct User: Codable, Identifiable {
-    let id: String
+struct User: Codable, Identifiable, Equatable {
+    let id: Int
     let email: String
     let firstName: String
     // ...
@@ -60,10 +60,13 @@ Views are SwiftUI views that:
 
 **Common Components:**
 Reusable UI components are in `Views/Common/`:
-- `LoadingView`: Loading indicators
-- `ErrorView`: Error display with retry
+- `LoadingView`, `LoadingOverlay`: Loading indicators
+- `ErrorView`, `ErrorBanner`: Error display with retry
+- `EmptyStateView`: Empty state placeholders
 - `PrimaryButton`: Styled action buttons
 - `CustomTextField`: Styled text inputs
+- `NetworkStatusBanner`: Network connectivity indicator
+- `MainTabView`, `RootView`: App navigation structure
 
 **Example:**
 ```swift
@@ -101,6 +104,7 @@ Services encapsulate external dependencies and business logic:
 - `View+Extensions`: SwiftUI view helpers
 - `Date+Extensions`: Date formatting utilities
 - `String+Extensions`: String validation and manipulation
+- `Int+Extensions`: Integer formatting utilities
 
 **Helpers:**
 - `AppConfig`: App configuration and environment settings
@@ -120,14 +124,14 @@ Services encapsulate external dependencies and business logic:
 
 ### Dependency Injection
 
-Services should be injected into ViewModels:
+Services should be injected into ViewModels via protocols:
 
 ```swift
 class LoginViewModel: BaseViewModel {
-    private let authService: AuthServiceProtocol
+    private let authManager: any AuthManagerProtocol
 
-    init(authService: AuthServiceProtocol = AuthService.shared) {
-        self.authService = authService
+    init(authManager: any AuthManagerProtocol) {
+        self.authManager = authManager
         super.init()
     }
 }
@@ -220,7 +224,6 @@ if !emailValidation.isValid {
 - Router/Coordinator pattern for navigation
 - Redux-style state management for complex state
 - More comprehensive caching strategy
-- Offline support
 
 ## References
 

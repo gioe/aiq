@@ -28,8 +28,9 @@ Each component has its own README with quick start guides:
 
 ## Methodology
 
-- [IQ Scoring](./methodology/IQ_SCORING.md) - Scientific foundations and scoring approach
-- [Psychometric Gaps](./methodology/gaps/INDEX.md) - Future improvements roadmap
+- [Psychometric Foundations](./methodology/PSYCHOMETRICS.md) - IQ testing research, question categories, validation standards
+- [IQ Scoring](./methodology/IQ_SCORING.md) - Scoring formulas, normalization, and AIQ implementation
+- [Psychometric Gaps](./gaps/INDEX.md) - Future improvements roadmap
 
 ## Testing
 
