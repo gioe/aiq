@@ -134,15 +134,15 @@ App Store submission is blocked until P0 items are complete. The current state e
 ---
 
 ### ICG-004: Update AnalyticsService for Backend Integration
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Analytics/AnalyticsService.swift`
 **Dependencies:** ICG-001
 **Description:** Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint.
 **Acceptance Criteria:**
-- [ ] AnalyticsService sends events to backend API
-- [ ] Event payloads match backend schema
-- [ ] Network errors handled gracefully with retry logic
-- [ ] Events logged locally if offline (queue for later sync)
+- [x] AnalyticsService sends events to backend API
+- [x] Event payloads match backend schema
+- [x] Network errors handled gracefully with retry logic
+- [x] Events logged locally if offline (queue for later sync)
 
 ---
 

@@ -10,6 +10,7 @@ from app.api.v1 import (
     test,
     notifications,
     question_analytics,
+    client_analytics,
     admin,
 )
 
@@ -26,5 +27,8 @@ api_router.include_router(
 )
 api_router.include_router(
     question_analytics.router, prefix="/analytics", tags=["analytics"]
+)
+api_router.include_router(
+    client_analytics.router, prefix="/analytics", tags=["analytics"]
 )
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])

@@ -14,6 +14,7 @@ from .models import (
     TestStatus,
     GenerationRunStatus,
     QuestionGenerationRun,
+    ClientAnalyticsEvent,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "TestStatus",
     "GenerationRunStatus",
     "QuestionGenerationRun",
+    "ClientAnalyticsEvent",
 ]

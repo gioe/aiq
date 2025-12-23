@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import UIKit
 
 /// Analytics event types for tracking user actions and system events
 enum AnalyticsEvent: String {
@@ -31,10 +32,103 @@ enum AnalyticsEvent: String {
     case authFailed = "security.auth_failed"
 }
 
+/// A single analytics event with timestamp and properties
+struct AnalyticsEventData: Codable {
+    let eventName: String
+    let timestamp: Date
+    let properties: [String: AnyCodable]?
+
+    private enum CodingKeys: String, CodingKey {
+        case eventName = "event_name"
+        case timestamp
+        case properties
+    }
+}
+
+/// Batch of analytics events to send to backend
+struct AnalyticsEventsBatch: Codable {
+    let events: [AnalyticsEventData]
+    let clientPlatform: String
+    let appVersion: String
+    let deviceId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case events
+        case clientPlatform = "client_platform"
+        case appVersion = "app_version"
+        case deviceId = "device_id"
+    }
+}
+
+/// Response from analytics events submission
+struct AnalyticsEventsResponse: Codable {
+    let success: Bool
+    let eventsReceived: Int
+    let message: String
+
+    private enum CodingKeys: String, CodingKey {
+        case success
+        case eventsReceived = "events_received"
+        case message
+    }
+}
+
+/// Type-erased wrapper for JSON encoding any value
+struct AnyCodable: Codable {
+    let value: Any
+
+    init(_ value: Any) {
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+
+        if let intValue = try? container.decode(Int.self) {
+            value = intValue
+        } else if let doubleValue = try? container.decode(Double.self) {
+            value = doubleValue
+        } else if let boolValue = try? container.decode(Bool.self) {
+            value = boolValue
+        } else if let stringValue = try? container.decode(String.self) {
+            value = stringValue
+        } else if let arrayValue = try? container.decode([AnyCodable].self) {
+            value = arrayValue.map(\.value)
+        } else if let dictValue = try? container.decode([String: AnyCodable].self) {
+            value = dictValue.mapValues(\.value)
+        } else {
+            value = NSNull()
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        switch value {
+        case let intValue as Int:
+            try container.encode(intValue)
+        case let doubleValue as Double:
+            try container.encode(doubleValue)
+        case let boolValue as Bool:
+            try container.encode(boolValue)
+        case let stringValue as String:
+            try container.encode(stringValue)
+        case let arrayValue as [Any]:
+            try container.encode(arrayValue.map { AnyCodable($0) })
+        case let dictValue as [String: Any]:
+            try container.encode(dictValue.mapValues { AnyCodable($0) })
+        default:
+            try container.encodeNil()
+        }
+    }
+}
+
 /// Analytics service for logging and monitoring user actions in the iOS app
 ///
-/// Uses Apple's unified logging system (os_log) for structured logging.
-/// Events can be viewed in Console.app or via `log stream` command.
+/// Sends events to the backend `/v1/analytics/events` endpoint with:
+/// - Automatic retry with exponential backoff on network errors
+/// - Offline queue for events when network is unavailable
+/// - Batch submission for efficient network usage
 class AnalyticsService {
     /// Shared singleton instance
     static let shared = AnalyticsService()
@@ -48,11 +142,49 @@ class AnalyticsService {
     /// Logger instance for error events
     private let errorLogger: Logger
 
-    private init() {
+    /// Queue of events waiting to be sent
+    private var eventQueue: [AnalyticsEventData] = []
+
+    /// Serial queue for thread-safe access to event queue
+    private let queueAccessQueue = DispatchQueue(label: "com.aiq.analyticsQueue")
+
+    /// Timer for periodic batch submission
+    private var batchTimer: Timer?
+
+    /// Maximum number of events per batch
+    private let maxBatchSize = 50
+
+    /// Interval for automatic batch submission (seconds)
+    private let batchInterval: TimeInterval = 30.0
+
+    /// Maximum retries for failed submissions
+    private let maxRetries = 3
+
+    /// Storage key for persisted events
+    private let storageKey = "com.aiq.analyticsEventQueue"
+
+    /// Network monitor for connectivity status
+    private let networkMonitor = NetworkMonitor.shared
+
+    /// User defaults for event persistence
+    private let userDefaults: UserDefaults
+
+    private init(userDefaults: UserDefaults = .standard) {
         // Create separate loggers for different categories
         logger = Logger(subsystem: "com.aiq.app", category: "analytics")
         performanceLogger = Logger(subsystem: "com.aiq.app", category: "performance")
         errorLogger = Logger(subsystem: "com.aiq.app", category: "errors")
+        self.userDefaults = userDefaults
+
+        // Load any persisted events from previous sessions
+        loadPersistedEvents()
+
+        // Start batch submission timer
+        startBatchTimer()
+    }
+
+    deinit {
+        batchTimer?.invalidate()
     }
 
     // MARK: - Public Methods
@@ -64,13 +196,31 @@ class AnalyticsService {
     ///   - properties: Optional dictionary of event properties
     func track(event: AnalyticsEvent, properties: [String: Any]? = nil) {
         let propertiesString = properties?.description ?? "{}"
-        logger.info("📊 Analytics Event: \(event.rawValue) | Properties: \(propertiesString)")
+        logger.info("Analytics Event: \(event.rawValue) | Properties: \(propertiesString)")
 
-        // In production, send to external analytics service
-        // Example: Firebase Analytics, Mixpanel, etc.
-        #if PRODUCTION
-            // Future: Integrate with external analytics service (e.g., Firebase, Mixpanel)
-        #endif
+        // Create event data
+        let eventData = AnalyticsEventData(
+            eventName: event.rawValue,
+            timestamp: Date(),
+            properties: properties?.mapValues { AnyCodable($0) }
+        )
+
+        // Add to queue and persist
+        var shouldSubmit = false
+        queueAccessQueue.sync {
+            eventQueue.append(eventData)
+            shouldSubmit = eventQueue.count >= maxBatchSize
+        }
+
+        // Persist queue in case app terminates
+        persistEvents()
+
+        // If queue is full, submit immediately
+        if shouldSubmit {
+            Task {
+                await submitBatch()
+            }
+        }
     }
 
     /// Track user registration
@@ -200,7 +350,7 @@ class AnalyticsService {
     ///   - durationSeconds: Request duration
     ///   - statusCode: HTTP status code
     func trackSlowRequest(endpoint: String, durationSeconds: Double, statusCode: Int) {
-        let message = String(format: "⚠️ Slow API Request: %@ took %.2fs", endpoint, durationSeconds)
+        let message = String(format: "Slow API Request: %@ took %.2fs", endpoint, durationSeconds)
         performanceLogger.warning("\(message) | Status: \(statusCode)")
 
         track(event: .slowAPIRequest, properties: [
@@ -227,7 +377,7 @@ class AnalyticsService {
             properties["status_code"] = statusCode
         }
 
-        errorLogger.error("❌ API Error: \(endpoint) | Error: \(error.localizedDescription)")
+        errorLogger.error("API Error: \(endpoint) | Error: \(error.localizedDescription)")
 
         track(event: .apiError, properties: properties)
     }
@@ -236,14 +386,184 @@ class AnalyticsService {
     ///
     /// - Parameter reason: Reason for authentication failure
     func trackAuthFailed(reason: String) {
-        errorLogger.error("🔐 Auth Failed: \(reason)")
+        errorLogger.error("Auth Failed: \(reason)")
 
         track(event: .authFailed, properties: [
             "reason": reason
         ])
     }
 
-    // MARK: - Private Helpers
+    /// Force submission of all pending events
+    /// Call this before app termination or logout
+    func flush() async {
+        await submitBatch()
+    }
+
+    // MARK: - Private Methods
+
+    /// Start the batch submission timer
+    private func startBatchTimer() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            batchTimer = Timer.scheduledTimer(
+                withTimeInterval: batchInterval,
+                repeats: true
+            ) { [weak self] _ in
+                Task { [weak self] in
+                    await self?.submitBatch()
+                }
+            }
+        }
+    }
+
+    /// Submit pending events to the backend
+    private func submitBatch() async {
+        // Check network connectivity
+        guard networkMonitor.isConnected else {
+            logger.info("Analytics: Offline, events queued for later")
+            return
+        }
+
+        // Get events to submit
+        var eventsToSubmit: [AnalyticsEventData] = []
+        queueAccessQueue.sync {
+            guard !eventQueue.isEmpty else { return }
+            eventsToSubmit = Array(eventQueue.prefix(maxBatchSize))
+        }
+
+        guard !eventsToSubmit.isEmpty else { return }
+
+        // Create batch request
+        let batch = AnalyticsEventsBatch(
+            events: eventsToSubmit,
+            clientPlatform: "ios",
+            appVersion: AppConfig.appVersion,
+            deviceId: getDeviceId()
+        )
+
+        // Submit with retry
+        let success = await submitWithRetry(batch: batch, maxRetries: maxRetries)
+
+        if success {
+            // Remove submitted events from queue
+            let submittedCount = eventsToSubmit.count
+            queueAccessQueue.sync {
+                eventQueue.removeFirst(min(submittedCount, eventQueue.count))
+            }
+
+            // Update persisted queue
+            persistEvents()
+
+            logger.info("Analytics: Submitted \(submittedCount) events")
+        } else {
+            logger.warning("Analytics: Failed to submit events after retries")
+        }
+    }
+
+    /// Submit batch with exponential backoff retry
+    private func submitWithRetry(batch: AnalyticsEventsBatch, maxRetries: Int) async -> Bool {
+        var attempt = 0
+
+        while attempt < maxRetries {
+            do {
+                try await sendToBackend(batch: batch)
+                return true
+            } catch {
+                attempt += 1
+
+                if attempt < maxRetries {
+                    // Exponential backoff: 1s, 2s, 4s
+                    let delay = pow(2.0, Double(attempt - 1))
+                    logger.info("Analytics: Retry \(attempt)/\(maxRetries) in \(delay)s")
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+
+        return false
+    }
+
+    /// Send batch to backend API
+    private func sendToBackend(batch: AnalyticsEventsBatch) async throws {
+        guard let url = URL(string: "\(AppConfig.apiBaseURL)/v1/analytics/events") else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("iOS", forHTTPHeaderField: "X-Platform")
+        request.setValue(AppConfig.appVersion, forHTTPHeaderField: "X-App-Version")
+        request.timeoutInterval = 30
+
+        // Add auth token if available
+        if let token = await getAuthToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        request.httpBody = try encoder.encode(batch)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(statusCode: httpResponse.statusCode, message: nil)
+        }
+
+        // Decode response (optional, for verification)
+        _ = try? JSONDecoder().decode(AnalyticsEventsResponse.self, from: data)
+    }
+
+    /// Get current auth token if available
+    private func getAuthToken() async -> String? {
+        // Access keychain storage for auth token
+        try? KeychainStorage.shared.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+    }
+
+    /// Get a unique device identifier
+    private func getDeviceId() -> String? {
+        UIDevice.current.identifierForVendor?.uuidString
+    }
+
+    /// Persist event queue to disk
+    private func persistEvents() {
+        queueAccessQueue.sync {
+            guard !eventQueue.isEmpty else {
+                userDefaults.removeObject(forKey: storageKey)
+                return
+            }
+
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+
+            if let data = try? encoder.encode(eventQueue) {
+                userDefaults.set(data, forKey: storageKey)
+            }
+        }
+    }
+
+    /// Load persisted events from disk
+    private func loadPersistedEvents() {
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            return
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        if let events = try? decoder.decode([AnalyticsEventData].self, from: data) {
+            queueAccessQueue.sync {
+                eventQueue = events
+            }
+
+            logger.info("Analytics: Loaded \(events.count) persisted events")
+        }
+    }
 
     /// Extract domain from email for privacy-preserving analytics
     ///

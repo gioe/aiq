@@ -604,6 +604,59 @@ class SystemConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
 
 
+class ClientAnalyticsEvent(Base):
+    """
+    Analytics events from iOS and other client applications.
+
+    Stores user behavior and system performance events sent from clients
+    to enable product analytics, debugging, and user experience insights.
+    Events are stored for analysis but are not used for scoring or test logic.
+    """
+
+    __tablename__ = "client_analytics_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    # Event identification
+    event_name: Mapped[str] = mapped_column(
+        String(100), index=True
+    )  # Event type (e.g., "user.login", "test.started")
+
+    # Event timing
+    client_timestamp: Mapped[datetime] = mapped_column(
+        index=True
+    )  # When event occurred on client
+    received_at: Mapped[datetime] = mapped_column(
+        default=utc_now, index=True
+    )  # When server received event
+
+    # Event context
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )  # Associated user (optional for pre-auth events)
+    properties: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # Event-specific metadata
+
+    # Client context
+    client_platform: Mapped[str] = mapped_column(
+        String(20), default="ios"
+    )  # Platform (ios, android, web)
+    app_version: Mapped[str] = mapped_column(String(20))  # App version string
+    device_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # Device identifier for correlation
+
+    # Relationship (optional to allow anonymous events)
+    user: Mapped[Optional["User"]] = relationship()
+
+    # Indexes for common query patterns
+    __table_args__ = (
+        Index("ix_cae_user_received", "user_id", "received_at"),
+        Index("ix_cae_event_received", "event_name", "received_at"),
+    )
+
+
 class ReliabilityMetric(Base):
     """
     Reliability metrics storage for historical tracking (RE-001).
