@@ -809,15 +809,15 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-050: Add Shutdown Flag to ProcessRegistry
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #357 comment
 **Files:** `backend/app/core/process_registry.py`
 **Description:** Add `_shutting_down` flag to prevent new process registrations during shutdown sequence.
 **Original Comment:** "The shutdown logic releases the lock between the SIGTERM phase and the wait phase. This could allow new processes to be registered during shutdown. Add a `_shutting_down` flag to prevent new registrations during shutdown."
 **Acceptance Criteria:**
-- [ ] Add `_shutting_down: bool = False` to __init__
-- [ ] Check flag in `register()` and raise RuntimeError if True
-- [ ] Set flag to True at start of `shutdown_all()`
+- [x] Add `_shutting_down: bool = False` to __init__
+- [x] Check flag in `register()` and raise RuntimeError if True
+- [x] Set flag to True at start of `shutdown_all()`
 
 ---
 

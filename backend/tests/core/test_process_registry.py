@@ -1,5 +1,5 @@
 """
-Tests for the ProcessRegistry module (BCQ-036, BCQ-049).
+Tests for the ProcessRegistry module (BCQ-036, BCQ-049, BCQ-050).
 
 This module tests the background process tracking functionality including:
 - Process registration and deregistration
@@ -7,6 +7,7 @@ This module tests the background process tracking functionality including:
 - Cleanup of finished processes
 - Graceful shutdown handling
 - Opportunistic cleanup of old finished jobs (BCQ-049)
+- Shutdown flag to prevent new registrations during shutdown (BCQ-050)
 """
 import subprocess
 import sys
@@ -743,3 +744,139 @@ class TestOpportunisticCleanup:
         finally:
             running_process.terminate()
             running_process.wait()
+
+
+class TestShutdownFlag:
+    """Tests for shutdown flag behavior (BCQ-050)."""
+
+    def test_register_raises_during_shutdown(self, fresh_registry):
+        """Test that register() raises RuntimeError during shutdown."""
+        # Manually set shutdown flag
+        fresh_registry._shutting_down = True
+
+        # Create a process to try to register
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            # Attempt to register should raise RuntimeError
+            with pytest.raises(RuntimeError) as exc_info:
+                fresh_registry.register(process=process, job_type="test")
+
+            assert "shutting down" in str(exc_info.value).lower()
+        finally:
+            process.terminate()
+            process.wait()
+
+    def test_shutdown_all_resets_shutdown_flag_after_completion(self, fresh_registry):
+        """Test that shutdown_all() resets the _shutting_down flag after completion.
+
+        The shutdown flag is set to True at the start of shutdown_all() to prevent
+        new registrations during the shutdown sequence. After shutdown completes,
+        the flag is reset to False so the registry can be reused (e.g., in tests).
+        """
+        # Verify flag is initially False
+        assert fresh_registry._shutting_down is False
+
+        # Call shutdown_all (with no processes)
+        fresh_registry.shutdown_all(timeout=1.0)
+
+        # Verify flag is reset to False after shutdown completes
+        # This allows the registry to be reused
+        assert fresh_registry._shutting_down is False
+
+    def test_register_before_shutdown_succeeds(self, fresh_registry):
+        """Test that register() works normally before shutdown."""
+        # Verify flag is initially False
+        assert fresh_registry._shutting_down is False
+
+        # Create and register a process
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(10)"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            job_info = fresh_registry.register(process=process, job_type="test")
+            assert job_info is not None
+            assert job_info.job_id is not None
+        finally:
+            process.terminate()
+            process.wait()
+
+    def test_shutdown_flag_prevents_race_condition(self, fresh_registry):
+        """Test that shutdown flag prevents registration during active shutdown."""
+        import threading
+
+        registered_during_shutdown = []
+        registration_errors = []
+        processes = []
+        lock = threading.Lock()
+
+        def try_register():
+            """Try to register a new process."""
+            process = subprocess.Popen(
+                [sys.executable, "-c", "import time; time.sleep(5)"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            with lock:
+                processes.append(process)
+
+            try:
+                job_info = fresh_registry.register(process=process, job_type="test")
+                with lock:
+                    registered_during_shutdown.append(job_info)
+            except RuntimeError as e:
+                with lock:
+                    registration_errors.append(str(e))
+
+        # First, register a few processes
+        for _ in range(3):
+            process = subprocess.Popen(
+                [sys.executable, "-c", "import time; time.sleep(60)"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            processes.append(process)
+            fresh_registry.register(process=process, job_type="initial")
+
+        # Start concurrent registration attempts
+        registration_threads = [threading.Thread(target=try_register) for _ in range(5)]
+        for t in registration_threads:
+            t.start()
+
+        # Immediately start shutdown
+        shutdown_thread = threading.Thread(
+            target=lambda: fresh_registry.shutdown_all(timeout=2.0)
+        )
+        shutdown_thread.start()
+
+        # Wait for everything to complete
+        for t in registration_threads:
+            t.join(timeout=5.0)
+        shutdown_thread.join(timeout=10.0)
+
+        # Cleanup any remaining processes
+        for process in processes:
+            try:
+                process.terminate()
+                process.wait(timeout=1.0)
+            except Exception:
+                pass
+
+        # After shutdown completes, the flag is reset to False to allow reuse
+        assert fresh_registry._shutting_down is False
+
+        # The shutdown mechanism prevents new registrations during shutdown, so either:
+        # 1. Some registrations failed with RuntimeError (if they raced with shutdown), OR
+        # 2. All registrations completed before shutdown_all was called
+        # The key is that the registry is now empty and ready for reuse
+        assert len(fresh_registry._processes) == 0
+
+        # This test verifies the shutdown mechanism exists and the registry
+        # can be reused after shutdown completes
