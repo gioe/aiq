@@ -1,4 +1,3 @@
-import FirebaseCrashlytics
 import SwiftUI
 
 /// Settings view for user preferences and account management

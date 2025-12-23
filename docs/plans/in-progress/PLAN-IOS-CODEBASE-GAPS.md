@@ -1778,6 +1778,23 @@ App Store submission is blocked until P0 items are complete. The current state e
 
 ---
 
+## Deferred Items
+
+### ICG-130: Create SettingsViewModel for MVVM Compliance
+**Status:** [ ] Not Started
+**Source:** PR #380 review comment
+**Files:** `Views/Settings/SettingsView.swift`, `ViewModels/SettingsViewModel.swift` (new)
+**Description:** SettingsView currently violates MVVM architecture by directly accessing `AuthManager.shared` and executing logout logic in the View layer. Create a SettingsViewModel to handle business logic (similar to LoginViewModel, DashboardViewModel, etc.).
+**Original Comment:** "According to ios/docs/ARCHITECTURE.md, Views should not contain business logic. Currently, SettingsView directly accesses AuthManager.shared and executes logout logic in the View layer."
+**Acceptance Criteria:**
+- [ ] SettingsViewModel created following project patterns
+- [ ] AuthManager access moved to ViewModel
+- [ ] Logout logic moved to ViewModel
+- [ ] View testability improved
+- [ ] Consistent with other ViewModels in codebase
+
+---
+
 ## Open Questions
 
 1. **Privacy Policy Hosting**: Where will the privacy policy and terms of service be hosted? Do we need to set up a website or can we use a third-party service?
