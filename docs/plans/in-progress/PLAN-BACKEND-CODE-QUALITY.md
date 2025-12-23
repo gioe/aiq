@@ -849,15 +849,15 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-053: Add ProcessRegistry Stress and Edge Case Tests
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #357 comment
 **Files:** `backend/tests/core/test_process_registry.py`
 **Description:** Add additional tests for stress scenarios and edge cases not currently covered.
 **Original Comment:** "Could use additional tests: Stress test (register 100+ jobs concurrently), Memory leak test (verify cleanup actually frees memory), Shutdown during active registration."
 **Acceptance Criteria:**
-- [ ] Add test_concurrent_registration_stress with 100+ jobs
-- [ ] Add test_shutdown_during_registration
-- [ ] Consider adding memory usage verification test
+- [x] Add test_concurrent_registration_stress with 100+ jobs
+- [x] Add test_shutdown_during_registration
+- [x] Consider adding memory usage verification test (added TestProcessRegistryMemory class with 3 tests)
 
 ---
 
