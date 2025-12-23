@@ -110,26 +110,26 @@ App Store submission is blocked until P0 items are complete. The current state e
 ---
 
 ### ICG-002: Integrate Firebase Crashlytics SDK
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQApp.swift`, `Package.swift`
 **Dependencies:** ICG-001
 **Description:** Add Firebase Crashlytics via Swift Package Manager, initialize in app launch, and test crash reporting functionality.
 **Acceptance Criteria:**
-- [ ] Firebase SDK integrated via Swift Package Manager
-- [ ] Crashlytics initialized in app launch
-- [ ] Test crash successfully reported to Firebase console
+- [x] Firebase SDK integrated via Swift Package Manager
+- [x] Crashlytics initialized in app launch
+- [x] Test crash successfully reported to Firebase console
 
 ---
 
 ### ICG-003: Create Firebase Project and Configure iOS App
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `GoogleService-Info.plist` (new)
 **Dependencies:** ICG-002
 **Description:** Create Firebase project, download GoogleService-Info.plist, and configure APNs certificates.
 **Acceptance Criteria:**
-- [ ] Firebase project created with iOS app configuration
-- [ ] GoogleService-Info.plist added to Xcode project
-- [ ] Build succeeds with Firebase integration
+- [x] Firebase project created with iOS app configuration
+- [x] GoogleService-Info.plist added to Xcode project
+- [x] Build succeeds with Firebase integration
 
 ---
 
