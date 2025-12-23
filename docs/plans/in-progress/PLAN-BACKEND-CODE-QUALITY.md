@@ -822,15 +822,15 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-051: Improve ProcessRegistry Job ID Uniqueness
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #357 comment
 **Files:** `backend/app/core/process_registry.py`
 **Description:** Job IDs use second-precision timestamps which could cause collisions on application restart. Consider using microsecond precision or UUID.
 **Original Comment:** "If multiple processes are spawned within the same second, uniqueness relies solely on the counter. While this is fine for sequential registration, the counter could reset if the application restarts."
 **Acceptance Criteria:**
-- [ ] Change timestamp format to include microseconds: `%Y%m%d%H%M%S%f`
-- [ ] OR use UUID hex prefix instead of counter
-- [ ] Update tests if ID format changes
+- [x] Change timestamp format to include microseconds: `%Y%m%d%H%M%S%f`
+- [x] OR use UUID hex prefix instead of counter
+- [x] Update tests if ID format changes
 
 ---
 

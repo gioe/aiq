@@ -463,6 +463,79 @@ class TestJobStatus:
         assert JobStatus.RUNNING == "running"
 
 
+class TestJobIdFormat:
+    """Tests for job ID format (BCQ-051)."""
+
+    def test_job_id_includes_microseconds(self, fresh_registry):
+        """Test that job ID includes microsecond-precision timestamp (BCQ-051).
+
+        The job ID format is: {job_type}_{timestamp}_{counter}_{pid}
+        where timestamp includes microseconds (%Y%m%d%H%M%S%f) for uniqueness
+        even across application restarts.
+        """
+        process = subprocess.Popen(
+            [sys.executable, "-c", "print('done')"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            job_info = fresh_registry.register(
+                process=process,
+                job_type="testjob",
+            )
+
+            # Job ID format: testjob_YYYYMMDDHHMMSSffffff_counter_pid
+            job_id = job_info.job_id
+            assert job_id.startswith("testjob_"), "Job ID should start with job_type"
+
+            # Extract timestamp portion (after job_type prefix)
+            after_prefix = job_id[len("testjob_") :]
+            remaining_parts = after_prefix.split("_")
+            # Should be: [timestamp, counter, pid]
+            assert (
+                len(remaining_parts) == 3
+            ), f"Expected timestamp_counter_pid, got {remaining_parts}"
+
+            timestamp_str = remaining_parts[0]
+            # Timestamp with microseconds: YYYYMMDDHHMMSSffffff (20 characters)
+            assert (
+                len(timestamp_str) == 20
+            ), f"Expected 20-char timestamp with microseconds, got {len(timestamp_str)}"
+            assert timestamp_str.isdigit(), "Timestamp should be all digits"
+
+        finally:
+            process.terminate()
+            process.wait()
+
+    def test_job_id_uniqueness_rapid_registration(self, fresh_registry):
+        """Test that rapidly registered jobs get unique IDs due to microsecond precision."""
+        processes = []
+        job_ids = set()
+
+        try:
+            # Register 20 jobs as fast as possible
+            for _ in range(20):
+                process = subprocess.Popen(
+                    [sys.executable, "-c", "print('done')"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                processes.append(process)
+                job_info = fresh_registry.register(
+                    process=process, job_type="rapid_test"
+                )
+                job_ids.add(job_info.job_id)
+
+            # All job IDs should be unique
+            assert len(job_ids) == 20, "All 20 job IDs should be unique"
+
+        finally:
+            for process in processes:
+                process.terminate()
+                process.wait()
+
+
 class TestOpportunisticCleanup:
     """Tests for opportunistic cleanup of old finished jobs (BCQ-049)."""
 
