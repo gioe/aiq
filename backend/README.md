@@ -4,7 +4,7 @@ FastAPI backend server for the AIQ application.
 
 ## Setup
 
-**For complete setup instructions**, see [DEVELOPMENT.md](../DEVELOPMENT.md) in the repository root.
+**For complete setup instructions**, see [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 
 Quick start:
 ```bash
@@ -25,12 +25,22 @@ When the server is running, visit:
 backend/
 ├── app/
 │   ├── main.py           # FastAPI application entry point
-│   ├── api/v1/           # API endpoints (auth, user, test, questions)
-│   ├── core/             # Configuration, database, security
+│   ├── api/v1/           # API endpoints
+│   │   ├── admin/        # Admin endpoints (generation, calibration, analytics, validity, etc.)
+│   │   ├── auth.py       # Authentication (login, register, refresh)
+│   │   ├── health.py     # Health check and ping endpoints
+│   │   ├── notifications.py  # Device token registration, notification preferences
+│   │   ├── questions.py  # Question retrieval
+│   │   ├── test.py       # Test session management
+│   │   └── user.py       # User profile endpoints
+│   ├── core/             # Configuration, database, security, scoring
+│   │   ├── reliability/  # Reliability metrics (Cronbach's alpha, split-half, test-retest)
+│   │   └── ...           # Validity analysis, discrimination, analytics
 │   ├── models/           # SQLAlchemy ORM models
 │   ├── schemas/          # Pydantic request/response schemas
-│   ├── middleware/       # CORS, logging
-│   └── ratelimit/        # Rate limiting implementation
+│   ├── middleware/       # Security headers, request logging, performance monitoring
+│   ├── ratelimit/        # Rate limiting implementation (in-memory and Redis)
+│   └── services/         # Background services (APNs, notification scheduler)
 ├── alembic/              # Database migrations
 ├── tests/                # pytest test suite
 └── requirements.txt      # Python dependencies
@@ -57,6 +67,14 @@ alembic current                                   # Check version
 ```
 
 ## Key API Endpoints
+
+### Health Check
+
+#### `GET /v1/health`
+Returns service health status, timestamp, and version.
+
+#### `GET /v1/ping`
+Simple connectivity check, returns `{"message": "pong"}`.
 
 ### Test Session Management
 
@@ -133,7 +151,7 @@ Submit responses for a test session and calculate IQ score.
 
 **Test Submission**: Batch submission (all answers submitted together when test completes)
 
-**Active Session Detection**: Dashboard checks `/v1/test/active` to show resume vs start UI. Results cached with 2-minute TTL.
+**Active Session Detection**: Dashboard checks `/v1/test/active` to show resume vs start UI.
 
 **API Versioning**: All endpoints prefixed with `/v1/`
 
@@ -141,7 +159,17 @@ Submit responses for a test session and calculate IQ score.
 
 ## Admin API Endpoints
 
-The admin API provides endpoints for managing the question generation service and tracking generation metrics. These endpoints require authentication via special headers.
+The admin API provides endpoints for managing question generation, quality metrics, reliability analysis, and test validity. These endpoints require authentication via special headers.
+
+**Admin Submodules:**
+- **Generation**: Question generation job control and run tracking
+- **Calibration**: Question difficulty calibration
+- **Analytics**: Response time analytics and factor analysis
+- **Distractors**: Distractor effectiveness analysis
+- **Validity**: Test session validity assessment
+- **Config**: Weighted scoring configuration
+- **Discrimination**: Item discrimination analysis and quality flags
+- **Reliability**: Reliability metrics (Cronbach's alpha, test-retest, split-half)
 
 ### Authentication
 

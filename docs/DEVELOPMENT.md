@@ -178,8 +178,10 @@ aiq/
 │   └── agents/           # Custom agents
 │
 ├── CLAUDE.md             # Claude Code guidance
-├── DEVELOPMENT.md        # This file
-└── README.md             # Project overview
+├── README.md             # Project overview
+└── docs/
+    ├── DEVELOPMENT.md    # This file
+    └── ...
 ```
 
 ## Development Workflow

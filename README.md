@@ -46,7 +46,7 @@ aiq/
 
 ### Quick Start
 
-See **[DEVELOPMENT.md](DEVELOPMENT.md)** for a complete development environment setup guide.
+See **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** for a complete development environment setup guide.
 
 ### Component-Specific Documentation
 
@@ -57,7 +57,7 @@ For detailed component information, see individual READMEs:
 
 ## Development
 
-See **[DEVELOPMENT.md](DEVELOPMENT.md)** for:
+See **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** for:
 - Prerequisites and installation
 - Development workflow and git practices
 - Code quality standards

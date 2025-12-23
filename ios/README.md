@@ -4,7 +4,7 @@ Native iOS application for tracking IQ scores over time.
 
 ## Setup
 
-**For complete setup instructions**, see [DEVELOPMENT.md](../DEVELOPMENT.md) in the repository root.
+**For complete setup instructions**, see [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 
 Quick start:
 ```bash

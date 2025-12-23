@@ -4,7 +4,7 @@ This is the central documentation hub for the AIQ project.
 
 ## Quick Start
 
-- [Development Setup](../DEVELOPMENT.md) - Get your environment running
+- [Development Setup](DEVELOPMENT.md) - Get your environment running
 - [Project Roadmap](../PLAN.md) - Task tracking and progress
 - [Architecture Overview](./architecture/OVERVIEW.md) - System design and data models
 

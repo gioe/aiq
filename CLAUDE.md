@@ -12,7 +12,7 @@ AIQ is a monorepo containing an iOS app, FastAPI backend, and AI-powered questio
 
 | Resource | Location | Purpose |
 |----------|----------|---------|
-| **Setup & Development** | [DEVELOPMENT.md](DEVELOPMENT.md) | Environment setup, build commands, git workflow |
+| **Setup & Development** | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Environment setup, build commands, git workflow |
 | **Project Plans** | [docs/plans/](docs/plans/) | Feature-specific implementation plans |
 | **Backend Details** | [backend/README.md](backend/README.md) | API endpoints, admin API, validity system |
 | **iOS Architecture** | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | MVVM patterns, services, data flow |
