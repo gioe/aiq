@@ -784,14 +784,14 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-048: Document Async Session Compatibility
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #335 comment
 **Files:** `backend/app/core/db_error_handling.py`
 **Description:** Document that the decorator's isinstance check may not work with SQLAlchemy async sessions.
 **Original Comment:** "The decorator's isinstance check could potentially fail with SQLAlchemy async sessions. Consider: Checking for Session base class, Using Protocol/ABC if supporting async sessions in future, Documenting that only sync sessions are supported."
 **Acceptance Criteria:**
-- [ ] Add note in docstring about sync-only session support
-- [ ] Consider Protocol-based check for future async support
+- [x] Add note in docstring about sync-only session support
+- [x] Consider Protocol-based check for future async support
 
 ---
 
