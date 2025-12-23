@@ -9,6 +9,17 @@ Key Features:
 - Automatic cleanup of finished processes
 - Graceful shutdown of all running processes
 - Status reporting for individual and all processes
+- Opportunistic cleanup of old finished jobs to prevent memory leaks
+
+Automatic Cleanup Behavior (BCQ-049):
+    The registry performs opportunistic cleanup of finished jobs older than
+    1 hour (configurable) when list_jobs() or get_stats() is called. This
+    prevents memory leaks in long-running applications without requiring
+    manual cleanup calls. The cleanup is performed automatically and silently
+    to avoid impacting the primary operation's performance.
+
+    To disable opportunistic cleanup, pass `opportunistic_cleanup=False` to
+    list_jobs() or get_stats(). Manual cleanup is available via cleanup_finished().
 
 Usage:
     from app.core.process_registry import process_registry
@@ -19,10 +30,13 @@ Usage:
     # Get status of a specific job
     status = process_registry.get_job_status(job_id)
 
-    # List all running jobs
+    # List all running jobs (automatically cleans up old finished jobs)
     jobs = process_registry.list_jobs()
 
-    # Cleanup finished processes
+    # List jobs without opportunistic cleanup
+    jobs = process_registry.list_jobs(opportunistic_cleanup=False)
+
+    # Cleanup finished processes manually
     process_registry.cleanup_finished()
 
     # Shutdown all processes (call on application shutdown)
@@ -34,11 +48,15 @@ import signal
 import subprocess
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# Default maximum age for finished jobs before opportunistic cleanup removes them
+# 1 hour is sufficient to allow for manual inspection while preventing memory leaks
+DEFAULT_CLEANUP_MAX_AGE_HOURS = 1
 
 
 class JobStatus(str, Enum):
@@ -64,9 +82,9 @@ class JobInfo:
     status: JobStatus = JobStatus.RUNNING
     exit_code: Optional[int] = None
     finished_at: Optional[datetime] = None
-    metadata: Dict = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert job info to dictionary for API responses."""
         return {
             "job_id": self.job_id,
@@ -263,6 +281,7 @@ class ProcessRegistry:
         job_type: Optional[str] = None,
         status: Optional[JobStatus] = None,
         include_finished: bool = True,
+        opportunistic_cleanup: bool = True,
     ) -> List[JobInfo]:
         """
         List all registered jobs, optionally filtered.
@@ -271,10 +290,17 @@ class ProcessRegistry:
             job_type: Filter by job type (e.g., "question_generation")
             status: Filter by status
             include_finished: Whether to include finished jobs
+            opportunistic_cleanup: If True (default), automatically remove
+                finished jobs older than DEFAULT_CLEANUP_MAX_AGE_HOURS to
+                prevent memory leaks in long-running applications.
 
         Returns:
             List of JobInfo for matching jobs
         """
+        # Perform opportunistic cleanup of old finished jobs (BCQ-049)
+        if opportunistic_cleanup:
+            self._cleanup_old_finished_jobs()
+
         results = []
 
         with self._registry_lock:
@@ -319,6 +345,51 @@ class ProcessRegistry:
 
         if to_remove:
             logger.info(f"Cleaned up {len(to_remove)} finished processes")
+
+        return len(to_remove)
+
+    def _cleanup_old_finished_jobs(
+        self, max_age_hours: float = DEFAULT_CLEANUP_MAX_AGE_HOURS
+    ) -> int:
+        """
+        Remove finished jobs older than the specified age (BCQ-049).
+
+        This is an internal method called opportunistically by list_jobs()
+        and get_stats() to prevent memory leaks in long-running applications.
+        Unlike cleanup_finished(), this only removes jobs that have been
+        finished for longer than max_age_hours, preserving recent finished
+        jobs for inspection.
+
+        Args:
+            max_age_hours: Maximum age in hours for finished jobs.
+                Jobs finished more than this long ago will be removed.
+
+        Returns:
+            Number of old finished jobs cleaned up
+        """
+        to_remove = []
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+
+        with self._registry_lock:
+            for job_id, (process, job_info) in self._processes.items():
+                self._update_job_status(process, job_info)
+
+                # Only consider finished jobs (not running)
+                if job_info.status == JobStatus.RUNNING:
+                    continue
+
+                # Remove if finished_at is older than cutoff
+                if job_info.finished_at and job_info.finished_at < cutoff_time:
+                    to_remove.append(job_id)
+
+            for job_id in to_remove:
+                del self._processes[job_id]
+
+        if to_remove:
+            logger.debug(
+                f"Opportunistic cleanup: removed {len(to_remove)} finished jobs "
+                f"older than {max_age_hours} hour(s)"
+            )
 
         return len(to_remove)
 
@@ -428,13 +499,22 @@ class ProcessRegistry:
         logger.info(f"Shutdown complete. Terminated {terminated} processes")
         return terminated
 
-    def get_stats(self) -> Dict:
+    def get_stats(self, opportunistic_cleanup: bool = True) -> Dict[str, Any]:
         """
         Get statistics about registered processes.
+
+        Args:
+            opportunistic_cleanup: If True (default), automatically remove
+                finished jobs older than DEFAULT_CLEANUP_MAX_AGE_HOURS to
+                prevent memory leaks in long-running applications.
 
         Returns:
             Dictionary with process statistics
         """
+        # Perform opportunistic cleanup of old finished jobs (BCQ-049)
+        if opportunistic_cleanup:
+            self._cleanup_old_finished_jobs()
+
         with self._registry_lock:
             running = 0
             completed = 0
