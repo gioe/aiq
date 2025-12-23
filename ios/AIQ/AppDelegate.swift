@@ -1,3 +1,5 @@
+import FirebaseCore
+import FirebaseCrashlytics
 import UIKit
 import UserNotifications
 
@@ -8,6 +10,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _: UIApplication,
         didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Initialize Firebase
+        FirebaseApp.configure()
+
         // Set notification delegate
         UNUserNotificationCenter.current().delegate = self
 
