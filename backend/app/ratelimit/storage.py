@@ -224,6 +224,8 @@ class RedisStorage(RateLimiterStorage):
         import json
         import logging
 
+        # Store redis module reference to avoid repeated imports in methods
+        self._redis_module = redis
         self._json = json
         self._logger = logging.getLogger(__name__)
 
@@ -245,7 +247,7 @@ class RedisStorage(RateLimiterStorage):
         try:
             self._redis.ping()
             self._logger.info("Successfully connected to Redis for rate limiting")
-        except redis.ConnectionError as e:
+        except self._redis_module.ConnectionError as e:
             self._logger.warning(
                 f"Could not connect to Redis on startup: {e}. "
                 "Rate limiting will fail until Redis is available."
@@ -265,15 +267,13 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             Stored value or None if not found or on error
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             value = self._redis.get(self._make_key(key))
             if value is None:
                 return None
             # redis-py returns bytes for sync client
             return self._json.loads(value.decode("utf-8"))  # type: ignore[union-attr]
-        except redis.RedisError as e:
+        except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during get({key}): {e}")
             return None
         except (ValueError, self._json.JSONDecodeError) as e:
@@ -289,8 +289,6 @@ class RedisStorage(RateLimiterStorage):
             value: Value to store (must be JSON-serializable)
             ttl: Time-to-live in seconds (None = no expiration)
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             serialized = self._json.dumps(value)
             full_key = self._make_key(key)
@@ -299,7 +297,7 @@ class RedisStorage(RateLimiterStorage):
                 self._redis.setex(full_key, ttl, serialized)
             else:
                 self._redis.set(full_key, serialized)
-        except redis.RedisError as e:
+        except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during set({key}): {e}")
         except (TypeError, ValueError) as e:
             self._logger.error(f"JSON encode error during set({key}): {e}")
@@ -311,11 +309,9 @@ class RedisStorage(RateLimiterStorage):
         Args:
             key: Storage key to delete
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             self._redis.delete(self._make_key(key))
-        except redis.RedisError as e:
+        except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during delete({key}): {e}")
 
     def clear(self) -> None:
@@ -325,8 +321,6 @@ class RedisStorage(RateLimiterStorage):
         Only clears keys with the rate limit prefix, not the entire database.
         This is safer for production use where Redis may contain other data.
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             # Use SCAN to safely iterate over keys without blocking
             pattern = f"{self._key_prefix}*"
@@ -339,7 +333,7 @@ class RedisStorage(RateLimiterStorage):
                     self._redis.delete(*keys)
                 if cursor == 0:
                     break
-        except redis.RedisError as e:
+        except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during clear(): {e}")
 
     def get_stats(self) -> dict:
@@ -349,8 +343,6 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             Dict with keys: total_keys, redis_info (subset), connected
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             # Count keys with our prefix
             pattern = f"{self._key_prefix}*"
@@ -373,7 +365,7 @@ class RedisStorage(RateLimiterStorage):
                 "used_memory": info.get("used_memory", 0),  # type: ignore[union-attr]
                 "used_memory_human": info.get("used_memory_human", "unknown"),  # type: ignore[union-attr]
             }
-        except redis.RedisError as e:
+        except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during get_stats(): {e}")
             return {
                 "total_keys": -1,
@@ -388,12 +380,10 @@ class RedisStorage(RateLimiterStorage):
         Returns:
             True if connected and responsive, False otherwise
         """
-        import redis  # type: ignore[import-untyped]
-
         try:
             self._redis.ping()
             return True
-        except redis.RedisError:
+        except self._redis_module.RedisError:
             return False
 
     def close(self) -> None:
