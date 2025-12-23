@@ -10,6 +10,7 @@ Key Features:
 - Graceful shutdown of all running processes
 - Status reporting for individual and all processes
 - Opportunistic cleanup of old finished jobs to prevent memory leaks
+- Shutdown flag to prevent new registrations during shutdown (BCQ-050)
 
 Automatic Cleanup Behavior (BCQ-049):
     The registry performs opportunistic cleanup of finished jobs older than
@@ -20,6 +21,16 @@ Automatic Cleanup Behavior (BCQ-049):
 
     To disable opportunistic cleanup, pass `opportunistic_cleanup=False` to
     list_jobs() or get_stats(). Manual cleanup is available via cleanup_finished().
+
+Shutdown Flag Behavior (BCQ-050):
+    When shutdown_all() is called, a `_shutting_down` flag is set to True
+    at the very start of the method, before any processes are terminated.
+    This prevents new process registrations during the shutdown sequence,
+    which could otherwise lead to orphaned processes or race conditions.
+
+    If register() is called while _shutting_down is True, it raises a
+    RuntimeError with the message: "Cannot register new processes:
+    ProcessRegistry is shutting down"
 
 Usage:
     from app.core.process_registry import process_registry
@@ -40,6 +51,7 @@ Usage:
     process_registry.cleanup_finished()
 
     # Shutdown all processes (call on application shutdown)
+    # NOTE: After shutdown_all(), register() will raise RuntimeError
     process_registry.shutdown_all()
 """
 import atexit
@@ -136,6 +148,7 @@ class ProcessRegistry:
         self._job_counter = 0
         self._initialized = True
         self._shutdown_registered = False
+        self._shutting_down = False
 
         logger.info("ProcessRegistry initialized")
 
@@ -166,7 +179,16 @@ class ProcessRegistry:
 
         Returns:
             JobInfo with the registered job details
+
+        Raises:
+            RuntimeError: If called during shutdown sequence
         """
+        # Prevent new registrations during shutdown (BCQ-050)
+        if self._shutting_down:
+            raise RuntimeError(
+                "Cannot register new processes: ProcessRegistry is shutting down"
+            )
+
         job_id = self._generate_job_id(job_type, process.pid)
 
         job_info = JobInfo(
@@ -431,9 +453,10 @@ class ProcessRegistry:
         Gracefully shutdown all running processes.
 
         This method:
-        1. Sends SIGTERM to all running processes
-        2. Waits up to `timeout` seconds for graceful shutdown
-        3. Sends SIGKILL to any processes still running
+        1. Sets shutdown flag to prevent new registrations (BCQ-050)
+        2. Sends SIGTERM to all running processes
+        3. Waits up to `timeout` seconds for graceful shutdown
+        4. Sends SIGKILL to any processes still running
 
         Args:
             timeout: Seconds to wait for graceful shutdown before force kill
@@ -441,6 +464,9 @@ class ProcessRegistry:
         Returns:
             Number of processes that were terminated
         """
+        # Prevent new registrations during shutdown (BCQ-050)
+        self._shutting_down = True
+
         terminated = 0
         running_processes = []
 
