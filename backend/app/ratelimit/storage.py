@@ -336,35 +336,96 @@ class RedisStorage(RateLimiterStorage):
         except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during clear(): {e}")
 
-    def get_stats(self) -> dict:
+    # Default maximum SCAN iterations before stopping (prevents runaway scans)
+    DEFAULT_MAX_SCAN_ITERATIONS = 10000
+
+    def get_stats(self, max_scan_iterations: Optional[int] = None) -> dict:
         """
         Get storage statistics for monitoring.
 
+        **Performance Warning**: This method uses Redis SCAN to count keys with
+        the rate limit prefix. With millions of keys, this can be slow and
+        impact Redis performance. Expected characteristics:
+
+        - Each SCAN iteration fetches ~100 keys (configurable via count param)
+        - 100,000 keys ≈ 1,000 iterations ≈ 1-2 seconds
+        - 1,000,000 keys ≈ 10,000 iterations ≈ 10-20 seconds
+        - 10,000,000 keys: Consider using max_scan_iterations to limit
+
+        For high-volume production environments, consider:
+        1. Using max_scan_iterations to limit scan depth
+        2. Caching the result and refreshing periodically
+        3. Using Redis INFO keyspace for approximate counts
+
+        Args:
+            max_scan_iterations: Maximum number of SCAN iterations before
+                stopping. If None, defaults to DEFAULT_MAX_SCAN_ITERATIONS
+                (10,000). Set to 0 for unlimited (not recommended for large
+                datasets). When the limit is reached, total_keys will be
+                the count up to that point and 'scan_incomplete' will be True.
+
         Returns:
-            Dict with keys: total_keys, redis_info (subset), connected
+            Dict with keys:
+                - total_keys: Number of rate limit keys found (may be partial
+                  if scan_incomplete is True)
+                - connected: Whether Redis connection is healthy
+                - used_memory: Redis memory usage in bytes
+                - used_memory_human: Human-readable memory usage
+                - scan_incomplete: True if max_scan_iterations was reached
+                  before completing the scan (only present if True)
+                - scan_iterations: Number of SCAN iterations performed
         """
         try:
             # Count keys with our prefix
             pattern = f"{self._key_prefix}*"
             total_keys = 0
             cursor: int = 0
+            iterations = 0
+
+            # Use provided limit or default; 0 means unlimited
+            iteration_limit = (
+                max_scan_iterations
+                if max_scan_iterations is not None
+                else self.DEFAULT_MAX_SCAN_ITERATIONS
+            )
+
+            scan_incomplete = False
             while True:
+                # Check iteration limit (0 = unlimited)
+                if iteration_limit > 0 and iterations >= iteration_limit:
+                    scan_incomplete = True
+                    self._logger.warning(
+                        f"get_stats() scan stopped after {iterations} iterations. "
+                        f"Found {total_keys} keys so far. "
+                        f"Consider increasing max_scan_iterations or using "
+                        f"Redis INFO for approximate counts."
+                    )
+                    break
+
                 # redis-py scan returns (cursor, keys) tuple for sync client
                 result = self._redis.scan(cursor, match=pattern, count=100)
                 cursor, keys = result  # type: ignore[misc]
                 total_keys += len(keys)
+                iterations += 1
+
                 if cursor == 0:
                     break
 
             # Get relevant Redis info
             info = self._redis.info("memory")
 
-            return {
+            stats: Dict[str, Any] = {
                 "total_keys": total_keys,
                 "connected": True,
                 "used_memory": info.get("used_memory", 0),  # type: ignore[union-attr]
                 "used_memory_human": info.get("used_memory_human", "unknown"),  # type: ignore[union-attr]
+                "scan_iterations": iterations,
             }
+
+            if scan_incomplete:
+                stats["scan_incomplete"] = True
+
+            return stats
         except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during get_stats(): {e}")
             return {

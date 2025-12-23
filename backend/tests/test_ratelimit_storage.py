@@ -402,6 +402,86 @@ class TestRedisStorage:
         assert stats["connected"] is False
         assert "error" in stats
 
+    def test_get_stats_includes_scan_iterations(self, mock_redis):
+        """Test that get_stats includes scan_iterations in response."""
+        storage = self.RedisStorage()
+
+        # Mock scan to return some keys over multiple iterations
+        mock_redis["client"].scan.side_effect = [
+            (123, [b"ratelimit:key1", b"ratelimit:key2"]),
+            (456, [b"ratelimit:key3"]),
+            (0, [b"ratelimit:key4"]),  # cursor=0 means done
+        ]
+
+        mock_redis["client"].info.return_value = {
+            "used_memory": 1024000,
+            "used_memory_human": "1000.00K",
+        }
+
+        stats = storage.get_stats()
+
+        assert stats["total_keys"] == 4
+        assert stats["scan_iterations"] == 3
+        assert "scan_incomplete" not in stats  # Scan completed normally
+
+    def test_get_stats_respects_max_scan_iterations(self, mock_redis):
+        """Test that get_stats stops at max_scan_iterations and marks incomplete."""
+        storage = self.RedisStorage()
+
+        # Mock scan to keep returning non-zero cursor (simulating many keys)
+        def scan_generator():
+            cursor = 100
+            while True:
+                yield (cursor, [b"ratelimit:key"])
+                cursor += 1
+
+        gen = scan_generator()
+        mock_redis["client"].scan.side_effect = lambda *args, **kwargs: next(gen)
+
+        mock_redis["client"].info.return_value = {
+            "used_memory": 1024000,
+            "used_memory_human": "1000.00K",
+        }
+
+        # Limit to 5 iterations
+        stats = storage.get_stats(max_scan_iterations=5)
+
+        assert stats["total_keys"] == 5  # 1 key per iteration
+        assert stats["scan_iterations"] == 5
+        assert stats["scan_incomplete"] is True
+        assert stats["connected"] is True
+
+    def test_get_stats_unlimited_scan_with_zero(self, mock_redis):
+        """Test that max_scan_iterations=0 means unlimited scanning."""
+        storage = self.RedisStorage()
+
+        # Mock scan to return keys over 3 iterations
+        mock_redis["client"].scan.side_effect = [
+            (123, [b"ratelimit:key1"]),
+            (456, [b"ratelimit:key2"]),
+            (0, [b"ratelimit:key3"]),  # cursor=0 means done
+        ]
+
+        mock_redis["client"].info.return_value = {
+            "used_memory": 1024000,
+            "used_memory_human": "1000.00K",
+        }
+
+        # 0 means unlimited
+        stats = storage.get_stats(max_scan_iterations=0)
+
+        assert stats["total_keys"] == 3
+        assert stats["scan_iterations"] == 3
+        assert "scan_incomplete" not in stats
+
+    def test_get_stats_uses_default_max_iterations(self, mock_redis):
+        """Test that get_stats uses DEFAULT_MAX_SCAN_ITERATIONS when not specified."""
+        from app.ratelimit.storage import RedisStorage
+
+        # Verify the default constant exists and has expected value
+        assert hasattr(RedisStorage, "DEFAULT_MAX_SCAN_ITERATIONS")
+        assert RedisStorage.DEFAULT_MAX_SCAN_ITERATIONS == 10000
+
     def test_is_connected_true(self, mock_redis):
         """Test is_connected returns True when connected."""
         storage = self.RedisStorage()

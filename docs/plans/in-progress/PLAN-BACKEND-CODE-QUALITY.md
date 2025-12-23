@@ -903,12 +903,12 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-057: Add get_stats Performance Warning
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #358 comment
 **Files:** `backend/app/ratelimit/storage.py`
 **Description:** The `get_stats()` method iterates all keys with SCAN which could be slow with millions of keys.
 **Original Comment:** "get_stats() performance: Iterates all keys with SCAN - could be slow with millions of keys. Consider adding a comment warning about performance on large datasets. Or add optional `max_scan_count` parameter."
 **Acceptance Criteria:**
-- [ ] Add docstring warning about performance with large key counts
-- [ ] Consider adding optional `max_scan_iterations` parameter
-- [ ] Document expected performance characteristics
+- [x] Add docstring warning about performance with large key counts
+- [x] Consider adding optional `max_scan_iterations` parameter
+- [x] Document expected performance characteristics
