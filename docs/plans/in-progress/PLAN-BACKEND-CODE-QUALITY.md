@@ -862,14 +862,14 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 ---
 
 ### BCQ-054: Remove or Implement Placeholder ImportError Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #358 comment
 **Files:** `backend/tests/test_ratelimit_storage.py:433-442`
 **Description:** The TestRedisStorageImportError test is a placeholder that doesn't actually test the ImportError behavior.
 **Original Comment:** "The ImportError test is a placeholder that doesn't actually test anything... Either: 1. Remove the placeholder test entirely, 2. Or implement it properly using `importlib.reload()`, 3. Or add a comment explaining why it's not testable in the current setup"
 **Acceptance Criteria:**
-- [ ] Either remove test_init_raises_import_error placeholder
-- [ ] OR implement proper test using importlib.reload()
+- [x] Either remove test_init_raises_import_error placeholder
+- [x] OR implement proper test using importlib.reload()
 - [ ] OR add explanatory comment why it cannot be properly tested
 
 ---
