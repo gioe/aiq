@@ -1132,6 +1132,13 @@ def validate_meets_threshold_consistency(self) -> Self:
 - Fallback to memory: If Redis is unavailable, the system automatically falls back to in-memory storage (with a warning log). Rate limits won't be shared across workers in this mode.
 - To enable Redis: Uncomment `redis==5.0.1` in requirements.txt and set env vars
 
+**Tracing 500 errors**:
+- All unhandled exceptions return a unique `error_id` (UUID) in the response body
+- The same `error_id` is logged with the full stack trace in the server logs
+- To trace an error: Search logs for `error_id=<uuid>` to find the full exception details
+- Example response: `{"detail": "Internal server error. Please try again later.", "error_id": "abc123..."}`
+- Example log search: `grep "error_id=abc123" /var/log/aiq/backend.log`
+
 ## Additional Documentation
 
 - `README.md` - Project overview and component structure

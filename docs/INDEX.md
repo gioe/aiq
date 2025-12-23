@@ -45,6 +45,7 @@ Each component has its own README with quick start guides:
 Detailed plans for major features:
 
 ### Complete
+- [Backend Code Quality](./plans/complete/PLAN-BACKEND-CODE-QUALITY.md) - 40 code quality improvements covering security, performance, and maintainability ✅
 - [Empirical Calibration](../backend/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md) - Difficulty label validation and recalibration based on empirical p-values ✅
 - [Distractor Analysis](./plans/complete/PLAN-DISTRACTOR-ANALYSIS.md) - Multiple-choice distractor effectiveness analysis ✅
 - [Item Discrimination Analysis](./plans/complete/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md) - Auto-flagging and exclusion of questions with poor discrimination ✅

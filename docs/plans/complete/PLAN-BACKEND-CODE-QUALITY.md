@@ -1,5 +1,7 @@
 # Implementation Plan: Backend Code Quality Improvements
 
+**Status:** ✅ COMPLETE
+**Completed:** 2025-12-23
 **Source:** docs/gaps/BACKEND-CODE-QUALITY.md
 **Task Prefix:** BCQ
 **Generated:** 2025-12-19
@@ -309,7 +311,7 @@ This plan addresses 36 issues identified by coordinated review from FastAPI Arch
 - [x] Generate UUID error_id on exception
 - [x] Log exception with error_id
 - [x] Include error_id in response body
-- [ ] Document how to trace errors in support docs
+- [x] Document how to trace errors in support docs (added to CLAUDE.md Troubleshooting)
 
 ---
 
@@ -867,9 +869,9 @@ This plan consolidates findings from three specialized agents plus a follow-up m
 **Files:** `backend/tests/test_ratelimit_storage.py:433-442`
 **Description:** The TestRedisStorageImportError test is a placeholder that doesn't actually test the ImportError behavior.
 **Original Comment:** "The ImportError test is a placeholder that doesn't actually test anything... Either: 1. Remove the placeholder test entirely, 2. Or implement it properly using `importlib.reload()`, 3. Or add a comment explaining why it's not testable in the current setup"
-**Acceptance Criteria:**
-- [x] Either remove test_init_raises_import_error placeholder
-- [x] OR implement proper test using importlib.reload()
+**Acceptance Criteria:** (alternatives - only one required)
+- [ ] Either remove test_init_raises_import_error placeholder
+- [x] OR implement proper test using importlib.reload() ← Implemented via builtins.__import__ patching
 - [ ] OR add explanatory comment why it cannot be properly tested
 
 ---
