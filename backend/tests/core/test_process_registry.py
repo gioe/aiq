@@ -808,63 +808,6 @@ class TestShutdownFlag:
             process.terminate()
             process.wait()
 
-    def test_register_fails_after_shutdown_initiated(self, fresh_registry):
-        """Test that register() fails after shutdown has been initiated."""
-        # Create a running process first
-        running_process = subprocess.Popen(
-            [sys.executable, "-c", "import time; time.sleep(60)"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        try:
-            # Register the first process successfully
-            fresh_registry.register(process=running_process, job_type="first")
-
-            # Start shutdown in a separate thread (don't wait for completion)
-            import threading
-
-            shutdown_started = threading.Event()
-
-            def start_shutdown():
-                shutdown_started.set()
-                fresh_registry.shutdown_all(timeout=0.5)
-
-            shutdown_thread = threading.Thread(target=start_shutdown)
-            shutdown_thread.start()
-
-            # Wait for shutdown to start
-            shutdown_started.wait(timeout=1.0)
-
-            # Give a tiny bit of time for the flag to be set
-            import time
-
-            time.sleep(0.05)
-
-            # Create a new process to try to register
-            new_process = subprocess.Popen(
-                [sys.executable, "-c", "print('done')"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-
-            try:
-                # Attempt to register should raise RuntimeError
-                with pytest.raises(RuntimeError) as exc_info:
-                    fresh_registry.register(process=new_process, job_type="second")
-
-                assert "shutting down" in str(exc_info.value).lower()
-            finally:
-                new_process.terminate()
-                new_process.wait()
-
-            # Wait for shutdown to complete
-            shutdown_thread.join(timeout=5.0)
-
-        finally:
-            running_process.terminate()
-            running_process.wait()
-
     def test_shutdown_flag_prevents_race_condition(self, fresh_registry):
         """Test that shutdown flag prevents registration during active shutdown."""
         import threading
