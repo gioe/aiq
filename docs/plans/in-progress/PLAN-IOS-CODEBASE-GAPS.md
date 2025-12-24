@@ -135,15 +135,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-012: Migrate DashboardView Navigation
-**Status:** [ ] Not Started
-**Files:** `Views/Dashboard/DashboardView.swift`
+**Status:** [x] Complete
+**Files:** `Views/Dashboard/DashboardView.swift`, `Views/Common/MainTabView.swift`
 **Description:** Replace sheet/fullScreenCover modifiers with AppRouter calls.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All sheet/fullScreenCover modifiers replaced with router calls
-- [ ] Navigation state removed from ViewModel
-- [ ] Back navigation works correctly
-- [ ] Deep state restoration supported
+- [x] All sheet/fullScreenCover modifiers replaced with router calls
+- [x] Navigation state removed from DashboardView
+- [x] Back navigation works correctly
+- [x] Deep state restoration supported
 
 ---
 

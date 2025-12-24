@@ -4,7 +4,7 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @StateObject private var authManager = AuthManager.shared
-    @State private var navigateToTest = false
+    @Environment(\.appRouter) var router
 
     var body: some View {
         ZStack {
@@ -38,9 +38,6 @@ struct DashboardView: View {
         }
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.large)
-        .navigationDestination(isPresented: $navigateToTest) {
-            TestTakingView()
-        }
         .task {
             await viewModel.fetchDashboardData()
         }
@@ -61,7 +58,7 @@ struct DashboardView: View {
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
                             viewModel.trackTestResumed()
-                            navigateToTest = true
+                            router.push(.testTaking)
                         },
                         onAbandon: {
                             await viewModel.abandonActiveTest()
@@ -258,7 +255,7 @@ struct DashboardView: View {
 
             // Action button
             Button {
-                navigateToTest = true
+                router.push(.testTaking)
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
@@ -314,7 +311,7 @@ struct DashboardView: View {
                         session: activeSession,
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
-                            navigateToTest = true
+                            router.push(.testTaking)
                         },
                         onAbandon: {
                             await viewModel.abandonActiveTest()
@@ -334,7 +331,7 @@ struct DashboardView: View {
                         """,
                     actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
                     action: {
-                        navigateToTest = true
+                        router.push(.testTaking)
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
