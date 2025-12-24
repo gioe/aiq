@@ -85,17 +85,17 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-008: Create DeepLinkHandler
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Navigation/DeepLinkHandler.swift` (new), `AIQTests/Services/DeepLinkHandlerTests.swift` (new)
 **Description:** Create DeepLinkHandler to parse URL schemes and universal links into structured navigation commands.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] DeepLinkHandler parses URL schemes (aiq://)
-- [ ] DeepLinkHandler parses universal links (https://aiq.app/...)
-- [ ] Returns structured DeepLink enum with associated data
-- [ ] Unit tests for URL scheme parsing
-- [ ] Unit tests for universal link parsing
-- [ ] Unit tests for invalid URL handling
+- [x] DeepLinkHandler parses URL schemes (aiq://)
+- [x] DeepLinkHandler parses universal links (https://aiq.app/...)
+- [x] Returns structured DeepLink enum with associated data
+- [x] Unit tests for URL scheme parsing
+- [x] Unit tests for universal link parsing
+- [x] Unit tests for invalid URL handling
 
 ---
 
