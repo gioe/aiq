@@ -502,8 +502,8 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = sut.parse(url)
 
         // Then
-        // Negative IDs should be parsed (validation is not DeepLinkHandler's responsibility)
-        XCTAssertEqual(result, .testResults(id: -123), "should parse negative IDs")
+        // Negative IDs are invalid - database IDs must be positive
+        XCTAssertEqual(result, .invalid, "should reject negative IDs")
     }
 
     func testParse_URLWithZeroID_URLScheme() {
@@ -514,7 +514,142 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = sut.parse(url)
 
         // Then
-        XCTAssertEqual(result, .testResults(id: 0), "should parse zero as valid ID")
+        // Zero is invalid - database IDs must be positive
+        XCTAssertEqual(result, .invalid, "should reject zero as ID")
+    }
+
+    func testParse_URLWithNegativeSessionID_URLScheme() {
+        // Given
+        let url = URL(string: "aiq://test/resume/-456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Negative session IDs are invalid
+        XCTAssertEqual(result, .invalid, "should reject negative session IDs")
+    }
+
+    func testParse_URLWithZeroSessionID_URLScheme() {
+        // Given
+        let url = URL(string: "aiq://test/resume/0")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Zero is invalid - database IDs must be positive
+        XCTAssertEqual(result, .invalid, "should reject zero as session ID")
+    }
+
+    // MARK: - Integer Overflow Edge Case Tests
+
+    func testParse_URLWithIntegerOverflow_URLScheme() {
+        // Given - value exceeding Int.max
+        let url = URL(string: "aiq://test/results/99999999999999999999999999999")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Integer overflow should return invalid (Int parsing fails)
+        XCTAssertEqual(result, .invalid, "should reject integer overflow values")
+    }
+
+    func testParse_URLWithIntegerOverflow_UniversalLink() {
+        // Given - value exceeding Int.max
+        let url = URL(string: "https://aiq.app/test/resume/99999999999999999999999999999")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should reject integer overflow values in universal links")
+    }
+
+    // MARK: - Decimal Value Edge Case Tests
+
+    func testParse_URLWithDecimalID_URLScheme() {
+        // Given
+        let url = URL(string: "aiq://test/results/123.456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Decimal values should return invalid (Int parsing fails)
+        XCTAssertEqual(result, .invalid, "should reject decimal IDs")
+    }
+
+    func testParse_URLWithDecimalSessionID_URLScheme() {
+        // Given
+        let url = URL(string: "aiq://test/resume/456.789")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should reject decimal session IDs")
+    }
+
+    func testParse_URLWithDecimalID_UniversalLink() {
+        // Given
+        let url = URL(string: "https://aiq.app/test/results/123.456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should reject decimal IDs in universal links")
+    }
+
+    // MARK: - URL Encoding Edge Case Tests
+
+    func testParse_URLWithEncodedSpaces_URLScheme() {
+        // Given - ID with URL-encoded spaces
+        let url = URL(string: "aiq://test/results/123%20456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // URL-encoded spaces should fail Int parsing
+        XCTAssertEqual(result, .invalid, "should reject IDs with encoded spaces")
+    }
+
+    func testParse_URLWithEncodedSpecialChars_URLScheme() {
+        // Given - ID with URL-encoded special characters
+        let url = URL(string: "aiq://test/results/123%2F456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // URL-encoded special characters should fail Int parsing
+        XCTAssertEqual(result, .invalid, "should reject IDs with encoded special characters")
+    }
+
+    func testParse_URLWithEncodedPath_UniversalLink() {
+        // Given - path with URL-encoded characters
+        let url = URL(string: "https://aiq.app/test/results/123%00456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // URL with null byte should be handled gracefully
+        XCTAssertEqual(result, .invalid, "should reject IDs with encoded null bytes")
+    }
+
+    func testParse_URLWithPlusSign_URLScheme() {
+        // Given - ID with plus sign (sometimes used as space encoding)
+        let url = URL(string: "aiq://test/results/123+456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should reject IDs with plus signs")
     }
 
     // MARK: - DeepLink Equality Tests

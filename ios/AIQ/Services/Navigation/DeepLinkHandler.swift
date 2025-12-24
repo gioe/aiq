@@ -1,4 +1,44 @@
 import Foundation
+import os
+
+/// Error types for deep link parsing failures
+enum DeepLinkError: LocalizedError {
+    case unrecognizedSchemeOrHost(url: String)
+    case emptyPath(url: String)
+    case unrecognizedRoute(route: String, url: String)
+    case missingTestActionOrID(url: String)
+    case invalidTestResultsID(identifier: String, url: String)
+    case nonPositiveTestResultsID(id: Int, url: String)
+    case invalidSessionID(identifier: String, url: String)
+    case nonPositiveSessionID(id: Int, url: String)
+    case unrecognizedTestAction(action: String, url: String)
+    case settingsSubPathNotAllowed(url: String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unrecognizedSchemeOrHost(url):
+            "Unrecognized scheme or host: \(url)"
+        case let .emptyPath(url):
+            "Empty path in universal link: \(url)"
+        case let .unrecognizedRoute(route, url):
+            "Unrecognized route '\(route)': \(url)"
+        case let .missingTestActionOrID(url):
+            "Test route requires action and ID: \(url)"
+        case let .invalidTestResultsID(identifier, url):
+            "Test results requires numeric ID, got '\(identifier)': \(url)"
+        case let .nonPositiveTestResultsID(id, url):
+            "Test results ID must be positive, got '\(id)': \(url)"
+        case let .invalidSessionID(identifier, url):
+            "Test resume requires numeric sessionId, got '\(identifier)': \(url)"
+        case let .nonPositiveSessionID(id, url):
+            "Session ID must be positive, got '\(id)': \(url)"
+        case let .unrecognizedTestAction(action, url):
+            "Unrecognized test action '\(action)': \(url)"
+        case let .settingsSubPathNotAllowed(url):
+            "Settings route does not accept sub-paths: \(url)"
+        }
+    }
+}
 
 /// Represents a parsed deep link destination with associated data
 ///
@@ -55,6 +95,9 @@ struct DeepLinkHandler {
     /// Universal link host (aiq.app)
     private static let universalLinkHost = "aiq.app"
 
+    /// Logger for deep link parsing events
+    private static let logger = Logger(subsystem: "com.aiq.app", category: "DeepLink")
+
     // MARK: - Public API
 
     /// Parse a URL into a structured DeepLink
@@ -69,10 +112,17 @@ struct DeepLinkHandler {
             return parseUniversalLink(url)
         }
 
+        recordInvalidDeepLink(.unrecognizedSchemeOrHost(url: url.absoluteString))
         return .invalid
     }
 
     // MARK: - Private Helpers
+
+    /// Records a deep link parsing failure to both logger and Crashlytics
+    private func recordInvalidDeepLink(_ error: DeepLinkError) {
+        Self.logger.warning("\(error.localizedDescription, privacy: .public)")
+        CrashlyticsErrorRecorder.recordError(error, context: .deepLinkParse)
+    }
 
     /// Parse a URL scheme link (aiq://...)
     private func parseURLScheme(_ url: URL) -> DeepLink {
@@ -81,7 +131,7 @@ struct DeepLinkHandler {
         let host = url.host ?? ""
         let pathComponents = url.pathComponents.filter { $0 != "/" }
 
-        return parsePathComponents(host: host, pathComponents: pathComponents)
+        return parsePathComponents(host: host, pathComponents: pathComponents, originalURL: url)
     }
 
     /// Parse a universal link (https://aiq.app/...)
@@ -92,13 +142,14 @@ struct DeepLinkHandler {
 
         // Extract host (first component) and remaining path
         guard !pathComponents.isEmpty else {
+            recordInvalidDeepLink(.emptyPath(url: url.absoluteString))
             return .invalid
         }
 
         let host = pathComponents[0]
         let remainingComponents = Array(pathComponents.dropFirst())
 
-        return parsePathComponents(host: host, pathComponents: remainingComponents)
+        return parsePathComponents(host: host, pathComponents: remainingComponents, originalURL: url)
     }
 
     /// Parse path components into a DeepLink
@@ -106,15 +157,17 @@ struct DeepLinkHandler {
     /// - Parameters:
     ///   - host: The first path component (e.g., "test", "settings")
     ///   - pathComponents: The remaining path components
+    ///   - originalURL: The original URL for logging purposes
     /// - Returns: A parsed DeepLink or .invalid
-    private func parsePathComponents(host: String, pathComponents: [String]) -> DeepLink {
+    private func parsePathComponents(host: String, pathComponents: [String], originalURL: URL) -> DeepLink {
         switch host {
         case "test":
-            parseTestRoute(pathComponents: pathComponents)
+            return parseTestRoute(pathComponents: pathComponents, originalURL: originalURL)
         case "settings":
-            parseSettingsRoute(pathComponents: pathComponents)
+            return parseSettingsRoute(pathComponents: pathComponents, originalURL: originalURL)
         default:
-            .invalid
+            recordInvalidDeepLink(.unrecognizedRoute(route: host, url: originalURL.absoluteString))
+            return .invalid
         }
     }
 
@@ -123,8 +176,9 @@ struct DeepLinkHandler {
     /// Supported patterns:
     /// - test/results/{id}
     /// - test/resume/{sessionId}
-    private func parseTestRoute(pathComponents: [String]) -> DeepLink {
+    private func parseTestRoute(pathComponents: [String], originalURL: URL) -> DeepLink {
         guard pathComponents.count >= 2 else {
+            recordInvalidDeepLink(.missingTestActionOrID(url: originalURL.absoluteString))
             return .invalid
         }
 
@@ -135,6 +189,12 @@ struct DeepLinkHandler {
         case "results":
             // Parse test results ID
             guard let id = Int(identifier) else {
+                recordInvalidDeepLink(.invalidTestResultsID(identifier: identifier, url: originalURL.absoluteString))
+                return .invalid
+            }
+            // Validate ID is positive (database IDs are always > 0)
+            guard id > 0 else {
+                recordInvalidDeepLink(.nonPositiveTestResultsID(id: id, url: originalURL.absoluteString))
                 return .invalid
             }
             return .testResults(id: id)
@@ -142,11 +202,18 @@ struct DeepLinkHandler {
         case "resume":
             // Parse session ID
             guard let sessionId = Int(identifier) else {
+                recordInvalidDeepLink(.invalidSessionID(identifier: identifier, url: originalURL.absoluteString))
+                return .invalid
+            }
+            // Validate session ID is positive (database IDs are always > 0)
+            guard sessionId > 0 else {
+                recordInvalidDeepLink(.nonPositiveSessionID(id: sessionId, url: originalURL.absoluteString))
                 return .invalid
             }
             return .resumeTest(sessionId: sessionId)
 
         default:
+            recordInvalidDeepLink(.unrecognizedTestAction(action: action, url: originalURL.absoluteString))
             return .invalid
         }
     }
@@ -155,9 +222,10 @@ struct DeepLinkHandler {
     ///
     /// Supported pattern:
     /// - settings
-    private func parseSettingsRoute(pathComponents: [String]) -> DeepLink {
+    private func parseSettingsRoute(pathComponents: [String], originalURL: URL) -> DeepLink {
         // Settings route should have no additional path components
         guard pathComponents.isEmpty else {
+            recordInvalidDeepLink(.settingsSubPathNotAllowed(url: originalURL.absoluteString))
             return .invalid
         }
         return .settings
