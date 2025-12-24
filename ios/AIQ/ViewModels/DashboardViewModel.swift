@@ -103,7 +103,7 @@ class DashboardViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error) {
+            handleError(error, context: .abandonTest) {
                 await self.abandonActiveTest()
             }
         }
@@ -133,9 +133,8 @@ class DashboardViewModel: BaseViewModel {
             updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
 
         } catch {
-            #if DEBUG
-                print("⚠️ Failed to fetch test history: \(error)")
-            #endif
+            // Record non-fatal error to Crashlytics for production monitoring
+            CrashlyticsErrorRecorder.recordError(error, context: .fetchDashboard)
             // Set empty state on error
             updateDashboardState(with: [], totalCount: 0)
         }
@@ -160,9 +159,8 @@ class DashboardViewModel: BaseViewModel {
             updateActiveSessionState(response)
 
         } catch {
-            #if DEBUG
-                print("⚠️ Failed to fetch active session: \(error)")
-            #endif
+            // Record non-fatal error to Crashlytics for production monitoring
+            CrashlyticsErrorRecorder.recordError(error, context: .fetchActiveSession)
             // Clear active session state on error
             updateActiveSessionState(nil)
         }

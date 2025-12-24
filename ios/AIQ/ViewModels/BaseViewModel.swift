@@ -14,11 +14,24 @@ class BaseViewModel: ObservableObject {
 
     init() {}
 
-    /// Handle errors and set them for display
-    func handleError(_ error: Error, retryOperation: (() async -> Void)? = nil) {
+    /// Handle errors and set them for display.
+    /// Also records non-fatal errors to Crashlytics for production monitoring.
+    ///
+    /// - Parameters:
+    ///   - error: The error to handle
+    ///   - context: The Crashlytics context for categorizing the error
+    ///   - retryOperation: Optional closure to retry the failed operation
+    func handleError(
+        _ error: Error,
+        context: CrashlyticsErrorRecorder.ErrorContext = .unknown,
+        retryOperation: (() async -> Void)? = nil
+    ) {
         isLoading = false
         self.error = error
         lastFailedOperation = retryOperation
+
+        // Record to Crashlytics for production monitoring
+        CrashlyticsErrorRecorder.recordError(error, context: context)
 
         // Check if error is retryable
         if let apiError = error as? APIError {

@@ -213,9 +213,9 @@ class TestTakingViewModel: BaseViewModel {
             error: error,
             operation: .fetchQuestions
         )
-        handleError(contextualError, retryOperation: { [weak self] in
+        handleError(contextualError, context: .startTest) { [weak self] in
             await self?.startTest(questionCount: questionCount)
-        })
+        }
 
         #if DEBUG
             print("Failed to load questions from API, falling back to mock data: \(error)")
@@ -229,9 +229,9 @@ class TestTakingViewModel: BaseViewModel {
             error: .unknown(),
             operation: .fetchQuestions
         )
-        handleError(contextualError, retryOperation: { [weak self] in
+        handleError(contextualError, context: .startTest) { [weak self] in
             await self?.startTest(questionCount: questionCount)
-        })
+        }
 
         #if DEBUG
             print("Failed to load questions from API: \(error)")
@@ -342,7 +342,7 @@ class TestTakingViewModel: BaseViewModel {
             error: error as? APIError ?? .unknown(),
             operation: .fetchQuestions
         )
-        handleError(contextualError)
+        handleError(contextualError, context: .resumeTest)
 
         #if DEBUG
             print("❌ Failed to resume session \(sessionId): \(error)")
@@ -386,7 +386,7 @@ class TestTakingViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(),
                 operation: .submitTest
             )
-            handleError(contextualError)
+            handleError(contextualError, context: .abandonTest)
 
             #if DEBUG
                 print("❌ Failed to abandon session \(sessionId): \(error)")
@@ -543,9 +543,9 @@ class TestTakingViewModel: BaseViewModel {
             operation: .submitTest
         )
 
-        handleError(contextualError, retryOperation: { [weak self] in
+        handleError(contextualError, context: .submitTest) { [weak self] in
             await self?.submitTest()
-        })
+        }
 
         #if DEBUG
             print("❌ Failed to submit test: \(error)")
@@ -599,9 +599,9 @@ class TestTakingViewModel: BaseViewModel {
                 operation: .submitTest // Reusing submitTest operation for consistency
             )
 
-            handleError(contextualError, retryOperation: { [weak self] in
+            handleError(contextualError, context: .abandonTest) { [weak self] in
                 await self?.abandonTest()
-            })
+            }
 
             #if DEBUG
                 print("❌ Failed to abandon test: \(error)")
@@ -663,9 +663,8 @@ class TestTakingViewModel: BaseViewModel {
                 print("✅ Auto-saved test progress: \(userAnswers.count) answers")
             #endif
         } catch {
-            #if DEBUG
-                print("❌ Failed to save progress: \(error)")
-            #endif
+            // Record non-fatal error to Crashlytics for production monitoring
+            CrashlyticsErrorRecorder.recordError(error, context: .localSave)
         }
     }
 

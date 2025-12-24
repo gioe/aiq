@@ -60,7 +60,7 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error) {
+            handleError(error, context: .notificationPreferences) {
                 await self.loadNotificationPreferences()
             }
         }
@@ -89,7 +89,7 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error) {
+            handleError(error, context: .notificationPreferences) {
                 await self.toggleNotifications()
             }
         }
@@ -226,7 +226,8 @@ class NotificationSettingsViewModel: BaseViewModel {
             let response = try await notificationService.updateNotificationPreferences(enabled: false)
             notificationEnabled = response.notificationEnabled
         } catch {
-            print("❌ [NotificationSettings] Failed to sync backend notification state: \(error)")
+            // Record non-fatal error to Crashlytics for production monitoring
+            CrashlyticsErrorRecorder.recordError(error, context: .notificationPreferences)
         }
     }
 }

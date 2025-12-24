@@ -99,9 +99,9 @@ class HistoryViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(),
                 operation: .fetchHistory
             )
-            handleError(contextualError, retryOperation: { [weak self] in
+            handleError(contextualError, context: .fetchHistory) { [weak self] in
                 await self?.fetchHistory(forceRefresh: forceRefresh)
-            })
+            }
         }
     }
 
@@ -200,9 +200,9 @@ class HistoryViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(),
                 operation: .fetchHistory
             )
-            handleError(contextualError, retryOperation: { [weak self] in
+            handleError(contextualError, context: .fetchHistory) { [weak self] in
                 await self?.loadMore()
-            })
+            }
         }
     }
 
