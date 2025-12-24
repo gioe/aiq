@@ -100,13 +100,13 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-009: Register URL Schemes in Info.plist
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Info.plist`
 **Description:** Add `aiq://` custom URL scheme to Info.plist.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] `aiq://` URL scheme registered in Info.plist
-- [ ] App responds to `aiq://` URLs from Safari and other apps
+- [x] `aiq://` URL scheme registered in Info.plist
+- [x] App responds to `aiq://` URLs from Safari and other apps
 
 ---
 
