@@ -134,15 +134,15 @@ App Store submission is blocked until P0 items are complete. The current state e
 ---
 
 ### ICG-004: Update AnalyticsService for Backend Integration
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Analytics/AnalyticsService.swift`
 **Dependencies:** ICG-001
 **Description:** Update AnalyticsService to send events to backend `/v1/analytics/events` endpoint.
 **Acceptance Criteria:**
-- [ ] AnalyticsService sends events to backend API
-- [ ] Event payloads match backend schema
-- [ ] Network errors handled gracefully with retry logic
-- [ ] Events logged locally if offline (queue for later sync)
+- [x] AnalyticsService sends events to backend API
+- [x] Event payloads match backend schema
+- [x] Network errors handled gracefully with retry logic
+- [x] Events logged locally if offline (queue for later sync)
 
 ---
 
@@ -1779,6 +1779,22 @@ App Store submission is blocked until P0 items are complete. The current state e
 ---
 
 ## Deferred Items
+
+### ICG-131: Add Unit Tests for AnalyticsService
+**Status:** [ ] Not Started
+**Source:** PR #381 review comment
+**Files:** `ios/AIQTests/Services/AnalyticsServiceTests.swift` (new)
+**Description:** The AnalyticsService implementation in PR #381 has no test coverage. Tests are needed for retry logic, offline queue persistence, optional auth handling, and error scenarios.
+**Original Comment:** "This PR includes ZERO tests for retry logic, offline queue, optional auth, or persistence. This is high-risk given the complexity."
+**Acceptance Criteria:**
+- [ ] Unit tests for submitWithRetry exponential backoff logic
+- [ ] Tests for offline queue persistence (persistEvents/loadPersistedEvents)
+- [ ] Tests for event batch submission success/failure scenarios
+- [ ] Tests for network connectivity handling
+- [ ] Tests for auth token inclusion (optional)
+- [ ] Mock UserDefaults and NetworkMonitor for isolation
+
+---
 
 ### ICG-130: Create SettingsViewModel for MVVM Compliance
 **Status:** [ ] Not Started

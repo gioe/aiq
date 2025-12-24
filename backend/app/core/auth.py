@@ -1,17 +1,24 @@
 """
 FastAPI authentication dependencies.
 """
-from typing import Literal
-from fastapi import Depends
+import logging
+from typing import Literal, Optional
+
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import get_db, User
 from .security import decode_token, verify_token_type
 from .error_responses import ErrorMessages, raise_unauthorized
 
+logger = logging.getLogger(__name__)
+
 # HTTP Bearer token scheme
 security = HTTPBearer()
+# HTTP Bearer token scheme that doesn't fail on missing auth
+security_optional = HTTPBearer(auto_error=False)
 
 # Token types
 TokenType = Literal["access", "refresh"]
@@ -117,3 +124,39 @@ async def get_current_user_from_refresh_token(
     """
     user_id = _decode_and_validate_token(credentials.credentials, "refresh")
     return _get_user_or_401(db, user_id)
+
+
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """
+    Get the current authenticated user if a valid token is provided.
+
+    Unlike get_current_user, this does not fail if no auth token is present.
+    Returns None if no token is provided or if the token is invalid.
+
+    Used for endpoints that support both authenticated and anonymous access,
+    such as analytics event submission.
+
+    Args:
+        credentials: Optional HTTP Bearer token credentials from request header
+        db: Database session
+
+    Returns:
+        User object for the authenticated user, or None if not authenticated
+    """
+    if credentials is None:
+        return None
+
+    try:
+        user_id = _decode_and_validate_token(credentials.credentials, "access")
+        user = db.query(User).filter(User.id == user_id).first()
+        return user
+    except HTTPException:
+        # Token is invalid or wrong type - treat as anonymous
+        return None
+    except SQLAlchemyError as e:
+        # Database errors should not be silently ignored
+        logger.error(f"Database error during optional auth: {e}")
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable")
