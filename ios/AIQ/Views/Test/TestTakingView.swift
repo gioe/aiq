@@ -4,11 +4,10 @@ import SwiftUI
 struct TestTakingView: View {
     @StateObject private var viewModel = TestTakingViewModel()
     @StateObject private var timerManager = TestTimerManager()
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.appRouter) var router
     @State private var showResumeAlert = false
     @State private var showExitConfirmation = false
     @State private var savedProgress: SavedTestProgress?
-    @State private var showResultsView = false
     @State private var activeSessionConflictId: Int?
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
@@ -108,20 +107,12 @@ struct TestTakingView: View {
             Button("Exit", role: .destructive) {
                 Task {
                     await viewModel.abandonTest()
-                    dismiss()
+                    router.popToRoot()
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("You have \(viewModel.answeredCount) unsaved answers. Are you sure you want to exit?")
-        }
-        .sheet(isPresented: $showResultsView) {
-            if let result = viewModel.testResult {
-                TestResultsView(result: result) {
-                    showResultsView = false
-                    dismiss()
-                }
-            }
         }
         .alert("Test in Progress", isPresented: .constant(isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
@@ -150,7 +141,7 @@ struct TestTakingView: View {
                 }
                 Button("Go Back", role: .cancel) {
                     viewModel.clearError()
-                    dismiss()
+                    router.pop()
                 }
             }
         } message: {
@@ -219,8 +210,8 @@ struct TestTakingView: View {
             await viewModel.submitTestForTimeout()
 
             // Navigate to results after submission
-            if viewModel.testResult != nil {
-                showResultsView = true
+            if let result = viewModel.testResult {
+                router.push(.testResults(result: result))
             }
         }
     }
@@ -229,7 +220,7 @@ struct TestTakingView: View {
         if viewModel.answeredCount > 0 && !viewModel.testCompleted {
             showExitConfirmation = true
         } else {
-            dismiss()
+            router.pop()
         }
     }
 
@@ -419,13 +410,15 @@ struct TestTakingView: View {
                 PrimaryButton(
                     title: "View Results",
                     action: {
-                        showResultsView = true
+                        if let result = viewModel.testResult {
+                            router.push(.testResults(result: result))
+                        }
                     },
                     isLoading: false
                 )
 
                 Button("Return to Dashboard") {
-                    dismiss()
+                    router.popToRoot()
                 }
                 .buttonStyle(.bordered)
             }

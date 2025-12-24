@@ -148,15 +148,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-013: Migrate TestTakingView Navigation
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Views/Test/TestTakingView.swift`
 **Description:** Replace navigation state management with AppRouter calls.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All sheet/fullScreenCover modifiers replaced with router calls
-- [ ] Navigation state removed from ViewModel
-- [ ] Back navigation works correctly
-- [ ] Deep state restoration supported
+- [x] All sheet/fullScreenCover modifiers replaced with router calls
+- [x] Navigation state removed from ViewModel
+- [x] Back navigation works correctly
+- [x] Deep state restoration supported
 
 ---
 
