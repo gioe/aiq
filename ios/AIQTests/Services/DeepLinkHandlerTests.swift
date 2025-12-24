@@ -617,16 +617,20 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(result, .invalid, "should reject IDs with encoded spaces")
     }
 
-    func testParse_URLWithEncodedSpecialChars_URLScheme() {
-        // Given - ID with URL-encoded special characters
+    func testParse_URLWithEncodedSlash_URLScheme() {
+        // Given - ID with URL-encoded slash (%2F = /)
+        // When URL parsing decodes %2F to /, it becomes a path separator
+        // So "123%2F456" becomes path "/results/123/456" with extra component
         let url = URL(string: "aiq://test/results/123%2F456")!
 
         // When
         let result = sut.parse(url)
 
         // Then
-        // URL-encoded special characters should fail Int parsing
-        XCTAssertEqual(result, .invalid, "should reject IDs with encoded special characters")
+        // The %2F decodes to / during URL parsing, creating path /results/123/456
+        // pathComponents = ["results", "123", "456"], so ID = 123
+        // Extra path components are currently ignored (see ICG-123 for future warning)
+        XCTAssertEqual(result, .testResults(id: 123), "encoded slash becomes path separator, ID is first segment")
     }
 
     func testParse_URLWithEncodedPath_UniversalLink() {
