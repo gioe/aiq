@@ -147,14 +147,14 @@ App Store submission is blocked until P0 items are complete. The current state e
 ---
 
 ### ICG-005: Add Crashlytics Logging to ViewModels
-**Status:** [ ] Not Started
-**Files:** All ViewModels
+**Status:** [x] Complete
+**Files:** All ViewModels, `Utilities/Helpers/CrashlyticsErrorRecorder.swift` (new)
 **Dependencies:** ICG-002, ICG-003
 **Description:** Replace OSLog with Crashlytics.recordError() in catch blocks across all ViewModel error handlers.
 **Acceptance Criteria:**
-- [ ] All ViewModel error handlers record non-fatal errors to Crashlytics
-- [ ] User-facing errors still logged to OSLog for debugging
-- [ ] No duplicate error logging
+- [x] All ViewModel error handlers record non-fatal errors to Crashlytics
+- [x] User-facing errors still logged to OSLog for debugging
+- [x] No duplicate error logging
 
 ---
 

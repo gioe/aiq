@@ -123,8 +123,8 @@ class RegistrationViewModel: BaseViewModel {
             clearForm()
         } catch {
             // Error is already set via authManager.$authError binding
-            // Just log for debugging
-            print("Registration error: \(error.localizedDescription)")
+            // Record to Crashlytics for production monitoring
+            CrashlyticsErrorRecorder.recordError(error, context: .registration)
         }
     }
 
