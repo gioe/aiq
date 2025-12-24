@@ -1572,3 +1572,44 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Track failed deep link attempts with error type
 - [ ] Include source information (push notification, external app, Safari)
 - [ ] Analytics events visible in backend dashboard
+
+---
+
+### ICG-125: Add Development Domain for Universal Links Testing
+**Status:** [ ] Not Started
+**Source:** PR #386 comment
+**Files:** `ios/AIQ/AIQ.entitlements`
+**Description:** Add `applinks:dev.aiq.app` or similar development domain to enable universal link testing in staging environments without affecting production.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Development domain added to Associated Domains entitlement
+- [ ] Corresponding apple-app-site-association file deployed to dev server
+- [ ] Universal links testable in staging environment
+
+---
+
+### ICG-126: Document Universal Links Configuration in iOS README
+**Status:** [ ] Not Started
+**Source:** PR #386 comment
+**Files:** `ios/README.md`
+**Description:** Add documentation about universal links setup including entitlement configuration, Apple Developer Portal requirements, and server-side apple-app-site-association file.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] README documents Associated Domains entitlement
+- [ ] README explains Apple Developer Portal configuration steps
+- [ ] README includes server-side configuration requirements
+- [ ] README includes troubleshooting tips
+
+---
+
+### ICG-127: Create Universal Links Validation Script
+**Status:** [ ] Not Started
+**Source:** PR #386 comment
+**Files:** `scripts/validate-universal-links.sh` (new)
+**Description:** Create a script to validate that the apple-app-site-association file is properly deployed and accessible at https://aiq.app/.well-known/apple-app-site-association.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Script fetches apple-app-site-association from production URL
+- [ ] Script validates JSON structure
+- [ ] Script verifies appID matches expected Team ID and bundle ID
+- [ ] Script provides clear pass/fail output
