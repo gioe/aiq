@@ -154,6 +154,9 @@ class AnalyticsService {
     /// Maximum number of events per batch
     private let maxBatchSize = 50
 
+    /// Maximum queue size to prevent unbounded memory growth
+    private let maxQueueSize = 500
+
     /// Interval for automatic batch submission (seconds)
     private let batchInterval: TimeInterval = 30.0
 
@@ -168,6 +171,9 @@ class AnalyticsService {
 
     /// User defaults for event persistence
     private let userDefaults: UserDefaults
+
+    /// Flag to prevent concurrent batch submissions
+    private var isSubmitting = false
 
     private init(userDefaults: UserDefaults = .standard) {
         // Create separate loggers for different categories
@@ -205,15 +211,25 @@ class AnalyticsService {
             properties: properties?.mapValues { AnyCodable($0) }
         )
 
-        // Add to queue and persist
+        // Add to queue, enforce size limit, and persist atomically
         var shouldSubmit = false
+        var droppedCount = 0
         queueAccessQueue.sync {
+            // Enforce max queue size - drop oldest events if at limit
+            if eventQueue.count >= maxQueueSize {
+                droppedCount = eventQueue.count - maxQueueSize + 1
+                eventQueue.removeFirst(droppedCount)
+            }
             eventQueue.append(eventData)
             shouldSubmit = eventQueue.count >= maxBatchSize
+
+            // Persist inside sync block to prevent data loss on crash
+            persistEventsUnsafe()
         }
 
-        // Persist queue in case app terminates
-        persistEvents()
+        if droppedCount > 0 {
+            errorLogger.warning("Analytics: Dropped \(droppedCount) oldest events due to queue overflow")
+        }
 
         // If queue is full, submit immediately
         if shouldSubmit {
@@ -418,17 +434,38 @@ class AnalyticsService {
 
     /// Submit pending events to the backend
     private func submitBatch() async {
+        // Prevent concurrent submissions to avoid race conditions
+        var shouldProceed = false
+        queueAccessQueue.sync {
+            if !isSubmitting {
+                isSubmitting = true
+                shouldProceed = true
+            }
+        }
+        guard shouldProceed else {
+            logger.debug("Analytics: Batch submission already in progress, skipping")
+            return
+        }
+
+        defer {
+            queueAccessQueue.sync {
+                isSubmitting = false
+            }
+        }
+
         // Check network connectivity
         guard networkMonitor.isConnected else {
             logger.info("Analytics: Offline, events queued for later")
             return
         }
 
-        // Get events to submit
+        // Get events to submit atomically
         var eventsToSubmit: [AnalyticsEventData] = []
+        var indicesToRemove = 0
         queueAccessQueue.sync {
             guard !eventQueue.isEmpty else { return }
-            eventsToSubmit = Array(eventQueue.prefix(maxBatchSize))
+            indicesToRemove = min(maxBatchSize, eventQueue.count)
+            eventsToSubmit = Array(eventQueue.prefix(indicesToRemove))
         }
 
         guard !eventsToSubmit.isEmpty else { return }
@@ -445,14 +482,12 @@ class AnalyticsService {
         let success = await submitWithRetry(batch: batch, maxRetries: maxRetries)
 
         if success {
-            // Remove submitted events from queue
+            // Remove submitted events and persist atomically
             let submittedCount = eventsToSubmit.count
             queueAccessQueue.sync {
                 eventQueue.removeFirst(min(submittedCount, eventQueue.count))
+                persistEventsUnsafe()
             }
-
-            // Update persisted queue
-            persistEvents()
 
             logger.info("Analytics: Submitted \(submittedCount) events")
         } else {
@@ -540,24 +575,29 @@ class AnalyticsService {
         UIDevice.current.identifierForVendor?.uuidString
     }
 
-    /// Persist event queue to disk
+    /// Persist event queue to disk (thread-safe wrapper)
     private func persistEvents() {
         queueAccessQueue.sync {
-            guard !eventQueue.isEmpty else {
-                userDefaults.removeObject(forKey: storageKey)
-                return
-            }
+            persistEventsUnsafe()
+        }
+    }
 
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
+    /// Persist event queue to disk (must be called from within queueAccessQueue.sync)
+    private func persistEventsUnsafe() {
+        guard !eventQueue.isEmpty else {
+            userDefaults.removeObject(forKey: storageKey)
+            return
+        }
 
-            do {
-                let data = try encoder.encode(eventQueue)
-                userDefaults.set(data, forKey: storageKey)
-            } catch {
-                let count = eventQueue.count
-                errorLogger.error("Analytics: Failed to persist \(count) events: \(error.localizedDescription)")
-            }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+
+        do {
+            let data = try encoder.encode(eventQueue)
+            userDefaults.set(data, forKey: storageKey)
+        } catch {
+            let count = eventQueue.count
+            errorLogger.error("Analytics: Failed to persist \(count) events: \(error.localizedDescription)")
         }
     }
 
