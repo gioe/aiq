@@ -1,14 +1,19 @@
 """
 FastAPI authentication dependencies.
 """
+import logging
 from typing import Literal, Optional
-from fastapi import Depends
+
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import get_db, User
 from .security import decode_token, verify_token_type
 from .error_responses import ErrorMessages, raise_unauthorized
+
+logger = logging.getLogger(__name__)
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -148,6 +153,10 @@ async def get_current_user_optional(
         user_id = _decode_and_validate_token(credentials.credentials, "access")
         user = db.query(User).filter(User.id == user_id).first()
         return user
-    except Exception:
-        # Token is invalid or user not found - treat as anonymous
+    except HTTPException:
+        # Token is invalid or wrong type - treat as anonymous
         return None
+    except SQLAlchemyError as e:
+        # Database errors should not be silently ignored
+        logger.error(f"Database error during optional auth: {e}")
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable")

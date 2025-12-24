@@ -456,20 +456,26 @@ class AnalyticsService {
 
             logger.info("Analytics: Submitted \(submittedCount) events")
         } else {
-            logger.warning("Analytics: Failed to submit events after retries")
+            let stuckCount = eventsToSubmit.count
+            let msg = "Analytics: Failed to submit \(stuckCount) events after \(maxRetries) retries"
+            errorLogger.error("\(msg). Events will remain queued.")
         }
     }
 
     /// Submit batch with exponential backoff retry
     private func submitWithRetry(batch: AnalyticsEventsBatch, maxRetries: Int) async -> Bool {
         var attempt = 0
+        var lastError: Error?
 
         while attempt < maxRetries {
             do {
                 try await sendToBackend(batch: batch)
                 return true
             } catch {
+                lastError = error
                 attempt += 1
+                let errMsg = error.localizedDescription
+                errorLogger.error("Analytics: Submission attempt \(attempt)/\(maxRetries) failed: \(errMsg)")
 
                 if attempt < maxRetries {
                     // Exponential backoff: 1s, 2s, 4s
@@ -480,6 +486,10 @@ class AnalyticsService {
             }
         }
 
+        if let error = lastError {
+            let errMsg = error.localizedDescription
+            errorLogger.error("Analytics: All \(maxRetries) retries exhausted. Last error: \(errMsg)")
+        }
         return false
     }
 
@@ -541,8 +551,12 @@ class AnalyticsService {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
 
-            if let data = try? encoder.encode(eventQueue) {
+            do {
+                let data = try encoder.encode(eventQueue)
                 userDefaults.set(data, forKey: storageKey)
+            } catch {
+                let count = eventQueue.count
+                errorLogger.error("Analytics: Failed to persist \(count) events: \(error.localizedDescription)")
             }
         }
     }
@@ -556,12 +570,16 @@ class AnalyticsService {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        if let events = try? decoder.decode([AnalyticsEventData].self, from: data) {
+        do {
+            let events = try decoder.decode([AnalyticsEventData].self, from: data)
             queueAccessQueue.sync {
                 eventQueue = events
             }
-
             logger.info("Analytics: Loaded \(events.count) persisted events")
+        } catch {
+            let errMsg = error.localizedDescription
+            errorLogger.error("Analytics: Failed to load persisted events: \(errMsg). Clearing data.")
+            userDefaults.removeObject(forKey: storageKey)
         }
     }
 
