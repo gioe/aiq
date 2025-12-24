@@ -3,6 +3,7 @@ import SwiftUI
 /// History view showing past test results
 struct HistoryView: View {
     @StateObject private var viewModel = HistoryViewModel()
+    @Environment(\.appRouter) private var router
 
     var body: some View {
         ZStack {
@@ -139,11 +140,11 @@ struct HistoryView: View {
 
                 // Test History List
                 ForEach(viewModel.testHistory) { result in
-                    NavigationLink {
-                        TestDetailView(
-                            testResult: result,
+                    Button {
+                        router.push(.testDetail(
+                            result: result,
                             userAverage: viewModel.averageIQScore
-                        )
+                        ))
                     } label: {
                         TestHistoryListItem(testResult: result)
                     }

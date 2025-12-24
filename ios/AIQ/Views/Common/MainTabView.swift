@@ -14,13 +14,11 @@ struct MainTabView: View {
                 .tag(0)
 
             // History Tab
-            NavigationStack {
-                HistoryView()
-            }
-            .tabItem {
-                Label("History", systemImage: "clock.arrow.circlepath")
-            }
-            .tag(1)
+            HistoryTabNavigationView()
+                .tabItem {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                }
+                .tag(1)
 
             // Settings Tab
             NavigationStack {
@@ -68,6 +66,37 @@ private struct DashboardTabNavigationView: View {
             NotificationSettingsView()
         case .help:
             HelpView()
+        default:
+            Text("Route not implemented")
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// MARK: - History Tab Navigation
+
+/// Wrapper view for History tab with router-based navigation
+private struct HistoryTabNavigationView: View {
+    @Environment(\.appRouter) private var router
+
+    var body: some View {
+        NavigationStack(path: Binding(
+            get: { router.path },
+            set: { router.path = $0 }
+        )) {
+            HistoryView()
+                .navigationDestination(for: Route.self) { route in
+                    destinationView(for: route)
+                }
+        }
+    }
+
+    /// Returns the appropriate view for a given route
+    @ViewBuilder
+    private func destinationView(for route: Route) -> some View {
+        switch route {
+        case let .testDetail(result, userAverage):
+            TestDetailView(testResult: result, userAverage: userAverage)
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)
