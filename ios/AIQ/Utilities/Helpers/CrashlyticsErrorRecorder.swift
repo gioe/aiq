@@ -107,46 +107,6 @@ enum CrashlyticsErrorRecorder {
         #endif
     }
 
-    /// Records a non-fatal error from a ViewModel's error handling.
-    ///
-    /// Use this when handling errors in BaseViewModel's `handleError` method.
-    ///
-    /// - Parameters:
-    ///   - error: The error to record
-    ///   - viewModel: The name of the ViewModel (for context)
-    ///   - operation: A description of the operation that failed
-    static func recordViewModelError(
-        _ error: Error,
-        viewModel: String,
-        operation: String
-    ) {
-        let context: ErrorContext = switch operation.lowercased() {
-        case let op where op.contains("login"):
-            .login
-        case let op where op.contains("register"):
-            .registration
-        case let op where op.contains("dashboard"):
-            .fetchDashboard
-        case let op where op.contains("history"):
-            .fetchHistory
-        case let op where op.contains("test") && op.contains("start"):
-            .startTest
-        case let op where op.contains("test") && op.contains("submit"):
-            .submitTest
-        case let op where op.contains("test") && op.contains("abandon"):
-            .abandonTest
-        case let op where op.contains("notification"):
-            .notificationPreferences
-        default:
-            .unknown
-        }
-
-        recordError(error, context: context, additionalInfo: [
-            "viewModel": viewModel,
-            "operation": operation
-        ])
-    }
-
     /// Sets user identifier in Crashlytics for better error attribution.
     ///
     /// Call this when user logs in to associate crashes/errors with a user.
