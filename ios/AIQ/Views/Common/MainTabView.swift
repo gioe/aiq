@@ -21,13 +21,11 @@ struct MainTabView: View {
                 .tag(1)
 
             // Settings Tab
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem {
-                Label("Settings", systemImage: "gear")
-            }
-            .tag(2)
+            SettingsTabNavigationView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+                .tag(2)
         }
     }
 }
@@ -97,6 +95,39 @@ private struct HistoryTabNavigationView: View {
         switch route {
         case let .testDetail(result, userAverage):
             TestDetailView(testResult: result, userAverage: userAverage)
+        default:
+            Text("Route not implemented")
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// MARK: - Settings Tab Navigation
+
+/// Wrapper view for Settings tab with router-based navigation
+private struct SettingsTabNavigationView: View {
+    @Environment(\.appRouter) private var router
+
+    var body: some View {
+        NavigationStack(path: Binding(
+            get: { router.path },
+            set: { router.path = $0 }
+        )) {
+            SettingsView()
+                .navigationDestination(for: Route.self) { route in
+                    destinationView(for: route)
+                }
+        }
+    }
+
+    /// Returns the appropriate view for a given route
+    @ViewBuilder
+    private func destinationView(for route: Route) -> some View {
+        switch route {
+        case .help:
+            HelpView()
+        case .notificationSettings:
+            NotificationSettingsView()
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)

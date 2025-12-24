@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Settings view for user preferences and account management
 struct SettingsView: View {
+    @Environment(\.appRouter) private var router
     @StateObject private var authManager = AuthManager.shared
     @State private var showLogoutConfirmation = false
     @State private var isLoggingOut = false
@@ -38,15 +39,20 @@ struct SettingsView: View {
 
                 // Help Section
                 Section {
-                    NavigationLink {
-                        HelpView()
+                    Button {
+                        router.push(.help)
                     } label: {
                         HStack {
                             Image(systemName: "questionmark.circle")
                                 .foregroundColor(.accentColor)
                             Text("Help & FAQ")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
                         }
                     }
+                    .foregroundColor(.primary)
                 } header: {
                     Text("Support")
                 }
