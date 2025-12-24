@@ -85,17 +85,17 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-008: Create DeepLinkHandler
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Navigation/DeepLinkHandler.swift` (new), `AIQTests/Services/DeepLinkHandlerTests.swift` (new)
 **Description:** Create DeepLinkHandler to parse URL schemes and universal links into structured navigation commands.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] DeepLinkHandler parses URL schemes (aiq://)
-- [ ] DeepLinkHandler parses universal links (https://aiq.app/...)
-- [ ] Returns structured DeepLink enum with associated data
-- [ ] Unit tests for URL scheme parsing
-- [ ] Unit tests for universal link parsing
-- [ ] Unit tests for invalid URL handling
+- [x] DeepLinkHandler parses URL schemes (aiq://)
+- [x] DeepLinkHandler parses universal links (https://aiq.app/...)
+- [x] Returns structured DeepLink enum with associated data
+- [x] Unit tests for URL scheme parsing
+- [x] Unit tests for universal link parsing
+- [x] Unit tests for invalid URL handling
 
 ---
 
@@ -1531,3 +1531,44 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Remove default `.unknown` value from handleError context parameter
 - [ ] Update all call sites to provide explicit context
 - [ ] Ensure no regressions in error handling
+
+---
+
+### ICG-122: Add User Error Feedback for Deep Links
+**Status:** [ ] Not Started
+**Source:** PR #384 comment
+**Files:** `Services/Navigation/DeepLinkHandler.swift`, `AIQApp.swift` or `AppDelegate.swift`
+**Description:** When ICG-016 integrates DeepLinkHandler into AppDelegate, add a mechanism to inform users why a deep link failed (e.g., toast notification or alert).
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Design error feedback mechanism (toast, alert, or inline message)
+- [ ] Implement error feedback UI component
+- [ ] Connect DeepLinkHandler failures to error feedback display
+- [ ] Test with various invalid deep links
+
+---
+
+### ICG-123: Add Warning for Extra Path Components in Deep Links
+**Status:** [ ] Not Started
+**Source:** PR #384 comment
+**Files:** `Services/Navigation/DeepLinkHandler.swift`
+**Description:** Currently, extra path components are silently ignored (e.g., aiq://test/results/123/extra parses as test results with ID 123). Consider logging a warning when extra components are present.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add logging warning when extra path components detected
+- [ ] Document expected behavior in code comments
+- [ ] Consider if strict mode should reject extra components
+
+---
+
+### ICG-124: Add Deep Link Analytics Tracking
+**Status:** [ ] Not Started
+**Source:** PR #384 comment
+**Files:** `Services/Navigation/DeepLinkHandler.swift`, `Services/Analytics/AnalyticsService.swift`
+**Description:** Track deep link usage metrics to understand user behavior and detect broken marketing campaign links.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Track successful deep link navigations with destination type
+- [ ] Track failed deep link attempts with error type
+- [ ] Include source information (push notification, external app, Safari)
+- [ ] Analytics events visible in backend dashboard

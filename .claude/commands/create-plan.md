@@ -6,7 +6,7 @@ args:
     required: true
 ---
 
-We need to make an implementation plan based on the findings in the gap file provided. Work with your technical-product-manager subagent to generate a technical implementation plan based on the document.
+Use the technical-product-manager subagent to generate a technical implementation plan based on the provided gap_file.
 
 **Gap File**: docs/gaps/{{gap_file}}
 
@@ -27,6 +27,7 @@ Follow these steps:
    - Current State: What exists vs what's missing
    - Solution Requirements: Proposed functions, endpoints, and database changes
    - Success Criteria: What defines "done"
+   - Surface Area: What components of our system will require changes.
    - Testing Strategy: Required tests
 
 4. **Generate a technical implementation plan** in markdown format:
@@ -41,17 +42,13 @@ Follow these steps:
    ## Overview
    A 2-3 sentence summary of what this implementation addresses.
 
-   ## Prerequisites
-   - List any database migrations needed
-   - List any new dependencies required
-   - List any existing code that must be understood first
-
    ## Tasks
 
    ### {PREFIX}-001: [Brief Title]
    **Status:** [ ] Not Started
    **Files:** `path/to/file.py`
    **Description:** What to implement
+   **Assignee(s):** The subagent(s) that should work on this task
    **Acceptance Criteria:**
    - [ ] Specific testable outcome
    - [ ] Another testable outcome
@@ -60,37 +57,12 @@ Follow these steps:
    **Status:** [ ] Not Started
    **Files:** `path/to/file.py`
    **Description:** What to implement
+   **Assignee(s):** The subagent(s) that should work on this task
    **Acceptance Criteria:**
    - [ ] Specific testable outcome
 
    (continue for all tasks...)
 
-   ## Database Changes
-   If the gap document mentions schema changes, detail them here with:
-   - Table/column names
-   - Data types
-   - Migration approach
-
-   ## API Endpoints
-   If new endpoints are needed, list them with:
-   - Method and path
-   - Request/response schemas
-   - Authentication requirements
-
-   ## Testing Requirements
-   Organize tests into:
-   - Unit tests (with specific functions to test)
-   - Integration tests (with specific scenarios)
-   - Edge cases to cover
-
-   ## Task Summary
-   | Task ID | Title | Complexity |
-   |---------|-------|------------|
-   | {PREFIX}-001 | ... | Small/Medium/Large |
-   | {PREFIX}-002 | ... | Small/Medium/Large |
-
-   ## Estimated Total Complexity
-   Rate as: Small (1-2 tasks), Medium (3-5 tasks), Large (6+ tasks)
    ```
 
 5. **Output the plan** as a markdown file. Save to:
@@ -103,10 +75,12 @@ Follow these steps:
 - Each task gets a unique ID with the derived prefix (e.g., EIC-001, EIC-002)
 - Task IDs must be unique and searchable via the `/task` command
 - Tasks should be small enough to be completed atomically
+- Tasks must have test coverage as part of their acceptance criteria
 - Include all code locations mentioned in the gap document
 - Preserve technical details from the Solution Requirements section
 - Maintain the recommended implementation order from the gap document
 - Include specific function signatures where provided in the gap document
 - Reference line numbers from the gap document where applicable
+- Make all subagent decisions based on the agents existing in the ~/.claude/agents directory and their relevance to the Task.
 
 Begin by reading the gap analysis document.

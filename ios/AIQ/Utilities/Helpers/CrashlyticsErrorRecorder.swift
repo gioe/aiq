@@ -47,6 +47,9 @@ enum CrashlyticsErrorRecorder {
         // Analytics
         case analytics = "analytics_event"
 
+        // Navigation
+        case deepLinkParse = "navigation_deeplink_parse"
+
         // Generic
         case unknown
     }
