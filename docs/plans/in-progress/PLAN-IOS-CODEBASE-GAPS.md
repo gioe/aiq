@@ -111,14 +111,14 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-010: Configure Universal Links
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQ.entitlements`, Apple Developer Portal
 **Description:** Add Associated Domains entitlement for `applinks:aiq.app`.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Associated Domains entitlement added
-- [ ] Universal link domain verified in Apple Developer Portal
-- [ ] App responds to `https://aiq.app/...` links
+- [x] Associated Domains entitlement added
+- [ ] Universal link domain verified in Apple Developer Portal (manual step - see PR description)
+- [ ] App responds to `https://aiq.app/...` links (requires handler implementation in ICG-016)
 
 ---
 
