@@ -1613,3 +1613,44 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Script validates JSON structure
 - [ ] Script verifies appID matches expected Team ID and bundle ID
 - [ ] Script provides clear pass/fail output
+
+---
+
+### ICG-128: Add Logging for Unimplemented Routes in DashboardTabNavigationView
+**Status:** [ ] Not Started
+**Source:** PR #388 comment
+**Files:** `Views/Common/MainTabView.swift`
+**Description:** The default case in `destinationView(for:)` (line 71-73) silently handles unimplemented routes without any logging or error tracking. Add analytics tracking or logging for this case to catch routing bugs in production.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add CrashlyticsErrorRecorder.recordError() call in default case
+- [ ] Include route information in error context
+- [ ] Consider adding analytics event for routing errors
+
+---
+
+### ICG-129: Add Automated Navigation Tests for DashboardView Router Integration
+**Status:** [ ] Not Started
+**Source:** PR #388 comment
+**Files:** `AIQTests/Views/DashboardNavigationTests.swift` (new)
+**Description:** No automated tests verify that router.push(.testTaking) is called from DashboardView navigation points. Add unit tests for navigation flows to prevent regression.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Test verifies action button triggers router.push(.testTaking)
+- [ ] Test verifies resume button triggers router.push(.testTaking)
+- [ ] Test verifies empty state button triggers router.push(.testTaking)
+- [ ] Mock router used for isolation
+
+---
+
+### ICG-130: Evaluate Per-Tab Navigation Paths for Tab Isolation
+**Status:** [ ] Not Started
+**Source:** PR #388 comment
+**Files:** `Views/Common/MainTabView.swift`, `Services/Navigation/AppRouter.swift`
+**Description:** Currently the AppRouter is shared across the entire app, but only the Dashboard tab uses router-based navigation. When History and Settings tabs are migrated (ICG-014, ICG-015), evaluate whether each tab should have its own navigation path to prevent cross-tab state contamination.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Document current shared router behavior
+- [ ] Analyze use cases requiring cross-tab navigation (e.g., deep links)
+- [ ] If per-tab paths needed: implement TabRouter wrapper or path-per-tab design
+- [ ] Test tab switching preserves appropriate navigation state
