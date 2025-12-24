@@ -123,14 +123,14 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-011: Integrate AppRouter into AIQApp.swift
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQApp.swift`
 **Description:** Replace root view navigation with router-based navigation.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] AppRouter initialized in AIQApp.swift
-- [ ] Router injected into environment
-- [ ] Root navigation controlled by router
+- [x] AppRouter initialized in AIQApp.swift
+- [x] Router injected into environment
+- [x] Root navigation controlled by router
 
 ---
 
