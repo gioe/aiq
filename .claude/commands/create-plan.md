@@ -75,7 +75,7 @@ Follow these steps:
 - Each task gets a unique ID with the derived prefix (e.g., EIC-001, EIC-002)
 - Task IDs must be unique and searchable via the `/task` command
 - Tasks should be small enough to be completed atomically
-- Tasks must have test coverage as part of their acceptance criteria
+- Tasks must have test coverage and logging as part of their acceptance criteria
 - Include all code locations mentioned in the gap document
 - Preserve technical details from the Solution Requirements section
 - Maintain the recommended implementation order from the gap document
