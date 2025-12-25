@@ -262,15 +262,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-022: Write Login/Logout Flow UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/AuthenticationFlowTests.swift` (new)
 **Description:** Test login with valid/invalid credentials and logout flow.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test covers login with valid credentials
-- [ ] Test covers login with invalid credentials
-- [ ] Test covers logout flow
-- [ ] Verifies session persistence
+- [x] Test covers login with valid credentials
+- [x] Test covers login with invalid credentials
+- [x] Test covers logout flow
+- [x] Verifies session persistence
 
 ---
 
