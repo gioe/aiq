@@ -275,15 +275,23 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-023: Write Test-Taking Flow UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/TestTakingFlowTests.swift` (new)
 **Description:** Start test, answer all questions, submit, and verify results.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test starts a new test session
-- [ ] Test answers all questions (mocked question data)
-- [ ] Test submits answers and verifies results screen
-- [ ] Verifies score display and history update
+- [x] Test starts a new test session
+- [x] Test answers all questions (mocked question data)
+- [x] Test submits answers and verifies results screen
+- [x] Verifies score display and history update
+
+**Summary:**
+- Created comprehensive UI test suite with 19 test methods (684 lines) covering the complete test-taking flow
+- Tests cover: starting tests, answering questions, navigation (next/previous), submission, results display, history updates, and error handling (abandon test confirmation)
+- Tests are skipped by default as they require backend connection and valid test account
+- Follows established patterns from AuthenticationFlowTests.swift
+- **Total tokens spent:** ~50,000 (estimated based on conversation context)
+- **Total time spent:** ~15 minutes
 
 ---
 
@@ -1981,3 +1989,149 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Add tests for accessibility identifier presence
 - [ ] Verify VoiceOver labels are meaningful
 - [ ] Document accessibility requirements for auth flow
+
+---
+
+### ICG-155: Reduce Test Setup Duplication in TestTakingFlowTests
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Create helper method `startTestSession()` to reduce repeated login/startTest/getQuestionCount pattern across tests.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Create `startTestSession() -> Int?` helper method
+- [ ] Returns total question count on success, nil on failure
+- [ ] Refactor existing tests to use this helper
+- [ ] Reduces code duplication by ~40%
+
+---
+
+### ICG-156: Consistent Error Handling in TestTakingFlowTests
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Some tests check return values, others don't. Standardize error handling approach.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Either always check return values OR use assertions in helpers
+- [ ] Apply consistent pattern across all test methods
+- [ ] Document chosen approach in file comments
+
+---
+
+### ICG-157: Use Environment Variables for Test Credentials
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Replace hardcoded test credentials with environment variables.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Use `ProcessInfo.processInfo.environment["TEST_USER_EMAIL"]` with fallback
+- [ ] Use `ProcessInfo.processInfo.environment["TEST_USER_PASSWORD"]` with fallback
+- [ ] Document test credential setup in README
+
+---
+
+### ICG-158: Replace Thread.sleep with XCTest Wait APIs
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Replace fragile Thread.sleep() calls with proper XCTest wait conditions to improve reliability and speed.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Replace all `Thread.sleep()` with `wait(for:timeout:)` or `expectation` APIs
+- [ ] Wait for specific UI state changes instead of fixed delays
+- [ ] Tests should be more reliable and faster
+
+---
+
+### ICG-159: Define Constants for Test Delay Values
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Replace magic number delays (0.3, 0.5) with named constants.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Define `private let shortDelay: TimeInterval = 0.3`
+- [ ] Define `private let appTerminationDelay: TimeInterval = 0.5`
+- [ ] Apply constants throughout the file
+
+---
+
+### ICG-160: Standardize Test Method Naming Convention
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Some tests use "Flow", others use "Cycle". Standardize naming pattern.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Decide on consistent naming pattern (e.g., `test<Action>_<ExpectedResult>`)
+- [ ] Rename inconsistent test methods
+- [ ] Document naming convention in file header
+
+---
+
+### ICG-161: Add Assertions Before Screenshots
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Some tests take screenshots without asserting the expected UI state.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add UI state assertions before taking screenshots
+- [ ] Verify expected elements are visible before capture
+- [ ] Screenshots serve as documentation, not just debugging
+
+---
+
+### ICG-162: Add Comprehensive Abandon Test Error Scenarios
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Current abandon tests don't verify partial progress handling or error messages.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Test what happens when user has answered some questions
+- [ ] Verify whether partial progress is saved or discarded
+- [ ] Test error messages if abandoning fails
+- [ ] Document expected behavior for abandon flow
+
+---
+
+### ICG-163: Add Network Error Scenario Tests
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Missing tests for API failures, timeouts, and network drops during test-taking.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Test network error during question fetch
+- [ ] Test API timeout during submission
+- [ ] Test network drop mid-test
+- [ ] Verify appropriate error messages shown
+
+---
+
+### ICG-164: Add App Lifecycle Tests During Test-Taking
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Missing tests for app backgrounding/foregrounding during active test.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Test app backgrounding during test
+- [ ] Test app foregrounding and state restoration
+- [ ] Verify no data loss on lifecycle events
+
+---
+
+### ICG-165: Add Accessibility Tests for Test-Taking Flow
+**Status:** [ ] Not Started
+**Source:** PR #399 comment
+**Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
+**Description:** Missing tests for VoiceOver labels, Dynamic Type support, and accessibility navigation.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Verify VoiceOver labels on question elements
+- [ ] Verify button hints for answer selection
+- [ ] Test accessibility navigation through test flow
