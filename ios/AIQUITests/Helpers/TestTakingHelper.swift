@@ -268,8 +268,13 @@ class TestTakingHelper {
                 return false
             }
 
-            // Wait a moment for the answer to be registered
-            sleep(UInt32(0.5))
+            // Wait for the answer to be registered by checking next button becomes enabled
+            let nextButtonEnabled = nextButton.waitForExistence(timeout: 1.0) && nextButton.isEnabled
+
+            // If next button isn't available yet, wait briefly for UI to update
+            if !nextButtonEnabled {
+                _ = nextButton.waitForExistence(timeout: 0.5)
+            }
 
             // Check if we're on the last question
             if questionNumber == questionCount {
