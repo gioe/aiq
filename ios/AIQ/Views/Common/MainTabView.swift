@@ -1,7 +1,9 @@
+import os
 import SwiftUI
 
 /// Main tab view for authenticated users
 struct MainTabView: View {
+    private static let logger = Logger(subsystem: "com.aiq.app", category: "MainTabView")
     @Environment(\.appRouter) private var router
     @State private var selectedTab = 0
     @State private var deepLinkHandler = DeepLinkHandler()
@@ -49,11 +51,12 @@ struct MainTabView: View {
                     let success = await deepLinkHandler.handleNavigation(deepLink, router: router)
                     if !success {
                         // Note: User error feedback tracked in ICG-122
-                        Logger.shared.error("Failed to handle deep link: \(deepLink)")
+                        let linkDesc = String(describing: deepLink)
+                        Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
                     }
 
                 case .invalid:
-                    Logger.shared.warning("Received invalid deep link")
+                    Self.logger.warning("Received invalid deep link")
                 }
             }
         }
