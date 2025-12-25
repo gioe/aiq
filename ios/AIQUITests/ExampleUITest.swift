@@ -15,10 +15,16 @@ import XCTest
 /// - NavigationHelper: Verify and navigate between screens
 /// - TestTakingHelper: Interact with test-taking flows
 /// - XCUIElement+Extensions: Convenient element operations
+///
+/// Note: These tests use placeholder credentials and are skipped by default.
+/// To run them, set up proper test credentials and remove the skip calls.
 final class ExampleUITest: BaseUITest {
     // MARK: - Example: Login Flow
 
-    func testLoginFlow() {
+    func testLoginFlow() throws {
+        // Skip: Requires valid test credentials and backend connection
+        throw XCTSkip("Example test - requires valid test credentials")
+
         // Create helpers
         let loginHelper = LoginHelper(app: app)
         let navHelper = NavigationHelper(app: app)
@@ -41,7 +47,10 @@ final class ExampleUITest: BaseUITest {
 
     // MARK: - Example: Navigation
 
-    func testTabNavigation() {
+    func testTabNavigation() throws {
+        // Skip: Requires valid test credentials and backend connection
+        throw XCTSkip("Example test - requires valid test credentials")
+
         let loginHelper = LoginHelper(app: app)
         let navHelper = NavigationHelper(app: app)
 
@@ -92,7 +101,10 @@ final class ExampleUITest: BaseUITest {
 
     // MARK: - Example: Using Extensions
 
-    func testElementExtensions() {
+    func testElementExtensions() throws {
+        // Skip: Requires app to be in specific state
+        throw XCTSkip("Example test - demonstrates extension usage")
+
         // Example of using XCUIElement extensions
         let button = app.buttons["Sign In"]
 
@@ -105,7 +117,10 @@ final class ExampleUITest: BaseUITest {
 
     // MARK: - Example: Error Handling
 
-    func testLoginWithInvalidCredentials() {
+    func testLoginWithInvalidCredentials() throws {
+        // Skip: Requires backend connection to verify error handling
+        throw XCTSkip("Example test - requires backend connection")
+
         let loginHelper = LoginHelper(app: app)
 
         // Attempt login with invalid credentials
