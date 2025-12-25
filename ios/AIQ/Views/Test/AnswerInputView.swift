@@ -25,7 +25,7 @@ struct AnswerInputView: View {
 
     private var multipleChoiceOptions: some View {
         VStack(spacing: 12) {
-            ForEach(Array((question.answerOptions ?? []).enumerated()), id: \.element) { index, option in
+            ForEach(Array((question.answerOptions ?? []).enumerated()), id: \.offset) { index, option in
                 OptionButton(
                     option: option,
                     isSelected: userAnswer == option,

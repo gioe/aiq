@@ -2193,14 +2193,14 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-168: Fix ForEach ID in AnswerInputView
-**Status:** [ ] Not Started
+**Status:** [x] Not Started
 **Source:** PR #401 comment
 **Files:** `ios/AIQ/Views/Test/AnswerInputView.swift`
 **Description:** ForEach uses `id: \.element` which could break if duplicate answer options exist. Use `\.offset` for guaranteed uniqueness.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Change `ForEach(Array(...enumerated()), id: \.element)` to `ForEach(Array(...enumerated()), id: \.offset)`
-- [ ] Verify answer selection still works correctly
+- [x] Change `ForEach(Array(...enumerated()), id: \.element)` to `ForEach(Array(...enumerated()), id: \.offset)`
+- [x] Verify answer selection still works correctly
 
 ---
 
