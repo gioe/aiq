@@ -236,15 +236,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-020: Create UI Test Helpers
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/Helpers/` (new)
 **Description:** Create LoginHelper, TestTakingHelper, and NavigationHelper for test code reuse.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] LoginHelper provides authenticated test sessions
-- [ ] TestTakingHelper handles test data setup
-- [ ] NavigationHelper verifies screen transitions
-- [ ] Helpers reduce test boilerplate
+- [x] LoginHelper provides authenticated test sessions
+- [x] TestTakingHelper handles test data setup
+- [x] NavigationHelper verifies screen transitions
+- [x] Helpers reduce test boilerplate
 
 ---
 

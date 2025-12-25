@@ -1,0 +1,156 @@
+//
+//  BaseUITest.swift
+//  AIQUITests
+//
+//  Created by Claude Code on 12/25/24.
+//
+
+import XCTest
+
+/// Base class for all UI tests providing common setup, teardown, and helper methods
+///
+/// Usage:
+/// ```swift
+/// final class MyUITest: BaseUITest {
+///     func testSomething() {
+///         // app is already available
+///         // timeouts are standardized
+///     }
+/// }
+/// ```
+class BaseUITest: XCTestCase {
+    // MARK: - Properties
+
+    /// The application under test
+    var app: XCUIApplication!
+
+    // MARK: - Timeouts
+
+    /// Standard timeout for most UI operations (5 seconds)
+    let standardTimeout: TimeInterval = 5.0
+
+    /// Extended timeout for network operations or slow screens (10 seconds)
+    let extendedTimeout: TimeInterval = 10.0
+
+    /// Quick timeout for elements that should appear immediately (2 seconds)
+    let quickTimeout: TimeInterval = 2.0
+
+    // MARK: - Setup & Teardown
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+
+        // Stop immediately when a failure occurs
+        continueAfterFailure = false
+
+        // Initialize the application
+        app = XCUIApplication()
+
+        // Setup launch arguments and environment
+        setupLaunchConfiguration()
+
+        // Launch the app
+        app.launch()
+    }
+
+    override func tearDownWithError() throws {
+        // Terminate the app
+        app.terminate()
+        app = nil
+
+        try super.tearDownWithError()
+    }
+
+    // MARK: - Launch Configuration
+
+    /// Configure launch arguments and environment variables
+    /// Override this method in subclasses to customize launch configuration
+    func setupLaunchConfiguration() {
+        // Add any launch arguments or environment variables here
+        // Example: app.launchArguments = ["-UITest"]
+        // Example: app.launchEnvironment = ["DISABLE_ANIMATIONS": "1"]
+    }
+
+    // MARK: - Helper Methods
+
+    /// Wait for an element to exist with a custom timeout
+    /// - Parameters:
+    ///   - element: The element to wait for
+    ///   - timeout: Time to wait in seconds (defaults to standardTimeout)
+    /// - Returns: true if element exists within timeout, false otherwise
+    @discardableResult
+    func wait(for element: XCUIElement, timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? standardTimeout
+        return element.waitForExistence(timeout: timeoutValue)
+    }
+
+    /// Wait for an element to exist and be hittable
+    /// - Parameters:
+    ///   - element: The element to wait for
+    ///   - timeout: Time to wait in seconds (defaults to standardTimeout)
+    /// - Returns: true if element is hittable within timeout, false otherwise
+    @discardableResult
+    func waitForHittable(_ element: XCUIElement, timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? standardTimeout
+        let predicate = NSPredicate(format: "exists == true AND hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeoutValue)
+        return result == .completed
+    }
+
+    /// Wait for an element to disappear
+    /// - Parameters:
+    ///   - element: The element to wait for disappearance
+    ///   - timeout: Time to wait in seconds (defaults to standardTimeout)
+    /// - Returns: true if element doesn't exist within timeout, false otherwise
+    @discardableResult
+    func waitForDisappearance(of element: XCUIElement, timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? standardTimeout
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeoutValue)
+        return result == .completed
+    }
+
+    /// Take a screenshot and attach it to the test results
+    /// - Parameter name: Name for the screenshot
+    func takeScreenshot(named name: String) {
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// Verify that an element exists and optionally take a screenshot on failure
+    /// - Parameters:
+    ///   - element: The element to verify
+    ///   - message: Custom failure message
+    ///   - screenshot: Whether to take a screenshot on failure (default: true)
+    func assertExists(
+        _ element: XCUIElement,
+        _ message: String = "Element should exist",
+        screenshot: Bool = true
+    ) {
+        if !element.exists && screenshot {
+            takeScreenshot(named: "Failure-\(message)")
+        }
+        XCTAssertTrue(element.exists, message)
+    }
+
+    /// Verify that an element is hittable and optionally take a screenshot on failure
+    /// - Parameters:
+    ///   - element: The element to verify
+    ///   - message: Custom failure message
+    ///   - screenshot: Whether to take a screenshot on failure (default: true)
+    func assertHittable(
+        _ element: XCUIElement,
+        _ message: String = "Element should be hittable",
+        screenshot: Bool = true
+    ) {
+        if !element.isHittable && screenshot {
+            takeScreenshot(named: "Failure-\(message)")
+        }
+        XCTAssertTrue(element.isHittable, message)
+    }
+}
