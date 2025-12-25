@@ -1792,15 +1792,22 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-139: Improve TestTakingHelper Element Queries
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #396 comment
 **Files:** `ios/AIQUITests/Helpers/TestTakingHelper.swift`
 **Description:** Current predicates are too broad and could match unintended elements. For example, `label CONTAINS[c] "take" OR label CONTAINS[c] "start"` could match "Retake" or "Start learning". Once accessibility identifiers are added, replace these with specific identifiers.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Wait for ICG-137 to complete (accessibility identifiers)
-- [ ] Replace broad label predicates with specific identifier queries
-- [ ] Remove fragile `label.length > 20` predicate for question text
+- [x] Wait for ICG-137 to complete (accessibility identifiers)
+- [x] Replace broad label predicates with specific identifier queries
+- [x] Remove fragile `label.length > 20` predicate for question text
+
+**Summary:**
+- Completed as part of ICG-137 - all element queries now use accessibility identifiers
+- Replaced all label-based predicates with identifier-based queries (e.g., `app.buttons["dashboardView.actionButton"]`)
+- Removed all `label CONTAINS` and `label.length` predicates from TestTakingHelper
+- **Total tokens spent:** Included in ICG-137
+- **Total time spent:** Included in ICG-137
 
 ---
 
