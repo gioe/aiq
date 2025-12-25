@@ -1,0 +1,1297 @@
+# AIQ iOS Coding Standards
+
+This document outlines the coding standards and best practices for the AIQ iOS application. These standards ensure consistency, maintainability, and quality across the codebase.
+
+**This document is the single source of truth for iOS development decisions.** The ios-engineer agent is authorized to update this document when Apple best practices change, gaps are discovered, or corrections are needed.
+
+## How to Read This Document
+
+- **Required Standards** (main sections): Follow strictly. These reflect the current codebase patterns.
+- **Recommended Enhancements** (end of document): Consider for new code. When implemented, promote to required standards.
+
+---
+
+## Table of Contents
+
+- [Project Structure](#project-structure)
+- [Architecture Patterns](#architecture-patterns)
+- [Naming Conventions](#naming-conventions)
+- [SwiftUI Best Practices](#swiftui-best-practices)
+- [State Management](#state-management)
+- [Error Handling](#error-handling)
+- [Networking](#networking)
+- [Design System](#design-system)
+- [Documentation](#documentation)
+- [Testing](#testing)
+- [Code Formatting](#code-formatting)
+- [Accessibility](#accessibility)
+- [Concurrency](#concurrency)
+- [Performance](#performance)
+- [Recommended Enhancements](#recommended-enhancements)
+
+---
+
+## Project Structure
+
+### Current Organization
+
+The project follows a **hybrid type-and-feature** structure. Top-level directories are organized by architectural layer (Models, ViewModels, Views, Services), with feature-based organization nested within Views:
+
+```
+AIQ/
+├── Models/              # Data models and domain entities
+├── ViewModels/          # MVVM ViewModels (all inherit from BaseViewModel)
+├── Views/               # SwiftUI views organized by feature
+│   ├── Auth/           # Authentication screens
+│   ├── Test/           # Test-taking UI
+│   ├── Dashboard/      # Home/Dashboard views
+│   ├── History/        # Test history and charts
+│   ├── Settings/       # Settings and preferences
+│   └── Common/         # Reusable view components
+├── Services/            # Business logic and external dependencies
+│   ├── Analytics/      # Analytics tracking
+│   ├── API/            # Network layer
+│   ├── Auth/           # Authentication and notifications
+│   ├── Navigation/     # Routing and deep linking
+│   └── Storage/        # Data persistence
+└── Utilities/           # Cross-cutting concerns
+    ├── Design/         # Design system (colors, typography, spacing)
+    ├── Extensions/     # Swift extensions
+    └── Helpers/        # Utility functions and configurations
+```
+
+### Standards
+
+**DO:**
+- Keep Models, ViewModels, and Views in their respective top-level directories
+- Organize Views by feature subdirectories (Auth/, Dashboard/, etc.)
+- Place reusable view components in `Views/Common/`
+- Keep the design system in `Utilities/Design/`
+- Put cross-cutting extensions in `Utilities/Extensions/`
+- Name ViewModels to match their corresponding View feature (e.g., `DashboardViewModel` for `Dashboard/`)
+
+**DON'T:**
+- Create additional top-level directories (e.g., `Controllers/`, `Managers/`)
+- Mix business logic with view code
+- Place feature-specific components in `Common/`
+- Put ViewModels inside View feature folders (keep them in top-level `ViewModels/`)
+
+---
+
+## Architecture Patterns
+
+### MVVM (Model-View-ViewModel)
+
+The app strictly follows MVVM architecture with the following responsibilities:
+
+#### Models
+Data structures representing domain entities. Should be:
+- Immutable when possible (prefer `struct` over `class`)
+- `Codable` for API serialization
+- `Equatable` and `Identifiable` when needed for SwiftUI
+
+```swift
+struct TestResult: Codable, Identifiable, Equatable {
+    let id: Int
+    let iqScore: Int
+    let completedAt: Date
+    // ... other properties
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case iqScore = "iq_score"
+        case completedAt = "completed_at"
+    }
+}
+```
+
+#### ViewModels
+Business logic layer that:
+- Inherits from `BaseViewModel`
+- Marked with `@MainActor` for UI updates
+- Contains all business logic and state
+- Uses `@Published` properties for observable state
+- Handles API calls and error management
+- Never imports `SwiftUI` (UIKit is acceptable for utilities)
+
+```swift
+@MainActor
+class DashboardViewModel: BaseViewModel {
+    @Published var latestTestResult: TestResult?
+    @Published var testCount: Int = 0
+
+    private let apiClient: APIClientProtocol
+
+    init(apiClient: APIClientProtocol = APIClient.shared) {
+        self.apiClient = apiClient
+        super.init()
+    }
+
+    func fetchDashboardData() async {
+        setLoading(true)
+        clearError()
+
+        do {
+            let response: PaginatedTestHistoryResponse = try await apiClient.request(
+                endpoint: .testHistory(limit: nil, offset: nil),
+                method: .get,
+                requiresAuth: true
+            )
+            updateDashboardState(with: response.results)
+        } catch {
+            handleError(error, context: .fetchDashboard)
+        }
+
+        setLoading(false)
+    }
+}
+```
+
+#### Views
+SwiftUI views that:
+- Are purely declarative
+- Observe ViewModels using `@StateObject` or `@ObservedObject`
+- Contain NO business logic
+- Use the Design System for styling
+- Break down into smaller subviews for readability
+
+```swift
+struct DashboardView: View {
+    @StateObject private var viewModel = DashboardViewModel()
+
+    var body: some View {
+        ZStack {
+            if viewModel.isLoading {
+                LoadingView(message: "Loading dashboard...")
+            } else if let error = viewModel.error {
+                ErrorView(error: error) {
+                    Task { await viewModel.retry() }
+                }
+            } else {
+                dashboardContent
+            }
+        }
+        .task {
+            await viewModel.fetchDashboardData()
+        }
+    }
+
+    private var dashboardContent: some View {
+        // View implementation
+    }
+}
+```
+
+### BaseViewModel Pattern
+
+All ViewModels MUST inherit from `BaseViewModel` which provides:
+- Loading state management (`isLoading`)
+- Error handling with retry capability (`error`, `canRetry`)
+- Crashlytics error recording
+- Combine cancellables management
+
+```swift
+// In ViewModel
+handleError(error, context: .fetchDashboard) {
+    await self.fetchDashboardData()
+}
+
+// In View
+if viewModel.canRetry {
+    Button("Retry") {
+        Task { await viewModel.retry() }
+    }
+}
+```
+
+### Protocol-Oriented Design
+
+Use protocols for:
+- Dependency injection (e.g., `APIClientProtocol`, `AuthServiceProtocol`)
+- Testability (allows mocking)
+- Flexibility in implementation
+
+```swift
+protocol APIClientProtocol {
+    func request<T: Decodable>(
+        endpoint: APIEndpoint,
+        method: HTTPMethod,
+        body: Encodable?,
+        requiresAuth: Bool
+    ) async throws -> T
+}
+
+// In ViewModel
+private let apiClient: APIClientProtocol
+
+init(apiClient: APIClientProtocol = APIClient.shared) {
+    self.apiClient = apiClient
+}
+```
+
+---
+
+## Naming Conventions
+
+### Files
+
+- **Swift files**: PascalCase matching the primary type (e.g., `DashboardViewModel.swift`)
+- **Extensions**: `TypeName+Extension.swift` (e.g., `Int+Extensions.swift`)
+- **Protocols**: Descriptive name with Protocol suffix (e.g., `AuthServiceProtocol.swift`)
+- **Test files**: `ClassNameTests.swift` (e.g., `DashboardViewModelTests.swift`)
+
+### Types
+
+- **Classes/Structs/Enums**: PascalCase (e.g., `DashboardViewModel`, `TestResult`)
+- **Protocols**: PascalCase with descriptive name, typically ending in `-able` or `-Protocol` (e.g., `APIClientProtocol`, `Codable`)
+- **Enums**: PascalCase for type, camelCase for cases
+
+```swift
+enum QuestionType: String, Codable {
+    case pattern
+    case logic
+    case spatial
+}
+```
+
+### Properties and Methods
+
+- **Properties**: camelCase (e.g., `latestTestResult`, `isLoading`)
+- **Methods**: camelCase, verb-based (e.g., `fetchDashboardData()`, `handleError()`)
+- **Boolean properties**: Use `is`, `has`, `should` prefix (e.g., `isLoading`, `hasActiveTest`, `shouldRetry`)
+- **Private properties**: camelCase with no prefix (rely on access control)
+
+### Constants
+
+- **Static constants**: camelCase within an enum or static let
+- **Design tokens**: Organized in enums (e.g., `DesignSystem.Spacing.lg`)
+
+```swift
+enum ColorPalette {
+    static let primary = Color.accentColor
+    static let background = Color(uiColor: .systemBackground)
+}
+```
+
+### Acronyms
+
+Keep acronyms lowercase except when starting a name:
+- Good: `apiClient`, `iqScore`, `URLSession`
+- Bad: `APIClient`, `IQScore`, `urlSession`
+
+---
+
+## SwiftUI Best Practices
+
+### Property Wrappers
+
+Use the correct property wrapper for each scenario:
+
+| Wrapper | Use Case |
+|---------|----------|
+| `@State` | Local view state owned by the view |
+| `@StateObject` | ViewModel or ObservableObject owned by the view |
+| `@ObservedObject` | ViewModel or ObservableObject passed from parent |
+| `@EnvironmentObject` | Shared dependency injected into environment |
+| `@Binding` | Two-way binding to parent's state |
+| `@Environment` | System environment values |
+
+```swift
+struct DashboardView: View {
+    @StateObject private var viewModel = DashboardViewModel()  // Owned by this view
+    @Environment(\.appRouter) var router                       // Environment dependency
+
+    var body: some View {
+        // Implementation
+    }
+}
+
+struct StatCard: View {
+    @Binding var value: String  // Two-way binding to parent
+
+    var body: some View {
+        // Implementation
+    }
+}
+```
+
+### View Decomposition
+
+Break large views into smaller, focused subviews:
+
+```swift
+struct DashboardView: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: DesignSystem.Spacing.xxl) {
+                welcomeHeader
+                statsGrid
+                latestTestCard
+                actionButton
+            }
+        }
+    }
+
+    // MARK: - Subviews
+
+    private var welcomeHeader: some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            // Header implementation
+        }
+    }
+
+    private var statsGrid: some View {
+        HStack(spacing: DesignSystem.Spacing.lg) {
+            // Stats implementation
+        }
+    }
+}
+```
+
+### ViewModifiers
+
+Extract reusable styling into ViewModifiers:
+
+```swift
+struct CardStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(DesignSystem.Spacing.lg)
+            .background(ColorPalette.backgroundSecondary)
+            .cornerRadius(DesignSystem.CornerRadius.lg)
+            .shadow(
+                color: Color.black.opacity(0.1),
+                radius: DesignSystem.Shadow.lg.radius
+            )
+    }
+}
+
+extension View {
+    func cardStyle() -> some View {
+        modifier(CardStyle())
+    }
+}
+```
+
+### Previews
+
+Always include SwiftUI previews for views and components:
+
+```swift
+#Preview {
+    DashboardView()
+}
+
+#Preview("Multiple States") {
+    VStack(spacing: 20) {
+        PrimaryButton(title: "Normal", action: {})
+        PrimaryButton(title: "Loading", action: {}, isLoading: true)
+        PrimaryButton(title: "Disabled", action: {}, isDisabled: true)
+    }
+    .padding()
+}
+```
+
+---
+
+## State Management
+
+### Published Properties
+
+Mark all observable state with `@Published`:
+
+```swift
+@MainActor
+class DashboardViewModel: BaseViewModel {
+    @Published var latestTestResult: TestResult?
+    @Published var testCount: Int = 0
+    @Published var isRefreshing: Bool = false
+}
+```
+
+### Computed Properties
+
+Use computed properties for derived state:
+
+```swift
+var hasTests: Bool {
+    testCount > 0
+}
+
+var latestTestDateFormatted: String? {
+    guard let latest = latestTestResult else { return nil }
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    return formatter.string(from: latest.completedAt)
+}
+```
+
+### State Updates
+
+Always update UI state on the main actor:
+
+```swift
+@MainActor
+func updateState() {
+    isLoading = false
+    latestTestResult = result
+}
+```
+
+---
+
+## Error Handling
+
+### APIError Enum
+
+Use the centralized `APIError` enum for all API-related errors:
+
+```swift
+enum APIError: Error, LocalizedError {
+    case invalidURL
+    case unauthorized(message: String?)
+    case networkError(Error)
+    case decodingError(Error)
+    // ... other cases
+
+    var errorDescription: String? {
+        // User-friendly error messages
+    }
+
+    var isRetryable: Bool {
+        // Determine if error can be retried
+    }
+}
+```
+
+### Error Handling in ViewModels
+
+Use `BaseViewModel.handleError()` for consistent error handling:
+
+```swift
+do {
+    let result = try await apiClient.request(...)
+    // Handle success
+} catch {
+    handleError(error, context: .fetchDashboard) {
+        await self.fetchDashboardData()  // Retry closure
+    }
+}
+```
+
+### Error Display in Views
+
+Use `ErrorView` for displaying errors with retry capability:
+
+```swift
+if let error = viewModel.error {
+    ErrorView(error: error) {
+        Task { await viewModel.retry() }
+    }
+}
+```
+
+### Crashlytics Integration
+
+All errors handled through `BaseViewModel.handleError()` are automatically recorded to Crashlytics with context:
+
+```swift
+handleError(error, context: .login)  // Provides context for debugging
+```
+
+---
+
+## Networking
+
+### API Client
+
+Use the centralized `APIClient` with protocol-based design:
+
+```swift
+// Define endpoint
+enum APIEndpoint {
+    case testHistory(limit: Int?, offset: Int?)
+
+    var path: String {
+        switch self {
+        case let .testHistory(limit, offset):
+            var path = "/v1/test/history"
+            // Build query params
+            return path
+        }
+    }
+}
+
+// Make request
+let response: PaginatedTestHistoryResponse = try await apiClient.request(
+    endpoint: .testHistory(limit: 50, offset: 0),
+    method: .get,
+    requiresAuth: true,
+    cacheKey: DataCache.Key.testHistory,
+    cacheDuration: 300
+)
+```
+
+### Caching
+
+Use `DataCache` for response caching:
+
+```swift
+// Cache configuration
+try await apiClient.request(
+    endpoint: .testHistory,
+    cacheKey: DataCache.Key.testHistory,  // Cache key
+    cacheDuration: 300                     // 5 minutes TTL
+)
+
+// Force refresh
+try await apiClient.request(
+    endpoint: .testHistory,
+    cacheKey: DataCache.Key.testHistory,
+    forceRefresh: true  // Bypass cache
+)
+
+// Manual cache invalidation
+await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+```
+
+### Request/Response Models
+
+- All request/response models must be `Codable`
+- Use `CodingKeys` for snake_case to camelCase conversion
+- Make models `Equatable` for testing
+
+```swift
+struct TestResult: Codable, Equatable {
+    let iqScore: Int
+    let completedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case iqScore = "iq_score"
+        case completedAt = "completed_at"
+    }
+}
+```
+
+### Token Management
+
+Authentication tokens are handled automatically by `AuthService` and `APIClient`:
+- Access tokens are automatically refreshed when expired
+- Retry logic is built into the API client
+- No manual token management needed in ViewModels
+
+---
+
+## Design System
+
+### Color Palette
+
+ALWAYS use `ColorPalette` for colors - never hardcode colors:
+
+```swift
+// Good
+.foregroundColor(ColorPalette.primary)
+.background(ColorPalette.backgroundSecondary)
+
+// Bad
+.foregroundColor(.blue)
+.background(Color(red: 0.95, green: 0.95, blue: 0.95))
+```
+
+Available color categories:
+- **Primary colors**: `primary`, `secondary`
+- **Semantic colors**: `success`, `warning`, `error`, `info`
+- **Text colors**: `textPrimary`, `textSecondary`, `textTertiary`
+- **Backgrounds**: `background`, `backgroundSecondary`, `backgroundTertiary`
+- **Chart colors**: `chartColors` array
+- **Performance levels**: `performanceExcellent`, `performanceGood`, etc.
+
+### Typography
+
+Use `Typography` enum for all text styling:
+
+```swift
+Text("Welcome")
+    .font(Typography.h1)
+
+Text("Subtitle")
+    .font(Typography.bodyMedium)
+    .foregroundColor(ColorPalette.textSecondary)
+```
+
+Available styles:
+- **Display**: `displayLarge`, `displayMedium`, `displaySmall`
+- **Headings**: `h1`, `h2`, `h3`, `h4`
+- **Body**: `bodyLarge`, `bodyMedium`, `bodySmall`
+- **Labels**: `labelLarge`, `labelMedium`, `labelSmall`
+- **Captions**: `captionLarge`, `captionMedium`, `captionSmall`
+- **Special**: `scoreDisplay`, `statValue`, `button`
+
+### Spacing
+
+Use `DesignSystem.Spacing` for consistent spacing:
+
+```swift
+VStack(spacing: DesignSystem.Spacing.lg) {
+    // Content
+}
+.padding(DesignSystem.Spacing.xxl)
+```
+
+Available sizes: `xs` (4pt), `sm` (8pt), `md` (12pt), `lg` (16pt), `xl` (20pt), `xxl` (24pt), `xxxl` (32pt), `huge` (40pt), `section` (60pt)
+
+### Corner Radius
+
+Use `DesignSystem.CornerRadius`:
+
+```swift
+.cornerRadius(DesignSystem.CornerRadius.lg)
+```
+
+Available sizes: `sm` (8pt), `md` (12pt), `lg` (16pt), `xl` (20pt), `full` (9999)
+
+### Shadows
+
+Use `DesignSystem.Shadow` for consistent elevation:
+
+```swift
+.shadow(
+    color: DesignSystem.Shadow.lg.color,
+    radius: DesignSystem.Shadow.lg.radius,
+    x: DesignSystem.Shadow.lg.x,
+    y: DesignSystem.Shadow.lg.y
+)
+```
+
+Available shadows: `sm`, `md`, `lg`
+
+### Animations
+
+Use `DesignSystem.Animation` for consistent motion:
+
+```swift
+.animation(DesignSystem.Animation.standard, value: someState)
+```
+
+Available animations: `quick`, `standard`, `smooth`, `bouncy`
+
+---
+
+## Documentation
+
+### Code Comments
+
+Use documentation comments (`///`) for:
+- All public types, properties, and methods
+- Complex algorithms or non-obvious logic
+- Enum cases with specific meanings
+
+```swift
+/// ViewModel for managing dashboard data and state
+@MainActor
+class DashboardViewModel: BaseViewModel {
+    /// Latest completed test result for the user
+    @Published var latestTestResult: TestResult?
+
+    /// Fetch dashboard data from API with caching
+    /// - Parameter forceRefresh: If true, bypass cache and fetch from API
+    func fetchDashboardData(forceRefresh: Bool = false) async {
+        // Implementation
+    }
+}
+```
+
+### Inline Comments
+
+Use inline comments (`//`) for:
+- Explaining why code is written a certain way
+- Clarifying complex expressions
+- Marking TODOs or FIXMEs
+
+```swift
+// Check if error is retryable (network errors, timeouts, server errors)
+if error.isRetryable {
+    // Show retry UI
+}
+
+// TODO: Add pagination support for large result sets
+```
+
+### MARK Comments
+
+Use `// MARK:` to organize code sections:
+
+```swift
+// MARK: - Published Properties
+
+@Published var isLoading: Bool = false
+
+// MARK: - Private Properties
+
+private let apiClient: APIClientProtocol
+
+// MARK: - Initialization
+
+init(apiClient: APIClientProtocol) {
+    // ...
+}
+
+// MARK: - Public Methods
+
+func fetchData() async {
+    // ...
+}
+
+// MARK: - Private Methods
+
+private func handleResponse() {
+    // ...
+}
+```
+
+---
+
+## Testing
+
+### Test File Organization
+
+- Place unit tests in `AIQTests/`
+- Place UI tests in `AIQUITests/`
+- Mirror the main app structure
+- Name test files with `Tests` suffix (e.g., `DashboardViewModelTests.swift`)
+
+### Unit Testing ViewModels
+
+Use the SUT (System Under Test) pattern:
+
+```swift
+@MainActor
+final class DashboardViewModelTests: XCTestCase {
+    var sut: DashboardViewModel!
+    var mockAPIClient: MockAPIClient!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        mockAPIClient = MockAPIClient()
+        sut = DashboardViewModel(apiClient: mockAPIClient)
+    }
+
+    override func tearDown() {
+        sut = nil
+        mockAPIClient = nil
+        super.tearDown()
+    }
+
+    func testFetchDashboardData_Success() async {
+        // Given
+        let mockResult = TestResult(...)
+        await mockAPIClient.setTestHistoryResponse([mockResult])
+
+        // When
+        await sut.fetchDashboardData()
+
+        // Then
+        XCTAssertEqual(sut.testCount, 1)
+        XCTAssertNotNil(sut.latestTestResult)
+        XCTAssertFalse(sut.isLoading)
+    }
+}
+```
+
+### Mocking
+
+Create protocol-based mocks in `AIQTests/Mocks/`:
+
+```swift
+actor MockAPIClient: APIClientProtocol {
+    var requestCalled = false
+    var mockResponse: Any?
+    var mockError: Error?
+
+    func request<T: Decodable>(...) async throws -> T {
+        requestCalled = true
+
+        if let error = mockError {
+            throw error
+        }
+
+        guard let response = mockResponse as? T else {
+            throw NSError(...)
+        }
+
+        return response
+    }
+}
+```
+
+### Test Naming
+
+Use descriptive test names following the pattern: `test<Method>_<Scenario>_<ExpectedBehavior>`
+
+```swift
+func testFetchDashboardData_Success()
+func testFetchDashboardData_ErrorHandling()
+func testFetchDashboardData_CacheBehavior()
+```
+
+### Async Testing
+
+Use `async/await` in tests for async operations:
+
+```swift
+func testAsyncOperation() async {
+    await sut.performAsyncOperation()
+    XCTAssertTrue(sut.operationCompleted)
+}
+```
+
+### UI Testing Helpers
+
+Create reusable helpers in `AIQUITests/Helpers/`:
+
+```swift
+class RegistrationHelper {
+    static func fillRegistrationForm(
+        app: XCUIApplication,
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String
+    ) {
+        // Helper implementation
+    }
+}
+```
+
+---
+
+## Code Formatting
+
+### SwiftLint Configuration
+
+The project uses SwiftLint with the following key rules:
+- Line length: 120 warning, 150 error
+- File length: 800 warning, 1000 error
+- Function body length: 50 warning, 100 error
+- Cyclomatic complexity: 10 warning, 20 error
+
+### SwiftFormat Configuration
+
+The project uses SwiftFormat with:
+- 4-space indentation
+- LF line endings
+- Import sorting enabled
+- Blank lines between scopes
+
+### Manual Formatting
+
+Run formatters before committing:
+
+```bash
+# Lint code
+swiftlint lint --config .swiftlint.yml
+
+# Format code
+swiftformat --config .swiftformat AIQ/
+```
+
+### Pre-commit Hooks
+
+Formatting tools run automatically via pre-commit hooks. Ensure they pass before committing.
+
+---
+
+## Accessibility
+
+### VoiceOver Support
+
+Provide accessibility labels and hints for all interactive elements:
+
+```swift
+Button("Submit") {
+    // Action
+}
+.accessibilityLabel("Submit test")
+.accessibilityHint("Double tap to submit your test answers")
+.accessibilityAddTraits(.isButton)
+```
+
+### Dynamic Type
+
+Use the Typography system which automatically supports Dynamic Type:
+
+```swift
+Text("Title")
+    .font(Typography.h1)  // Automatically scales with user's text size
+```
+
+### Semantic Colors
+
+Use semantic colors from `ColorPalette` which adapt to light/dark mode:
+
+```swift
+.foregroundColor(ColorPalette.textPrimary)  // Adapts to light/dark mode
+```
+
+### Accessibility Testing
+
+Test with:
+- VoiceOver enabled
+- Different Dynamic Type sizes
+- Light and dark modes
+- Reduced motion settings
+
+---
+
+## Concurrency
+
+### Main Actor
+
+Mark all ViewModels with `@MainActor` to ensure UI updates occur on the main thread:
+
+```swift
+@MainActor
+class DashboardViewModel: BaseViewModel {
+    @Published var state: String = ""
+
+    func updateState() {
+        // Automatically runs on main thread
+        state = "Updated"
+    }
+}
+```
+
+### Async/Await
+
+Use async/await for asynchronous operations:
+
+```swift
+func fetchData() async {
+    do {
+        let result = try await apiClient.request(...)
+        updateUI(with: result)
+    } catch {
+        handleError(error)
+    }
+}
+```
+
+### Task Management
+
+Use SwiftUI's `.task` modifier for view lifecycle tasks:
+
+```swift
+struct DashboardView: View {
+    var body: some View {
+        content
+            .task {
+                await viewModel.fetchDashboardData()
+            }
+    }
+}
+```
+
+### Structured Concurrency
+
+Use task groups for parallel operations:
+
+```swift
+async let historyTask: Void = fetchTestHistory()
+async let sessionTask: Void = fetchActiveSession()
+
+await historyTask
+await sessionTask
+```
+
+---
+
+## Performance
+
+### Caching Strategy
+
+Implement caching for expensive operations:
+
+```swift
+// API responses are cached automatically
+try await apiClient.request(
+    endpoint: .testHistory,
+    cacheKey: DataCache.Key.testHistory,
+    cacheDuration: 300  // 5 minutes
+)
+```
+
+### Lazy Loading
+
+Use lazy properties for expensive computations:
+
+```swift
+lazy var formattedDate: String = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    return formatter.string(from: date)
+}()
+```
+
+### Analytics
+
+Track performance issues automatically:
+- Slow API requests (> 2 seconds) are tracked via `AnalyticsService`
+- API errors are tracked with endpoint and status code
+- Use `#if DEBUG` for development-only logging
+
+```swift
+#if DEBUG
+    print("✅ Dashboard data loaded successfully")
+#endif
+```
+
+### Image Optimization
+
+- Use SF Symbols when possible
+- Compress images before adding to assets
+- Use appropriate resolutions for different device sizes
+
+---
+
+## Recommended Enhancements
+
+The standards above are **required** and reflect current codebase patterns. The enhancements below are **recommended** for consideration in new code. When an enhancement is implemented across the codebase, it should be promoted to a required standard in the appropriate section above.
+
+### 1. Dependency Injection Container
+
+**Recommendation:** Implement a formal DI container for managing dependencies.
+
+**Current State:** Dependencies are passed via initializers, which works but becomes cumbersome with many dependencies.
+
+**Suggested Approach:**
+
+```swift
+class DependencyContainer {
+    static let shared = DependencyContainer()
+
+    lazy var apiClient: APIClientProtocol = APIClient.shared
+    lazy var authService: AuthServiceProtocol = AuthService.shared
+
+    // Factory methods for ViewModels
+    func makeDashboardViewModel() -> DashboardViewModel {
+        DashboardViewModel(apiClient: apiClient)
+    }
+}
+
+// Usage in views
+@StateObject private var viewModel = DependencyContainer.shared.makeDashboardViewModel()
+```
+
+### 2. Result Builders for Complex Views
+
+**Recommendation:** Use result builders for complex view hierarchies.
+
+**Current State:** Views are well-structured but could benefit from custom result builders.
+
+**Suggested Approach:**
+
+```swift
+@resultBuilder
+struct ConditionalViewBuilder {
+    static func buildBlock(_ components: AnyView...) -> [AnyView] {
+        components
+    }
+
+    static func buildOptional(_ component: [AnyView]?) -> [AnyView] {
+        component ?? []
+    }
+}
+```
+
+### 3. View State Machines
+
+**Recommendation:** Implement explicit state machines for complex view states.
+
+**Current State:** Views use boolean flags (`isLoading`, `error != nil`).
+
+**Suggested Approach:**
+
+```swift
+enum ViewState<T> {
+    case idle
+    case loading
+    case loaded(T)
+    case error(Error)
+}
+
+@Published var state: ViewState<[TestResult]> = .idle
+
+// In view
+switch viewModel.state {
+case .idle:
+    EmptyView()
+case .loading:
+    LoadingView()
+case .loaded(let results):
+    ResultsView(results: results)
+case .error(let error):
+    ErrorView(error: error)
+}
+```
+
+### 4. Coordinator Pattern for Navigation
+
+**Recommendation:** Implement a Coordinator pattern for complex navigation flows.
+
+**Current State:** Navigation uses `AppRouter` which is good, but could be enhanced with coordinators.
+
+**Suggested Approach:**
+
+```swift
+protocol Coordinator {
+    func start()
+    func coordinate(to destination: Destination)
+}
+
+class AuthCoordinator: Coordinator {
+    func start() {
+        // Show login screen
+    }
+
+    func coordinate(to destination: Destination) {
+        switch destination {
+        case .login:
+            // Show login
+        case .register:
+            // Show registration
+        }
+    }
+}
+```
+
+### 5. Snapshot Testing
+
+**Recommendation:** Add snapshot testing for views to catch visual regressions.
+
+**Suggested Tool:** [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)
+
+```swift
+func testDashboardViewAppearance() {
+    let view = DashboardView()
+    assertSnapshot(matching: view, as: .image)
+}
+```
+
+### 6. Localization
+
+**Recommendation:** Prepare for internationalization with proper string management.
+
+**Suggested Approach:**
+
+```swift
+enum Strings {
+    enum Dashboard {
+        static let title = NSLocalizedString("dashboard.title", comment: "Dashboard title")
+        static let welcomeMessage = NSLocalizedString("dashboard.welcome", comment: "Welcome message")
+    }
+}
+
+// Usage
+Text(Strings.Dashboard.title)
+```
+
+### 7. Feature Flags
+
+**Recommendation:** Implement a feature flag system for gradual rollouts.
+
+**Suggested Approach:**
+
+```swift
+enum FeatureFlags {
+    @FeatureFlag("new_dashboard") static var newDashboardEnabled: Bool
+    @FeatureFlag("push_notifications") static var pushNotificationsEnabled: Bool
+}
+
+// Usage
+if FeatureFlags.newDashboardEnabled {
+    NewDashboardView()
+} else {
+    LegacyDashboardView()
+}
+```
+
+### 8. Memory Leak Detection
+
+**Recommendation:** Add automated memory leak detection in tests.
+
+**Suggested Approach:**
+
+```swift
+func testViewModelDoesNotLeak() {
+    weak var weakViewModel: DashboardViewModel?
+
+    autoreleasepool {
+        let viewModel = DashboardViewModel()
+        weakViewModel = viewModel
+        // Use viewModel
+    }
+
+    XCTAssertNil(weakViewModel, "ViewModel should be deallocated")
+}
+```
+
+### 9. API Response Validation
+
+**Recommendation:** Add JSON schema validation for API responses.
+
+**Suggested Approach:**
+
+```swift
+protocol ValidatableResponse {
+    func validate() throws
+}
+
+struct TestResult: Codable, ValidatableResponse {
+    func validate() throws {
+        guard iqScore >= 40 && iqScore <= 160 else {
+            throw ValidationError.invalidIQScore
+        }
+    }
+}
+```
+
+### 10. Combine Publishers for Validation
+
+**Recommendation:** Use Combine for form validation.
+
+**Current State:** Validation is computed property-based, which works but could be more reactive.
+
+**Suggested Approach:**
+
+```swift
+var isFormValidPublisher: AnyPublisher<Bool, Never> {
+    Publishers.CombineLatest($email, $password)
+        .map { email, password in
+            email.isValidEmail && password.count >= 8
+        }
+        .eraseToAnyPublisher()
+}
+```
+
+---
+
+## Summary
+
+These coding standards ensure:
+- **Consistency**: All code follows the same patterns and conventions
+- **Maintainability**: Code is well-organized and documented
+- **Quality**: Proper error handling, testing, and accessibility
+- **Performance**: Efficient caching, async operations, and resource management
+
+**Required vs Recommended:**
+- All sections before "Recommended Enhancements" are **required standards** - follow them strictly
+- The "Recommended Enhancements" section contains **future considerations** - implement when appropriate and promote to required when adopted
+
+When in doubt:
+1. Follow the required standards in this document
+2. Consult Apple's official documentation
+3. Prioritize clarity and simplicity over cleverness
+4. Write code as if a team will inherit it tomorrow
+5. Update this document when establishing new patterns
+
+For questions or clarifications, refer to the [iOS README](../README.md).
