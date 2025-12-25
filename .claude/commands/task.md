@@ -38,21 +38,23 @@ Follow these steps IN ORDER:
 7. **Create atomic commits** as you complete logical units of work
    - All commits should be on the feature branch, NOT main
 
-8, **Always include tests** as part of the acceptance criteria, unless there is no code to be tested.
-
-8. **Update the plan file** to mark the task as complete when done (change `[ ]` to `[x]`)
+9. **Update the plan file** to mark the task as complete when done (change `[ ]` to `[x]`)
+   - Add summary content to the task. Summary content should include
+	- Total tokens spent on task
+	- Total time spent on task
    - This should be your final commit on the feature branch
 
-9. **Push the branch to GitHub** and create a PR:
+10. **Push the branch to GitHub** and create a PR:
    - Push: `git push -u origin feature/{{task_id}}-description`
    - Create PR: `gh pr create` with title format `[{{task_id}}] Brief task description`
    - The PR should merge the feature branch into main
 
 Important guidelines:
-- Write tests if specified in the task
+- Write tests for all tasks unless the task is untestable
+- Combine tasks from the plan if they are better done together
 - Ask clarifying questions if task requirements are ambiguous
 - Mark the task as in_progress in your todo list before starting
-- Make sure the work is delegated to the correct subagent based on the assignee(s).
+- Make sure the work is delegated to the correct subagent based on the assignee(s)
 - Mark complete only when fully implemented and tested
 
 Begin by reading the plan file and locating task {{task_id}}.

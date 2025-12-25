@@ -199,15 +199,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-017: Add Deep Link Routes
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Navigation/DeepLinkHandler.swift`
 **Description:** Implement routes for `aiq://test/results/{id}`, `aiq://test/resume/{sessionId}`, `aiq://settings`.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All three route types implemented
-- [ ] Invalid routes handled gracefully with error state
-- [ ] Routes work from cold start and background state
-- [ ] Unit tests for all route types
+- [x] All three route types implemented
+- [x] Invalid routes handled gracefully with error state
+- [x] Routes work from cold start and background state
+- [x] Unit tests for all route types
 
 ---
 
@@ -1654,3 +1654,60 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Analyze use cases requiring cross-tab navigation (e.g., deep links)
 - [ ] If per-tab paths needed: implement TabRouter wrapper or path-per-tab design
 - [ ] Test tab switching preserves appropriate navigation state
+
+---
+
+### ICG-131: Add Test Coverage for .testResults Deep Link Navigation
+**Status:** [ ] Not Started
+**Source:** PR #393 comment
+**Files:** `AIQTests/Services/DeepLinkHandlerTests.swift`
+**Description:** The .testResults navigation isn't tested due to API mocking complexity. Add a test with a mock API client conforming to APIClientProtocol to verify the fetch-and-navigate flow.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Create mock APIClient for testing
+- [ ] Add test for successful .testResults API call and navigation
+- [ ] Add test for failed .testResults API call and error handling
+- [ ] Verify router.navigateTo() is called with correct route
+
+---
+
+### ICG-132: Implement Full Session Resumption for resumeTest Deep Link
+**Status:** [ ] Not Started
+**Source:** PR #393 comment
+**Files:** `Services/Navigation/DeepLinkHandler.swift`, `Services/Navigation/Route.swift`, `Views/Test/TestTakingView.swift`
+**Description:** The resumeTest deep link captures sessionId but doesn't use it - currently returns false. Implement full session resumption.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Update Route.testTaking to accept an optional sessionId parameter
+- [ ] Modify TestTakingView to fetch and restore session state when sessionId provided
+- [ ] Update DeepLinkHandler to pass sessionId to navigation
+- [ ] Return true from handleNavigation on success
+- [ ] Add unit tests for session resumption flow
+
+---
+
+### ICG-133: Handle Concurrent Deep Link Processing
+**Status:** [ ] Not Started
+**Source:** PR #393 comment
+**Files:** `Views/Common/MainTabView.swift`
+**Description:** Multiple rapid deep links could spawn multiple concurrent API requests. Consider using a State variable to track if a deep link is currently being processed and ignore new ones until complete.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add @State variable to track deep link processing state
+- [ ] Ignore new deep links while one is being processed
+- [ ] Log when deep links are ignored due to pending processing
+- [ ] Test with rapid sequential deep links
+
+---
+
+### ICG-134: Refactor Settings Route Navigation Pattern
+**Status:** [ ] Not Started
+**Source:** PR #393 comment
+**Files:** `Services/Navigation/DeepLinkHandler.swift`, `Views/Common/MainTabView.swift`
+**Description:** The .settings case in handleNavigation returns true but acknowledges it shouldn't be called (handled at tab level). Refactor to make tab-level vs route-level navigation more explicit.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Document/clarify tab-based vs route-based navigation patterns
+- [ ] Consider separating TabDestination enum from Route enum
+- [ ] Remove ambiguous .settings handling in DeepLinkHandler
+- [ ] Ensure all deep link types are handled in appropriate layer
