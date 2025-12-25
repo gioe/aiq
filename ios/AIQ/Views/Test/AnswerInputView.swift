@@ -25,11 +25,12 @@ struct AnswerInputView: View {
 
     private var multipleChoiceOptions: some View {
         VStack(spacing: 12) {
-            ForEach(question.answerOptions ?? [], id: \.self) { option in
+            ForEach(Array((question.answerOptions ?? []).enumerated()), id: \.element) { index, option in
                 OptionButton(
                     option: option,
                     isSelected: userAnswer == option,
                     isDisabled: isDisabled,
+                    accessibilityId: AccessibilityIdentifiers.TestTakingView.answerButton(at: index),
                     action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             userAnswer = option
@@ -59,6 +60,7 @@ struct AnswerInputView: View {
                 .opacity(isDisabled ? 0.6 : 1.0)
                 .accessibilityLabel("Answer input field")
                 .accessibilityHint(isDisabled ? "Input disabled - time expired" : accessibilityHint)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.answerTextField)
 
             // Input hint based on question type
             if !inputHint.isEmpty {
@@ -158,6 +160,7 @@ private struct OptionButton: View {
     let option: String
     let isSelected: Bool
     var isDisabled: Bool = false
+    var accessibilityId: String?
     let action: () -> Void
 
     var body: some View {
@@ -188,6 +191,7 @@ private struct OptionButton: View {
         .accessibilityLabel(option)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityHint(accessibilityHintText)
+        .accessibilityIdentifier(accessibilityId ?? "")
     }
 
     private var foregroundColor: Color {

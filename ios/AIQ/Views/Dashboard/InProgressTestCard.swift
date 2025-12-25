@@ -77,6 +77,7 @@ struct InProgressTestCard: View {
             }
         }
         .disabled(isAbandoning)
+        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.inProgressTestCard)
     }
 
     // MARK: - Header
@@ -188,6 +189,7 @@ struct InProgressTestCard: View {
             .accessibilityLabel("Resume Test")
             .accessibilityHint("Continue your in-progress cognitive performance test")
             .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.resumeButton)
 
             // Abandon Button (Secondary, Destructive)
             Button {
@@ -219,6 +221,7 @@ struct InProgressTestCard: View {
             .accessibilityLabel("Abandon Test")
             .accessibilityHint("Discard this test. It will not count toward your history.")
             .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.abandonTestButton)
         }
     }
 

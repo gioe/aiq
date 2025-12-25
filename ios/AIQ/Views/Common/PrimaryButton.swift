@@ -6,6 +6,7 @@ struct PrimaryButton: View {
     let action: () -> Void
     var isLoading: Bool = false
     var isDisabled: Bool = false
+    var accessibilityId: String?
 
     var body: some View {
         Button(action: action) {
@@ -29,6 +30,7 @@ struct PrimaryButton: View {
         .accessibilityLabel(title)
         .accessibilityHint(accessibilityHintText)
         .accessibilityAddTraits(accessibilityTraits)
+        .accessibilityIdentifier(accessibilityId ?? "")
     }
 
     private var accessibilityHintText: String {

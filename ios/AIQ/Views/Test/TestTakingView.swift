@@ -56,6 +56,7 @@ struct TestTakingView: View {
                 Button("Exit") {
                     handleExit()
                 }
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.exitButton)
             }
         }
         .task {
@@ -322,6 +323,7 @@ struct TestTakingView: View {
             }
             .buttonStyle(.bordered)
             .disabled(!viewModel.canGoPrevious)
+            .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.previousButton)
 
             // Next or Submit button
             if viewModel.isLastQuestion {
@@ -340,6 +342,7 @@ struct TestTakingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.currentAnswer.isEmpty)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.nextButton)
             }
         }
     }
@@ -359,6 +362,7 @@ struct TestTakingView: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(!viewModel.allQuestionsAnswered)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
     }
 
     // MARK: - Test Completed

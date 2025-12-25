@@ -16,9 +16,7 @@ import XCTest
 /// XCTAssertTrue(loginHelper.waitForDashboard())
 /// ```
 ///
-/// Note: Since accessibility identifiers are not yet implemented in the app,
-/// this helper uses accessibility labels to find UI elements. When identifiers
-/// are added, update this helper to use them for more reliable element queries.
+/// Note: This helper uses accessibility identifiers for stable UI element queries.
 class LoginHelper {
     // MARK: - Properties
 
@@ -27,32 +25,29 @@ class LoginHelper {
 
     // MARK: - UI Element Queries
 
-    // Note: Using accessibility labels since identifiers are not yet implemented
-
-    /// Email text field (uses accessibility label "Email")
+    /// Email text field
     var emailTextField: XCUIElement {
-        // The CustomTextField uses accessibilityLabel for the TextField/SecureField
-        app.textFields["Email"]
+        app.textFields["welcomeView.emailTextField"]
     }
 
-    /// Password secure text field (uses accessibility label "Password")
+    /// Password secure text field
     var passwordTextField: XCUIElement {
-        app.secureTextFields["Password"]
+        app.secureTextFields["welcomeView.passwordTextField"]
     }
 
-    /// Sign In button (uses accessibility label "Sign In")
+    /// Sign In button
     var signInButton: XCUIElement {
-        app.buttons["Sign In"]
+        app.buttons["welcomeView.signInButton"]
     }
 
-    /// Create Account button (uses accessibility label "Create Account")
+    /// Create Account button
     var createAccountButton: XCUIElement {
-        app.buttons["Create Account"]
+        app.buttons["welcomeView.createAccountButton"]
     }
 
     /// Welcome screen brain icon
     var welcomeIcon: XCUIElement {
-        app.images["brain.head.profile"]
+        app.images["welcomeView.brainIcon"]
     }
 
     /// Dashboard screen - main navigation title
@@ -62,12 +57,17 @@ class LoginHelper {
 
     /// Dashboard tab in tab bar
     var dashboardTab: XCUIElement {
-        app.tabBars.buttons["Dashboard"]
+        app.buttons["tabBar.dashboardTab"]
     }
 
     /// Settings tab in tab bar
     var settingsTab: XCUIElement {
-        app.tabBars.buttons["Settings"]
+        app.buttons["tabBar.settingsTab"]
+    }
+
+    /// Logout button in Settings
+    var logoutButton: XCUIElement {
+        app.buttons["settingsView.logoutButton"]
     }
 
     // MARK: - Initialization
@@ -166,22 +166,22 @@ class LoginHelper {
             }
         }
 
-        // Look for Sign Out button
-        // Note: Update this when Settings screen structure is known
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'sign out' OR label CONTAINS[c] 'log out'"
-        )
-        let signOutButton = app.buttons.matching(predicate).firstMatch
-
-        guard signOutButton.waitForExistence(timeout: timeout) else {
-            XCTFail("Sign Out button not found in Settings")
+        // Look for Logout button using identifier
+        guard logoutButton.waitForExistence(timeout: timeout) else {
+            XCTFail("Logout button not found in Settings")
             return false
         }
 
-        signOutButton.tap()
+        logoutButton.tap()
+
+        // Handle confirmation dialog
+        let confirmButton = app.buttons["Logout"]
+        if confirmButton.waitForExistence(timeout: 2.0) {
+            confirmButton.tap()
+        }
 
         // Wait for welcome screen to appear
-        let welcomeAppeared = welcomeIcon.waitForExistence(timeout: timeout)
+        let welcomeAppeared = welcomeIcon.waitForExistence(timeout: timeout * 2)
         if !welcomeAppeared {
             XCTFail("Welcome screen did not appear after logout")
         }
