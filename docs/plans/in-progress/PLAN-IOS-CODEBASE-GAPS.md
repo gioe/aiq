@@ -319,15 +319,28 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-025: Write Deep Link Navigation UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/DeepLinkTests.swift` (new)
 **Description:** Test all deep link routes from terminated state.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test all deep link routes (results, resume, settings)
-- [ ] Test from app terminated state
-- [ ] Test from app backgrounded state
-- [ ] Verifies correct screen displayed
+- [x] Test all deep link routes (results, resume, settings)
+- [x] Test from app terminated state
+- [x] Test from app backgrounded state
+- [x] Verifies correct screen displayed
+
+**Summary:**
+- Created comprehensive UI test file with 17 test methods (712 lines) covering all deep link navigation scenarios
+- URL Scheme tests (aiq://): testResults, settings, resumeTest from both terminated and backgrounded states
+- Universal Link tests (https://aiq.app/): testResults, settings, resumeTest from both terminated and backgrounded states
+- Invalid deep link handling: invalid URLs, non-existent result IDs, unrecognized schemes
+- Navigation state verification: tests navigation stack clearing and tab switching behavior
+- Edge cases: multiple rapid deep links, authenticated state handling
+- Tests are skipped by default as they require backend connection and valid test account
+- Uses accessibility identifiers for reliable element queries
+- Follows established patterns from other UI test files
+- **Total tokens spent:** ~120,000 (estimated based on conversation context)
+- **Total time spent:** ~15 minutes
 
 ---
 
