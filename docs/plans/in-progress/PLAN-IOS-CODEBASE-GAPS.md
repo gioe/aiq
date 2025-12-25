@@ -1753,19 +1753,28 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-137: Add Accessibility Identifiers to App Views
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #396 comment
 **Files:** All SwiftUI view files
 **Description:** UI test helpers currently rely on accessibility labels which are fragile (will break if UI text changes due to localization or copy updates). Add accessibility identifiers to all interactive elements for reliable UI testing.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Create AccessibilityIdentifiers.swift constants file
-- [ ] Add identifiers to WelcomeView elements (email field, password field, sign in button)
-- [ ] Add identifiers to DashboardView elements (action button, resume button)
-- [ ] Add identifiers to TestTakingView elements (answer buttons, submit button)
-- [ ] Add identifiers to SettingsView elements (sign out button)
-- [ ] Add identifiers to navigation tabs
-- [ ] Update UI test helpers to use identifiers instead of labels
+- [x] Create AccessibilityIdentifiers.swift constants file
+- [x] Add identifiers to WelcomeView elements (email field, password field, sign in button)
+- [x] Add identifiers to DashboardView elements (action button, resume button)
+- [x] Add identifiers to TestTakingView elements (answer buttons, submit button)
+- [x] Add identifiers to SettingsView elements (sign out button)
+- [x] Add identifiers to navigation tabs
+- [x] Update UI test helpers to use identifiers instead of labels
+
+**Summary:**
+- Created centralized AccessibilityIdentifiers.swift with nested structs for WelcomeView, DashboardView, TestTakingView, SettingsView, and TabBar
+- Added accessibility identifiers to all interactive elements across views
+- Updated CustomTextField and PrimaryButton with optional accessibilityId parameter
+- Refactored UI test helpers (LoginHelper, NavigationHelper, TestTakingHelper) to use identifiers instead of fragile label-based queries
+- Tests won't break when UI text changes for localization or copy updates
+- **Total tokens spent:** ~75,000 (estimated)
+- **Total time spent:** ~25 minutes
 
 ---
 
