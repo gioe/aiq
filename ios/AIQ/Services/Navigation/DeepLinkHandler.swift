@@ -278,8 +278,10 @@ extension DeepLinkHandler {
             // Navigating to a fresh test would violate user expectations.
             // See ICG-132 for full session resumption implementation.
             Self.logger.warning(
-                "Resume test deep link received for sessionId: \(sessionId, privacy: .public). " +
-                    "Session resumption not yet implemented - deep link cannot be handled."
+                """
+                Resume test deep link received for sessionId: \(sessionId, privacy: .public). \
+                Session resumption not yet implemented - deep link cannot be handled.
+                """
             )
             return false
 
