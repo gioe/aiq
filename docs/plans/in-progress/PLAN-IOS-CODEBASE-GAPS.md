@@ -187,14 +187,14 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-016: Implement Deep Link Handling in AppDelegate
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AppDelegate.swift`
 **Description:** Handle `application(_:open:options:)` callback to process deep links.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] AppDelegate handles URL opening callbacks
-- [ ] URLs parsed by DeepLinkHandler
-- [ ] Router navigates to correct destination
+- [x] AppDelegate handles URL opening callbacks
+- [x] URLs parsed by DeepLinkHandler
+- [x] Router navigates to correct destination
 
 ---
 

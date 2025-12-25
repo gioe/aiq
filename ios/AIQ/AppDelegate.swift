@@ -1,10 +1,17 @@
 import FirebaseCore
 import FirebaseCrashlytics
+import os
 import UIKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     private let notificationManager = NotificationManager.shared
+    private let deepLinkHandler = DeepLinkHandler()
+    private static let logger = Logger(subsystem: "com.aiq.app", category: "AppDelegate")
+
+    /// Weak reference to the app router for deep link navigation
+    /// Set by AIQApp during initialization
+    weak var appRouter: AppRouter?
 
     func application(
         _: UIApplication,
@@ -86,6 +93,87 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             print("Unknown notification type: \(notificationType)")
         }
     }
+
+    // MARK: - Deep Link Handling
+
+    /// Handle URL scheme deep links (aiq://...)
+    ///
+    /// This method is called when the app is opened via a custom URL scheme.
+    /// Deep links are parsed and navigation is performed via the AppRouter.
+    ///
+    /// - Parameters:
+    ///   - app: The singleton app object
+    ///   - url: The URL to open
+    ///   - options: A dictionary of URL handling options
+    /// - Returns: true if the URL was handled successfully
+    func application(
+        _: UIApplication,
+        open url: URL,
+        options _: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        Self.logger.info("Received URL scheme deep link: \(url.absoluteString, privacy: .public)")
+        return handleDeepLink(url)
+    }
+
+    /// Handle universal links (https://aiq.app/...)
+    ///
+    /// This method is called when the app is opened via a universal link.
+    /// Universal links provide a seamless experience when opening web links in the app.
+    ///
+    /// - Parameters:
+    ///   - application: The singleton app object
+    ///   - userActivity: The user activity object containing the universal link
+    ///   - restorationHandler: A block to execute if your app creates objects to perform the task
+    /// - Returns: true if the user activity was handled successfully
+    func application(
+        _: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler _: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        // Check if this is a universal link activity
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL
+        else {
+            Self.logger.warning("Received non-web user activity: \(userActivity.activityType, privacy: .public)")
+            return false
+        }
+
+        Self.logger.info("Received universal link: \(url.absoluteString, privacy: .public)")
+        return handleDeepLink(url)
+    }
+
+    /// Process a deep link URL and navigate to the appropriate destination
+    ///
+    /// This method:
+    /// 1. Parses the URL using DeepLinkHandler
+    /// 2. Posts a notification with the deep link for the app to handle
+    /// 3. The notification is handled asynchronously by the MainTabView or other components
+    ///
+    /// - Parameter url: The deep link URL to handle
+    /// - Returns: true if the URL was parsed successfully, false otherwise
+    private func handleDeepLink(_ url: URL) -> Bool {
+        // Parse the deep link
+        let deepLink = deepLinkHandler.parse(url)
+
+        // Check if the deep link is valid
+        guard deepLink != .invalid else {
+            Self.logger.warning("Invalid deep link: \(url.absoluteString, privacy: .public)")
+            return false
+        }
+
+        Self.logger.info("Successfully parsed deep link: \(String(describing: deepLink), privacy: .public)")
+
+        // Post notification for the app to handle
+        // This allows the deep link to be handled asynchronously when the app is ready
+        // (e.g., after authentication check, view hierarchy is set up, etc.)
+        NotificationCenter.default.post(
+            name: .deepLinkReceived,
+            object: nil,
+            userInfo: ["deepLink": deepLink]
+        )
+
+        return true
+    }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
@@ -142,4 +230,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 extension Notification.Name {
     /// Posted when user taps on a push notification
     static let notificationTapped = Notification.Name("notificationTapped")
+
+    /// Posted when a deep link is received (URL scheme or universal link)
+    static let deepLinkReceived = Notification.Name("deepLinkReceived")
 }
