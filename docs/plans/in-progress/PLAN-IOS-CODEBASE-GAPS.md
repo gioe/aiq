@@ -1838,3 +1838,94 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Add tearDown() method to clean up
 - [ ] Or add clear documentation that examples are for reference only
 - [ ] Consider moving to separate documentation file
+
+---
+
+### ICG-144: Add Accessibility Identifiers to Registration Views
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQ/Views/Auth/RegistrationView.swift`, `ios/AIQUITests/Helpers/RegistrationHelper.swift`
+**Description:** RegistrationHelper uses accessibility labels for element queries which is fragile. Add accessibility identifiers to production registration views and update helper to use them.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add accessibility identifiers to all registration form elements
+- [ ] Update RegistrationHelper to use identifiers instead of labels
+- [ ] Tests remain reliable after localization changes
+
+---
+
+### ICG-145: Add Education Level Picker Test
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/RegistrationFlowTests.swift`, `ios/AIQUITests/Helpers/RegistrationHelper.swift`
+**Description:** The educationLevelButton property is defined in RegistrationHelper but never used. Either implement education level picker interaction or remove the unused property.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add test for education level picker interaction, OR
+- [ ] Remove unused educationLevelButton property
+- [ ] If implementing, add fillEducationLevel method to helper
+
+---
+
+### ICG-146: Improve Validation Error Checking Specificity
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/Helpers/RegistrationHelper.swift`
+**Description:** Validation error checking predicates are too loose (e.g., hasFirstNameError matches any text containing "first name" AND "required"). Define expected error message formats and match precisely.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Define expected error message formats in production app
+- [ ] Update helper predicates to match exact error messages
+- [ ] Consider using accessibility identifiers for error labels
+
+---
+
+### ICG-147: Add Error Recovery Flow Tests
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/RegistrationFlowTests.swift`
+**Description:** Missing tests for error recovery flows - fixing validation errors and resubmitting the form.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add test that triggers validation error then fixes it
+- [ ] Verify form becomes submittable after fixing errors
+- [ ] Test covers at least email and password validation recovery
+
+---
+
+### ICG-148: Add Network Failure Registration Tests
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/RegistrationFlowTests.swift`
+**Description:** Missing tests for network failure scenarios during registration (timeout, server errors).
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add test for registration with network timeout
+- [ ] Add test for registration with server error response
+- [ ] Verify error message displayed to user
+
+---
+
+### ICG-149: Add Keyboard Navigation Tests
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/RegistrationFlowTests.swift`
+**Description:** Missing tests for keyboard management - return key navigation between fields.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Test return key advances to next field
+- [ ] Test final field return key submits or dismisses keyboard
+- [ ] Verify focus moves correctly through form
+
+---
+
+### ICG-150: Document Test Account Setup Requirements
+**Status:** [ ] Not Started
+**Source:** PR #397 comment
+**Files:** `ios/AIQUITests/README.md` (new or existing)
+**Description:** Test that checks existing email shows error needs documented test account setup requirements.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Document required test accounts
+- [ ] Add instructions for test environment configuration
+- [ ] Consider environment variables for test credentials
