@@ -273,11 +273,11 @@ class NavigationHelper {
     func waitForNavigationToComplete(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? timeout
 
-        // Wait a moment for navigation animation
-        Thread.sleep(forTimeInterval: 0.5)
-
-        // Check if any navigation bar exists and is stable
-        let navBars = app.navigationBars
-        return navBars.firstMatch.waitForExistence(timeout: waitTimeout)
+        // Wait for navigation bar to exist and be hittable (animation complete)
+        let navBar = app.navigationBars.firstMatch
+        let predicate = NSPredicate(format: "exists == true AND hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: navBar)
+        let result = XCTWaiter.wait(for: [expectation], timeout: waitTimeout)
+        return result == .completed
     }
 }
