@@ -98,16 +98,27 @@ class NavigationHelper {
 
         switch screen {
         case .welcome:
-            // Check for welcome screen brain icon
-            let brainIcon = app.images["brain.head.profile"]
-            let emailField = app.textFields["Email"]
+            // Check for welcome screen brain icon using identifier
+            let brainIcon = app.images["welcomeView.brainIcon"]
+            let emailField = app.textFields["welcomeView.emailTextField"]
             return brainIcon.waitForExistence(timeout: waitTimeout) &&
                 emailField.exists
 
         case .dashboard, .history, .settings:
-            // Check for tab bar button and navigation title
-            guard let tabLabel = screen.tabLabel else { return false }
-            let tab = app.tabBars.buttons[tabLabel]
+            // Check for tab bar button using identifier and navigation title
+            let identifier: String
+            switch screen {
+            case .dashboard:
+                identifier = "tabBar.dashboardTab"
+            case .history:
+                identifier = "tabBar.historyTab"
+            case .settings:
+                identifier = "tabBar.settingsTab"
+            default:
+                return false
+            }
+
+            let tab = app.buttons[identifier]
             let navBar = app.navigationBars[screen.navigationTitle]
             return tab.waitForExistence(timeout: waitTimeout) && navBar.exists
 
@@ -171,7 +182,17 @@ class NavigationHelper {
     /// - Returns: true if navigation succeeded, false otherwise
     @discardableResult
     func navigateToTab(_ tab: Tab, waitForScreen: Bool = true) -> Bool {
-        let tabButton = app.tabBars.buttons[tab.rawValue]
+        // Use accessibility identifiers for tabs
+        let identifier = switch tab {
+        case .dashboard:
+            "tabBar.dashboardTab"
+        case .history:
+            "tabBar.historyTab"
+        case .settings:
+            "tabBar.settingsTab"
+        }
+
+        let tabButton = app.buttons[identifier]
 
         guard tabButton.waitForExistence(timeout: timeout) else {
             XCTFail("Tab '\(tab.rawValue)' not found")
@@ -191,7 +212,16 @@ class NavigationHelper {
     /// - Parameter tab: The tab to check
     /// - Returns: true if the tab is selected, false otherwise
     func isTabSelected(_ tab: Tab) -> Bool {
-        let tabButton = app.tabBars.buttons[tab.rawValue]
+        let identifier = switch tab {
+        case .dashboard:
+            "tabBar.dashboardTab"
+        case .history:
+            "tabBar.historyTab"
+        case .settings:
+            "tabBar.settingsTab"
+        }
+
+        let tabButton = app.buttons[identifier]
         return tabButton.exists && tabButton.isSelected
     }
 
@@ -261,7 +291,15 @@ class NavigationHelper {
     /// - Parameter tab: The tab
     /// - Returns: The tab bar button element
     func tabButton(for tab: Tab) -> XCUIElement {
-        app.tabBars.buttons[tab.rawValue]
+        let identifier = switch tab {
+        case .dashboard:
+            "tabBar.dashboardTab"
+        case .history:
+            "tabBar.historyTab"
+        case .settings:
+            "tabBar.settingsTab"
+        }
+        return app.buttons[identifier]
     }
 
     // MARK: - Wait Helpers

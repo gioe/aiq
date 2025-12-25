@@ -7,6 +7,7 @@ struct StatCard: View {
     let value: String
     let icon: String
     let color: Color
+    var accessibilityId: String?
 
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
@@ -77,6 +78,7 @@ struct StatCard: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
+        .accessibilityIdentifier(accessibilityId ?? "")
     }
 }
 

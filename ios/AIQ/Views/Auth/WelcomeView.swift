@@ -24,6 +24,7 @@ struct WelcomeView: View {
                                 }
                             )
                             .padding(.top, DesignSystem.Spacing.md)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.errorBanner)
                         }
 
                         // Animated Hero Section
@@ -37,6 +38,7 @@ struct WelcomeView: View {
                                     Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
                                     value: isAnimating
                                 )
+                                .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.brainIcon)
 
                             Text("AIQ")
                                 .font(Typography.displayMedium)
@@ -80,7 +82,8 @@ struct WelcomeView: View {
                                 placeholder: "your.email@example.com",
                                 text: $viewModel.email,
                                 keyboardType: .emailAddress,
-                                autocapitalization: .never
+                                autocapitalization: .never,
+                                accessibilityId: AccessibilityIdentifiers.WelcomeView.emailTextField
                             )
 
                             if let emailError = viewModel.emailError {
@@ -94,7 +97,8 @@ struct WelcomeView: View {
                                 title: "Password",
                                 placeholder: "Enter your password",
                                 text: $viewModel.password,
-                                isSecure: true
+                                isSecure: true,
+                                accessibilityId: AccessibilityIdentifiers.WelcomeView.passwordTextField
                             )
 
                             if let passwordError = viewModel.passwordError {
@@ -112,7 +116,8 @@ struct WelcomeView: View {
                                     }
                                 },
                                 isLoading: viewModel.isLoading,
-                                isDisabled: !viewModel.isFormValid
+                                isDisabled: !viewModel.isFormValid,
+                                accessibilityId: AccessibilityIdentifiers.WelcomeView.signInButton
                             )
                             .padding(.top, DesignSystem.Spacing.sm)
                             .scaleEffect(isAnimating ? 1.0 : 0.95)
@@ -140,6 +145,7 @@ struct WelcomeView: View {
                                         .foregroundColor(ColorPalette.primary)
                                 }
                             )
+                            .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.createAccountButton)
                         }
                         .padding(.top, DesignSystem.Spacing.sm)
                         .opacity(isAnimating ? 1.0 : 0.0)

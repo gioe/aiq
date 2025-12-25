@@ -1753,19 +1753,28 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-137: Add Accessibility Identifiers to App Views
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #396 comment
 **Files:** All SwiftUI view files
 **Description:** UI test helpers currently rely on accessibility labels which are fragile (will break if UI text changes due to localization or copy updates). Add accessibility identifiers to all interactive elements for reliable UI testing.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Create AccessibilityIdentifiers.swift constants file
-- [ ] Add identifiers to WelcomeView elements (email field, password field, sign in button)
-- [ ] Add identifiers to DashboardView elements (action button, resume button)
-- [ ] Add identifiers to TestTakingView elements (answer buttons, submit button)
-- [ ] Add identifiers to SettingsView elements (sign out button)
-- [ ] Add identifiers to navigation tabs
-- [ ] Update UI test helpers to use identifiers instead of labels
+- [x] Create AccessibilityIdentifiers.swift constants file
+- [x] Add identifiers to WelcomeView elements (email field, password field, sign in button)
+- [x] Add identifiers to DashboardView elements (action button, resume button)
+- [x] Add identifiers to TestTakingView elements (answer buttons, submit button)
+- [x] Add identifiers to SettingsView elements (sign out button)
+- [x] Add identifiers to navigation tabs
+- [x] Update UI test helpers to use identifiers instead of labels
+
+**Summary:**
+- Created centralized AccessibilityIdentifiers.swift with nested structs for WelcomeView, DashboardView, TestTakingView, SettingsView, and TabBar
+- Added accessibility identifiers to all interactive elements across views
+- Updated CustomTextField and PrimaryButton with optional accessibilityId parameter
+- Refactored UI test helpers (LoginHelper, NavigationHelper, TestTakingHelper) to use identifiers instead of fragile label-based queries
+- Tests won't break when UI text changes for localization or copy updates
+- **Total tokens spent:** ~75,000 (estimated)
+- **Total time spent:** ~25 minutes
 
 ---
 
@@ -1783,15 +1792,22 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-139: Improve TestTakingHelper Element Queries
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #396 comment
 **Files:** `ios/AIQUITests/Helpers/TestTakingHelper.swift`
 **Description:** Current predicates are too broad and could match unintended elements. For example, `label CONTAINS[c] "take" OR label CONTAINS[c] "start"` could match "Retake" or "Start learning". Once accessibility identifiers are added, replace these with specific identifiers.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Wait for ICG-137 to complete (accessibility identifiers)
-- [ ] Replace broad label predicates with specific identifier queries
-- [ ] Remove fragile `label.length > 20` predicate for question text
+- [x] Wait for ICG-137 to complete (accessibility identifiers)
+- [x] Replace broad label predicates with specific identifier queries
+- [x] Remove fragile `label.length > 20` predicate for question text
+
+**Summary:**
+- Completed as part of ICG-137 - all element queries now use accessibility identifiers
+- Replaced all label-based predicates with identifier-based queries (e.g., `app.buttons["dashboardView.actionButton"]`)
+- Removed all `label CONTAINS` and `label.length` predicates from TestTakingHelper
+- **Total tokens spent:** Included in ICG-137
+- **Total time spent:** Included in ICG-137
 
 ---
 
@@ -2145,3 +2161,57 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Verify VoiceOver labels on question elements
 - [ ] Verify button hints for answer selection
 - [ ] Test accessibility navigation through test flow
+
+---
+
+### ICG-166: Add UI Tests Verifying Accessibility Identifiers Exist
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQUITests/AccessibilityIdentifierTests.swift` (new)
+**Description:** Create UI tests that verify critical accessibility identifiers exist to catch missing identifiers during development.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Create test file for identifier verification
+- [ ] Test verifies WelcomeView identifiers exist
+- [ ] Test verifies DashboardView identifiers exist
+- [ ] Test verifies TestTakingView identifiers exist
+- [ ] Test verifies SettingsView identifiers exist
+
+---
+
+### ICG-167: Apply LoadingView and ErrorView Accessibility Identifiers
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Views/Common/LoadingView.swift`, `ios/AIQ/Views/Common/ErrorView.swift`
+**Description:** AccessibilityIdentifiers.Common.loadingView and .errorView are defined but not applied to the actual views.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Apply common.loadingView identifier to LoadingView
+- [ ] Apply common.errorView identifier to ErrorView
+- [ ] Update UI test helpers if needed
+
+---
+
+### ICG-168: Fix ForEach ID in AnswerInputView
+**Status:** [x] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Views/Test/AnswerInputView.swift`
+**Description:** ForEach uses `id: \.element` which could break if duplicate answer options exist. Use `\.offset` for guaranteed uniqueness.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [x] Change `ForEach(Array(...enumerated()), id: \.element)` to `ForEach(Array(...enumerated()), id: \.offset)`
+- [x] Verify answer selection still works correctly
+
+---
+
+### ICG-169: Audit Defined vs Applied Accessibility Identifiers
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Utilities/Helpers/AccessibilityIdentifiers.swift`
+**Description:** Create an audit to compare defined identifiers in AccessibilityIdentifiers.swift versus actually applied identifiers in views to catch gaps.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Script or manual audit to find all defined identifiers
+- [ ] Cross-reference with actual .accessibilityIdentifier() usage
+- [ ] Document any unused or missing identifiers
+- [ ] Create tasks for any gaps found

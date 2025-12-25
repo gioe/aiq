@@ -22,6 +22,7 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 8)
+                        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.accountSection)
                     }
                 } header: {
                     Text("Account")
@@ -30,6 +31,7 @@ struct SettingsView: View {
                 // Notifications Section
                 Section {
                     NotificationSettingsView()
+                        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.notificationsSection)
                 } header: {
                     Text("Notifications")
                 } footer: {
@@ -53,6 +55,7 @@ struct SettingsView: View {
                         }
                     }
                     .foregroundColor(.primary)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.helpButton)
                 } header: {
                     Text("Support")
                 }
@@ -65,6 +68,7 @@ struct SettingsView: View {
                         Text(AppConfig.appVersion)
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.appVersionLabel)
                 } header: {
                     Text("App")
                 }
@@ -84,6 +88,7 @@ struct SettingsView: View {
                             }
                         }
                     )
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutButton)
                 }
 
                 #if DEBUG
@@ -102,12 +107,14 @@ struct SettingsView: View {
                                 }
                             }
                         )
+                        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.testCrashButton)
                     } header: {
                         Text("Debug")
                     } footer: {
                         Text("Force a crash to test Crashlytics. Reported on next app launch.")
                             .font(.caption)
                     }
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.debugSection)
                 #endif
             }
             .navigationTitle("Settings")

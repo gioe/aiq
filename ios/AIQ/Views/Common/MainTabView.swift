@@ -16,6 +16,7 @@ struct MainTabView: View {
                     Label("Dashboard", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(0)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.dashboardTab)
 
             // History Tab
             HistoryTabNavigationView()
@@ -23,6 +24,7 @@ struct MainTabView: View {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }
                 .tag(1)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.historyTab)
 
             // Settings Tab
             SettingsTabNavigationView()
@@ -30,6 +32,7 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gear")
                 }
                 .tag(2)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.settingsTab)
         }
         .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }

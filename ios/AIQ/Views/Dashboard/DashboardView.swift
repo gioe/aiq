@@ -73,6 +73,7 @@ struct DashboardView: View {
                 // Latest Test Result
                 if let latest = viewModel.latestTestResult {
                     latestTestCard(latest)
+                        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.latestTestCard)
                 }
 
                 // Action Button
@@ -156,7 +157,8 @@ struct DashboardView: View {
                 label: "Tests Taken",
                 value: "\(viewModel.testCount)",
                 icon: "list.clipboard.fill",
-                color: ColorPalette.statBlue
+                color: ColorPalette.statBlue,
+                accessibilityId: AccessibilityIdentifiers.DashboardView.testsTakenStat
             )
 
             if let avgScore = viewModel.averageScore {
@@ -164,7 +166,8 @@ struct DashboardView: View {
                     label: "Average IQ",
                     value: "\(avgScore)",
                     icon: "chart.line.uptrend.xyaxis",
-                    color: ColorPalette.statGreen
+                    color: ColorPalette.statGreen,
+                    accessibilityId: AccessibilityIdentifiers.DashboardView.averageIQStat
                 )
             }
         }
@@ -295,6 +298,7 @@ struct DashboardView: View {
                     : "Start a new cognitive performance test"
             )
             .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
         }
     }
 
@@ -335,6 +339,7 @@ struct DashboardView: View {
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
+                .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateView)
 
                 Spacer()
             }

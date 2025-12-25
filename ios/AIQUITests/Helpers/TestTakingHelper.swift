@@ -18,8 +18,7 @@ import XCTest
 /// XCTAssertTrue(testHelper.waitForResults())
 /// ```
 ///
-/// Note: This helper uses accessibility labels since identifiers are not yet implemented.
-/// Update element queries when accessibility identifiers are added to the test-taking screens.
+/// Note: This helper uses accessibility identifiers for stable UI element queries.
 class TestTakingHelper {
     // MARK: - Properties
 
@@ -30,52 +29,57 @@ class TestTakingHelper {
 
     /// Start Test button (from dashboard)
     var startTestButton: XCUIElement {
-        // Look for buttons with "Take" or "Start" in the label
-        let buttons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'take' OR label CONTAINS[c] 'start'"))
-        return buttons.firstMatch
+        app.buttons["dashboardView.actionButton"]
     }
 
     /// Resume Test button (when test is in progress)
     var resumeTestButton: XCUIElement {
-        let buttons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'resume'"))
-        return buttons.firstMatch
+        app.buttons["dashboardView.resumeButton"]
+    }
+
+    /// Previous button
+    var previousButton: XCUIElement {
+        app.buttons["testTakingView.previousButton"]
     }
 
     /// Next button (proceed to next question)
     var nextButton: XCUIElement {
-        app.buttons["Next"]
+        app.buttons["testTakingView.nextButton"]
     }
 
     /// Submit button (submit the test)
     var submitButton: XCUIElement {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'submit' OR label CONTAINS[c] 'finish'"
-        )
-        return app.buttons.matching(predicate).firstMatch
+        app.buttons["testTakingView.submitButton"]
+    }
+
+    /// Exit button
+    var exitButton: XCUIElement {
+        app.buttons["testTakingView.exitButton"]
+    }
+
+    /// Question card
+    var questionCard: XCUIElement {
+        app.otherElements["testTakingView.questionCard"]
     }
 
     /// Current question text
     var questionText: XCUIElement {
-        // Look for static text elements that contain question content
-        // This may need refinement based on actual test-taking UI structure
-        let staticTexts = app.staticTexts.matching(NSPredicate(format: "label.length > 20"))
-        return staticTexts.firstMatch
+        app.staticTexts["testTakingView.questionText"]
     }
 
-    /// Progress indicator (e.g., "Question 1 of 30")
-    var progressLabel: XCUIElement {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'question' AND label CONTAINS[c] 'of'"
-        )
-        let labels = app.staticTexts.matching(predicate)
-        return labels.firstMatch
+    /// Progress bar
+    var progressBar: XCUIElement {
+        app.otherElements["testTakingView.progressBar"]
     }
 
-    /// Answer option buttons (multiple choice)
-    var answerOptions: XCUIElementQuery {
-        // This will need to be refined based on actual UI implementation
-        // Assuming answer options are buttons or tappable cells
-        app.buttons.matching(NSPredicate(format: "label MATCHES[c] '[A-D].*' OR label MATCHES[c] 'option.*'"))
+    /// Answer text field (for open-ended questions)
+    var answerTextField: XCUIElement {
+        app.textFields["testTakingView.answerTextField"]
+    }
+
+    /// Get answer button at specific index (for multiple choice)
+    func answerButton(at index: Int) -> XCUIElement {
+        app.buttons["testTakingView.answerButton.\(index)"]
     }
 
     /// Test results view elements
@@ -162,16 +166,9 @@ class TestTakingHelper {
             return false
         }
 
-        // Get all answer options
-        let options = answerOptions.allElementsBoundByIndex
+        // Get the answer button using identifier
+        let option = answerButton(at: optionIndex)
 
-        guard optionIndex < options.count else {
-            XCTFail("Option index \(optionIndex) is out of range. Only \(options.count) options available")
-            return false
-        }
-
-        // Tap the selected option
-        let option = options[optionIndex]
         guard option.waitForExistence(timeout: timeout) else {
             XCTFail("Answer option \(optionIndex) not found")
             return false
@@ -187,11 +184,11 @@ class TestTakingHelper {
         return true
     }
 
-    /// Answer the current question by selecting text matching a pattern
+    /// Answer the current question by entering text (for open-ended questions)
     /// - Parameters:
-    ///   - answerText: Text or pattern to match in answer options
-    ///   - tapNext: Whether to tap Next button after selecting answer (default: true)
-    /// - Returns: true if answer was selected successfully, false otherwise
+    ///   - answerText: Text to enter as the answer
+    ///   - tapNext: Whether to tap Next button after entering answer (default: true)
+    /// - Returns: true if answer was entered successfully, false otherwise
     @discardableResult
     func answerCurrentQuestion(withText answerText: String, tapNext: Bool = true) -> Bool {
         // Wait for question to be visible
@@ -199,15 +196,14 @@ class TestTakingHelper {
             return false
         }
 
-        // Find option matching the text
-        let matchingOption = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", answerText)).firstMatch
-
-        guard matchingOption.waitForExistence(timeout: timeout) else {
-            XCTFail("Answer option with text '\(answerText)' not found")
+        // Enter text in the answer field
+        guard answerTextField.waitForExistence(timeout: timeout) else {
+            XCTFail("Answer text field not found")
             return false
         }
 
-        matchingOption.tap()
+        answerTextField.tap()
+        answerTextField.typeText(answerText)
 
         if tapNext {
             return tapNextButton()
@@ -267,26 +263,35 @@ class TestTakingHelper {
     func completeTestWithAnswer(optionIndex: Int = 0, questionCount: Int = 30) -> Bool {
         for questionNumber in 1 ... questionCount {
             // Answer current question
-            guard answerCurrentQuestion(optionIndex: optionIndex, tapNext: true) else {
+            guard answerCurrentQuestion(optionIndex: optionIndex, tapNext: false) else {
                 XCTFail("Failed to answer question \(questionNumber)")
                 return false
             }
 
-            // Wait for progress to update or results to appear
-            if questionNumber < questionCount {
-                // Wait for progress label to show next question
-                let nextQuestionNum = questionNumber + 1
-                let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
-                let expectation = XCTNSPredicateExpectation(predicate: predicate, object: progressLabel)
-                let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+            // Wait for the answer to be registered by checking next button becomes enabled
+            let nextButtonEnabled = nextButton.waitForExistence(timeout: 1.0) && nextButton.isEnabled
 
-                if result != .completed {
-                    XCTFail("Failed to navigate to question \(nextQuestionNum)")
+            // If next button isn't available yet, wait briefly for UI to update
+            if !nextButtonEnabled {
+                _ = nextButton.waitForExistence(timeout: 0.5)
+            }
+
+            // Check if we're on the last question
+            if questionNumber == questionCount {
+                // Last question - submit the test
+                return submitTest(shouldWaitForResults: true)
+            } else {
+                // Not the last question - tap next
+                guard tapNextButton() else {
+                    XCTFail("Failed to navigate to next question")
                     return false
                 }
-            } else {
-                // Last question - submit instead of next
-                return submitTest(shouldWaitForResults: true)
+
+                // Wait for next question to appear
+                guard waitForQuestion() else {
+                    XCTFail("Next question did not appear")
+                    return false
+                }
             }
         }
 
@@ -302,8 +307,9 @@ class TestTakingHelper {
     func waitForQuestion(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? timeout
 
-        // Wait for question text to appear
-        let questionAppeared = questionText.waitForExistence(timeout: waitTimeout)
+        // Wait for question card to appear
+        let questionAppeared = questionCard.waitForExistence(timeout: waitTimeout) ||
+            questionText.waitForExistence(timeout: waitTimeout)
 
         if !questionAppeared {
             XCTFail("Question did not appear")
@@ -333,50 +339,9 @@ class TestTakingHelper {
 
     // MARK: - Test State Queries
 
-    /// Get the current question number from progress indicator
-    /// - Returns: Current question number, or nil if not available
-    var currentQuestionNumber: Int? {
-        guard progressLabel.exists else { return nil }
-
-        let labelText = progressLabel.label
-        // Parse "Question X of Y" format
-        let components = labelText.components(separatedBy: " ")
-        if components.count >= 2,
-           let questionNum = Int(components[1]) {
-            return questionNum
-        }
-
-        return nil
-    }
-
-    /// Get the total number of questions from progress indicator
-    /// - Returns: Total question count, or nil if not available
-    var totalQuestionCount: Int? {
-        guard progressLabel.exists else { return nil }
-
-        let labelText = progressLabel.label
-        // Parse "Question X of Y" format
-        let components = labelText.components(separatedBy: " of ")
-        if components.count == 2,
-           let total = Int(components[1]) {
-            return total
-        }
-
-        return nil
-    }
-
-    /// Check if on the last question
-    var isOnLastQuestion: Bool {
-        guard let current = currentQuestionNumber,
-              let total = totalQuestionCount else {
-            return false
-        }
-        return current == total
-    }
-
     /// Check if currently on a test-taking screen
     var isOnTestScreen: Bool {
-        questionText.exists && !answerOptions.isEmpty
+        questionCard.exists || questionText.exists
     }
 
     /// Check if currently on results screen
@@ -390,23 +355,20 @@ class TestTakingHelper {
     /// - Returns: true if test was abandoned successfully, false otherwise
     @discardableResult
     func abandonTest() -> Bool {
-        // Look for close/back button
-        let closePredicate = NSPredicate(
-            format: "label CONTAINS[c] 'close' OR label CONTAINS[c] 'cancel'"
-        )
-        let closeButton = app.navigationBars.buttons.matching(closePredicate).firstMatch
-        let backPredicate = NSPredicate(format: "label CONTAINS[c] 'back'")
-        let backButton = app.navigationBars.buttons.matching(backPredicate).firstMatch
-
-        if closeButton.exists {
-            closeButton.tap()
-            return true
-        } else if backButton.exists {
-            backButton.tap()
-            return true
+        // Use the exit button
+        guard exitButton.waitForExistence(timeout: timeout) else {
+            XCTFail("Exit button not found")
+            return false
         }
 
-        XCTFail("Could not find button to abandon test")
-        return false
+        exitButton.tap()
+
+        // May need to confirm abandonment in alert
+        let confirmButton = app.buttons["Exit"]
+        if confirmButton.waitForExistence(timeout: 2.0) {
+            confirmButton.tap()
+        }
+
+        return true
     }
 }

@@ -8,6 +8,7 @@ struct CustomTextField: View {
     var isSecure: Bool = false
     var keyboardType: UIKeyboardType = .default
     var autocapitalization: TextInputAutocapitalization = .sentences
+    var accessibilityId: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -23,6 +24,7 @@ struct CustomTextField: View {
                         .accessibilityLabel(title)
                         .accessibilityValue(text.isEmpty ? "Empty" : "Entered")
                         .accessibilityHint("Secure text field. Double tap to edit")
+                        .optionalAccessibilityIdentifier(accessibilityId)
                 } else {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboardType)
@@ -30,6 +32,7 @@ struct CustomTextField: View {
                         .accessibilityLabel(title)
                         .accessibilityValue(text.isEmpty ? "Empty" : text)
                         .accessibilityHint("Text field. Double tap to edit")
+                        .optionalAccessibilityIdentifier(accessibilityId)
                 }
             }
             .padding()
@@ -39,6 +42,21 @@ struct CustomTextField: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color(.systemGray4), lineWidth: 1)
             )
+        }
+    }
+}
+
+// MARK: - View Extension for Optional Accessibility Identifier
+
+extension View {
+    /// Applies an accessibility identifier only if the value is non-nil
+    /// This prevents creating elements with empty identifiers
+    @ViewBuilder
+    func optionalAccessibilityIdentifier(_ identifier: String?) -> some View {
+        if let identifier {
+            accessibilityIdentifier(identifier)
+        } else {
+            self
         }
     }
 }
