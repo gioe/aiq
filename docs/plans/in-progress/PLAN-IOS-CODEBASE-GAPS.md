@@ -1711,3 +1711,33 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Consider separating TabDestination enum from Route enum
 - [ ] Remove ambiguous .settings handling in DeepLinkHandler
 - [ ] Ensure all deep link types are handled in appropriate layer
+
+---
+
+### ICG-135: Add deep_link Field to Push Notification Data Payload
+**Status:** [ ] Not Started
+**Source:** PR #394 comment
+**Files:** `backend/app/services/notification_scheduler.py`
+**Description:** Backend notification payloads currently only include `type` and `user_id` in the data field. Add `deep_link` field (e.g., `aiq://test/results/{session_id}`) to enable iOS app to navigate to the correct screen when notification is tapped.
+**Assignee(s):** fastapi-architect
+**Acceptance Criteria:**
+- [ ] Add `deep_link` field to notification data payload at line 283
+- [ ] Generate appropriate deep link URL based on notification type
+- [ ] Include session_id or result_id in deep link for context
+- [ ] Unit test notification payload structure includes deep_link
+
+---
+
+### ICG-136: Implement .notificationTapped Observer in MainTabView
+**Status:** [ ] Not Started
+**Source:** PR #394 comment
+**Files:** `ios/AIQ/Views/Common/MainTabView.swift`
+**Description:** AppDelegate posts `.notificationTapped` notification but MainTabView doesn't observe it. Add `.onReceive` handler similar to `.deepLinkReceived` to process notification taps and navigate using the deep link from the payload.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add `.onReceive` for NotificationCenter.default.publisher(for: .notificationTapped)
+- [ ] Extract deep_link from notification userInfo
+- [ ] Parse deep link using DeepLinkHandler
+- [ ] Navigate to appropriate screen using router
+- [ ] Works when app is in foreground, background, and terminated states
+- [ ] Unit tests for notification tap handling
