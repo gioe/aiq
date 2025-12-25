@@ -201,25 +201,22 @@ class LoginHelper {
 
     // MARK: - Error Handling
 
+    /// Error banner element
+    var errorBanner: XCUIElement {
+        app.otherElements["welcomeView.errorBanner"]
+    }
+
     /// Check if an error banner is displayed
     var hasError: Bool {
-        // ErrorBanner component would need an accessibility identifier
-        // For now, look for common error text patterns
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'error' OR label CONTAINS[c] 'failed'"
-        )
-        let errorLabels = app.staticTexts.matching(predicate)
-        return errorLabels.firstMatch.exists
+        errorBanner.exists
     }
 
     /// Get error message if displayed
     var errorMessage: String? {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'error' OR label CONTAINS[c] 'failed'"
-        )
-        let errorLabels = app.staticTexts.matching(predicate)
-        let firstError = errorLabels.firstMatch
-        return firstError.exists ? firstError.label : nil
+        guard errorBanner.exists else { return nil }
+        // Try to get the label from the error banner or its child text element
+        let bannerText = errorBanner.staticTexts.firstMatch
+        return bannerText.exists ? bannerText.label : errorBanner.label
     }
 
     // MARK: - Form Validation
