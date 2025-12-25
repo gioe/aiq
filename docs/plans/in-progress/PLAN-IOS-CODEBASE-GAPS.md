@@ -262,15 +262,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-022: Write Login/Logout Flow UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/AuthenticationFlowTests.swift` (new)
 **Description:** Test login with valid/invalid credentials and logout flow.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test covers login with valid credentials
-- [ ] Test covers login with invalid credentials
-- [ ] Test covers logout flow
-- [ ] Verifies session persistence
+- [x] Test covers login with valid credentials
+- [x] Test covers login with invalid credentials
+- [x] Test covers logout flow
+- [x] Verifies session persistence
 
 ---
 
@@ -1929,3 +1929,55 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Document required test accounts
 - [ ] Add instructions for test environment configuration
 - [ ] Consider environment variables for test credentials
+
+---
+
+### ICG-151: Add Specific Error Message Validation in Auth Tests
+**Status:** [ ] Not Started
+**Source:** PR #398 comment
+**Files:** `ios/AIQUITests/AuthenticationFlowTests.swift`
+**Description:** Current error checking is generic (hasError). Should verify the *type* of error message shown to prevent false positives if the wrong error appears.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add error message content validation (e.g., contains "password" for password errors)
+- [ ] Distinguish between different error types
+- [ ] Prevent false positives from wrong error messages
+
+---
+
+### ICG-152: Use Environment Variables for UI Test Credentials
+**Status:** [ ] Not Started
+**Source:** PR #398 comment
+**Files:** `ios/AIQUITests/AuthenticationFlowTests.swift`
+**Description:** Hardcoded placeholder credentials create confusion about test intent. Should use environment variables or precondition checks.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Use ProcessInfo.processInfo.environment for test email/password
+- [ ] Add precondition check that fails if using placeholder values
+- [ ] Document test credential setup in README
+
+---
+
+### ICG-153: Add Form Validation Prevention Check in Login Tests
+**Status:** [ ] Not Started
+**Source:** PR #398 comment
+**Files:** `ios/AIQUITests/AuthenticationFlowTests.swift`
+**Description:** testLoginWithInvalidEmailFormat test doesn't verify that the backend call is prevented by client-side validation.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add assertion that sign-in button remains disabled
+- [ ] Verify no network request occurs for invalid email format
+- [ ] Ensure client-side validation catches malformed emails
+
+---
+
+### ICG-154: Add Accessibility Identifier Tests for Authentication
+**Status:** [ ] Not Started
+**Source:** PR #398 comment
+**Files:** `ios/AIQUITests/AuthenticationFlowTests.swift`
+**Description:** Consider adding tests that verify accessibility identifiers are properly set on authentication UI elements.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add tests for accessibility identifier presence
+- [ ] Verify VoiceOver labels are meaningful
+- [ ] Document accessibility requirements for auth flow
