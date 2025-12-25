@@ -65,6 +65,7 @@
 		6BD64EB0C5D1922D8281CFE7 /* DeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */; };
 		6D060BE77514F7059B2BE1BF /* RequestInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */; };
 		731CFCF9993A9DF70D8C6FFD /* ExampleUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */; };
+		ICG024001AAAA /* TestAbandonmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG024002AAAA /* TestAbandonmentTests.swift */; };
 		73430DF9A0CA1845CAED4FB4 /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D5E51F4712FCE75F777B75 /* Validators.swift */; };
 		771FD0877FAA1BCE3BF03006 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B426F8FDE650BFBE5B9DFC0 /* HistoryViewModel.swift */; };
 		7999DB6818A68F5BAF1781FF /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */; };
@@ -208,6 +209,7 @@
 		7E16223DEE931BDB20685AC4 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
 		7E493A4F4F186F1DC450D8A7 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExampleUITest.swift; sourceTree = "<group>"; };
+		ICG024002AAAA /* TestAbandonmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAbandonmentTests.swift; sourceTree = "<group>"; };
 		81963765EA38F02A863FF0C9 /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		825C4BA5CEF4D5D8E8C70190 /* DashboardCardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCardComponents.swift; sourceTree = "<group>"; };
 		855CE882BC71F4447525CF06 /* Int+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Int+Extensions.swift"; sourceTree = "<group>"; };
@@ -322,6 +324,7 @@
 				58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */,
 				818ADCA04BABC4F3CBA0A822 /* Helpers */,
 				810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */,
+				ICG024002AAAA /* TestAbandonmentTests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -782,6 +785,7 @@
 				ADF4A4BBD2E1AA378C0ADCA3 /* NavigationHelper.swift in Sources */,
 				96DB771A23A3D2EEFD5FA8F8 /* TestTakingHelper.swift in Sources */,
 				731CFCF9993A9DF70D8C6FFD /* ExampleUITest.swift in Sources */,
+				ICG024001AAAA /* TestAbandonmentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
