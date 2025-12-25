@@ -236,15 +236,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-020: Create UI Test Helpers
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/Helpers/` (new)
 **Description:** Create LoginHelper, TestTakingHelper, and NavigationHelper for test code reuse.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] LoginHelper provides authenticated test sessions
-- [ ] TestTakingHelper handles test data setup
-- [ ] NavigationHelper verifies screen transitions
-- [ ] Helpers reduce test boilerplate
+- [x] LoginHelper provides authenticated test sessions
+- [x] TestTakingHelper handles test data setup
+- [x] NavigationHelper verifies screen transitions
+- [x] Helpers reduce test boilerplate
 
 ---
 
@@ -1741,3 +1741,100 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Navigate to appropriate screen using router
 - [ ] Works when app is in foreground, background, and terminated states
 - [ ] Unit tests for notification tap handling
+
+---
+
+### ICG-137: Add Accessibility Identifiers to App Views
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** All SwiftUI view files
+**Description:** UI test helpers currently rely on accessibility labels which are fragile (will break if UI text changes due to localization or copy updates). Add accessibility identifiers to all interactive elements for reliable UI testing.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Create AccessibilityIdentifiers.swift constants file
+- [ ] Add identifiers to WelcomeView elements (email field, password field, sign in button)
+- [ ] Add identifiers to DashboardView elements (action button, resume button)
+- [ ] Add identifiers to TestTakingView elements (answer buttons, submit button)
+- [ ] Add identifiers to SettingsView elements (sign out button)
+- [ ] Add identifiers to navigation tabs
+- [ ] Update UI test helpers to use identifiers instead of labels
+
+---
+
+### ICG-138: Add Missing Error Recovery in LoginHelper.logout()
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/Helpers/LoginHelper.swift`
+**Description:** The logout() method searches for sign out button using a predicate but doesn't handle cases where the Settings screen structure differs or the button isn't found.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add fallback strategies for finding sign out button
+- [ ] Handle cases where Settings screen structure varies
+- [ ] Add more robust element queries or retry logic
+
+---
+
+### ICG-139: Improve TestTakingHelper Element Queries
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/Helpers/TestTakingHelper.swift`
+**Description:** Current predicates are too broad and could match unintended elements. For example, `label CONTAINS[c] "take" OR label CONTAINS[c] "start"` could match "Retake" or "Start learning". Once accessibility identifiers are added, replace these with specific identifiers.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Wait for ICG-137 to complete (accessibility identifiers)
+- [ ] Replace broad label predicates with specific identifier queries
+- [ ] Remove fragile `label.length > 20` predicate for question text
+
+---
+
+### ICG-140: Standardize Network Operation Timeouts
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/Helpers/BaseUITest.swift`
+**Description:** Timeout handling is inconsistent - BaseUITest defines `standardTimeout`, `extendedTimeout`, `quickTimeout` but individual helpers accept timeout parameters and some double the timeout for network ops. Add a `networkTimeout` constant to standardize.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add `networkTimeout` constant to BaseUITest (e.g., 10s)
+- [ ] Use `networkTimeout` consistently for operations involving network calls
+- [ ] Document timeout usage guidelines in README
+
+---
+
+### ICG-141: Add Environment Variable Support for Test Credentials
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/`
+**Description:** There is no current strategy for test data management including test user credentials, cleaning up test data, or handling different test scenarios.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add environment variable support for test email/password
+- [ ] Create test configuration struct for managing test data
+- [ ] Document test credential setup in README
+- [ ] Add mechanism to create/cleanup test users
+
+---
+
+### ICG-142: Evaluate XCUIElement.clearText() Usage
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/Helpers/XCUIElement+Extensions.swift`
+**Description:** The clearText() method (double-tap + Select All menu) is likely more fragile than clearAndTypeText() which uses backspace. Consider deprecating clearText() if it causes flaky tests.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Evaluate if clearText() is used anywhere
+- [ ] Test reliability of both approaches
+- [ ] Either deprecate or document use cases for clearText()
+
+---
+
+### ICG-143: Add Setup/Teardown to ExampleUITest
+**Status:** [ ] Not Started
+**Source:** PR #396 comment
+**Files:** `ios/AIQUITests/ExampleUITest.swift`
+**Description:** Example tests assume sequential execution and shared state. Add setup/teardown to ensure test isolation, or clearly document that these are examples only (not meant to run in CI).
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add setUp() method to reset app state
+- [ ] Add tearDown() method to clean up
+- [ ] Or add clear documentation that examples are for reference only
+- [ ] Consider moving to separate documentation file
