@@ -7,6 +7,15 @@
 
 import XCTest
 
+/// Extension to add isEmpty to XCUIElementQuery for SwiftLint compatibility
+extension XCUIElementQuery {
+    /// Returns true if the query has no matching elements
+    var isEmpty: Bool {
+        // swiftlint:disable:next empty_count
+        count == 0
+    }
+}
+
 /// Extensions to XCUIElement for common UI testing operations
 extension XCUIElement {
     // MARK: - Existence & Visibility
