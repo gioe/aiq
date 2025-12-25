@@ -249,15 +249,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-021: Write Registration Flow UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/RegistrationFlowTests.swift` (new)
 **Description:** Complete registration from start to dashboard with validation testing.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test completes full registration flow
-- [ ] Validates field validation errors
-- [ ] Verifies successful registration leads to dashboard
-- [ ] Runs reliably without flakiness
+- [x] Test completes full registration flow
+- [x] Validates field validation errors
+- [x] Verifies successful registration leads to dashboard
+- [x] Runs reliably without flakiness
 
 ---
 
