@@ -53,6 +53,7 @@ struct TestResultsView: View {
                     }
                     .accessibilityLabel("Done")
                     .accessibilityHint("Return to dashboard")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.doneButton)
                 }
             }
             .onAppear {
@@ -89,6 +90,7 @@ struct TestResultsView: View {
                     .opacity(showAnimation ? 1.0 : 0.0)
                     .accessibilityLabel(result.scoreAccessibilityDescription)
                     .accessibilityHint(iqRangeDescription)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.scoreLabel)
 
                 // Confidence Interval display (when available)
                 if let ci = result.confidenceInterval {
@@ -263,6 +265,7 @@ struct TestResultsView: View {
         )
         .opacity(showAnimation ? 1.0 : 0.0)
         .offset(y: showAnimation ? 0 : 20)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.performanceLabel)
     }
 
     // MARK: - Action Buttons

@@ -80,7 +80,8 @@ struct RegistrationView: View {
                                     title: "First Name",
                                     placeholder: "John",
                                     text: $viewModel.firstName,
-                                    autocapitalization: .words
+                                    autocapitalization: .words,
+                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.firstNameTextField
                                 )
 
                                 if let firstNameError = viewModel.firstNameError {
@@ -96,7 +97,8 @@ struct RegistrationView: View {
                                     title: "Last Name",
                                     placeholder: "Doe",
                                     text: $viewModel.lastName,
-                                    autocapitalization: .words
+                                    autocapitalization: .words,
+                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.lastNameTextField
                                 )
 
                                 if let lastNameError = viewModel.lastNameError {
@@ -115,7 +117,8 @@ struct RegistrationView: View {
                                 placeholder: "your.email@example.com",
                                 text: $viewModel.email,
                                 keyboardType: .emailAddress,
-                                autocapitalization: .never
+                                autocapitalization: .never,
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.emailTextField
                             )
 
                             if let emailError = viewModel.emailError {
@@ -132,7 +135,8 @@ struct RegistrationView: View {
                                 title: "Password",
                                 placeholder: "At least 8 characters",
                                 text: $viewModel.password,
-                                isSecure: true
+                                isSecure: true,
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.passwordTextField
                             )
 
                             if let passwordError = viewModel.passwordError {
@@ -149,7 +153,8 @@ struct RegistrationView: View {
                                 title: "Confirm Password",
                                 placeholder: "Re-enter your password",
                                 text: $viewModel.confirmPassword,
-                                isSecure: true
+                                isSecure: true,
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.confirmPasswordTextField
                             )
 
                             if let confirmPasswordError = viewModel.confirmPasswordError {
@@ -261,7 +266,8 @@ struct RegistrationView: View {
                                 }
                             },
                             isLoading: viewModel.isLoading,
-                            isDisabled: !viewModel.isFormValid
+                            isDisabled: !viewModel.isFormValid,
+                            accessibilityId: AccessibilityIdentifiers.RegistrationView.createAccountButton
                         )
                         .padding(.top, DesignSystem.Spacing.sm)
                     }
@@ -288,6 +294,7 @@ struct RegistrationView: View {
                                     .foregroundColor(ColorPalette.primary)
                             }
                         )
+                        .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.signInLink)
                     }
                     .padding(.top, DesignSystem.Spacing.sm)
                     .opacity(isAnimating ? 1.0 : 0.0)
