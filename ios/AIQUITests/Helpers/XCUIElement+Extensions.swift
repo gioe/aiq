@@ -11,13 +11,7 @@ import XCTest
 extension XCUIElement {
     // MARK: - Existence & Visibility
 
-    /// Wait for the element to exist with a custom timeout
-    /// - Parameter timeout: Time to wait in seconds
-    /// - Returns: true if element exists within timeout, false otherwise
-    @discardableResult
-    func waitForExistence(timeout: TimeInterval) -> Bool {
-        waitForExistence(timeout: timeout)
-    }
+    // Note: waitForExistence(timeout:) is already provided by XCUIElement in XCTest framework
 
     /// Check if element exists and is also hittable
     var existsAndIsHittable: Bool {
