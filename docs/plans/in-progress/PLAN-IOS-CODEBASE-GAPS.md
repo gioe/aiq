@@ -296,15 +296,25 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-024: Write Test Abandonment UI Test
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `AIQUITests/TestAbandonmentTests.swift` (new)
 **Description:** Start test, abandon mid-flow, verify saved progress, and resume.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Test starts test and abandons mid-flow
-- [ ] Test verifies saved progress
-- [ ] Test resumes test and completes
-- [ ] Verifies no data loss on abandonment
+- [x] Test starts test and abandons mid-flow
+- [x] Test verifies saved progress
+- [x] Test resumes test and completes
+- [x] Verifies no data loss on abandonment
+
+**Summary:**
+- Created comprehensive UI test file with 8 test methods (498 lines) covering the complete test abandonment flow
+- Core abandonment tests: testStartTestAndAbandonMidFlow, testVerifySavedProgressAfterAbandon, testResumeTestAndComplete, testNoDataLossOnAbandon
+- Confirmation dialog tests: testAbandonConfirmation_CancelKeepsTestActive, testAbandonConfirmation_ExitReturnsToBackDashboard, testAbandonWithNoAnswers_NoConfirmationRequired
+- Edge case tests: testMultipleAbandonAndResumeRounds (tests 3 rounds of abandon/resume cycles)
+- Uses accessibility identifiers (not labels) for reliable element queries
+- Tests are skipped by default as they require backend connection and valid test account
+- **Total tokens spent:** ~85,000 (estimated based on conversation context)
+- **Total time spent:** ~20 minutes
 
 ---
 
