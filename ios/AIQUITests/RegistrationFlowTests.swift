@@ -300,7 +300,7 @@ final class RegistrationFlowTests: BaseUITest {
             confirmPassword: "password123"
         )
 
-        registrationHelper.submitRegistration(waitForDashboard: false)
+        registrationHelper.submitRegistration(shouldWaitForDashboard: false)
 
         // Wait for error to appear
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)

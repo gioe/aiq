@@ -87,10 +87,11 @@ class RegistrationHelper {
     }
 
     /// Submit button - uses "Create Account" label
+    /// - Note: There's also a text button with same label on welcome screen,
+    ///   but on the registration screen we target the main submit button.
+    ///   See ICG-144 for adding accessibility identifiers for more reliable queries.
     var submitButton: XCUIElement {
-        // Find the PrimaryButton labeled "Create Account"
-        // Note: There's also a text button with same label, but this is the main one
-        app.buttons.matching(identifier: "Create Account").element(boundBy: 0)
+        app.buttons["Create Account"]
     }
 
     /// Sign In link (to go back to login)
@@ -270,10 +271,10 @@ class RegistrationHelper {
     // MARK: - Form Submission
 
     /// Submit the registration form
-    /// - Parameter waitForDashboard: Whether to wait for dashboard to appear (default: true)
+    /// - Parameter shouldWaitForDashboard: Whether to wait for dashboard to appear (default: true)
     /// - Returns: true if submission succeeded, false otherwise
     @discardableResult
-    func submitRegistration(waitForDashboard: Bool = true) -> Bool {
+    func submitRegistration(shouldWaitForDashboard: Bool = true) -> Bool {
         guard submitButton.waitForExistence(timeout: timeout) else {
             XCTFail("Submit button not found")
             return false
@@ -286,7 +287,7 @@ class RegistrationHelper {
 
         submitButton.tap()
 
-        if waitForDashboard {
+        if shouldWaitForDashboard {
             return waitForDashboard()
         }
 
