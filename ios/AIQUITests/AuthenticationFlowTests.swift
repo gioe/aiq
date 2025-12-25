@@ -264,12 +264,12 @@ final class AuthenticationFlowTests: BaseUITest {
 
         takeScreenshot(named: "SettingsScreen")
 
-        // Look for logout button
+        // Look for logout button (matches LoginHelper pattern)
         let logoutButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] 'logout'")
+            NSPredicate(format: "label CONTAINS[c] 'sign out' OR label CONTAINS[c] 'log out'")
         ).firstMatch
 
-        assertExists(logoutButton, "Logout button should exist in Settings")
+        assertExists(logoutButton, "Sign out button should exist in Settings")
         XCTAssertTrue(logoutButton.isEnabled, "Logout button should be enabled")
     }
 
@@ -281,9 +281,9 @@ final class AuthenticationFlowTests: BaseUITest {
         loginHelper.login(email: validEmail, password: validPassword)
         loginHelper.settingsTab.tap()
 
-        // Tap logout button to show confirmation dialog
+        // Tap logout button to show confirmation dialog (matches LoginHelper pattern)
         let logoutButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] 'logout'")
+            NSPredicate(format: "label CONTAINS[c] 'sign out' OR label CONTAINS[c] 'log out'")
         ).firstMatch
         logoutButton.tap()
 
@@ -326,10 +326,8 @@ final class AuthenticationFlowTests: BaseUITest {
         // Terminate the app
         app.terminate()
 
-        // Wait a moment
-        sleep(1)
-
-        // Relaunch the app
+        // Brief delay for OS to complete termination, then relaunch
+        Thread.sleep(forTimeInterval: 0.5)
         app.launch()
 
         // Wait for app to fully launch
@@ -359,7 +357,7 @@ final class AuthenticationFlowTests: BaseUITest {
 
         // Terminate and relaunch
         app.terminate()
-        sleep(1)
+        Thread.sleep(forTimeInterval: 0.5)
         app.launch()
 
         // Wait for app to launch
@@ -468,10 +466,16 @@ final class AuthenticationFlowTests: BaseUITest {
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
         XCTAssertTrue(loginHelper.hasError, "Error should be displayed after failed login")
 
-        // Clear the password field and try again with correct password
+        // Wait for form to be ready for new input
         let passwordField = loginHelper.passwordTextField
+        wait(for: passwordField, timeout: standardTimeout)
+
+        // Clear the password field and try again with correct password
         passwordField.tap()
         passwordField.clearAndTypeText(validPassword)
+
+        // Wait for form state to update before attempting login
+        wait(for: loginHelper.signInButton, timeout: quickTimeout)
 
         // Attempt login again
         loginHelper.signInButton.tap()
