@@ -2033,15 +2033,25 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-158: Replace Thread.sleep with XCTest Wait APIs
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Source:** PR #399 comment
 **Files:** `ios/AIQUITests/TestTakingFlowTests.swift`
 **Description:** Replace fragile Thread.sleep() calls with proper XCTest wait conditions to improve reliability and speed.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Replace all `Thread.sleep()` with `wait(for:timeout:)` or `expectation` APIs
-- [ ] Wait for specific UI state changes instead of fixed delays
-- [ ] Tests should be more reliable and faster
+- [x] Replace all `Thread.sleep()` with `wait(for:timeout:)` or `expectation` APIs
+- [x] Wait for specific UI state changes instead of fixed delays
+- [x] Tests should be more reliable and faster
+
+**Summary:**
+- Replaced 4 `Thread.sleep()` calls with `XCTNSPredicateExpectation` and `XCTWaiter.wait()` APIs
+- TestTakingFlowTests.swift: Replaced 2 calls in `testFullTestTakingCycle_EndToEnd` and `testFullTestTakingCycle_WithNavigation` to wait for progress label to update to next question number
+- TestTakingHelper.swift: Replaced 1 call in `completeTestWithAnswer` method with proper wait for progress label update, plus added error handling for navigation failures
+- NavigationHelper.swift: Replaced 1 call in `waitForNavigationToComplete` to wait for navigation bar to be hittable instead of arbitrary 500ms delay
+- Tests now wait for specific UI state changes instead of fixed delays
+- Note: 2 remaining `Thread.sleep` calls in AuthenticationFlowTests.swift are for app termination delays (appropriate for ICG-159)
+- **Total tokens spent:** ~40,000 (estimated)
+- **Total time spent:** ~15 minutes
 
 ---
 

@@ -863,6 +863,54 @@ class RegistrationHelper {
 }
 ```
 
+### UI Test Wait Patterns
+
+**NEVER use `Thread.sleep()` in UI tests** - it creates fragile, slow tests. Always wait for specific UI state changes using XCTest wait APIs.
+
+**Bad** - Arbitrary delays that are fragile and slow:
+```swift
+button.tap()
+Thread.sleep(forTimeInterval: 0.5)  // DON'T DO THIS
+XCTAssertTrue(resultLabel.exists)
+```
+
+**Good** - Wait for element existence:
+```swift
+button.tap()
+XCTAssertTrue(resultLabel.waitForExistence(timeout: 5.0))
+```
+
+**Good** - Wait for element to be hittable (animation complete):
+```swift
+button.tap()
+let predicate = NSPredicate(format: "exists == true AND hittable == true")
+let expectation = XCTNSPredicateExpectation(predicate: predicate, object: resultLabel)
+let result = XCTWaiter.wait(for: [expectation], timeout: 5.0)
+XCTAssertEqual(result, .completed)
+```
+
+**Good** - Wait for specific text content to change:
+```swift
+testHelper.tapNextButton()
+// Wait for progress label to show next question
+let predicate = NSPredicate(format: "label CONTAINS[c] 'Question 2'")
+let expectation = XCTNSPredicateExpectation(predicate: predicate, object: progressLabel)
+_ = XCTWaiter.wait(for: [expectation], timeout: 5.0)
+```
+
+**Available Wait Helpers in BaseUITest:**
+- `wait(for:timeout:)` - Wait for element to exist
+- `waitForHittable(_:timeout:)` - Wait for element to be tappable (animation complete)
+- `waitForDisappearance(of:timeout:)` - Wait for element to disappear
+
+**Exception - App Termination:**
+The only valid use of `Thread.sleep` is waiting for app termination before relaunch:
+```swift
+app.terminate()
+Thread.sleep(forTimeInterval: 0.5)  // OK - no UI to wait on after termination
+app.launch()
+```
+
 ---
 
 ## Code Formatting

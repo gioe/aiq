@@ -528,8 +528,11 @@ final class TestTakingFlowTests: BaseUITest {
             // Go to next question or submit on last question
             if questionNum < totalQuestions {
                 testHelper.tapNextButton()
-                // Small delay for navigation
-                Thread.sleep(forTimeInterval: 0.3)
+                // Wait for progress to update to next question
+                let nextQuestionNum = questionNum + 1
+                let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
+                let expectation = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
+                _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
             }
         }
 
@@ -575,9 +578,13 @@ final class TestTakingFlowTests: BaseUITest {
         testHelper.startNewTest()
 
         // Answer first 3 questions
-        for _ in 1 ... 3 {
+        for questionNum in 1 ... 3 {
             testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
-            Thread.sleep(forTimeInterval: 0.3)
+            // Wait for progress to update to next question
+            let nextQuestionNum = questionNum + 1
+            let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
+            _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
         }
 
         takeScreenshot(named: "AfterFirst3Questions")

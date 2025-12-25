@@ -272,11 +272,19 @@ class TestTakingHelper {
                 return false
             }
 
-            // Small delay for UI to update
-            Thread.sleep(forTimeInterval: 0.3)
+            // Wait for progress to update or results to appear
+            if questionNumber < questionCount {
+                // Wait for progress label to show next question
+                let nextQuestionNum = questionNumber + 1
+                let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
+                let expectation = XCTNSPredicateExpectation(predicate: predicate, object: progressLabel)
+                let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
 
-            // Check if we've reached the end
-            if questionNumber == questionCount {
+                if result != .completed {
+                    XCTFail("Failed to navigate to question \(nextQuestionNum)")
+                    return false
+                }
+            } else {
                 // Last question - submit instead of next
                 return submitTest(shouldWaitForResults: true)
             }
