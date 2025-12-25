@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Main tab view for authenticated users
 struct MainTabView: View {
+    @Environment(\.appRouter) private var router
     @State private var selectedTab = 0
+    @State private var deepLinkHandler = DeepLinkHandler()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -26,6 +28,24 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gear")
                 }
                 .tag(2)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
+            guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
+
+            // Handle deep link navigation asynchronously
+            Task {
+                // For settings deep link, just switch to the settings tab
+                if case .settings = deepLink {
+                    selectedTab = 2 // Settings tab
+                    router.popToRoot() // Pop to root in case there's a navigation stack
+                } else {
+                    let success = await deepLinkHandler.handleNavigation(deepLink, router: router)
+                    if !success {
+                        // Note: User error feedback tracked in ICG-122
+                        print("Failed to handle deep link: \(deepLink)")
+                    }
+                }
+            }
         }
     }
 }
@@ -124,6 +144,10 @@ private struct SettingsTabNavigationView: View {
     @ViewBuilder
     private func destinationView(for route: Route) -> some View {
         switch route {
+        case .settings:
+            // Settings is the root of this tab, so navigation to it should pop to root
+            // Since we're already at SettingsView, this case shouldn't occur in navigation stack
+            EmptyView()
         case .help:
             HelpView()
         case .notificationSettings:

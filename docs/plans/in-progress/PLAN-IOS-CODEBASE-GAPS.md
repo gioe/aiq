@@ -199,15 +199,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-017: Add Deep Link Routes
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Services/Navigation/DeepLinkHandler.swift`
 **Description:** Implement routes for `aiq://test/results/{id}`, `aiq://test/resume/{sessionId}`, `aiq://settings`.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All three route types implemented
-- [ ] Invalid routes handled gracefully with error state
-- [ ] Routes work from cold start and background state
-- [ ] Unit tests for all route types
+- [x] All three route types implemented
+- [x] Invalid routes handled gracefully with error state
+- [x] Routes work from cold start and background state
+- [x] Unit tests for all route types
 
 ---
 

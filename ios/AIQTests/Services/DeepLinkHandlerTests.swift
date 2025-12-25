@@ -834,4 +834,50 @@ final class DeepLinkHandlerTests: XCTestCase {
             XCTAssertEqual(result1, result2, "URL scheme \(urlScheme) and universal link \(universalLink) should produce same result")
         }
     }
+
+    // MARK: - Deep Link Navigation Tests
+
+    @MainActor
+    func testHandleNavigation_Settings_ReturnsTrue() async {
+        // Given
+        let deepLink = DeepLink.settings
+        let mockRouter = AppRouter()
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter)
+
+        // Then
+        XCTAssertTrue(result, "Settings navigation should return true")
+    }
+
+    @MainActor
+    func testHandleNavigation_ResumeTest_NavigatesToTestTaking() async {
+        // Given
+        let deepLink = DeepLink.resumeTest(sessionId: 123)
+        let mockRouter = AppRouter()
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter)
+
+        // Then
+        XCTAssertTrue(result, "Resume test navigation should return true")
+        XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to test taking view")
+    }
+
+    @MainActor
+    func testHandleNavigation_Invalid_ReturnsFalse() async {
+        // Given
+        let deepLink = DeepLink.invalid
+        let mockRouter = AppRouter()
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter)
+
+        // Then
+        XCTAssertFalse(result, "Invalid navigation should return false")
+        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
+    }
+
+    // Note: Testing .testResults navigation requires mocking the API client
+    // which would make the test more complex. This is covered in integration tests.
 }

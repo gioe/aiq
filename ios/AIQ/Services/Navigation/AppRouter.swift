@@ -29,6 +29,9 @@ enum Route: Hashable, Equatable {
 
     // MARK: - Settings Routes
 
+    /// Main settings screen
+    case settings
+
     /// Notification settings screen
     case notificationSettings
 
@@ -49,6 +52,8 @@ enum Route: Hashable, Equatable {
             lhsResult.id == rhsResult.id
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
+        case (.settings, .settings):
+            true
         case (.notificationSettings, .notificationSettings):
             true
         case (.help, .help):
@@ -75,6 +80,8 @@ enum Route: Hashable, Equatable {
             hasher.combine("testDetail")
             hasher.combine(result.id)
             hasher.combine(average)
+        case .settings:
+            hasher.combine("settings")
         case .notificationSettings:
             hasher.combine("notificationSettings")
         case .help:

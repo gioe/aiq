@@ -231,3 +231,68 @@ struct DeepLinkHandler {
         return .settings
     }
 }
+
+// MARK: - Deep Link Navigation
+
+extension DeepLinkHandler {
+    /// Handle a deep link by converting it to a route and navigating via the router
+    ///
+    /// This method performs any necessary data fetching (e.g., fetching test results by ID)
+    /// before navigating to the appropriate route.
+    ///
+    /// - Parameters:
+    ///   - deepLink: The parsed deep link to handle
+    ///   - router: The app router to use for navigation
+    ///   - apiClient: The API client for fetching data (optional, defaults to shared instance)
+    /// - Returns: True if navigation was initiated, false if the deep link couldn't be handled
+    @MainActor
+    func handleNavigation(
+        _ deepLink: DeepLink,
+        router: AppRouter,
+        apiClient: APIClientProtocol = APIClient.shared
+    ) async -> Bool {
+        switch deepLink {
+        case let .testResults(id):
+            // Fetch test result from API
+            do {
+                let result: TestResult = try await apiClient.request(
+                    endpoint: .testResults(String(id)),
+                    method: .get,
+                    body: nil as String?,
+                    requiresAuth: true
+                )
+
+                // Convert TestResult to SubmittedTestResult for navigation
+                // Note: We use the result data we have; userAverage can be nil for deep links
+                router.navigateTo(.testDetail(result: result, userAverage: nil))
+                return true
+            } catch {
+                Self.logger.error("Failed to fetch test result \(id): \(error.localizedDescription, privacy: .public)")
+                // Record error to Crashlytics
+                CrashlyticsErrorRecorder.recordError(error, context: .deepLinkNavigation)
+                return false
+            }
+
+        case let .resumeTest(sessionId):
+            // For resuming tests, we navigate to the TestTakingView
+            // The view itself will need to be enhanced to accept an optional sessionId
+            // For now, we'll navigate to the test taking view and log a warning
+            // Note: Full session resumption support tracked in future enhancement
+            Self.logger.warning(
+                "Resume test deep link sessionId: \(sessionId, privacy: .public). Navigating to test taking view."
+            )
+            router.navigateTo(.testTaking)
+            return true
+
+        case .settings:
+            // Settings navigation is handled at the tab level in MainTabView
+            // This case shouldn't be called, but return true for consistency
+            Self.logger.info("Settings deep link handled at tab level")
+            return true
+
+        case .invalid:
+            Self.logger.warning("Attempted to navigate with invalid deep link")
+            return false
+        }
+    }
+}
