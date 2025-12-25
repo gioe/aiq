@@ -118,10 +118,18 @@
 		ICG007001AAAA /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007002AAAA /* AppRouter.swift */; };
 		ICG007003AAAA /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007004AAAA /* AppRouterTests.swift */; };
 		ICG018002AAAA /* PushNotificationDeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG018001AAAA /* PushNotificationDeepLinkTests.swift */; };
+		A8D2F19C00484763AF805A07 /* AIQUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		D30D7BF73B0323A9CCA417B9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 583916B16DEEE826FAB36EA6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B58C1107D351E09C806FEED4;
+			remoteInfo = AIQ;
+		};
+		7EF07F9B29524CD592B27FC8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 583916B16DEEE826FAB36EA6 /* Project object */;
 			proxyType = 1;
@@ -245,6 +253,8 @@
 		ICG007002AAAA /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		ICG007004AAAA /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouterTests.swift; sourceTree = "<group>"; };
 		ICG018001AAAA /* PushNotificationDeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationDeepLinkTests.swift; sourceTree = "<group>"; };
+		58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		20569FF92112452385F4C5BA /* AIQUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIQUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -329,6 +339,7 @@
 			children = (
 				43C82CA7CE076639CEF7A3EF /* AIQ.app */,
 				F2851219836D6EDDBDB78A8E /* AIQTests.xctest */,
+				20569FF92112452385F4C5BA /* AIQUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -365,6 +376,7 @@
 			children = (
 				0BF2EF30F8DFE25DEDF6C693 /* AIQ */,
 				B99E8F61F66EA0ACA2874CD4 /* AIQTests */,
+				1B97449DF5964DF080515555 /* AIQUITests */,
 				A462F61C620A48EFD5A7A2E1 /* Frameworks */,
 				428258610120552FEA09E4AC /* Products */,
 			);
@@ -508,6 +520,14 @@
 			path = Dashboard;
 			sourceTree = "<group>";
 		};
+		1B97449DF5964DF080515555 /* AIQUITests */ = {
+			isa = PBXGroup;
+			children = (
+				58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */,
+			);
+			path = AIQUITests;
+			sourceTree = "<group>";
+		};
 		B99E8F61F66EA0ACA2874CD4 /* AIQTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -616,6 +636,22 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		7F81DE23637148F8AD9EB84E /* AIQUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 281339E6A5754F5BBA1B2F34 /* Build configuration list for PBXNativeTarget "AIQUITests" */;
+			buildPhases = (
+				4F4EABC7D25A4D17A7EA71D3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				375F73A014B24533A427187E /* PBXTargetDependency */,
+			);
+			name = AIQUITests;
+			productName = AIQUITests;
+			productReference = 20569FF92112452385F4C5BA /* AIQUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		2ACB0FA2211ACF7BC8FBFB28 /* AIQTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AB38316564D15AFFB92BF6E7 /* Build configuration list for PBXNativeTarget "AIQTests" */;
@@ -682,6 +718,7 @@
 			targets = (
 				B58C1107D351E09C806FEED4 /* AIQ */,
 				2ACB0FA2211ACF7BC8FBFB28 /* AIQTests */,
+				7F81DE23637148F8AD9EB84E /* AIQUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -819,6 +856,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4F4EABC7D25A4D17A7EA71D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A8D2F19C00484763AF805A07 /* AIQUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -826,6 +871,11 @@
 			isa = PBXTargetDependency;
 			target = B58C1107D351E09C806FEED4 /* AIQ */;
 			targetProxy = D30D7BF73B0323A9CCA417B9 /* PBXContainerItemProxy */;
+		};
+		375F73A014B24533A427187E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B58C1107D351E09C806FEED4 /* AIQ */;
+			targetProxy = 7EF07F9B29524CD592B27FC8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1033,6 +1083,42 @@
 			};
 			name = Debug;
 		};
+		E973ECCE0E6E420ABA4669E7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aiq.AIQUITests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AIQ;
+			};
+			name = Debug;
+		};
+		407D9024533A40ADAEEF9ACD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aiq.AIQUITests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AIQ;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1059,6 +1145,15 @@
 			buildConfigurations = (
 				DD362AF2CA907424E8787510 /* Debug */,
 				3405AB86EABB5F3C873746CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		281339E6A5754F5BBA1B2F34 /* Build configuration list for PBXNativeTarget "AIQUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E973ECCE0E6E420ABA4669E7 /* Debug */,
+				407D9024533A40ADAEEF9ACD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

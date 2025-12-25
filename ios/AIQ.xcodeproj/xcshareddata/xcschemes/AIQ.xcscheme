@@ -50,6 +50,17 @@
                ReferencedContainer = "container:AIQ.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7F81DE23637148F8AD9EB84E"
+               BuildableName = "AIQUITests.xctest"
+               BlueprintName = "AIQUITests"
+               ReferencedContainer = "container:AIQ.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
