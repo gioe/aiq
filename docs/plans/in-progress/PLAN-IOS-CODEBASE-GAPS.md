@@ -2161,3 +2161,57 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Verify VoiceOver labels on question elements
 - [ ] Verify button hints for answer selection
 - [ ] Test accessibility navigation through test flow
+
+---
+
+### ICG-166: Add UI Tests Verifying Accessibility Identifiers Exist
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQUITests/AccessibilityIdentifierTests.swift` (new)
+**Description:** Create UI tests that verify critical accessibility identifiers exist to catch missing identifiers during development.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Create test file for identifier verification
+- [ ] Test verifies WelcomeView identifiers exist
+- [ ] Test verifies DashboardView identifiers exist
+- [ ] Test verifies TestTakingView identifiers exist
+- [ ] Test verifies SettingsView identifiers exist
+
+---
+
+### ICG-167: Apply LoadingView and ErrorView Accessibility Identifiers
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Views/Common/LoadingView.swift`, `ios/AIQ/Views/Common/ErrorView.swift`
+**Description:** AccessibilityIdentifiers.Common.loadingView and .errorView are defined but not applied to the actual views.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Apply common.loadingView identifier to LoadingView
+- [ ] Apply common.errorView identifier to ErrorView
+- [ ] Update UI test helpers if needed
+
+---
+
+### ICG-168: Fix ForEach ID in AnswerInputView
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Views/Test/AnswerInputView.swift`
+**Description:** ForEach uses `id: \.element` which could break if duplicate answer options exist. Use `\.offset` for guaranteed uniqueness.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Change `ForEach(Array(...enumerated()), id: \.element)` to `ForEach(Array(...enumerated()), id: \.offset)`
+- [ ] Verify answer selection still works correctly
+
+---
+
+### ICG-169: Audit Defined vs Applied Accessibility Identifiers
+**Status:** [ ] Not Started
+**Source:** PR #401 comment
+**Files:** `ios/AIQ/Utilities/Helpers/AccessibilityIdentifiers.swift`
+**Description:** Create an audit to compare defined identifiers in AccessibilityIdentifiers.swift versus actually applied identifiers in views to catch gaps.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Script or manual audit to find all defined identifiers
+- [ ] Cross-reference with actual .accessibilityIdentifier() usage
+- [ ] Document any unused or missing identifiers
+- [ ] Create tasks for any gaps found
