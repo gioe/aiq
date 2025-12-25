@@ -30,7 +30,7 @@ struct PrimaryButton: View {
         .accessibilityLabel(title)
         .accessibilityHint(accessibilityHintText)
         .accessibilityAddTraits(accessibilityTraits)
-        .accessibilityIdentifier(accessibilityId ?? "")
+        .optionalAccessibilityIdentifier(accessibilityId)
     }
 
     private var accessibilityHintText: String {

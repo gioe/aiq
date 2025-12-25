@@ -191,7 +191,7 @@ private struct OptionButton: View {
         .accessibilityLabel(option)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityHint(accessibilityHintText)
-        .accessibilityIdentifier(accessibilityId ?? "")
+        .optionalAccessibilityIdentifier(accessibilityId)
     }
 
     private var foregroundColor: Color {
