@@ -34,16 +34,26 @@ struct MainTabView: View {
 
             // Handle deep link navigation asynchronously
             Task {
-                // For settings deep link, just switch to the settings tab
-                if case .settings = deepLink {
+                switch deepLink {
+                case .settings:
+                    // For settings deep link, switch to the settings tab
                     selectedTab = 2 // Settings tab
                     router.popToRoot() // Pop to root in case there's a navigation stack
-                } else {
+
+                case .testResults, .resumeTest:
+                    // Switch to Dashboard tab first for test-related deep links
+                    // This ensures navigation happens in the correct tab context
+                    selectedTab = 0 // Dashboard tab
+                    router.popToRoot() // Clear any existing navigation stack
+
                     let success = await deepLinkHandler.handleNavigation(deepLink, router: router)
                     if !success {
                         // Note: User error feedback tracked in ICG-122
-                        print("Failed to handle deep link: \(deepLink)")
+                        Logger.shared.error("Failed to handle deep link: \(deepLink)")
                     }
+
+                case .invalid:
+                    Logger.shared.warning("Received invalid deep link")
                 }
             }
         }
