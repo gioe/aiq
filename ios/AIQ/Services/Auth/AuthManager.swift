@@ -129,7 +129,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     func deleteAccount() async throws {
         guard !isLoading else {
-            throw APIError.invalidRequest("Another operation is in progress")
+            throw APIError.badRequest(message: "Another operation is in progress")
         }
 
         isLoading = true
@@ -149,7 +149,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             authError = nil
 
             // Track analytics
-            AnalyticsService.shared.trackEvent(name: "account_deleted", properties: [:])
+            AnalyticsService.shared.track(event: .accountDeleted)
 
             // Clear all cached data
             await DataCache.shared.clearAll()
