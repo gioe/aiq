@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -22,6 +22,7 @@
 		16F818EB764C0F6284746753 /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F7B0036C4AA0EE698B9C2EC /* DashboardViewModelTests.swift */; };
 		1985BC98F112BF03DE6AE6FB /* Int+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855CE882BC71F4447525CF06 /* Int+Extensions.swift */; };
 		1A3A24B63C00414F3A478FD4 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876818DCAF9897B1A6EC6A4E /* APIClient.swift */; };
+		1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */; };
 		1A66E85D14DF3026B9616C56 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DB1F74E4C42D4EDE293DC7 /* User.swift */; };
 		1BC8B7F56F1AD693C15C3710 /* PercentileCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC101AF3E03879371799700 /* PercentileCard.swift */; };
 		1E697F0524AD74658E6289B3 /* TestResultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D11D893F3EC79F32CAEE284 /* TestResultTests.swift */; };
@@ -162,6 +163,7 @@
 		17BB6908342F97951E8B9152 /* NetworkLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLogger.swift; sourceTree = "<group>"; };
 		19D5E51F4712FCE75F777B75 /* Validators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Validators.swift; sourceTree = "<group>"; };
 		1A290228B57AC0DB5B913FCE /* DeepLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkTests.swift; sourceTree = "<group>"; };
+		1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1DC6331EE8CFC24F90201D94 /* AIQ.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AIQ.entitlements; sourceTree = "<group>"; };
 		1FC101AF3E03879371799700 /* PercentileCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PercentileCard.swift; sourceTree = "<group>"; };
 		20569FF92112452385F4C5BA /* AIQUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIQUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -297,6 +299,7 @@
 		0BF2EF30F8DFE25DEDF6C693 /* AIQ */ = {
 			isa = PBXGroup;
 			children = (
+				1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */,
 				1DC6331EE8CFC24F90201D94 /* AIQ.entitlements */,
 				3516CD4A60A499D8C2B07525 /* AIQApp.swift */,
 				CD7CEC33927664BF853D7F93 /* AppDelegate.swift */,
@@ -318,6 +321,18 @@
 				300F0EB6567454426087E83B /* IQTrendChartTests.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		1A57DF942EFE221E009F9E9D /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				E46C639BF4FAE86138CB434D /* BaseUITest.swift */,
+				560FF163275CB4FBF64CDD77 /* XCUIElement+Extensions.swift */,
+				E673CD84A96569CD4DBF2157 /* LoginHelper.swift */,
+				065B9FAD6019EFB30535DF3E /* NavigationHelper.swift */,
+				3EAA3127FAA3129559E7FFE9 /* TestTakingHelper.swift */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		1B97449DF5964DF080515555 /* AIQUITests */ = {
@@ -414,6 +429,7 @@
 				1B97449DF5964DF080515555 /* AIQUITests */,
 				A462F61C620A48EFD5A7A2E1 /* Frameworks */,
 				428258610120552FEA09E4AC /* Products */,
+				1A57DF942EFE221E009F9E9D /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -752,7 +768,6 @@
 			packageReferences = (
 				4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
-			preferredProjectObjectVersion = 77;
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -769,6 +784,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */,
 				D57FC4ECD3320E9B6563E7BE /* Assets.xcassets in Resources */,
 				B09395FEAC024C71C6C0F049 /* GoogleService-Info.plist in Resources */,
 			);
