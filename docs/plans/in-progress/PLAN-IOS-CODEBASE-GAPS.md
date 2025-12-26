@@ -376,14 +376,56 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-027: Configure UI Tests in CI/CD
-**Status:** [ ] Not Started
-**Files:** `.github/workflows/ios-tests.yml`
+**Status:** [x] Complete
+**Files:** `.github/workflows/ios-ci.yml`
 **Description:** Add UI tests to GitHub Actions or Xcode Cloud.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] UI tests run automatically on pull requests
-- [ ] Test failures block merge
-- [ ] Test reports uploaded as artifacts
+- [x] UI tests run automatically on pull requests
+- [x] Test failures block merge
+- [x] Test reports uploaded as artifacts
+
+**Implementation Summary:**
+- Added dedicated `ui-tests` job to iOS CI workflow
+- Job runs after `lint-and-build` job passes (sequential dependency)
+- Uses `needs: lint-and-build` to ensure tests only run after successful build
+- Timeout set to 30 minutes for comprehensive UI test execution
+- Simulator management:
+  - Creates and boots iPhone 16 Pro simulator
+  - Uses `xcrun simctl bootstatus -b` to ensure simulator is fully ready
+- Test execution:
+  - Uses `xcodebuild test` with `-only-testing:AIQUITests` to run UI tests
+  - Passes test credentials via environment variables from GitHub Secrets
+  - Environment variables: `AIQ_TEST_EMAIL` and `AIQ_TEST_PASSWORD`
+  - Uses `-resultBundlePath` to save xcresult bundle for debugging
+- Artifact uploads:
+  - On failure: Uploads xcresult bundle for 7 days (debugging priority)
+  - On success: Uploads xcresult bundle for 3 days (verification)
+  - Separate artifact names for success/failure cases
+- Test blocking:
+  - UI test failures automatically block PR merge via GitHub status checks
+  - Job failure propagates to PR check status
+- Debugging support:
+  - xcresult bundles contain full test logs, screenshots, and performance data
+  - Can be downloaded from GitHub Actions artifacts
+  - Compatible with Xcode for local inspection
+
+**Configuration Required:**
+- Repository secrets must be configured in GitHub:
+  - `AIQ_TEST_EMAIL`: Valid test account email
+  - `AIQ_TEST_PASSWORD`: Valid test account password
+- Backend service must be accessible from GitHub Actions runners
+- Test account must exist in the backend database
+
+**Future Enhancements:**
+- Consider adding test result summary as PR comment
+- Add Slack/Discord notifications for test failures
+- Implement test sharding for faster execution if test suite grows
+- Add retry logic for flaky tests
+- Consider using test result parsers for better GitHub UI integration
+
+**Total tokens spent:** ~8,000
+**Total time spent:** ~10 minutes
 
 ---
 

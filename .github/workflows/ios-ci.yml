@@ -66,7 +66,74 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: ios-test-results
+          name: ios-unit-test-results
           path: |
             ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
           retention-days: 7
+
+  ui-tests:
+    runs-on: macos-latest
+    needs: lint-and-build
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: List available simulators
+        run: xcrun simctl list devices available
+
+      - name: Boot simulator
+        run: |
+          # Find and boot an existing iPhone 16 Pro simulator
+          # xcodebuild will auto-boot, but pre-booting ensures stability
+          SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data['devices'].items():
+              if 'iOS' in runtime:
+                  for device in devices:
+                      if device['name'] == 'iPhone 16 Pro' and device['isAvailable']:
+                          print(device['udid'])
+                          sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "Booting simulator: $SIMULATOR_UDID"
+          xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
+          # Wait for simulator to be fully booted
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+
+      - name: Run UI tests
+        env:
+          AIQ_TEST_EMAIL: ${{ secrets.AIQ_TEST_EMAIL }}
+          AIQ_TEST_PASSWORD: ${{ secrets.AIQ_TEST_PASSWORD }}
+        run: |
+          cd ios
+          # Run UI tests with environment variables passed through
+          xcodebuild test \
+            -project AIQ.xcodeproj \
+            -scheme AIQ \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -only-testing:AIQUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -resultBundlePath TestResults/UITests.xcresult
+
+      - name: Upload UI test results (on failure)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results-failure
+          path: |
+            ios/TestResults/UITests.xcresult
+          retention-days: 7
+
+      - name: Upload UI test results (on success)
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: ui-test-results-success
+          path: |
+            ios/TestResults/UITests.xcresult
+          retention-days: 3
