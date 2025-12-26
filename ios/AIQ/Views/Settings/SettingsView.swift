@@ -179,10 +179,11 @@ struct SettingsView: View {
             } message: {
                 Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
             }
-            .alert("Delete Account Failed", isPresented: .constant(deleteAccountError != nil)) {
-                Button("OK") {
-                    deleteAccountError = nil
-                }
+            .alert("Delete Account Failed", isPresented: Binding(
+                get: { deleteAccountError != nil },
+                set: { if !$0 { deleteAccountError = nil } }
+            )) {
+                Button("OK") {}
             } message: {
                 if let error = deleteAccountError {
                     Text(error.localizedDescription)

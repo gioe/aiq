@@ -1,6 +1,7 @@
 """
 User profile endpoints.
 """
+import hashlib
 import logging
 
 from fastapi import APIRouter, Depends, status
@@ -105,16 +106,15 @@ def delete_user_account(
         db.commit()
 
         # Log successful deletion (user_id only for audit trail, no PII after deletion)
+        email_hash = hashlib.sha256(user_email.encode()).hexdigest()[:16]
         logger.info(
             f"User account deleted successfully: user_id={user_id}, "
-            f"email_hash={hash(user_email)}"
+            f"email_hash={email_hash}"
         )
 
     except SQLAlchemyError as e:
         db.rollback()
-        logger.error(
-            f"Database error during account deletion for user {current_user.id}: {e}"
-        )
+        logger.error(f"Database error during account deletion for user {user_id}: {e}")
         raise_server_error(
             ErrorMessages.database_operation_failed("delete user account")
         )

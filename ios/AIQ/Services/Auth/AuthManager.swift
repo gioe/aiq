@@ -128,6 +128,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     }
 
     func deleteAccount() async throws {
+        guard !isLoading else {
+            throw APIError.invalidRequest("Another operation is in progress")
+        }
+
         isLoading = true
         authError = nil
 
