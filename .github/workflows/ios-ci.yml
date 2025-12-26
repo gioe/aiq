@@ -85,11 +85,23 @@ jobs:
 
       - name: Boot simulator
         run: |
-          # Boot the simulator we'll use for testing
-          SIMULATOR_ID=$(xcrun simctl create "GitHub-CI-iPhone" "iPhone 16 Pro" "latest")
-          xcrun simctl boot "$SIMULATOR_ID"
+          # Find and boot an existing iPhone 16 Pro simulator
+          # xcodebuild will auto-boot, but pre-booting ensures stability
+          SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data['devices'].items():
+              if 'iOS' in runtime:
+                  for device in devices:
+                      if device['name'] == 'iPhone 16 Pro' and device['isAvailable']:
+                          print(device['udid'])
+                          sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "Booting simulator: $SIMULATOR_UDID"
+          xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
           # Wait for simulator to be fully booted
-          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
       - name: Run UI tests
         env:
