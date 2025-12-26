@@ -1,6 +1,6 @@
+@testable import AIQ
 import Combine
 import Foundation
-@testable import AIQ
 
 /// Mock implementation of AuthManager for testing
 @MainActor
@@ -16,13 +16,16 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     // Test configuration
     var shouldSucceedLogin: Bool = true
     var shouldSucceedRegister: Bool = true
+    var shouldSucceedDeleteAccount: Bool = true
     var loginDelay: TimeInterval = 0
     var registerDelay: TimeInterval = 0
+    var deleteAccountDelay: TimeInterval = 0
 
     // Track method calls
     var loginCalled: Bool = false
     var registerCalled: Bool = false
     var logoutCalled: Bool = false
+    var deleteAccountCalled: Bool = false
     var clearErrorCalled: Bool = false
 
     // Stored credentials for verification
@@ -143,6 +146,31 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         authError = nil
     }
 
+    func deleteAccount() async throws {
+        deleteAccountCalled = true
+        isLoading = true
+        authError = nil
+
+        if deleteAccountDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(deleteAccountDelay * 1_000_000_000))
+        }
+
+        if shouldSucceedDeleteAccount {
+            isAuthenticated = false
+            currentUser = nil
+            isLoading = false
+        } else {
+            let error = NSError(
+                domain: "MockAuthManager",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to delete account"]
+            )
+            authError = error
+            isLoading = false
+            throw error
+        }
+    }
+
     func clearError() {
         clearErrorCalled = true
         authError = nil
@@ -156,11 +184,14 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         authError = nil
         shouldSucceedLogin = true
         shouldSucceedRegister = true
+        shouldSucceedDeleteAccount = true
         loginDelay = 0
         registerDelay = 0
+        deleteAccountDelay = 0
         loginCalled = false
         registerCalled = false
         logoutCalled = false
+        deleteAccountCalled = false
         clearErrorCalled = false
         lastLoginEmail = nil
         lastLoginPassword = nil

@@ -127,6 +127,39 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         AnalyticsService.shared.trackUserLogout()
     }
 
+    func deleteAccount() async throws {
+        isLoading = true
+        authError = nil
+
+        do {
+            // Unregister device token first
+            await NotificationManager.shared.unregisterDeviceToken()
+
+            // Call the delete account endpoint
+            try await authService.deleteAccount()
+
+            // Clear authentication state
+            isAuthenticated = false
+            currentUser = nil
+            isLoading = false
+            authError = nil
+
+            // Track analytics
+            AnalyticsService.shared.trackEvent(name: "account_deleted", properties: [:])
+
+            // Clear all cached data
+            await DataCache.shared.clearAll()
+        } catch {
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .unknown(),
+                operation: .deleteAccount
+            )
+            authError = contextualError
+            isLoading = false
+            throw contextualError
+        }
+    }
+
     func refreshToken() async throws {
         do {
             let response = try await authService.refreshToken()

@@ -6,6 +6,9 @@ struct SettingsView: View {
     @StateObject private var authManager = AuthManager.shared
     @State private var showLogoutConfirmation = false
     @State private var isLoggingOut = false
+    @State private var showDeleteAccountConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var deleteAccountError: Error?
     @State private var showCrashConfirmation = false
 
     var body: some View {
@@ -73,7 +76,7 @@ struct SettingsView: View {
                     Text("App")
                 }
 
-                // Logout Section
+                // Account Actions Section
                 Section {
                     Button(
                         role: .destructive,
@@ -89,6 +92,27 @@ struct SettingsView: View {
                         }
                     )
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutButton)
+
+                    Button(
+                        role: .destructive,
+                        action: {
+                            showDeleteAccountConfirmation = true
+                        },
+                        label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete Account")
+                                Spacer()
+                            }
+                        }
+                    )
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountButton)
+                } footer: {
+                    Text("""
+                    Deleting your account is permanent and cannot be undone. \
+                    All your data will be permanently deleted.
+                    """)
+                    .font(.caption)
                 }
 
                 #if DEBUG
@@ -132,6 +156,38 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .confirmationDialog(
+                "Delete Account",
+                isPresented: $showDeleteAccountConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Account", role: .destructive) {
+                    Task {
+                        isDeletingAccount = true
+                        deleteAccountError = nil
+                        do {
+                            try await authManager.deleteAccount()
+                            isDeletingAccount = false
+                            // Navigation to welcome screen is handled automatically by auth state change
+                        } catch {
+                            deleteAccountError = error
+                            isDeletingAccount = false
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
+            }
+            .alert("Delete Account Failed", isPresented: .constant(deleteAccountError != nil)) {
+                Button("OK") {
+                    deleteAccountError = nil
+                }
+            } message: {
+                if let error = deleteAccountError {
+                    Text(error.localizedDescription)
+                }
+            }
             #if DEBUG
             .confirmationDialog(
                     "This will crash the app to test Crashlytics",
@@ -149,6 +205,8 @@ struct SettingsView: View {
             // Loading overlay
             if isLoggingOut {
                 LoadingOverlay(message: "Logging out...")
+            } else if isDeletingAccount {
+                LoadingOverlay(message: "Deleting account...")
             }
         }
     }

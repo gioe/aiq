@@ -152,6 +152,26 @@ class AuthService: AuthServiceProtocol {
         clearAuthData()
     }
 
+    func deleteAccount() async throws {
+        print("🗑️ Starting account deletion")
+
+        // Call delete account endpoint
+        let _: String? = try? await apiClient.request(
+            endpoint: .deleteAccount,
+            method: .delete,
+            body: String?.none,
+            requiresAuth: true,
+            cacheKey: nil,
+            cacheDuration: nil,
+            forceRefresh: false
+        )
+
+        print("✅ Account deletion request completed")
+
+        // Clear local data regardless of response (account is deleted on server)
+        clearAuthData()
+    }
+
     func getAccessToken() -> String? {
         try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
     }

@@ -119,6 +119,7 @@ enum AccessibilityIdentifiers {
         static let notificationsSection = "settingsView.notificationsSection"
         static let helpButton = "settingsView.helpButton"
         static let logoutButton = "settingsView.logoutButton"
+        static let deleteAccountButton = "settingsView.deleteAccountButton"
         static let appVersionLabel = "settingsView.appVersionLabel"
         static let debugSection = "settingsView.debugSection"
         static let testCrashButton = "settingsView.testCrashButton"
