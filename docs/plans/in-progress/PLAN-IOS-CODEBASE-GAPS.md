@@ -501,15 +501,22 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-031: Implement Consent Management Screen
-**Status:** [ ] Not Started
-**Files:** `Views/Onboarding/PrivacyConsentView.swift` (new)
+**Status:** [x] Complete
+**Files:** `Views/Onboarding/PrivacyConsentView.swift` (new), `Services/Storage/PrivacyConsentStorage.swift` (new)
 **Description:** Display privacy policy and require acceptance on first launch.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] Privacy consent screen shown on first launch
-- [ ] User must accept to continue
-- [ ] Consent timestamp stored locally
-- [ ] Links to full privacy policy and terms
+- [x] Privacy consent screen shown on first launch
+- [x] User must accept to continue
+- [x] Consent timestamp stored locally
+- [x] Links to full privacy policy and terms
+
+**Summary:**
+- Created `PrivacyConsentStorage.swift` - Protocol-based storage service for consent state using UserDefaults
+- Created `PrivacyConsentView.swift` - Full-screen consent UI with animated privacy points, links to Privacy Policy and Terms of Service
+- Modified `RootView.swift` to integrate consent check as first gate in app flow
+- Added accessibility identifiers for UI testing
+- Build verified successful
 
 ---
 

@@ -129,6 +129,8 @@
 		ICG007003AAAA /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007004AAAA /* AppRouterTests.swift */; };
 		ICG018002AAAA /* PushNotificationDeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG018001AAAA /* PushNotificationDeepLinkTests.swift */; };
 		ICG024001AAAA /* TestAbandonmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG024002AAAA /* TestAbandonmentTests.swift */; };
+		ICG031001AAAA /* PrivacyConsentStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG031002AAAA /* PrivacyConsentStorage.swift */; };
+		ICG031003AAAA /* PrivacyConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG031004AAAA /* PrivacyConsentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -280,6 +282,8 @@
 		ICG007004AAAA /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouterTests.swift; sourceTree = "<group>"; };
 		ICG018001AAAA /* PushNotificationDeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationDeepLinkTests.swift; sourceTree = "<group>"; };
 		ICG024002AAAA /* TestAbandonmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAbandonmentTests.swift; sourceTree = "<group>"; };
+		ICG031002AAAA /* PrivacyConsentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyConsentStorage.swift; sourceTree = "<group>"; };
+		ICG031004AAAA /* PrivacyConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyConsentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -515,10 +519,19 @@
 				D33DB53D36E221FB860D5D7A /* Common */,
 				AD538F75C2694ED0903F8EA7 /* Dashboard */,
 				1CC2B046DFA718A140E9D9AE /* History */,
+				ICG031005AAAA /* Onboarding */,
 				7737AC850FF02E0235E7EC4E /* Settings */,
 				534B2C7A8BBB919E3E5C5ACB /* Test */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		ICG031005AAAA /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				ICG031004AAAA /* PrivacyConsentView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 		7BE4500EA192E1E5F3238DC5 /* Utilities */ = {
@@ -562,6 +575,7 @@
 				8584310DF575119FD30D7CD3 /* DataCache.swift */,
 				BB7097E0EB2DFDF74B56C8E0 /* KeychainStorage.swift */,
 				D3F26BDAE0ABE57AD6F64015 /* LocalAnswerStorage.swift */,
+				ICG031002AAAA /* PrivacyConsentStorage.swift */,
 				F738194ED047979D34D51164 /* SecureStorageProtocol.swift */,
 			);
 			path = Storage;
@@ -927,6 +941,8 @@
 				8FB4911833FE509204A93C4B /* WelcomeView.swift in Sources */,
 				6BD64EB0C5D1922D8281CFE7 /* DeepLinkHandler.swift in Sources */,
 				2C0C55F3DEC090A91726FC04 /* AccessibilityIdentifiers.swift in Sources */,
+				ICG031001AAAA /* PrivacyConsentStorage.swift in Sources */,
+				ICG031003AAAA /* PrivacyConsentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

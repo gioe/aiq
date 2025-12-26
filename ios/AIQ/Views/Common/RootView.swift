@@ -1,15 +1,27 @@
 import SwiftUI
 
-/// Root view that determines whether to show auth flow or main app
+/// Root view that determines whether to show consent, auth flow, or main app
 struct RootView: View {
     @StateObject private var authManager = AuthManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @State private var showSplash = true
+    @State private var hasAcceptedConsent: Bool
+
+    private let privacyConsentStorage: PrivacyConsentStorageProtocol
+
+    init(privacyConsentStorage: PrivacyConsentStorageProtocol = PrivacyConsentStorage.shared) {
+        self.privacyConsentStorage = privacyConsentStorage
+        // Initialize consent state from storage
+        _hasAcceptedConsent = State(initialValue: privacyConsentStorage.hasAcceptedConsent())
+    }
 
     var body: some View {
         ZStack {
             Group {
-                if authManager.isAuthenticated {
+                if !hasAcceptedConsent {
+                    // Show privacy consent on first launch
+                    PrivacyConsentView(hasAcceptedConsent: $hasAcceptedConsent)
+                } else if authManager.isAuthenticated {
                     MainTabView()
                 } else {
                     WelcomeView()

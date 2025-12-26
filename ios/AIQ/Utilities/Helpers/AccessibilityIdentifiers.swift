@@ -17,6 +17,15 @@ import Foundation
 /// These identifiers provide stable element references for UI tests,
 /// preventing test breakage when UI text changes due to localization or copy updates.
 enum AccessibilityIdentifiers {
+    // MARK: - Privacy Consent View
+
+    enum PrivacyConsentView {
+        static let privacyIcon = "privacyConsentView.privacyIcon"
+        static let privacyPolicyLink = "privacyConsentView.privacyPolicyLink"
+        static let termsOfServiceLink = "privacyConsentView.termsOfServiceLink"
+        static let acceptButton = "privacyConsentView.acceptButton"
+    }
+
     // MARK: - Welcome View
 
     enum WelcomeView {
