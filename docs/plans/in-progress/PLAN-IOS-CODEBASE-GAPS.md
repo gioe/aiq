@@ -521,15 +521,21 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-032: Add Data Deletion Capability
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Views/Settings/SettingsView.swift`, Backend: `/v1/user/delete-account` (new)
 **Description:** Add settings option to delete account and all user data (GDPR right to erasure).
 **Assignee(s):** ios-engineer, fastapi-architect
 **Acceptance Criteria:**
-- [ ] Settings screen includes "Delete Account" option
-- [ ] Confirmation dialog warns of irreversible action
-- [ ] Backend endpoint deletes all user data (GDPR right to erasure)
-- [ ] User logged out and returned to welcome screen
+- [x] Settings screen includes "Delete Account" option
+- [x] Confirmation dialog warns of irreversible action
+- [x] Backend endpoint deletes all user data (GDPR right to erasure)
+- [x] User logged out and returned to welcome screen
+
+**Summary:**
+- Backend: Added `DELETE /v1/user/delete-account` endpoint with cascading deletion of all user data (sessions, responses, results, user_questions). Includes comprehensive tests.
+- iOS: Added Delete Account button to SettingsView with confirmation dialog, AuthManager integration, and automatic navigation to welcome screen on success. Includes unit tests.
+- Tokens spent: ~150k
+- Time spent: ~10 minutes
 
 ---
 
