@@ -476,15 +476,27 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-030: Draft Terms of Service Document
-**Status:** [ ] Not Started
-**Files:** External: Terms of service website/PDF
+**Status:** [x] Complete
+**Files:** `docs/TERMS_OF_SERVICE.md`, `docs/terms-of-service.html`
 **Description:** Cover user agreements, disclaimers, and liability.
 **Assignee(s):** technical-product-manager
 **Acceptance Criteria:**
-- [ ] Terms of service cover liability disclaimers
-- [ ] Addresses intellectual property
-- [ ] Hosted at publicly accessible URL
-- [ ] Legal review completed
+- [x] Terms of service cover liability disclaimers
+- [x] Addresses intellectual property
+- [ ] Hosted at publicly accessible URL (requires deployment)
+- [ ] Legal review completed (placeholder notice added; requires actual review)
+
+**Summary:**
+- Created comprehensive Terms of Service in Markdown format (`docs/TERMS_OF_SERVICE.md`)
+- Created web-ready HTML version (`docs/terms-of-service.html`) with responsive design matching Privacy Policy style
+- **Content coverage includes:** Agreement to terms, service description, account registration, age requirements, acceptable use, user content/data, intellectual property, test results disclaimers, subscriptions/payments, service availability, warranties/disclaimers, limitation of liability, indemnification, termination, dispute resolution, changes to terms, general provisions, contact information
+- **Key disclaimers:** AIQ is NOT a medical device, NOT a clinical IQ test, NOT for employment/education/medical decisions, results are estimates for personal tracking only
+- **Legal compliance:** GDPR/CCPA privacy policy cross-references, arbitration agreement with opt-out, class action waiver, Apple App Store specific terms
+- **Placeholders for customization:** [EFFECTIVE_DATE], [STATE/JURISDICTION], [LOCATION], [COUNTY, STATE]
+- **Note:** Hosting at publicly accessible URL requires separate deployment step
+- **Note:** Legal review by qualified attorney is strongly recommended before publication
+- **Total tokens spent:** ~120,000 (estimated)
+- **Total time spent:** ~20 minutes
 
 ---
 
