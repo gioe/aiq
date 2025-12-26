@@ -452,15 +452,26 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-029: Draft Privacy Policy Document
-**Status:** [ ] Not Started
-**Files:** External: Privacy policy website/PDF
+**Status:** [x] Complete
+**Files:** `docs/PRIVACY_POLICY.md`, `docs/privacy-policy.html`
 **Description:** Cover data collection, storage, sharing, and deletion policies.
 **Assignee(s):** technical-product-manager
 **Acceptance Criteria:**
-- [ ] Privacy policy covers all data collected
-- [ ] Explains data retention and deletion
-- [ ] Complies with GDPR and CCPA requirements
-- [ ] Hosted at publicly accessible URL
+- [x] Privacy policy covers all data collected
+- [x] Explains data retention and deletion
+- [x] Complies with GDPR and CCPA requirements
+- [ ] Hosted at publicly accessible URL (requires deployment)
+
+**Summary:**
+- Created comprehensive Privacy Policy in Markdown format (`docs/PRIVACY_POLICY.md`)
+- Created web-ready HTML version (`docs/privacy-policy.html`) with responsive design
+- **Data coverage includes:** Email, name, user ID, device ID, test responses/scores, crash data, performance data, analytics
+- **GDPR compliance:** Data controller identification, legal bases (contract, legitimate interest, consent), all data subject rights (access, rectification, erasure, portability, objection, withdraw consent, lodge complaint), 30-day response timeframe
+- **CCPA compliance:** Right to know, delete, opt-out, non-discrimination; 45-day response timeframe; data sharing table
+- **Additional sections:** Third-party service providers (Firebase, Railway, APNs), data retention policies, security measures, children's privacy, international data transfers, change notification procedures
+- **Note:** Hosting at publicly accessible URL requires separate deployment step
+- **Total tokens spent:** ~80,000 (estimated)
+- **Total time spent:** ~15 minutes
 
 ---
 
