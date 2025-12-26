@@ -30,10 +30,14 @@ final class TestAbandonmentTests: BaseUITest {
 
     // MARK: - Test Credentials
 
-    // Note: In a production environment, these would come from environment variables
-    // or a secure test configuration. For now, these are placeholder values.
-    private let validEmail = "test@example.com"
-    private let validPassword = "password123"
+    // Test credentials from environment variables for security
+    private var validEmail: String {
+        ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
+    }
+
+    private var validPassword: String {
+        ProcessInfo.processInfo.environment["AIQ_TEST_PASSWORD"] ?? "password123"
+    }
 
     // MARK: - Setup
 
