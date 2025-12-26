@@ -33,11 +33,13 @@ struct ErrorView: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityLabel("Try Again")
                 .accessibilityHint("Retry the failed operation")
+                .accessibilityIdentifier(AccessibilityIdentifiers.Common.retryButton)
             }
         }
         .padding()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Error: \(error.localizedDescription)")
+        .accessibilityIdentifier(AccessibilityIdentifiers.Common.errorView)
     }
 }
 

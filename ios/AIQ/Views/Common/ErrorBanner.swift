@@ -25,11 +25,15 @@ struct ErrorBanner: View {
                         .fontWeight(.semibold)
                 }
             )
+            .accessibilityLabel("Dismiss error")
+            .accessibilityIdentifier("errorBanner.dismissButton")
         }
         .padding()
         .background(Color.red)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Error: \(message)")
     }
 }
 
