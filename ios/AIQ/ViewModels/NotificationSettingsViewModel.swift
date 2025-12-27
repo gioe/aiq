@@ -137,7 +137,7 @@ class NotificationSettingsViewModel: BaseViewModel {
     /// Status message to display
     var statusMessage: String? {
         if notificationEnabled && !systemPermissionGranted {
-            return "Notifications are enabled but system permission is denied. Tap to open Settings."
+            return "viewmodel.notification.permission.warning".localized
         }
         return nil
     }

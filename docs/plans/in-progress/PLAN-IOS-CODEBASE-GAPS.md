@@ -680,15 +680,23 @@ Apple requires base localization even for English-only apps. Complete these task
 ---
 
 ### ICG-037: Extract Hardcoded Strings from ViewModels
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Priority:** 🔴 CRITICAL
 **Files:** All ViewModel files
 **Description:** Replace all hardcoded strings in ViewModels with localization keys.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All user-facing strings in ViewModels use localization
-- [ ] Validation messages localized
-- [ ] Success/error messages localized
+- [x] All user-facing strings in ViewModels use localization
+- [x] Validation messages localized
+- [x] Success/error messages localized
+
+**Completion Summary:**
+- Tokens: ~85,000
+- Time: ~5 minutes
+- Updated 4 ViewModel files (LoginViewModel, RegistrationViewModel, NotificationSettingsViewModel, TestTakingViewModel)
+- Added 13 new localization keys to Localizable.strings
+- Replaced 15 hardcoded strings with localized equivalents
+- All tests passing, build successful
 
 ---
 

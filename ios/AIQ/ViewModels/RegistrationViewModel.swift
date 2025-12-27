@@ -65,27 +65,27 @@ class RegistrationViewModel: BaseViewModel {
 
     var emailError: String? {
         guard !email.isEmpty else { return nil }
-        return isEmailValid ? nil : "Please enter a valid email address"
+        return isEmailValid ? nil : "validation.email.invalid".localized
     }
 
     var passwordError: String? {
         guard !password.isEmpty else { return nil }
-        return isPasswordValid ? nil : "Password must be at least 8 characters"
+        return isPasswordValid ? nil : "validation.password.too.short".localized
     }
 
     var confirmPasswordError: String? {
         guard !confirmPassword.isEmpty else { return nil }
-        return isConfirmPasswordValid ? nil : "Passwords do not match"
+        return isConfirmPasswordValid ? nil : "validation.passwords.no.match".localized
     }
 
     var firstNameError: String? {
         guard !firstName.isEmpty else { return nil }
-        return isFirstNameValid ? nil : "First name is required"
+        return isFirstNameValid ? nil : "validation.first.name.required".localized
     }
 
     var lastNameError: String? {
         guard !lastName.isEmpty else { return nil }
-        return isLastNameValid ? nil : "Last name is required"
+        return isLastNameValid ? nil : "validation.last.name.required".localized
     }
 
     // MARK: - Actions
@@ -95,7 +95,7 @@ class RegistrationViewModel: BaseViewModel {
             error = NSError(
                 domain: "RegistrationViewModel",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Please fill in all fields correctly"]
+                userInfo: [NSLocalizedDescriptionKey: "validation.form.incomplete".localized]
             )
             return
         }
