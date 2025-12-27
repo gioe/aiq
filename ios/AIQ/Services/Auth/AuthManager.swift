@@ -129,7 +129,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     func deleteAccount() async throws {
         guard !isLoading else {
-            throw APIError.badRequest(message: "Another operation is in progress")
+            throw APIError.badRequest(message: NSLocalizedString("error.auth.operation.in.progress", comment: ""))
         }
 
         isLoading = true

@@ -46,7 +46,7 @@ class TokenRefreshInterceptor: ResponseInterceptor {
     /// Handle 401 unauthorized responses by refreshing the token
     private func refreshToken() async throws {
         guard let authService else {
-            throw APIError.unauthorized(message: "Authentication service not available")
+            throw APIError.unauthorized(message: NSLocalizedString("error.auth.service.not.available", comment: ""))
         }
 
         // If already refreshing, wait for that task

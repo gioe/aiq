@@ -17,25 +17,25 @@ enum DeepLinkError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .unrecognizedSchemeOrHost(url):
-            "Unrecognized scheme or host: \(url)"
+            String(format: NSLocalizedString("error.deeplink.unrecognized.scheme", comment: ""), url)
         case let .emptyPath(url):
-            "Empty path in universal link: \(url)"
+            String(format: NSLocalizedString("error.deeplink.empty.path", comment: ""), url)
         case let .unrecognizedRoute(route, url):
-            "Unrecognized route '\(route)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.unrecognized.route", comment: ""), route, url)
         case let .missingTestActionOrID(url):
-            "Test route requires action and ID: \(url)"
+            String(format: NSLocalizedString("error.deeplink.missing.test.action", comment: ""), url)
         case let .invalidTestResultsID(identifier, url):
-            "Test results requires numeric ID, got '\(identifier)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.invalid.test.results.id", comment: ""), identifier, url)
         case let .nonPositiveTestResultsID(id, url):
-            "Test results ID must be positive, got '\(id)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.non.positive.test.results.id", comment: ""), id, url)
         case let .invalidSessionID(identifier, url):
-            "Test resume requires numeric sessionId, got '\(identifier)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.invalid.session.id", comment: ""), identifier, url)
         case let .nonPositiveSessionID(id, url):
-            "Session ID must be positive, got '\(id)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.non.positive.session.id", comment: ""), id, url)
         case let .unrecognizedTestAction(action, url):
-            "Unrecognized test action '\(action)': \(url)"
+            String(format: NSLocalizedString("error.deeplink.unrecognized.test.action", comment: ""), action, url)
         case let .settingsSubPathNotAllowed(url):
-            "Settings route does not accept sub-paths: \(url)"
+            String(format: NSLocalizedString("error.deeplink.settings.subpath.not.allowed", comment: ""), url)
         }
     }
 }
