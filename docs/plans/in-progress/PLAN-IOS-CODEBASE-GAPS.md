@@ -3,12 +3,59 @@
 **Source:** docs/gaps/IOS-CODEBASE-GAPS.md
 **Task Prefix:** ICG
 **Generated:** 2025-12-24
+**Last Updated:** 2025-12-26
+
+## Executive Summary
+
+| Metric | Count |
+|--------|-------|
+| **Total Tasks** | 172 |
+| **Completed** | 38 |
+| **Critical (Launch Blockers)** | ~15 |
+| **Important (Should Have)** | ~25 |
+| **Deferred (Post-Launch)** | ~94 |
+| **Estimated Time to Launch** | 5-6 weeks (2 developers) |
+
+### Priority Tiers
+
+- **🔴 CRITICAL**: Blocks App Store submission. Must complete before launch.
+- **🟡 IMPORTANT**: Should have for quality launch. High impact on UX/security.
+- **🟢 DEFERRED**: Nice-to-have. Move to v1.1/v1.2 backlog.
+
+### ⚠️ IMMEDIATE ACTION REQUIRED
+
+**ICG-041 & ICG-042 (Sensitive Logging)** must be completed THIS WEEK. The app is currently logging emails and tokens in production builds - this is a security vulnerability.
+
+### Epic Groupings
+
+Tasks are organized into these epics for easier tracking:
+
+1. **Completed Work** (ICG-001 to ICG-032) ✅
+2. **App Store Metadata** (ICG-033) 🔴
+3. **Localization** (ICG-034 to ICG-040) 🔴
+4. **Security: Logging** (ICG-041 to ICG-042) 🔴
+5. **Security: Certificate Pinning** (ICG-043 to ICG-046) 🟡
+6. **Unit Test Coverage** (ICG-047 to ICG-062) 🟡
+7. **Accessibility** (ICG-063 to ICG-074) 🔴
+8. **Onboarding** (ICG-075 to ICG-078) 🟡
+9. **Feedback System** (ICG-079 to ICG-081) 🟡
+10. **Code Quality** (ICG-082 to ICG-096) 🟡
+11. **Additional Features** (ICG-097 to ICG-117) 🟢
+12. **Architecture Improvements** (ICG-118 to ICG-137) 🟢
+13. **UI Test Improvements** (ICG-138 to ICG-169) 🟢
+14. **Account Deletion Hardening** (ICG-170 to ICG-173) 🟡
+
+---
 
 ## Overview
 
-This plan addresses 32 identified gaps in the AIQ iOS application across architecture, testing, security, and production readiness. The work includes crash reporting integration, deep linking implementation, UI testing infrastructure, privacy compliance, security hardening, and code quality improvements required before App Store submission.
+This plan addresses identified gaps in the AIQ iOS application across architecture, testing, security, and production readiness. The work includes crash reporting integration, deep linking implementation, UI testing infrastructure, privacy compliance, security hardening, and code quality improvements required before App Store submission.
 
-## Tasks
+---
+
+## Completed Tasks (38)
+
+The following tasks have been completed:
 
 ### ICG-001: Fix AppConfig URL Bug
 **Status:** [x] Complete
@@ -539,8 +586,13 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🔴 CRITICAL: App Store Metadata
+
 ### ICG-033: Update App Store Metadata
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** App Store Connect
 **Description:** Update privacy questions, data usage descriptions, and screenshots.
 **Assignee(s):** ios-engineer
@@ -552,8 +604,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🔴 CRITICAL: Localization Epic (ICG-034 to ICG-040)
+
+Apple requires base localization even for English-only apps. Complete these tasks sequentially.
+
 ### ICG-034: Create Localizable.strings File
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** `en.lproj/Localizable.strings` (new)
 **Description:** Create base English localization file with all string keys.
 **Assignee(s):** ios-engineer
@@ -566,6 +625,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-035: Create String+Localization Extension
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** `Utilities/Extensions/String+Localization.swift`, `AIQTests/Extensions/StringLocalizationTests.swift` (new)
 **Description:** Add `.localized` helper for string keys.
 **Assignee(s):** ios-engineer
@@ -579,6 +639,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-036: Extract Hardcoded Strings from Views
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Replace all hardcoded strings in Views with localization keys.
 **Assignee(s):** ios-engineer
@@ -591,6 +652,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-037: Extract Hardcoded Strings from ViewModels
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All ViewModel files
 **Description:** Replace all hardcoded strings in ViewModels with localization keys.
 **Assignee(s):** ios-engineer
@@ -603,6 +665,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-038: Extract Error Messages to Localizable.strings
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All Service files
 **Description:** Replace all error message strings with localization keys.
 **Assignee(s):** ios-engineer
@@ -615,6 +678,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-039: Add RTL Layout Support
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** Test only
 **Description:** Test with Arabic/Hebrew simulators to verify RTL layout support.
 **Assignee(s):** ios-engineer
@@ -627,6 +691,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-040: Configure Locale-Aware Formatting
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** `Utilities/Extensions/Date+Extensions.swift`
 **Description:** Ensure all formatters respect user locale for dates and numbers.
 **Assignee(s):** ios-engineer
@@ -637,8 +702,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🔴 CRITICAL: Security - Sensitive Logging (ICG-041 to ICG-042)
+
+⚠️ **URGENT: Complete this week!** The app is currently logging emails and tokens in production builds. This is a security vulnerability and potential data breach.
+
 ### ICG-041: Wrap Sensitive Logging in DEBUG Guards
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL - URGENT
 **Files:** `Services/Auth/AuthService.swift` (lines 42-45, 70-73, 99-103)
 **Description:** Wrap email, token, and user data logging in `#if DEBUG` blocks.
 **Assignee(s):** ios-engineer
@@ -652,6 +724,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-042: Audit All OSLog Calls for Sensitive Data
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL - URGENT
 **Files:** All files with OSLog usage
 **Description:** Remove or wrap all sensitive data logging in DEBUG guards.
 **Assignee(s):** ios-engineer, code-reviewer
@@ -663,8 +736,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Security - Certificate Pinning (ICG-043 to ICG-046)
+
+Industry standard security practice for apps handling personal data. Prevents MITM attacks.
+
 ### ICG-043: Integrate TrustKit for Certificate Pinning
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQApp.swift`, `TrustKit.plist` (new)
 **Description:** Add TrustKit via SPM and create configuration file.
 **Assignee(s):** ios-engineer
@@ -677,6 +757,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-044: Configure Production SSL Certificate Pins
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `TrustKit.plist`
 **Description:** Extract public key hashes from Railway certificates and configure pins.
 **Assignee(s):** ios-engineer
@@ -690,6 +771,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-045: Test Certificate Pinning
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Test only
 **Description:** Verify pinning blocks MITM attacks and allows valid certificates.
 **Assignee(s):** ios-engineer
@@ -703,6 +785,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-046: Add Environment-Specific Pinning Config
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `TrustKit.plist`, `AppConfig.swift`
 **Description:** Disable pinning in DEBUG builds to allow development proxies.
 **Assignee(s):** ios-engineer
@@ -714,8 +797,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Unit Test Coverage Epic (ICG-047 to ICG-062)
+
+Target 80% code coverage. Can run in parallel with other work streams. Write tests for Services → Storage → Network → Models, then fill remaining gaps.
+
 ### ICG-047: Write AuthService Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Services/AuthServiceTests.swift` (new)
 **Description:** Test login, logout, registration, and token refresh with mocked dependencies. AuthService exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -729,6 +819,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-048: Write NotificationService Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Services/NotificationServiceTests.swift` (new)
 **Description:** Test device registration and preference updates. NotificationService exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -742,6 +833,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-049: Write NotificationManager Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Services/NotificationManagerTests.swift` (new)
 **Description:** Test scheduling and permission handling. NotificationManager exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -755,6 +847,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-050: Write AnalyticsService Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Services/AnalyticsServiceTests.swift` (new)
 **Description:** Test event tracking, backend sync, retry logic, and offline queue. AnalyticsService exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -770,6 +863,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-051: Write KeychainStorage Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Storage/KeychainStorageTests.swift` (new)
 **Description:** Test token storage, retrieval, and deletion. KeychainStorage exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -783,6 +877,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-052: Write LocalAnswerStorage Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Storage/LocalAnswerStorageTests.swift` (new)
 **Description:** Test answer persistence and retrieval. LocalAnswerStorage exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -796,6 +891,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-053: Write DataCache Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Storage/DataCacheTests.swift` (new)
 **Description:** Test cache storage, expiration, and invalidation. DataCache exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -809,6 +905,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-054: Write RetryPolicy Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Network/RetryPolicyTests.swift` (new)
 **Description:** Test exponential backoff and max retries. RetryPolicy exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -822,6 +919,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-055: Write TokenRefreshInterceptor Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Network/TokenRefreshInterceptorTests.swift` (new)
 **Description:** Test concurrent request handling and race conditions. TokenRefreshInterceptor exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -835,6 +933,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-056: Write NetworkMonitor Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Network/NetworkMonitorTests.swift` (new)
 **Description:** Test connection status changes. NetworkMonitor exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -848,6 +947,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-057: Write User Model Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Models/UserTests.swift` (new)
 **Description:** Test validation and serialization. User model exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -861,6 +961,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-058: Write Question Model Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Models/QuestionTests.swift` (new)
 **Description:** Test validation and answer checking. Question model exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -874,6 +975,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-059: Write TestSession Model Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Models/TestSessionTests.swift` (new)
 **Description:** Test status transitions and validation. TestSession model exists but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -887,6 +989,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-060: Write CrashlyticsErrorRecorder Unit Tests
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQTests/Utilities/CrashlyticsErrorRecorderTests.swift` (new)
 **Description:** Test error context categorization and error type detection. CrashlyticsErrorRecorder was created in ICG-005 but has no test coverage.
 **Assignee(s):** ios-engineer
@@ -900,6 +1003,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-061: Run Code Coverage Report
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Xcode coverage tool
 **Description:** Generate coverage report and identify remaining gaps.
 **Assignee(s):** ios-engineer
@@ -912,6 +1016,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-062: Write Additional Tests for 80% Coverage
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Various test files
 **Description:** Fill coverage gaps to reach 80% target.
 **Assignee(s):** ios-engineer
@@ -922,8 +1027,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🔴 CRITICAL: Accessibility Epic (ICG-063 to ICG-074)
+
+App Store requirement. VoiceOver support, color contrast, and Dynamic Type are mandatory for approval.
+
 ### ICG-063: Audit All Views with VoiceOver
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** Test audit (documentation only)
 **Description:** Test every screen with VoiceOver enabled and document issues.
 **Assignee(s):** ios-engineer
@@ -937,6 +1049,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-064: Add Accessibility Labels to Interactive Elements
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Add descriptive accessibility labels to all buttons, images, and form fields.
 **Assignee(s):** ios-engineer
@@ -950,6 +1063,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-065: Add Accessibility Hints for Non-Obvious Interactions
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Add hints for gestures and complex interactions.
 **Assignee(s):** ios-engineer
@@ -962,6 +1076,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-066: Verify Color Contrast Meets WCAG AA
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** `Utilities/Design/ColorPalette.swift`
 **Description:** Use contrast checker tool to verify all color combinations.
 **Assignee(s):** ios-engineer
@@ -974,6 +1089,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-067: Fix Color Contrast Failures
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** `Utilities/Design/ColorPalette.swift`
 **Description:** Adjust colors to meet 4.5:1 ratio for normal text.
 **Assignee(s):** ios-engineer
@@ -986,6 +1102,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-068: Verify Touch Targets Meet 44x44pt Minimum
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Audit all buttons and interactive elements for minimum touch target size.
 **Assignee(s):** ios-engineer
@@ -998,6 +1115,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-069: Fix Undersized Touch Targets
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Add padding or minimum frame sizes to undersized targets.
 **Assignee(s):** ios-engineer
@@ -1010,6 +1128,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-070: Test Dynamic Type Support
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Verify all text scales correctly at all Dynamic Type sizes.
 **Assignee(s):** ios-engineer
@@ -1022,6 +1141,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-071: Fix Dynamic Type Issues
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Use relative spacing and avoid fixed heights for text containers.
 **Assignee(s):** ios-engineer
@@ -1034,6 +1154,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-072: Test Reduce Motion Support
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All animated views
 **Description:** Verify animations respect accessibility Reduce Motion setting.
 **Assignee(s):** ios-engineer
@@ -1045,6 +1166,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-073: Add Reduce Motion Alternatives
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** All animated views
 **Description:** Disable or simplify animations when Reduce Motion is enabled.
 **Assignee(s):** ios-engineer
@@ -1057,6 +1179,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-074: Document Accessibility Features in App Store
 **Status:** [ ] Not Started
+**Priority:** 🔴 CRITICAL
 **Files:** App Store Connect
 **Description:** List accessibility features in App Store description.
 **Assignee(s):** ios-engineer
@@ -1067,8 +1190,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Onboarding Epic (ICG-075 to ICG-078)
+
+Critical for first-time user experience. Users need to understand what AIQ is and how to use it.
+
 ### ICG-075: Design Onboarding Flow
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Design mockups
 **Description:** Design 3-4 screens explaining app value and test mechanics.
 **Assignee(s):** technical-product-manager
@@ -1081,6 +1211,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-076: Create OnboardingView
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Onboarding/OnboardingView.swift` (new)
 **Description:** Create OnboardingView with page indicators and skip option.
 **Assignee(s):** ios-engineer
@@ -1098,6 +1229,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-077: Integrate Onboarding into First-Launch Flow
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `AIQApp.swift`
 **Description:** Show onboarding after registration or on first open.
 **Assignee(s):** ios-engineer
@@ -1110,6 +1242,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-078: Add View Onboarding Again to Settings
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Settings/SettingsView.swift`
 **Description:** Add option to re-view onboarding from Settings.
 **Assignee(s):** ios-engineer
@@ -1120,8 +1253,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Feedback System Epic (ICG-079 to ICG-081)
+
+Essential for collecting user feedback during initial launch period.
+
 ### ICG-079: Create FeedbackView
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Settings/FeedbackView.swift` (new)
 **Description:** Create feedback form with name, email, category, and description fields.
 **Assignee(s):** ios-engineer
@@ -1134,6 +1274,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-080: Implement Feedback Submission to Backend
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Backend: `/v1/feedback/submit` (new), `Views/Settings/FeedbackView.swift`
 **Description:** Create backend endpoint and connect iOS form submission.
 **Assignee(s):** ios-engineer, fastapi-architect
@@ -1147,6 +1288,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-081: Add Send Feedback to Settings Menu
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Settings/SettingsView.swift`
 **Description:** Add "Send Feedback" option to Settings menu.
 **Assignee(s):** ios-engineer
@@ -1157,8 +1299,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Code Quality Epic (ICG-082 to ICG-096)
+
+Technical debt reduction and code quality improvements. Includes memory leak fixes, code consolidation, and magic number extraction.
+
 ### ICG-082: Consolidate Email Validation
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift`
 **Description:** Use `String+Extensions.swift` consistently for email validation.
 **Assignee(s):** ios-engineer, redundancy-detector
@@ -1171,6 +1320,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-083: Consolidate Password Validation
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `ViewModels/LoginViewModel.swift`, `ViewModels/RegistrationViewModel.swift`
 **Description:** Use `Validators.swift` or create shared validator for passwords.
 **Assignee(s):** ios-engineer, redundancy-detector
@@ -1183,6 +1333,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-084: Extract IQ Score Classification to Shared Utility
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Utilities/Helpers/IQScoreUtility.swift` (new), `Views/Test/TestResultsView.swift`, `Views/History/TestDetailView+Helpers.swift`, `AIQTests/Utilities/IQScoreUtilityTests.swift` (new)
 **Description:** Create shared utility for IQ score classification and color mapping, then replace duplicate code.
 **Assignee(s):** ios-engineer
@@ -1199,6 +1350,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-085: Audit DateFormatter Usage
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Documentation only
 **Description:** Identify all instances creating DateFormatters across codebase.
 **Assignee(s):** ios-engineer, redundancy-detector
@@ -1211,6 +1363,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-086: Migrate to Date+Extensions Helpers
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `ViewModels/DashboardViewModel.swift`, `Views/Test/TestResultsView.swift`, `Views/History/IQTrendChart.swift`, others
 **Description:** Replace formatter creation with Date+Extensions methods.
 **Assignee(s):** ios-engineer
@@ -1223,6 +1376,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-087: Create Reusable InfoCard Component
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Common/InfoCard.swift` (new)
 **Description:** Extract common card pattern from WelcomeView and RegistrationView, then replace duplicates.
 **Assignee(s):** ios-engineer
@@ -1238,6 +1392,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-088: Fix StateObject Misuse in DashboardView
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Views/Dashboard/DashboardView.swift`
 **Description:** Change @StateObject to @ObservedObject for singleton AuthManager.
 **Assignee(s):** ios-engineer
@@ -1250,6 +1405,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-089: Convert TokenRefreshInterceptor to Actor
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Services/Auth/TokenRefreshInterceptor.swift`, `AIQTests/Network/TokenRefreshInterceptorConcurrencyTests.swift` (new)
 **Description:** Eliminate race condition on concurrent requests by using Swift actor and verify thread safety.
 **Assignee(s):** ios-engineer
@@ -1266,6 +1422,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-090: Fix Retain Cycle in DashboardViewModel
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `ViewModels/DashboardViewModel.swift`
 **Description:** Add [weak self] to retry closure.
 **Assignee(s):** ios-engineer
@@ -1278,6 +1435,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-091: Audit Timer Closures for Retain Cycles
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Documentation only
 **Description:** Search for Timer usage without weak self references.
 **Assignee(s):** ios-engineer, code-reviewer
@@ -1290,6 +1448,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-092: Fix Timer Retain Cycles
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Various ViewModel files
 **Description:** Add [weak self] to all timer closures.
 **Assignee(s):** ios-engineer
@@ -1302,6 +1461,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-093: Run Memory Leak Detection
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Test only
 **Description:** Use Xcode Instruments to verify no memory leaks.
 **Assignee(s):** ios-engineer
@@ -1314,6 +1474,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-094: Create Constants.swift File
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** `Utilities/Helpers/Constants.swift` (new)
 **Description:** Create constants file and extract magic numbers: timer critical threshold (60s), slow request threshold (2.0s), auto-save delay (1.0s), progress validity (24h).
 **Assignee(s):** ios-engineer
@@ -1331,6 +1492,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-095: Audit Codebase for Additional Magic Numbers
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Documentation only
 **Description:** Search for remaining magic numbers and categorize by priority.
 **Assignee(s):** ios-engineer, code-reviewer
@@ -1343,6 +1505,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-096: Extract Remaining Magic Numbers
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Files:** Various files, `Utilities/Helpers/Constants.swift`
 **Description:** Extract all high-priority magic numbers to constants.
 **Assignee(s):** ios-engineer
@@ -1353,8 +1516,22 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟢 DEFERRED: Post-Launch Backlog (ICG-097 to ICG-169)
+
+These tasks are nice-to-have improvements and features. Defer to v1.1/v1.2 and prioritize based on user feedback after launch.
+
+**Includes:**
+- Additional Features (Dependency injection, offline queue, state persistence, biometric auth, haptic feedback)
+- iPad Optimization
+- Widget Extension
+- Architecture Improvements
+- UI Test Improvements
+
 ### ICG-097: Add Birth Year Validation
 **Status:** [ ] Not Started
+**Priority:** 🟢 DEFERRED
 **Files:** `ViewModels/RegistrationViewModel.swift`
 **Description:** Validate birth year is between 1900 and current year.
 **Assignee(s):** ios-engineer
@@ -2357,8 +2534,15 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ---
 
+---
+
+## 🟡 IMPORTANT: Account Deletion Hardening (ICG-170 to ICG-173)
+
+GDPR/CCPA compliance improvements for account deletion feature.
+
 ### ICG-170: Implement JWT Token Blacklisting for Account Deletion
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Source:** PR #410 comment
 **Files:** `backend/app/api/v1/user.py`, `backend/app/core/auth.py`
 **Description:** After account deletion, the JWT access token remains valid until expiration. A deleted user could theoretically continue using their token for a short period. Consider implementing token blacklisting or immediate session invalidation.
@@ -2373,6 +2557,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-171: Add Rate Limiting for Account Deletion Endpoint
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Source:** PR #410 comment
 **Files:** `backend/app/api/v1/user.py`
 **Description:** Account deletion is a high-impact operation. Consider adding rate limiting to prevent abuse or accidental rapid deletions.
@@ -2387,6 +2572,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-172: Verify Backend Test Mock Patching for Account Deletion
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Source:** PR #410 comment
 **Files:** `backend/tests/test_user.py:437-443`
 **Description:** The mock path `"app.api.v1.user.Session.commit"` may be incorrect. It should be `"app.api.v1.user.db.commit"` or patch at the fixture level. Verify this test works as intended.
@@ -2401,6 +2587,7 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 
 ### ICG-173: Enhance Account Deletion Analytics
 **Status:** [ ] Not Started
+**Priority:** 🟡 IMPORTANT
 **Source:** PR #410 comment
 **Files:** `ios/AIQ/Services/Auth/AuthManager.swift:148`
 **Description:** Current analytics event `account_deleted` has empty properties. Consider adding anonymized context (e.g., account age, test count) to help understand why users delete accounts.
