@@ -436,7 +436,7 @@
 
 // MARK: - Percentile Card
 "percentile.card.top.format" = "Top %d%%";
-"percentile.card.percentile.format" = "%@th percentile";
+"percentile.card.percentile.format" = "%@ percentile";
 "percentile.card.description" = "You scored higher than %@ of test takers";
 "percentile.card.many" = "many";
 
