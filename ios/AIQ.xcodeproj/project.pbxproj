@@ -55,6 +55,7 @@
 		507289F59BBAC0E176AB7E75 /* BaseUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46C639BF4FAE86138CB434D /* BaseUITest.swift */; };
 		50CBB32BC0FEC58929FE3779 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E493A4F4F186F1DC450D8A7 /* EmptyStateView.swift */; };
 		54A97B52762E3312F1938F15 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D90F0480B621765EDC45755 /* NotificationManager.swift */; };
+		55CA6A94AECF5D921A147F04 /* AuthManagerDeleteAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F9E7E6F76233D867D7559F /* AuthManagerDeleteAccountTests.swift */; };
 		5BC39D9F6C4126A57F8A15F8 /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7097E0EB2DFDF74B56C8E0 /* KeychainStorage.swift */; };
 		5FA9DB6F75FC3F21B32FC064 /* TestTakingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 002B0472F8CA6C9FD166F878 /* TestTakingViewModelTests.swift */; };
 		612E403BD4A218DA64BED84E /* CustomTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EDFA8047A81A44ABF74C9C /* CustomTextField.swift */; };
@@ -241,6 +242,7 @@
 		A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestInterceptor.swift; sourceTree = "<group>"; };
 		A8AF8C14402CAB2A50B2ED9B /* BaseUITest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BaseUITest.swift; path = AIQUITests/Helpers/BaseUITest.swift; sourceTree = "<group>"; };
 		AA7782CE071C4128230BA182 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		B3F9E7E6F76233D867D7559F /* AuthManagerDeleteAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthManagerDeleteAccountTests.swift; sourceTree = "<group>"; };
 		B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B83031AE2038521C3574E49F /* PerformanceInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceInsights.swift; sourceTree = "<group>"; };
 		BB7097E0EB2DFDF74B56C8E0 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
@@ -526,14 +528,6 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		ICG031005AAAA /* Onboarding */ = {
-			isa = PBXGroup;
-			children = (
-				ICG031004AAAA /* PrivacyConsentView.swift */,
-			);
-			path = Onboarding;
-			sourceTree = "<group>";
-		};
 		7BE4500EA192E1E5F3238DC5 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -700,8 +694,17 @@
 				ICG007004AAAA /* AppRouterTests.swift */,
 				A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */,
 				ICG018001AAAA /* PushNotificationDeepLinkTests.swift */,
+				B3F9E7E6F76233D867D7559F /* AuthManagerDeleteAccountTests.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		ICG031005AAAA /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				ICG031004AAAA /* PrivacyConsentView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -846,6 +849,7 @@
 				ICG007003AAAA /* AppRouterTests.swift in Sources */,
 				1ECD60ACA9668E78C77BDB49 /* DeepLinkHandlerTests.swift in Sources */,
 				ICG018002AAAA /* PushNotificationDeepLinkTests.swift in Sources */,
+				55CA6A94AECF5D921A147F04 /* AuthManagerDeleteAccountTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

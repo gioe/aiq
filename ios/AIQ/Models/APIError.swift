@@ -20,6 +20,8 @@ enum NetworkOperation {
     case fetchHistory
     /// User logout operation
     case logout
+    /// User delete account operation
+    case deleteAccount
     /// Generic network operation
     case generic
 
@@ -44,6 +46,8 @@ enum NetworkOperation {
             "loading history"
         case .logout:
             "signing out"
+        case .deleteAccount:
+            "deleting account"
         case .generic:
             "completing request"
         }

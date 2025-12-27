@@ -801,6 +801,11 @@ private class MockAuthService: AuthServiceProtocol {
         currentUser = nil
     }
 
+    func deleteAccount() async throws {
+        isAuthenticated = false
+        currentUser = nil
+    }
+
     func getAccessToken() -> String? {
         "mock-access-token"
     }

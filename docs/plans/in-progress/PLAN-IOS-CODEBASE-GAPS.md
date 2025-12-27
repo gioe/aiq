@@ -521,15 +521,21 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 ---
 
 ### ICG-032: Add Data Deletion Capability
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Files:** `Views/Settings/SettingsView.swift`, Backend: `/v1/user/delete-account` (new)
 **Description:** Add settings option to delete account and all user data (GDPR right to erasure).
 **Assignee(s):** ios-engineer, fastapi-architect
 **Acceptance Criteria:**
-- [ ] Settings screen includes "Delete Account" option
-- [ ] Confirmation dialog warns of irreversible action
-- [ ] Backend endpoint deletes all user data (GDPR right to erasure)
-- [ ] User logged out and returned to welcome screen
+- [x] Settings screen includes "Delete Account" option
+- [x] Confirmation dialog warns of irreversible action
+- [x] Backend endpoint deletes all user data (GDPR right to erasure)
+- [x] User logged out and returned to welcome screen
+
+**Summary:**
+- Backend: Added `DELETE /v1/user/delete-account` endpoint with cascading deletion of all user data (sessions, responses, results, user_questions). Includes comprehensive tests.
+- iOS: Added Delete Account button to SettingsView with confirmation dialog, AuthManager integration, and automatic navigation to welcome screen on success. Includes unit tests.
+- Tokens spent: ~150k
+- Time spent: ~10 minutes
 
 ---
 
@@ -2348,3 +2354,59 @@ This plan addresses 32 identified gaps in the AIQ iOS application across archite
 - [ ] Cross-reference with actual .accessibilityIdentifier() usage
 - [ ] Document any unused or missing identifiers
 - [ ] Create tasks for any gaps found
+
+---
+
+### ICG-170: Implement JWT Token Blacklisting for Account Deletion
+**Status:** [ ] Not Started
+**Source:** PR #410 comment
+**Files:** `backend/app/api/v1/user.py`, `backend/app/core/auth.py`
+**Description:** After account deletion, the JWT access token remains valid until expiration. A deleted user could theoretically continue using their token for a short period. Consider implementing token blacklisting or immediate session invalidation.
+**Assignee(s):** fastapi-architect
+**Acceptance Criteria:**
+- [ ] Research token blacklisting approaches (Redis-based vs in-memory)
+- [ ] Implement token invalidation on account deletion
+- [ ] Update auth middleware to check blacklist
+- [ ] Add appropriate cache TTL matching token expiration
+
+---
+
+### ICG-171: Add Rate Limiting for Account Deletion Endpoint
+**Status:** [ ] Not Started
+**Source:** PR #410 comment
+**Files:** `backend/app/api/v1/user.py`
+**Description:** Account deletion is a high-impact operation. Consider adding rate limiting to prevent abuse or accidental rapid deletions.
+**Assignee(s):** fastapi-architect
+**Acceptance Criteria:**
+- [ ] Add rate limiting middleware for delete-account endpoint
+- [ ] Configure appropriate rate limits (e.g., 1 per hour)
+- [ ] Return appropriate 429 response when rate limited
+- [ ] Add tests for rate limiting behavior
+
+---
+
+### ICG-172: Verify Backend Test Mock Patching for Account Deletion
+**Status:** [ ] Not Started
+**Source:** PR #410 comment
+**Files:** `backend/tests/test_user.py:437-443`
+**Description:** The mock path `"app.api.v1.user.Session.commit"` may be incorrect. It should be `"app.api.v1.user.db.commit"` or patch at the fixture level. Verify this test works as intended.
+**Assignee(s):** fastapi-architect
+**Acceptance Criteria:**
+- [ ] Review mock patching in test_user.py
+- [ ] Verify mock actually intercepts the commit call
+- [ ] Fix mock path if needed
+- [ ] Confirm test fails when expected
+
+---
+
+### ICG-173: Enhance Account Deletion Analytics
+**Status:** [ ] Not Started
+**Source:** PR #410 comment
+**Files:** `ios/AIQ/Services/Auth/AuthManager.swift:148`
+**Description:** Current analytics event `account_deleted` has empty properties. Consider adding anonymized context (e.g., account age, test count) to help understand why users delete accounts.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Add account age (days since registration) to event
+- [ ] Add total test count to event
+- [ ] Ensure no PII is included
+- [ ] Update analytics schema if needed

@@ -23,6 +23,9 @@ protocol AuthServiceProtocol: AnyObject {
     /// Logout the current user
     func logout() async throws
 
+    /// Delete the user account and all associated data
+    func deleteAccount() async throws
+
     /// Get the current access token
     func getAccessToken() -> String?
 

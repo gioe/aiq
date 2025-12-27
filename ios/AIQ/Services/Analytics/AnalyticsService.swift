@@ -30,6 +30,9 @@ enum AnalyticsEvent: String {
 
     // Security events
     case authFailed = "security.auth_failed"
+
+    // Account events
+    case accountDeleted = "account.deleted"
 }
 
 /// A single analytics event with timestamp and properties

@@ -96,6 +96,8 @@ enum APIEndpoint: Equatable {
     case notificationPreferences
     /// Check for active test session
     case testActive
+    /// Delete user account
+    case deleteAccount
 
     /// The URL path for this endpoint
     var path: String {
@@ -141,6 +143,8 @@ enum APIEndpoint: Equatable {
             "/v1/notifications/preferences"
         case .testActive:
             "/v1/test/active"
+        case .deleteAccount:
+            "/v1/user/delete-account"
         }
     }
 }
