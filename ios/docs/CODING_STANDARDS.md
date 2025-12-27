@@ -981,6 +981,46 @@ Use semantic colors from `ColorPalette` which adapt to light/dark mode:
 .foregroundColor(ColorPalette.textPrimary)  // Adapts to light/dark mode
 ```
 
+### RTL (Right-to-Left) Support
+
+The app supports RTL languages (Arabic, Hebrew). Follow these standards:
+
+**DO:**
+- Use semantic alignment (`.leading`, `.trailing`)
+- Let SwiftUI handle directionality automatically
+- Use SF Symbols for directional icons (they flip automatically)
+- Test layouts with RTL enabled
+
+```swift
+// Good - Semantic directions
+HStack {
+    Text("Title")
+    Spacer()
+    Image(systemName: "chevron.right")  // Flips to chevron.left in RTL
+}
+.frame(maxWidth: .infinity, alignment: .leading)  // Becomes .trailing in RTL
+.padding(.leading, 16)  // Becomes .trailing in RTL
+```
+
+**DON'T:**
+- Use absolute directions (`.left`, `.right`) for layout
+- Hardcode directional offsets without considering RTL
+- Assume left-to-right flow
+
+```swift
+// Bad - Absolute directions (don't use these)
+.frame(alignment: .left)
+.padding(.left, 16)
+```
+
+**Testing RTL:**
+Enable RTL testing in the scheme by checking the launch arguments in Edit Scheme > Run > Arguments:
+- `-AppleLanguages (ar)`
+- `-AppleLocale ar_SA`
+- `-AppleTextDirection YES`
+
+See [RTL Testing Guide](RTL_TESTING_GUIDE.md) for comprehensive testing instructions.
+
 ### Accessibility Testing
 
 Test with:
@@ -988,6 +1028,7 @@ Test with:
 - Different Dynamic Type sizes
 - Light and dark modes
 - Reduced motion settings
+- RTL language settings (Arabic/Hebrew)
 
 ---
 
