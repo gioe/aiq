@@ -114,15 +114,15 @@ enum KeychainError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .encodingFailed:
-            "Failed to encode data for keychain storage"
+            NSLocalizedString("error.keychain.encoding.failed", comment: "")
         case .decodingFailed:
-            "Failed to decode data from keychain"
+            NSLocalizedString("error.keychain.decoding.failed", comment: "")
         case let .saveFailed(status):
-            "Failed to save to keychain (status: \(status))"
+            String(format: NSLocalizedString("error.keychain.save.failed", comment: ""), status)
         case let .retrievalFailed(status):
-            "Failed to retrieve from keychain (status: \(status))"
+            String(format: NSLocalizedString("error.keychain.retrieval.failed", comment: ""), status)
         case let .deletionFailed(status):
-            "Failed to delete from keychain (status: \(status))"
+            String(format: NSLocalizedString("error.keychain.deletion.failed", comment: ""), status)
         }
     }
 }

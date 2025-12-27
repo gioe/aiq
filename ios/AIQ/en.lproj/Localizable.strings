@@ -612,3 +612,29 @@
 "viewmodel.test.no.active.session" = "No active test session found.";
 "viewmodel.test.resume.or.abandon" = "You have an in-progress test. Resume to continue where you left off, or abandon it to start fresh.";
 "viewmodel.notification.permission.warning" = "Notifications are enabled but system permission is denied. Tap to open Settings.";
+
+// MARK: - Service Errors - DeepLink
+"error.deeplink.unrecognized.scheme" = "Unrecognized scheme or host: %@";
+"error.deeplink.empty.path" = "Empty path in universal link: %@";
+"error.deeplink.unrecognized.route" = "Unrecognized route '%@': %@";
+"error.deeplink.missing.test.action" = "Test route requires action and ID: %@";
+"error.deeplink.invalid.test.results.id" = "Test results requires numeric ID, got '%@': %@";
+"error.deeplink.non.positive.test.results.id" = "Test results ID must be positive, got '%d': %@";
+"error.deeplink.invalid.session.id" = "Test resume requires numeric sessionId, got '%@': %@";
+"error.deeplink.non.positive.session.id" = "Session ID must be positive, got '%d': %@";
+"error.deeplink.unrecognized.test.action" = "Unrecognized test action '%@': %@";
+"error.deeplink.settings.subpath.not.allowed" = "Settings route does not accept sub-paths: %@";
+
+// MARK: - Service Errors - Auth
+"error.auth.operation.in.progress" = "Another operation is in progress";
+"error.auth.service.not.available" = "Authentication service not available";
+"error.auth.no.refresh.token" = "No refresh token available";
+"error.auth.invalid.credentials" = "Invalid email or password";
+"error.auth.session.expired" = "Your session has expired. Please log in again.";
+
+// MARK: - Service Errors - Keychain
+"error.keychain.encoding.failed" = "Failed to encode data for keychain storage";
+"error.keychain.decoding.failed" = "Failed to decode data from keychain";
+"error.keychain.save.failed" = "Failed to save to keychain (status: %d)";
+"error.keychain.retrieval.failed" = "Failed to retrieve from keychain (status: %d)";
+"error.keychain.deletion.failed" = "Failed to delete from keychain (status: %d)";

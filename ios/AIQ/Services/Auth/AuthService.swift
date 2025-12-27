@@ -221,11 +221,11 @@ enum AuthError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noRefreshToken:
-            "No refresh token available"
+            NSLocalizedString("error.auth.no.refresh.token", comment: "")
         case .invalidCredentials:
-            "Invalid email or password"
+            NSLocalizedString("error.auth.invalid.credentials", comment: "")
         case .sessionExpired:
-            "Your session has expired. Please log in again."
+            NSLocalizedString("error.auth.session.expired", comment: "")
         }
     }
 }
