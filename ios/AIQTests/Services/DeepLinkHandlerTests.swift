@@ -621,17 +621,23 @@ final class DeepLinkHandlerTests: XCTestCase {
         // Given - ID with URL-encoded slash (%2F = /)
         // Note: URL.pathComponents behavior changed in iOS 18.4+
         // - iOS 18.3 and earlier: %2F becomes a path separator after decoding
+        //   → pathComponents = ["results", "123", "456"] → testResults(id: 123)
         // - iOS 18.4+: %2F decodes within the component, preserving boundaries
-        // This test targets iOS 18.4+ behavior (CI uses iOS 18.5)
+        //   → pathComponents = ["results", "123/456"] → Int fails → .invalid
         let url = URL(string: "aiq://test/results/123%2F456")!
 
         // When
         let result = sut.parse(url)
 
-        // Then
-        // pathComponents[1] = "123/456" (decoded slash stays within component)
-        // Int("123/456") fails, so result is .invalid
-        XCTAssertEqual(result, .invalid, "encoded slash decodes within component, not as path separator")
+        // Then - behavior depends on iOS version
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        if osVersion.majorVersion > 18 || (osVersion.majorVersion == 18 && osVersion.minorVersion >= 4) {
+            // iOS 18.4+: encoded slash decodes within component
+            XCTAssertEqual(result, .invalid, "encoded slash decodes within component, not as path separator")
+        } else {
+            // iOS 18.3 and earlier: encoded slash becomes path separator
+            XCTAssertEqual(result, .testResults(id: 123), "encoded slash becomes path separator on iOS < 18.4")
+        }
     }
 
     func testParse_URLWithEncodedPath_UniversalLink() {
