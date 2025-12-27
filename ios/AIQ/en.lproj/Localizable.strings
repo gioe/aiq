@@ -1,0 +1,393 @@
+/*
+  Localizable.strings
+  AIQ
+
+  English localization for the AIQ iOS app
+*/
+
+// MARK: - App Name & Branding
+"app.name" = "AIQ";
+"app.tagline" = "AI-Generated Cognitive Assessment";
+
+// MARK: - Welcome/Login View
+"welcome.email.title" = "Email";
+"welcome.email.placeholder" = "your.email@example.com";
+"welcome.password.title" = "Password";
+"welcome.password.placeholder" = "Enter your password";
+"welcome.signin.button" = "Sign In";
+"welcome.account.prompt" = "Don't have an account?";
+"welcome.create.account.button" = "Create Account";
+"welcome.loading" = "Signing in...";
+
+// MARK: - Feature Highlights (Welcome Screen)
+"feature.fresh.challenges.title" = "Fresh AI Challenges";
+"feature.fresh.challenges.description" = "New questions every test";
+"feature.track.progress.title" = "Track Your Progress";
+"feature.track.progress.description" = "Watch your IQ improve over time";
+
+// MARK: - Registration View
+"registration.title" = "Register";
+"registration.hero.title" = "Begin Your Journey";
+"registration.hero.subtitle" = "Track your cognitive performance over time";
+"registration.disclaimer" = "For personal insight. Not a clinical IQ test.";
+"registration.firstname.title" = "First Name";
+"registration.firstname.placeholder" = "John";
+"registration.lastname.title" = "Last Name";
+"registration.lastname.placeholder" = "Doe";
+"registration.email.title" = "Email";
+"registration.email.placeholder" = "your.email@example.com";
+"registration.password.title" = "Password";
+"registration.password.placeholder" = "At least 8 characters";
+"registration.confirm.password.title" = "Confirm Password";
+"registration.confirm.password.placeholder" = "Re-enter your password";
+"registration.create.account.button" = "Create Account";
+"registration.already.have.account" = "Already have an account?";
+"registration.signin.link" = "Sign In";
+"registration.loading" = "Creating account...";
+
+// MARK: - Registration Demographic Fields
+"registration.demographic.header" = "Help Improve Our Research";
+"registration.demographic.subtitle" = "This optional information helps us validate test accuracy. All data remains private.";
+"registration.birthyear.title" = "Birth Year (Optional)";
+"registration.birthyear.placeholder" = "e.g., 1990";
+"registration.education.title" = "Education Level (Optional)";
+"registration.education.placeholder" = "Select education level";
+"registration.education.none" = "None selected";
+"registration.country.title" = "Country (Optional)";
+"registration.country.placeholder" = "e.g., United States";
+"registration.region.title" = "State/Region (Optional)";
+"registration.region.placeholder" = "e.g., California";
+
+// MARK: - Registration Benefits
+"registration.benefit.personalized.title" = "Personalized Tracking";
+"registration.benefit.personalized.description" = "Your progress, your insights, your journey";
+"registration.benefit.secure.title" = "Secure & Private";
+"registration.benefit.secure.description" = "Your data is encrypted and never shared";
+"registration.benefit.analytics.title" = "Visual Analytics";
+"registration.benefit.analytics.description" = "Beautiful charts tracking your cognitive growth";
+
+// MARK: - Dashboard View
+"dashboard.title" = "Dashboard";
+"dashboard.loading" = "Loading dashboard...";
+"dashboard.greeting.morning" = "Good morning";
+"dashboard.greeting.afternoon" = "Good afternoon";
+"dashboard.greeting.evening" = "Good evening";
+"dashboard.subtitle" = "Track your cognitive performance over time";
+"dashboard.stat.tests.taken" = "Tests Taken";
+"dashboard.stat.average.iq" = "Average IQ";
+"dashboard.action.take.test" = "Take Another Test";
+"dashboard.action.resume.test" = "Resume Test in Progress";
+"dashboard.test.in.progress" = "Test in Progress";
+"dashboard.questions.answered" = "%d questions answered";
+
+// MARK: - Dashboard Empty State
+"dashboard.empty.title.in.progress" = "Test in Progress";
+"dashboard.empty.title.ready" = "Ready to Begin?";
+"dashboard.empty.message.in.progress" = "You have a test in progress. Resume it to continue or complete it to see your results.";
+"dashboard.empty.message.ready" = "Take your first cognitive performance assessment to establish your baseline score. Track your progress over time and discover insights about your performance.";
+"dashboard.empty.action.resume" = "Resume Test in Progress";
+"dashboard.empty.action.start" = "Start Your First Test";
+
+// MARK: - Test Taking View
+"test.title" = "IQ Test";
+"test.loading" = "Submitting your test...";
+"test.exit.button" = "Exit";
+"test.previous.button" = "Previous";
+"test.next.button" = "Next";
+"test.submit.button" = "Submit Test";
+"test.completed.title" = "Test Completed!";
+"test.completed.message" = "Your answers have been submitted";
+"test.completed.count" = "You answered %d out of %d questions";
+"test.view.results.button" = "View Results";
+"test.return.dashboard.button" = "Return to Dashboard";
+
+// MARK: - Test Alerts
+"test.alert.resume.title" = "Resume Test?";
+"test.alert.resume.message" = "You have an incomplete test. Would you like to resume where you left off?";
+"test.alert.resume.button" = "Resume";
+"test.alert.start.new.button" = "Start New";
+"test.alert.exit.title" = "Exit Test?";
+"test.alert.exit.message" = "You have %d unsaved answers. Are you sure you want to exit?";
+"test.alert.exit.button" = "Exit";
+"test.alert.cancel.button" = "Cancel";
+"test.alert.in.progress.title" = "Test in Progress";
+"test.alert.in.progress.message" = "You have an in-progress test. Resume to continue where you left off, or abandon it to start a fresh test.";
+"test.alert.in.progress.resume" = "Resume Test";
+"test.alert.in.progress.abandon" = "Abandon & Start New";
+"test.alert.in.progress.go.back" = "Go Back";
+"test.alert.time.expired.title" = "Time's Up!";
+"test.alert.time.expired.message" = "The 30-minute time limit has expired. Your %d answered question%@ will be submitted automatically.";
+"test.alert.ok.button" = "OK";
+
+// MARK: - Test Timer
+"test.timer.warning.message" = "Only %@ remaining!";
+"test.timer.warning.dismiss" = "Dismiss";
+
+// MARK: - In Progress Test Card
+"inprogress.card.title" = "Test in Progress";
+"inprogress.card.questions.answered" = "%d questions answered";
+"inprogress.card.resume.button" = "Resume Test";
+"inprogress.card.abandon.button" = "Abandon Test";
+"inprogress.card.abandon.alert.title" = "Abandon Test?";
+"inprogress.card.abandon.alert.message" = "This test will not count toward your history. Are you sure you want to abandon it?";
+"inprogress.card.abandoning" = "Abandoning test...";
+"inprogress.card.time.just.now" = "Started just now";
+"inprogress.card.time.minutes" = "Started %d %@ ago";
+"inprogress.card.time.hours" = "Started %d %@ ago";
+"inprogress.card.time.days" = "Started %d %@ ago";
+"inprogress.card.minute" = "minute";
+"inprogress.card.minutes" = "minutes";
+"inprogress.card.hour" = "hour";
+"inprogress.card.hours" = "hours";
+"inprogress.card.day" = "day";
+"inprogress.card.days" = "days";
+
+// MARK: - Test Results View
+"results.title" = "Test Results";
+"results.done.button" = "Done";
+"results.your.score" = "Your IQ Score";
+"results.disclaimer" = "This is a cognitive performance assessment for personal insight, not a clinical IQ test.";
+"results.confidence.range" = "Range: %@";
+"results.confidence.info.title" = "Understanding Your Score Range";
+"results.confidence.info.button" = "Learn about score range";
+"results.confidence.info.got.it" = "Got it";
+"results.metric.accuracy" = "Accuracy";
+"results.metric.correct" = "Correct";
+"results.metric.time" = "Time";
+"results.metric.completed" = "Completed";
+"results.view.breakdown.button" = "View Detailed Breakdown";
+"results.return.dashboard.button" = "Return to Dashboard";
+
+// MARK: - IQ Score Ranges
+"iq.range.extremely.low" = "Extremely Low";
+"iq.range.below.average" = "Below Average";
+"iq.range.average" = "Average";
+"iq.range.above.average" = "Above Average";
+"iq.range.gifted" = "Gifted";
+"iq.range.highly.gifted" = "Highly Gifted";
+"iq.range.invalid" = "Invalid Score";
+
+// MARK: - Performance Messages
+"performance.outstanding.title" = "Outstanding Performance! 🌟";
+"performance.outstanding.message" = "You've demonstrated excellent problem-solving abilities. Keep challenging yourself!";
+"performance.great.title" = "Great Job! 👏";
+"performance.great.message" = "Your performance shows strong analytical skills. You're doing well!";
+"performance.good.title" = "Good Effort! 👍";
+"performance.good.message" = "You're making good progress. Consider reviewing the areas you found challenging.";
+"performance.keep.practicing.title" = "Keep Practicing! 💪";
+"performance.keep.practicing.message" = "You're building your skills. Regular practice will help you improve.";
+"performance.room.improvement.title" = "Room for Improvement! 📚";
+"performance.room.improvement.message" = "Everyone starts somewhere. Focus on understanding the patterns and keep practicing.";
+
+// MARK: - History View
+"history.title" = "History";
+"history.loading" = "Loading history...";
+"history.stat.tests.taken" = "Tests Taken";
+"history.stat.average.iq" = "Average IQ";
+"history.stat.best.score" = "Best Score";
+"history.filter.label" = "Filter";
+"history.sort.label" = "Sort";
+"history.showing.filtered" = "Showing %d of %d tests";
+"history.clear.filters" = "Clear Filters";
+"history.load.more.loading" = "Loading...";
+"history.load.more" = "Load More";
+"history.load.more.count" = "Showing %d of %d tests";
+"history.empty.title" = "No Test History Yet";
+"history.empty.message" = "Take your first IQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
+
+// MARK: - Settings View
+"settings.title" = "Settings";
+"settings.account.header" = "Account";
+"settings.notifications.header" = "Notifications";
+"settings.notifications.footer" = "Receive reminders when it's time to take your next IQ test (every 3 months)";
+"settings.support.header" = "Support";
+"settings.help.button" = "Help & FAQ";
+"settings.app.header" = "App";
+"settings.app.version" = "App Version";
+"settings.logout.button" = "Logout";
+"settings.logout.confirm.title" = "Are you sure you want to logout?";
+"settings.logout.confirm.button" = "Logout";
+"settings.delete.account.button" = "Delete Account";
+"settings.delete.account.confirm.title" = "Delete Account";
+"settings.delete.account.confirm.message" = "This action is irreversible. All your data will be permanently deleted and cannot be recovered.";
+"settings.delete.account.confirm.button" = "Delete Account";
+"settings.delete.account.footer" = "Deleting your account is permanent and cannot be undone. All your data will be permanently deleted.";
+"settings.delete.account.failed" = "Delete Account Failed";
+"settings.logging.out" = "Logging out...";
+"settings.deleting.account" = "Deleting account...";
+
+// MARK: - Settings Debug Section
+"settings.debug.header" = "Debug";
+"settings.debug.test.crash.button" = "Test Crash";
+"settings.debug.footer" = "Force a crash to test Crashlytics. Reported on next app launch.";
+
+// MARK: - Notification Settings
+"notifications.title" = "Push Notifications";
+"notifications.description" = "Get reminders when it's time for your next IQ test";
+
+// MARK: - Tab Bar
+"tab.dashboard" = "Dashboard";
+"tab.history" = "History";
+"tab.settings" = "Settings";
+
+// MARK: - Privacy Consent View
+"privacy.title" = "Privacy & Terms";
+"privacy.subtitle" = "Your privacy matters to us";
+"privacy.data.protected.title" = "Your Data is Protected";
+"privacy.data.protected.description" = "We use industry-standard encryption to keep your information secure.";
+"privacy.no.sale.title" = "No Sale of Data";
+"privacy.no.sale.description" = "We never sell your personal information to third parties.";
+"privacy.results.title" = "Your Results";
+"privacy.results.description" = "Test results are stored securely and only accessible to you.";
+"privacy.analytics.title" = "Analytics";
+"privacy.analytics.description" = "We collect anonymous usage data to improve the app experience.";
+"privacy.agreement.text" = "By continuing, you agree to our:";
+"privacy.policy.link" = "Privacy Policy";
+"privacy.terms.link" = "Terms of Service";
+"privacy.accept.button" = "I Agree & Continue";
+
+// MARK: - Help View
+"help.title" = "Help & FAQ";
+"help.score.section" = "Understanding Your Score";
+"help.test.section" = "About the Test";
+"help.privacy.section" = "Privacy";
+
+// MARK: - Help Topics
+"help.score.ranges.title" = "Understanding Score Ranges";
+"help.score.ranges.description" = "Learn what the score range means";
+"help.iq.score.title" = "How IQ Scores Work";
+"help.iq.score.description" = "What your score represents";
+"help.test.frequency.title" = "Test Frequency";
+"help.test.frequency.description" = "How often you can test";
+"help.question.types.title" = "Question Types";
+"help.question.types.description" = "Categories of cognitive assessment";
+"help.data.privacy.title" = "Your Data & Privacy";
+"help.data.privacy.description" = "How we handle your information";
+
+// MARK: - Help Content - Score Ranges
+"help.score.range.what.title" = "What is a Score Range?";
+"help.score.range.what.text" = "When you receive your IQ score, you may also see a range (for example, \"Range: 101-115\"). This range is called a confidence interval, and it's an important part of understanding your results.";
+"help.score.range.why.title" = "Why Scores Have Ranges";
+"help.score.range.why.text" = "Your displayed score represents our best estimate of your cognitive ability. However, due to the nature of measurement, no single test can capture your exact ability with perfect precision.\n\nThe score range shows the interval within which your true ability likely falls. When we report a 95% confidence interval, it means there's a 95% probability that your true score is somewhere within that range.";
+"help.score.range.example.title" = "Example";
+"help.score.range.example.text" = "If your score is 108 with a range of 101-115, this means your cognitive ability most likely falls between 101 and 115, with 108 being the best single estimate.";
+"help.score.range.width.title" = "What Affects the Range Width?";
+"help.score.range.width.text" = "Narrower ranges indicate more precise measurements. The width of your score range depends on the test's reliability - how consistently it measures cognitive ability.\n\nAs more users take tests and we gather more data, our measurements become more precise, leading to narrower ranges.";
+
+// MARK: - Help Content - IQ Scores
+"help.iq.scale.title" = "The IQ Scale";
+"help.iq.scale.text" = "IQ scores are standardized so that the average score is 100, with a standard deviation of 15. This means about 68% of people score between 85 and 115.";
+"help.iq.notes.title" = "Important Notes";
+"help.iq.notes.text" = "This app provides a cognitive performance assessment for personal insight. It is not a clinical IQ test and should not be used for diagnostic purposes.\n\nYour score may vary between tests due to factors like fatigue, stress, or practice effects. Focus on your overall trend rather than any single score.";
+
+// MARK: - Help Content - Test Frequency
+"help.frequency.why.title" = "Why 3 Months Between Tests?";
+"help.frequency.why.text" = "We recommend waiting at least 3 months between tests for several important reasons:\n\n1. **Avoid Practice Effects**: Taking the same types of questions too frequently can artificially inflate your scores.\n\n2. **Track Meaningful Changes**: Cognitive abilities are relatively stable over short periods. A 3-month gap allows for detecting genuine improvements or changes.\n\n3. **Fresh Questions**: We ensure you receive different questions each time, which requires adequate time between tests.\n\n4. **Reduce Test Anxiety**: Frequent testing can create unnecessary stress. Periodic assessments are healthier.";
+"help.frequency.notifications.title" = "Notifications";
+"help.frequency.notifications.text" = "You can enable notifications in Settings to receive a reminder when it's time for your next test.";
+
+// MARK: - Help Content - Question Types
+"help.questions.intro" = "Our tests assess multiple cognitive domains to provide a comprehensive picture of your abilities:";
+"help.questions.pattern.title" = "Pattern Recognition";
+"help.questions.pattern.description" = "Identifying visual patterns and sequences";
+"help.questions.logic.title" = "Logical Reasoning";
+"help.questions.logic.description" = "Drawing conclusions from given information";
+"help.questions.spatial.title" = "Spatial Reasoning";
+"help.questions.spatial.description" = "Mentally manipulating shapes and objects";
+"help.questions.math.title" = "Mathematical";
+"help.questions.math.description" = "Numerical problem-solving and calculations";
+"help.questions.verbal.title" = "Verbal Reasoning";
+"help.questions.verbal.description" = "Understanding language and word relationships";
+"help.questions.memory.title" = "Memory";
+"help.questions.memory.description" = "Retaining and recalling information";
+
+// MARK: - Help Content - Data Privacy
+"help.privacy.collect.title" = "What We Collect";
+"help.privacy.collect.text" = "We collect only the information necessary to provide you with accurate cognitive assessments:\n\n- Your test answers and scores\n- Time spent on each question\n- Account information you provide\n\nWe do not sell your personal data or share it with third parties.";
+"help.privacy.use.title" = "How We Use Your Data";
+"help.privacy.use.text" = "Your data helps us:\n\n- Calculate accurate scores and track your progress\n- Improve our questions and scoring algorithms\n- Provide you with personalized insights\n\nAll data is stored securely and encrypted.";
+"help.privacy.rights.title" = "Your Rights";
+"help.privacy.rights.text" = "You can request to view, export, or delete your data at any time by contacting our support team.";
+
+// MARK: - Error Messages - Common
+"error.title" = "Something went wrong";
+"error.retry.button" = "Try Again";
+
+// MARK: - Error Messages - API Errors
+"error.api.invalid.url" = "There was a problem with the request. Please try again or contact support if the issue persists.";
+"error.api.invalid.response" = "We received an unexpected response from the server. Please try again.";
+"error.api.unauthorized" = "Your session has expired. Please log in again to continue.";
+"error.api.forbidden" = "Access denied. You don't have permission to perform this action.";
+"error.api.not.found" = "We couldn't find what you're looking for. It may have been removed or is no longer available.";
+"error.api.unprocessable" = "We couldn't process your request. Please check your information and try again.";
+"error.api.bad.request" = "There was a problem with your request. Please check your information and try again.";
+"error.api.server.error" = "Our servers are experiencing issues. Please try again in a few moments.";
+"error.api.server.error.with.message" = "Server error: %@. Please try again in a few moments.";
+"error.api.decoding" = "We couldn't understand the server's response. Please try again or contact support if this continues.";
+"error.api.network.no.connection" = "No internet connection detected. Please check your Wi-Fi or cellular data and try again.";
+"error.api.network.timeout" = "The connection timed out. Please check your internet connection and try again.";
+"error.api.network.cannot.connect" = "Unable to reach the server. Please check your internet connection and try again later.";
+"error.api.network.generic" = "A network error occurred. Please check your connection and try again.";
+"error.api.timeout" = "The request took too long to complete. Please check your internet connection and try again.";
+"error.api.no.internet" = "No internet connection detected. Please check your Wi-Fi or cellular data settings and try again.";
+"error.api.unknown" = "Something unexpected happened. Please try again or contact support if the issue continues.";
+
+// MARK: - Network Operations (for contextual errors)
+"operation.login" = "signing in";
+"operation.register" = "creating account";
+"operation.fetch.questions" = "loading questions";
+"operation.submit.test" = "submitting test";
+"operation.refresh.token" = "refreshing session";
+"operation.fetch.profile" = "loading profile";
+"operation.update.profile" = "updating profile";
+"operation.fetch.history" = "loading history";
+"operation.logout" = "signing out";
+"operation.delete.account" = "deleting account";
+"operation.generic" = "completing request";
+
+// MARK: - Loading Messages
+"loading.default" = "Loading...";
+"loading.dashboard" = "Loading dashboard...";
+"loading.history" = "Loading history...";
+"loading.signing.in" = "Signing in...";
+"loading.creating.account" = "Creating account...";
+"loading.submitting.test" = "Submitting your test...";
+"loading.logging.out" = "Logging out...";
+"loading.deleting.account" = "Deleting account...";
+"loading.abandoning.test" = "Abandoning test...";
+
+// MARK: - Accessibility Labels
+"accessibility.retry.button" = "Try Again";
+"accessibility.retry.hint" = "Retry the failed operation";
+"accessibility.done.button" = "Done";
+"accessibility.done.hint" = "Return to dashboard";
+"accessibility.error.view" = "Error: %@";
+"accessibility.empty.state" = "%@. %@";
+"accessibility.score.description" = "Your IQ score is %d";
+"accessibility.confidence.range" = "95%% confidence: your true score likely falls between %d and %d";
+"accessibility.learn.score.range" = "Learn about score range";
+"accessibility.learn.score.range.hint" = "Shows explanation of confidence interval";
+"accessibility.resume.test" = "Resume Test";
+"accessibility.resume.test.hint" = "Continue your in-progress cognitive performance test";
+"accessibility.abandon.test" = "Abandon Test";
+"accessibility.abandon.test.hint" = "Discard this test. It will not count toward your history.";
+"accessibility.take.test" = "Take Another Test";
+"accessibility.take.test.hint" = "Start a new cognitive performance test";
+"accessibility.view.breakdown" = "View Detailed Breakdown";
+"accessibility.view.breakdown.hint" = "See question-by-question analysis of your test performance";
+"accessibility.return.dashboard" = "Return to Dashboard";
+"accessibility.return.dashboard.hint" = "Go back to the main dashboard";
+"accessibility.load.more" = "Load more results";
+"accessibility.load.more.hint" = "Showing %d of %d tests. Double tap to load more.";
+
+// MARK: - Pluralization Helpers
+"plural.question" = "question";
+"plural.questions" = "questions";
+
+// MARK: - Common Actions
+"action.cancel" = "Cancel";
+"action.ok" = "OK";
+"action.dismiss" = "Dismiss";
+"action.continue" = "Continue";
+"action.retry" = "Retry";
+"action.close" = "Close";
