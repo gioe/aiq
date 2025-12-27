@@ -701,15 +701,23 @@ Apple requires base localization even for English-only apps. Complete these task
 ---
 
 ### ICG-038: Extract Error Messages to Localizable.strings
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Priority:** 🔴 CRITICAL
 **Files:** All Service files
 **Description:** Replace all error message strings with localization keys.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All error messages use localization keys
-- [ ] Error codes preserved for debugging
-- [ ] User-friendly error messages in all cases
+- [x] All error messages use localization keys
+- [x] Error codes preserved for debugging
+- [x] User-friendly error messages in all cases
+
+**Summary:**
+- Extracted 20 error messages from 5 Service files to Localizable.strings
+- DeepLinkHandler: 10 error messages with URL parameters preserved
+- AuthService/AuthManager/TokenRefreshInterceptor: 5 auth-related error messages
+- KeychainStorage: 5 error messages with OSStatus codes preserved
+- All keys follow consistent naming: `error.serviceName.description`
+- Time: ~5 minutes | Tokens: ~50K
 
 ---
 
