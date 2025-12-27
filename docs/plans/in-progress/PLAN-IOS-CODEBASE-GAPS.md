@@ -641,16 +641,21 @@ Apple requires base localization even for English-only apps. Complete these task
 ---
 
 ### ICG-035: Create String+Localization Extension
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Priority:** 🔴 CRITICAL
 **Files:** `Utilities/Extensions/String+Localization.swift`, `AIQTests/Extensions/StringLocalizationTests.swift` (new)
 **Description:** Add `.localized` helper for string keys.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] String extension provides `.localized` computed property
-- [ ] Extension handles missing keys gracefully
-- [ ] Works with string interpolation
-- [ ] Unit tests for localized property behavior
+- [x] String extension provides `.localized` computed property
+- [x] Extension handles missing keys gracefully
+- [x] Works with string interpolation
+- [x] Unit tests for localized property behavior
+
+**Summary:**
+- Tokens spent: ~50,000
+- Time spent: ~5 minutes
+- Implementation: Added `.localized` computed property and `localized(with:)` method for format strings. 25 comprehensive unit tests covering basic localization, missing keys, string interpolation, edge cases (empty strings, special characters, emojis), and real-world usage patterns. All tests pass.
 
 ---
 
