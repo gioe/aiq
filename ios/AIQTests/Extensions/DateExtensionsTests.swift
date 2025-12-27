@@ -174,8 +174,9 @@ final class DateExtensionsTests: XCTestCase {
     }
 
     func testIsPast_withCurrentDate() {
-        let now = Date()
-        // Current date is not in the past
-        XCTAssertFalse(now.isPast, "Current date should not be past")
+        // Use a small future offset to avoid race condition
+        let almostNow = Date().addingTimeInterval(0.1)
+        // A date slightly in the future is not in the past
+        XCTAssertFalse(almostNow.isPast, "Almost-current date should not be past")
     }
 }

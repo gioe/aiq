@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = Logger(subsystem: "com.aiq.app", category: "number_formatting")
 
 // MARK: - Double Extensions for Locale-Aware Formatting
 
@@ -17,7 +20,13 @@ extension Double {
 
         // Convert to percentage (0.755 -> 75.5%)
         let percentValue = self / 100.0
-        return formatter.string(from: NSNumber(value: percentValue)) ?? "\(self)%"
+        if let formatted = formatter.string(from: NSNumber(value: percentValue)) {
+            return formatted
+        }
+        #if DEBUG
+            logger.warning("NumberFormatter failed for percentage value: \(self), locale: \(locale.identifier)")
+        #endif
+        return "\(self)%"
     }
 
     /// Format as a decimal number with locale-aware formatting
@@ -32,7 +41,13 @@ extension Double {
         formatter.maximumFractionDigits = fractionDigits
         formatter.locale = locale
 
-        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+        if let formatted = formatter.string(from: NSNumber(value: self)) {
+            return formatted
+        }
+        #if DEBUG
+            logger.warning("NumberFormatter failed for decimal value: \(self), locale: \(locale.identifier)")
+        #endif
+        return "\(self)"
     }
 
     /// Format as currency with locale-aware formatting
@@ -49,7 +64,14 @@ extension Double {
             formatter.currencyCode = code
         }
 
-        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+        if let formatted = formatter.string(from: NSNumber(value: self)) {
+            return formatted
+        }
+        #if DEBUG
+            let code = currencyCode ?? "default"
+            logger.warning("NumberFormatter failed for currency: \(self), code: \(code), locale: \(locale.identifier)")
+        #endif
+        return "\(self)"
     }
 
     /// Format as a compact number (e.g., 1.2K, 3.4M)
@@ -93,7 +115,13 @@ extension Int {
         formatter.numberStyle = .decimal
         formatter.locale = locale
 
-        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+        if let formatted = formatter.string(from: NSNumber(value: self)) {
+            return formatted
+        }
+        #if DEBUG
+            logger.warning("NumberFormatter failed for Int decimal value: \(self), locale: \(locale.identifier)")
+        #endif
+        return "\(self)"
     }
 
     /// Format as currency with locale-aware formatting
@@ -110,7 +138,14 @@ extension Int {
             formatter.currencyCode = code
         }
 
-        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
+        if let formatted = formatter.string(from: NSNumber(value: self)) {
+            return formatted
+        }
+        #if DEBUG
+            let code = currencyCode ?? "default"
+            logger.warning("NumberFormatter failed: Int \(self), code: \(code), locale: \(locale.identifier)")
+        #endif
+        return "\(self)"
     }
 
     /// Format as a compact number (e.g., 1.2K, 3.4M)

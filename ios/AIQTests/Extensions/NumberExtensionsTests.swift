@@ -59,6 +59,18 @@ final class NumberExtensionsTests: XCTestCase {
         XCTAssertTrue(result.contains("%"), "Should contain percent symbol")
     }
 
+    func testDoubleToPercentageString_negativeValue() {
+        let locale = Locale(identifier: "en_US")
+        let value = -25.5
+
+        let result = value.toPercentageString(locale: locale)
+
+        XCTAssertTrue(result.contains("25"), "Should contain value")
+        XCTAssertTrue(result.contains("%"), "Should contain percent symbol")
+        // Negative values should include some form of negative indicator
+        XCTAssertTrue(result.contains("-") || result.contains("("), "Should indicate negative")
+    }
+
     // MARK: - Double.toDecimalString Tests
 
     func testDoubleToDecimalString_enUS() {
@@ -103,6 +115,29 @@ final class NumberExtensionsTests: XCTestCase {
         XCTAssertTrue(result1.contains("123"), "Should contain integer part")
         XCTAssertTrue(result2.contains("123"), "Should contain integer part")
         XCTAssertNotEqual(result1, result2, "Different fraction digits should produce different results")
+    }
+
+    func testDoubleToDecimalString_negativeValue() {
+        let locale = Locale(identifier: "en_US")
+        let value = -1234.56
+
+        let result = value.toDecimalString(locale: locale)
+
+        XCTAssertTrue(result.contains("1"), "Should contain digits")
+        XCTAssertTrue(result.contains("234"), "Should contain digits")
+        XCTAssertTrue(result.contains("-"), "Should contain negative sign")
+    }
+
+    func testDoubleToDecimalString_negativeValue_deDE() {
+        let locale = Locale(identifier: "de_DE")
+        let value = -1234.56
+
+        let result = value.toDecimalString(locale: locale)
+
+        // German locale uses different separators but still shows negative
+        XCTAssertTrue(result.contains("1"), "Should contain digits")
+        XCTAssertTrue(result.contains("234"), "Should contain digits")
+        XCTAssertTrue(result.contains("-"), "Should contain negative sign")
     }
 
     // MARK: - Double.toCurrencyString Tests
@@ -160,6 +195,31 @@ final class NumberExtensionsTests: XCTestCase {
         // Should handle large amounts with grouping separators
         XCTAssertTrue(result.contains("1"), "Should contain amount")
         XCTAssertTrue(result.contains("$") || result.contains("USD"), "Should contain currency symbol")
+    }
+
+    func testDoubleToCurrencyString_negativeValue_USD() {
+        let locale = Locale(identifier: "en_US")
+        let value = -9.99
+
+        let result = value.toCurrencyString(currencyCode: "USD", locale: locale)
+
+        // Negative currency (e.g., refund, debt)
+        XCTAssertTrue(result.contains("9"), "Should contain amount")
+        XCTAssertTrue(result.contains("$") || result.contains("USD"), "Should contain currency symbol")
+        // US format typically shows -$9.99 or ($9.99)
+        XCTAssertTrue(result.contains("-") || result.contains("("), "Should indicate negative")
+    }
+
+    func testDoubleToCurrencyString_negativeValue_EUR() {
+        let locale = Locale(identifier: "de_DE")
+        let value = -9.99
+
+        let result = value.toCurrencyString(currencyCode: "EUR", locale: locale)
+
+        // German locale EUR format for negative values
+        XCTAssertTrue(result.contains("9"), "Should contain amount")
+        XCTAssertTrue(result.contains("€") || result.contains("EUR"), "Should contain currency symbol")
+        XCTAssertTrue(result.contains("-") || result.contains("("), "Should indicate negative")
     }
 
     // MARK: - Double.toCompactString Tests (iOS 16+)
@@ -269,6 +329,17 @@ final class NumberExtensionsTests: XCTestCase {
         XCTAssertEqual(result, "123", "Should be exactly 123")
     }
 
+    func testIntToDecimalString_negativeValue() {
+        let locale = Locale(identifier: "en_US")
+        let value = -1234
+
+        let result = value.toDecimalString(locale: locale)
+
+        XCTAssertTrue(result.contains("1"), "Should contain digits")
+        XCTAssertTrue(result.contains("234"), "Should contain digits")
+        XCTAssertTrue(result.contains("-"), "Should contain negative sign")
+    }
+
     // MARK: - Int.toCurrencyString Tests
 
     func testIntToCurrencyString_enUS_USD() {
@@ -291,6 +362,109 @@ final class NumberExtensionsTests: XCTestCase {
         // Japanese Yen format
         XCTAssertTrue(result.contains("1"), "Should contain amount")
         XCTAssertTrue(result.contains("¥") || result.contains("JPY"), "Should contain currency symbol")
+    }
+
+    func testIntToCurrencyString_negativeValue_USD() {
+        let locale = Locale(identifier: "en_US")
+        let value = -50
+
+        let result = value.toCurrencyString(currencyCode: "USD", locale: locale)
+
+        // Negative currency (e.g., refund, debt)
+        XCTAssertTrue(result.contains("50"), "Should contain amount")
+        XCTAssertTrue(result.contains("$") || result.contains("USD"), "Should contain currency symbol")
+        XCTAssertTrue(result.contains("-") || result.contains("("), "Should indicate negative")
+    }
+
+    func testIntToCurrencyString_negativeValue_EUR() {
+        let locale = Locale(identifier: "de_DE")
+        let value = -100
+
+        let result = value.toCurrencyString(currencyCode: "EUR", locale: locale)
+
+        // German locale EUR format for negative values
+        XCTAssertTrue(result.contains("100"), "Should contain amount")
+        XCTAssertTrue(result.contains("€") || result.contains("EUR"), "Should contain currency symbol")
+        XCTAssertTrue(result.contains("-") || result.contains("("), "Should indicate negative")
+    }
+
+    // MARK: - Int.toCompactString Tests (iOS 16+)
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_thousands() {
+        let locale = Locale(identifier: "en_US")
+        let value = 1234
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("1"), "Should contain value")
+        XCTAssertTrue(result.contains("K"), "Should contain K suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_millions() {
+        let locale = Locale(identifier: "en_US")
+        let value = 2_500_000
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("2"), "Should contain value")
+        XCTAssertTrue(result.contains("M"), "Should contain M suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_billions() {
+        let locale = Locale(identifier: "en_US")
+        let value = 3_400_000_000
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("3"), "Should contain value")
+        XCTAssertTrue(result.contains("B"), "Should contain B suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_smallValue() {
+        let locale = Locale(identifier: "en_US")
+        let value = 123
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("123"), "Should contain full value")
+        XCTAssertFalse(result.contains("K"), "Should not contain K suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_negativeThousands() {
+        let locale = Locale(identifier: "en_US")
+        let value = -1234
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("-"), "Should contain negative sign")
+        XCTAssertTrue(result.contains("K"), "Should contain K suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_negativeMillions() {
+        let locale = Locale(identifier: "en_US")
+        let value = -2_500_000
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("-"), "Should contain negative sign")
+        XCTAssertTrue(result.contains("M"), "Should contain M suffix")
+    }
+
+    @available(iOS 16.0, *)
+    func testIntToCompactString_zeroValue() {
+        let locale = Locale(identifier: "en_US")
+        let value = 0
+
+        let result = value.toCompactString(locale: locale)
+
+        XCTAssertTrue(result.contains("0"), "Should contain zero")
+        XCTAssertFalse(result.contains("K"), "Should not contain K suffix")
     }
 
     // MARK: - Int.toTimeString Tests

@@ -2634,3 +2634,33 @@ GDPR/CCPA compliance improvements for account deletion feature.
 - [ ] Add total test count to event
 - [ ] Ensure no PII is included
 - [ ] Update analytics schema if needed
+
+---
+
+### ICG-174: Rename Number+Extensions.swift to Follow Coding Standards
+**Status:** [ ] Not Started
+**Priority:** 🟢 LOW
+**Source:** PR #419 comment
+**Files:** `Utilities/Extensions/Number+Extensions.swift`
+**Description:** According to CODING_STANDARDS.md, extensions should follow `TypeName+Extension.swift` format. The current file contains extensions for both `Double` AND `Int`, violating the single-type-per-file convention. Should rename to `Double+Extensions.swift` and move `Int` extensions to existing `Int+Extensions.swift`.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Rename `Number+Extensions.swift` to `Double+Extensions.swift`
+- [ ] Move Int formatting extensions to `Int+Extensions.swift`
+- [ ] Update Xcode project references
+- [ ] All tests pass
+
+---
+
+### ICG-175: Remove Misleading Locale Parameter from Duration Methods
+**Status:** [ ] Not Started
+**Priority:** 🟢 LOW
+**Source:** PR #419 comment
+**Files:** `Utilities/Extensions/Number+Extensions.swift` (lines 161, 177)
+**Description:** The `locale` parameter in `toLongDurationString` and `toShortDurationString` is declared but immediately discarded with `locale _:`. This creates false expectations that the locale will be used. Either remove the parameter or find a way to apply it to `DateComponentsFormatter`.
+**Assignee(s):** ios-engineer
+**Acceptance Criteria:**
+- [ ] Either remove locale parameter from both methods
+- [ ] Or implement locale support if feasible
+- [ ] Update method documentation to be accurate
+- [ ] Update any calling code if API changes
