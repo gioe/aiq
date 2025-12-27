@@ -31,3 +31,28 @@ ruby scripts/add_files_to_xcode.rb \
 - The script will find the appropriate group in the Xcode project based on the file path
 - Files are automatically added to the main app target
 - The script will skip files that are already in the project
+
+## test_rtl.sh
+
+Interactive helper script for testing the app in RTL (Right-to-Left) mode.
+
+**Usage:**
+```bash
+cd ios
+./scripts/test_rtl.sh
+```
+
+**Features:**
+- Guides you through enabling RTL launch arguments
+- Builds the project for testing
+- Opens RTL testing documentation
+- Opens the project in Xcode
+
+**What it helps with:**
+- Testing with Arabic/Hebrew layouts
+- Verifying RTL text direction
+- Ensuring proper layout mirroring
+
+**See also:**
+- [RTL Testing Guide](../docs/RTL_TESTING_GUIDE.md) - Comprehensive RTL testing instructions
+- [Coding Standards - RTL Section](../docs/CODING_STANDARDS.md#rtl-right-to-left-support) - RTL coding guidelines

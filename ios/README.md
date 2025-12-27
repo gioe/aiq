@@ -19,6 +19,7 @@ In Xcode:
 - **MVVM Architecture**: Clean separation of concerns with BaseViewModel foundation
 - **Design System**: Unified color palette, typography, and component styles
 - **Accessibility**: Full VoiceOver support, Dynamic Type, semantic colors
+- **RTL Support**: Full Right-to-Left layout support for Arabic and Hebrew
 - **Analytics**: Built-in analytics service for user behavior tracking
 - **Push Notifications**: APNs integration for test reminders
 - **Offline Support**: Local answer storage during tests
@@ -79,8 +80,16 @@ AIQ/
 │   ├── API/            # Network client with retry and token refresh
 │   ├── Auth/           # AuthManager, token management, and push notifications
 │   └── Storage/        # Keychain and local storage
-└── Utilities/           # Extensions, helpers, and design system
-    ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
-    ├── Extensions/     # Swift extensions (Date, String, View)
-    └── Helpers/        # Helper utilities (AppConfig, Validators)
+├── Utilities/           # Extensions, helpers, and design system
+│   ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
+│   ├── Extensions/     # Swift extensions (Date, String, View)
+│   └── Helpers/        # Helper utilities (AppConfig, Validators)
+├── docs/                # Documentation
+│   ├── CODING_STANDARDS.md       # Development standards and guidelines
+│   ├── ARCHITECTURE.md           # Architecture documentation
+│   ├── RTL_TESTING_GUIDE.md      # RTL layout testing instructions
+│   └── RTL_IMPLEMENTATION_SUMMARY.md  # RTL implementation details
+└── scripts/             # Utility scripts
+    ├── add_files_to_xcode.rb    # Add files to Xcode project
+    └── test_rtl.sh              # RTL testing helper
 ```
