@@ -132,6 +132,7 @@
 		ICG024001AAAA /* TestAbandonmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG024002AAAA /* TestAbandonmentTests.swift */; };
 		ICG031001AAAA /* PrivacyConsentStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG031002AAAA /* PrivacyConsentStorage.swift */; };
 		ICG031003AAAA /* PrivacyConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG031004AAAA /* PrivacyConsentView.swift */; };
+		C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5C4061DEB7041061A94125B9 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -286,6 +287,7 @@
 		ICG024002AAAA /* TestAbandonmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAbandonmentTests.swift; sourceTree = "<group>"; };
 		ICG031002AAAA /* PrivacyConsentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyConsentStorage.swift; sourceTree = "<group>"; };
 		ICG031004AAAA /* PrivacyConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyConsentView.swift; sourceTree = "<group>"; };
+		5E92CF0848C8EACC3C1FF0DE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -312,6 +314,7 @@
 				764993E8667FA60C49C142E3 /* Assets.xcassets */,
 				61414EF7BFDDBDE88634E357 /* GoogleService-Info.plist */,
 				D3A775DE31FFFF20A525DAFA /* Info.plist */,
+				5C4061DEB7041061A94125B9 /* Localizable.strings */,
 				65DC7FE2BD510029482169DF /* Models */,
 				7E91E94F49ADCE381459A891 /* Services */,
 				7BE4500EA192E1E5F3238DC5 /* Utilities */,
@@ -804,6 +807,7 @@
 				1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */,
 				D57FC4ECD3320E9B6563E7BE /* Assets.xcassets in Resources */,
 				B09395FEAC024C71C6C0F049 /* GoogleService-Info.plist in Resources */,
+				C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -951,6 +955,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		5C4061DEB7041061A94125B9 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				5E92CF0848C8EACC3C1FF0DE /* en */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXTargetDependency section */
 		375F73A014B24533A427187E /* PBXTargetDependency */ = {
