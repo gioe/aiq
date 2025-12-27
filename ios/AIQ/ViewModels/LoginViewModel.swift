@@ -44,12 +44,12 @@ class LoginViewModel: BaseViewModel {
 
     var emailError: String? {
         guard !email.isEmpty else { return nil }
-        return isEmailValid ? nil : "Please enter a valid email address"
+        return isEmailValid ? nil : "validation.email.invalid".localized
     }
 
     var passwordError: String? {
         guard !password.isEmpty else { return nil }
-        return isPasswordValid ? nil : "Password must be at least 8 characters"
+        return isPasswordValid ? nil : "validation.password.too.short".localized
     }
 
     // MARK: - Actions
@@ -59,7 +59,7 @@ class LoginViewModel: BaseViewModel {
             error = NSError(
                 domain: "LoginViewModel",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Please enter valid email and password"]
+                userInfo: [NSLocalizedDescriptionKey: "validation.login.invalid".localized]
             )
             return
         }

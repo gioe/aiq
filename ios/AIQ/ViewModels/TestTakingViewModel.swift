@@ -325,13 +325,7 @@ class TestTakingViewModel: BaseViewModel {
         let error = NSError(
             domain: "TestTakingViewModel",
             code: -1,
-            userInfo: [
-                NSLocalizedDescriptionKey:
-                    """
-                    We couldn't load the questions for this test session. \
-                    Please return to the dashboard and start a new test.
-                    """
-            ]
+            userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.questions".localized]
         )
         handleError(error)
     }
@@ -401,10 +395,7 @@ class TestTakingViewModel: BaseViewModel {
         // The view should observe the error state and show an appropriate alert
         let error = APIError.activeSessionConflict(
             sessionId: sessionId,
-            message: """
-            You have an in-progress test. Resume to continue where you left off, \
-            or abandon it to start fresh.
-            """
+            message: "viewmodel.test.resume.or.abandon".localized
         )
 
         self.error = ContextualError(
@@ -427,13 +418,7 @@ class TestTakingViewModel: BaseViewModel {
             let error = NSError(
                 domain: "TestTakingViewModel",
                 code: -1,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        """
-                        No active test session found. \
-                        Please return to the dashboard and start a new test.
-                        """
-                ]
+                userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.session".localized]
             )
             handleError(error)
             return
@@ -444,11 +429,10 @@ class TestTakingViewModel: BaseViewModel {
                 domain: "TestTakingViewModel",
                 code: -1,
                 userInfo: [
-                    NSLocalizedDescriptionKey:
-                        """
-                        Please answer all \(questions.count) questions before submitting. \
-                        You've answered \(answeredCount) so far.
-                        """
+                    NSLocalizedDescriptionKey: "viewmodel.test.incomplete.submission".localized(
+                        with: questions.count,
+                        answeredCount
+                    )
                 ]
             )
             handleError(error)
@@ -483,7 +467,7 @@ class TestTakingViewModel: BaseViewModel {
             handleError(NSError(
                 domain: "TestTakingViewModel",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No active test session found."]
+                userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.active.session".localized]
             ))
             return
         }

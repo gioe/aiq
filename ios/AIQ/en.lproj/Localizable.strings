@@ -595,3 +595,20 @@
 "settings.debug.test.crash.confirm" = "This will crash the app to test Crashlytics";
 "settings.debug.crash.app" = "Crash App";
 "settings.debug.footer" = "Force a crash to test Crashlytics. Reported on next app launch.";
+
+// MARK: - Validation Errors
+"validation.email.invalid" = "Please enter a valid email address";
+"validation.password.too.short" = "Password must be at least 8 characters";
+"validation.passwords.no.match" = "Passwords do not match";
+"validation.first.name.required" = "First name is required";
+"validation.last.name.required" = "Last name is required";
+"validation.form.incomplete" = "Please fill in all fields correctly";
+"validation.login.invalid" = "Please enter valid email and password";
+
+// MARK: - ViewModel Errors
+"viewmodel.test.no.questions" = "We couldn't load the questions for this test session. Please return to the dashboard and start a new test.";
+"viewmodel.test.no.session" = "No active test session found. Please return to the dashboard and start a new test.";
+"viewmodel.test.incomplete.submission" = "Please answer all %d questions before submitting. You've answered %d so far.";
+"viewmodel.test.no.active.session" = "No active test session found.";
+"viewmodel.test.resume.or.abandon" = "You have an in-progress test. Resume to continue where you left off, or abandon it to start fresh.";
+"viewmodel.notification.permission.warning" = "Notifications are enabled but system permission is denied. Tap to open Settings.";
