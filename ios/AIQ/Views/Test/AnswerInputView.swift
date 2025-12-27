@@ -9,7 +9,7 @@ struct AnswerInputView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Your Answer")
+            Text("answer.input.your.answer".localized)
                 .font(.headline)
                 .foregroundColor(.primary)
 
@@ -58,8 +58,8 @@ struct AnswerInputView: View {
                         .stroke(userAnswer.isEmpty ? Color.clear : Color.accentColor, lineWidth: 2)
                 )
                 .opacity(isDisabled ? 0.6 : 1.0)
-                .accessibilityLabel("Answer input field")
-                .accessibilityHint(isDisabled ? "Input disabled - time expired" : accessibilityHint)
+                .accessibilityLabel("answer.input.field.label".localized)
+                .accessibilityHint(isDisabled ? "answer.input.field.disabled".localized : accessibilityHint)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.answerTextField)
 
             // Input hint based on question type
@@ -116,41 +116,41 @@ struct AnswerInputView: View {
     private var placeholderText: String {
         switch question.questionType {
         case .math:
-            "Enter number (e.g., 42 or 3.14)"
+            "answer.input.placeholder.math".localized
         case .pattern:
             if question.questionText.lowercased().contains("number") {
-                "Enter number"
+                "answer.input.placeholder.number".localized
             } else if question.questionText.lowercased().contains("letter") {
-                "Enter letter (e.g., A)"
+                "answer.input.placeholder.letter".localized
             } else {
-                "Type your answer"
+                "answer.input.placeholder.default".localized
             }
         case .verbal:
-            "Type your answer"
+            "answer.input.placeholder.default".localized
         case .spatial:
-            "Type your answer"
+            "answer.input.placeholder.default".localized
         case .logic:
-            "Type your answer"
+            "answer.input.placeholder.default".localized
         case .memory:
-            "Type your answer"
+            "answer.input.placeholder.default".localized
         }
     }
 
     private var inputHint: String {
         switch question.questionType {
         case .math:
-            "Enter numbers only. Use decimal point if needed."
+            "answer.input.hint.math".localized
         case .pattern where question.questionText.lowercased().contains("letter"):
-            "Enter a single letter or word."
+            "answer.input.hint.letter".localized
         case .pattern where question.questionText.lowercased().contains("number"):
-            "Enter numbers only."
+            "answer.input.hint.number".localized
         default:
             ""
         }
     }
 
     private var accessibilityHint: String {
-        "Enter your answer to the question. \(inputHint)"
+        "answer.input.field.hint.default".localized(with: inputHint)
     }
 }
 
@@ -210,9 +210,9 @@ private struct OptionButton: View {
 
     private var accessibilityHintText: String {
         if isDisabled {
-            return "Input disabled - time expired"
+            return "answer.input.field.disabled".localized
         }
-        return isSelected ? "Currently selected" : "Double tap to select this answer"
+        return isSelected ? "answer.input.option.selected".localized : "answer.input.option.select".localized
     }
 }
 

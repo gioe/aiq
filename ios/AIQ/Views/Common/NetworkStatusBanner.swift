@@ -10,7 +10,7 @@ struct NetworkStatusBanner: View {
                 Image(systemName: "wifi.slash")
                     .foregroundColor(.white)
 
-                Text("No internet connection")
+                Text("network.no.connection".localized)
                     .font(.subheadline)
                     .foregroundColor(.white)
             }

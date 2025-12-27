@@ -17,7 +17,7 @@ struct ErrorView: View {
                 .foregroundColor(.orange)
                 .accessibilityHidden(true) // Decorative icon
 
-            Text("Something went wrong")
+            Text("error.default.title".localized)
                 .font(.headline)
 
             Text(error.localizedDescription)
@@ -28,17 +28,17 @@ struct ErrorView: View {
 
             if let retryAction {
                 Button(action: retryAction) {
-                    Label("Try Again", systemImage: "arrow.clockwise")
+                    Label("error.try.again".localized, systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderedProminent)
-                .accessibilityLabel("Try Again")
-                .accessibilityHint("Retry the failed operation")
+                .accessibilityLabel("error.try.again".localized)
+                .accessibilityHint("accessibility.retry.hint".localized)
                 .accessibilityIdentifier(AccessibilityIdentifiers.Common.retryButton)
             }
         }
         .padding()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Error: \(error.localizedDescription)")
+        .accessibilityLabel("accessibility.error.view".localized(with: error.localizedDescription))
         .accessibilityIdentifier(AccessibilityIdentifiers.Common.errorView)
     }
 }

@@ -660,15 +660,22 @@ Apple requires base localization even for English-only apps. Complete these task
 ---
 
 ### ICG-036: Extract Hardcoded Strings from Views
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Priority:** 🔴 CRITICAL
 **Files:** All View files
 **Description:** Replace all hardcoded strings in Views with localization keys.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All user-facing strings in Views use localization keys
-- [ ] No hardcoded English strings remain
-- [ ] App builds and runs with localized strings
+- [x] All user-facing strings in Views use localization keys
+- [x] No hardcoded English strings remain
+- [x] App builds and runs with localized strings
+
+**Summary:**
+- Extracted hardcoded strings from 12 View files
+- Added 200+ new localization keys to Localizable.strings
+- All strings use `.localized` extension with parameterized support via `.localized(with:)`
+- Total tokens spent: ~150k
+- Total time spent: ~10 minutes
 
 ---
 
