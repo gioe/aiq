@@ -12,7 +12,7 @@ struct InsightsCardView: View {
                     .foregroundColor(.yellow)
                     .font(.title2)
 
-                Text("Performance Insights")
+                Text("insights.performance.title".localized)
                     .font(.headline)
                     .fontWeight(.bold)
 
@@ -50,7 +50,7 @@ struct InsightsCardView: View {
                     .foregroundColor(trendColor)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Trend")
+                    Text("insights.trend".localized)
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -96,7 +96,7 @@ struct InsightsCardView: View {
             // Consistency Score
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Consistency")
+                    Text("insights.consistency".localized)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -122,7 +122,7 @@ struct InsightsCardView: View {
             if let improvement = insights.improvementSinceFirst {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Overall Progress")
+                        Text("insights.overall.progress".localized)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
@@ -136,7 +136,7 @@ struct InsightsCardView: View {
                                 .foregroundColor(improvementColor(improvement))
                         }
 
-                        Text("Since your first test")
+                        Text("insights.since.first.test".localized)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -150,7 +150,7 @@ struct InsightsCardView: View {
                abs(avgImprovement) >= 0.5 {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Average Change")
+                        Text("insights.average.change".localized)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
@@ -160,7 +160,7 @@ struct InsightsCardView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
 
-                            Text("per test")
+                            Text("insights.per.test".localized)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -177,7 +177,7 @@ struct InsightsCardView: View {
                         .foregroundColor(.yellow)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Peak Performance")
+                        Text("insights.peak.performance".localized)
                             .font(.caption)
                             .foregroundColor(.secondary)
 
@@ -200,7 +200,7 @@ struct InsightsCardView: View {
 
     private var actionableInsights: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Key Insights")
+            Text("insights.key.insights".localized)
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
@@ -259,11 +259,11 @@ struct InsightsCardView: View {
 
     private var consistencyDescription: String {
         if insights.consistencyScore >= 80 {
-            "Highly consistent performance"
+            "insights.consistency.high".localized
         } else if insights.consistencyScore >= 60 {
-            "Moderately consistent"
+            "insights.consistency.moderate".localized
         } else {
-            "Performance varies significantly"
+            "insights.consistency.varies".localized
         }
     }
 

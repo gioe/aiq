@@ -45,7 +45,7 @@ struct PercentileCard: View {
             }
 
             // Context message
-            Text("You scored higher than \(percentileContextText) of test takers")
+            Text("percentile.card.description".localized(with: percentileContextText))
                 .font(Typography.captionMedium)
                 .foregroundColor(ColorPalette.textTertiary)
                 .multilineTextAlignment(.center)
@@ -69,16 +69,16 @@ struct PercentileCard: View {
     private var percentileFormatted: String? {
         guard let percentile = percentileRank else { return nil }
         let topPercent = Int(round(100 - percentile))
-        return "Top \(topPercent)%"
+        return "percentile.card.top.format".localized(with: topPercent)
     }
 
     private var percentileDescription: String? {
         guard let percentile = percentileRank else { return nil }
-        return "\(Int(round(percentile)).ordinalString) percentile"
+        return "percentile.card.percentile.format".localized(with: Int(round(percentile)).ordinalString)
     }
 
     private var percentileContextText: String {
-        guard let percentile = percentileRank else { return "many" }
+        guard let percentile = percentileRank else { return "percentile.card.many".localized }
         return String(format: "%.0f%%", percentile)
     }
 }

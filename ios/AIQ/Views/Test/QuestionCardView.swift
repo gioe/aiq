@@ -35,18 +35,19 @@ struct QuestionCardView: View {
     // MARK: - Accessibility
 
     private var accessibilityQuestionLabel: String {
-        """
-        Question \(questionNumber) of \(totalQuestions). \
-        \(question.questionType.rawValue.capitalized) question. \
-        Difficulty: \(question.difficultyLevel.rawValue.capitalized). \
-        \(question.questionText)
-        """
+        "question.card.question.accessibility".localized(
+            with: questionNumber,
+            totalQuestions,
+            question.questionType.rawValue.capitalized,
+            question.difficultyLevel.rawValue.capitalized,
+            question.questionText
+        )
     }
 
     private var questionHeader: some View {
         HStack {
             // Question number
-            Text("Question \(questionNumber) of \(totalQuestions)")
+            Text("question.card.question.of.format".localized(with: questionNumber, totalQuestions))
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)

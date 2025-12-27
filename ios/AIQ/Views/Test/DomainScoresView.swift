@@ -39,14 +39,14 @@ struct DomainScoreBarView: View {
         if let percentileDesc = score.percentileDescription {
             label += ", \(percentileDesc)"
         }
-        label += ", \(score.correct) of \(score.total) correct"
+        label += ", \("domain.scores.correct.format".localized(with: score.correct, score.total))"
         if isStrongest {
-            label += ", strongest domain"
+            label += ", \("domain.scores.accessibility.strongest".localized)"
         } else if isWeakest {
-            label += ", weakest domain"
+            label += ", \("domain.scores.accessibility.weakest".localized)"
         }
         if let level = score.performanceLevel {
-            label += ", \(level.displayName) performance"
+            label += ", \("domain.scores.accessibility.performance".localized(with: level.displayName))"
         }
         return label
     }
@@ -113,7 +113,7 @@ struct DomainScoreBarView: View {
 
             // Correct/Total detail with percentile description
             HStack {
-                Text("\(score.correct)/\(score.total) correct")
+                Text("domain.scores.correct.format".localized(with: score.correct, score.total))
                     .font(Typography.captionSmall)
                     .foregroundColor(ColorPalette.textTertiary)
 
@@ -220,7 +220,7 @@ struct DomainScoresBreakdownView: View {
                     .foregroundColor(ColorPalette.primary)
                     .accessibilityHidden(true)
 
-                Text("Cognitive Domains")
+                Text("domain.scores.header".localized)
                     .font(Typography.h4)
                     .foregroundColor(ColorPalette.textPrimary)
             }
@@ -270,7 +270,7 @@ struct DomainScoresBreakdownView: View {
                 domainHighlightRow(DomainHighlightConfig(
                     icon: "star.fill",
                     iconColor: ColorPalette.success,
-                    title: "Strongest:",
+                    title: "domain.scores.strongest".localized,
                     domain: domain.displayName,
                     percentile: score.percentileFormatted,
                     performanceLevel: score.performanceLevel
@@ -282,7 +282,7 @@ struct DomainScoresBreakdownView: View {
                 domainHighlightRow(DomainHighlightConfig(
                     icon: "arrow.up.circle",
                     iconColor: ColorPalette.warning,
-                    title: "Room to grow:",
+                    title: "domain.scores.room.to.grow".localized,
                     domain: domain.displayName,
                     percentile: score.percentileFormatted,
                     performanceLevel: score.performanceLevel
@@ -339,15 +339,23 @@ struct DomainScoresBreakdownView: View {
     private var legendView: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack(spacing: DesignSystem.Spacing.lg) {
-                legendItem(icon: "star.fill", color: ColorPalette.success, text: "Strongest")
-                legendItem(icon: "arrow.up.circle", color: ColorPalette.warning, text: "Room to grow")
+                legendItem(
+                    icon: "star.fill",
+                    color: ColorPalette.success,
+                    text: "domain.scores.legend.strongest".localized
+                )
+                legendItem(
+                    icon: "arrow.up.circle",
+                    color: ColorPalette.warning,
+                    text: "domain.scores.legend.room.to.grow".localized
+                )
             }
 
             // Performance level legend (when percentile data available)
             if hasPercentileData {
                 let levels: [PerformanceLevel] = [.excellent, .good, .average, .belowAverage, .needsWork]
                 HStack(spacing: DesignSystem.Spacing.sm) {
-                    Text("Percentile:")
+                    Text("domain.scores.legend.percentile".localized)
                         .font(Typography.captionSmall)
                         .foregroundColor(ColorPalette.textTertiary)
 
@@ -357,7 +365,7 @@ struct DomainScoresBreakdownView: View {
                             .frame(width: 8, height: 8)
                     }
 
-                    Text("90+ → <25")
+                    Text("domain.scores.legend.range".localized)
                         .font(Typography.captionSmall)
                         .foregroundColor(ColorPalette.textTertiary)
                 }
@@ -385,14 +393,14 @@ struct DomainScoresBreakdownView: View {
                 .foregroundColor(ColorPalette.textTertiary)
                 .accessibilityHidden(true)
 
-            Text("Domain breakdown not available")
+            Text("domain.scores.empty.title".localized)
                 .font(Typography.bodySmall)
                 .foregroundColor(ColorPalette.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DesignSystem.Spacing.xl)
-        .accessibilityLabel("Domain breakdown is not available for this test result")
+        .accessibilityLabel("domain.scores.accessibility.not.available".localized)
     }
 }
 

@@ -391,3 +391,207 @@
 "action.continue" = "Continue";
 "action.retry" = "Retry";
 "action.close" = "Close";
+
+// MARK: - Content View
+"content.app.tagline" = "AI-Generated Cognitive Assessment";
+
+// MARK: - Network Status
+"network.no.connection" = "No internet connection";
+
+// MARK: - Error Banner
+"error.banner.dismiss" = "Dismiss error";
+
+// MARK: - Error View
+"error.default.title" = "Something went wrong";
+"error.try.again" = "Try Again";
+
+// MARK: - Question Navigation Grid
+"question.navigator.title" = "Question Navigator";
+"question.navigator.legend.current" = "Current";
+"question.navigator.legend.answered" = "Answered";
+"question.navigator.legend.unanswered" = "Unanswered";
+"question.navigator.accessibility.question" = "Question %d";
+"question.navigator.accessibility.current" = "Current question";
+"question.navigator.accessibility.answered" = "Answered. Tap to navigate";
+"question.navigator.accessibility.not.answered" = "Not answered. Tap to navigate";
+
+// MARK: - Test Timer
+"test.timer.time.running.low" = "Time Running Low";
+"test.timer.time.remaining" = "%@ remaining to complete the test";
+
+// MARK: - Domain Scores
+"domain.scores.header" = "Cognitive Domains";
+"domain.scores.correct.format" = "%d/%d correct";
+"domain.scores.strongest" = "Strongest:";
+"domain.scores.room.to.grow" = "Room to grow:";
+"domain.scores.legend.strongest" = "Strongest";
+"domain.scores.legend.room.to.grow" = "Room to grow";
+"domain.scores.legend.percentile" = "Percentile:";
+"domain.scores.legend.range" = "90+ → <25";
+"domain.scores.empty.title" = "Domain breakdown not available";
+"domain.scores.accessibility.not.available" = "Domain breakdown is not available for this test result";
+"domain.scores.accessibility.strongest" = "strongest domain";
+"domain.scores.accessibility.weakest" = "weakest domain";
+"domain.scores.accessibility.performance" = "%@ performance";
+
+// MARK: - Percentile Card
+"percentile.card.top.format" = "Top %d%%";
+"percentile.card.percentile.format" = "%@th percentile";
+"percentile.card.description" = "You scored higher than %@ of test takers";
+"percentile.card.many" = "many";
+
+// MARK: - Test Detail View
+"test.detail.title" = "Test Details";
+"test.detail.iq.score" = "IQ Score";
+"test.detail.range.format" = "Range: %@";
+"test.detail.learn.score.range" = "Learn about score range";
+"test.detail.understanding.score.range" = "Understanding Your Score Range";
+"test.detail.got.it" = "Got it";
+"test.detail.no.confidence.interval" = "No confidence interval available.";
+"test.detail.confidence.explanation" = "Your score of %d represents our best estimate of your cognitive ability.\n\nDue to the nature of measurement, your true ability likely falls between %d and %d (%d%% confidence).\n\nThis range accounts for normal variation in test performance.";
+"test.detail.your.average" = "Your average: %d";
+"test.detail.accuracy" = "Accuracy";
+"test.detail.correct" = "Correct";
+"test.detail.time.taken" = "Time Taken";
+"test.detail.incorrect" = "Incorrect";
+"test.detail.additional.details" = "Additional Details";
+"test.detail.test.session.id" = "Test Session ID";
+"test.detail.questions.answered" = "Questions Answered";
+"test.detail.success.rate" = "Success Rate";
+"test.detail.avg.time.per.question" = "Average Time per Question";
+
+// MARK: - Performance Insights
+"insights.performance.title" = "Performance Insights";
+"insights.trend" = "Trend";
+"insights.consistency" = "Consistency";
+"insights.overall.progress" = "Overall Progress";
+"insights.since.first.test" = "Since your first test";
+"insights.average.change" = "Average Change";
+"insights.per.test" = "per test";
+"insights.peak.performance" = "Peak Performance";
+"insights.key.insights" = "Key Insights";
+"insights.consistency.high" = "Highly consistent performance";
+"insights.consistency.moderate" = "Moderately consistent";
+"insights.consistency.varies" = "Performance varies significantly";
+
+// MARK: - Question Card
+"question.card.question.of.format" = "Question %d of %d";
+"question.card.question.accessibility" = "Question %d of %d. %@ question. Difficulty: %@. %@";
+
+// MARK: - Test Progress
+"test.progress.title" = "Test Progress";
+"test.progress.complete.format" = "%d%% Complete";
+"test.progress.current.position" = "%d/%d";
+"test.progress.current" = "Current";
+"test.progress.answered" = "Answered";
+"test.progress.remaining" = "Remaining";
+
+// MARK: - Test Taking View
+"test.taking.title" = "IQ Test";
+"test.taking.exit" = "Exit";
+"test.taking.previous" = "Previous";
+"test.taking.next" = "Next";
+"test.taking.submit.test" = "Submit Test";
+"test.taking.submitting" = "Submitting your test...";
+"test.taking.test.completed.title" = "Test Completed!";
+"test.taking.test.completed.message" = "Your answers have been submitted";
+"test.taking.answered.count.format" = "You answered %d out of %d questions";
+"test.taking.view.results" = "View Results";
+"test.taking.return.dashboard" = "Return to Dashboard";
+"test.taking.resume.test.title" = "Resume Test?";
+"test.taking.resume.test.message" = "You have an incomplete test. Would you like to resume where you left off?";
+"test.taking.resume" = "Resume";
+"test.taking.start.new" = "Start New";
+"test.taking.exit.test.title" = "Exit Test?";
+"test.taking.exit.test.message" = "You have %d unsaved answers. Are you sure you want to exit?";
+"test.taking.in.progress.alert.title" = "Test in Progress";
+"test.taking.in.progress.alert.message" = "You have an in-progress test. Resume to continue where you left off, or abandon it to start a fresh test.";
+"test.taking.in.progress.abandon" = "Abandon & Start New";
+"test.taking.in.progress.go.back" = "Go Back";
+
+// MARK: - Answer Input
+"answer.input.your.answer" = "Your Answer";
+"answer.input.field.label" = "Answer input field";
+"answer.input.field.hint.default" = "Enter your answer to the question. %@";
+"answer.input.field.disabled" = "Input disabled - time expired";
+"answer.input.placeholder.math" = "Enter number (e.g., 42 or 3.14)";
+"answer.input.placeholder.number" = "Enter number";
+"answer.input.placeholder.letter" = "Enter letter (e.g., A)";
+"answer.input.placeholder.default" = "Type your answer";
+"answer.input.hint.math" = "Enter numbers only. Use decimal point if needed.";
+"answer.input.hint.letter" = "Enter a single letter or word.";
+"answer.input.hint.number" = "Enter numbers only.";
+"answer.input.option.selected" = "Currently selected";
+"answer.input.option.select" = "Double tap to select this answer";
+
+// MARK: - Test Results
+"results.test.results" = "Test Results";
+"results.done" = "Done";
+"results.your.iq.score" = "Your IQ Score";
+"results.range.format" = "Range: %@";
+"results.learn.score.range" = "Learn about score range";
+"results.explanation.title" = "Understanding Your Score Range";
+"results.explanation.no.interval" = "No confidence interval available.";
+"results.explanation.text" = "Your score of %d represents our best estimate of your cognitive ability.\n\nDue to the nature of measurement, your true ability likely falls between %d and %d (%d%% confidence).\n\nThis range accounts for normal variation in test performance.";
+
+// MARK: - Dashboard
+"dashboard.good.morning" = "Good morning";
+"dashboard.good.afternoon" = "Good afternoon";
+"dashboard.good.evening" = "Good evening";
+"dashboard.greeting.format" = "%@, %@!";
+"dashboard.greeting.plain" = "%@!";
+"dashboard.track.performance" = "Track your cognitive performance over time";
+"dashboard.tests.taken" = "Tests Taken";
+"dashboard.average.iq" = "Average IQ";
+"dashboard.test.in.progress.badge" = "Test in Progress";
+"dashboard.questions.answered.format" = "%d questions answered";
+"dashboard.resume.test.in.progress" = "Resume Test in Progress";
+"dashboard.take.another.test" = "Take Another Test";
+"dashboard.ready.to.begin" = "Ready to Begin?";
+"dashboard.test.in.progress.message" = "You have a test in progress. Resume it to continue or complete it to see your results.";
+"dashboard.first.test.message" = "Take your first cognitive performance assessment to establish your baseline score. Track your progress over time and discover insights about your performance.";
+"dashboard.resume.test.in.progress.action" = "Resume Test in Progress";
+"dashboard.start.first.test" = "Start Your First Test";
+"dashboard.continue.test.hint" = "Continue your in-progress cognitive performance test";
+"dashboard.start.test.hint" = "Start a new cognitive performance test";
+
+// MARK: - History
+"history.loading" = "Loading history...";
+"history.filter" = "Filter";
+"history.sort" = "Sort";
+"history.tests.taken" = "Tests Taken";
+"history.average.iq" = "Average IQ";
+"history.best.score" = "Best Score";
+"history.showing.filtered.format" = "Showing %d of %d tests";
+"history.clear.filters" = "Clear Filters";
+"history.loading.more" = "Loading...";
+"history.load.more" = "Load More";
+"history.showing.format" = "Showing %d of %d tests";
+"history.no.history.title" = "No Test History Yet";
+"history.no.history.message" = "Take your first IQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
+"history.load.more.accessibility.label" = "Load more results";
+"history.load.more.accessibility.hint" = "Showing %d of %d tests. Double tap to load more.";
+"history.loading.more.accessibility" = "Loading more results";
+
+// MARK: - Settings
+"settings.account" = "Account";
+"settings.notifications" = "Notifications";
+"settings.notifications.footer" = "Receive reminders when it's time to take your next IQ test (every 3 months)";
+"settings.support" = "Support";
+"settings.help.faq" = "Help & FAQ";
+"settings.app" = "App";
+"settings.app.version" = "App Version";
+"settings.logout" = "Logout";
+"settings.logout.confirm" = "Are you sure you want to logout?";
+"settings.delete.account" = "Delete Account";
+"settings.delete.account.confirm.title" = "Delete Account";
+"settings.delete.account.confirm.message" = "This action is irreversible. All your data will be permanently deleted and cannot be recovered.";
+"settings.delete.account.footer" = "Deleting your account is permanent and cannot be undone. All your data will be permanently deleted.";
+"settings.logging.out" = "Logging out...";
+"settings.deleting.account" = "Deleting account...";
+"settings.delete.account.failed" = "Delete Account Failed";
+"settings.debug" = "Debug";
+"settings.debug.test.crash" = "Test Crash";
+"settings.debug.test.crash.confirm" = "This will crash the app to test Crashlytics";
+"settings.debug.crash.app" = "Crash App";
+"settings.debug.footer" = "Force a crash to test Crashlytics. Reported on next app launch.";

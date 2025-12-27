@@ -14,12 +14,12 @@ struct TimeWarningBanner: View {
                 .foregroundColor(.orange)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Time Running Low")
+                Text("test.timer.time.running.low".localized)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
 
-                Text("\(remainingTime) remaining to complete the test")
+                Text("test.timer.time.remaining".localized(with: remainingTime))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

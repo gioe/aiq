@@ -18,7 +18,7 @@ struct QuestionNavigationGrid: View {
                 Image(systemName: "square.grid.3x3.fill")
                     .foregroundColor(.secondary)
                     .font(.caption)
-                Text("Question Navigator")
+                Text("question.navigator.title".localized)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .textCase(.uppercase)
@@ -27,9 +27,9 @@ struct QuestionNavigationGrid: View {
 
                 // Legend
                 HStack(spacing: 12) {
-                    legendItem(color: .accentColor, label: "Current")
-                    legendItem(color: .green, label: "Answered")
-                    legendItem(color: Color(.systemGray4), label: "Unanswered")
+                    legendItem(color: .accentColor, label: "question.navigator.legend.current".localized)
+                    legendItem(color: .green, label: "question.navigator.legend.answered".localized)
+                    legendItem(color: Color(.systemGray4), label: "question.navigator.legend.unanswered".localized)
                 }
                 .font(.caption2)
             }
@@ -90,11 +90,11 @@ struct QuestionNavigationGrid: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(ScaleButtonStyle())
-        .accessibilityLabel("Question \(index + 1)")
+        .accessibilityLabel("question.navigator.accessibility.question".localized(with: index + 1))
         .accessibilityHint(
-            isCurrent ? "Current question" :
-                isAnswered ? "Answered. Tap to navigate" :
-                "Not answered. Tap to navigate"
+            isCurrent ? "question.navigator.accessibility.current".localized :
+                isAnswered ? "question.navigator.accessibility.answered".localized :
+                "question.navigator.accessibility.not.answered".localized
         )
     }
 

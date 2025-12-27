@@ -20,14 +20,14 @@ struct TestProgressView: View {
             // Progress bar with percentage
             VStack(spacing: 8) {
                 HStack {
-                    Text("Test Progress")
+                    Text("test.progress.title".localized)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .textCase(.uppercase)
 
                     Spacer()
 
-                    Text("\(completionPercentage)% Complete")
+                    Text("test.progress.complete.format".localized(with: completionPercentage))
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(completionPercentage == 100 ? .green : .accentColor)
@@ -43,7 +43,7 @@ struct TestProgressView: View {
                 statItem(
                     icon: "doc.text.fill",
                     value: "\(currentQuestion)/\(totalQuestions)",
-                    label: "Current"
+                    label: "test.progress.current".localized
                 )
 
                 Divider()
@@ -53,7 +53,7 @@ struct TestProgressView: View {
                 statItem(
                     icon: "checkmark.circle.fill",
                     value: "\(answeredCount)",
-                    label: "Answered",
+                    label: "test.progress.answered".localized,
                     iconColor: .green
                 )
 
@@ -64,7 +64,7 @@ struct TestProgressView: View {
                 statItem(
                     icon: "circle.dotted",
                     value: "\(totalQuestions - answeredCount)",
-                    label: "Remaining",
+                    label: "test.progress.remaining".localized,
                     iconColor: .orange
                 )
             }

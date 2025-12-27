@@ -25,7 +25,7 @@ struct ErrorBanner: View {
                         .fontWeight(.semibold)
                 }
             )
-            .accessibilityLabel("Dismiss error")
+            .accessibilityLabel("error.banner.dismiss".localized)
             .accessibilityIdentifier("errorBanner.dismissButton")
         }
         .padding()
