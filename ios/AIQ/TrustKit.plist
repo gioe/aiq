@@ -19,7 +19,8 @@
             <key>TSKEnforcePinning</key>
             <true/>
 
-            <!-- Include subdomains (e.g., *.up.railway.app) -->
+            <!-- Include subdomains: false because we only use the exact domain -->
+            <!-- aiq-backend-production.up.railway.app - no subdomains are used -->
             <key>TSKIncludeSubdomains</key>
             <false/>
 

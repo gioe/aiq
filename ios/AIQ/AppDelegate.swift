@@ -25,6 +25,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Configuration is loaded from TrustKit.plist in the app bundle
         if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
            let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
+            // Verify at least 2 pins are configured before initializing (primary + backup required)
+            #if !DEBUG
+                if let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any],
+                   let railwayConfig = pinnedDomains["aiq-backend-production.up.railway.app"] as? [String: Any],
+                   let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String],
+                   hashes.count < 2 {
+                    fatalError("Certificate pinning requires at least 2 pins (primary + backup)")
+                }
+            #endif
+
             TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
             Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
 
@@ -34,7 +44,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 Self.logger.warning("TrustKit won't validate localhost - test against production")
             #endif
         } else {
-            Self.logger.error("Failed to load TrustKit configuration from TrustKit.plist")
+            Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
             #if !DEBUG
                 // Certificate pinning is critical for security - fail hard in production
                 fatalError("Certificate pinning config failed to load. App cannot continue.")
