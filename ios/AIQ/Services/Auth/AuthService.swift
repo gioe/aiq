@@ -39,10 +39,13 @@ class AuthService: AuthServiceProtocol {
         country: String? = nil,
         region: String? = nil
     ) async throws -> AuthResponse {
-        print("🔐 Starting registration for email: \(email)")
-        print("   - First name: \(firstName), Last name: \(lastName)")
-        print("   - Birth year: \(birthYear?.description ?? "nil")")
-        print("   - Education level: \(educationLevel?.rawValue ?? "nil")")
+        print("🔐 Starting registration")
+        #if DEBUG
+            print("   - Email: \(email)")
+            print("   - First name: \(firstName), Last name: \(lastName)")
+            print("   - Birth year: \(birthYear?.description ?? "nil")")
+            print("   - Education level: \(educationLevel?.rawValue ?? "nil")")
+        #endif
 
         let request = RegisterRequest(
             email: email,
@@ -66,10 +69,12 @@ class AuthService: AuthServiceProtocol {
                 forceRefresh: false
             )
 
-            print("✅ Registration successful, received tokens and user data")
-            print("   - Access token length: \(response.accessToken.count)")
-            print("   - User ID: \(response.user.id)")
-            print("   - User email: \(response.user.email)")
+            print("✅ Registration successful")
+            #if DEBUG
+                print("   - Access token length: \(response.accessToken.count)")
+                print("   - User ID: \(response.user.id)")
+                print("   - User email: \(response.user.email)")
+            #endif
 
             // Save tokens and user
             try saveAuthData(response)
@@ -82,7 +87,10 @@ class AuthService: AuthServiceProtocol {
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        print("🔐 Starting login for email: \(email)")
+        print("🔐 Starting login")
+        #if DEBUG
+            print("   - Email: \(email)")
+        #endif
         let request = LoginRequest(email: email, password: password)
 
         do {
@@ -96,10 +104,12 @@ class AuthService: AuthServiceProtocol {
                 forceRefresh: false
             )
 
-            print("✅ Login successful, received tokens and user data")
-            print("   - Access token length: \(response.accessToken.count)")
-            print("   - User ID: \(response.user.id)")
-            print("   - User email: \(response.user.email)")
+            print("✅ Login successful")
+            #if DEBUG
+                print("   - Access token length: \(response.accessToken.count)")
+                print("   - User ID: \(response.user.id)")
+                print("   - User email: \(response.user.email)")
+            #endif
 
             // Save tokens and user
             try saveAuthData(response)
