@@ -1,28 +1,32 @@
 ---
 description: Review Claude's PR comments and address or defer them
 args:
-  - name: pr_url
-    description: GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+  - name: pr_number
+    description: GitHub PR Number (e.g., 123, 400, 2)
     required: true
 ---
 
 You are reviewing PR comments written by Claude on a GitHub pull request. Your job is to analyze each comment, decide if it needs immediate attention or can be deferred, and take appropriate action.
 
-**PR URL**: {{pr_url}}
+## Step 1: Determine the URL
 
-## Step 1: Extract PR Information
+Based on the current git directory and/or upstream, determine the url of the PR based on the provided pr_number.
+
+Example, from `https://github.com/mattgioe/aiq/pull/{{pr_number}}`:
+
+## Step 2: Extract PR Information
 
 Parse the GitHub PR URL to extract:
 - Owner/organization
 - Repository name
 - PR number
 
-For example, from `https://github.com/mattgioe/aiq/pull/225`:
+For example, from `https://github.com/mattgioe/aiq/pull/{{pr_number}}`:
 - Owner: `mattgioe`
 - Repo: `aiq`
 - PR number: `225`
 
-## Step 2: Fetch PR Comments
+## Step 3: Fetch PR Comments
 
 Use the GitHub CLI to fetch comments. Run these commands:
 
@@ -63,7 +67,7 @@ Comments that should be addressed NOW:
 - **Type errors**: Missing types, incorrect types that will cause runtime errors
 - **Missing error handling**: Unhandled exceptions in critical paths
 
-### Category B: Can Be Deferred (Add to Plan)
+### Category B: Can Be Deferred
 Comments that can be addressed later:
 - **Code style suggestions**: Naming conventions, formatting preferences
 - **Refactoring suggestions**: "Could be cleaner if..."
@@ -72,20 +76,8 @@ Comments that can be addressed later:
 - **Future considerations**: "In the future, we might want to..."
 - **Minor TODOs**: Non-critical cleanup items
 
-## Step 5: Determine Current Plan File
 
-1. Get the current branch name: `git branch --show-current`
-2. Extract the task prefix from the branch (e.g., `feature/IDA-008-...` → `IDA`)
-3. Map the prefix to a plan file:
-   - `IDA` → `docs/psychometric-methodology/plans/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md`
-   - `EIC` → `docs/psychometric-methodology/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md`
-   - `DA` → `docs/psychometric-methodology/plans/PLAN-DISTRACTOR-ANALYSIS.md`
-   - `P#` → `PLAN.md` (main project plan)
-   - If unclear, check `docs/psychometric-methodology/plans/` for relevant files
-
-4. If no plan file exists for the current work, use `PLAN.md` as the fallback
-
-## Step 6: Take Action
+## Step 5: Take Action
 
 ### For Category A (Immediate) Comments:
 
@@ -103,24 +95,13 @@ Comments that can be addressed later:
 
 ### For Category B (Deferred) Comments:
 
-1. Read the current plan file
-2. Add a new task entry under a "## Future Improvements" or "## Deferred Items" section:
-   ```markdown
-   ### {PREFIX}-XXX: [Brief title from comment]
-   **Status:** [ ] Not Started
-   **Source:** PR #{{pr_number}} comment
-   **Files:** `path/to/file.py`
-   **Description:** [Summarize Claude's suggestion]
-   **Original Comment:** "[Quote the relevant part]"
-   ```
 
-3. Report what was deferred:
+1. Report what was deferred:
    ```
-   ## Deferred to Plan: [Brief description]
-   **File**: path/to/file.py:123
    **Claude's Comment**: "The comment text..."
-   **Added as**: {PREFIX}-XXX in {plan_file}
+   **Reason for deferral**: "We can do this later because..."
    ```
+2. Using the jira-workflow-architect subagent, create a ticket in the Jira backlog. Check to see if any similar tasks are already in the backlog before creating a new one.
 
 ## Step 7: Generate Summary Report
 
@@ -144,9 +125,6 @@ After processing all comments, provide a summary:
 - Comment #123: Already addressed in previous commit
 - Comment #456: Duplicate of addressed issue
 
-### Files Modified:
-- backend/app/core/scoring.py
-- docs/psychometric-methodology/plans/PLAN-EMPIRICAL-ITEM-CALIBRATION.md
 ```
 
 ## Important Guidelines:
@@ -167,4 +145,4 @@ After processing all comments, provide a summary:
 - If the plan file doesn't exist, create the "Deferred Items" section in PLAN.md
 - If a file mentioned in a comment no longer exists, note it as "File not found - may have been moved/deleted"
 
-Begin by parsing the PR URL and fetching the comments.
+Begin by reading the PR number and determining the likely url.
