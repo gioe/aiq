@@ -65,6 +65,7 @@
 		62C3096A31D6DDF9523448E3 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD0F4247CCB453691A00DCC /* HistoryView.swift */; };
 		62D38333FC47A8AB08298297 /* View+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3130EA8101F31EC40D44FE55 /* View+Extensions.swift */; };
 		65EA67F2F7C51CA558A15F95 /* TestTakingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0051F7DB14979791E28BFE79 /* TestTakingViewModel.swift */; };
+		67D4C2D38D663E3FC5AB120B /* CertificatePinningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */; };
 		680A4E1F9AA1F5EC940A26C1 /* LoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A5A9453EBC3FF647D25AB8 /* LoginViewModelTests.swift */; };
 		6BD64EB0C5D1922D8281CFE7 /* DeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */; };
 		6D060BE77514F7059B2BE1BF /* RequestInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */; };
@@ -101,6 +102,7 @@
 		B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 86A53269857A08973A0D5568 /* SwiftUI.framework */; };
 		B49B611951512301F45C3352 /* Number+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F2255B6B96DB4C8037F564 /* Number+Extensions.swift */; };
 		B6816A69B52AAA1E1BD53678 /* DeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A290228B57AC0DB5B913FCE /* DeepLinkTests.swift */; };
+		B83538BBB489F288C2F863FF /* TrustKit.plist in Resources */ = {isa = PBXBuildFile; fileRef = 07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */; };
 		B9A95CA3A8D6D6283555F7E5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7782CE071C4128230BA182 /* RootView.swift */; };
 		B9EB105521003CA3424BA490 /* RegistrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4FAEB67D62A917317348E0 /* RegistrationViewModel.swift */; };
 		BC77B3CA6DF041F7FD00BE25 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E676AB96E42CF5A5F8F0231C /* AppConfig.swift */; };
@@ -109,7 +111,6 @@
 		C0BB0798614D085DE1FF5804 /* TokenRefreshInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */; };
 		C70B96BEBAE5FC0F2C713060 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD364FDF0483DE20906256C /* AuthService.swift */; };
 		C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5C4061DEB7041061A94125B9 /* Localizable.strings */; };
-		B83538BBB489F288C2F863FF /* TrustKit.plist in Resources */ = {isa = PBXBuildFile; fileRef = 07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */; };
 		CAAEB2F88F58B07D096FEF9B /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951C4CC161112894FD8C0A0 /* Auth.swift */; };
 		CE8442746694C5C660D10681 /* TestResultsView+PercentileCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F3B04A99924D8E3BBB5DA2 /* TestResultsView+PercentileCard.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
@@ -191,6 +192,7 @@
 		3812DAECA0446A8F0A7F5D73 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		39F3B04A99924D8E3BBB5DA2 /* TestResultsView+PercentileCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestResultsView+PercentileCard.swift"; sourceTree = "<group>"; };
 		3D11D893F3EC79F32CAEE284 /* TestResultTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultTests.swift; sourceTree = "<group>"; };
+		3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CertificatePinningTests.swift; path = AIQTests/Integration/CertificatePinningTests.swift; sourceTree = SOURCE_ROOT; };
 		3D90F0480B621765EDC45755 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		3EAA3127FAA3129559E7FFE9 /* TestTakingHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestTakingHelper.swift; path = AIQUITests/Helpers/TestTakingHelper.swift; sourceTree = "<group>"; };
 		425CBCEA4F6F27755060AEB5 /* TestTimerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTimerManagerTests.swift; sourceTree = "<group>"; };
@@ -461,6 +463,7 @@
 				667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */,
 				A7892D0170116927D3924308 /* APIClientIntegrationTests.swift */,
 				5693C8FD3082F1F9585F0D0C /* MockURLProtocol.swift */,
+				3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */,
 			);
 			path = Integration;
 			sourceTree = "<group>";
@@ -886,6 +889,7 @@
 				55CA6A94AECF5D921A147F04 /* AuthManagerDeleteAccountTests.swift in Sources */,
 				1578E5C7FCC2E072A9DC234D /* DateExtensionsTests.swift in Sources */,
 				F8D28DE01F161F392675F33F /* NumberExtensionsTests.swift in Sources */,
+				67D4C2D38D663E3FC5AB120B /* CertificatePinningTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
