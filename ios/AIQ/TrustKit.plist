@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- TrustKit Configuration for SSL Certificate Pinning -->
+    <!-- See: https://github.com/datatheorem/TrustKit for documentation -->
+
+    <!-- Swizzle NSURLSession to enable automatic pinning validation -->
+    <key>TSKSwizzleNetworkDelegates</key>
+    <true/>
+
+    <!-- Pinning Policy for Railway Backend -->
+    <key>TSKPinnedDomains</key>
+    <dict>
+        <!-- Production Railway Backend -->
+        <key>aiq-backend-production.up.railway.app</key>
+        <dict>
+            <!-- Enforce certificate pinning validation -->
+            <key>TSKEnforcePinning</key>
+            <true/>
+
+            <!-- Include subdomains: false because we only use the exact domain -->
+            <!-- aiq-backend-production.up.railway.app - no subdomains are used -->
+            <key>TSKIncludeSubdomains</key>
+            <false/>
+
+            <!-- Public Key Hashes (SPKI SHA256) -->
+            <!-- Railway's current certificate public key hash -->
+            <!-- Generated: 2025-12-28 -->
+            <!-- Command: openssl s_client -servername aiq-backend-production.up.railway.app -showcerts -connect aiq-backend-production.up.railway.app:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64 -->
+            <key>TSKPublicKeyHashes</key>
+            <array>
+                <!-- Railway backend certificate (*.up.railway.app) -->
+                <!-- Valid until: 2026-03-06 -->
+                <string>i+fyVetXyACCzW7mWtTNzuYIjv0JpKqW00eIiiuLp1o=</string>
+
+                <!-- Let's Encrypt R12 Intermediate Certificate (Backup Pin) -->
+                <!-- Valid until: 2027-03-12 -->
+                <!-- Downloaded from: https://letsencrypt.org/certs/2024/r12.pem -->
+                <string>kZwN96eHtZftBWrOZUsd6cA4es80n3NzSk/XtYz2EqQ=</string>
+            </array>
+
+            <!-- Report validation failures for monitoring (optional) -->
+            <!-- Set to empty string if no reporting endpoint is configured -->
+            <key>TSKReportUris</key>
+            <array>
+                <!-- No reporting endpoint configured -->
+            </array>
+
+            <!-- Disable pinning for local debugging (optional) -->
+            <!-- Set to true to disable pinning while debugging -->
+            <key>TSKDisableDefaultReportUri</key>
+            <true/>
+        </dict>
+    </dict>
+
+    <!-- Note: Certificate hashes need to be updated before expiration -->
+    <!-- Railway certificate expires: 2026-03-06 -->
+    <!-- R12 intermediate certificate expires: 2027-03-12 -->
+    <!--
+    To update certificate hashes:
+    1. Get new certificate hash:
+       openssl s_client -servername aiq-backend-production.up.railway.app -showcerts -connect aiq-backend-production.up.railway.app:443 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
+
+    2. Update the hash in TSKPublicKeyHashes array above
+
+    3. Keep the backup pin (R12) in the array for redundancy
+
+    4. Test certificate pinning:
+       - Build and run app in DEBUG mode
+       - Verify API calls succeed
+       - Check Xcode console for TrustKit validation logs
+    -->
+</dict>
+</plist>

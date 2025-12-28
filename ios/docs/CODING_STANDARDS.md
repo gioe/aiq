@@ -27,6 +27,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Accessibility](#accessibility)
 - [Concurrency](#concurrency)
 - [Performance](#performance)
+- [Security](#security)
 - [Recommended Enhancements](#recommended-enhancements)
 
 ---
@@ -1139,6 +1140,66 @@ Track performance issues automatically:
 - Use SF Symbols when possible
 - Compress images before adding to assets
 - Use appropriate resolutions for different device sizes
+
+---
+
+## Security
+
+### Certificate Pinning
+
+The app uses TrustKit for SSL certificate pinning to prevent man-in-the-middle (MITM) attacks. This ensures the app only trusts specific SSL certificates for backend connections.
+
+**Configuration Location:** `AIQ/TrustKit.plist`
+
+#### Requirements
+
+- **Minimum 2 pins required:** Primary certificate + backup certificate
+- **Fail secure:** Production builds will crash if certificate pinning fails to initialize
+- **Test periodically:** Certificate pinning does not work against localhost in DEBUG builds
+
+#### DO
+
+- Update certificate hashes at least 30 days before expiration
+- Verify hashes using multiple methods before deployment
+- Test certificate pinning against production backend in DEBUG mode
+- Keep track of certificate expiration dates
+
+#### DON'T
+
+- Hardcode certificate hashes in code (use TrustKit.plist)
+- Deploy without verifying pinning is active
+- Ignore pinning validation failures in logs
+- Let certificates expire without updating hashes
+
+#### Updating Certificate Hashes
+
+1. Get new certificate hash:
+```bash
+openssl s_client -servername aiq-backend-production.up.railway.app \
+  -showcerts -connect aiq-backend-production.up.railway.app:443 2>/dev/null | \
+  openssl x509 -pubkey -noout | \
+  openssl pkey -pubin -outform der | \
+  openssl dgst -sha256 -binary | \
+  base64
+```
+
+2. Verify hash using alternative method (different network/machine)
+3. Update `TrustKit.plist` with new hash
+4. Keep old hash as backup pin until new version is deployed
+5. Test against production backend in DEBUG mode
+6. Submit app update
+7. Remove old hash after new version reaches 95%+ adoption
+
+#### Current Certificate Expiration
+
+- **Railway certificate:** March 6, 2026
+- **R12 intermediate:** March 12, 2027
+
+Set calendar reminders 30 days before expiration to update hashes.
+
+### Sensitive Data Logging
+
+See [SENSITIVE_LOGGING_AUDIT.md](./SENSITIVE_LOGGING_AUDIT.md) for guidelines on logging sensitive data.
 
 ---
 

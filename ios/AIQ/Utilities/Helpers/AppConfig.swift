@@ -2,13 +2,16 @@ import Foundation
 
 /// Application configuration and constants
 enum AppConfig {
+    /// Production backend domain (used for API URL and certificate pinning)
+    static let productionDomain = "aiq-backend-production.up.railway.app"
+
     /// API base URL
     static var apiBaseURL: String {
         #if DEBUG
             return "http://localhost:8000"
         #else
             // Railway production backend
-            return "https://aiq-backend-production.up.railway.app"
+            return "https://\(productionDomain)"
         #endif
     }
 

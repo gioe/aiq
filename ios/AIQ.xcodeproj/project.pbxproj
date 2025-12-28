@@ -109,6 +109,7 @@
 		C0BB0798614D085DE1FF5804 /* TokenRefreshInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */; };
 		C70B96BEBAE5FC0F2C713060 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD364FDF0483DE20906256C /* AuthService.swift */; };
 		C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5C4061DEB7041061A94125B9 /* Localizable.strings */; };
+		B83538BBB489F288C2F863FF /* TrustKit.plist in Resources */ = {isa = PBXBuildFile; fileRef = 07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */; };
 		CAAEB2F88F58B07D096FEF9B /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951C4CC161112894FD8C0A0 /* Auth.swift */; };
 		CE8442746694C5C660D10681 /* TestResultsView+PercentileCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F3B04A99924D8E3BBB5DA2 /* TestResultsView+PercentileCard.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
@@ -163,6 +164,7 @@
 		0070719F614569E631EDE166 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		03A839FCC317A5FF03CFAD3F /* HistoryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModelTests.swift; sourceTree = "<group>"; };
 		065B9FAD6019EFB30535DF3E /* NavigationHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationHelper.swift; path = AIQUITests/Helpers/NavigationHelper.swift; sourceTree = "<group>"; };
+		07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = TrustKit.plist; sourceTree = "<group>"; };
 		0A03B180242F54340F85306F /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		0D604AF70DEC0710B31F79B3 /* TestResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResult.swift; sourceTree = "<group>"; };
 		0F7B0036C4AA0EE698B9C2EC /* DashboardViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModelTests.swift; sourceTree = "<group>"; };
@@ -330,6 +332,7 @@
 				7BE4500EA192E1E5F3238DC5 /* Utilities */,
 				73BB07B1DB177A352AF3D0BB /* ViewModels */,
 				7B929D66B8C7D433BD364543 /* Views */,
+				07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */,
 			);
 			path = AIQ;
 			sourceTree = "<group>";
@@ -782,6 +785,7 @@
 			);
 			name = AIQ;
 			packageProductDependencies = (
+				611BDFC8D2A24A669AF6D722 /* TrustKit */,
 				5F67568DF35617BE6981320E /* FirebaseAnalytics */,
 				F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */,
 			);
@@ -810,6 +814,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -831,6 +836,7 @@
 				D57FC4ECD3320E9B6563E7BE /* Assets.xcassets in Resources */,
 				B09395FEAC024C71C6C0F049 /* GoogleService-Info.plist in Resources */,
 				C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */,
+				B83538BBB489F288C2F863FF /* TrustKit.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1298,6 +1304,14 @@
 				version = 11.6.0;
 			};
 		};
+		9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/datatheorem/TrustKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.7;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1305,6 +1319,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalytics;
+		};
+		611BDFC8D2A24A669AF6D722 /* TrustKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */;
+			productName = TrustKit;
 		};
 		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
 			isa = XCSwiftPackageProductDependency;
