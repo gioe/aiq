@@ -27,11 +27,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
            let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
             // Verify at least 2 pins are configured before initializing (primary + backup required)
             #if !DEBUG
-                if let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any],
-                   let railwayConfig = pinnedDomains["aiq-backend-production.up.railway.app"] as? [String: Any],
-                   let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String],
-                   hashes.count < 2 {
-                    fatalError("Certificate pinning requires at least 2 pins (primary + backup)")
+                guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
+                    fatalError("TrustKit config missing TSKPinnedDomains")
+                }
+                guard let railwayConfig = pinnedDomains[AppConfig.productionDomain] as? [String: Any] else {
+                    fatalError("TrustKit config missing pinning for \(AppConfig.productionDomain)")
+                }
+                guard let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String] else {
+                    fatalError("TrustKit config missing TSKPublicKeyHashes")
+                }
+                guard hashes.count >= 2 else {
+                    fatalError("Certificate pinning requires at least 2 pins (primary + backup), found \(hashes.count)")
                 }
             #endif
 

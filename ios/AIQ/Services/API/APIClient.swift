@@ -179,6 +179,15 @@ class APIClient: APIClientProtocol {
     private let requestTimeout: TimeInterval
     private let tokenRefreshInterceptor: TokenRefreshInterceptor
 
+    /// Initialize the API client
+    /// - Parameters:
+    ///   - baseURL: The base URL for API requests
+    ///   - session: URLSession to use. Defaults to `.shared` which is required for TrustKit
+    ///              certificate pinning to work (TrustKit swizzles URLSession.shared).
+    ///   - retryPolicy: Retry policy for failed requests
+    ///   - requestTimeout: Timeout for requests in seconds
+    ///   - requestInterceptors: Custom request interceptors
+    ///   - responseInterceptors: Custom response interceptors
     init(
         baseURL: String,
         session: URLSession = .shared,
