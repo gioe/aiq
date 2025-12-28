@@ -27,8 +27,18 @@ class AppDelegate: NSObject, UIApplicationDelegate {
            let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
             TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
             Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
+
+            #if DEBUG
+                // In DEBUG mode, TrustKit won't validate localhost connections (HTTP, no SSL)
+                // Periodically test against production backend to verify pinning works
+                Self.logger.warning("TrustKit won't validate localhost - test against production")
+            #endif
         } else {
             Self.logger.error("Failed to load TrustKit configuration from TrustKit.plist")
+            #if !DEBUG
+                // Certificate pinning is critical for security - fail hard in production
+                fatalError("Certificate pinning config failed to load. App cannot continue.")
+            #endif
         }
 
         // Set notification delegate
