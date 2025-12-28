@@ -39,21 +39,20 @@ jobs:
           set +x  # Disable command echoing to prevent credential exposure
           TICKET="${{ steps.extract.outputs.ticket }}"
 
-          # Fetch available transitions for the ticket
-          RESPONSE=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+          # Fetch available transitions for the ticket (with timeout)
+          RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
             "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/transitions")
-
-          echo "Available transitions:"
-          echo "$RESPONSE" | jq '.transitions[] | {id, name}'
 
           # Find the "Done" or "Closed" transition ID
           # Tries common names: Done, Closed, Complete, Resolved
           TRANSITION_ID=$(echo "$RESPONSE" | jq -r '.transitions[] | select(.name | test("(?i)^(done|closed|complete|resolved)$")) | .id' | head -1)
 
           if [ -z "$TRANSITION_ID" ] || [ "$TRANSITION_ID" == "null" ]; then
-            echo "No Done/Closed transition found. Available transitions:"
-            echo "$RESPONSE" | jq '.transitions[].name'
+            # Log only transition names (not full response) to avoid exposing sensitive data
+            AVAILABLE=$(echo "$RESPONSE" | jq -r '.transitions[].name // empty' | tr '\n' ', ' | sed 's/,$//')
+            echo "No Done/Closed transition found. Available: ${AVAILABLE:-none}"
             echo "found=false" >> $GITHUB_OUTPUT
           else
             echo "Using transition ID: $TRANSITION_ID"
@@ -74,7 +73,8 @@ jobs:
 
           echo "Transitioning $TICKET to Done (transition ID: $TRANSITION_ID)"
 
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          HTTP_STATUS=$(curl -s --connect-timeout 10 --max-time 30 \
+            -o /dev/null -w "%{http_code}" \
             -X POST \
             -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
@@ -125,7 +125,8 @@ jobs:
               }
             }')
 
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          HTTP_STATUS=$(curl -s --connect-timeout 10 --max-time 30 \
+            -o /dev/null -w "%{http_code}" \
             -X POST \
             -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
