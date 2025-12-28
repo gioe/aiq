@@ -1,6 +1,7 @@
 import FirebaseCore
 import FirebaseCrashlytics
 import os
+import TrustKit
 import UIKit
 import UserNotifications
 
@@ -19,6 +20,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Initialize Firebase
         FirebaseApp.configure()
+
+        // Initialize TrustKit for SSL certificate pinning
+        // Configuration is loaded from TrustKit.plist in the app bundle
+        if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
+           let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
+            TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
+            Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
+        } else {
+            Self.logger.error("Failed to load TrustKit configuration from TrustKit.plist")
+        }
 
         // Set notification delegate
         UNUserNotificationCenter.current().delegate = self
