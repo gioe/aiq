@@ -1,0 +1,145 @@
+name: Close Jira Ticket on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  close-jira-ticket:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract ticket ID from PR title
+        id: extract
+        run: |
+          # PR title format: [BTS-123] Description
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: $PR_TITLE"
+
+          TICKET=$(echo "$PR_TITLE" | grep -oE '\[([A-Z]+-[0-9]+)\]' | head -1 | tr -d '[]')
+
+          if [ -z "$TICKET" ]; then
+            echo "No ticket ID found in PR title"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found ticket: $TICKET"
+            echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get available transitions
+        if: steps.extract.outputs.found == 'true'
+        id: transitions
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
+        run: |
+          set +x  # Disable command echoing to prevent credential exposure
+          TICKET="${{ steps.extract.outputs.ticket }}"
+
+          # Fetch available transitions for the ticket (with timeout)
+          RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/transitions")
+
+          # Find the "Done" or "Closed" transition ID
+          # Tries common names: Done, Closed, Complete, Resolved
+          TRANSITION_ID=$(echo "$RESPONSE" | jq -r '.transitions[] | select(.name | test("(?i)^(done|closed|complete|resolved)$")) | .id' | head -1)
+
+          if [ -z "$TRANSITION_ID" ] || [ "$TRANSITION_ID" == "null" ]; then
+            # Log only transition names (not full response) to avoid exposing sensitive data
+            AVAILABLE=$(echo "$RESPONSE" | jq -r '.transitions[].name // empty' | tr '\n' ', ' | sed 's/,$//')
+            echo "No Done/Closed transition found. Available: ${AVAILABLE:-none}"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Using transition ID: $TRANSITION_ID"
+            echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Transition Jira ticket to Done
+        if: steps.extract.outputs.found == 'true' && steps.transitions.outputs.found == 'true'
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
+        run: |
+          set +x  # Disable command echoing to prevent credential exposure
+          TICKET="${{ steps.extract.outputs.ticket }}"
+          TRANSITION_ID="${{ steps.transitions.outputs.transition_id }}"
+
+          echo "Transitioning $TICKET to Done (transition ID: $TRANSITION_ID)"
+
+          HTTP_STATUS=$(curl -s --connect-timeout 10 --max-time 30 \
+            -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}" \
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/transitions")
+
+          if [ "$HTTP_STATUS" -eq 204 ]; then
+            echo "Successfully transitioned $TICKET to Done"
+          else
+            echo "Failed to transition ticket. HTTP status: $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Add merge comment to Jira ticket
+        if: steps.extract.outputs.found == 'true'
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+        run: |
+          set +x  # Disable command echoing to prevent credential exposure
+          TICKET="${{ steps.extract.outputs.ticket }}"
+
+          # Use jq to safely construct JSON payload with proper escaping
+          PAYLOAD=$(jq -n \
+            --arg pr_title "$PR_TITLE" \
+            --arg pr_url "$PR_URL" \
+            --arg merged_by "$MERGED_BY" \
+            '{
+              body: {
+                type: "doc",
+                version: 1,
+                content: [{
+                  type: "paragraph",
+                  content: [
+                    {type: "text", text: "PR merged and ticket closed automatically."},
+                    {type: "hardBreak"},
+                    {type: "hardBreak"},
+                    {type: "text", text: "PR: "},
+                    {type: "text", text: $pr_title, marks: [{type: "link", attrs: {href: $pr_url}}]},
+                    {type: "hardBreak"},
+                    {type: "text", text: ("Merged by: " + $merged_by)}
+                  ]
+                }]
+              }
+            }')
+
+          HTTP_STATUS=$(curl -s --connect-timeout 10 --max-time 30 \
+            -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/comment")
+
+          if [ "$HTTP_STATUS" -eq 201 ]; then
+            echo "Successfully added merge comment to $TICKET"
+          else
+            echo "::warning::Failed to add comment to ticket $TICKET. HTTP status: $HTTP_STATUS"
+            echo "Note: Ticket was still transitioned successfully, only the comment failed."
+          fi
