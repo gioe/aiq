@@ -1,0 +1,98 @@
+name: Close Jira Ticket on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  close-jira-ticket:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract ticket ID from PR title
+        id: extract
+        run: |
+          # PR title format: [BTS-123] Description
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: $PR_TITLE"
+
+          TICKET=$(echo "$PR_TITLE" | grep -oE '\[([A-Z]+-[0-9]+)\]' | head -1 | tr -d '[]')
+
+          if [ -z "$TICKET" ]; then
+            echo "No ticket ID found in PR title"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found ticket: $TICKET"
+            echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get available transitions
+        if: steps.extract.outputs.found == 'true'
+        id: transitions
+        run: |
+          TICKET="${{ steps.extract.outputs.ticket }}"
+
+          # Fetch available transitions for the ticket
+          RESPONSE=$(curl -s -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/transitions")
+
+          echo "Available transitions:"
+          echo "$RESPONSE" | jq '.transitions[] | {id, name}'
+
+          # Find the "Done" or "Closed" transition ID
+          # Tries common names: Done, Closed, Complete, Resolved
+          TRANSITION_ID=$(echo "$RESPONSE" | jq -r '.transitions[] | select(.name | test("(?i)^(done|closed|complete|resolved)$")) | .id' | head -1)
+
+          if [ -z "$TRANSITION_ID" ] || [ "$TRANSITION_ID" == "null" ]; then
+            echo "No Done/Closed transition found. Available transitions:"
+            echo "$RESPONSE" | jq '.transitions[].name'
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Using transition ID: $TRANSITION_ID"
+            echo "transition_id=$TRANSITION_ID" >> $GITHUB_OUTPUT
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Transition Jira ticket to Done
+        if: steps.extract.outputs.found == 'true' && steps.transitions.outputs.found == 'true'
+        run: |
+          TICKET="${{ steps.extract.outputs.ticket }}"
+          TRANSITION_ID="${{ steps.transitions.outputs.transition_id }}"
+
+          echo "Transitioning $TICKET to Done (transition ID: $TRANSITION_ID)"
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}" \
+            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/transitions")
+
+          if [ "$HTTP_STATUS" -eq 204 ]; then
+            echo "Successfully transitioned $TICKET to Done"
+          else
+            echo "Failed to transition ticket. HTTP status: $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Add merge comment to Jira ticket
+        if: steps.extract.outputs.found == 'true'
+        run: |
+          TICKET="${{ steps.extract.outputs.ticket }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          MERGED_BY="${{ github.event.pull_request.merged_by.login }}"
+
+          COMMENT="PR merged and ticket closed automatically.\n\n*PR:* [${PR_TITLE}|${PR_URL}]\n*Merged by:* ${MERGED_BY}"
+
+          curl -s \
+            -X POST \
+            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": {\"type\": \"doc\", \"version\": 1, \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"PR merged and ticket closed automatically.\"}, {\"type\": \"hardBreak\"}, {\"type\": \"hardBreak\"}, {\"type\": \"text\", \"text\": \"PR: \"}, {\"type\": \"text\", \"text\": \"${PR_TITLE}\", \"marks\": [{\"type\": \"link\", \"attrs\": {\"href\": \"${PR_URL}\"}}]}, {\"type\": \"hardBreak\"}, {\"type\": \"text\", \"text\": \"Merged by: ${MERGED_BY}\"}]}]}}" \
+            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/comment"
+
+          echo "Added merge comment to $TICKET"
