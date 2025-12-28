@@ -18,3 +18,10 @@ When making decisions, make sure to consult the docs relevant documentation at t
 | **Backend** | [backend/README.md](backend/README.md) | fastapi-architect |
 | **Question Service** | [question-service/README.md](question-service/README.md) | database-architect |
 | **iOS App** | [ios/README.md](ios/README.md) | ios-engineer |
+
+## External Services
+
+### Atlassian (Jira/Confluence)
+- **Cloud ID**: `db4de7e6-1840-4ba8-8e45-13fdf7ae9753`
+- **Site URL**: https://gioematt.atlassian.net
+- Always use this cloudId for all Atlassian MCP tool calls.
