@@ -6,7 +6,7 @@ args:
     required: true
 ---
 
-Use the technical-product-manager subagent to derive tasks and acceptance criteria based on the gaps outlined in the document. Use the jira-workflow-architect subagent to write this information to Jira.
+Use the technical-product-manager subagent to derive tasks and acceptance criteria based on the outlined gaps. Use the jira-workflow-architect subagent to write this information to Jira to be worked on later.
 
 **Gap File**: docs/gaps/{{gap_file}}
 
