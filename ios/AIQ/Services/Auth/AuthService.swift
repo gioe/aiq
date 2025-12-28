@@ -39,8 +39,8 @@ class AuthService: AuthServiceProtocol {
         country: String? = nil,
         region: String? = nil
     ) async throws -> AuthResponse {
-        print("🔐 Starting registration")
         #if DEBUG
+            print("🔐 Starting registration")
             print("   - Email: \(email)")
             print("   - First name: \(firstName), Last name: \(lastName)")
             print("   - Birth year: \(birthYear?.description ?? "nil")")
@@ -69,8 +69,8 @@ class AuthService: AuthServiceProtocol {
                 forceRefresh: false
             )
 
-            print("✅ Registration successful")
             #if DEBUG
+                print("✅ Registration successful")
                 print("   - Access token length: \(response.accessToken.count)")
                 print("   - User ID: \(response.user.id)")
                 print("   - User email: \(response.user.email)")
@@ -81,14 +81,16 @@ class AuthService: AuthServiceProtocol {
 
             return response
         } catch {
-            print("❌ Registration failed with error: \(error)")
+            #if DEBUG
+                print("❌ Registration failed with error: \(error)")
+            #endif
             throw error
         }
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        print("🔐 Starting login")
         #if DEBUG
+            print("🔐 Starting login")
             print("   - Email: \(email)")
         #endif
         let request = LoginRequest(email: email, password: password)
@@ -104,8 +106,8 @@ class AuthService: AuthServiceProtocol {
                 forceRefresh: false
             )
 
-            print("✅ Login successful")
             #if DEBUG
+                print("✅ Login successful")
                 print("   - Access token length: \(response.accessToken.count)")
                 print("   - User ID: \(response.user.id)")
                 print("   - User email: \(response.user.email)")
@@ -116,7 +118,9 @@ class AuthService: AuthServiceProtocol {
 
             return response
         } catch {
-            print("❌ Login failed with error: \(error)")
+            #if DEBUG
+                print("❌ Login failed with error: \(error)")
+            #endif
             throw error
         }
     }
@@ -163,7 +167,9 @@ class AuthService: AuthServiceProtocol {
     }
 
     func deleteAccount() async throws {
-        print("🗑️ Starting account deletion")
+        #if DEBUG
+            print("🗑️ Starting account deletion")
+        #endif
 
         // Call delete account endpoint
         let _: String? = try? await apiClient.request(
@@ -176,7 +182,9 @@ class AuthService: AuthServiceProtocol {
             forceRefresh: false
         )
 
-        print("✅ Account deletion request completed")
+        #if DEBUG
+            print("✅ Account deletion request completed")
+        #endif
 
         // Clear local data regardless of response (account is deleted on server)
         clearAuthData()

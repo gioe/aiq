@@ -204,8 +204,10 @@ class AnalyticsService {
     ///   - event: The type of event to track
     ///   - properties: Optional dictionary of event properties
     func track(event: AnalyticsEvent, properties: [String: Any]? = nil) {
-        let propertiesString = properties?.description ?? "{}"
-        logger.info("Analytics Event: \(event.rawValue) | Properties: \(propertiesString)")
+        #if DEBUG
+            let propertiesString = properties?.description ?? "{}"
+            logger.info("Analytics Event: \(event.rawValue) | Properties: \(propertiesString)")
+        #endif
 
         // Create event data
         let eventData = AnalyticsEventData(
