@@ -38,7 +38,7 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/comments --paginate
 gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
 ```
 
-## Step 3: Filter for Claude's Comments
+## Step 4: Filter for Claude's Comments
 
 Look for comments where the author matches any of these patterns:
 - Username contains "claude" (case-insensitive)
@@ -53,7 +53,7 @@ Extract from each matching comment:
 - Line number (for review comments)
 - Created timestamp
 
-## Step 4: Analyze Each Comment
+## Step 5: Analyze Each Comment
 
 For each Claude comment, analyze the content to categorize it:
 
@@ -77,7 +77,7 @@ Comments that can be addressed later:
 - **Minor TODOs**: Non-critical cleanup items
 
 
-## Step 5: Take Action
+## Step 6: Take Action
 
 ### For Category A (Immediate) Comments:
 
