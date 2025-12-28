@@ -91,7 +91,9 @@ class NotificationManager: ObservableObject {
     /// - Parameter deviceToken: The device token data
     func didReceiveDeviceToken(_ deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("📱 [NotificationManager] Received device token: \(tokenString)")
+        #if DEBUG
+            print("📱 [NotificationManager] Received device token: \(tokenString)")
+        #endif
 
         // Cache the token
         cacheDeviceToken(tokenString)
