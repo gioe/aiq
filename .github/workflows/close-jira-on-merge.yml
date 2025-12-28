@@ -31,13 +31,18 @@ jobs:
       - name: Get available transitions
         if: steps.extract.outputs.found == 'true'
         id: transitions
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
         run: |
+          set +x  # Disable command echoing to prevent credential exposure
           TICKET="${{ steps.extract.outputs.ticket }}"
 
           # Fetch available transitions for the ticket
-          RESPONSE=$(curl -s -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+          RESPONSE=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/transitions")
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/transitions")
 
           echo "Available transitions:"
           echo "$RESPONSE" | jq '.transitions[] | {id, name}'
@@ -58,7 +63,12 @@ jobs:
 
       - name: Transition Jira ticket to Done
         if: steps.extract.outputs.found == 'true' && steps.transitions.outputs.found == 'true'
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
         run: |
+          set +x  # Disable command echoing to prevent credential exposure
           TICKET="${{ steps.extract.outputs.ticket }}"
           TRANSITION_ID="${{ steps.transitions.outputs.transition_id }}"
 
@@ -66,10 +76,10 @@ jobs:
 
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST \
-            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}" \
-            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/transitions")
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/transitions")
 
           if [ "$HTTP_STATUS" -eq 204 ]; then
             echo "Successfully transitioned $TICKET to Done"
@@ -80,19 +90,51 @@ jobs:
 
       - name: Add merge comment to Jira ticket
         if: steps.extract.outputs.found == 'true'
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_DOMAIN: ${{ secrets.JIRA_DOMAIN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
         run: |
+          set +x  # Disable command echoing to prevent credential exposure
           TICKET="${{ steps.extract.outputs.ticket }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          MERGED_BY="${{ github.event.pull_request.merged_by.login }}"
 
-          COMMENT="PR merged and ticket closed automatically.\n\n*PR:* [${PR_TITLE}|${PR_URL}]\n*Merged by:* ${MERGED_BY}"
+          # Use jq to safely construct JSON payload with proper escaping
+          PAYLOAD=$(jq -n \
+            --arg pr_title "$PR_TITLE" \
+            --arg pr_url "$PR_URL" \
+            --arg merged_by "$MERGED_BY" \
+            '{
+              body: {
+                type: "doc",
+                version: 1,
+                content: [{
+                  type: "paragraph",
+                  content: [
+                    {type: "text", text: "PR merged and ticket closed automatically."},
+                    {type: "hardBreak"},
+                    {type: "hardBreak"},
+                    {type: "text", text: "PR: "},
+                    {type: "text", text: $pr_title, marks: [{type: "link", attrs: {href: $pr_url}}]},
+                    {type: "hardBreak"},
+                    {type: "text", text: ("Merged by: " + $merged_by)}
+                  ]
+                }]
+              }
+            }')
 
-          curl -s \
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST \
-            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{\"body\": {\"type\": \"doc\", \"version\": 1, \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"PR merged and ticket closed automatically.\"}, {\"type\": \"hardBreak\"}, {\"type\": \"hardBreak\"}, {\"type\": \"text\", \"text\": \"PR: \"}, {\"type\": \"text\", \"text\": \"${PR_TITLE}\", \"marks\": [{\"type\": \"link\", \"attrs\": {\"href\": \"${PR_URL}\"}}]}, {\"type\": \"hardBreak\"}, {\"type\": \"text\", \"text\": \"Merged by: ${MERGED_BY}\"}]}]}}" \
-            "https://${{ secrets.JIRA_DOMAIN }}/rest/api/3/issue/${TICKET}/comment"
+            -d "$PAYLOAD" \
+            "https://${JIRA_DOMAIN}/rest/api/3/issue/${TICKET}/comment")
 
-          echo "Added merge comment to $TICKET"
+          if [ "$HTTP_STATUS" -eq 201 ]; then
+            echo "Successfully added merge comment to $TICKET"
+          else
+            echo "Failed to add comment to ticket. HTTP status: $HTTP_STATUS"
+            exit 1
+          fi
