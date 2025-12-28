@@ -746,16 +746,21 @@ Apple requires base localization even for English-only apps. Complete these task
 ⚠️ **URGENT: Complete this week!** The app is currently logging emails and tokens in production builds. This is a security vulnerability and potential data breach.
 
 ### ICG-041: Wrap Sensitive Logging in DEBUG Guards
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Priority:** 🔴 CRITICAL - URGENT
 **Files:** `Services/Auth/AuthService.swift` (lines 42-45, 70-73, 99-103)
 **Description:** Wrap email, token, and user data logging in `#if DEBUG` blocks.
 **Assignee(s):** ios-engineer
 **Acceptance Criteria:**
-- [ ] All email logging wrapped in `#if DEBUG` blocks
-- [ ] All token logging wrapped in `#if DEBUG` blocks
-- [ ] All user PII logging wrapped in `#if DEBUG` blocks
-- [ ] Production builds log no sensitive data
+- [x] All email logging wrapped in `#if DEBUG` blocks
+- [x] All token logging wrapped in `#if DEBUG` blocks
+- [x] All user PII logging wrapped in `#if DEBUG` blocks
+- [x] Production builds log no sensitive data
+
+**Summary:**
+- Total tokens spent: ~15,000
+- Total time spent: ~5 minutes
+- Changes: Wrapped sensitive logging (emails, tokens, user IDs, names, birth years, education levels) in `#if DEBUG` blocks in AuthService.swift. Production logs now show only flow indicators while DEBUG builds retain full logging for development.
 
 ---
 
