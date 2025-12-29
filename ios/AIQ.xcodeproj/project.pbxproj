@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1AB0686C93E844A7881DB7E9 /* KeychainStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */; };
+
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		0572138AE58FDA34E510B63C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845907D460CC2DAB74F0F53 /* DashboardView.swift */; };
 		06E9311FFA4FD65043CA90B1 /* TestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C12636F62D9CB068BF0D5 /* TestTimerManager.swift */; };
@@ -189,6 +191,7 @@
 		1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1AD58AF32F0311B700ED0517 /* MockNetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockNetworkMonitor.swift; sourceTree = "<group>"; };
 		1AD58AF52F0311CE00ED0517 /* AnalyticsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsServiceTests.swift; sourceTree = "<group>"; };
+		2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageTests.swift; sourceTree = "<group>"; };
 		1AD58AF72F03120D00ED0517 /* BaseUITest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseUITest.swift; sourceTree = "<group>"; };
 		1AD58AF82F03120D00ED0517 /* LoginHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginHelper.swift; sourceTree = "<group>"; };
 		1AD58AF92F03120D00ED0517 /* NavigationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationHelper.swift; sourceTree = "<group>"; };
@@ -740,6 +743,7 @@
 			isa = PBXGroup;
 			children = (
 				1AD58AF52F0311CE00ED0517 /* AnalyticsServiceTests.swift */,
+				2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */,
 				ICG007004AAAA /* AppRouterTests.swift */,
 				A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */,
 				ICG018001AAAA /* PushNotificationDeepLinkTests.swift */,
@@ -912,6 +916,7 @@
 				7DE3876139C04A28745F84E6 /* BaseViewModelTests.swift in Sources */,
 				16F818EB764C0F6284746753 /* DashboardViewModelTests.swift in Sources */,
 				1AD58AF62F0311CE00ED0517 /* AnalyticsServiceTests.swift in Sources */,
+				1AB0686C93E844A7881DB7E9 /* KeychainStorageTests.swift in Sources */,
 				33B55DFD3E71E8BD7E62234F /* HistoryViewModelTests.swift in Sources */,
 				0F9C3C76B098A08148738016 /* IQTrendChartTests.swift in Sources */,
 				680A4E1F9AA1F5EC940A26C1 /* LoginViewModelTests.swift in Sources */,
