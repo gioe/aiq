@@ -1,0 +1,969 @@
+import Combine
+import XCTest
+
+@testable import AIQ
+
+final class AuthServiceTests: XCTestCase {
+    var sut: AuthService!
+    var mockAPIClient: MockAPIClient!
+    var mockSecureStorage: MockSecureStorage!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        mockAPIClient = MockAPIClient()
+        mockSecureStorage = MockSecureStorage()
+        sut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+    }
+
+    override func tearDown() {
+        sut = nil
+        mockAPIClient = nil
+        mockSecureStorage = nil
+        super.tearDown()
+    }
+
+    // MARK: - Initialization Tests
+
+    func testInit_LoadsExistingTokenFromStorage() async throws {
+        // Given
+        let existingToken = "existing_access_token"
+        try mockSecureStorage.save(existingToken, forKey: SecureStorageKey.accessToken.rawValue)
+
+        // When
+        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+
+        // Then
+        let token = await newSut.getAccessToken()
+        XCTAssertEqual(token, existingToken, "Should load existing token from storage on init")
+    }
+
+    func testInit_HandlesNoExistingToken() async throws {
+        // Given - no token in storage
+
+        // When
+        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+
+        // Then
+        let token = await newSut.getAccessToken()
+        XCTAssertNil(token, "Should return nil when no token exists in storage")
+    }
+
+    func testIsAuthenticated_ReturnsTrueWhenTokenExists() async throws {
+        // Given
+        let accessToken = "valid_access_token"
+        try mockSecureStorage.save(accessToken, forKey: SecureStorageKey.accessToken.rawValue)
+
+        // When
+        let isAuthenticated = await sut.isAuthenticated
+
+        // Then
+        XCTAssertTrue(isAuthenticated, "Should return true when access token exists")
+    }
+
+    func testIsAuthenticated_ReturnsFalseWhenNoToken() async throws {
+        // Given - no token in storage
+
+        // When
+        let isAuthenticated = await sut.isAuthenticated
+
+        // Then
+        XCTAssertFalse(isAuthenticated, "Should return false when no access token exists")
+    }
+
+    // MARK: - Login Tests
+
+    func testLogin_Success() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token_123",
+            refreshToken: "refresh_token_456",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // When
+        let response = try await sut.login(email: email, password: password)
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+
+        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertEqual(lastEndpoint, .login, "Should call login endpoint")
+        XCTAssertEqual(lastMethod, .post, "Should use POST method")
+        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for login")
+        XCTAssertEqual(response.accessToken, "access_token_123")
+        XCTAssertEqual(response.refreshToken, "refresh_token_456")
+        XCTAssertEqual(response.user.id, 1)
+
+        // Verify tokens were saved to secure storage
+        let savedAccessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let savedRefreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+        let savedUserId = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.userId.rawValue
+        )
+
+        XCTAssertEqual(savedAccessToken, "access_token_123")
+        XCTAssertEqual(savedRefreshToken, "refresh_token_456")
+        XCTAssertEqual(savedUserId, "1")
+
+        // Verify current user is set
+        let currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser)
+        XCTAssertEqual(currentUser?.id, 1)
+        XCTAssertEqual(currentUser?.email, email)
+    }
+
+    func testLogin_NetworkError() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let networkError = APIError.networkError(
+            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
+        )
+
+        await mockAPIClient.setMockError(networkError)
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw network error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case APIError.networkError = error {
+                // Expected error type
+            } else {
+                XCTFail("Should throw network error")
+            }
+        }
+    }
+
+    func testLogin_UnauthorizedError() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "wrongpassword"
+        let unauthorizedError = APIError.unauthorized(message: "Invalid credentials")
+
+        await mockAPIClient.setMockError(unauthorizedError)
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw unauthorized error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case let APIError.unauthorized(message) = error {
+                XCTAssertEqual(message, "Invalid credentials")
+            } else {
+                XCTFail("Should throw unauthorized error")
+            }
+        }
+    }
+
+    func testLogin_StorageError_StillThrows() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token_123",
+            refreshToken: "refresh_token_456",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        mockSecureStorage.setShouldThrowOnSave(true)
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw storage error")
+        } catch {
+            // Expected - storage save failed
+            XCTAssertTrue(error is MockSecureStorageError)
+        }
+    }
+
+    // MARK: - Registration Tests
+
+    func testRegister_Success_WithAllFields() async throws {
+        // Given
+        let email = "newuser@example.com"
+        let password = "password123"
+        let firstName = "New"
+        let lastName = "User"
+        let birthYear = 1990
+        let educationLevel = EducationLevel.bachelors
+        let country = "US"
+        let region = "CA"
+
+        let mockUser = User(
+            id: 2,
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: birthYear,
+            educationLevel: educationLevel,
+            country: country,
+            region: region
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+
+        // When
+        let response = try await sut.register(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            birthYear: birthYear,
+            educationLevel: educationLevel,
+            country: country,
+            region: region
+        )
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+
+        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertEqual(lastEndpoint, .register, "Should call register endpoint")
+        XCTAssertEqual(lastMethod, .post, "Should use POST method")
+        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for registration")
+        XCTAssertEqual(response.accessToken, "new_access_token")
+        XCTAssertEqual(response.user.id, 2)
+
+        // Verify tokens were saved
+        let savedAccessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        XCTAssertEqual(savedAccessToken, "new_access_token")
+
+        // Verify current user is set
+        let currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser)
+        XCTAssertEqual(currentUser?.id, 2)
+        XCTAssertEqual(currentUser?.birthYear, birthYear)
+        XCTAssertEqual(currentUser?.educationLevel, educationLevel)
+    }
+
+    func testRegister_Success_WithMinimalFields() async throws {
+        // Given
+        let email = "minimal@example.com"
+        let password = "password123"
+        let firstName = "Min"
+        let lastName = "User"
+
+        let mockUser = User(
+            id: 3,
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "minimal_access_token",
+            refreshToken: "minimal_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+
+        // When
+        let response = try await sut.register(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName
+        )
+
+        // Then
+        XCTAssertEqual(response.accessToken, "minimal_access_token")
+        XCTAssertEqual(response.user.id, 3)
+        XCTAssertNil(response.user.birthYear)
+        XCTAssertNil(response.user.educationLevel)
+    }
+
+    func testRegister_DuplicateEmail_Error() async throws {
+        // Given
+        let email = "existing@example.com"
+        let password = "password123"
+        let firstName = "Test"
+        let lastName = "User"
+        let conflictError = APIError.unprocessableEntity(message: "Email already exists")
+
+        await mockAPIClient.setMockError(conflictError)
+
+        // When/Then
+        do {
+            _ = try await sut.register(
+                email: email,
+                password: password,
+                firstName: firstName,
+                lastName: lastName
+            )
+            XCTFail("Should throw unprocessable entity error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case let APIError.unprocessableEntity(message) = error {
+                XCTAssertEqual(message, "Email already exists")
+            } else {
+                XCTFail("Should throw unprocessable entity error")
+            }
+        }
+    }
+
+    func testRegister_ValidationError() async throws {
+        // Given
+        let email = "invalid-email"
+        let password = "weak"
+        let firstName = "Test"
+        let lastName = "User"
+        let validationError = APIError.badRequest(message: "Invalid email format")
+
+        await mockAPIClient.setMockError(validationError)
+
+        // When/Then
+        do {
+            _ = try await sut.register(
+                email: email,
+                password: password,
+                firstName: firstName,
+                lastName: lastName
+            )
+            XCTFail("Should throw bad request error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case let APIError.badRequest(message) = error {
+                XCTAssertEqual(message, "Invalid email format")
+            } else {
+                XCTFail("Should throw bad request error")
+            }
+        }
+    }
+
+    // MARK: - Logout Tests
+
+    func testLogout_Success() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+        try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
+
+        // Mock successful logout response
+        await mockAPIClient.setResponse("success", for: .logout)
+
+        // When
+        try await sut.logout()
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+
+        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertEqual(lastEndpoint, .logout, "Should call logout endpoint")
+        XCTAssertEqual(lastMethod, .post, "Should use POST method")
+        XCTAssertTrue(lastRequiresAuth ?? false, "Should require auth for logout")
+
+        // Verify all tokens were cleared
+        let accessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let refreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+        let userId = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.userId.rawValue
+        )
+
+        XCTAssertNil(accessToken, "Access token should be cleared")
+        XCTAssertNil(refreshToken, "Refresh token should be cleared")
+        XCTAssertNil(userId, "User ID should be cleared")
+
+        // Verify current user is cleared
+        let currentUser = await sut.currentUser
+        XCTAssertNil(currentUser, "Current user should be cleared")
+
+        // Verify isAuthenticated returns false
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after logout")
+    }
+
+    func testLogout_APIError_StillClearsLocalData() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        // Mock API error (e.g., network error)
+        let networkError = APIError.networkError(
+            NSError(domain: "Test", code: -1, userInfo: nil)
+        )
+        await mockAPIClient.setMockError(networkError)
+
+        // When - Logout should succeed even if API call fails (best effort)
+        try await sut.logout()
+
+        // Then - Local data should still be cleared
+        let accessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let refreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+
+        XCTAssertNil(accessToken, "Access token should be cleared even on API error")
+        XCTAssertNil(refreshToken, "Refresh token should be cleared even on API error")
+
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after logout")
+    }
+
+    func testLogout_WhenNotAuthenticated() async throws {
+        // Given - No tokens in storage
+
+        // Mock logout response
+        await mockAPIClient.setResponse("success", for: .logout)
+
+        // When
+        try await sut.logout()
+
+        // Then - Should still call API and clear data (no-op)
+        let deleteAllCalled = mockSecureStorage.deleteAllCalled
+        XCTAssertTrue(deleteAllCalled, "Should call deleteAll even when not authenticated")
+    }
+
+    // MARK: - Token Refresh Tests
+
+    func testRefreshToken_Success() async throws {
+        // Given
+        let oldRefreshToken = "old_refresh_token"
+        try mockSecureStorage.save("old_access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save(oldRefreshToken, forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+
+        // When
+        let response = try await sut.refreshToken()
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let lastCustomHeaders = await mockAPIClient.lastCustomHeaders
+
+        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertEqual(lastEndpoint, .refreshToken, "Should call refreshToken endpoint")
+        XCTAssertEqual(lastMethod, .post, "Should use POST method")
+        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth (uses custom header)")
+        XCTAssertNotNil(lastCustomHeaders, "Should include custom headers")
+        XCTAssertEqual(
+            lastCustomHeaders?["Authorization"],
+            "Bearer \(oldRefreshToken)",
+            "Should send refresh token in Authorization header"
+        )
+
+        XCTAssertEqual(response.accessToken, "new_access_token")
+        XCTAssertEqual(response.refreshToken, "new_refresh_token")
+
+        // Verify new tokens were saved
+        let savedAccessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let savedRefreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+
+        XCTAssertEqual(savedAccessToken, "new_access_token")
+        XCTAssertEqual(savedRefreshToken, "new_refresh_token")
+    }
+
+    func testRefreshToken_NoRefreshToken_ThrowsError() async throws {
+        // Given - No refresh token in storage
+
+        // When/Then
+        do {
+            _ = try await sut.refreshToken()
+            XCTFail("Should throw noRefreshToken error")
+        } catch {
+            XCTAssertTrue(error is AuthError)
+            if case AuthError.noRefreshToken = error {
+                // Expected error type
+            } else {
+                XCTFail("Should throw noRefreshToken error")
+            }
+        }
+
+        // API should not be called
+        let requestCalled = await mockAPIClient.requestCalled
+        XCTAssertFalse(requestCalled, "API should not be called when no refresh token")
+    }
+
+    func testRefreshToken_ExpiredRefreshToken_Error() async throws {
+        // Given
+        try mockSecureStorage.save("expired_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let unauthorizedError = APIError.unauthorized(message: "Refresh token expired")
+        await mockAPIClient.setMockError(unauthorizedError)
+
+        // When/Then
+        do {
+            _ = try await sut.refreshToken()
+            XCTFail("Should throw unauthorized error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case let APIError.unauthorized(message) = error {
+                XCTAssertEqual(message, "Refresh token expired")
+            } else {
+                XCTFail("Should throw unauthorized error")
+            }
+        }
+    }
+
+    func testRefreshToken_NetworkError() async throws {
+        // Given
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let networkError = APIError.networkError(
+            NSError(domain: "Test", code: -1, userInfo: nil)
+        )
+        await mockAPIClient.setMockError(networkError)
+
+        // When/Then
+        do {
+            _ = try await sut.refreshToken()
+            XCTFail("Should throw network error")
+        } catch {
+            XCTAssertTrue(error is APIError)
+            if case APIError.networkError = error {
+                // Expected error type
+            } else {
+                XCTFail("Should throw network error")
+            }
+        }
+    }
+
+    // MARK: - Delete Account Tests
+
+    func testDeleteAccount_Success() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+        try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
+
+        // Mock successful delete response (can be nil/empty response)
+        await mockAPIClient.setResponse(String?.none, for: .deleteAccount)
+
+        // When
+        try await sut.deleteAccount()
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let lastMethod = await mockAPIClient.lastMethod
+        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+
+        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertEqual(lastEndpoint, .deleteAccount, "Should call deleteAccount endpoint")
+        XCTAssertEqual(lastMethod, .delete, "Should use DELETE method")
+        XCTAssertTrue(lastRequiresAuth ?? false, "Should require auth for delete account")
+
+        // Verify all tokens were cleared
+        let accessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let refreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+
+        XCTAssertNil(accessToken, "Access token should be cleared")
+        XCTAssertNil(refreshToken, "Refresh token should be cleared")
+
+        // Verify current user is cleared
+        let currentUser = await sut.currentUser
+        XCTAssertNil(currentUser, "Current user should be cleared")
+
+        // Verify isAuthenticated returns false
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after account deletion")
+    }
+
+    func testDeleteAccount_APIError_StillClearsLocalData() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        // Mock API error
+        let serverError = APIError.serverError(statusCode: 500, message: "Server error")
+        await mockAPIClient.setMockError(serverError)
+
+        // When - Delete account should succeed even if API call fails
+        try await sut.deleteAccount()
+
+        // Then - Local data should still be cleared (account is deleted on server or will be)
+        let accessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        let refreshToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.refreshToken.rawValue
+        )
+
+        XCTAssertNil(accessToken, "Access token should be cleared even on API error")
+        XCTAssertNil(refreshToken, "Refresh token should be cleared even on API error")
+
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after delete account")
+    }
+
+    // MARK: - Get Access Token Tests
+
+    func testGetAccessToken_ReturnsToken() async throws {
+        // Given
+        let expectedToken = "test_access_token"
+        try mockSecureStorage.save(expectedToken, forKey: SecureStorageKey.accessToken.rawValue)
+
+        // When
+        let token = await sut.getAccessToken()
+
+        // Then
+        XCTAssertEqual(token, expectedToken, "Should return stored access token")
+    }
+
+    func testGetAccessToken_ReturnsNilWhenNoToken() async throws {
+        // Given - No token in storage
+
+        // When
+        let token = await sut.getAccessToken()
+
+        // Then
+        XCTAssertNil(token, "Should return nil when no token in storage")
+    }
+
+    func testGetAccessToken_HandlesStorageError() async throws {
+        // Given
+        mockSecureStorage.setShouldThrowOnRetrieve(true)
+
+        // When
+        let token = await sut.getAccessToken()
+
+        // Then
+        XCTAssertNil(token, "Should return nil when storage throws error")
+    }
+
+    // MARK: - Current User Tests
+
+    func testCurrentUser_SetAfterLogin() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: 1990,
+            educationLevel: .masters,
+            country: "US",
+            region: "CA"
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token",
+            refreshToken: "refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // When
+        _ = try await sut.login(email: email, password: password)
+
+        // Then
+        let currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser)
+        XCTAssertEqual(currentUser?.id, 1)
+        XCTAssertEqual(currentUser?.email, email)
+        XCTAssertEqual(currentUser?.firstName, "Test")
+        XCTAssertEqual(currentUser?.lastName, "User")
+        XCTAssertEqual(currentUser?.birthYear, 1990)
+        XCTAssertEqual(currentUser?.educationLevel, .masters)
+        XCTAssertEqual(currentUser?.country, "US")
+        XCTAssertEqual(currentUser?.region, "CA")
+    }
+
+    func testCurrentUser_ClearedAfterLogout() async throws {
+        // Given - Setup authenticated state with user
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token",
+            refreshToken: "refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        _ = try await sut.login(email: "test@example.com", password: "password")
+
+        // Verify user is set
+        var currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser)
+
+        // When
+        await mockAPIClient.setResponse("success", for: .logout)
+        try await sut.logout()
+
+        // Then
+        currentUser = await sut.currentUser
+        XCTAssertNil(currentUser, "Current user should be cleared after logout")
+    }
+
+    // MARK: - Edge Cases
+
+    func testMultipleSuccessiveLogins_OverwritesTokens() async throws {
+        // Given
+        let firstUser = User(
+            id: 1,
+            email: "first@example.com",
+            firstName: "First",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let firstResponse = AuthResponse(
+            accessToken: "first_access_token",
+            refreshToken: "first_refresh_token",
+            tokenType: "Bearer",
+            user: firstUser
+        )
+
+        let secondUser = User(
+            id: 2,
+            email: "second@example.com",
+            firstName: "Second",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let secondResponse = AuthResponse(
+            accessToken: "second_access_token",
+            refreshToken: "second_refresh_token",
+            tokenType: "Bearer",
+            user: secondUser
+        )
+
+        await mockAPIClient.setResponse(firstResponse, for: .login)
+
+        // When - First login
+        _ = try await sut.login(email: "first@example.com", password: "password1")
+
+        var currentUser = await sut.currentUser
+        XCTAssertEqual(currentUser?.id, 1)
+
+        // When - Second login (different user)
+        await mockAPIClient.reset()
+        await mockAPIClient.setResponse(secondResponse, for: .login)
+        _ = try await sut.login(email: "second@example.com", password: "password2")
+
+        // Then - Should overwrite with second user
+        currentUser = await sut.currentUser
+        XCTAssertEqual(currentUser?.id, 2)
+        XCTAssertEqual(currentUser?.email, "second@example.com")
+
+        let accessToken = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.accessToken.rawValue
+        )
+        XCTAssertEqual(accessToken, "second_access_token")
+    }
+
+    func testConcurrentTokenRefresh_ThreadSafety() async throws {
+        // Given
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+
+        // When - Perform multiple concurrent refresh operations
+        async let refresh1 = sut.refreshToken()
+        async let refresh2 = sut.refreshToken()
+        async let refresh3 = sut.refreshToken()
+
+        // Then - All should succeed without race conditions
+        let results = try await [refresh1, refresh2, refresh3]
+
+        XCTAssertEqual(results.count, 3)
+        for result in results {
+            XCTAssertEqual(result.accessToken, "new_access_token")
+        }
+    }
+
+    func testLogin_WithEmptyStrings_CallsAPIWithEmptyStrings() async throws {
+        // Given - API will likely return an error, but we should still call it
+        let mockAuthResponse = AuthResponse(
+            accessToken: "token",
+            refreshToken: "refresh",
+            tokenType: "Bearer",
+            user: User(
+                id: 1,
+                email: "",
+                firstName: "Test",
+                lastName: "User",
+                createdAt: Date(),
+                lastLoginAt: Date(),
+                notificationEnabled: true,
+                birthYear: nil,
+                educationLevel: nil,
+                country: nil,
+                region: nil
+            )
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // When
+        _ = try await sut.login(email: "", password: "")
+
+        // Then
+        let requestCalled = await mockAPIClient.requestCalled
+        XCTAssertTrue(requestCalled, "Should call API even with empty strings")
+    }
+}
+
+// MARK: - Helper Extensions
+
+extension MockSecureStorage {
+    func setShouldThrowOnSave(_ value: Bool) {
+        shouldThrowOnSave = value
+    }
+
+    func setShouldThrowOnRetrieve(_ value: Bool) {
+        shouldThrowOnRetrieve = value
+    }
+
+    func setShouldThrowOnDelete(_ value: Bool) {
+        shouldThrowOnDelete = value
+    }
+
+    func setShouldThrowOnDeleteAll(_ value: Bool) {
+        shouldThrowOnDeleteAll = value
+    }
+}
