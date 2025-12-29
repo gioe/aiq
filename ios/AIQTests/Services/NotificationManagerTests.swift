@@ -45,14 +45,11 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Initialization Tests
 
-    func testInitialization_DefaultState() async {
-        // Given/When - Create NotificationManager
-        // Note: We can't easily test initialization because it uses singleton AuthManager
-        // and starts async tasks. This is a known limitation of the current architecture.
-
-        // Then - Verify default state (if we had injectable dependencies)
-        // For now, we'll skip this test and focus on testable methods
-    }
+    // Note: testInitialization_DefaultState was intentionally removed.
+    // Testing NotificationManager initialization is not feasible with the current
+    // singleton architecture because it uses AuthManager.shared and starts async
+    // tasks immediately. A refactoring ticket has been created to add dependency
+    // injection support, which will enable proper initialization testing.
 
     // MARK: - Device Token Registration Tests
 
@@ -134,9 +131,11 @@ final class NotificationManagerTests: XCTestCase {
         // When
         await NotificationManager.shared.unregisterDeviceToken()
 
-        // Then - Should complete without calling service
-        let serviceCallCount = await mockNotificationService.unregisterCallCount
-        XCTAssertEqual(serviceCallCount, 0, "Should not call service when not registered")
+        // Then - Should complete without errors (early return path)
+        // Note: We cannot verify mock calls here because NotificationManager.shared
+        // uses the real NotificationService. This test only verifies the early return
+        // behavior doesn't crash or change state.
+        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
     }
 
     func testUnregisterDeviceToken_StateManagement() async {
@@ -177,8 +176,10 @@ final class NotificationManagerTests: XCTestCase {
         await NotificationManager.shared.retryDeviceTokenRegistration()
 
         // Then - Should complete without errors (no-op)
-        let serviceCallCount = await mockNotificationService.registerCallCount
-        XCTAssertEqual(serviceCallCount, 0, "Should not call service when no token available")
+        // Note: We cannot verify mock calls here because NotificationManager.shared
+        // uses the real NotificationService. This test only verifies the early return
+        // behavior completes without errors when no token is available.
+        XCTAssertNil(UserDefaults.standard.string(forKey: deviceTokenKey))
     }
 
     func testRetryDeviceTokenRegistration_WithCachedToken() async {
