@@ -122,9 +122,29 @@ actor MockAPIClient: APIClientProtocol {
         return response
     }
 
-    nonisolated func setAuthToken(_: String?) {
-        // No-op for mock
-        // nonisolated because this doesn't access actor state
+    // Track setAuthToken calls using nonisolated(unsafe) for synchronous access from protocol
+    // This is safe because our tests are structured to complete auth operations before checking
+    private nonisolated(unsafe) var _setAuthTokenCalled = false
+    private nonisolated(unsafe) var _lastAuthToken: String??
+    private nonisolated(unsafe) var _setAuthTokenCallCount = 0
+
+    var setAuthTokenCalled: Bool {
+        _setAuthTokenCalled
+    }
+
+    var lastAuthToken: String?? {
+        _lastAuthToken
+    }
+
+    var setAuthTokenCallCount: Int {
+        _setAuthTokenCallCount
+    }
+
+    /// nonisolated to satisfy protocol requirement.
+    nonisolated func setAuthToken(_ token: String?) {
+        _setAuthTokenCalled = true
+        _lastAuthToken = token
+        _setAuthTokenCallCount += 1
     }
 
     // MARK: - Helper Methods
@@ -207,6 +227,14 @@ actor MockAPIClient: APIClientProtocol {
         endpointErrors.removeAll()
         allEndpoints.removeAll()
         allMethods.removeAll()
+        resetAuthTokenTracking()
+    }
+
+    /// Reset setAuthToken tracking (nonisolated to match property access)
+    nonisolated func resetAuthTokenTracking() {
+        _setAuthTokenCalled = false
+        _lastAuthToken = nil
+        _setAuthTokenCallCount = 0
     }
 
     /// Helper function to return nil for optional types
