@@ -21,12 +21,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Initialize Firebase
         FirebaseApp.configure()
 
-        // Initialize TrustKit for SSL certificate pinning
-        // Configuration is loaded from TrustKit.plist in the app bundle
-        if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
-           let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
-            // Verify at least 2 pins are configured before initializing (primary + backup required)
-            #if !DEBUG
+        #if DEBUG
+            // Skip TrustKit initialization in DEBUG builds to allow development with proxies
+            Self.logger.info("DEBUG build: Certificate pinning disabled for development")
+            Self.logger.info("API URL: \(AppConfig.apiBaseURL)")
+        #else
+            // Initialize TrustKit for SSL certificate pinning (RELEASE builds only)
+            // Configuration is loaded from TrustKit.plist in the app bundle
+            if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
+               let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
+                // Verify at least 2 pins are configured before initializing (primary + backup required)
                 guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
                     fatalError("TrustKit config missing TSKPinnedDomains")
                 }
@@ -39,23 +43,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 guard hashes.count >= 2 else {
                     fatalError("Certificate pinning requires at least 2 pins (primary + backup), found \(hashes.count)")
                 }
-            #endif
 
-            TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
-            Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
-
-            #if DEBUG
-                // In DEBUG mode, TrustKit won't validate localhost connections (HTTP, no SSL)
-                // Periodically test against production backend to verify pinning works
-                Self.logger.warning("TrustKit won't validate localhost - test against production")
-            #endif
-        } else {
-            Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
-            #if !DEBUG
+                TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
+                Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
+            } else {
+                Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
                 // Certificate pinning is critical for security - fail hard in production
                 fatalError("Certificate pinning config failed to load. App cannot continue.")
-            #endif
-        }
+            }
+        #endif
 
         // Set notification delegate
         UNUserNotificationCenter.current().delegate = self

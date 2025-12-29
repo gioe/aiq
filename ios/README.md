@@ -34,6 +34,37 @@ The app follows MVVM architecture with:
 - **Views**: SwiftUI views organized by feature
 - **Services**: API client, authentication, storage, analytics
 
+## Security
+
+### Certificate Pinning
+
+The app uses TrustKit for SSL certificate pinning to prevent man-in-the-middle (MITM) attacks.
+
+**Build Configuration Behavior:**
+
+| Build Type | Certificate Pinning | API URL | Use Case |
+|------------|-------------------|---------|----------|
+| DEBUG | Disabled | `http://localhost:8000` | Local development, MITM debugging |
+| RELEASE | Enabled & Enforced | `https://aiq-backend-production.up.railway.app` | Production, security testing |
+
+**Key Security Features:**
+- TrustKit only initialized in RELEASE builds
+- Fail-secure validation (app crashes on invalid config in RELEASE)
+- Minimum 2 certificate pins required (primary + backup)
+- All API calls blocked if certificates don't match configured pins
+
+**Documentation:**
+- Configuration: `ios/AIQ/TrustKit.plist`
+- Testing Guide: [docs/CERTIFICATE_PINNING_TESTING.md](docs/CERTIFICATE_PINNING_TESTING.md)
+- Implementation: [docs/CODING_STANDARDS.md - Security Section](docs/CODING_STANDARDS.md#security)
+
+**Testing Certificate Pinning Locally:**
+1. Edit Scheme → Run → Build Configuration → Release
+2. Build and run (⌘+R)
+3. Verify console shows: "TrustKit initialized with certificate pinning"
+4. Test API calls against production backend
+5. Return to DEBUG configuration for normal development
+
 ## Development Commands
 
 ```bash
