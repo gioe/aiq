@@ -1183,6 +1183,8 @@ extension XCTestCase {
         case let (.serverError(actualCode, actualMsg), .serverError(expectedCode, expectedMsg)):
             XCTAssertEqual(actualCode, expectedCode, "Server error code mismatch", file: file, line: line)
             XCTAssertEqual(actualMsg, expectedMsg, "Server error message mismatch", file: file, line: line)
+        case let (.notFound(actualMsg), .notFound(expectedMsg)):
+            XCTAssertEqual(actualMsg, expectedMsg, "Not found message mismatch", file: file, line: line)
         default:
             XCTFail(
                 "APIError case mismatch: expected \(expectedCase), got \(apiError)",
