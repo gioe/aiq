@@ -129,6 +129,20 @@ These tests run automatically as part of the test suite and verify configuration
 | `testReleaseBuildEnforcesCertificatePinning` | RELEASE behavior | RELEASE builds use production with HTTPS and pinning enforcement |
 | `testBuildConfigurationSwitching` | Configuration switching | App correctly switches between DEBUG and RELEASE configurations |
 
+#### Limitations
+
+The build configuration tests use Swift's conditional compilation (`#if DEBUG` / `#if !DEBUG`) to verify different behaviors in DEBUG and RELEASE builds. This approach has important limitations:
+
+- **Tests skip when not in appropriate build configuration**: DEBUG-only tests skip in RELEASE builds, and vice versa
+- **CI/CD runs DEBUG mode by default**: Automated test runs typically use DEBUG configuration, so RELEASE-specific tests are skipped
+- **Manual testing required for full verification**: To verify RELEASE build behavior, you must manually:
+  1. Change build configuration to RELEASE in Xcode (Edit Scheme → Run → Build Configuration → Release)
+  2. Run the test suite manually
+  3. Verify RELEASE-specific tests execute and pass
+- **No cross-configuration testing**: DEBUG tests cannot verify RELEASE behavior, and RELEASE tests cannot verify DEBUG behavior
+
+**Best Practice**: Before releasing updates that affect certificate pinning, manually run tests in both DEBUG and RELEASE configurations to ensure complete coverage.
+
 ## Manual Tests
 
 Some scenarios cannot be automated and require manual testing. Each scenario has a corresponding documentation test that describes the steps.

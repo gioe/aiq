@@ -355,6 +355,12 @@ final class CertificatePinningTests: XCTestCase {
     /// - TrustKit should NOT be initialized
     /// - API base URL should be localhost without HTTPS
     /// - This allows developers to use MITM proxies for debugging
+    ///
+    /// **Testing Limitations:**
+    /// - This test uses `#if DEBUG` conditional compilation
+    /// - Only runs when compiled in DEBUG mode
+    /// - CI/CD typically runs in DEBUG, so this test executes in automated builds
+    /// - RELEASE builds skip this test (see `testReleaseBuildEnforcesCertificatePinning`)
     func testDebugBuildSkipsCertificatePinning() throws {
         #if DEBUG
             // Verify API base URL is localhost without HTTPS
@@ -393,6 +399,12 @@ final class CertificatePinningTests: XCTestCase {
     /// - TrustKit MUST be initialized
     /// - API base URL must use HTTPS with production domain
     /// - Certificate pinning is enforced to prevent MITM attacks
+    ///
+    /// **Testing Limitations:**
+    /// - This test uses `#if !DEBUG` conditional compilation
+    /// - CI/CD typically runs in DEBUG mode, so this test is skipped in automated builds
+    /// - Manual testing in RELEASE configuration is required for full verification
+    /// - See `CERTIFICATE_PINNING_TESTING.md` for manual testing procedures
     func testReleaseBuildEnforcesCertificatePinning() throws {
         #if !DEBUG
             // Verify production URL is used with HTTPS
@@ -406,10 +418,14 @@ final class CertificatePinningTests: XCTestCase {
             )
 
             // Verify TrustKit configuration exists and is valid
-            let configPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist")
-            XCTAssertNotNil(configPath, "RELEASE builds require TrustKit.plist")
+            // Note: In tests, we need to access the app bundle, not the test bundle
+            let appBundle = Bundle(identifier: "com.aiq.AIQ") ?? Bundle.main
+            let configPath = appBundle.path(forResource: "TrustKit", ofType: "plist")
+            XCTAssertNotNil(configPath, "RELEASE builds require TrustKit.plist in app bundle")
 
-            guard let config = NSDictionary(contentsOfFile: configPath!) as? [String: Any] else {
+            guard let path = configPath,
+                  let config = NSDictionary(contentsOfFile: path) as? [String: Any]
+            else {
                 XCTFail("TrustKit.plist must be readable in RELEASE builds")
                 return
             }
@@ -436,6 +452,12 @@ final class CertificatePinningTests: XCTestCase {
     ///
     /// This test verifies that the app correctly switches between DEBUG and RELEASE
     /// configurations based on the build type. It should pass in both configurations.
+    ///
+    /// **Testing Limitations:**
+    /// - This test uses conditional compilation to verify different behaviors
+    /// - Always passes in the current build configuration
+    /// - Does not verify the opposite configuration (DEBUG can't test RELEASE behavior)
+    /// - Full verification requires running tests in both DEBUG and RELEASE modes
     func testBuildConfigurationSwitching() {
         #if DEBUG
             // In DEBUG: localhost without SSL
