@@ -72,6 +72,16 @@ class TestTakingHelper {
         app.otherElements["testTakingView.progressBar"]
     }
 
+    /// Progress label showing "Question X of Y"
+    var progressLabel: XCUIElement {
+        app.staticTexts["testTakingView.progressLabel"]
+    }
+
+    /// All answer option buttons (for multiple choice questions)
+    var answerOptions: XCUIElementQuery {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "testTakingView.answerButton."))
+    }
+
     /// Answer text field (for open-ended questions)
     var answerTextField: XCUIElement {
         app.textFields["testTakingView.answerTextField"]
@@ -347,6 +357,20 @@ class TestTakingHelper {
     /// Check if currently on results screen
     var isOnResultsScreen: Bool {
         resultsTitle.exists || scoreLabel.exists
+    }
+
+    /// Get total question count from progress label (e.g., "Question 1 of 30" -> 30)
+    var totalQuestionCount: Int? {
+        guard progressLabel.exists else { return nil }
+        let text = progressLabel.label
+        // Parse "Question X of Y" format
+        let pattern = #"of\s+(\d+)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+        return Int(text[range])
     }
 
     // MARK: - Abandon Test
