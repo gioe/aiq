@@ -21,7 +21,7 @@ class NotificationManager: ObservableObject {
     // MARK: - Private Properties
 
     private let notificationService: NotificationServiceProtocol
-    private let authManager: AuthManager
+    private let authManager: AuthManagerProtocol
     private var cancellables = Set<AnyCancellable>()
 
     /// Cached device token (stored until user is authenticated)
@@ -36,10 +36,11 @@ class NotificationManager: ObservableObject {
     // MARK: - Initialization
 
     nonisolated init(
-        notificationService: NotificationServiceProtocol = NotificationService.shared
+        notificationService: NotificationServiceProtocol = NotificationService.shared,
+        authManager: AuthManagerProtocol = AuthManager.shared
     ) {
         self.notificationService = notificationService
-        authManager = AuthManager.shared
+        self.authManager = authManager
 
         // Initialize on main actor
         Task { @MainActor in
@@ -150,7 +151,7 @@ class NotificationManager: ObservableObject {
 
     /// Observe authentication state changes to handle device token registration
     private func observeAuthStateChanges() {
-        authManager.$isAuthenticated
+        authManager.isAuthenticatedPublisher
             .sink { [weak self] isAuthenticated in
                 Task { @MainActor [weak self] in
                     guard let self else { return }

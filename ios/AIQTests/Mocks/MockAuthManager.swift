@@ -10,6 +10,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     @Published var isLoading: Bool = false
     @Published var authError: Error?
 
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
     var isLoadingPublisher: Published<Bool>.Publisher { $isLoading }
     var authErrorPublisher: Published<Error?>.Publisher { $authError }
 

@@ -9,6 +9,7 @@ protocol AuthManagerProtocol: AnyObject {
     var isLoading: Bool { get }
     var authError: Error? { get }
 
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { get }
     var isLoadingPublisher: Published<Bool>.Publisher { get }
     var authErrorPublisher: Published<Error?>.Publisher { get }
 
