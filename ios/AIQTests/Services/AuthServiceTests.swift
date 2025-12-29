@@ -35,6 +35,12 @@ final class AuthServiceTests: XCTestCase {
         // Then
         let token = await newSut.getAccessToken()
         XCTAssertEqual(token, existingToken, "Should load existing token from storage on init")
+
+        // Verify setAuthToken was called on API client during init (Critical Issue #1)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called during init when token exists")
+        XCTAssertEqual(lastAuthToken, existingToken, "API client should receive the existing token")
     }
 
     func testInit_HandlesNoExistingToken() async throws {
@@ -46,6 +52,22 @@ final class AuthServiceTests: XCTestCase {
         // Then
         let token = await newSut.getAccessToken()
         XCTAssertNil(token, "Should return nil when no token exists in storage")
+    }
+
+    func testInit_HandlesStorageErrorGracefully() async throws {
+        // Given - Storage will throw on retrieve
+        mockSecureStorage.setShouldThrowOnRetrieve(true)
+
+        // When - Init should not crash even if storage throws
+        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+
+        // Then - Should handle gracefully without crashing
+        let token = await newSut.getAccessToken()
+        XCTAssertNil(token, "Should return nil when storage throws error")
+
+        // setAuthToken should NOT have been called (since no token was retrieved)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        XCTAssertFalse(setAuthTokenCalled, "setAuthToken should not be called when storage fails")
     }
 
     func testIsAuthenticated_ReturnsTrueWhenTokenExists() async throws {
@@ -68,6 +90,18 @@ final class AuthServiceTests: XCTestCase {
 
         // Then
         XCTAssertFalse(isAuthenticated, "Should return false when no access token exists")
+    }
+
+    func testIsAuthenticated_ReturnsFalseOnStorageError() async throws {
+        // Given - Storage has a token but will throw on retrieve
+        try mockSecureStorage.save("some_token", forKey: SecureStorageKey.accessToken.rawValue)
+        mockSecureStorage.setShouldThrowOnRetrieve(true)
+
+        // When
+        let isAuthenticated = await sut.isAuthenticated
+
+        // Then - Should return false when storage error occurs (fail-safe behavior)
+        XCTAssertFalse(isAuthenticated, "Should return false when storage throws error")
     }
 
     // MARK: - Login Tests
@@ -135,6 +169,12 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertNotNil(currentUser)
         XCTAssertEqual(currentUser?.id, 1)
         XCTAssertEqual(currentUser?.email, email)
+
+        // Verify setAuthToken was called on API client (Critical Issue #1)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after login")
+        XCTAssertEqual(lastAuthToken, "access_token_123", "API client should receive the new access token")
     }
 
     func testLogin_NetworkError() async throws {
@@ -147,17 +187,12 @@ final class AuthServiceTests: XCTestCase {
 
         await mockAPIClient.setMockError(networkError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.login(email: email, password: password)
             XCTFail("Should throw network error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case APIError.networkError = error {
-                // Expected error type
-            } else {
-                XCTFail("Should throw network error")
-            }
+            assertAPIError(error, is: networkError)
         }
     }
 
@@ -169,17 +204,12 @@ final class AuthServiceTests: XCTestCase {
 
         await mockAPIClient.setMockError(unauthorizedError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.login(email: email, password: password)
             XCTFail("Should throw unauthorized error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case let APIError.unauthorized(message) = error {
-                XCTAssertEqual(message, "Invalid credentials")
-            } else {
-                XCTFail("Should throw unauthorized error")
-            }
+            assertAPIError(error, is: unauthorizedError)
         }
     }
 
@@ -292,6 +322,12 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(currentUser?.id, 2)
         XCTAssertEqual(currentUser?.birthYear, birthYear)
         XCTAssertEqual(currentUser?.educationLevel, educationLevel)
+
+        // Verify setAuthToken was called on API client (Critical Issue #1)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after registration")
+        XCTAssertEqual(lastAuthToken, "new_access_token", "API client should receive the new access token")
     }
 
     func testRegister_Success_WithMinimalFields() async throws {
@@ -348,7 +384,7 @@ final class AuthServiceTests: XCTestCase {
 
         await mockAPIClient.setMockError(conflictError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.register(
                 email: email,
@@ -358,12 +394,7 @@ final class AuthServiceTests: XCTestCase {
             )
             XCTFail("Should throw unprocessable entity error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case let APIError.unprocessableEntity(message) = error {
-                XCTAssertEqual(message, "Email already exists")
-            } else {
-                XCTFail("Should throw unprocessable entity error")
-            }
+            assertAPIError(error, is: conflictError)
         }
     }
 
@@ -377,7 +408,7 @@ final class AuthServiceTests: XCTestCase {
 
         await mockAPIClient.setMockError(validationError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.register(
                 email: email,
@@ -387,12 +418,7 @@ final class AuthServiceTests: XCTestCase {
             )
             XCTFail("Should throw bad request error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case let APIError.badRequest(message) = error {
-                XCTAssertEqual(message, "Invalid email format")
-            } else {
-                XCTFail("Should throw bad request error")
-            }
+            assertAPIError(error, is: validationError)
         }
     }
 
@@ -443,6 +469,12 @@ final class AuthServiceTests: XCTestCase {
         // Verify isAuthenticated returns false
         let isAuthenticated = await sut.isAuthenticated
         XCTAssertFalse(isAuthenticated, "Should not be authenticated after logout")
+
+        // Verify setAuthToken was called with nil to clear API client token (Critical Issue #1)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after logout")
+        XCTAssertEqual(lastAuthToken, .some(nil), "API client token should be cleared (set to nil)")
     }
 
     func testLogout_APIError_StillClearsLocalData() async throws {
@@ -486,6 +518,57 @@ final class AuthServiceTests: XCTestCase {
         // Then - Should still call API and clear data (no-op)
         let deleteAllCalled = mockSecureStorage.deleteAllCalled
         XCTAssertTrue(deleteAllCalled, "Should call deleteAll even when not authenticated")
+    }
+
+    func testLogout_StorageDeleteError_StillClearsInMemoryState() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        // Simulate login to set current user in memory
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token",
+            refreshToken: "refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        _ = try await sut.login(email: "test@example.com", password: "password")
+
+        // Verify user is set
+        var currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser, "User should be set after login")
+
+        // Now configure storage to fail on deleteAll
+        mockSecureStorage.setShouldThrowOnDeleteAll(true)
+        await mockAPIClient.reset()
+        await mockAPIClient.setResponse("success", for: .logout)
+
+        // When - Logout should handle storage error gracefully
+        try await sut.logout()
+
+        // Then - In-memory state should still be cleared
+        currentUser = await sut.currentUser
+        XCTAssertNil(currentUser, "Current user should be cleared even if storage deleteAll fails")
+
+        // Verify setAuthToken(nil) was still called
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called even if storage fails")
+        XCTAssertEqual(lastAuthToken, .some(nil), "API client token should be cleared")
     }
 
     // MARK: - Token Refresh Tests
@@ -552,22 +635,23 @@ final class AuthServiceTests: XCTestCase {
 
         XCTAssertEqual(savedAccessToken, "new_access_token")
         XCTAssertEqual(savedRefreshToken, "new_refresh_token")
+
+        // Verify setAuthToken was called on API client (Critical Issue #1)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after token refresh")
+        XCTAssertEqual(lastAuthToken, "new_access_token", "API client should receive the new access token")
     }
 
     func testRefreshToken_NoRefreshToken_ThrowsError() async throws {
         // Given - No refresh token in storage
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.refreshToken()
             XCTFail("Should throw noRefreshToken error")
         } catch {
-            XCTAssertTrue(error is AuthError)
-            if case AuthError.noRefreshToken = error {
-                // Expected error type
-            } else {
-                XCTFail("Should throw noRefreshToken error")
-            }
+            assertAuthError(error, is: .noRefreshToken)
         }
 
         // API should not be called
@@ -582,17 +666,12 @@ final class AuthServiceTests: XCTestCase {
         let unauthorizedError = APIError.unauthorized(message: "Refresh token expired")
         await mockAPIClient.setMockError(unauthorizedError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.refreshToken()
             XCTFail("Should throw unauthorized error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case let APIError.unauthorized(message) = error {
-                XCTAssertEqual(message, "Refresh token expired")
-            } else {
-                XCTFail("Should throw unauthorized error")
-            }
+            assertAPIError(error, is: unauthorizedError)
         }
     }
 
@@ -605,17 +684,12 @@ final class AuthServiceTests: XCTestCase {
         )
         await mockAPIClient.setMockError(networkError)
 
-        // When/Then
+        // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
             _ = try await sut.refreshToken()
             XCTFail("Should throw network error")
         } catch {
-            XCTAssertTrue(error is APIError)
-            if case APIError.networkError = error {
-                // Expected error type
-            } else {
-                XCTFail("Should throw network error")
-            }
+            assertAPIError(error, is: networkError)
         }
     }
 
@@ -946,6 +1020,113 @@ final class AuthServiceTests: XCTestCase {
         let requestCalled = await mockAPIClient.requestCalled
         XCTAssertTrue(requestCalled, "Should call API even with empty strings")
     }
+
+    func testConcurrentLogin_ThreadSafety() async throws {
+        // Given - Multiple concurrent login attempts (Critical Issue #4)
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "concurrent_access_token",
+            refreshToken: "concurrent_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // When - Perform multiple concurrent login operations (simulates rapid button taps)
+        async let login1 = sut.login(email: "test@example.com", password: "password")
+        async let login2 = sut.login(email: "test@example.com", password: "password")
+        async let login3 = sut.login(email: "test@example.com", password: "password")
+
+        // Then - All should succeed without race conditions or crashes
+        let results = try await [login1, login2, login3]
+
+        XCTAssertEqual(results.count, 3, "All concurrent logins should complete")
+        for result in results {
+            XCTAssertEqual(result.accessToken, "concurrent_access_token")
+        }
+
+        // Verify final state is consistent
+        let savedToken = try mockSecureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        XCTAssertEqual(savedToken, "concurrent_access_token", "Storage should have consistent token")
+
+        let currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser, "Current user should be set")
+        XCTAssertEqual(currentUser?.id, 1)
+    }
+
+    func testConcurrentRegister_ThreadSafety() async throws {
+        // Given - Multiple concurrent registration attempts (Critical Issue #4)
+        let mockUser = User(
+            id: 1,
+            email: "newuser@example.com",
+            firstName: "New",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "concurrent_register_token",
+            refreshToken: "concurrent_register_refresh",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+
+        // When - Perform multiple concurrent register operations
+        async let register1 = sut.register(
+            email: "newuser@example.com",
+            password: "password123",
+            firstName: "New",
+            lastName: "User"
+        )
+        async let register2 = sut.register(
+            email: "newuser@example.com",
+            password: "password123",
+            firstName: "New",
+            lastName: "User"
+        )
+        async let register3 = sut.register(
+            email: "newuser@example.com",
+            password: "password123",
+            firstName: "New",
+            lastName: "User"
+        )
+
+        // Then - All should succeed without race conditions or crashes
+        let results = try await [register1, register2, register3]
+
+        XCTAssertEqual(results.count, 3, "All concurrent registrations should complete")
+        for result in results {
+            XCTAssertEqual(result.accessToken, "concurrent_register_token")
+        }
+
+        // Verify final state is consistent
+        let savedToken = try mockSecureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        XCTAssertEqual(savedToken, "concurrent_register_token", "Storage should have consistent token")
+
+        let currentUser = await sut.currentUser
+        XCTAssertNotNil(currentUser, "Current user should be set")
+        XCTAssertEqual(currentUser?.id, 1)
+    }
 }
 
 // MARK: - Helper Extensions
@@ -965,5 +1146,78 @@ extension MockSecureStorage {
 
     func setShouldThrowOnDeleteAll(_ value: Bool) {
         shouldThrowOnDeleteAll = value
+    }
+}
+
+// MARK: - Error Assertion Helpers
+
+/// Helper to assert specific APIError cases with stronger type checking
+/// Fails the test if the error is not exactly the expected APIError case
+extension XCTestCase {
+    func assertAPIError(
+        _ error: Error,
+        is expectedCase: APIError,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        guard let apiError = error as? APIError else {
+            XCTFail(
+                "Expected APIError but got \(type(of: error)): \(error)",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        switch (apiError, expectedCase) {
+        case let (.networkError(actualError), .networkError(expectedError)):
+            // For network errors, just verify it's a network error (underlying error may differ)
+            XCTAssertNotNil(actualError, "Network error should have underlying error", file: file, line: line)
+            _ = expectedError // Silence unused warning
+        case let (.unauthorized(actualMsg), .unauthorized(expectedMsg)):
+            XCTAssertEqual(actualMsg, expectedMsg, "Unauthorized message mismatch", file: file, line: line)
+        case let (.badRequest(actualMsg), .badRequest(expectedMsg)):
+            XCTAssertEqual(actualMsg, expectedMsg, "Bad request message mismatch", file: file, line: line)
+        case let (.unprocessableEntity(actualMsg), .unprocessableEntity(expectedMsg)):
+            XCTAssertEqual(actualMsg, expectedMsg, "Unprocessable entity message mismatch", file: file, line: line)
+        case let (.serverError(actualCode, actualMsg), .serverError(expectedCode, expectedMsg)):
+            XCTAssertEqual(actualCode, expectedCode, "Server error code mismatch", file: file, line: line)
+            XCTAssertEqual(actualMsg, expectedMsg, "Server error message mismatch", file: file, line: line)
+        default:
+            XCTFail(
+                "APIError case mismatch: expected \(expectedCase), got \(apiError)",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    func assertAuthError(
+        _ error: Error,
+        is expectedCase: AuthError,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        guard let authError = error as? AuthError else {
+            XCTFail(
+                "Expected AuthError but got \(type(of: error)): \(error)",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        switch (authError, expectedCase) {
+        case (.noRefreshToken, .noRefreshToken),
+             (.invalidCredentials, .invalidCredentials),
+             (.sessionExpired, .sessionExpired):
+            break // Match
+        default:
+            XCTFail(
+                "AuthError case mismatch: expected \(expectedCase), got \(authError)",
+                file: file,
+                line: line
+            )
+        }
     }
 }
