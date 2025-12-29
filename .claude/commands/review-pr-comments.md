@@ -76,7 +76,6 @@ Comments that can be addressed later:
 - **Future considerations**: "In the future, we might want to..."
 - **Minor TODOs**: Non-critical cleanup items
 
-
 ## Step 6: Take Action
 
 ### For Category A (Immediate) Comments:
@@ -95,13 +94,12 @@ Comments that can be addressed later:
 
 ### For Category B (Deferred) Comments:
 
-
 1. Report what was deferred:
    ```
    **Claude's Comment**: "The comment text..."
    **Reason for deferral**: "We can do this later because..."
    ```
-2. Using the jira-workflow-architect subagent, create a ticket in the Jira backlog. Check to see if any similar tasks are already in the backlog before creating a new one.
+2. Using the jira-workflow-architect subagent, create a ticket in the Jira backlog. Check to see if any similar tasks are already in the backlog before creating a new one. **Include the reason for deferral in the ticket description**
 
 ## Step 7: Generate Summary Report
 
@@ -118,14 +116,21 @@ After processing all comments, provide a summary:
 - [x] Bug: Added null check in process_response()
 
 ### Deferred to Plan:
-- [ ] EIC-015: Refactor scoring module for clarity
-- [ ] EIC-016: Add performance benchmarks
+- Refactor scoring module for clarity
+- Add performance benchmarks
 
 ### No Action Needed:
 - Comment #123: Already addressed in previous commit
 - Comment #456: Duplicate of addressed issue
 
 ```
+
+## Step 8: Review Report
+
+Using the technical-product-manager subagent and any relevant technical subagents, determine why  the content of the review was not handled as part of the workflow.
+- Does our CODING_STANDARDS.md doc need to be updated?
+- Do we disagree with the review content?
+
 
 ## Important Guidelines:
 
@@ -137,12 +142,11 @@ After processing all comments, provide a summary:
 6. **Ask if unclear**: If a comment's intent is ambiguous, ask the user before acting
 7. **Skip resolved comments**: If a comment was already addressed, note it but don't duplicate work
 8. **Respect the codebase**: Follow existing patterns when making changes
+9. **Update your knowledge** in response to good comments. We don't want to keep making the same review mistakes.
 
 ## Error Handling:
 
 - If the PR URL is invalid, report the error and stop
 - If no Claude comments are found, report "No Claude comments found on this PR"
-- If the plan file doesn't exist, create the "Deferred Items" section in PLAN.md
-- If a file mentioned in a comment no longer exists, note it as "File not found - may have been moved/deleted"
 
 Begin by reading the PR number and determining the likely url.
