@@ -6,6 +6,72 @@ This document describes the testing approach for SSL certificate pinning in the 
 
 Certificate pinning using TrustKit has been implemented to prevent man-in-the-middle (MITM) attacks. This document outlines both automated and manual testing approaches to verify the implementation.
 
+## Build Configuration Behavior
+
+Certificate pinning behavior differs between DEBUG and RELEASE builds to support both development and production security needs.
+
+### DEBUG Builds
+
+- **Certificate Pinning:** DISABLED (TrustKit not initialized)
+- **API URL:** `http://localhost:8000`
+- **TrustKit Initialization:** Skipped entirely
+- **MITM Proxies:** Fully supported (Charles Proxy, Proxyman, mitmproxy)
+- **Use Case:** Local development and debugging
+- **Logging:** Shows "DEBUG build: Certificate pinning disabled for development"
+
+**Why Disabled in DEBUG:**
+- Allows developers to use MITM proxies for debugging API calls
+- Enables testing against production backend with proxy inspection
+- Reduces overhead and logging noise during development
+- localhost uses HTTP (no SSL), so pinning doesn't apply anyway
+
+### RELEASE Builds
+
+- **Certificate Pinning:** ENABLED and ENFORCED
+- **API URL:** `https://aiq-backend-production.up.railway.app`
+- **TrustKit Initialization:** Fully initialized with validation
+- **MITM Proxies:** Blocked by certificate pinning
+- **Use Case:** Production and security verification testing
+- **Logging:** Shows "TrustKit initialized with certificate pinning for Railway backend"
+
+**Fail-Secure Behavior:**
+- AppDelegate will `fatalError` if TrustKit configuration is invalid
+- AppDelegate will `fatalError` if TrustKit.plist is missing
+- AppDelegate will `fatalError` if less than 2 certificate pins are configured
+- All API calls will fail if certificates don't match configured pins
+
+### Testing Certificate Pinning Locally
+
+To test certificate pinning on your local machine:
+
+1. **Build the app in RELEASE configuration:**
+   ```bash
+   # Option 1: Using xcodebuild
+   xcodebuild -scheme AIQ -configuration Release \
+     -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+
+   # Option 2: Using Xcode UI
+   # - Open Xcode
+   # - Product → Scheme → Edit Scheme
+   # - Run → Build Configuration → Release
+   # - Build and Run (⌘+R)
+   ```
+
+2. **Run the RELEASE build:**
+   - The app will connect to production backend with pinning enabled
+   - Check console for: "TrustKit initialized with certificate pinning"
+
+3. **Verify pinning is active:**
+   - Try to intercept traffic with Charles Proxy (should fail)
+   - Make API calls (should succeed against production)
+   - Check TrustKit logs for validation messages
+
+4. **Return to DEBUG configuration:**
+   - Edit Scheme → Run → Build Configuration → Debug
+   - This restores normal development mode
+
+**IMPORTANT:** Never commit or distribute DEBUG builds to production. App Store only accepts RELEASE builds.
+
 ## Test Location
 
 All certificate pinning tests are in:
@@ -54,6 +120,14 @@ These tests run automatically as part of the test suite and verify configuration
 | `testTrustKitInitializationValidation` | AppDelegate validation logic | All validation checks in AppDelegate would pass |
 | `testAPIClientUsesSharedSession` | URLSession configuration | APIClient.shared uses URLSession.shared (required for TrustKit) |
 | `testProductionDomainConsistency` | Domain configuration | Production domain is consistent across config files |
+
+### Build Configuration Tests
+
+| Test | Purpose | What It Verifies |
+|------|---------|------------------|
+| `testDebugBuildSkipsCertificatePinning` | DEBUG behavior | DEBUG builds use localhost without SSL, skipping pinning |
+| `testReleaseBuildEnforcesCertificatePinning` | RELEASE behavior | RELEASE builds use production with HTTPS and pinning enforcement |
+| `testBuildConfigurationSwitching` | Configuration switching | App correctly switches between DEBUG and RELEASE configurations |
 
 ## Manual Tests
 
@@ -215,7 +289,8 @@ xcodebuild test \
 | Wrong Hash Rejection | 1 | ✅ PASSING |
 | DEBUG Mode Localhost | 3 | ✅ PASSING |
 | Initialization Validation | 1 | ✅ PASSING |
-| **Total** | **14** | **✅ ALL PASSING** |
+| Build Configuration | 3 | ✅ PASSING |
+| **Total** | **17** | **✅ ALL PASSING** |
 
 ### Manual Tests
 
