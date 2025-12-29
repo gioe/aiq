@@ -6,7 +6,7 @@ args:
     required: true
 ---
 
-You are about to begin work on a specific task in Jira.
+You are about to begin work on a specific task in Jira. You are to use the Jira CLI in order to interact with Jira, never the Jira MCP.
 
 **Task ID**: {{task_id}}
 
