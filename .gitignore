@@ -98,3 +98,4 @@ temp/
 *.tmp
 *.bak
 *.bak2
+*.backup

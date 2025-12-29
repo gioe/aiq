@@ -25,3 +25,13 @@ When making decisions, make sure to consult the docs relevant documentation at t
 - **Cloud ID**: `db4de7e6-1840-4ba8-8e45-13fdf7ae9753`
 - **Site URL**: https://gioematt.atlassian.net
 - Always use this cloudId for all Atlassian MCP tool calls.
+
+## Tool Preferences
+
+**Prefer CLI/MCP integrations over WebSearch.** When you have direct API access via MCP tools or CLI commands, always use those instead of searching the web. This provides faster, more accurate, and more actionable results.
+
+| Service | Use This | Not This |
+|---------|----------|----------|
+| Jira/Confluence | Atlassian MCP tools (skills) | WebSearch for "Jira ticket BTS-123" |
+| GitHub | `gh` CLI commands | WebSearch for GitHub issues/PRs |
+| Project info | Local docs in `docs/` | WebSearch for AIQ documentation |
