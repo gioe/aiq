@@ -34,7 +34,9 @@ class MockURLProtocol: URLProtocol {
             var requestToHandle = request
             if let savedBody = URLProtocol.property(forKey: Self.httpBodyKey, in: request) as? Data {
                 // Body was saved in canonicalRequest
-                var mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+                guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+                    fatalError("Failed to create mutable copy of request")
+                }
                 mutableRequest.httpBody = savedBody
                 requestToHandle = mutableRequest as URLRequest
             } else if request.httpBody == nil, let bodyStream = request.httpBodyStream {
@@ -53,7 +55,9 @@ class MockURLProtocol: URLProtocol {
                 }
                 bodyStream.close()
 
-                var mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+                guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+                    fatalError("Failed to create mutable copy of request")
+                }
                 mutableRequest.httpBody = data
                 requestToHandle = mutableRequest as URLRequest
             }
