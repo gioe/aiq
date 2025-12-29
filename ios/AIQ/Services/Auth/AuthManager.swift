@@ -11,6 +11,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var authError: Error?
 
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
     var isLoadingPublisher: Published<Bool>.Publisher { $isLoading }
     var authErrorPublisher: Published<Error?>.Publisher { $authError }
 

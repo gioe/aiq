@@ -25,10 +25,14 @@ final class NotificationManagerTests: XCTestCase {
         mockNotificationService = MockNotificationService()
         mockAuthManager = MockAuthManager()
 
-        // Note: We can't easily inject AuthManager into NotificationManager
-        // because it uses AuthManager.shared directly. For now, we'll test
-        // what we can without mocking AuthManager fully.
-        // We'll use a simpler initialization for testable scenarios.
+        // Create SUT with injected dependencies
+        sut = NotificationManager(
+            notificationService: mockNotificationService,
+            authManager: mockAuthManager
+        )
+
+        // Small delay to allow initialization to complete
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
     }
 
     override func tearDown() {
@@ -45,11 +49,11 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Initialization Tests
 
-    // Note: testInitialization_DefaultState was intentionally removed.
-    // Testing NotificationManager initialization is not feasible with the current
-    // singleton architecture because it uses AuthManager.shared and starts async
-    // tasks immediately. A refactoring ticket has been created to add dependency
-    // injection support, which will enable proper initialization testing.
+    func testInitialization_DefaultState() async {
+        // Then - Verify initial state
+        XCTAssertEqual(sut.authorizationStatus, .notDetermined)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+    }
 
     // MARK: - Device Token Registration Tests
 
@@ -59,9 +63,7 @@ final class NotificationManagerTests: XCTestCase {
         let expectedTokenString = "01020304"
 
         // When
-        // Note: We need to test this through actual NotificationManager.shared
-        // since we can't inject dependencies easily
-        NotificationManager.shared.didReceiveDeviceToken(deviceToken)
+        sut.didReceiveDeviceToken(deviceToken)
 
         // Small delay to allow caching to complete
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
@@ -77,7 +79,7 @@ final class NotificationManagerTests: XCTestCase {
         let expectedTokenString = "abcdef1234567890"
 
         // When
-        NotificationManager.shared.didReceiveDeviceToken(deviceToken)
+        sut.didReceiveDeviceToken(deviceToken)
 
         // Small delay to allow caching to complete
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -98,7 +100,7 @@ final class NotificationManagerTests: XCTestCase {
         )
 
         // When
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error)
+        sut.didFailToRegisterForRemoteNotifications(error: error)
 
         // Small delay to allow clearing to complete
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -106,60 +108,54 @@ final class NotificationManagerTests: XCTestCase {
         // Then - Verify token was cleared
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
         XCTAssertNil(cachedToken)
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
     // MARK: - Unregister Device Token Tests
 
     func testUnregisterDeviceToken_Success_WhenNotRegistered() async throws {
         // Given - NotificationManager with isDeviceTokenRegistered = false
-        // Note: Since NotificationManager uses the real NotificationService and we can't
-        // inject mocks due to the singleton pattern, we can only test the early return path
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When
-        await NotificationManager.shared.unregisterDeviceToken()
+        await sut.unregisterDeviceToken()
 
         // Then - Should complete without errors (early return)
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
     func testUnregisterDeviceToken_SkipsWhenNotRegistered() async {
         // Given - NotificationManager with no registered token
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When
-        await NotificationManager.shared.unregisterDeviceToken()
+        await sut.unregisterDeviceToken()
 
         // Then - Should complete without errors (early return path)
-        // Note: We cannot verify mock calls here because NotificationManager.shared
-        // uses the real NotificationService. This test only verifies the early return
-        // behavior doesn't crash or change state.
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
     func testUnregisterDeviceToken_StateManagement() async {
         // Given - NotificationManager starts with isDeviceTokenRegistered = false
-        // Note: We cannot easily test the error path without dependency injection
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When - Call unregister (will early return)
-        await NotificationManager.shared.unregisterDeviceToken()
+        await sut.unregisterDeviceToken()
 
         // Then - State remains false
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
     // MARK: - Authorization Tests
 
     func testCheckAuthorizationStatus_UpdatesStatus() async {
         // Given/When
-        await NotificationManager.shared.checkAuthorizationStatus()
+        await sut.checkAuthorizationStatus()
 
         // Then - Authorization status should be updated
         // Note: The actual status will depend on simulator/device settings
         // We can only verify the method completes without errors
-        let status = NotificationManager.shared.authorizationStatus
+        let status = sut.authorizationStatus
         XCTAssertTrue(
             [.notDetermined, .denied, .authorized, .provisional, .ephemeral].contains(status),
             "Status should be a valid UNAuthorizationStatus value"
@@ -173,12 +169,9 @@ final class NotificationManagerTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
 
         // When
-        await NotificationManager.shared.retryDeviceTokenRegistration()
+        await sut.retryDeviceTokenRegistration()
 
         // Then - Should complete without errors (no-op)
-        // Note: We cannot verify mock calls here because NotificationManager.shared
-        // uses the real NotificationService. This test only verifies the early return
-        // behavior completes without errors when no token is available.
         XCTAssertNil(UserDefaults.standard.string(forKey: deviceTokenKey))
     }
 
@@ -188,7 +181,7 @@ final class NotificationManagerTests: XCTestCase {
         UserDefaults.standard.set(cachedToken, forKey: deviceTokenKey)
 
         // When
-        await NotificationManager.shared.retryDeviceTokenRegistration()
+        await sut.retryDeviceTokenRegistration()
 
         // Then - Should attempt to register (though will fail without proper mocking)
         // We can verify the cached token is still present
@@ -206,13 +199,13 @@ final class NotificationManagerTests: XCTestCase {
 
         // When - Receive multiple device tokens concurrently
         async let call1: Void = Task { @MainActor in
-            NotificationManager.shared.didReceiveDeviceToken(deviceToken1)
+            sut.didReceiveDeviceToken(deviceToken1)
         }.value
         async let call2: Void = Task { @MainActor in
-            NotificationManager.shared.didReceiveDeviceToken(deviceToken2)
+            sut.didReceiveDeviceToken(deviceToken2)
         }.value
         async let call3: Void = Task { @MainActor in
-            NotificationManager.shared.didReceiveDeviceToken(deviceToken3)
+            sut.didReceiveDeviceToken(deviceToken3)
         }.value
 
         // Then - All should complete without crashing
@@ -229,18 +222,18 @@ final class NotificationManagerTests: XCTestCase {
 
     func testConcurrentUnregister_ThreadSafety() async {
         // Given - NotificationManager with no registered token
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When - Multiple concurrent unregister calls
-        async let call1: Void = NotificationManager.shared.unregisterDeviceToken()
-        async let call2: Void = NotificationManager.shared.unregisterDeviceToken()
-        async let call3: Void = NotificationManager.shared.unregisterDeviceToken()
+        async let call1: Void = sut.unregisterDeviceToken()
+        async let call2: Void = sut.unregisterDeviceToken()
+        async let call3: Void = sut.unregisterDeviceToken()
 
         // Then - All should complete without crashing
         _ = await (call1, call2, call3)
 
         // Verify final state remains consistent
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
     func testConcurrentRetryRegistration_ThreadSafety() async {
@@ -248,9 +241,9 @@ final class NotificationManagerTests: XCTestCase {
         UserDefaults.standard.set("retry_token", forKey: deviceTokenKey)
 
         // When - Multiple concurrent retry calls
-        async let call1: Void = NotificationManager.shared.retryDeviceTokenRegistration()
-        async let call2: Void = NotificationManager.shared.retryDeviceTokenRegistration()
-        async let call3: Void = NotificationManager.shared.retryDeviceTokenRegistration()
+        async let call1: Void = sut.retryDeviceTokenRegistration()
+        async let call2: Void = sut.retryDeviceTokenRegistration()
+        async let call3: Void = sut.retryDeviceTokenRegistration()
 
         // Then - All should complete without crashing
         _ = await (call1, call2, call3)
@@ -267,7 +260,7 @@ final class NotificationManagerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Authorization status updated")
         var receivedStatus: UNAuthorizationStatus?
 
-        NotificationManager.shared.$authorizationStatus
+        sut.$authorizationStatus
             .dropFirst() // Skip initial value
             .sink { status in
                 receivedStatus = status
@@ -276,7 +269,7 @@ final class NotificationManagerTests: XCTestCase {
             .store(in: &cancellables)
 
         // When
-        await NotificationManager.shared.checkAuthorizationStatus()
+        await sut.checkAuthorizationStatus()
 
         // Then
         await fulfillment(of: [expectation], timeout: 2.0)
@@ -285,14 +278,12 @@ final class NotificationManagerTests: XCTestCase {
 
     func testIsDeviceTokenRegisteredProperty_IsPublished() async {
         // Given - Initial value should be false
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When/Then - Verify property is observable
-        // Note: Since NotificationManager uses singleton pattern and we can't inject mocks,
-        // we can only verify the initial state and that the property is @Published
         var observedValues: [Bool] = []
 
-        let cancellable = NotificationManager.shared.$isDeviceTokenRegistered
+        let cancellable = sut.$isDeviceTokenRegistered
             .sink { value in
                 observedValues.append(value)
             }
@@ -314,7 +305,7 @@ final class NotificationManagerTests: XCTestCase {
         let emptyToken = Data()
 
         // When
-        NotificationManager.shared.didReceiveDeviceToken(emptyToken)
+        sut.didReceiveDeviceToken(emptyToken)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -335,7 +326,7 @@ final class NotificationManagerTests: XCTestCase {
         let expectedToken = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
 
         // When
-        NotificationManager.shared.didReceiveDeviceToken(largeToken)
+        sut.didReceiveDeviceToken(largeToken)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -355,15 +346,15 @@ final class NotificationManagerTests: XCTestCase {
         UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
 
         // When - Multiple consecutive failures
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error1)
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error2)
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error3)
+        sut.didFailToRegisterForRemoteNotifications(error: error1)
+        sut.didFailToRegisterForRemoteNotifications(error: error2)
+        sut.didFailToRegisterForRemoteNotifications(error: error3)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - State should remain consistent
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
         XCTAssertNil(cachedToken)
     }
@@ -371,17 +362,17 @@ final class NotificationManagerTests: XCTestCase {
     func testRetryAfterFailure_StateTransition() async {
         // Given - Simulate a failure
         let error = NSError(domain: "Test", code: -1, userInfo: nil)
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error)
+        sut.didFailToRegisterForRemoteNotifications(error: error)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Verify initial state
-        XCTAssertFalse(NotificationManager.shared.isDeviceTokenRegistered)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
 
         // When - Cache a new token and retry
         UserDefaults.standard.set("retry_token", forKey: deviceTokenKey)
-        await NotificationManager.shared.retryDeviceTokenRegistration()
+        await sut.retryDeviceTokenRegistration()
 
         // Then - Should attempt retry (state depends on auth and backend)
         // We can verify the method completes without crashing
@@ -397,7 +388,7 @@ final class NotificationManagerTests: XCTestCase {
         let expectedToken = "aabbccdd"
 
         // When - Receive token
-        NotificationManager.shared.didReceiveDeviceToken(deviceToken)
+        sut.didReceiveDeviceToken(deviceToken)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -418,7 +409,7 @@ final class NotificationManagerTests: XCTestCase {
 
         // When - Trigger failure which clears cache
         let error = NSError(domain: "Test", code: -1, userInfo: nil)
-        NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error)
+        sut.didFailToRegisterForRemoteNotifications(error: error)
 
         // Small delay
         try? await Task.sleep(nanoseconds: 100_000_000)
