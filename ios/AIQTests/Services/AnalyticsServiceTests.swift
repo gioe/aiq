@@ -123,9 +123,13 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertNotNil(data, "Events should be persisted to UserDefaults")
 
         // Verify we can decode the events
+        guard let persistedData = data else {
+            XCTFail("Data should not be nil")
+            return
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let events = try? decoder.decode([AnalyticsEventData].self, from: data!)
+        let events = try? decoder.decode([AnalyticsEventData].self, from: persistedData)
         XCTAssertEqual(events?.count, 2, "Should persist 2 events")
     }
 
@@ -575,9 +579,13 @@ final class AnalyticsServiceTests: XCTestCase {
         let data = mockUserDefaults.data(forKey: AnalyticsService.storageKey)
         XCTAssertNotNil(data)
 
+        guard let persistedData = data else {
+            XCTFail("Data should not be nil")
+            return
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let events = try? decoder.decode([AnalyticsEventData].self, from: data!)
+        let events = try? decoder.decode([AnalyticsEventData].self, from: persistedData)
         XCTAssertEqual(events?.count, 50, "Persisted data should be consistent")
     }
 
