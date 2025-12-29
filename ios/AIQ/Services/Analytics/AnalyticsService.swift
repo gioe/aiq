@@ -155,41 +155,73 @@ class AnalyticsService {
     private var batchTimer: Timer?
 
     /// Maximum number of events per batch
-    private let maxBatchSize = 50
+    let maxBatchSize = 50
 
     /// Maximum queue size to prevent unbounded memory growth
-    private let maxQueueSize = 500
+    let maxQueueSize = 500
 
     /// Interval for automatic batch submission (seconds)
-    private let batchInterval: TimeInterval = 30.0
+    private let batchInterval: TimeInterval
 
     /// Maximum retries for failed submissions
-    private let maxRetries = 3
+    let maxRetries = 3
 
     /// Storage key for persisted events
-    private let storageKey = "com.aiq.analyticsEventQueue"
+    static let storageKey = "com.aiq.analyticsEventQueue"
 
     /// Network monitor for connectivity status
-    private let networkMonitor = NetworkMonitor.shared
+    private let networkMonitor: NetworkMonitorProtocol
 
     /// User defaults for event persistence
     private let userDefaults: UserDefaults
 
+    /// URL session for network requests (injectable for testing)
+    private let urlSession: URLSession
+
+    /// Secure storage for auth token (injectable for testing)
+    private let secureStorage: SecureStorageProtocol
+
     /// Flag to prevent concurrent batch submissions
     private var isSubmitting = false
 
-    private init(userDefaults: UserDefaults = .standard) {
+    /// Private singleton initializer
+    private convenience init() {
+        self.init(
+            userDefaults: .standard,
+            networkMonitor: NetworkMonitor.shared,
+            urlSession: .shared,
+            secureStorage: KeychainStorage.shared,
+            batchInterval: 30.0,
+            startTimer: true
+        )
+    }
+
+    /// Internal initializer for dependency injection (used in tests)
+    init(
+        userDefaults: UserDefaults,
+        networkMonitor: NetworkMonitorProtocol,
+        urlSession: URLSession,
+        secureStorage: SecureStorageProtocol,
+        batchInterval: TimeInterval = 30.0,
+        startTimer: Bool = true
+    ) {
         // Create separate loggers for different categories
         logger = Logger(subsystem: "com.aiq.app", category: "analytics")
         performanceLogger = Logger(subsystem: "com.aiq.app", category: "performance")
         errorLogger = Logger(subsystem: "com.aiq.app", category: "errors")
         self.userDefaults = userDefaults
+        self.networkMonitor = networkMonitor
+        self.urlSession = urlSession
+        self.secureStorage = secureStorage
+        self.batchInterval = batchInterval
 
         // Load any persisted events from previous sessions
         loadPersistedEvents()
 
-        // Start batch submission timer
-        startBatchTimer()
+        // Start batch submission timer if requested
+        if startTimer {
+            startBatchTimer()
+        }
     }
 
     deinit {
@@ -547,7 +579,7 @@ class AnalyticsService {
         request.timeoutInterval = 30
 
         // Add auth token if available
-        if let token = await getAuthToken() {
+        if let token = getAuthToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -555,7 +587,7 @@ class AnalyticsService {
         encoder.dateEncodingStrategy = .iso8601
         request.httpBody = try encoder.encode(batch)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -570,9 +602,9 @@ class AnalyticsService {
     }
 
     /// Get current auth token if available
-    private func getAuthToken() async -> String? {
-        // Access keychain storage for auth token
-        try? KeychainStorage.shared.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+    private func getAuthToken() -> String? {
+        // Access secure storage for auth token
+        try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
     }
 
     /// Get a unique device identifier
@@ -590,7 +622,7 @@ class AnalyticsService {
     /// Persist event queue to disk (must be called from within queueAccessQueue.sync)
     private func persistEventsUnsafe() {
         guard !eventQueue.isEmpty else {
-            userDefaults.removeObject(forKey: storageKey)
+            userDefaults.removeObject(forKey: Self.storageKey)
             return
         }
 
@@ -599,7 +631,7 @@ class AnalyticsService {
 
         do {
             let data = try encoder.encode(eventQueue)
-            userDefaults.set(data, forKey: storageKey)
+            userDefaults.set(data, forKey: Self.storageKey)
         } catch {
             let count = eventQueue.count
             errorLogger.error("Analytics: Failed to persist \(count) events: \(error.localizedDescription)")
@@ -608,7 +640,7 @@ class AnalyticsService {
 
     /// Load persisted events from disk
     private func loadPersistedEvents() {
-        guard let data = userDefaults.data(forKey: storageKey) else {
+        guard let data = userDefaults.data(forKey: Self.storageKey) else {
             return
         }
 
@@ -624,7 +656,7 @@ class AnalyticsService {
         } catch {
             let errMsg = error.localizedDescription
             errorLogger.error("Analytics: Failed to load persisted events: \(errMsg). Clearing data.")
-            userDefaults.removeObject(forKey: storageKey)
+            userDefaults.removeObject(forKey: Self.storageKey)
         }
     }
 
@@ -638,4 +670,32 @@ class AnalyticsService {
         }
         return String(email[email.index(after: atIndex)...])
     }
+
+    // MARK: - Test Helpers (Internal)
+
+    #if DEBUG
+        /// Returns the current event queue count (for testing)
+        var eventQueueCount: Int {
+            queueAccessQueue.sync { eventQueue.count }
+        }
+
+        /// Manually trigger batch submission (for testing)
+        func testSubmitBatch() async {
+            await submitBatch()
+        }
+
+        /// Manually persist events (for testing)
+        func testPersistEvents() {
+            queueAccessQueue.sync {
+                persistEventsUnsafe()
+            }
+        }
+
+        /// Clear the event queue (for testing)
+        func testClearQueue() {
+            queueAccessQueue.sync {
+                eventQueue.removeAll()
+            }
+        }
+    #endif
 }

@@ -1,8 +1,14 @@
 import Foundation
 import Network
 
+/// Protocol for monitoring network connectivity status
+protocol NetworkMonitorProtocol {
+    /// Whether the device is currently connected to the network
+    var isConnected: Bool { get }
+}
+
 /// Monitors network connectivity status
-class NetworkMonitor: ObservableObject {
+class NetworkMonitor: ObservableObject, NetworkMonitorProtocol {
     static let shared = NetworkMonitor()
 
     @Published private(set) var isConnected: Bool = true
