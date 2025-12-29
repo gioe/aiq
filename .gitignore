@@ -96,3 +96,5 @@ target/
 tmp/
 temp/
 *.tmp
+*.bak
+*.bak2
