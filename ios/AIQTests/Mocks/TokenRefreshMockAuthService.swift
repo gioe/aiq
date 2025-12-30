@@ -14,7 +14,10 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
 
     private var mockRefreshResponse: AuthResponse?
     private var mockRefreshError: Error?
-    private nonisolated(unsafe) var mockAccessToken: String?
+    private var _mockAccessToken: String?
+    /// Thread-safe storage for access token, protected by lock for cross-isolation access
+    private let accessTokenLock = NSLock()
+    private nonisolated(unsafe) var _unsafeAccessToken: String?
     private var mockCurrentUser: User?
     private var shouldThrowOnRefresh = false
     private var refreshDelay: TimeInterval = 0
@@ -44,7 +47,11 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
     }
 
     func setAccessToken(_ token: String?) {
-        mockAccessToken = token
+        _mockAccessToken = token
+        // Also update the thread-safe storage
+        accessTokenLock.lock()
+        _unsafeAccessToken = token
+        accessTokenLock.unlock()
     }
 
     func setRefreshDelay(_ delay: TimeInterval) {
@@ -87,11 +94,18 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
     func logout() async throws {
         logoutCalled = true
         logoutCallCount += 1
-        mockAccessToken = nil
+        _mockAccessToken = nil
+        // Update thread-safe storage with lock
+        accessTokenLock.lock()
+        _unsafeAccessToken = nil
+        accessTokenLock.unlock()
     }
 
     nonisolated func getAccessToken() -> String? {
-        mockAccessToken
+        // Use lock to safely read cross-isolation
+        accessTokenLock.lock()
+        defer { accessTokenLock.unlock() }
+        return _unsafeAccessToken
     }
 
     // MARK: - Unused Protocol Methods (not tested in TokenRefreshInterceptor)
