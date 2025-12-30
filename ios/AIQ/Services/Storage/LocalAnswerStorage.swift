@@ -14,43 +14,56 @@ class LocalAnswerStorage: LocalAnswerStorageProtocol {
 
     private let userDefaults: UserDefaults
     private let storageKey = "com.aiq.savedTestProgress"
+    /// Serial queue for thread-safe access to storage operations
+    private let queue = DispatchQueue(label: "com.aiq.localStorage")
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
 
     func saveProgress(_ progress: SavedTestProgress) throws {
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(progress)
-        userDefaults.set(data, forKey: storageKey)
+        try queue.sync {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(progress)
+            userDefaults.set(data, forKey: storageKey)
+        }
     }
 
     func loadProgress() -> SavedTestProgress? {
-        guard let data = userDefaults.data(forKey: storageKey) else {
-            return nil
-        }
+        queue.sync {
+            guard let data = userDefaults.data(forKey: storageKey) else {
+                return nil
+            }
 
-        let decoder = JSONDecoder()
-        guard let progress = try? decoder.decode(SavedTestProgress.self, from: data) else {
-            // Clear invalid data
-            clearProgress()
-            return nil
-        }
+            let decoder = JSONDecoder()
+            guard let progress = try? decoder.decode(SavedTestProgress.self, from: data) else {
+                // Clear invalid data
+                internalClearProgress()
+                return nil
+            }
 
-        // Only return if still valid (within 24 hours)
-        guard progress.isValid else {
-            clearProgress()
-            return nil
-        }
+            // Only return if still valid (within 24 hours)
+            guard progress.isValid else {
+                internalClearProgress()
+                return nil
+            }
 
-        return progress
+            return progress
+        }
     }
 
     func clearProgress() {
-        userDefaults.removeObject(forKey: storageKey)
+        queue.sync {
+            internalClearProgress()
+        }
     }
 
     func hasProgress() -> Bool {
         loadProgress() != nil
+    }
+
+    /// Internal clear without queue synchronization (called from within queue.sync blocks)
+    private func internalClearProgress() {
+        userDefaults.removeObject(forKey: storageKey)
     }
 }
