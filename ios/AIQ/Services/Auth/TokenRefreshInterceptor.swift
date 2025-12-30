@@ -9,10 +9,14 @@ enum TokenRefreshError: Error {
 }
 
 /// Response interceptor that automatically refreshes tokens on 401 errors
-class TokenRefreshInterceptor: ResponseInterceptor {
-    private weak var authService: AuthServiceProtocol?
-    private var isRefreshing = false
-    private var refreshTask: Task<AuthResponse, Error>?
+///
+/// Thread-Safety: This actor ensures safe concurrent access to token refresh state.
+/// Multiple concurrent 401 responses will share a single refresh task, preventing
+/// duplicate refresh requests.
+actor TokenRefreshInterceptor: ResponseInterceptor {
+    var authService: AuthServiceProtocol?
+    var isRefreshing = false
+    var refreshTask: Task<AuthResponse, Error>?
 
     init(authService: AuthServiceProtocol? = nil) {
         self.authService = authService

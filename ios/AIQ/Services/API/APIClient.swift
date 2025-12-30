@@ -226,8 +226,8 @@ class APIClient: APIClientProtocol {
 
     /// Set the authentication service for automatic token refresh
     /// - Parameter authService: The authentication service to use for token refresh operations
-    func setAuthService(_ authService: AuthServiceProtocol) {
-        tokenRefreshInterceptor.setAuthService(authService)
+    func setAuthService(_ authService: AuthServiceProtocol) async {
+        await tokenRefreshInterceptor.setAuthService(authService)
     }
 
     /// Add a request interceptor to the pipeline

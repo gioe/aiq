@@ -25,7 +25,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         // Set up token refresh interceptor in APIClient
         if authService is AuthService {
             // Access the shared APIClient and set the auth service
-            APIClient.shared.setAuthService(authService)
+            // Note: This must be done asynchronously due to actor isolation
+            Task {
+                await APIClient.shared.setAuthService(authService)
+            }
         }
 
         // Initialize state from existing session
