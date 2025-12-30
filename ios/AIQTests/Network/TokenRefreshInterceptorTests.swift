@@ -6,24 +6,60 @@ import XCTest
 /// Verifies:
 /// - Basic token refresh flow on 401 responses
 /// - Concurrent request handling (multiple requests during refresh)
-/// - Race condition prevention (shared refresh task)
+/// - Race condition prevention (shared refresh task via actor isolation)
 /// - Error handling (refresh failure, missing auth service)
 /// - Non-401 responses pass through unchanged
 /// - Edge cases (nil auth service, logout on refresh failure)
 ///
 /// Thread Safety:
-/// Implementation note: The current implementation attempts to use Task-based coordination
-/// but has a race condition where multiple concurrent requests can create separate refresh tasks.
-/// Tests verify the actual behavior, not the intended behavior.
+/// TokenRefreshInterceptor is implemented as an actor, providing automatic serialization
+/// of all access to its state. This ensures that concurrent 401 responses share a single
+/// refresh task, preventing duplicate token refresh requests.
+
+/// Thread-safe collector for test results across concurrent tasks
+/// Uses actor isolation instead of NSLock for Swift 6 compatibility
+private actor TestResultCollector<T> {
+    private var items: [T] = []
+
+    func append(_ item: T) {
+        items.append(item)
+    }
+
+    func getItems() -> [T] {
+        items
+    }
+
+    func getCount() -> Int {
+        items.count
+    }
+}
+
+/// Thread-safe container for TimeInterval values
+private actor TimeIntervalCollector {
+    private var times: [TimeInterval] = []
+
+    func append(_ time: TimeInterval) {
+        times.append(time)
+    }
+
+    func getTimes() -> [TimeInterval] {
+        times
+    }
+
+    func getCount() -> Int {
+        times.count
+    }
+}
+
 final class TokenRefreshInterceptorTests: XCTestCase {
     var sut: TokenRefreshInterceptor!
     var mockAuthService: TokenRefreshMockAuthService!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         mockAuthService = TokenRefreshMockAuthService()
         sut = TokenRefreshInterceptor()
-        sut.setAuthService(mockAuthService)
+        await sut.setAuthService(mockAuthService)
     }
 
     override func tearDown() {
@@ -53,13 +89,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         XCTAssertNotNil(interceptor, "Should initialize with auth service")
     }
 
-    func testSetAuthService_SetsAuthService() {
+    func testSetAuthService_SetsAuthService() async {
         // Given
         let interceptor = TokenRefreshInterceptor()
         let authService = TokenRefreshMockAuthService()
 
         // When
-        interceptor.setAuthService(authService)
+        await interceptor.setAuthService(authService)
 
         // Then - Should not crash when intercepting (auth service is set)
         XCTAssertNotNil(interceptor, "Should set auth service successfully")
@@ -258,8 +294,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         let expectation = expectation(description: "All requests complete")
         expectation.expectedFulfillmentCount = requestCount
 
-        var errors: [Error] = []
-        let errorsLock = NSLock()
+        let errorCollector = TestResultCollector<Error>()
 
         for _ in 0 ..< requestCount {
             Task {
@@ -267,9 +302,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
                     _ = try await sut.intercept(response: response, data: Data())
                     XCTFail("Should throw TokenRefreshError.shouldRetryRequest")
                 } catch {
-                    errorsLock.lock()
-                    errors.append(error)
-                    errorsLock.unlock()
+                    await errorCollector.append(error)
                     expectation.fulfill()
                 }
             }
@@ -278,6 +311,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
 
         // Then - Verify all requests got shouldRetryRequest error
+        let errors = await errorCollector.getItems()
         XCTAssertEqual(errors.count, requestCount, "All requests should throw error")
         for error in errors {
             guard let refreshError = error as? TokenRefreshError else {
@@ -293,25 +327,9 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         }
 
         // Then - Verify refresh behavior
-        // KNOWN ISSUE [BTS-55]: Race condition in TokenRefreshInterceptor allows multiple refresh tasks
-        // when concurrent requests check refreshTask before it's set. This will be fixed by converting
-        // TokenRefreshInterceptor to an actor.
-        // Ideal behavior: exactly 1 refresh call for all concurrent requests
-        // Current behavior: 1-N refresh calls due to race between check and set
+        // Actor isolation ensures exactly 1 refresh for all concurrent requests
         let refreshCallCount = await mockAuthService.refreshTokenCallCount
-
-        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
-        // XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
-        XCTAssertGreaterThanOrEqual(
-            refreshCallCount,
-            1,
-            "Should call refreshToken at least once for concurrent 401 responses"
-        )
-        XCTAssertLessThanOrEqual(
-            refreshCallCount,
-            requestCount,
-            "Should not refresh more times than requests (race condition allows up to \(requestCount))"
-        )
+        XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
     }
 
     func testIntercept_MultipleConcurrent401s_AllWaitForRefresh() async throws {
@@ -347,8 +365,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
         // When - Fire 3 concurrent requests and track completion times
         let startTime = Date()
-        var completionTimes: [TimeInterval] = []
-        let timesLock = NSLock()
+        let timeCollector = TimeIntervalCollector()
 
         let requestCount = 3
         let expectation = expectation(description: "All requests complete")
@@ -360,9 +377,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
                     _ = try await sut.intercept(response: response, data: Data())
                 } catch {
                     let elapsed = Date().timeIntervalSince(startTime)
-                    timesLock.lock()
-                    completionTimes.append(elapsed)
-                    timesLock.unlock()
+                    await timeCollector.append(elapsed)
                     expectation.fulfill()
                 }
             }
@@ -371,6 +386,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
 
         // Then - Verify all requests complete (race condition may cause some to wait)
+        let completionTimes = await timeCollector.getTimes()
         XCTAssertEqual(completionTimes.count, requestCount, "All requests should complete")
 
         // Verify at least one refresh occurred
@@ -601,8 +617,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         let expectation = expectation(description: "All requests fail")
         expectation.expectedFulfillmentCount = requestCount
 
-        var errors: [Error] = []
-        let errorsLock = NSLock()
+        let errorCollector = TestResultCollector<Error>()
 
         for _ in 0 ..< requestCount {
             Task {
@@ -610,9 +625,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
                     _ = try await sut.intercept(response: response, data: Data())
                     XCTFail("Should throw error")
                 } catch {
-                    errorsLock.lock()
-                    errors.append(error)
-                    errorsLock.unlock()
+                    await errorCollector.append(error)
                     expectation.fulfill()
                 }
             }
@@ -621,6 +634,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 5.0)
 
         // Then - All requests should receive refreshFailed error
+        let errors = await errorCollector.getItems()
         XCTAssertEqual(errors.count, requestCount, "All requests should throw error")
         for error in errors {
             guard let refreshError = error as? TokenRefreshError else {
@@ -636,24 +650,9 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         }
 
         // Verify logout behavior
-        // KNOWN ISSUE [BTS-55]: Due to race condition in TokenRefreshInterceptor, multiple refresh tasks
-        // may be created, each calling logout() on failure. This will be fixed by converting to an actor.
-        // Ideal behavior: exactly 1 logout call regardless of concurrent requests
-        // Current behavior: 1-N logout calls, matching the number of refresh tasks created
+        // Actor isolation ensures exactly 1 logout call even with concurrent failures
         let logoutCallCount = await mockAuthService.logoutCallCount
-
-        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
-        // XCTAssertEqual(logoutCallCount, 1, "Should call logout once even with concurrent failures")
-        XCTAssertGreaterThanOrEqual(
-            logoutCallCount,
-            1,
-            "Should call logout at least once on refresh failure"
-        )
-        XCTAssertLessThanOrEqual(
-            logoutCallCount,
-            requestCount,
-            "Should not call logout more times than concurrent requests"
-        )
+        XCTAssertEqual(logoutCallCount, 1, "Should call logout once even with concurrent failures")
     }
 
     // MARK: - Edge Cases
@@ -801,21 +800,8 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 10.0)
 
         // Then - Verify refresh behavior under high concurrency
-        // KNOWN ISSUE [BTS-55]: Race condition in TokenRefreshInterceptor allows multiple refresh tasks.
-        // Under high concurrency (50 requests), this is more pronounced. Will be fixed by actor conversion.
+        // Actor isolation ensures exactly 1 refresh even with 50 concurrent requests
         let refreshCallCount = await mockAuthService.refreshTokenCallCount
-
-        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
-        // XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
-        XCTAssertGreaterThanOrEqual(
-            refreshCallCount,
-            1,
-            "Should call refreshToken at least once for concurrent 401 responses"
-        )
-        XCTAssertLessThanOrEqual(
-            refreshCallCount,
-            requestCount,
-            "Should not refresh more times than requests (race condition allows up to \(requestCount))"
-        )
+        XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
     }
 }
