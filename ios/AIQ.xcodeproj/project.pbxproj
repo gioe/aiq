@@ -82,6 +82,7 @@
 		65EA67F2F7C51CA558A15F95 /* TestTakingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0051F7DB14979791E28BFE79 /* TestTakingViewModel.swift */; };
 		67D4C2D38D663E3FC5AB120B /* CertificatePinningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */; };
 		680A4E1F9AA1F5EC940A26C1 /* LoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A5A9453EBC3FF647D25AB8 /* LoginViewModelTests.swift */; };
+		DATACACHE002BBBB /* DataCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATACACHE001AAAA /* DataCacheTests.swift */; };
 		6BC84905B2E000CE6B92114E /* LocalAnswerStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E4F024D64CDA4C3FE524BA /* LocalAnswerStorageTests.swift */; };
 		6BD64EB0C5D1922D8281CFE7 /* DeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */; };
 		6D060BE77514F7059B2BE1BF /* RequestInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */; };
@@ -227,6 +228,7 @@
 		425CBCEA4F6F27755060AEB5 /* TestTimerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTimerManagerTests.swift; sourceTree = "<group>"; };
 		4389C42E9D81481C93FF4B74 /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
 		43C82CA7CE076639CEF7A3EF /* AIQ.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AIQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DATACACHE001AAAA /* DataCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataCacheTests.swift; sourceTree = "<group>"; };
 		43E4F024D64CDA4C3FE524BA /* LocalAnswerStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LocalAnswerStorageTests.swift; path = LocalAnswerStorageTests.swift; sourceTree = "<group>"; };
 		4A885B4A077ACA85644D0D8B /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
 		4C4F23DD832678C6F11E29DF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -428,6 +430,7 @@
 		23D98703321E67A888F25F18 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				DATACACHE001AAAA /* DataCacheTests.swift */,
 				43E4F024D64CDA4C3FE524BA /* LocalAnswerStorageTests.swift */,
 			);
 			name = Storage;
@@ -948,6 +951,7 @@
 				C1FB7BA89C5B4759AAAD1C05 /* MockNotificationService.swift in Sources */,
 				2B5CCA8DB0C2482BBDEB778D /* NotificationManagerTests.swift in Sources */,
 				CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */,
+				DATACACHE002BBBB /* DataCacheTests.swift in Sources */,
 				6BC84905B2E000CE6B92114E /* LocalAnswerStorageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
