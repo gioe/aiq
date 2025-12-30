@@ -211,8 +211,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         } catch let error as TokenRefreshError {
             switch error {
             case .shouldRetryRequest:
-                // Expected error - test passes by reaching here without XCTFail
-                ()
+                break // Expected error
             case .refreshFailed:
                 XCTFail("Should throw shouldRetryRequest, not refreshFailed")
             }
@@ -294,13 +293,14 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         }
 
         // Then - Verify refresh behavior
-        // KNOWN ISSUE: Race condition in TokenRefreshInterceptor allows multiple refresh tasks
-        // when concurrent requests check refreshTask before it's set.
+        // KNOWN ISSUE [BTS-55]: Race condition in TokenRefreshInterceptor allows multiple refresh tasks
+        // when concurrent requests check refreshTask before it's set. This will be fixed by converting
+        // TokenRefreshInterceptor to an actor.
         // Ideal behavior: exactly 1 refresh call for all concurrent requests
         // Current behavior: 1-N refresh calls due to race between check and set
         let refreshCallCount = await mockAuthService.refreshTokenCallCount
 
-        // TODO: After fixing race condition in TokenRefreshInterceptor, change to:
+        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
         // XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
         XCTAssertGreaterThanOrEqual(
             refreshCallCount,
@@ -636,13 +636,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         }
 
         // Verify logout behavior
-        // KNOWN ISSUE: Due to race condition in TokenRefreshInterceptor, multiple refresh tasks
-        // may be created, each calling logout() on failure.
+        // KNOWN ISSUE [BTS-55]: Due to race condition in TokenRefreshInterceptor, multiple refresh tasks
+        // may be created, each calling logout() on failure. This will be fixed by converting to an actor.
         // Ideal behavior: exactly 1 logout call regardless of concurrent requests
         // Current behavior: 1-N logout calls, matching the number of refresh tasks created
         let logoutCallCount = await mockAuthService.logoutCallCount
 
-        // TODO: After fixing race condition in TokenRefreshInterceptor, change to:
+        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
         // XCTAssertEqual(logoutCallCount, 1, "Should call logout once even with concurrent failures")
         XCTAssertGreaterThanOrEqual(
             logoutCallCount,
@@ -801,11 +801,11 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 10.0)
 
         // Then - Verify refresh behavior under high concurrency
-        // KNOWN ISSUE: Race condition in TokenRefreshInterceptor allows multiple refresh tasks.
-        // Under high concurrency (50 requests), this is more pronounced.
+        // KNOWN ISSUE [BTS-55]: Race condition in TokenRefreshInterceptor allows multiple refresh tasks.
+        // Under high concurrency (50 requests), this is more pronounced. Will be fixed by actor conversion.
         let refreshCallCount = await mockAuthService.refreshTokenCallCount
 
-        // TODO: After fixing race condition in TokenRefreshInterceptor, change to:
+        // TODO: [BTS-55] After converting TokenRefreshInterceptor to actor, change to:
         // XCTAssertEqual(refreshCallCount, 1, "Should share single refresh for concurrent requests")
         XCTAssertGreaterThanOrEqual(
             refreshCallCount,

@@ -14,11 +14,9 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
 
     private var mockRefreshResponse: AuthResponse?
     private var mockRefreshError: Error?
-    private var _mockAccessToken: String?
     /// Thread-safe storage for access token, protected by lock for cross-isolation access
     private let accessTokenLock = NSLock()
     private nonisolated(unsafe) var _unsafeAccessToken: String?
-    private var mockCurrentUser: User?
     private var shouldThrowOnRefresh = false
     private var refreshDelay: TimeInterval = 0
 
@@ -47,8 +45,6 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
     }
 
     func setAccessToken(_ token: String?) {
-        _mockAccessToken = token
-        // Also update the thread-safe storage
         accessTokenLock.lock()
         _unsafeAccessToken = token
         accessTokenLock.unlock()
@@ -94,8 +90,6 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
     func logout() async throws {
         logoutCalled = true
         logoutCallCount += 1
-        _mockAccessToken = nil
-        // Update thread-safe storage with lock
         accessTokenLock.lock()
         _unsafeAccessToken = nil
         accessTokenLock.unlock()
