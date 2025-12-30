@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		44463EFA81BB40CA80B904E9 /* TokenRefreshMockAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D08F64944D4FA5B2FEAB69 /* TokenRefreshMockAuthService.swift */; };
+		457BA389B1024CBDB667B754 /* TokenRefreshInterceptorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF89F4647B4C4FC9854DDA7B /* TokenRefreshInterceptorTests.swift */; };
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		0572138AE58FDA34E510B63C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845907D460CC2DAB74F0F53 /* DashboardView.swift */; };
 		06E9311FFA4FD65043CA90B1 /* TestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C12636F62D9CB068BF0D5 /* TestTimerManager.swift */; };
@@ -177,6 +179,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		26D08F64944D4FA5B2FEAB69 /* TokenRefreshMockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshMockAuthService.swift; sourceTree = "<group>"; };
+		CF89F4647B4C4FC9854DDA7B /* TokenRefreshInterceptorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Network/TokenRefreshInterceptorTests.swift; sourceTree = "<group>"; };
 		002B0472F8CA6C9FD166F878 /* TestTakingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingViewModelTests.swift; sourceTree = "<group>"; };
 		0051F7DB14979791E28BFE79 /* TestTakingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingViewModel.swift; sourceTree = "<group>"; };
 		0070719F614569E631EDE166 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -541,6 +545,7 @@
 		67C0B819BB44BD92E09E6AD2 /* Mocks */ = {
 			isa = PBXGroup;
 			children = (
+				26D08F64944D4FA5B2FEAB69 /* TokenRefreshMockAuthService.swift */,
 				1AD58AF32F0311B700ED0517 /* MockNetworkMonitor.swift */,
 				3812DAECA0446A8F0A7F5D73 /* MockAPIClient.swift */,
 				A16988A601D72DDA897C6605 /* MockAuthManager.swift */,
@@ -668,6 +673,7 @@
 				1917DDA049391967DAF51F1D /* Views */,
 				23D98703321E67A888F25F18 /* Storage */,
 				866B1E696D59952C81D9C9C0 /* RetryPolicyTests.swift */,
+				CF89F4647B4C4FC9854DDA7B /* TokenRefreshInterceptorTests.swift */,
 			);
 			path = AIQTests;
 			sourceTree = "<group>";
@@ -932,6 +938,7 @@
 				0F9C3C76B098A08148738016 /* IQTrendChartTests.swift in Sources */,
 				680A4E1F9AA1F5EC940A26C1 /* LoginViewModelTests.swift in Sources */,
 				8E4E68E23D1E699E123E1237 /* MockAPIClient.swift in Sources */,
+				44463EFA81BB40CA80B904E9 /* TokenRefreshMockAuthService.swift in Sources */,
 				DF74B1F9E96C0CC76B5CBDA5 /* MockAuthManager.swift in Sources */,
 				A2E372580E83FB91517EBEAB /* MockLocalAnswerStorage.swift in Sources */,
 				1EC104F286BB4AE589D44A06 /* MockURLProtocol.swift in Sources */,
@@ -957,6 +964,7 @@
 				DATACACHE002BBBB /* DataCacheTests.swift in Sources */,
 				6BC84905B2E000CE6B92114E /* LocalAnswerStorageTests.swift in Sources */,
 				8A797BC7C30B9F434115D324 /* RetryPolicyTests.swift in Sources */,
+				457BA389B1024CBDB667B754 /* TokenRefreshInterceptorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
