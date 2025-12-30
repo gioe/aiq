@@ -912,6 +912,133 @@ Thread.sleep(forTimeInterval: 0.5)  // OK - no UI to wait on after termination
 app.launch()
 ```
 
+### Verify Implementation Before Testing Advanced Capabilities
+
+When writing tests for advanced capabilities (concurrency, thread-safety, security), **verify the implementation has the required primitives BEFORE writing tests that assume them**.
+
+#### Thread Safety Testing
+
+**DO:**
+1. Read the implementation to confirm thread-safety primitives exist (DispatchQueue, NSLock, actors, etc.)
+2. Then write concurrent access tests
+3. Document what synchronization mechanism you verified
+
+**DON'T:**
+- Write concurrent tests assuming implementation is thread-safe without verifying
+- Test capabilities that don't exist in the implementation
+- Assume thread-safety unless explicitly implemented with synchronization primitives
+
+**Example:**
+```swift
+// ✅ Good: Verified implementation uses DispatchQueue before writing test
+func testConcurrentSave_ThreadSafety() {
+    // Implementation verified: Uses DispatchQueue(label: "com.aiq.localStorage")
+    // to synchronize access, so concurrent tests are valid
+
+    let iterations = 100
+    let expectation = expectation(description: "All saves complete")
+    expectation.expectedFulfillmentCount = iterations
+
+    for i in 0 ..< iterations {
+        DispatchQueue.global().async {
+            // Safe to test concurrently
+            try? self.sut.save(data: "test-\(i)")
+            expectation.fulfill()
+        }
+    }
+
+    wait(for: [expectation], timeout: 10.0)
+}
+
+// ❌ Bad: Writing concurrent test without verifying synchronization exists
+func testConcurrentSave_ThreadSafety() {
+    // Did you verify the implementation has synchronization?
+    // If not, this test may pass inconsistently or give false confidence
+    // ...
+}
+```
+
+**How to Verify Thread Safety:**
+Look for these primitives in the implementation:
+- `DispatchQueue` with `.sync` or `.async(flags: .barrier)` calls
+- `NSLock`, `NSRecursiveLock`, or `os_unfair_lock`
+- `actor` keyword (Swift concurrency)
+- `@MainActor` annotation (for UI-bound classes)
+
+**If Thread Safety Doesn't Exist:**
+Don't write concurrent tests. Either:
+1. File a bug to add thread-safety if needed
+2. Document that the class is not thread-safe
+3. Test single-threaded behavior only
+
+#### Time-Based Tests Require Safe Margins
+
+When testing time-based logic (expiration, timeouts, TTL), use **generous margins** to account for:
+- Test execution overhead (encoding, I/O, decoding)
+- Slower CI environments
+- Debug builds with reduced optimization
+- Potential system load during test runs
+
+**DO:**
+- Use margins of 10+ minutes for hour-scale boundaries
+- Use margins of 10+ seconds for minute-scale boundaries
+- Document the margin and reasoning in test comments
+- Test "well within boundary" rather than "exactly at boundary"
+
+**DON'T:**
+- Use margins of 1 second for tests with file I/O or encoding
+- Assume tests execute instantly
+- Test exact boundary conditions without margin for execution time
+
+**Example:**
+```swift
+// ✅ Good: 10-minute margin for 24-hour boundary
+func testEdgeCase_SavedAtJustUnderExpiration() throws {
+    // Given - Progress saved 23 hours and 50 minutes ago
+    // (10-minute margin accounts for test execution time)
+    let almostExpiredDate = Date().addingTimeInterval(-(23 * 60 * 60 + 50 * 60))
+    let progress = createTestProgress(savedAt: almostExpiredDate)
+    try sut.saveProgress(progress)
+
+    // When
+    let loaded = sut.loadProgress()
+
+    // Then
+    XCTAssertNotNil(loaded, "Progress well within 24 hours should still be valid")
+}
+
+// ❌ Bad: 1-second margin too tight for test with encoding + I/O
+func testEdgeCase_SavedAtJustUnderExpiration() throws {
+    // Given - Progress saved just under 24 hours ago
+    let almostExpiredDate = Date().addingTimeInterval(-(24 * 60 * 60 - 1))  // FLAKY!
+    let progress = createTestProgress(savedAt: almostExpiredDate)
+
+    // Between creating almostExpiredDate and checking expiration,
+    // encoding + UserDefaults write + decoding may take >1 second,
+    // causing this test to fail intermittently
+    try sut.saveProgress(progress)
+
+    let loaded = sut.loadProgress()
+    XCTAssertNotNil(loaded)  // May fail in CI or under load
+}
+```
+
+**Safe Margin Guidelines:**
+
+| Time Scale | Boundary | Recommended Margin | Example |
+|------------|----------|-------------------|---------|
+| 24 hours | Expiration | 10-30 minutes | 23h 50m for "just under 24h" |
+| 1 hour | Timeout | 5-10 minutes | 55m for "just under 1h" |
+| 1 minute | Rate limit | 10-30 seconds | 50s for "just under 1m" |
+| 1 second | Debounce | 100-500ms | 0.5s for "just under 1s" |
+
+**Why This Matters:**
+Flaky tests undermine confidence in the test suite. A test that fails 1% of the time in CI:
+- Requires re-running builds
+- Wastes developer time investigating non-issues
+- Erodes trust in all tests
+- May mask real failures when team assumes "it's just flaky"
+
 ---
 
 ## Code Formatting
