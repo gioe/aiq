@@ -38,6 +38,8 @@ struct HistoryView: View {
                     } label: {
                         Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
                     }
+                    .accessibilityLabel("Filter tests by date")
+                    .accessibilityHint("Opens menu to filter test history by time period")
 
                     // Sort Order Menu
                     Menu {
@@ -49,6 +51,8 @@ struct HistoryView: View {
                     } label: {
                         Label("Sort", systemImage: "arrow.up.arrow.down.circle")
                     }
+                    .accessibilityLabel("Sort test results")
+                    .accessibilityHint("Opens menu to change sort order")
                 }
             }
         }

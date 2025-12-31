@@ -58,6 +58,8 @@ struct SettingsView: View {
                         }
                     }
                     .foregroundColor(.primary)
+                    .accessibilityLabel("Help & FAQ")
+                    .accessibilityHint("Opens help documentation")
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.helpButton)
                 } header: {
                     Text("Support")
