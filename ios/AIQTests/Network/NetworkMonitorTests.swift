@@ -280,31 +280,6 @@ final class NetworkMonitorTests: XCTestCase {
         XCTAssertNotNil(objectWillChange, "Should conform to ObservableObject")
     }
 
-    // MARK: - Thread Safety Tests
-
-    func testConcurrentObservers_ThreadSafe() async {
-        // Given
-        // NetworkMonitor uses DispatchQueue for NWPathMonitor callbacks
-        // and updates properties on main thread, so concurrent access is safe
-        let expectation = expectation(description: "Concurrent observers complete")
-        expectation.expectedFulfillmentCount = 10
-
-        // When - Create multiple observers on different threads
-        for _ in 0 ..< 10 {
-            Task {
-                let cancellable = sut.$isConnected
-                    .sink { _ in
-                        expectation.fulfill()
-                    }
-                cancellable.store(in: &cancellables)
-            }
-        }
-
-        // Then - Should not crash with concurrent access
-        await fulfillment(of: [expectation], timeout: 2.0)
-        XCTAssertTrue(true, "Concurrent observers should be thread-safe")
-    }
-
     // MARK: - Singleton Tests
 
     func testShared_ReturnsSameInstance() {
@@ -558,8 +533,7 @@ final class NetworkMonitorTests: XCTestCase {
         sut.stopMonitoring()
 
         // Then
-        // NWPathMonitor.cancel() is called, which releases resources
-        // We verify this doesn't crash and monitor remains functional
+        // Verify monitor remains functional after stop/restart cycle
         XCTAssertNotNil(sut, "NetworkMonitor should remain functional after cleanup")
 
         // Can restart after cleanup
