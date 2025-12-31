@@ -77,9 +77,9 @@ struct TestProgressView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "Test progress: Question \(currentQuestion) of \(totalQuestions), " +
-                "\(answeredCount) answered, \(totalQuestions - answeredCount) remaining"
+                "\(answeredCount) answered, \(totalQuestions - answeredCount) remaining, " +
+                "\(completionPercentage) percent complete"
         )
-        .accessibilityValue("\(completionPercentage) percent complete")
     }
 
     private var progressBar: some View {

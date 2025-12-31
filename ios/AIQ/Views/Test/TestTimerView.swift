@@ -21,12 +21,22 @@ struct TestTimerView: View {
         .clipShape(Capsule())
         .animation(.easeInOut(duration: 0.3), value: timerManager.timerColor)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Time remaining: \(timerManager.formattedTime)")
-        .accessibilityValue(timerManager.formattedTime)
+        .accessibilityLabel("\(urgencyPrefix)Time remaining: \(timerManager.formattedTime)")
         .accessibilityAddTraits(.updatesFrequently)
     }
 
     // MARK: - Computed Properties
+
+    private var urgencyPrefix: String {
+        switch timerManager.timerColor {
+        case .critical:
+            "Critical: "
+        case .warning:
+            "Warning: "
+        case .normal:
+            ""
+        }
+    }
 
     private var timerIcon: String {
         switch timerManager.timerColor {

@@ -235,6 +235,7 @@ struct RegistrationView: View {
                                 "Education Level, optional, " +
                                     "\(viewModel.selectedEducationLevel?.displayName ?? "not selected")"
                             )
+                            .accessibilityHint("Double tap to open menu and select your education level")
                         }
 
                         // Country field
