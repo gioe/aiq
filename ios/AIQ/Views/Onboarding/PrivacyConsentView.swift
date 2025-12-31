@@ -165,6 +165,7 @@ struct PrivacyConsentView: View {
                 .font(.system(size: DesignSystem.IconSize.lg))
                 .foregroundColor(color)
                 .frame(width: 50, height: 50)
+                .accessibilityHidden(true)
 
             // Text Content
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -189,6 +190,7 @@ struct PrivacyConsentView: View {
             x: DesignSystem.Shadow.sm.x,
             y: DesignSystem.Shadow.sm.y
         )
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Actions

@@ -103,6 +103,7 @@ struct TestCardHeader: View {
                             endPoint: .bottomTrailing
                         )
                     )
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -119,6 +120,7 @@ struct TestCardHeader: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -131,6 +133,10 @@ struct TestCardScores: View {
             Spacer()
             accuracy
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "IQ Score: \(result.iqScore), Accuracy: \(result.accuracyPercentage, specifier: "%.0f") percent"
+        )
     }
 
     private var iqScore: some View {
@@ -208,5 +214,7 @@ struct TestCardProgress: View {
                 .foregroundColor(ColorPalette.textSecondary)
                 .fixedSize()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(result.correctAnswers) correct out of \(result.totalQuestions) questions")
     }
 }

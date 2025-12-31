@@ -9,6 +9,7 @@ struct TestTimerView: View {
             Image(systemName: timerIcon)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(timerForegroundColor)
+                .accessibilityHidden(true)
 
             Text(timerManager.formattedTime)
                 .font(.system(size: 16, weight: .semibold, design: .monospaced))
@@ -19,9 +20,23 @@ struct TestTimerView: View {
         .background(timerBackgroundColor)
         .clipShape(Capsule())
         .animation(.easeInOut(duration: 0.3), value: timerManager.timerColor)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(urgencyPrefix)Time remaining: \(timerManager.formattedTime)")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     // MARK: - Computed Properties
+
+    private var urgencyPrefix: String {
+        switch timerManager.timerColor {
+        case .critical:
+            "Critical: "
+        case .warning:
+            "Warning: "
+        case .normal:
+            ""
+        }
+    }
 
     private var timerIcon: String {
         switch timerManager.timerColor {
