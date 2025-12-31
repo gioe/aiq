@@ -38,6 +38,7 @@ struct TimeWarningBanner: View {
                     .font(.system(size: 22))
                     .foregroundColor(.secondary)
             }
+            .accessibilityLabel("Dismiss time warning")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
