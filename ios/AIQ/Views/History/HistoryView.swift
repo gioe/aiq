@@ -197,6 +197,7 @@ private struct HistoryStatCard: View {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundColor(.accentColor)
+                .accessibilityHidden(true)
 
             Text(value)
                 .font(.title2.weight(.bold))
@@ -210,6 +211,7 @@ private struct HistoryStatCard: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
     }
 }
 

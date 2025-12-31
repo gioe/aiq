@@ -9,6 +9,7 @@ struct TestTimerView: View {
             Image(systemName: timerIcon)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(timerForegroundColor)
+                .accessibilityHidden(true)
 
             Text(timerManager.formattedTime)
                 .font(.system(size: 16, weight: .semibold, design: .monospaced))
@@ -19,6 +20,10 @@ struct TestTimerView: View {
         .background(timerBackgroundColor)
         .clipShape(Capsule())
         .animation(.easeInOut(duration: 0.3), value: timerManager.timerColor)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Time remaining: \(timerManager.formattedTime)")
+        .accessibilityValue(timerManager.formattedTime)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     // MARK: - Computed Properties

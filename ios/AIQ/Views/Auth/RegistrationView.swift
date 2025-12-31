@@ -231,6 +231,10 @@ struct RegistrationView: View {
                                 .background(ColorPalette.backgroundSecondary)
                                 .cornerRadius(DesignSystem.CornerRadius.md)
                             }
+                            .accessibilityLabel(
+                                "Education Level, optional, " +
+                                    "\(viewModel.selectedEducationLevel?.displayName ?? "not selected")"
+                            )
                         }
 
                         // Country field
@@ -363,6 +367,7 @@ struct RegistrationBenefitCard: View {
                 .font(.system(size: DesignSystem.IconSize.lg))
                 .foregroundColor(color)
                 .frame(width: 50, height: 50)
+                .accessibilityHidden(true)
 
             // Text Content
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -387,6 +392,7 @@ struct RegistrationBenefitCard: View {
             x: DesignSystem.Shadow.sm.x,
             y: DesignSystem.Shadow.sm.y
         )
+        .accessibilityElement(children: .combine)
     }
 }
 

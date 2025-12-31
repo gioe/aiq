@@ -25,6 +25,7 @@ struct LoadingOverlay: View {
                     .foregroundStyle(ColorPalette.scoreGradient)
                     .rotationEffect(.degrees(rotationAngle))
                     .scaleEffect(isAnimating ? 1.1 : 1.0)
+                    .accessibilityHidden(true)
 
                 if let message {
                     Text(message)
@@ -47,6 +48,9 @@ struct LoadingOverlay: View {
             )
             .scaleEffect(isAnimating ? 1.0 : 0.85)
             .opacity(isAnimating ? 1.0 : 0.0)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(message ?? "Loading")
+            .accessibilityAddTraits(.updatesFrequently)
         }
         .onAppear {
             // Entrance animation
