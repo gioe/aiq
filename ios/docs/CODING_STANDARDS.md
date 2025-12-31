@@ -1081,15 +1081,109 @@ Formatting tools run automatically via pre-commit hooks. Ensure they pass before
 
 ### VoiceOver Support
 
-Provide accessibility labels and hints for all interactive elements:
+Provide accessibility labels and hints for all interactive elements.
+
+#### Labels, Values, and Hints
+
+**`.accessibilityLabel`** - Describes WHAT the element is. Always required for interactive elements.
+
+**`.accessibilityValue`** - Only for adjustable controls (sliders, steppers, pickers with increment/decrement). VoiceOver announces this separately after the label.
+
+**`.accessibilityHint`** - Describes HOW to interact. Required for non-obvious interactions (menus, custom gestures).
 
 ```swift
+// ✅ Good - Button with label and hint
 Button("Submit") {
     // Action
 }
 .accessibilityLabel("Submit test")
 .accessibilityHint("Double tap to submit your test answers")
 .accessibilityAddTraits(.isButton)
+
+// ✅ Good - Menu with hint explaining interaction
+Menu {
+    // Menu items
+} label: {
+    Text(selectedOption ?? "Select option")
+}
+.accessibilityLabel("Category, \(selectedOption ?? "not selected")")
+.accessibilityHint("Double tap to open menu and select a category")
+
+// ✅ Good - Slider with value (adjustable control)
+Slider(value: $volume, in: 0...100)
+    .accessibilityLabel("Volume")
+    .accessibilityValue("\(Int(volume)) percent")
+
+// ❌ Bad - Redundant value duplicates label content
+Text("Time: \(formattedTime)")
+    .accessibilityLabel("Time remaining: \(formattedTime)")
+    .accessibilityValue(formattedTime)  // VoiceOver says time twice!
+
+// ✅ Good - Combine all info into label for non-adjustable elements
+Text("Time: \(formattedTime)")
+    .accessibilityLabel("Time remaining: \(formattedTime)")
+```
+
+#### Accessibility Traits
+
+**`.updatesFrequently`** - Only for elements that change continuously while visible (timers, live counters). Do NOT use for elements that simply appear/disappear.
+
+```swift
+// ✅ Good - Timer updates every second while visible
+Text(timerManager.formattedTime)
+    .accessibilityLabel("Time remaining: \(timerManager.formattedTime)")
+    .accessibilityAddTraits(.updatesFrequently)
+
+// ❌ Bad - Loading overlay appears/disappears but content doesn't update
+LoadingOverlay()
+    .accessibilityLabel("Loading")
+    .accessibilityAddTraits(.updatesFrequently)  // Wrong! Content is static
+
+// ✅ Good - Static loading state
+LoadingOverlay()
+    .accessibilityLabel("Loading")  // No updatesFrequently needed
+```
+
+#### Conveying Visual State
+
+When hiding decorative icons from VoiceOver, ensure any meaningful visual state (colors, urgency indicators) is conveyed in the accessibility label.
+
+```swift
+// ❌ Bad - Icon hidden but urgency state lost
+HStack {
+    Image(systemName: timerIcon)  // Changes based on urgency
+        .foregroundColor(urgencyColor)
+        .accessibilityHidden(true)
+    Text(formattedTime)
+}
+.accessibilityLabel("Time remaining: \(formattedTime)")
+
+// ✅ Good - Urgency state included in label
+HStack {
+    Image(systemName: timerIcon)
+        .foregroundColor(urgencyColor)
+        .accessibilityHidden(true)
+    Text(formattedTime)
+}
+.accessibilityLabel("\(urgencyPrefix)Time remaining: \(formattedTime)")
+// urgencyPrefix returns "Critical: ", "Warning: ", or "" based on state
+```
+
+#### Grouping Elements
+
+Use `.accessibilityElement(children: .combine)` to group related content into a single VoiceOver element:
+
+```swift
+// ✅ Good - Card content read as single element
+HStack {
+    Image(systemName: "star.fill")
+        .accessibilityHidden(true)  // Decorative
+    VStack {
+        Text("Score")
+        Text("95")
+    }
+}
+.accessibilityElement(children: .combine)
 ```
 
 ### Dynamic Type
