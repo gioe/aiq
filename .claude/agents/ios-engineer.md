@@ -65,3 +65,35 @@ If the standards doc is silent on an issue and you're not adding a new standard,
 - Review existing codebase patterns before introducing new ones
 
 When implementing features, always consider: How would a new engineer understand this code? Is the architecture clear? Are the decisions documented? Can this be tested?
+
+## Writing Tests for Advanced Capabilities
+
+Before writing tests for concurrency, thread-safety, or security features:
+
+**REQUIRED PRE-TEST VERIFICATION:**
+1. **Read the implementation first** - Locate and open the file being tested
+2. **Verify primitives exist** - For thread-safety tests, confirm one of these exists:
+   - `DispatchQueue` with `.sync` or `.async(flags: .barrier)` for property access
+   - `NSLock`, `NSRecursiveLock`, or `os_unfair_lock`
+   - `actor` keyword
+   - `@MainActor` annotation (only for UI-bound classes)
+3. **Document what you verified** - In test comments, state which primitive you found
+4. **If no primitives found** - Don't write concurrent tests; file a bug or test single-threaded only
+
+This is documented in `ios/docs/CODING_STANDARDS.md` lines 916-973.
+
+**Example - Correct Approach:**
+```swift
+// ✅ VERIFIED: Implementation uses DispatchQueue(label: "com.aiq.cache")
+// with .async(flags: .barrier) for writes, so concurrent tests are valid
+func testConcurrentWrites_ThreadSafety() async {
+    // Test concurrent access...
+}
+```
+
+**Example - When Primitives Don't Exist:**
+```swift
+// ❌ DON'T: Write concurrent tests without verification
+// NetworkMonitor has no synchronization primitives for property access
+// File BTS-XXX to add actor isolation if needed, or test single-threaded only
+```
