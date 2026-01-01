@@ -26,19 +26,19 @@ struct TimeWarningBanner: View {
 
             Spacer()
 
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isVisible = false
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    onDismiss()
-                }
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(.secondary)
-            }
-            .accessibilityLabel("Dismiss time warning")
+            IconButton(
+                icon: "xmark.circle.fill",
+                action: {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isVisible = false
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        onDismiss()
+                    }
+                },
+                accessibilityLabel: "Dismiss time warning",
+                foregroundColor: .secondary
+            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

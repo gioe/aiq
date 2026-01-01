@@ -17,15 +17,12 @@ struct ErrorBanner: View {
 
             Spacer()
 
-            Button(
+            IconButton(
+                icon: "xmark",
                 action: onDismiss,
-                label: {
-                    Image(systemName: "xmark")
-                        .foregroundColor(.white)
-                        .fontWeight(.semibold)
-                }
+                accessibilityLabel: "error.banner.dismiss".localized,
+                foregroundColor: .white
             )
-            .accessibilityLabel("error.banner.dismiss".localized)
             .accessibilityIdentifier("errorBanner.dismissButton")
         }
         .padding()

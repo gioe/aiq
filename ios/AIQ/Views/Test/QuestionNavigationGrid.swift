@@ -86,7 +86,7 @@ struct QuestionNavigationGrid: View {
                     }
                 }
             }
-            .frame(height: 44)
+            .frame(minWidth: 44, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(ScaleButtonStyle())

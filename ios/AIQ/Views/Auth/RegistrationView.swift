@@ -297,6 +297,7 @@ struct RegistrationView: View {
                                 Text("Sign In")
                                     .font(Typography.button)
                                     .foregroundColor(ColorPalette.primary)
+                                    .frame(minHeight: 44)
                             }
                         )
                         .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.signInLink)
