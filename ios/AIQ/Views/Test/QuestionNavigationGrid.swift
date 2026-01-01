@@ -55,47 +55,58 @@ struct QuestionNavigationGrid: View {
         Button {
             onQuestionTap(index)
         } label: {
-            ZStack {
-                // Background
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(cellBackgroundColor(isCurrent: isCurrent, isAnswered: isAnswered))
-
-                // Border for current question
-                if isCurrent {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
-                }
-
-                // Number
-                Text("\(index + 1)")
-                    .font(.subheadline)
-                    .fontWeight(isCurrent ? .bold : .medium)
-                    .foregroundColor(cellTextColor(isCurrent: isCurrent, isAnswered: isAnswered))
-
-                // Checkmark for answered
-                if isAnswered && !isCurrent {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.caption2)
-                                .foregroundColor(.white)
-                                .padding(2)
-                        }
-                        Spacer()
-                    }
-                }
-            }
-            .frame(minWidth: 44, height: 44)
-            .contentShape(Rectangle())
+            questionCellContent(index: index, isCurrent: isCurrent, isAnswered: isAnswered)
         }
         .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel("question.navigator.accessibility.question".localized(with: index + 1))
-        .accessibilityHint(
-            isCurrent ? "question.navigator.accessibility.current".localized :
-                isAnswered ? "question.navigator.accessibility.answered".localized :
-                "question.navigator.accessibility.not.answered".localized
-        )
+        .accessibilityHint(accessibilityHintText(isCurrent: isCurrent, isAnswered: isAnswered))
+    }
+
+    @ViewBuilder
+    private func questionCellContent(index: Int, isCurrent: Bool, isAnswered: Bool) -> some View {
+        ZStack {
+            // Background
+            RoundedRectangle(cornerRadius: 8)
+                .fill(cellBackgroundColor(isCurrent: isCurrent, isAnswered: isAnswered))
+
+            // Border for current question
+            if isCurrent {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+            }
+
+            // Number
+            Text("\(index + 1)")
+                .font(.subheadline)
+                .fontWeight(isCurrent ? .bold : .medium)
+                .foregroundColor(cellTextColor(isCurrent: isCurrent, isAnswered: isAnswered))
+
+            // Checkmark for answered
+            if isAnswered && !isCurrent {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(2)
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
+    private func accessibilityHintText(isCurrent: Bool, isAnswered: Bool) -> String {
+        if isCurrent {
+            "question.navigator.accessibility.current".localized
+        } else if isAnswered {
+            "question.navigator.accessibility.answered".localized
+        } else {
+            "question.navigator.accessibility.not.answered".localized
+        }
     }
 
     private func cellBackgroundColor(isCurrent: Bool, isAnswered: Bool) -> Color {
