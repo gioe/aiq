@@ -205,7 +205,7 @@ struct InProgressTestCard: View {
                     Text("Abandon Test")
                         .font(Typography.bodySmall.weight(.medium))
                 }
-                .foregroundColor(ColorPalette.error)
+                .foregroundColor(ColorPalette.errorText)
                 .frame(maxWidth: .infinity)
                 .padding(DesignSystem.Spacing.sm)
                 .background(

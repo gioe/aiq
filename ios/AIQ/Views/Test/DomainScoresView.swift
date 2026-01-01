@@ -20,6 +20,7 @@ struct DomainScoreBarView: View {
     }
 
     /// Bar color based on percentile performance level, falling back to strongest/weakest indicators
+    /// Used for progress bars, badges, and icons (not text)
     private var barColor: Color {
         // Use performance level color if percentile is available
         if let level = score.performanceLevel {
@@ -30,6 +31,22 @@ struct DomainScoreBarView: View {
             return ColorPalette.success
         } else if isWeakest {
             return ColorPalette.warning
+        }
+        return ColorPalette.primary
+    }
+
+    /// WCAG AA compliant text color for displaying performance level text
+    /// Uses accessible color variants that meet 4.5:1 contrast ratio on white backgrounds
+    private var barTextColor: Color {
+        // Use performance level text color if percentile is available
+        if let level = score.performanceLevel {
+            return level.textColor
+        }
+        // Fall back to accessible text colors for strongest/weakest indicators
+        if isStrongest {
+            return ColorPalette.successText
+        } else if isWeakest {
+            return ColorPalette.warningText
         }
         return ColorPalette.primary
     }
@@ -124,7 +141,7 @@ struct DomainScoreBarView: View {
 
                     Text(percentileDesc)
                         .font(Typography.captionSmall)
-                        .foregroundColor(barColor)
+                        .foregroundColor(barTextColor)
                 }
             }
         }
