@@ -1275,6 +1275,73 @@ Use semantic colors from `ColorPalette` which adapt to light/dark mode:
 .foregroundColor(ColorPalette.textPrimary)  // Adapts to light/dark mode
 ```
 
+### Touch Target Sizes
+
+All interactive elements MUST meet Apple's minimum touch target size of 44x44pt to ensure accessibility for users with motor impairments.
+
+**DO:**
+- Use `.frame(minWidth: 44, minHeight: 44)` for all interactive elements
+- Use the `IconButton` component for icon-only buttons (guarantees 44x44pt)
+- Add `.contentShape(Rectangle())` when needed to ensure the full hit area is tappable
+- Test touch targets on smallest supported device (iPhone SE)
+
+**DON'T:**
+- Create icon-only buttons without explicit sizing
+- Rely on default touch areas for small text buttons
+- Use `.font(.caption)` or smaller fonts for buttons without padding compensation
+
+**Examples:**
+
+```swift
+// Good - Icon button with guaranteed 44x44pt
+IconButton(
+    icon: "xmark",
+    action: onDismiss,
+    accessibilityLabel: "Close",
+    foregroundColor: .white
+)
+
+// Good - Text button with explicit minimum size
+Button("Sign In") {
+    // Action
+}
+.frame(minHeight: 44)
+
+// Good - Toolbar button with explicit sizing
+Button("Exit") {
+    // Action
+}
+.frame(minWidth: 44, minHeight: 44)
+
+// Bad - Icon-only button without sizing (likely ~17-20pt)
+Button {
+    // Action
+} label: {
+    Image(systemName: "xmark")
+}
+
+// Bad - Small text button without sizing
+Button {
+    // Action
+} label: {
+    Text("Clear Filters")
+        .font(.caption)
+}
+```
+
+**Common Patterns:**
+
+| Element Type | Minimum Requirement |
+|--------------|-------------------|
+| Icon-only buttons | Use `IconButton` component or `.frame(width: 44, height: 44)` |
+| Text-only buttons | `.frame(minHeight: 44)` |
+| Toolbar buttons | `.frame(minWidth: 44, minHeight: 44)` |
+| Menu labels | `.frame(minWidth: 44, minHeight: 44)` |
+| Grid cells | `.frame(minWidth: 44, height: 44)` with `.contentShape(Rectangle())` |
+
+**Component Reference:**
+- **IconButton** (`Views/Common/IconButton.swift`): Reusable component for icon-only buttons that guarantees 44x44pt minimum
+
 ### RTL (Right-to-Left) Support
 
 The app supports RTL languages (Arabic, Hebrew). Follow these standards:

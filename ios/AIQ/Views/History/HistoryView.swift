@@ -37,6 +37,7 @@ struct HistoryView: View {
                         }
                     } label: {
                         Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Filter tests by date")
                     .accessibilityHint("Opens menu to filter test history by time period")
@@ -50,6 +51,7 @@ struct HistoryView: View {
                         }
                     } label: {
                         Label("Sort", systemImage: "arrow.up.arrow.down.circle")
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Sort test results")
                     .accessibilityHint("Opens menu to change sort order")
@@ -131,8 +133,9 @@ struct HistoryView: View {
                             viewModel.sortOrder = .newestFirst
                         } label: {
                             Text("Clear Filters")
-                                .font(.caption)
+                                .font(.subheadline)
                                 .foregroundColor(.accentColor)
+                                .frame(minHeight: 44)
                         }
                     }
                     .padding(.horizontal)

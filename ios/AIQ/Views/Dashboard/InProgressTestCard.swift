@@ -207,7 +207,7 @@ struct InProgressTestCard: View {
                 }
                 .foregroundColor(ColorPalette.errorText)
                 .frame(maxWidth: .infinity)
-                .padding(DesignSystem.Spacing.sm)
+                .padding(DesignSystem.Spacing.md)
                 .background(
                     RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                         .fill(ColorPalette.error.opacity(0.1))

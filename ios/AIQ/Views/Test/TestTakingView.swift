@@ -56,6 +56,7 @@ struct TestTakingView: View {
                 Button("Exit") {
                     handleExit()
                 }
+                .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel("Exit test")
                 .accessibilityHint("Exits the current test")
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.exitButton)
