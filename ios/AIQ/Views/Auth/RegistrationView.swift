@@ -87,7 +87,7 @@ struct RegistrationView: View {
                                 if let firstNameError = viewModel.firstNameError {
                                     Text(firstNameError)
                                         .font(Typography.captionMedium)
-                                        .foregroundColor(ColorPalette.error)
+                                        .foregroundColor(ColorPalette.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
@@ -104,7 +104,7 @@ struct RegistrationView: View {
                                 if let lastNameError = viewModel.lastNameError {
                                     Text(lastNameError)
                                         .font(Typography.captionMedium)
-                                        .foregroundColor(ColorPalette.error)
+                                        .foregroundColor(ColorPalette.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
@@ -124,7 +124,7 @@ struct RegistrationView: View {
                             if let emailError = viewModel.emailError {
                                 Text(emailError)
                                     .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.error)
+                                    .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
@@ -142,7 +142,7 @@ struct RegistrationView: View {
                             if let passwordError = viewModel.passwordError {
                                 Text(passwordError)
                                     .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.error)
+                                    .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
@@ -160,7 +160,7 @@ struct RegistrationView: View {
                             if let confirmPasswordError = viewModel.confirmPasswordError {
                                 Text(confirmPasswordError)
                                     .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.error)
+                                    .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }

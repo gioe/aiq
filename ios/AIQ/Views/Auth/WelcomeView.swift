@@ -89,7 +89,7 @@ struct WelcomeView: View {
                             if let emailError = viewModel.emailError {
                                 Text(emailError)
                                     .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.error)
+                                    .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
 
@@ -104,7 +104,7 @@ struct WelcomeView: View {
                             if let passwordError = viewModel.passwordError {
                                 Text(passwordError)
                                     .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.error)
+                                    .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
 

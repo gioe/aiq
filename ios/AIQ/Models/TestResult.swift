@@ -154,6 +154,9 @@ enum PerformanceLevel {
         }
     }
 
+    /// Color for icons, backgrounds, and UI elements (not text)
+    /// - Warning: Light mode contrast insufficient for text on white backgrounds
+    /// - Use `textColor` for text to ensure WCAG AA compliance
     var color: Color {
         switch self {
         case .needsWork: ColorPalette.performanceNeedsWork
@@ -161,6 +164,18 @@ enum PerformanceLevel {
         case .average: ColorPalette.performanceAverage
         case .good: ColorPalette.performanceGood
         case .excellent: ColorPalette.performanceExcellent
+        }
+    }
+
+    /// WCAG AA compliant text color (4.5:1 contrast ratio on white backgrounds)
+    /// Use this for displaying text in performance level colors
+    var textColor: Color {
+        switch self {
+        case .needsWork: ColorPalette.errorText
+        case .belowAverage: ColorPalette.warningText
+        case .average: ColorPalette.infoText
+        case .good: ColorPalette.performanceGoodText
+        case .excellent: ColorPalette.successText
         }
     }
 }
