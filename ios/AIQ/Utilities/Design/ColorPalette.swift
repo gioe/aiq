@@ -5,10 +5,15 @@ import SwiftUI
 extension Color {
     /// Creates a color from a hex string
     /// - Parameter hex: Hex color string (e.g., "#FF0000" or "FF0000")
-    init(hex: String) {
+    /// - Returns: A Color if the hex string is valid (3, 6, or 8 hex digits), nil otherwise
+    init?(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
+
+        guard Scanner(string: hex).scanHexInt64(&int) else {
+            return nil
+        }
+
         let alpha, red, green, blue: UInt64
         switch hex.count {
         case 3: // RGB (12-bit)
@@ -18,7 +23,7 @@ extension Color {
         case 8: // ARGB (32-bit)
             (alpha, red, green, blue) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
-            (alpha, red, green, blue) = (255, 0, 0, 0)
+            return nil
         }
 
         self.init(
@@ -128,28 +133,28 @@ enum ColorPalette {
     /// - Dark mode: Standard green (10.2:1) - excellent contrast
     /// - Use for: Success messages, positive feedback text, high score labels
     /// - Do not use for: Icons (use `success` instead)
-    static let successText = Color(light: Color(hex: "#1B7F3D"), dark: .green)
+    static let successText = Color(light: Color(hex: "#1B7F3D") ?? .green, dark: .green)
 
     /// Accessible warning text color - meets WCAG AA 4.5:1 contrast ratio
     /// - Light mode: Darker orange (#C67100) - 4.6:1 contrast on white
     /// - Dark mode: Standard orange (11.4:1) - excellent contrast
     /// - Use for: Warning messages, caution text, medium score labels
     /// - Do not use for: Icons (use `warning` instead)
-    static let warningText = Color(light: Color(hex: "#C67100"), dark: .orange)
+    static let warningText = Color(light: Color(hex: "#C67100") ?? .orange, dark: .orange)
 
     /// Accessible error text color - meets WCAG AA 4.5:1 contrast ratio
     /// - Light mode: Darker red (#D32F2F) - 4.5:1 contrast on white
     /// - Dark mode: Standard red (9.6:1) - excellent contrast
     /// - Use for: Error messages, critical alerts, low score labels
     /// - Do not use for: Icons (use `error` instead)
-    static let errorText = Color(light: Color(hex: "#D32F2F"), dark: .red)
+    static let errorText = Color(light: Color(hex: "#D32F2F") ?? .red, dark: .red)
 
     /// Accessible info text color - meets WCAG AA 4.5:1 contrast ratio
     /// - Light mode: Darker blue (#0056B3) - 4.5:1 contrast on white
     /// - Dark mode: Standard blue (8.6:1) - excellent contrast
     /// - Use for: Informational messages, neutral labels, average score text
     /// - Do not use for: Icons (use `info` instead)
-    static let infoText = Color(light: Color(hex: "#0056B3"), dark: .blue)
+    static let infoText = Color(light: Color(hex: "#0056B3") ?? .blue, dark: .blue)
 
     // MARK: - Neutral Colors
 
@@ -266,5 +271,5 @@ enum ColorPalette {
     /// - Dark mode: Standard teal (11.0:1) - excellent contrast
     /// - Use for: "Good" performance labels and descriptions
     /// - Do not use for: Icons (use `performanceGood` instead)
-    static let performanceGoodText = Color(light: Color(hex: "#008B8B"), dark: .teal)
+    static let performanceGoodText = Color(light: Color(hex: "#008B8B") ?? .teal, dark: .teal)
 }
