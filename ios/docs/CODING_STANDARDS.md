@@ -19,6 +19,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
 - [Error Handling](#error-handling)
+  - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
 - [Networking](#networking)
 - [Design System](#design-system)
 - [Documentation](#documentation)
@@ -499,6 +500,77 @@ All errors handled through `BaseViewModel.handleError()` are automatically recor
 ```swift
 handleError(error, context: .login)  // Provides context for debugging
 ```
+
+### Parsing and Validation Utilities
+
+When creating utilities that parse external input (strings, files, network data), follow these safety guidelines to avoid silent failures.
+
+#### Failable Initializers for Parsing
+
+Use failable initializers (`init?`) that return `nil` for invalid input instead of returning default/fallback values:
+
+```swift
+// ✅ Good - Explicit failure
+extension Color {
+    /// Creates a color from a hex string
+    /// - Returns: A Color if valid (3, 6, or 8 hex digits), nil otherwise
+    init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+
+        guard Scanner(string: hex).scanHexInt64(&int) else {
+            return nil  // Explicit failure
+        }
+
+        guard [3, 6, 8].contains(hex.count) else {
+            return nil  // Invalid format
+        }
+
+        // ... parsing logic
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
+    }
+}
+
+// Usage with fallback - caller decides the default
+let color = Color(hex: userInput) ?? .black
+```
+
+```swift
+// ❌ Bad - Silent failure
+init(hex: String) {
+    // ... parsing logic
+
+    // Returns black for invalid input - hides bugs!
+    (alpha, red, green, blue) = (255, 0, 0, 0)
+}
+```
+
+#### Validation Before Processing
+
+For functions that process input, validate early and throw or return errors:
+
+```swift
+func parseConfiguration(_ json: String) throws -> Configuration {
+    guard !json.isEmpty else {
+        throw ConfigurationError.emptyInput
+    }
+
+    guard let data = json.data(using: .utf8) else {
+        throw ConfigurationError.invalidEncoding
+    }
+
+    // Continue with valid input
+}
+```
+
+#### Why This Matters
+
+Silent failures in parsing utilities create bugs that are:
+- **Hard to debug**: No error is thrown, so failures go unnoticed
+- **Non-obvious**: Developers may not realize input was invalid
+- **Production-impacting**: Malformed data can cause UI issues or incorrect behavior
+
+By making parsing functions failable or throwing errors, you make invalid states unrepresentable and force callers to handle error cases explicitly.
 
 ---
 
