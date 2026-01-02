@@ -45,8 +45,8 @@ enum Typography {
     /// Large body text (body, regular) - standard reading text (~17pt at default)
     static let bodyLarge = Font.body.weight(.regular)
 
-    /// Medium body text (body, regular) - default body text (~17pt at default)
-    static let bodyMedium = Font.body.weight(.regular)
+    /// Medium body text (callout, regular) - default body text (~16pt at default)
+    static let bodyMedium = Font.callout.weight(.regular)
 
     /// Small body text (subheadline, regular) - secondary content (~15pt at default)
     static let bodySmall = Font.subheadline.weight(.regular)
