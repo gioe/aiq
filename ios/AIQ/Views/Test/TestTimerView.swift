@@ -3,6 +3,7 @@ import SwiftUI
 /// A compact timer display for the test-taking view
 struct TestTimerView: View {
     @ObservedObject var timerManager: TestTimerManager
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -19,7 +20,7 @@ struct TestTimerView: View {
         .padding(.vertical, 6)
         .background(timerBackgroundColor)
         .clipShape(Capsule())
-        .animation(.easeInOut(duration: 0.3), value: timerManager.timerColor)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: timerManager.timerColor)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(urgencyPrefix)Time remaining: \(timerManager.formattedTime)")
         .accessibilityAddTraits(.updatesFrequently)
