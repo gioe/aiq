@@ -51,7 +51,6 @@ struct LoadingOverlay: View {
             .opacity(isAnimating ? 1.0 : 0.0)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(message ?? "Loading")
-            .accessibilityAddTraits(.updatesFrequently)
         }
         .onAppear {
             // Entrance animation
