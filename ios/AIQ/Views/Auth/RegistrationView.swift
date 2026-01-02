@@ -5,6 +5,7 @@ struct RegistrationView: View {
     @StateObject private var viewModel = RegistrationViewModel(authManager: AuthManager.shared)
     @Environment(\.dismiss) private var dismiss
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         ZStack {
@@ -32,9 +33,11 @@ struct RegistrationView: View {
                         Image(systemName: "sparkles")
                             .font(.system(size: 72))
                             .foregroundStyle(ColorPalette.scoreGradient)
-                            .rotationEffect(.degrees(isAnimating ? 5 : -5))
+                            .rotationEffect(.degrees(reduceMotion ? 0 : (isAnimating ? 5 : -5)))
                             .animation(
-                                Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                                reduceMotion
+                                    ? nil
+                                    : Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
                                 value: isAnimating
                             )
 
@@ -57,17 +60,21 @@ struct RegistrationView: View {
                     }
                     .padding(.top, DesignSystem.Spacing.xl)
                     .onAppear {
-                        withAnimation(DesignSystem.Animation.bouncy) {
+                        if reduceMotion {
                             isAnimating = true
+                        } else {
+                            withAnimation(DesignSystem.Animation.bouncy) {
+                                isAnimating = true
+                            }
                         }
                     }
 
                     // Benefits Section
                     RegistrationBenefits()
                         .opacity(isAnimating ? 1.0 : 0.0)
-                        .offset(y: isAnimating ? 0 : 20)
+                        .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                         .animation(
-                            DesignSystem.Animation.smooth.delay(0.2),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
                             value: isAnimating
                         )
 
@@ -166,9 +173,9 @@ struct RegistrationView: View {
                         }
                     }
                     .opacity(isAnimating ? 1.0 : 0.0)
-                    .offset(y: isAnimating ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        DesignSystem.Animation.smooth.delay(0.4),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
                         value: isAnimating
                     )
 
@@ -255,9 +262,9 @@ struct RegistrationView: View {
                         )
                     }
                     .opacity(isAnimating ? 1.0 : 0.0)
-                    .offset(y: isAnimating ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        DesignSystem.Animation.smooth.delay(0.5),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.5),
                         value: isAnimating
                     )
 
@@ -277,9 +284,9 @@ struct RegistrationView: View {
                         .padding(.top, DesignSystem.Spacing.sm)
                     }
                     .opacity(isAnimating ? 1.0 : 0.0)
-                    .offset(y: isAnimating ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        DesignSystem.Animation.smooth.delay(0.6),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.6),
                         value: isAnimating
                     )
 
@@ -305,7 +312,7 @@ struct RegistrationView: View {
                     .padding(.top, DesignSystem.Spacing.sm)
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .animation(
-                        DesignSystem.Animation.smooth.delay(0.8),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.8),
                         value: isAnimating
                     )
 

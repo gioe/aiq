@@ -5,6 +5,7 @@ struct LoadingOverlay: View {
     let message: String?
     @State private var isAnimating = false
     @State private var rotationAngle: Double = 0
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     init(message: String? = nil) {
         self.message = message
@@ -24,7 +25,7 @@ struct LoadingOverlay: View {
                     .font(.system(size: 48))
                     .foregroundStyle(ColorPalette.scoreGradient)
                     .rotationEffect(.degrees(rotationAngle))
-                    .scaleEffect(isAnimating ? 1.1 : 1.0)
+                    .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.1 : 1.0))
                     .accessibilityHidden(true)
 
                 if let message {
@@ -53,16 +54,22 @@ struct LoadingOverlay: View {
         }
         .onAppear {
             // Entrance animation
-            withAnimation(DesignSystem.Animation.smooth) {
+            if reduceMotion {
                 isAnimating = true
+            } else {
+                withAnimation(DesignSystem.Animation.smooth) {
+                    isAnimating = true
+                }
             }
 
-            // Continuous rotation animation
-            withAnimation(
-                Animation.linear(duration: 2.0)
-                    .repeatForever(autoreverses: false)
-            ) {
-                rotationAngle = 360
+            // Continuous rotation animation - disabled when Reduce Motion is enabled
+            if !reduceMotion {
+                withAnimation(
+                    Animation.linear(duration: 2.0)
+                        .repeatForever(autoreverses: false)
+                ) {
+                    rotationAngle = 360
+                }
             }
         }
     }
