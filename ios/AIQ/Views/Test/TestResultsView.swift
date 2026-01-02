@@ -6,6 +6,7 @@ struct TestResultsView: View {
 
     @State private var showAnimation = false
     @State private var showConfidenceIntervalInfo = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -57,8 +58,12 @@ struct TestResultsView: View {
                 }
             }
             .onAppear {
-                withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+                if reduceMotion {
                     showAnimation = true
+                } else {
+                    withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+                        showAnimation = true
+                    }
                 }
             }
         }
@@ -72,7 +77,7 @@ struct TestResultsView: View {
             Image(systemName: "trophy.fill")
                 .font(.system(size: DesignSystem.IconSize.xl))
                 .foregroundStyle(ColorPalette.trophyGradient)
-                .scaleEffect(showAnimation ? 1.0 : 0.5)
+                .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.5))
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityHidden(true) // Decorative icon
 
@@ -86,7 +91,7 @@ struct TestResultsView: View {
                 Text("\(result.iqScore)")
                     .font(Typography.scoreDisplay)
                     .foregroundStyle(ColorPalette.scoreGradient)
-                    .scaleEffect(showAnimation ? 1.0 : 0.8)
+                    .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
                     .opacity(showAnimation ? 1.0 : 0.0)
                     .accessibilityLabel(result.scoreAccessibilityDescription)
                     .accessibilityHint(iqRangeDescription)
@@ -145,7 +150,7 @@ struct TestResultsView: View {
                 .accessibilityLabel("Learn about score range")
                 .accessibilityHint("Shows explanation of confidence interval")
             }
-            .scaleEffect(showAnimation ? 1.0 : 0.9)
+            .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.9))
             .opacity(showAnimation ? 1.0 : 0.0)
         }
         .alert("Understanding Your Score Range", isPresented: $showConfidenceIntervalInfo) {
@@ -210,7 +215,7 @@ struct TestResultsView: View {
             }
         }
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
+        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
     }
 
     private func metricCard(icon: String, title: String, value: String, color: Color) -> some View {
@@ -264,7 +269,7 @@ struct TestResultsView: View {
                 .stroke(performanceBackgroundColor.opacity(0.3), lineWidth: 1)
         )
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
+        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
         .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.performanceLabel)
     }
 
@@ -300,7 +305,7 @@ struct TestResultsView: View {
             .accessibilityHint("Go back to the main dashboard")
         }
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
+        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
     }
 
     // MARK: - Computed Properties

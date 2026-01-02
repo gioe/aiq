@@ -356,14 +356,21 @@ struct DashboardView: View {
 /// View modifier for applying consistent transition and animation to InProgressTestCard
 private struct InProgressCardTransition: ViewModifier {
     let sessionId: Int?
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     func body(content: Content) -> some View {
-        content
-            .transition(.asymmetric(
-                insertion: .scale(scale: 0.9).combined(with: .opacity),
-                removal: .scale(scale: 0.9).combined(with: .opacity)
-            ))
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: sessionId)
+        if reduceMotion {
+            content
+                .transition(.opacity)
+                .animation(nil, value: sessionId)
+        } else {
+            content
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.9).combined(with: .opacity),
+                    removal: .scale(scale: 0.9).combined(with: .opacity)
+                ))
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: sessionId)
+        }
     }
 }
 

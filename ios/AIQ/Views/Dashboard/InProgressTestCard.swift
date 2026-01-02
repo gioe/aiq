@@ -9,6 +9,7 @@ struct InProgressTestCard: View {
 
     @State private var showAbandonConfirmation = false
     @State private var isAbandoning = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
@@ -73,7 +74,7 @@ struct InProgressTestCard: View {
                             .fill(ColorPalette.textPrimary.opacity(0.9))
                     )
                 }
-                .transition(.opacity)
+                .transition(reduceMotion ? .identity : .opacity)
             }
         }
         .disabled(isAbandoning)

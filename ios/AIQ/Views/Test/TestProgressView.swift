@@ -6,6 +6,8 @@ struct TestProgressView: View {
     let totalQuestions: Int
     let answeredCount: Int
 
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     var progress: Double {
         Double(currentQuestion) / Double(totalQuestions)
     }
@@ -31,7 +33,7 @@ struct TestProgressView: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(completionPercentage == 100 ? .green : .accentColor)
-                        .animation(.easeInOut(duration: 0.3), value: completionPercentage)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: completionPercentage)
                 }
 
                 progressBar
@@ -106,8 +108,8 @@ struct TestProgressView: View {
                         width: geometry.size.width * (Double(answeredCount) / Double(totalQuestions)),
                         height: 10
                     )
-                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: answeredCount)
-                    .animation(.easeInOut(duration: 0.4), value: completionPercentage)
+                    .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: answeredCount)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: completionPercentage)
 
                 // Current position indicator
                 Circle()
@@ -118,7 +120,7 @@ struct TestProgressView: View {
                             .strokeBorder(Color.accentColor, lineWidth: 2)
                     )
                     .offset(x: (geometry.size.width * progress) - 7)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
+                    .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: progress)
             }
         }
         .frame(height: 14)

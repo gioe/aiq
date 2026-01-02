@@ -6,6 +6,7 @@ struct TimeWarningBanner: View {
     let onDismiss: () -> Void
 
     @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -52,10 +53,14 @@ struct TimeWarningBanner: View {
         )
         .padding(.horizontal)
         .opacity(isVisible ? 1 : 0)
-        .offset(y: isVisible ? 0 : -20)
+        .offset(y: reduceMotion ? 0 : (isVisible ? 0 : -20))
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            if reduceMotion {
                 isVisible = true
+            } else {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    isVisible = true
+                }
             }
         }
     }

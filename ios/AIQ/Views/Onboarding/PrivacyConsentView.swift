@@ -5,6 +5,7 @@ import SwiftUI
 struct PrivacyConsentView: View {
     @Binding var hasAcceptedConsent: Bool
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
 
@@ -31,9 +32,11 @@ struct PrivacyConsentView: View {
                             Image(systemName: "hand.raised.fill")
                                 .font(.system(size: 80))
                                 .foregroundStyle(ColorPalette.scoreGradient)
-                                .scaleEffect(isAnimating ? 1.05 : 1.0)
+                                .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                                 .animation(
-                                    Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
+                                    reduceMotion
+                                        ? nil
+                                        : Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
                                     value: isAnimating
                                 )
                                 .accessibilityIdentifier(AccessibilityIdentifiers.PrivacyConsentView.privacyIcon)
@@ -50,8 +53,12 @@ struct PrivacyConsentView: View {
                         }
                         .padding(.top, DesignSystem.Spacing.xl)
                         .onAppear {
-                            withAnimation(DesignSystem.Animation.bouncy) {
+                            if reduceMotion {
                                 isAnimating = true
+                            } else {
+                                withAnimation(DesignSystem.Animation.bouncy) {
+                                    isAnimating = true
+                                }
                             }
                         }
 
@@ -87,9 +94,9 @@ struct PrivacyConsentView: View {
                         }
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                         .opacity(isAnimating ? 1.0 : 0.0)
-                        .offset(y: isAnimating ? 0 : 20)
+                        .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                         .animation(
-                            DesignSystem.Animation.smooth.delay(0.2),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
                             value: isAnimating
                         )
 
@@ -122,7 +129,7 @@ struct PrivacyConsentView: View {
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .animation(
-                            DesignSystem.Animation.smooth.delay(0.4),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
                             value: isAnimating
                         )
 
@@ -136,7 +143,7 @@ struct PrivacyConsentView: View {
                         .padding(.top, DesignSystem.Spacing.xl)
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .animation(
-                            DesignSystem.Animation.smooth.delay(0.6),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.6),
                             value: isAnimating
                         )
 
