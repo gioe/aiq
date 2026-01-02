@@ -1260,11 +1260,82 @@ HStack {
 
 ### Dynamic Type
 
-Use the Typography system which automatically supports Dynamic Type:
+All text in the app MUST support Dynamic Type to ensure accessibility for users with vision impairments. The Typography system provides automatic Dynamic Type scaling.
+
+**DO:**
+- Use Typography system constants for all text styling
+- Test layouts at multiple text sizes (M, XL, XXXL, AX5)
+- Use ScrollView for screens with substantial content
+- Avoid fixed height constraints on text containers
+- Use `.lineLimit(nil)` or `.minimumScaleFactor()` for text that might truncate
+
+**DON'T:**
+- Use `Font.system(size:)` with hardcoded pixel values
+- Apply fixed height constraints that could truncate scaled text
+- Assume text will fit within a fixed container
+
+**Examples:**
 
 ```swift
-Text("Title")
-    .font(Typography.h1)  // Automatically scales with user's text size
+// Good - Uses Typography system which scales automatically
+Text("Welcome")
+    .font(Typography.h1)  // Scales from ~28pt to ~53pt+ with Dynamic Type
+
+Text("Description")
+    .font(Typography.bodyMedium)  // Scales with user preferences
+
+// Bad - Fixed size that doesn't scale
+Text("Welcome")
+    .font(.system(size: 28))  // Never scales
+
+// Good - Flexible layout for scaled text
+VStack(spacing: DesignSystem.Spacing.lg) {
+    Text("Title")
+        .font(Typography.h1)
+    Text("Subtitle")
+        .font(Typography.bodyMedium)
+}
+.frame(maxWidth: .infinity)  // No fixed height
+
+// Bad - Fixed height truncates large text
+VStack {
+    Text("Title")
+}
+.frame(height: 50)  // Will truncate at larger sizes
+```
+
+**Typography System Implementation:**
+
+The Typography enum uses a combination of semantic text styles and `@ScaledMetric` for Dynamic Type support:
+
+- **Semantic styles** (h1, h2, body, etc.) - Use SwiftUI's built-in text styles that automatically scale
+- **Special sizes** (scoreDisplay, displayLarge, etc.) - Use `@ScaledMetric` to preserve base sizes while enabling scaling
+
+```swift
+// Semantic text styles (automatically scale)
+static let h1 = Font.title.weight(.bold)
+static let bodyMedium = Font.body.weight(.regular)
+
+// Special sizes with @ScaledMetric (preserve base size + scale)
+static var scoreDisplay: Font {
+    FontScaling.scoreDisplay  // 72pt base, scales proportionally
+}
+```
+
+**Testing Dynamic Type:**
+
+Test all major screens at these sizes:
+- M (Medium) - Default size
+- XL (Extra Large) - Common accessibility size
+- XXXL (Extra Extra Extra Large) - Largest non-accessibility size
+- AX5 (Accessibility XXXL) - Largest accessibility size
+
+```swift
+// SwiftUI Preview with Dynamic Type size
+#Preview("Large Text") {
+    DashboardView()
+        .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
+}
 ```
 
 ### Semantic Colors

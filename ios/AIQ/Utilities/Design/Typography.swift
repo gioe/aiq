@@ -1,76 +1,137 @@
 import SwiftUI
 
 /// Centralized typography system for consistent text styling
-/// Provides standardized font styles that adapt to Dynamic Type
+/// All styles support Dynamic Type for accessibility
 enum Typography {
     // MARK: - Display Styles (Large, prominent text)
 
-    /// Extra large display text (48pt, bold) - for major headings
-    static let displayLarge = Font.system(size: 48, weight: .bold, design: .rounded)
+    // Note: Uses helper class for @ScaledMetric since enums cannot have property wrappers
 
-    /// Medium display text (42pt, bold) - for app title, major headings
-    static let displayMedium = Font.system(size: 42, weight: .bold, design: .default)
+    /// Extra large display text (48pt base, scales with Dynamic Type) - for major headings
+    static var displayLarge: Font {
+        FontScaling.displayLarge
+    }
 
-    /// Small display text (36pt, bold) - for section headings
-    static let displaySmall = Font.system(size: 36, weight: .bold, design: .default)
+    /// Medium display text (42pt base, scales with Dynamic Type) - for app title, major headings
+    static var displayMedium: Font {
+        FontScaling.displayMedium
+    }
+
+    /// Small display text (36pt base, scales with Dynamic Type) - for section headings
+    static var displaySmall: Font {
+        FontScaling.displaySmall
+    }
 
     // MARK: - Heading Styles
 
-    /// Heading 1 (28pt, bold)
-    static let h1 = Font.system(size: 28, weight: .bold)
+    // Uses semantic text styles that automatically scale with Dynamic Type
 
-    /// Heading 2 (24pt, semibold)
-    static let h2 = Font.system(size: 24, weight: .semibold)
+    /// Heading 1 (title, bold) - maps to ~28pt at default size
+    static let h1 = Font.title.weight(.bold)
 
-    /// Heading 3 (20pt, semibold)
-    static let h3 = Font.system(size: 20, weight: .semibold)
+    /// Heading 2 (title2, semibold) - maps to ~22pt at default size
+    static let h2 = Font.title2.weight(.semibold)
 
-    /// Heading 4 (18pt, semibold)
-    static let h4 = Font.system(size: 18, weight: .semibold)
+    /// Heading 3 (title3, semibold) - maps to ~20pt at default size
+    static let h3 = Font.title3.weight(.semibold)
+
+    /// Heading 4 (headline, semibold) - maps to ~17pt at default size
+    static let h4 = Font.headline.weight(.semibold)
 
     // MARK: - Body Styles
 
-    /// Large body text (17pt, regular) - standard reading text
-    static let bodyLarge = Font.system(size: 17, weight: .regular)
+    // Uses semantic text styles that automatically scale with Dynamic Type
 
-    /// Medium body text (15pt, regular) - default body text
-    static let bodyMedium = Font.system(size: 15, weight: .regular)
+    /// Large body text (body, regular) - standard reading text (~17pt at default)
+    static let bodyLarge = Font.body.weight(.regular)
 
-    /// Small body text (13pt, regular) - secondary content
-    static let bodySmall = Font.system(size: 13, weight: .regular)
+    /// Medium body text (callout, regular) - default body text (~16pt at default)
+    static let bodyMedium = Font.callout.weight(.regular)
+
+    /// Small body text (subheadline, regular) - secondary content (~15pt at default)
+    static let bodySmall = Font.subheadline.weight(.regular)
 
     // MARK: - Label Styles
 
-    /// Large label (15pt, medium) - for prominent labels
-    static let labelLarge = Font.system(size: 15, weight: .medium)
+    // Uses semantic text styles that automatically scale with Dynamic Type
 
-    /// Medium label (13pt, medium) - for standard labels
-    static let labelMedium = Font.system(size: 13, weight: .medium)
+    /// Large label (subheadline, medium) - for prominent labels (~15pt at default)
+    static let labelLarge = Font.subheadline.weight(.medium)
 
-    /// Small label (11pt, medium) - for compact labels
-    static let labelSmall = Font.system(size: 11, weight: .medium)
+    /// Medium label (callout, medium) - for standard labels (~16pt at default)
+    static let labelMedium = Font.callout.weight(.medium)
+
+    /// Small label (footnote, medium) - for compact labels (~13pt at default)
+    static let labelSmall = Font.footnote.weight(.medium)
 
     // MARK: - Caption Styles
 
-    /// Large caption (12pt, regular) - for secondary information
-    static let captionLarge = Font.system(size: 12, weight: .regular)
+    // Uses semantic text styles that automatically scale with Dynamic Type
 
-    /// Medium caption (11pt, regular) - for timestamps, metadata
-    static let captionMedium = Font.system(size: 11, weight: .regular)
+    /// Large caption (footnote, regular) - for secondary information (~13pt at default)
+    static let captionLarge = Font.footnote.weight(.regular)
 
-    /// Small caption (10pt, regular) - for fine print
-    static let captionSmall = Font.system(size: 10, weight: .regular)
+    /// Medium caption (caption, regular) - for timestamps, metadata (~12pt at default)
+    static let captionMedium = Font.caption.weight(.regular)
+
+    /// Small caption (caption2, regular) - for fine print (~11pt at default)
+    static let captionSmall = Font.caption2.weight(.regular)
 
     // MARK: - Special Styles
 
-    /// Score display (72pt, bold, rounded) - for IQ scores
-    static let scoreDisplay = Font.system(size: 72, weight: .bold, design: .rounded)
+    /// Score display (72pt base, scales with Dynamic Type) - for IQ scores
+    static var scoreDisplay: Font {
+        FontScaling.scoreDisplay
+    }
 
     /// Stat value (title, bold) - for dashboard stats
     static let statValue = Font.title.weight(.bold)
 
     /// Button text (headline) - for buttons
     static let button = Font.headline
+}
+
+// MARK: - Font Scaling Helper
+
+/// Helper class to enable @ScaledMetric for special font sizes
+/// SwiftUI's @ScaledMetric property wrapper cannot be used directly in enums,
+/// so we use a helper class with static computed properties
+private enum FontScaling {
+    // MARK: - Scaled Metrics
+
+    /// Scaled metric for score display (72pt base)
+    @ScaledMetric(relativeTo: .largeTitle) private static var scoreSize: CGFloat = 72
+
+    /// Scaled metric for display large (48pt base)
+    @ScaledMetric(relativeTo: .largeTitle) private static var displayLargeSize: CGFloat = 48
+
+    /// Scaled metric for display medium (42pt base)
+    @ScaledMetric(relativeTo: .largeTitle) private static var displayMediumSize: CGFloat = 42
+
+    /// Scaled metric for display small (36pt base)
+    @ScaledMetric(relativeTo: .title) private static var displaySmallSize: CGFloat = 36
+
+    // MARK: - Font Getters
+
+    /// Score display font with Dynamic Type scaling
+    static var scoreDisplay: Font {
+        Font.system(size: scoreSize, weight: .bold, design: .rounded)
+    }
+
+    /// Display large font with Dynamic Type scaling
+    static var displayLarge: Font {
+        Font.system(size: displayLargeSize, weight: .bold, design: .rounded)
+    }
+
+    /// Display medium font with Dynamic Type scaling
+    static var displayMedium: Font {
+        Font.system(size: displayMediumSize, weight: .bold, design: .default)
+    }
+
+    /// Display small font with Dynamic Type scaling
+    static var displaySmall: Font {
+        Font.system(size: displaySmallSize, weight: .bold, design: .default)
+    }
 }
 
 // MARK: - View Extensions for Typography
