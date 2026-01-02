@@ -6,6 +6,7 @@ struct AnswerInputView: View {
     @Binding var userAnswer: String
     var isDisabled: Bool = false
     @FocusState private var isTextFieldFocused: Bool
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -32,8 +33,12 @@ struct AnswerInputView: View {
                     isDisabled: isDisabled,
                     accessibilityId: AccessibilityIdentifiers.TestTakingView.answerButton(at: index),
                     action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        if reduceMotion {
                             userAnswer = option
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                userAnswer = option
+                            }
                         }
                     }
                 )

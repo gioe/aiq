@@ -4,6 +4,8 @@ import SwiftUI
 struct NetworkStatusBanner: View {
     let isConnected: Bool
 
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     var body: some View {
         if !isConnected {
             HStack(spacing: 12) {
@@ -17,7 +19,7 @@ struct NetworkStatusBanner: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(Color.orange)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
         }
     }
 }

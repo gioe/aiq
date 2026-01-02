@@ -8,6 +8,7 @@ struct TestDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAnimation = false
     @State private var showConfidenceIntervalInfo = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -35,8 +36,12 @@ struct TestDetailView: View {
         .navigationTitle("Test Details")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+            if reduceMotion {
                 showAnimation = true
+            } else {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+                    showAnimation = true
+                }
             }
         }
     }
@@ -49,7 +54,7 @@ struct TestDetailView: View {
             Image(systemName: scoreIconName)
                 .font(.system(size: 50))
                 .foregroundStyle(scoreGradient)
-                .scaleEffect(showAnimation ? 1.0 : 0.5)
+                .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.5))
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityHidden(true)
 
@@ -63,7 +68,7 @@ struct TestDetailView: View {
                 Text("\(testResult.iqScore)")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
                     .foregroundStyle(scoreGradient)
-                    .scaleEffect(showAnimation ? 1.0 : 0.8)
+                    .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
                     .opacity(showAnimation ? 1.0 : 0.0)
                     .accessibilityLabel(testResult.scoreAccessibilityDescription)
 
@@ -116,7 +121,7 @@ struct TestDetailView: View {
                 .accessibilityLabel("Learn about score range")
                 .accessibilityHint("Shows explanation of confidence interval")
             }
-            .scaleEffect(showAnimation ? 1.0 : 0.9)
+            .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.9))
             .opacity(showAnimation ? 1.0 : 0.0)
         }
         .alert("Understanding Your Score Range", isPresented: $showConfidenceIntervalInfo) {
@@ -178,7 +183,6 @@ struct TestDetailView: View {
                 .stroke(comparisonColor.opacity(0.3), lineWidth: 1)
         )
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 10)
     }
 
     // MARK: - Metrics Grid
@@ -218,7 +222,6 @@ struct TestDetailView: View {
             }
         }
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
     }
 
     private func metricCard(icon: String, title: String, value: String, color: Color) -> some View {
@@ -269,7 +272,6 @@ struct TestDetailView: View {
                 .stroke(performanceColor.opacity(0.3), lineWidth: 1)
         )
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
     }
 
     // MARK: - Statistics Section
@@ -314,7 +316,6 @@ struct TestDetailView: View {
             .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
         }
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
     }
 
     private func statisticRow(label: String, value: String) -> some View {

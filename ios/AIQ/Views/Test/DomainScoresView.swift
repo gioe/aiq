@@ -10,6 +10,7 @@ struct DomainScoreBarView: View {
     let isWeakest: Bool
 
     @State private var animatedProgress: Double = 0
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     private var percentage: Double {
         score.pct ?? 0
@@ -149,8 +150,12 @@ struct DomainScoreBarView: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue("\(Int(percentage)) percent")
         .onAppear {
-            withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+            if reduceMotion {
                 animatedProgress = progress
+            } else {
+                withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+                    animatedProgress = progress
+                }
             }
         }
     }
@@ -274,7 +279,6 @@ struct DomainScoresBreakdownView: View {
             backgroundColor: ColorPalette.background
         )
         .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: showAnimation ? 0 : 20)
     }
 
     // MARK: - Domain Highlights View

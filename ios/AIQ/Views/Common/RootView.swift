@@ -6,6 +6,7 @@ struct RootView: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @State private var showSplash = true
     @State private var hasAcceptedConsent: Bool
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
 
@@ -35,8 +36,12 @@ struct RootView: View {
                 try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
 
                 // Fade out splash screen
-                withAnimation(DesignSystem.Animation.smooth) {
+                if reduceMotion {
                     showSplash = false
+                } else {
+                    withAnimation(DesignSystem.Animation.smooth) {
+                        showSplash = false
+                    }
                 }
             }
             .opacity(showSplash ? 0.0 : 1.0)
@@ -46,7 +51,7 @@ struct RootView: View {
                 NetworkStatusBanner(isConnected: networkMonitor.isConnected)
                 Spacer()
             }
-            .animation(.easeInOut, value: networkMonitor.isConnected)
+            .animation(reduceMotion ? nil : .easeInOut, value: networkMonitor.isConnected)
             .opacity(showSplash ? 0.0 : 1.0)
 
             // Splash Screen
@@ -65,6 +70,7 @@ struct RootView: View {
 /// Provides a smooth transition from launch screen to main app
 struct SplashView: View {
     @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         ZStack {
@@ -77,7 +83,7 @@ struct SplashView: View {
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 100))
                     .foregroundStyle(.white)
-                    .scaleEffect(isAnimating ? 1.0 : 0.8)
+                    .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.8))
                     .opacity(isAnimating ? 1.0 : 0.0)
 
                 // App Name
@@ -87,8 +93,12 @@ struct SplashView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
             }
             .onAppear {
-                withAnimation(DesignSystem.Animation.smooth) {
+                if reduceMotion {
                     isAnimating = true
+                } else {
+                    withAnimation(DesignSystem.Animation.smooth) {
+                        isAnimating = true
+                    }
                 }
             }
         }
