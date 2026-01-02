@@ -5,6 +5,7 @@ struct TestTakingView: View {
     @StateObject private var viewModel = TestTakingViewModel()
     @StateObject private var timerManager = TestTimerManager()
     @Environment(\.appRouter) var router
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var showResumeAlert = false
     @State private var showExitConfirmation = false
     @State private var savedProgress: SavedTestProgress?
@@ -43,7 +44,7 @@ struct TestTakingView: View {
             // Loading overlay with transition
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .navigationTitle("IQ Test")
@@ -242,7 +243,7 @@ struct TestTakingView: View {
                     }
                 )
                 .padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
 
             // Progress section at the top
@@ -260,7 +261,7 @@ struct TestTakingView: View {
                     currentQuestionIndex: viewModel.currentQuestionIndex,
                     answeredQuestionIndices: viewModel.answeredQuestionIndices,
                     onQuestionTap: { index in
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                             viewModel.goToQuestion(at: index)
                         }
                     }
@@ -279,10 +280,12 @@ struct TestTakingView: View {
                             questionNumber: viewModel.currentQuestionIndex + 1,
                             totalQuestions: viewModel.questions.count
                         )
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
+                        .transition(
+                            reduceMotion ? .opacity : .asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            )
+                        )
 
                         // Answer input
                         AnswerInputView(
@@ -293,7 +296,7 @@ struct TestTakingView: View {
                             ),
                             isDisabled: viewModel.isLocked
                         )
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
                     }
                 }
                 .padding()
@@ -314,7 +317,7 @@ struct TestTakingView: View {
         HStack(spacing: 12) {
             // Previous button
             Button {
-                withAnimation(.spring(response: 0.3)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                     viewModel.goToPrevious()
                 }
             } label: {
@@ -333,7 +336,7 @@ struct TestTakingView: View {
                 submitButton
             } else {
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                         viewModel.goToNext()
                     }
                 } label: {
@@ -380,32 +383,32 @@ struct TestTakingView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
                 .foregroundColor(.green)
-                .scaleEffect(showCompletionAnimation ? 1.0 : 0.5)
+                .scaleEffect(reduceMotion ? 1.0 : (showCompletionAnimation ? 1.0 : 0.5))
                 .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                .rotationEffect(.degrees(showCompletionAnimation ? 0 : -180))
+                .rotationEffect(.degrees(reduceMotion ? 0 : (showCompletionAnimation ? 0 : -180)))
 
             VStack(spacing: 12) {
                 Text("Test Completed!")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: showCompletionAnimation ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
 
                 Text("Your answers have been submitted")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: showCompletionAnimation ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
 
                 Text("You answered \(viewModel.answeredCount) out of \(viewModel.questions.count) questions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: showCompletionAnimation ? 0 : 20)
+                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
             }
             .onAppear {
                 // Staggered animations for text elements
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.6)) {
                     showCompletionAnimation = true
                 }
             }
