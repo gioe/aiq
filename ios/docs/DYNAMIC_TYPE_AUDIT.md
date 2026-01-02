@@ -53,7 +53,14 @@ Analyzed the centralized Typography system and found:
 - **0 instances** of direct `Font.system(size:)` usage in views (good - centralized)
 - **All text styles** use fixed pixel sizes (bad - not accessible)
 
-### 4. Dynamic Type Size Coverage
+### 4. Visual Testing (TODO)
+
+> **Implementation Note:** Before implementing the Typography system changes, capture screenshots of the app at multiple Dynamic Type sizes to document the current (broken) behavior and to use as before/after comparison evidence. Use the following command to set Dynamic Type sizes:
+> ```bash
+> xcrun simctl ui booted content-size-category UICTContentSizeCategoryXXXL
+> ```
+
+### 5. Dynamic Type Size Coverage
 
 The following standard Dynamic Type sizes should be supported:
 
@@ -339,10 +346,23 @@ enum Typography {
 ```swift
 // Recommended fix for Typography.swift
 enum Typography {
-    // Display Styles - Use semantic text styles
-    static let displayLarge = Font.largeTitle.weight(.bold)
-    static let displayMedium = Font.largeTitle.weight(.bold)
-    static let displaySmall = Font.title.weight(.bold)
+    // MARK: - Scaled Metrics for Special Sizes
+    // Use @ScaledMetric to preserve base sizes while enabling Dynamic Type scaling
+    @ScaledMetric(relativeTo: .largeTitle) private static var scoreSize: CGFloat = 72
+    @ScaledMetric(relativeTo: .largeTitle) private static var displayLargeSize: CGFloat = 48
+    @ScaledMetric(relativeTo: .largeTitle) private static var displayMediumSize: CGFloat = 42
+    @ScaledMetric(relativeTo: .title) private static var displaySmallSize: CGFloat = 36
+
+    // Display Styles - Use @ScaledMetric to preserve visual hierarchy while scaling
+    static var displayLarge: Font {
+        Font.system(size: displayLargeSize, weight: .bold, design: .rounded)
+    }
+    static var displayMedium: Font {
+        Font.system(size: displayMediumSize, weight: .bold, design: .default)
+    }
+    static var displaySmall: Font {
+        Font.system(size: displaySmallSize, weight: .bold, design: .default)
+    }
 
     // Heading Styles - Use semantic text styles
     static let h1 = Font.title.weight(.bold)
@@ -365,12 +385,16 @@ enum Typography {
     static let captionMedium = Font.caption.weight(.regular)
     static let captionSmall = Font.caption2.weight(.regular)
 
-    // Special Styles - Use semantic text styles
-    static let scoreDisplay = Font.largeTitle.weight(.bold)
+    // Special Styles - Use @ScaledMetric to preserve base size while enabling scaling
+    static var scoreDisplay: Font {
+        Font.system(size: scoreSize, weight: .bold, design: .rounded)
+    }
     static let statValue = Font.title.weight(.bold)
     static let button = Font.headline
 }
 ```
+
+> **Note:** The `@ScaledMetric` property wrapper preserves the base size (e.g., 72pt for scoreDisplay) while enabling Dynamic Type scaling. This prevents the visual regression that would occur from switching directly to `.largeTitle` (34pt base). Properties using `@ScaledMetric` must be computed properties (`var`) rather than stored properties (`let`).
 
 ### SwiftUI Semantic Text Styles
 
@@ -580,23 +604,23 @@ Recommended mapping from current Typography to semantic styles:
 
 | Current Style | Current Size | Recommended Style | Rationale |
 |---------------|--------------|-------------------|-----------|
-| `displayLarge` | 48pt | `.largeTitle.weight(.bold)` | Closest semantic match |
-| `displayMedium` | 42pt | `.largeTitle.weight(.bold)` | Slightly smaller but scales |
-| `displaySmall` | 36pt | `.title.weight(.bold)` | Appropriate for section headers |
-| `h1` | 28pt | `.title.weight(.bold)` | Standard title style |
-| `h2` | 24pt | `.title2.weight(.semibold)` | Subsection titles |
-| `h3` | 20pt | `.title3.weight(.semibold)` | Group titles |
-| `h4` | 18pt | `.headline.weight(.semibold)` | Emphasized content |
-| `bodyLarge` | 17pt | `.body.weight(.regular)` | Standard body text |
+| `displayLarge` | 48pt | `@ScaledMetric(relativeTo: .largeTitle)` | Preserves 48pt base, scales with Dynamic Type |
+| `displayMedium` | 42pt | `@ScaledMetric(relativeTo: .largeTitle)` | Preserves 42pt base, scales with Dynamic Type |
+| `displaySmall` | 36pt | `@ScaledMetric(relativeTo: .title)` | Preserves 36pt base, scales with Dynamic Type |
+| `h1` | 28pt | `.title.weight(.bold)` | Standard title style (matches 28pt default) |
+| `h2` | 24pt | `.title2.weight(.semibold)` | Subsection titles (close to 22pt default) |
+| `h3` | 20pt | `.title3.weight(.semibold)` | Group titles (matches 20pt default) |
+| `h4` | 18pt | `.headline.weight(.semibold)` | Emphasized content (close to 17pt default) |
+| `bodyLarge` | 17pt | `.body.weight(.regular)` | Standard body text (matches 17pt default) |
 | `bodyMedium` | 15pt | `.body.weight(.regular)` | Body text |
-| `bodySmall` | 13pt | `.subheadline.weight(.regular)` | Secondary text |
+| `bodySmall` | 13pt | `.subheadline.weight(.regular)` | Secondary text (close to 15pt default) |
 | `labelLarge` | 15pt | `.subheadline.weight(.medium)` | Labels |
 | `labelMedium` | 13pt | `.callout.weight(.medium)` | Standard labels |
 | `labelSmall` | 11pt | `.footnote.weight(.medium)` | Small labels |
 | `captionLarge` | 12pt | `.footnote.weight(.regular)` | Supplementary |
 | `captionMedium` | 11pt | `.caption.weight(.regular)` | Annotations |
 | `captionSmall` | 10pt | `.caption2.weight(.regular)` | Very small text |
-| `scoreDisplay` | 72pt | `.largeTitle.weight(.bold)` | Largest available |
+| `scoreDisplay` | 72pt | `@ScaledMetric(relativeTo: .largeTitle)` | **Preserves 72pt base**, scales with Dynamic Type |
 | `statValue` | `title.bold` | `.title.weight(.bold)` | Already semantic |
 | `button` | `headline` | `.headline` | Already semantic |
 
