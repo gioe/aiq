@@ -1151,6 +1151,20 @@ Formatting tools run automatically via pre-commit hooks. Ensure they pass before
 
 ## Accessibility
 
+> **⚠️ IMPORTANT: Consult This Document, Not Existing Code**
+>
+> When implementing accessibility features, always consult this document rather than copying patterns from existing code. Existing code may contain errors that predate these standards. This is especially important for accessibility traits like `.updatesFrequently` which are commonly misused.
+
+### Common Pitfalls
+
+Before implementing accessibility, review these frequent mistakes:
+
+| Pitfall | Wrong | Right |
+|---------|-------|-------|
+| `.updatesFrequently` on loading views | Adding to LoadingOverlay, LoadingView | Only use for timers, live counters |
+| `.accessibilityValue` overuse | Using on static text elements | Only for adjustable controls (sliders, steppers) |
+| Missing menu hints | Menu without `.accessibilityHint` | Always explain "Double tap to open menu..." |
+
 ### VoiceOver Support
 
 Provide accessibility labels and hints for all interactive elements.
@@ -1197,6 +1211,8 @@ Text("Time: \(formattedTime)")
 ```
 
 #### Accessibility Traits
+
+> **🚨 COMMON MISTAKE**: Do NOT add `.updatesFrequently` to loading views or overlays just because they're visible for a period of time. This trait causes VoiceOver to poll the element continuously and should ONLY be used for content that actually updates (like timers counting down).
 
 **`.updatesFrequently`** - Only for elements that change continuously while visible (timers, live counters). Do NOT use for elements that simply appear/disappear.
 
