@@ -19,7 +19,7 @@ final class QuestionTests: XCTestCase {
         "logic"
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let questionType = try JSONDecoder().decode(QuestionType.self, from: data)
 
         XCTAssertEqual(questionType, .logic)
@@ -37,7 +37,7 @@ final class QuestionTests: XCTestCase {
 
         for (rawValue, expectedType) in testCases {
             let json = "\"\(rawValue)\""
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let questionType = try JSONDecoder().decode(QuestionType.self, from: data)
 
             XCTAssertEqual(
@@ -67,7 +67,7 @@ final class QuestionTests: XCTestCase {
         "medium"
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let difficultyLevel = try JSONDecoder().decode(DifficultyLevel.self, from: data)
 
         XCTAssertEqual(difficultyLevel, .medium)
@@ -82,7 +82,7 @@ final class QuestionTests: XCTestCase {
 
         for (rawValue, expectedLevel) in testCases {
             let json = "\"\(rawValue)\""
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let difficultyLevel = try JSONDecoder().decode(DifficultyLevel.self, from: data)
 
             XCTAssertEqual(
@@ -113,7 +113,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.id, 1)
@@ -134,7 +134,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.id, 2)
@@ -157,7 +157,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.id, 3)
@@ -177,7 +177,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         // Verify snake_case fields are properly mapped to camelCase
@@ -208,7 +208,7 @@ final class QuestionTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let question = try JSONDecoder().decode(Question.self, from: data)
 
             XCTAssertEqual(
@@ -236,7 +236,7 @@ final class QuestionTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let question = try JSONDecoder().decode(Question.self, from: data)
 
             XCTAssertEqual(
@@ -522,7 +522,7 @@ final class QuestionTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(question)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
         // Verify snake_case keys are used in JSON
         XCTAssertTrue(jsonString.contains("question_text"))
@@ -586,7 +586,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
         XCTAssertEqual(response.questionId, 5)
@@ -602,7 +602,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
         XCTAssertEqual(response.questionId, 6)
@@ -619,7 +619,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
         XCTAssertEqual(response.questionId, 7)
@@ -636,7 +636,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
         // Verify snake_case to camelCase mapping
@@ -673,7 +673,7 @@ final class QuestionTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(response)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
         // Verify snake_case keys are used in JSON
         XCTAssertTrue(jsonString.contains("question_id"))
@@ -747,7 +747,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.questionText, "")
@@ -766,7 +766,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertTrue(question.questionText.contains("π"))
@@ -785,7 +785,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertTrue(question.questionText.contains("你好"))
@@ -803,7 +803,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.questionText.count, 1000)
@@ -823,7 +823,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertEqual(question.answerOptions?.count, 10)
@@ -831,7 +831,7 @@ final class QuestionTests: XCTestCase {
         XCTAssertEqual(question.answerOptions?[9], "Option 10")
     }
 
-    func testQuestionDecodingFailsWithMissingId() {
+    func testQuestionDecodingFailsWithMissingId() throws {
         let json = """
         {
             "question_text": "Test question",
@@ -840,14 +840,14 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing id")
         }
     }
 
-    func testQuestionDecodingFailsWithMissingQuestionText() {
+    func testQuestionDecodingFailsWithMissingQuestionText() throws {
         let json = """
         {
             "id": 1,
@@ -856,14 +856,14 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing question_text")
         }
     }
 
-    func testQuestionDecodingFailsWithMissingQuestionType() {
+    func testQuestionDecodingFailsWithMissingQuestionType() throws {
         let json = """
         {
             "id": 1,
@@ -872,14 +872,14 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing question_type")
         }
     }
 
-    func testQuestionDecodingFailsWithMissingDifficultyLevel() {
+    func testQuestionDecodingFailsWithMissingDifficultyLevel() throws {
         let json = """
         {
             "id": 1,
@@ -888,14 +888,14 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing difficulty_level")
         }
     }
 
-    func testQuestionDecodingFailsWithInvalidQuestionType() {
+    func testQuestionDecodingFailsWithInvalidQuestionType() throws {
         let json = """
         {
             "id": 1,
@@ -905,14 +905,14 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for invalid question type")
         }
     }
 
-    func testQuestionDecodingFailsWithInvalidDifficultyLevel() {
+    func testQuestionDecodingFailsWithInvalidDifficultyLevel() throws {
         let json = """
         {
             "id": 1,
@@ -922,35 +922,35 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for invalid difficulty level")
         }
     }
 
-    func testQuestionResponseDecodingFailsWithMissingQuestionId() {
+    func testQuestionResponseDecodingFailsWithMissingQuestionId() throws {
         let json = """
         {
             "user_answer": "Answer"
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(QuestionResponse.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing question_id")
         }
     }
 
-    func testQuestionResponseDecodingFailsWithMissingUserAnswer() {
+    func testQuestionResponseDecodingFailsWithMissingUserAnswer() throws {
         let json = """
         {
             "question_id": 1
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(QuestionResponse.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing user_answer")
