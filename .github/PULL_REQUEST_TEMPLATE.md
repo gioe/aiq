@@ -49,3 +49,12 @@
 - [ ] Public functions have docstrings with usage examples
 - [ ] Complex logic has inline comments explaining "why"
 - [ ] Performance implications documented for significant changes
+
+## Documentation PR Checklist
+
+If this PR adds/modifies documentation (coverage reports, analysis docs, etc.), complete the [Documentation PR Checklist](DOCUMENTATION_PR_CHECKLIST.md):
+
+- [ ] All ticket references verified to exist (or labeled as "Proposed")
+- [ ] Metrics include units and context (e.g., "executable lines" vs "total lines")
+- [ ] Claims about code usage verified by searching references
+- [ ] Technical claims verified against actual codebase
