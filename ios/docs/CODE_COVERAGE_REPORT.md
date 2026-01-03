@@ -20,6 +20,8 @@ This report documents code coverage results for the AIQ iOS application after co
 
 **Note:** This report focuses exclusively on the AIQ.app target (production code), excluding test files, third-party dependencies, and UITest target code. Previous reports included all targets which inflated the coverage percentage.
 
+**Important:** Line counts in this report represent *executable lines* as reported by Xcode's code coverage tool, not total file lines. Executable lines exclude comments, blank lines, type declarations, and certain Swift constructs. Total file lines may be significantly higher.
+
 ## Coverage by Module
 
 | Module | Coverage | Files | Covered/Executable | Files with 0% Coverage |
@@ -191,8 +193,9 @@ These files contain core business logic that should have comprehensive test cove
    - Impact: High - Affects user engagement and retention
    - Recommendation: Add unit tests for notification logic
 
-3. **Services/API/RequestInterceptor.swift** - 0% (0/22 lines)
-   - Network request interception
+3. **Services/API/RequestInterceptor.swift** - 0% (0/22 executable lines)
+   - Contains 2 protocol definitions and 3 concrete implementations (51 total lines)
+   - Used by `APIClient.swift` for request interception (ConnectivityInterceptor, LoggingInterceptor)
    - Impact: High - Affects all API calls
    - Recommendation: Add unit tests for request/response handling
 
@@ -244,47 +247,47 @@ The following views should be prioritized for UI testing (by usage frequency):
 
 ### High Priority (Critical Business Logic - Immediate Action)
 
-1. **Validators.swift** (0%, 45 lines) - **BTS-28**
+1. **Validators.swift** (0%, 45 executable lines) - **Proposed: BTS-28**
    - Contains critical email, password, and name validation
    - Used throughout authentication flows
    - High security and UX impact
    - **Target:** 100% coverage
 
-2. **NotificationSettingsViewModel.swift** (0%, 216 lines) - **BTS-29**
+2. **NotificationSettingsViewModel.swift** (0%, 216 executable lines) - **Proposed: BTS-29**
    - Manages notification preferences
    - Affects user engagement and retention
    - Should follow ViewModel testing patterns
    - **Target:** 90%+ coverage
 
-3. **RequestInterceptor.swift** (0%, 22 lines) - **BTS-30**
+3. **RequestInterceptor.swift** (0%, 22 executable lines) - **Proposed: BTS-30**
    - Critical network layer component
    - Affects all API calls
    - **Target:** 90%+ coverage
 
-4. **PerformanceInsights.swift** (0%, 241 lines) - **BTS-31**
+4. **PerformanceInsights.swift** (0%, 241 executable lines) - **Proposed: BTS-31**
    - Complex model with business logic
    - Used for analytics and insights features
    - **Target:** 80%+ coverage
 
 ### Medium Priority (Improve Existing Coverage)
 
-5. **AuthManager.swift** (34.4% → 80%+) - **BTS-32**
+5. **AuthManager.swift** (34.4% → 80%+) - **Proposed: BTS-32**
    - Authentication state management
    - Critical security component
    - **Target:** 80%+ coverage
 
-6. **PrivacyConsentStorage.swift** (36.4% → 80%+) - **BTS-33**
+6. **PrivacyConsentStorage.swift** (36.4% → 80%+) - **Proposed: BTS-33**
    - Privacy compliance is critical
    - Small file, easy to complete
    - **Target:** 90%+ coverage
 
-7. **NetworkLogger.swift** (31.1% → 80%+) - **BTS-34**
+7. **NetworkLogger.swift** (31.1% → 80%+) - **Proposed: BTS-34**
    - Important for debugging and monitoring
    - **Target:** 80%+ coverage
 
 ### Low Priority (Design System & Constants)
 
-8. **Design System Files** (0% coverage) - **BTS-35 (batch)**
+8. **Design System Files** (0% coverage) - **Proposed: BTS-35 (batch)**
    - ColorPalette.swift, Typography.swift, DesignSystem.swift
    - Mostly constants and SwiftUI modifiers
    - Consider snapshot tests instead of unit tests
@@ -504,7 +507,7 @@ Coverage data was extracted and analyzed using:
 ---
 
 **Report Generated:** January 3, 2026
-**Branch:** feature/BTS-26-crashlytics-error-recorder-tests
+**Branch:** feature/BTS-27-code-coverage-report
 **Related Tasks:** BTS-27 (this report), BTS-18 to BTS-26 (completed)
 **Next Review:** After completing BTS-28 to BTS-35
 **Maintained By:** iOS Engineering Team
