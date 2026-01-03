@@ -918,6 +918,39 @@ func testAsyncOperation() async {
 }
 ```
 
+### Safe Test Data Encoding
+
+When creating JSON data for decoding tests, use `XCTUnwrap()` instead of force unwrapping:
+
+**DO:**
+```swift
+func testModelDecoding() throws {
+    let json = """
+    {"id": 1, "name": "Test"}
+    """
+    let data = try XCTUnwrap(json.data(using: .utf8))
+    let model = try JSONDecoder().decode(Model.self, from: data)
+    XCTAssertEqual(model.id, 1)
+}
+```
+
+**DON'T:**
+```swift
+func testModelDecoding() throws {
+    let json = """
+    {"id": 1, "name": "Test"}
+    """
+    let data = json.data(using: .utf8)!  // Force unwrap can crash tests
+    let model = try JSONDecoder().decode(Model.self, from: data)
+}
+```
+
+**Rationale**: While `.data(using: .utf8)` rarely fails for hardcoded strings, using `XCTUnwrap()`:
+- Provides clear failure messages if encoding fails
+- Follows XCTest best practices
+- Makes tests more maintainable
+- Prevents silent test failures
+
 ### UI Testing Helpers
 
 Create reusable helpers in `AIQUITests/Helpers/`:
