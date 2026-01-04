@@ -29,8 +29,9 @@ enum AppConfig {
 
     /// Privacy policy URL
     /// Returns the URL to the AIQ privacy policy page
+    /// - Note: Force unwrap is safe here because the URL string is a compile-time constant
+    ///   with valid syntax. URL validation is covered by AppConfigTests.
     static var privacyPolicyURL: URL {
-        // This URL is validated at compile time in tests
         // swiftlint:disable:next force_unwrapping
         URL(string: "https://aiq.app/privacy-policy")!
     }
