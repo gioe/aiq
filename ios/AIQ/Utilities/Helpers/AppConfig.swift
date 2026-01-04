@@ -24,4 +24,14 @@ enum AppConfig {
     static var buildNumber: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
+
+    // MARK: - External URLs
+
+    /// Privacy policy URL
+    /// Returns the URL to the AIQ privacy policy page
+    static var privacyPolicyURL: URL {
+        // This URL is validated at compile time in tests
+        // swiftlint:disable:next force_unwrapping
+        URL(string: "https://aiq.app/privacy-policy")!
+    }
 }

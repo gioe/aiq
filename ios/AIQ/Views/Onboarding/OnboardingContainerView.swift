@@ -135,9 +135,12 @@ struct OnboardingContainerView: View {
 
     // MARK: - Configuration
 
-    /// Configure UIPageControl appearance
+    /// Configure UIPageControl appearance for onboarding
+    /// - Note: This modifies the global UIPageControl appearance, affecting all TabView page indicators
+    ///   throughout the app. SwiftUI does not currently provide a scoped API for customizing
+    ///   page indicators within a single TabView. If different styling is needed elsewhere,
+    ///   consider implementing a custom page indicator component.
     private func configurePageControl() {
-        // Customize page indicator colors
         let appearance = UIPageControl.appearance()
         appearance.currentPageIndicatorTintColor = UIColor(ColorPalette.primary)
         appearance.pageIndicatorTintColor = UIColor(ColorPalette.textTertiary)

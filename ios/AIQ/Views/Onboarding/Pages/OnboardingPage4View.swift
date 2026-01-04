@@ -91,10 +91,8 @@ struct OnboardingPage4View: View {
     // MARK: - Computed Properties
 
     /// URL to the privacy policy document
-    /// This is a hardcoded, valid URL that is unlikely to change
     private var privacyPolicyURL: URL {
-        // swiftlint:disable:next force_unwrapping
-        URL(string: "https://aiq.app/privacy-policy")!
+        AppConfig.privacyPolicyURL
     }
 }
 
