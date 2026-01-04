@@ -154,7 +154,7 @@ actor MockNotificationService: NotificationServiceProtocol {
     }
 
     /// Set mock get preferences error
-    func setGetPreferencesError(_ error: Error) {
+    func setGetPreferencesError(_ error: Error?) {
         mockGetPreferencesError = error
     }
 
