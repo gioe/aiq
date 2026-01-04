@@ -486,6 +486,8 @@ Each item:
 - Color: ColorPalette.infoText
 - Icon: `arrow.up.right` trailing (external link indicator)
 - Accessibility: "View Privacy Policy in Safari"
+- URL: `https://aiq.app/privacy-policy`
+- Opens via: `UIApplication.shared.open(url)` (Safari)
 
 **CTA Button**
 - Text: "Get Started"
