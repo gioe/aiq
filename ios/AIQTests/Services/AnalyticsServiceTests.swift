@@ -83,6 +83,9 @@ final class AnalyticsServiceTests: XCTestCase {
         // Given - Max queue size is 500
         let maxQueueSize = sut.maxQueueSize
 
+        // Disable network to prevent auto-submission when queue reaches batch size
+        mockNetworkMonitor.isConnected = false
+
         // When - Add more than max events
         for i in 0 ..< (maxQueueSize + 10) {
             sut.track(event: .userLogin, properties: ["index": i])
@@ -95,6 +98,9 @@ final class AnalyticsServiceTests: XCTestCase {
     func testTrackEvent_DropsOldestEventsWhenQueueFull() {
         // Given
         let maxQueueSize = sut.maxQueueSize
+
+        // Disable network to prevent auto-submission when queue reaches batch size
+        mockNetworkMonitor.isConnected = false
 
         // Add max events
         for i in 0 ..< maxQueueSize {
@@ -244,11 +250,17 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Batch Submission Tests
 
     func testSubmitBatch_BatchesEventsCorrectly() async {
+        // Disable network to prevent auto-submission while adding events
+        mockNetworkMonitor.isConnected = false
+
         // Given - Add more events than max batch size
         let maxBatchSize = sut.maxBatchSize
         for i in 0 ..< (maxBatchSize + 10) {
             sut.track(event: .userLogin, properties: ["index": i])
         }
+
+        // Re-enable network and set up handler for the explicit submit
+        mockNetworkMonitor.isConnected = true
 
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in

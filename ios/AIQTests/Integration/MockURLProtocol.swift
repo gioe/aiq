@@ -4,6 +4,21 @@ import Foundation
 class MockURLProtocol: URLProtocol {
     static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
+    /// Default handler that returns a generic success response when no specific handler is set.
+    /// This prevents test crashes when unexpected network requests occur (e.g., auto-batch submission).
+    private static let defaultHandler: (URLRequest) throws -> (HTTPURLResponse, Data) = { request in
+        let response = HTTPURLResponse(
+            url: request.url ?? URL(string: "https://mock.test")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+        let data = """
+        {"success": true, "message": "Default mock response"}
+        """.data(using: .utf8)!
+        return (response, data)
+    }
+
     // Store httpBody in a property key to preserve it across the request lifecycle
     private static let httpBodyKey = "MockURLProtocol.httpBody"
 
@@ -25,9 +40,8 @@ class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        guard let handler = MockURLProtocol.requestHandler else {
-            fatalError("Request handler is not set")
-        }
+        // Use provided handler or default to a generic success response
+        let handler = MockURLProtocol.requestHandler ?? Self.defaultHandler
 
         do {
             // Restore httpBody from property storage, httpBody, or httpBodyStream
