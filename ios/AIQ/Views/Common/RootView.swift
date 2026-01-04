@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Root view that determines whether to show consent, auth flow, or main app
+/// Root view that determines whether to show consent, auth flow, onboarding, or main app
 struct RootView: View {
     @StateObject private var authManager = AuthManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @State private var showSplash = true
     @State private var hasAcceptedConsent: Bool
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
@@ -23,7 +24,12 @@ struct RootView: View {
                     // Show privacy consent on first launch
                     PrivacyConsentView(hasAcceptedConsent: $hasAcceptedConsent)
                 } else if authManager.isAuthenticated {
-                    MainTabView()
+                    // Show onboarding for authenticated users who haven't completed it
+                    if !hasCompletedOnboarding {
+                        OnboardingContainerView()
+                    } else {
+                        MainTabView()
+                    }
                 } else {
                     WelcomeView()
                 }
