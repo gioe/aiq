@@ -23,8 +23,9 @@ end
 
 project = Xcodeproj::Project.open(project_path)
 
-# Get the main target
-target = project.targets.first
+# Get the targets
+main_target = project.targets.find { |t| t.name == 'AIQ' }
+test_target = project.targets.find { |t| t.name == 'AIQTests' }
 
 # Process each file
 ARGV.each do |file_path|
@@ -64,8 +65,13 @@ ARGV.each do |file_path|
 
   # Add the file to the group (use just the filename, not the full path)
   file_ref = group.new_reference(file_name)
+
+  # Determine which target to add to based on file path
+  target = file_path.start_with?('AIQTests/') ? test_target : main_target
+  target_name = file_path.start_with?('AIQTests/') ? 'AIQTests' : 'AIQ'
+
   target.add_file_references([file_ref])
-  puts "✓ Added #{file_path}"
+  puts "✓ Added #{file_path} to #{target_name} target"
 end
 
 # Save the project

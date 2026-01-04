@@ -17,6 +17,20 @@ import Foundation
 /// These identifiers provide stable element references for UI tests,
 /// preventing test breakage when UI text changes due to localization or copy updates.
 enum AccessibilityIdentifiers {
+    // MARK: - Onboarding View
+
+    enum OnboardingView {
+        static let containerView = "onboardingView.containerView"
+        static let page1 = "onboardingView.page1"
+        static let page2 = "onboardingView.page2"
+        static let page3 = "onboardingView.page3"
+        static let page4 = "onboardingView.page4"
+        static let continueButton = "onboardingView.continueButton"
+        static let skipButton = "onboardingView.skipButton"
+        static let getStartedButton = "onboardingView.getStartedButton"
+        static let privacyPolicyLink = "onboardingView.privacyPolicyLink"
+    }
+
     // MARK: - Privacy Consent View
 
     enum PrivacyConsentView {
