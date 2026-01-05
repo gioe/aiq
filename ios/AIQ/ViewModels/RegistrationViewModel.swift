@@ -44,48 +44,54 @@ class RegistrationViewModel: BaseViewModel {
     }
 
     var isEmailValid: Bool {
-        !email.isEmpty && email.contains("@") && email.contains(".")
+        Validators.validateEmail(email).isValid
     }
 
     var isPasswordValid: Bool {
-        password.count >= 8
+        Validators.validatePassword(password).isValid
     }
 
     var isConfirmPasswordValid: Bool {
-        !confirmPassword.isEmpty && password == confirmPassword
+        guard !confirmPassword.isEmpty else { return false }
+        return Validators.validatePasswordConfirmation(password, confirmPassword).isValid
     }
 
     var isFirstNameValid: Bool {
-        !firstName.trimmingCharacters(in: .whitespaces).isEmpty
+        Validators.validateName(firstName, fieldName: "First name").isValid
     }
 
     var isLastNameValid: Bool {
-        !lastName.trimmingCharacters(in: .whitespaces).isEmpty
+        Validators.validateName(lastName, fieldName: "Last name").isValid
     }
 
     var emailError: String? {
         guard !email.isEmpty else { return nil }
-        return isEmailValid ? nil : "validation.email.invalid".localized
+        let result = Validators.validateEmail(email)
+        return result.errorMessage
     }
 
     var passwordError: String? {
         guard !password.isEmpty else { return nil }
-        return isPasswordValid ? nil : "validation.password.too.short".localized
+        let result = Validators.validatePassword(password)
+        return result.errorMessage
     }
 
     var confirmPasswordError: String? {
         guard !confirmPassword.isEmpty else { return nil }
-        return isConfirmPasswordValid ? nil : "validation.passwords.no.match".localized
+        let result = Validators.validatePasswordConfirmation(password, confirmPassword)
+        return result.errorMessage
     }
 
     var firstNameError: String? {
         guard !firstName.isEmpty else { return nil }
-        return isFirstNameValid ? nil : "validation.first.name.required".localized
+        let result = Validators.validateName(firstName, fieldName: "First name")
+        return result.errorMessage
     }
 
     var lastNameError: String? {
         guard !lastName.isEmpty else { return nil }
-        return isLastNameValid ? nil : "validation.last.name.required".localized
+        let result = Validators.validateName(lastName, fieldName: "Last name")
+        return result.errorMessage
     }
 
     // MARK: - Actions

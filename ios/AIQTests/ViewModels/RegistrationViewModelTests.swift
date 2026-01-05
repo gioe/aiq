@@ -87,18 +87,39 @@ final class RegistrationViewModelTests: XCTestCase {
     }
 
     func testRegister_TrimsWhitespace() async {
-        sut.email = "  test@example.com  "
+        // Given - Email and names with leading/trailing whitespace
+        // Note: Email with whitespace is now correctly rejected by validation
+        sut.email = "test@example.com" // No whitespace for valid email
         sut.password = "password123"
         sut.confirmPassword = "password123"
         sut.firstName = "  John  "
         sut.lastName = "  Doe  "
         mockAuthManager.shouldSucceedRegister = true
 
+        // When
         await sut.register()
 
+        // Then - Names should be trimmed, email passed without whitespace
         XCTAssertEqual(mockAuthManager.lastRegisterEmail, "test@example.com")
         XCTAssertEqual(mockAuthManager.lastRegisterFirstName, "John")
         XCTAssertEqual(mockAuthManager.lastRegisterLastName, "Doe")
+    }
+
+    func testRegister_EmailWithWhitespace_RejectsForm() async {
+        // Given - Email with leading/trailing whitespace
+        sut.email = "  test@example.com  "
+        sut.password = "password123"
+        sut.confirmPassword = "password123"
+        sut.firstName = "John"
+        sut.lastName = "Doe"
+        mockAuthManager.shouldSucceedRegister = true
+
+        // When
+        await sut.register()
+
+        // Then - Form should be rejected due to invalid email
+        XCTAssertFalse(mockAuthManager.registerCalled, "register should not be called with email containing whitespace")
+        XCTAssertNotNil(sut.error, "error should be set for invalid email")
     }
 
     func testRegister_FailedRegistration() async {

@@ -35,21 +35,23 @@ class LoginViewModel: BaseViewModel {
     }
 
     var isEmailValid: Bool {
-        !email.isEmpty && email.contains("@") && email.contains(".")
+        Validators.validateEmail(email).isValid
     }
 
     var isPasswordValid: Bool {
-        password.count >= 8
+        Validators.validatePassword(password).isValid
     }
 
     var emailError: String? {
         guard !email.isEmpty else { return nil }
-        return isEmailValid ? nil : "validation.email.invalid".localized
+        let result = Validators.validateEmail(email)
+        return result.errorMessage
     }
 
     var passwordError: String? {
         guard !password.isEmpty else { return nil }
-        return isPasswordValid ? nil : "validation.password.too.short".localized
+        let result = Validators.validatePassword(password)
+        return result.errorMessage
     }
 
     // MARK: - Actions
