@@ -317,6 +317,24 @@ struct StatCard: View {
 }
 ```
 
+#### Common Property Wrapper Anti-Patterns
+
+**Never use `@StateObject` with singletons:**
+
+```swift
+// Wrong - StateObject implies ownership of a singleton's lifecycle
+@StateObject private var authManager = AuthManager.shared
+
+// Correct - ObservedObject observes an externally-managed singleton
+@ObservedObject private var authManager = AuthManager.shared
+```
+
+**Why?** `@StateObject` tells SwiftUI the view owns the object's lifecycle (creating/destroying it with the view). Singletons like `.shared` manage their own lifecycle and should use `@ObservedObject` instead.
+
+**Rule of thumb:**
+- Creating a new instance → `@StateObject private var vm = MyViewModel()`
+- Referencing a singleton → `@ObservedObject private var manager = Manager.shared`
+
 ### View Decomposition
 
 Break large views into smaller, focused subviews:
