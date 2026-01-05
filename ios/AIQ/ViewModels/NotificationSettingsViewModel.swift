@@ -60,8 +60,8 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .notificationPreferences) {
-                await self.loadNotificationPreferences()
+            handleError(error, context: .notificationPreferences) { [weak self] in
+                await self?.loadNotificationPreferences()
             }
         }
     }
@@ -89,8 +89,8 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .notificationPreferences) {
-                await self.toggleNotifications()
+            handleError(error, context: .notificationPreferences) { [weak self] in
+                await self?.toggleNotifications()
             }
         }
     }
