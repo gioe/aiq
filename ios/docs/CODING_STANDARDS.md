@@ -493,11 +493,35 @@ do {
     let result = try await apiClient.request(...)
     // Handle success
 } catch {
-    handleError(error, context: .fetchDashboard) {
-        await self.fetchDashboardData()  // Retry closure
+    handleError(error, context: .fetchDashboard) { [weak self] in
+        await self?.fetchDashboardData()  // Retry closure
     }
 }
 ```
+
+### Memory Management in Error Handlers
+
+**CRITICAL:** Always use `[weak self]` in retry closures passed to `handleError()` to avoid retain cycles.
+
+The retry closure is stored in `BaseViewModel.lastFailedOperation`, which creates a retain cycle if `self` is captured strongly:
+
+```swift
+// ❌ WRONG - Creates retain cycle
+handleError(error, context: .fetchDashboard) {
+    await self.fetchDashboardData()  // Strong capture of self
+}
+
+// ✅ CORRECT - Breaks retain cycle
+handleError(error, context: .fetchDashboard) { [weak self] in
+    await self?.fetchDashboardData()  // Weak capture + optional chaining
+}
+```
+
+**Why this matters:**
+- `handleError()` stores the retry closure in `BaseViewModel.lastFailedOperation`
+- Without `[weak self]`, creates: `ViewModel → lastFailedOperation → closure → ViewModel`
+- This retain cycle prevents the ViewModel from being deallocated
+- Use optional chaining (`self?`) so retry becomes a no-op if ViewModel is deallocated
 
 ### Error Display in Views
 

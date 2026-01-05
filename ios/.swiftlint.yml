@@ -57,3 +57,11 @@ nesting:
     warning: 2
 
 reporter: "xcode"
+
+# Custom rules for project-specific patterns
+custom_rules:
+  handle_error_weak_self:
+    name: "HandleError Weak Self"
+    regex: 'handleError\([^)]+\)\s*\{\s*(?!\[weak\s+self\])'
+    message: "handleError retry closure must use [weak self] to avoid retain cycles. See CODING_STANDARDS.md 'Memory Management in Error Handlers'"
+    severity: error
