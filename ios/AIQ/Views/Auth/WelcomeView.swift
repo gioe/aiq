@@ -223,21 +223,21 @@ struct StatItem: View {
 struct FeatureHighlights: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
-            FeatureCard(
+            InfoCard(
                 icon: "puzzlepiece.extension.fill",
                 title: "Fresh AI Challenges",
                 description: "New questions every test",
                 color: ColorPalette.statBlue
             )
 
-            FeatureCard(
+            InfoCard(
                 icon: "chart.line.uptrend.xyaxis",
                 title: "Track Your Progress",
                 description: "Watch your IQ improve over time",
                 color: ColorPalette.statGreen
             )
 
-//            FeatureCard(
+//            InfoCard(
 //                icon: "trophy.fill",
 //                title: "Unlock Achievements",
 //                description: "Earn rewards for consistency",
@@ -245,49 +245,6 @@ struct FeatureHighlights: View {
 //            )
         }
         .padding(.horizontal, DesignSystem.Spacing.xl)
-    }
-}
-
-/// Individual feature card with icon, title, and description
-struct FeatureCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
-            // Icon
-            Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.lg))
-                .foregroundColor(color)
-                .frame(width: 50, height: 50)
-                .accessibilityHidden(true)
-
-            // Text Content
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                Text(title)
-                    .font(Typography.bodyLarge)
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorPalette.textPrimary)
-
-                Text(description)
-                    .font(Typography.bodySmall)
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-
-            Spacer()
-        }
-        .padding(DesignSystem.Spacing.md)
-        .background(ColorPalette.backgroundSecondary)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(
-            color: DesignSystem.Shadow.sm.color,
-            radius: DesignSystem.Shadow.sm.radius,
-            x: DesignSystem.Shadow.sm.x,
-            y: DesignSystem.Shadow.sm.y
-        )
-        .accessibilityElement(children: .combine)
     }
 }
 
