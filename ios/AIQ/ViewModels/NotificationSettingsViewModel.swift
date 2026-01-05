@@ -20,7 +20,7 @@ class NotificationSettingsViewModel: BaseViewModel {
     // MARK: - Private Properties
 
     private let notificationService: NotificationServiceProtocol
-    private let notificationManager: NotificationManager
+    private let notificationManager: NotificationManagerProtocol
     private let authManager: AuthManager
     private var viewCancellables = Set<AnyCancellable>()
 
@@ -28,7 +28,7 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     init(
         notificationService: NotificationServiceProtocol = NotificationService.shared,
-        notificationManager: NotificationManager = NotificationManager.shared
+        notificationManager: NotificationManagerProtocol = NotificationManager.shared
     ) {
         self.notificationService = notificationService
         self.notificationManager = notificationManager
@@ -99,8 +99,8 @@ class NotificationSettingsViewModel: BaseViewModel {
     func checkSystemPermission() async {
         isCheckingPermission = true
 
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        systemPermissionGranted = settings.authorizationStatus == .authorized
+        await notificationManager.checkAuthorizationStatus()
+        systemPermissionGranted = notificationManager.authorizationStatus == .authorized
 
         isCheckingPermission = false
     }
@@ -172,7 +172,7 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     /// Observe authorization status changes from NotificationManager
     private func observeAuthorizationStatus() {
-        notificationManager.$authorizationStatus
+        notificationManager.authorizationStatusPublisher
             .sink { [weak self] status in
                 Task { @MainActor [weak self] in
                     guard let self else { return }

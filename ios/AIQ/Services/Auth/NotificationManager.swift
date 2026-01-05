@@ -5,7 +5,7 @@ import UserNotifications
 
 /// Manager for coordinating push notification permissions, device tokens, and backend synchronization
 @MainActor
-class NotificationManager: ObservableObject {
+class NotificationManager: ObservableObject, NotificationManagerProtocol {
     // MARK: - Singleton
 
     static let shared = NotificationManager()
@@ -17,6 +17,11 @@ class NotificationManager: ObservableObject {
 
     /// Whether the device token has been successfully registered with the backend
     @Published private(set) var isDeviceTokenRegistered: Bool = false
+
+    /// Publisher for authorization status changes (protocol conformance)
+    var authorizationStatusPublisher: Published<UNAuthorizationStatus>.Publisher {
+        $authorizationStatus
+    }
 
     // MARK: - Private Properties
 

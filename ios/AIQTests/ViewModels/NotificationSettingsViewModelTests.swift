@@ -12,10 +12,9 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         try await super.setUp()
         mockNotificationService = MockNotificationService()
         mockNotificationManager = MockNotificationManager()
-        // Note: We can't inject NotificationManager into the ViewModel
-        // The ViewModel uses NotificationManager.shared
         sut = NotificationSettingsViewModel(
-            notificationService: mockNotificationService
+            notificationService: mockNotificationService,
+            notificationManager: mockNotificationManager
         )
     }
 
@@ -161,14 +160,62 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     // MARK: - System Permission Tests
 
-    func testCheckSystemPermission_UpdatesPermissionState() async {
+    func testCheckSystemPermission_WhenAuthorized_UpdatesPermissionState() async {
+        // Given
+        mockNotificationManager.mockAuthorizationStatus = .authorized
+
         // When
         await sut.checkSystemPermission()
 
         // Then
         XCTAssertFalse(sut.isCheckingPermission)
-        // Note: Actual permission state depends on UNUserNotificationCenter
-        // which we can't easily mock without dependency injection
+        XCTAssertTrue(sut.systemPermissionGranted)
+        XCTAssertTrue(mockNotificationManager.checkAuthorizationStatusCalled)
+    }
+
+    func testCheckSystemPermission_WhenDenied_UpdatesPermissionState() async {
+        // Given
+        mockNotificationManager.mockAuthorizationStatus = .denied
+
+        // When
+        await sut.checkSystemPermission()
+
+        // Then
+        XCTAssertFalse(sut.isCheckingPermission)
+        XCTAssertFalse(sut.systemPermissionGranted)
+        XCTAssertTrue(mockNotificationManager.checkAuthorizationStatusCalled)
+    }
+
+    func testRequestSystemPermission_WhenGranted_UpdatesState() async {
+        // Given
+        mockNotificationManager.mockAuthorizationGranted = true
+        let mockResponse = NotificationPreferencesResponse(
+            notificationEnabled: true,
+            message: "Success"
+        )
+        await mockNotificationService.setUpdatePreferencesResponse(mockResponse)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then
+        XCTAssertTrue(mockNotificationManager.requestAuthorizationCalled)
+        XCTAssertTrue(sut.systemPermissionGranted)
+    }
+
+    func testRequestSystemPermission_WhenDenied_DoesNotEnableNotifications() async {
+        // Given
+        mockNotificationManager.mockAuthorizationGranted = false
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then
+        XCTAssertTrue(mockNotificationManager.requestAuthorizationCalled)
+        XCTAssertFalse(sut.systemPermissionGranted)
+        // Should not attempt to toggle notifications when permission denied
+        let updateCount = await mockNotificationService.updatePreferencesCallCount
+        XCTAssertEqual(updateCount, 0)
     }
 
     // MARK: - Computed Properties Tests

@@ -1,14 +1,20 @@
 @testable import AIQ
+import Combine
 import Foundation
 import UserNotifications
 
 /// Mock implementation of NotificationManager for testing
 @MainActor
-class MockNotificationManager: ObservableObject {
+class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     // MARK: - Published Properties
 
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @Published var isDeviceTokenRegistered: Bool = false
+
+    /// Publisher for authorization status changes (protocol conformance)
+    var authorizationStatusPublisher: Published<UNAuthorizationStatus>.Publisher {
+        $authorizationStatus
+    }
 
     // MARK: - Call Tracking
 
