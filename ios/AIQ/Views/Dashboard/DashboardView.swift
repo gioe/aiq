@@ -3,7 +3,7 @@ import SwiftUI
 /// Dashboard/Home view showing user stats and test availability
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
-    @StateObject private var authManager = AuthManager.shared
+    @ObservedObject private var authManager = AuthManager.shared
     @Environment(\.appRouter) var router
 
     var body: some View {
