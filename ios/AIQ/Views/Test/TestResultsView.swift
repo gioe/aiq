@@ -311,22 +311,7 @@ struct TestResultsView: View {
     // MARK: - Computed Properties
 
     private var iqRangeDescription: String {
-        switch result.iqScore {
-        case 0 ..< 70:
-            "Extremely Low"
-        case 70 ..< 85:
-            "Below Average"
-        case 85 ..< 115:
-            "Average"
-        case 115 ..< 130:
-            "Above Average"
-        case 130 ..< 145:
-            "Gifted"
-        case 145...:
-            "Highly Gifted"
-        default:
-            "Invalid Score"
-        }
+        IQScoreUtility.classify(result.iqScore).description
     }
 
     private var performanceTitle: String {

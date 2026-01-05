@@ -95,6 +95,7 @@
 		67D4C2D38D663E3FC5AB120B /* CertificatePinningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */; };
 		680A4E1F9AA1F5EC940A26C1 /* LoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A5A9453EBC3FF647D25AB8 /* LoginViewModelTests.swift */; };
 		6824DB1DBD01E38350D40213 /* ValidatorsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F88EC049326E86665563BD96 /* ValidatorsTests.swift */; };
+		BTS50001AAAA00000001 /* IQScoreUtilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BTS50001AAAA00000002 /* IQScoreUtilityTests.swift */; };
 		69ECB6259E0784A180CEFCD3 /* PerformanceInsightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E53B92DB66E6A74B9995B7 /* PerformanceInsightsTests.swift */; };
 		6BC84905B2E000CE6B92114E /* LocalAnswerStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E4F024D64CDA4C3FE524BA /* LocalAnswerStorageTests.swift */; };
 		6BD64EB0C5D1922D8281CFE7 /* DeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */; };
@@ -181,6 +182,7 @@
 		FB7D65582C800C59971692EC /* AnswerInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123792FFFEC35608BD39FE0B /* AnswerInputView.swift */; };
 		FD1FE7FED0EB5C96E249AD14 /* IQTrendChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5543C79EE5CE3EF74CD6B111 /* IQTrendChart.swift */; };
 		ICG005001A0CA1845CAED4FB5 /* CrashlyticsErrorRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */; };
+		ICG006001BBBB /* IQScoreUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG006002BBBB /* IQScoreUtility.swift */; };
 		ICG007001AAAA /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007002AAAA /* AppRouter.swift */; };
 		ICG007003AAAA /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007004AAAA /* AppRouterTests.swift */; };
 		ICG018002AAAA /* PushNotificationDeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG018001AAAA /* PushNotificationDeepLinkTests.swift */; };
@@ -377,6 +379,7 @@
 		F738194ED047979D34D51164 /* SecureStorageProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStorageProtocol.swift; sourceTree = "<group>"; };
 		F845907D460CC2DAB74F0F53 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		F88EC049326E86665563BD96 /* ValidatorsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ValidatorsTests.swift; sourceTree = "<group>"; };
+		BTS50001AAAA00000002 /* IQScoreUtilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IQScoreUtilityTests.swift; sourceTree = "<group>"; };
 		FACC5F041A4B134FDDFD8A84 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		FCBEB7A4DC5D8CBA08283D20 /* String+Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Localization.swift"; sourceTree = "<group>"; };
 		FD6EB3193E45966F81982468 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
@@ -385,6 +388,7 @@
 		FE7F021E91C06502400218B8 /* AuthServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthServiceTests.swift; sourceTree = "<group>"; };
 		FF1F00979D347B1863E91D9A /* InProgressTestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InProgressTestCard.swift; sourceTree = "<group>"; };
 		ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashlyticsErrorRecorder.swift; sourceTree = "<group>"; };
+		ICG006002BBBB /* IQScoreUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQScoreUtility.swift; sourceTree = "<group>"; };
 		ICG007002AAAA /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		ICG007004AAAA /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouterTests.swift; sourceTree = "<group>"; };
 		ICG018001AAAA /* PushNotificationDeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationDeepLinkTests.swift; sourceTree = "<group>"; };
@@ -544,6 +548,7 @@
 			isa = PBXGroup;
 			children = (
 				0CAA1814DC1180D4FEEBA3EF /* CrashlyticsErrorRecorderTests.swift */,
+				BTS50001AAAA00000002 /* IQScoreUtilityTests.swift */,
 				F88EC049326E86665563BD96 /* ValidatorsTests.swift */,
 			);
 			name = Utilities;
@@ -645,6 +650,7 @@
 			children = (
 				E676AB96E42CF5A5F8F0231C /* AppConfig.swift */,
 				ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */,
+				ICG006002BBBB /* IQScoreUtility.swift */,
 				DF5B8A34B8E1B21F40EBA913 /* Release.xcconfig */,
 				19D5E51F4712FCE75F777B75 /* Validators.swift */,
 				9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */,
@@ -1093,6 +1099,7 @@
 				392C4883901BFBF0E46469B2 /* CrashlyticsErrorRecorderTests.swift in Sources */,
 				192F5B04DF4297D15FAE8161 /* RequestInterceptorTests.swift in Sources */,
 				6824DB1DBD01E38350D40213 /* ValidatorsTests.swift in Sources */,
+				BTS50001AAAA00000001 /* IQScoreUtilityTests.swift in Sources */,
 				69ECB6259E0784A180CEFCD3 /* PerformanceInsightsTests.swift in Sources */,
 				C39A39C098AD0EFF51830459 /* NotificationSettingsViewModelTests.swift in Sources */,
 				DB1D7E114176275F1B03152A /* PrivacyConsentStorageTests.swift in Sources */,
@@ -1190,6 +1197,7 @@
 				1A66E85D14DF3026B9616C56 /* User.swift in Sources */,
 				73430DF9A0CA1845CAED4FB4 /* Validators.swift in Sources */,
 				ICG005001A0CA1845CAED4FB5 /* CrashlyticsErrorRecorder.swift in Sources */,
+				ICG006001BBBB /* IQScoreUtility.swift in Sources */,
 				62D38333FC47A8AB08298297 /* View+Extensions.swift in Sources */,
 				0746B731514603BC8AFB6F47 /* ViewModelProtocol.swift in Sources */,
 				8FB4911833FE509204A93C4B /* WelcomeView.swift in Sources */,

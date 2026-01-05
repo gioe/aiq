@@ -4,71 +4,19 @@ import SwiftUI
 
 extension TestDetailView {
     var scoreColor: Color {
-        switch testResult.iqScore {
-        case 130...:
-            .green
-        case 115 ..< 130:
-            .blue
-        case 85 ..< 115:
-            .cyan
-        case 70 ..< 85:
-            .orange
-        default:
-            .red
-        }
+        IQScoreUtility.classify(testResult.iqScore).color
     }
 
     var scoreGradient: LinearGradient {
-        let colors: [Color] = switch testResult.iqScore {
-        case 130...:
-            [.green, .mint]
-        case 115 ..< 130:
-            [.blue, .cyan]
-        case 85 ..< 115:
-            [.cyan, .blue]
-        case 70 ..< 85:
-            [.orange, .yellow]
-        default:
-            [.red, .orange]
-        }
-
-        return LinearGradient(
-            colors: colors,
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        IQScoreUtility.classify(testResult.iqScore).gradient
     }
 
     var scoreIconName: String {
-        switch testResult.iqScore {
-        case 130...:
-            "star.fill"
-        case 115 ..< 130:
-            "rosette"
-        case 85 ..< 115:
-            "circle.fill"
-        default:
-            "circle"
-        }
+        IQScoreUtility.classify(testResult.iqScore).icon
     }
 
     var iqRangeDescription: String {
-        switch testResult.iqScore {
-        case 0 ..< 70:
-            "Extremely Low"
-        case 70 ..< 85:
-            "Below Average"
-        case 85 ..< 115:
-            "Average"
-        case 115 ..< 130:
-            "Above Average"
-        case 130 ..< 145:
-            "Gifted"
-        case 145...:
-            "Highly Gifted"
-        default:
-            "Invalid Score"
-        }
+        IQScoreUtility.classify(testResult.iqScore).description
     }
 
     var comparisonIcon: String {
