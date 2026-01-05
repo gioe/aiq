@@ -103,8 +103,8 @@ class DashboardViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .abandonTest) {
-                await self.abandonActiveTest()
+            handleError(error, context: .abandonTest) { [weak self] in
+                await self?.abandonActiveTest()
             }
         }
     }
