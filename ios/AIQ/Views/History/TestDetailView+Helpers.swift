@@ -138,10 +138,7 @@ extension TestDetailView {
     }
 
     func formatFullDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        date.toLongString()
     }
 
     func formatAverageTime(_ totalSeconds: Int, questions: Int) -> String {

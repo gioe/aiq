@@ -93,6 +93,42 @@ final class DateExtensionsTests: XCTestCase {
         XCTAssertFalse(result.isEmpty, "Should return non-empty string")
     }
 
+    // MARK: - toCompactString Tests
+
+    func testToCompactString_enUS() {
+        let locale = Locale(identifier: "en_US")
+        let result = testDate.toCompactString(locale: locale)
+
+        // Short date + short time style in en_US: "1/15/24, 3:45 PM"
+        XCTAssertTrue(result.contains("15"), "Should contain day")
+        XCTAssertTrue(result.contains("24"), "Should contain abbreviated year")
+    }
+
+    func testToCompactString_frFR() {
+        let locale = Locale(identifier: "fr_FR")
+        let result = testDate.toCompactString(locale: locale)
+
+        // French locale uses different date format
+        XCTAssertTrue(result.contains("15"), "Should contain day")
+        XCTAssertTrue(result.contains("24") || result.contains("2024"), "Should contain year")
+    }
+
+    func testToCompactString_defaultsToCurrentLocale() {
+        let result = testDate.toCompactString()
+
+        // Should work with current locale
+        XCTAssertFalse(result.isEmpty, "Should return non-empty string")
+        XCTAssertTrue(result.contains("15"), "Should contain day")
+    }
+
+    func testToCompactString_includesTime() {
+        let locale = Locale(identifier: "en_US")
+        let result = testDate.toCompactString(locale: locale)
+
+        // Should include time component (either 3:45 or 15:45 depending on locale)
+        XCTAssertTrue(result.contains(":"), "Should contain time separator")
+    }
+
     // MARK: - toRelativeString Tests
 
     func testToRelativeString_futureDate() {

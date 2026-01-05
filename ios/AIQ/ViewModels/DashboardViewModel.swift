@@ -238,10 +238,7 @@ class DashboardViewModel: BaseViewModel {
     /// Formatted latest test date
     var latestTestDateFormatted: String? {
         guard let latest = latestTestResult else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: latest.completedAt)
+        return latest.completedAt.toShortString()
     }
 
     func setActiveTestSession(_ session: TestSession) {

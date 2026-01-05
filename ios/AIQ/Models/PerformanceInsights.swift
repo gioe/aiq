@@ -175,12 +175,7 @@ struct PerformanceInsights: Equatable {
         // Find the test with highest score
         guard let bestTest = tests.max(by: { $0.iqScore < $1.iqScore }) else { return nil }
 
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-
-        let timeDescription = formatter.localizedString(for: bestTest.completedAt, relativeTo: Date())
-
-        return "\(timeDescription)"
+        return bestTest.completedAt.toRelativeString()
     }
 
     /// Calculate improvement percentage from first to latest test
