@@ -167,16 +167,12 @@ struct IQTrendChart: View {
             return ""
         }
 
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-
         // If all tests are on the same day, just mention that date
         if Calendar.current.isDate(firstDate, inSameDayAs: lastDate) {
-            return "Tests taken on \(formatter.string(from: firstDate)). "
+            return "Tests taken on \(firstDate.toShortString()). "
         }
 
-        return "Tests span from \(formatter.string(from: firstDate)) to \(formatter.string(from: lastDate)). "
+        return "Tests span from \(firstDate.toShortString()) to \(lastDate.toShortString()). "
     }
 }
 
