@@ -337,21 +337,21 @@ struct RegistrationView: View {
 struct RegistrationBenefits: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
-            RegistrationBenefitCard(
+            InfoCard(
                 icon: "person.fill.badge.plus",
                 title: "Personalized Tracking",
                 description: "Your progress, your insights, your journey",
                 color: ColorPalette.statBlue
             )
 
-            RegistrationBenefitCard(
+            InfoCard(
                 icon: "lock.shield.fill",
                 title: "Secure & Private",
                 description: "Your data is encrypted and never shared",
                 color: ColorPalette.statGreen
             )
 
-            RegistrationBenefitCard(
+            InfoCard(
                 icon: "chart.xyaxis.line",
                 title: "Visual Analytics",
                 description: "Beautiful charts tracking your cognitive growth",
@@ -359,49 +359,6 @@ struct RegistrationBenefits: View {
             )
         }
         .padding(.horizontal, DesignSystem.Spacing.xl)
-    }
-}
-
-/// Individual benefit card with icon, title, and description
-struct RegistrationBenefitCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
-            // Icon
-            Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.lg))
-                .foregroundColor(color)
-                .frame(width: 50, height: 50)
-                .accessibilityHidden(true)
-
-            // Text Content
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                Text(title)
-                    .font(Typography.bodyLarge)
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorPalette.textPrimary)
-
-                Text(description)
-                    .font(Typography.bodySmall)
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-
-            Spacer()
-        }
-        .padding(DesignSystem.Spacing.md)
-        .background(ColorPalette.backgroundSecondary)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(
-            color: DesignSystem.Shadow.sm.color,
-            radius: DesignSystem.Shadow.sm.radius,
-            x: DesignSystem.Shadow.sm.x,
-            y: DesignSystem.Shadow.sm.y
-        )
-        .accessibilityElement(children: .combine)
     }
 }
 
