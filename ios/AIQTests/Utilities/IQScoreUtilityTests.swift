@@ -240,32 +240,32 @@ final class IQScoreUtilityTests: XCTestCase {
 
     // MARK: - Category Color Tests
 
-    func testCategoryColor_ExtremelyLow_ReturnsRed() {
-        XCTAssertEqual(IQScoreUtility.Category.extremelyLow.color, .red)
+    func testCategoryColor_ExtremelyLow_ReturnsError() {
+        XCTAssertEqual(IQScoreUtility.Category.extremelyLow.color, ColorPalette.error)
     }
 
-    func testCategoryColor_BelowAverage_ReturnsOrange() {
-        XCTAssertEqual(IQScoreUtility.Category.belowAverage.color, .orange)
+    func testCategoryColor_BelowAverage_ReturnsWarning() {
+        XCTAssertEqual(IQScoreUtility.Category.belowAverage.color, ColorPalette.warning)
     }
 
-    func testCategoryColor_Average_ReturnsCyan() {
-        XCTAssertEqual(IQScoreUtility.Category.average.color, .cyan)
+    func testCategoryColor_Average_ReturnsInfo() {
+        XCTAssertEqual(IQScoreUtility.Category.average.color, ColorPalette.info)
     }
 
-    func testCategoryColor_AboveAverage_ReturnsBlue() {
-        XCTAssertEqual(IQScoreUtility.Category.aboveAverage.color, .blue)
+    func testCategoryColor_AboveAverage_ReturnsInfo() {
+        XCTAssertEqual(IQScoreUtility.Category.aboveAverage.color, ColorPalette.info)
     }
 
-    func testCategoryColor_Gifted_ReturnsGreen() {
-        XCTAssertEqual(IQScoreUtility.Category.gifted.color, .green)
+    func testCategoryColor_Gifted_ReturnsSuccess() {
+        XCTAssertEqual(IQScoreUtility.Category.gifted.color, ColorPalette.success)
     }
 
-    func testCategoryColor_HighlyGifted_ReturnsGreen() {
-        XCTAssertEqual(IQScoreUtility.Category.highlyGifted.color, .green)
+    func testCategoryColor_HighlyGifted_ReturnsSuccess() {
+        XCTAssertEqual(IQScoreUtility.Category.highlyGifted.color, ColorPalette.success)
     }
 
-    func testCategoryColor_Invalid_ReturnsRed() {
-        XCTAssertEqual(IQScoreUtility.Category.invalid.color, .red)
+    func testCategoryColor_Invalid_ReturnsError() {
+        XCTAssertEqual(IQScoreUtility.Category.invalid.color, ColorPalette.error)
     }
 
     // MARK: - Category Icon Tests
@@ -326,15 +326,15 @@ final class IQScoreUtilityTests: XCTestCase {
     }
 
     func testClassify_EndToEnd_ReturnsCorrectColors() {
-        // Test the full flow from score to color
+        // Test the full flow from score to color using ColorPalette
         let testCases: [(score: Int, expectedColor: Color)] = [
-            (50, .red),
-            (75, .orange),
-            (100, .cyan),
-            (120, .blue),
-            (135, .green),
-            (160, .green),
-            (-5, .red)
+            (50, ColorPalette.error),
+            (75, ColorPalette.warning),
+            (100, ColorPalette.info),
+            (120, ColorPalette.info),
+            (135, ColorPalette.success),
+            (160, ColorPalette.success),
+            (-5, ColorPalette.error)
         ]
 
         for testCase in testCases {

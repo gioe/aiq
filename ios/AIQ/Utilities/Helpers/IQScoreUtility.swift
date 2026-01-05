@@ -33,34 +33,36 @@ enum IQScoreUtility {
         }
 
         /// Color representing the score category
+        /// Uses ColorPalette semantic colors for design system consistency
         var color: Color {
             switch self {
             case .highlyGifted, .gifted:
-                .green
+                ColorPalette.success
             case .aboveAverage:
-                .blue
+                ColorPalette.info
             case .average:
-                .cyan
+                ColorPalette.info
             case .belowAverage:
-                .orange
+                ColorPalette.warning
             case .extremelyLow, .invalid:
-                .red
+                ColorPalette.error
             }
         }
 
         /// Gradient representing the score category
+        /// Uses ColorPalette semantic colors for design system consistency
         var gradient: LinearGradient {
             let colors: [Color] = switch self {
             case .highlyGifted, .gifted:
-                [.green, .mint]
+                [ColorPalette.success, ColorPalette.success.opacity(0.7)]
             case .aboveAverage:
-                [.blue, .cyan]
+                [ColorPalette.info, ColorPalette.info.opacity(0.7)]
             case .average:
-                [.cyan, .blue]
+                [ColorPalette.info.opacity(0.7), ColorPalette.info]
             case .belowAverage:
-                [.orange, .yellow]
+                [ColorPalette.warning, ColorPalette.warning.opacity(0.7)]
             case .extremelyLow, .invalid:
-                [.red, .orange]
+                [ColorPalette.error, ColorPalette.warning]
             }
 
             return LinearGradient(
