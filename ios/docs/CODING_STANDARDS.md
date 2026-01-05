@@ -1897,7 +1897,8 @@ struct TestResult: Codable, ValidatableResponse {
 var isFormValidPublisher: AnyPublisher<Bool, Never> {
     Publishers.CombineLatest($email, $password)
         .map { email, password in
-            email.isValidEmail && password.count >= 8
+            Validators.validateEmail(email).isValid &&
+            Validators.validatePassword(password).isValid
         }
         .eraseToAnyPublisher()
 }
