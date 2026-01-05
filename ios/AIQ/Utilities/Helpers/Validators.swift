@@ -10,9 +10,12 @@ enum Validators {
 
     /// Validate email format
     ///
-    /// Requirements:
-    /// - Email must not be empty
-    /// - Email must match a valid email pattern (user@domain.tld)
+    /// Email Requirements:
+    /// - Must not be empty or whitespace-only
+    /// - Must match a valid email pattern (user@domain.tld)
+    ///
+    /// This is the single source of truth for email validation across the app.
+    /// All ViewModels use this method to ensure consistent validation rules.
     ///
     /// - Parameter email: The email address to validate
     /// - Returns: `.valid` if email meets all requirements, `.invalid(message)` otherwise
@@ -20,9 +23,14 @@ enum Validators {
         guard email.isNotEmpty else {
             return .invalid("Email is required")
         }
-        guard email.isValidEmail else {
+
+        // Email regex pattern: user@domain.tld
+        let emailRegex = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        guard predicate.evaluate(with: email) else {
             return .invalid("Please enter a valid email address")
         }
+
         return .valid
     }
 
