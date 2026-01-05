@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: Error?
     @State private var showCrashConfirmation = false
+    @State private var showOnboarding = false
 
     var body: some View {
         ZStack {
@@ -61,6 +62,24 @@ struct SettingsView: View {
                     .accessibilityLabel("Help & FAQ")
                     .accessibilityHint("Opens help documentation")
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.helpButton)
+
+                    Button {
+                        showOnboarding = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise.circle")
+                                .foregroundColor(.accentColor)
+                            Text("View Onboarding Again")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    .accessibilityLabel("View Onboarding Again")
+                    .accessibilityHint("Opens onboarding tutorial")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.viewOnboardingButton)
                 } header: {
                     Text("Support")
                 }
@@ -204,6 +223,9 @@ struct SettingsView: View {
                     Button("Cancel", role: .cancel) {}
                 }
             #endif
+                .fullScreenCover(isPresented: $showOnboarding) {
+                    OnboardingContainerView()
+                }
 
             // Loading overlay
             if isLoggingOut {

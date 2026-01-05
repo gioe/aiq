@@ -6,6 +6,7 @@ import UIKit
 struct OnboardingContainerView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -115,6 +116,9 @@ struct OnboardingContainerView: View {
                 viewModel.skipOnboarding()
             }
         }
+
+        // Dismiss if presented as a sheet (e.g., from Settings)
+        dismiss()
     }
 
     /// Handle Get Started button tap
@@ -131,6 +135,9 @@ struct OnboardingContainerView: View {
                 viewModel.completeOnboarding()
             }
         }
+
+        // Dismiss if presented as a sheet (e.g., from Settings)
+        dismiss()
     }
 
     // MARK: - Configuration
