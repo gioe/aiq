@@ -67,7 +67,7 @@ class HistoryViewModel: BaseViewModel {
     private var currentOffset: Int = 0
 
     /// Page size for API requests
-    private let pageSize: Int = 50
+    private let pageSize: Int = Constants.Pagination.historyPageSize
 
     // MARK: - Initialization
 

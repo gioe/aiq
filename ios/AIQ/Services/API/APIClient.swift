@@ -159,7 +159,7 @@ private struct RequestContext {
     let retryCount: Int
 
     /// Maximum number of retries allowed for token refresh
-    static let maxRetries = 1
+    static let maxRetries = Constants.Network.maxTokenRefreshRetries
 }
 
 /// Main API client implementation
@@ -192,7 +192,7 @@ class APIClient: APIClientProtocol {
         baseURL: String,
         session: URLSession = .shared,
         retryPolicy: RetryPolicy = .default,
-        requestTimeout: TimeInterval = 30.0,
+        requestTimeout: TimeInterval = Constants.Network.requestTimeout,
         requestInterceptors: [RequestInterceptor]? = nil,
         responseInterceptors: [ResponseInterceptor]? = nil
     ) {

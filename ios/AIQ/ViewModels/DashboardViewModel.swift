@@ -151,7 +151,7 @@ class DashboardViewModel: BaseViewModel {
                 body: nil as String?,
                 requiresAuth: true,
                 cacheKey: DataCache.Key.activeTestSession,
-                cacheDuration: 120, // 2 minutes
+                cacheDuration: Constants.Cache.dashboardCacheDuration,
                 forceRefresh: forceRefresh
             )
 

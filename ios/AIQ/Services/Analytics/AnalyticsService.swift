@@ -155,16 +155,16 @@ class AnalyticsService {
     private var batchTimer: Timer?
 
     /// Maximum number of events per batch
-    let maxBatchSize = 50
+    let maxBatchSize = Constants.Analytics.maxBatchSize
 
     /// Maximum queue size to prevent unbounded memory growth
-    let maxQueueSize = 500
+    let maxQueueSize = Constants.Analytics.maxQueueSize
 
     /// Interval for automatic batch submission (seconds)
     private let batchInterval: TimeInterval
 
     /// Maximum retries for failed submissions
-    let maxRetries = 3
+    let maxRetries = Constants.Analytics.maxRetries
 
     /// Storage key for persisted events
     static let storageKey = "com.aiq.analyticsEventQueue"
@@ -191,7 +191,7 @@ class AnalyticsService {
             networkMonitor: NetworkMonitor.shared,
             urlSession: .shared,
             secureStorage: KeychainStorage.shared,
-            batchInterval: 30.0,
+            batchInterval: Constants.Analytics.batchInterval,
             startTimer: true
         )
     }
@@ -202,7 +202,7 @@ class AnalyticsService {
         networkMonitor: NetworkMonitorProtocol,
         urlSession: URLSession,
         secureStorage: SecureStorageProtocol,
-        batchInterval: TimeInterval = 30.0,
+        batchInterval: TimeInterval = Constants.Analytics.batchInterval,
         startTimer: Bool = true
     ) {
         // Create separate loggers for different categories
@@ -576,7 +576,7 @@ class AnalyticsService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("iOS", forHTTPHeaderField: "X-Platform")
         request.setValue(AppConfig.appVersion, forHTTPHeaderField: "X-App-Version")
-        request.timeoutInterval = 30
+        request.timeoutInterval = Constants.Analytics.requestTimeout
 
         // Add auth token if available
         if let token = getAuthToken() {

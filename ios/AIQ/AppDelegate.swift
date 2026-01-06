@@ -30,7 +30,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // Configuration is loaded from TrustKit.plist in the app bundle
             if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
                let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
-                // Verify at least 2 pins are configured before initializing (primary + backup required)
+                // Verify minimum required pins are configured before initializing
                 guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
                     fatalError("TrustKit config missing TSKPinnedDomains")
                 }
@@ -40,8 +40,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 guard let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String] else {
                     fatalError("TrustKit config missing TSKPublicKeyHashes")
                 }
-                guard hashes.count >= 2 else {
-                    fatalError("Certificate pinning requires at least 2 pins (primary + backup), found \(hashes.count)")
+                guard hashes.count >= Constants.Security.minRequiredPins else {
+                    fatalError(
+                        "Certificate pinning requires at least \(Constants.Security.minRequiredPins) pins " +
+                            "(primary + backup), found \(hashes.count)"
+                    )
                 }
 
                 TrustKit.initSharedInstance(withConfiguration: trustKitConfig)

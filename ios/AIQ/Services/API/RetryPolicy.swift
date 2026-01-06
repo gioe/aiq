@@ -9,8 +9,8 @@ struct RetryPolicy {
 
     /// Default retry policy with exponential backoff
     static let `default` = RetryPolicy(
-        maxAttempts: 3,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+        maxAttempts: Constants.Network.defaultMaxRetryAttempts,
+        retryableStatusCodes: Constants.Network.retryableStatusCodes,
         retryableErrors: [
             .timedOut,
             .networkConnectionLost,

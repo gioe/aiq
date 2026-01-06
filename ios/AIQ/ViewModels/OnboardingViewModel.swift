@@ -15,7 +15,7 @@ class OnboardingViewModel: ObservableObject {
     // MARK: - Constants
 
     /// Total number of onboarding pages
-    private let totalPages = 4
+    private let totalPages = Constants.Onboarding.totalPages
 
     // MARK: - Public Methods
 

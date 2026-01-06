@@ -147,7 +147,7 @@ class TestTakingViewModel: BaseViewModel {
 
     // MARK: - Test Management
 
-    func startTest(questionCount: Int = 20) async {
+    func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
         setLoading(true)
         clearError()
 
@@ -345,7 +345,7 @@ class TestTakingViewModel: BaseViewModel {
 
     /// Abandon the active session and start a new test
     /// - Parameter sessionId: The ID of the session to abandon
-    func abandonAndStartNew(sessionId: Int, questionCount: Int = 20) async {
+    func abandonAndStartNew(sessionId: Int, questionCount: Int = Constants.Test.defaultQuestionCount) async {
         setLoading(true)
         clearError()
 
