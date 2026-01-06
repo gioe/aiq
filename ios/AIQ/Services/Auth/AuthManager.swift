@@ -17,9 +17,14 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     private let authService: AuthServiceProtocol
     private let tokenRefreshInterceptor: TokenRefreshInterceptor
+    private let deviceTokenManager: DeviceTokenManagerProtocol
 
-    init(authService: AuthServiceProtocol = AuthService.shared) {
+    init(
+        authService: AuthServiceProtocol = AuthService.shared,
+        deviceTokenManager: DeviceTokenManagerProtocol = NotificationManager.shared
+    ) {
         self.authService = authService
+        self.deviceTokenManager = deviceTokenManager
         tokenRefreshInterceptor = TokenRefreshInterceptor(authService: authService)
 
         // Set up token refresh interceptor in APIClient
@@ -111,7 +116,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = true
 
         // Unregister device token first
-        await NotificationManager.shared.unregisterDeviceToken()
+        await deviceTokenManager.unregisterDeviceToken()
 
         do {
             try await authService.logout()
@@ -141,7 +146,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
         do {
             // Unregister device token first
-            await NotificationManager.shared.unregisterDeviceToken()
+            await deviceTokenManager.unregisterDeviceToken()
 
             // Call the delete account endpoint
             try await authService.deleteAccount()

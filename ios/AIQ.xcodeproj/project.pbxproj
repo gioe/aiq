@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
+		42F810187A0E40F1896555DE /* DeviceTokenManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */; };
 		0572138AE58FDA34E510B63C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845907D460CC2DAB74F0F53 /* DashboardView.swift */; };
 		06E9311FFA4FD65043CA90B1 /* TestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C12636F62D9CB068BF0D5 /* TestTimerManager.swift */; };
 		0746B731514603BC8AFB6F47 /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F65A561E55D0962F63D8A98 /* ViewModelProtocol.swift */; };
@@ -283,6 +284,7 @@
 		5693C8FD3082F1F9585F0D0C /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManagerProtocol.swift; sourceTree = "<group>"; };
 		578FAC9B7717F895FC3AE5CB /* OnboardingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTokenManagerProtocol.swift; sourceTree = "<group>"; };
 		58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		5D77FAF15383915BA01D39FC /* OnboardingPage2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPage2View.swift; sourceTree = "<group>"; };
 		5E92CF0848C8EACC3C1FF0DE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -858,6 +860,7 @@
 				571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */,
 				4DD364FDF0483DE20906256C /* AuthService.swift */,
 				0A03B180242F54340F85306F /* AuthServiceProtocol.swift */,
+				BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */,
 				3D90F0480B621765EDC45755 /* NotificationManager.swift */,
 				F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */,
 				D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */,
@@ -1129,6 +1132,7 @@
 				03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */,
 				C70B96BEBAE5FC0F2C713060 /* AuthService.swift in Sources */,
 				BD95485C0DD4CC5ED93E99A7 /* AuthServiceProtocol.swift in Sources */,
+				42F810187A0E40F1896555DE /* DeviceTokenManagerProtocol.swift in Sources */,
 				47E77ED0B8D7B34BB7F0CCCC /* BaseViewModel.swift in Sources */,
 				076EB45937D160B4DF496FEC /* ChartDomainCalculator.swift in Sources */,
 				F93BC9EFDC7FB233C2D7DF8D /* ColorPalette.swift in Sources */,
