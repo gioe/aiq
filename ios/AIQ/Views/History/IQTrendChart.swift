@@ -145,9 +145,11 @@ struct IQTrendChart: View {
         let minScore = scores.min() ?? 0
         let maxScore = scores.max() ?? 0
         let avgScore = scores.reduce(0, +) / scores.count
+        let trend = calculateTrend(scores)
 
         var label = "IQ score trend chart showing \(testHistory.count) test results. "
-        label += "Scores range from \(minScore) to \(maxScore) with an average of \(avgScore). "
+        label += "Your scores \(trend) from \(scores.first!) to \(scores.last!), "
+        label += "with scores ranging from \(minScore) to \(maxScore) and an average of \(avgScore). "
 
         // Add date range for temporal context
         label += dateRangeDescription
@@ -157,6 +159,21 @@ struct IQTrendChart: View {
         }
 
         return label
+    }
+
+    /// Calculate trend direction from score series
+    private func calculateTrend(_ scores: [Int]) -> String {
+        guard let first = scores.first, let last = scores.last else {
+            return "show no change"
+        }
+
+        if last > first {
+            return "increased"
+        } else if last < first {
+            return "decreased"
+        } else {
+            return "remained stable"
+        }
     }
 
     /// Formatted date range description for accessibility
