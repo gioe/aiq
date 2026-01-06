@@ -47,6 +47,7 @@ These documents identify areas where the current implementation can be improved.
 |-----|-------------|----------|
 | [iOS Codebase Gaps](./IOS-CODEBASE-GAPS.md) | Architecture, testing, security, and production readiness issues | Critical |
 | [Backend Code Quality](./BACKEND-CODE-QUALITY.md) | Performance, redundancy, and maintainability improvements | High |
+| [Workflow Documentation Gaps](./WORKFLOW-DOCUMENTATION-GAPS.md) | UI-first development, backend coordination, iOS PR checklist | High |
 
 ## Implementation Status
 
