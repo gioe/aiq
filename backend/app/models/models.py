@@ -73,6 +73,24 @@ class EducationLevel(str, enum.Enum):
     PREFER_NOT_TO_SAY = "prefer_not_to_say"
 
 
+class FeedbackCategory(str, enum.Enum):
+    """Feedback category enumeration."""
+
+    BUG_REPORT = "bug_report"
+    FEATURE_REQUEST = "feature_request"
+    GENERAL_FEEDBACK = "general_feedback"
+    QUESTION_HELP = "question_help"
+    OTHER = "other"
+
+
+class FeedbackStatus(str, enum.Enum):
+    """Feedback submission status enumeration."""
+
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    RESOLVED = "resolved"
+
+
 class User(Base):
     """User model for authentication and profile."""
 
@@ -697,4 +715,53 @@ class ReliabilityMetric(Base):
         Index(
             "ix_reliability_metrics_type_date", "metric_type", "calculated_at"
         ),  # Compound index for history queries
+    )
+
+
+class FeedbackSubmission(Base):
+    """
+    User feedback submissions for bugs, feature requests, and general feedback.
+
+    Stores feedback submitted from the iOS app (and potentially other clients)
+    to enable user communication, bug tracking, and feature prioritization.
+    Feedback can be submitted before authentication to allow users to report
+    issues during onboarding.
+    """
+
+    __tablename__ = "feedback_submissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    # User information (optional - feedback can be submitted pre-auth)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # Feedback content
+    name: Mapped[str] = mapped_column(String(100))
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    category: Mapped[FeedbackCategory] = mapped_column(index=True)
+    description: Mapped[str] = mapped_column(Text)
+
+    # Technical context (captured from request headers)
+    app_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    ios_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    device_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(
+        String(45), nullable=True
+    )  # IPv6 max length
+
+    # Status tracking
+    status: Mapped[FeedbackStatus] = mapped_column(
+        default=FeedbackStatus.PENDING, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
+
+    # Relationship (optional user)
+    user: Mapped[Optional["User"]] = relationship()
+
+    # Indexes for common query patterns
+    __table_args__ = (
+        Index("ix_feedback_submissions_category_created", "category", "created_at"),
+        Index("ix_feedback_submissions_status_created", "status", "created_at"),
     )

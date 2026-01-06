@@ -15,6 +15,9 @@ from .models import (
     GenerationRunStatus,
     QuestionGenerationRun,
     ClientAnalyticsEvent,
+    FeedbackSubmission,
+    FeedbackCategory,
+    FeedbackStatus,
 )
 
 __all__ = [
@@ -34,4 +37,7 @@ __all__ = [
     "GenerationRunStatus",
     "QuestionGenerationRun",
     "ClientAnalyticsEvent",
+    "FeedbackSubmission",
+    "FeedbackCategory",
+    "FeedbackStatus",
 ]

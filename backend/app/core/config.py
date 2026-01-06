@@ -92,6 +92,37 @@ class Settings(BaseSettings):
         description="API key for service-to-service authentication (e.g., question-service)",
     )
 
+    # Email/SMTP Settings (for feedback notifications)
+    # NOTE: Email functionality is not yet implemented - these are placeholder settings
+    SMTP_HOST: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname",
+    )
+    SMTP_PORT: int = Field(
+        default=587,
+        description="SMTP server port (587 for TLS, 465 for SSL)",
+    )
+    SMTP_USERNAME: str = Field(
+        default="",
+        description="SMTP authentication username",
+    )
+    SMTP_PASSWORD: str = Field(
+        default="",
+        description="SMTP authentication password",
+    )
+    SMTP_FROM_EMAIL: str = Field(
+        default="noreply@aiq.app",
+        description="Email address to send from",
+    )
+    SMTP_FROM_NAME: str = Field(
+        default="AIQ Support",
+        description="Display name for sent emails",
+    )
+    ADMIN_EMAIL: str = Field(
+        default="admin@aiq.app",
+        description="Admin email address for feedback notifications",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

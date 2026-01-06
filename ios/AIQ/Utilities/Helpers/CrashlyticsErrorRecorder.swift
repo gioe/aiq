@@ -40,6 +40,9 @@ enum CrashlyticsErrorRecorder {
         case notificationPreferences = "notification_preferences"
         case notificationPermission = "notification_permission"
 
+        // Feedback
+        case submitFeedback = "feedback_submit"
+
         // Storage & Persistence
         case localSave = "storage_local_save"
         case localLoad = "storage_local_load"

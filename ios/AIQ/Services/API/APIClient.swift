@@ -98,6 +98,8 @@ enum APIEndpoint: Equatable {
     case testActive
     /// Delete user account
     case deleteAccount
+    /// Submit user feedback
+    case submitFeedback
 
     /// The URL path for this endpoint
     var path: String {
@@ -145,6 +147,8 @@ enum APIEndpoint: Equatable {
             "/v1/test/active"
         case .deleteAccount:
             "/v1/user/delete-account"
+        case .submitFeedback:
+            "/v1/feedback/submit"
         }
     }
 }
@@ -519,6 +523,9 @@ class APIClient: APIClientProtocol {
             // Validation error - map to badRequest
             let message = parseErrorMessage(from: data)
             throw APIError.unprocessableEntity(message: message)
+        case 429:
+            let message = parseErrorMessage(from: data)
+            throw APIError.rateLimitExceeded(message: message)
         case 500 ... 599:
             let message = parseErrorMessage(from: data)
             throw APIError.serverError(statusCode: statusCode, message: message)

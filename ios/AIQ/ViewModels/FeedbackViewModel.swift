@@ -3,6 +3,10 @@ import Foundation
 /// ViewModel for managing feedback form state and validation
 @MainActor
 class FeedbackViewModel: BaseViewModel {
+    // MARK: - Dependencies
+
+    private let apiClient: APIClientProtocol
+
     // MARK: - Published Properties
 
     @Published var name: String = ""
@@ -10,6 +14,15 @@ class FeedbackViewModel: BaseViewModel {
     @Published var selectedCategory: FeedbackCategory?
     @Published var description: String = ""
     @Published var showSuccessMessage: Bool = false
+
+    // MARK: - Initialization
+
+    /// Initialize the ViewModel with dependencies
+    /// - Parameter apiClient: API client for network requests
+    init(apiClient: APIClientProtocol = APIClient.shared) {
+        self.apiClient = apiClient
+        super.init()
+    }
 
     // MARK: - Validation
 
@@ -47,36 +60,53 @@ class FeedbackViewModel: BaseViewModel {
     // MARK: - Actions
 
     /// Submit the feedback form
-    /// - Note: This is a UI-only implementation since the backend endpoint doesn't exist yet
     func submitFeedback() async {
         // Validate form first
         guard isFormValid else { return }
 
         setLoading(true)
+        clearError()
 
-        // Simulate API call delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        do {
+            // Create feedback request body
+            let feedback = Feedback(
+                name: name,
+                email: email,
+                category: selectedCategory!, // Safe unwrap - validated by isFormValid
+                description: description
+            )
 
-        // In a real implementation, this would call the backend:
-        // let feedback = Feedback(
-        //     name: name,
-        //     email: email,
-        //     category: selectedCategory!,
-        //     description: description
-        // )
-        // try await apiClient.request(
-        //     endpoint: .submitFeedback,
-        //     method: .post,
-        //     body: feedback,
-        //     requiresAuth: true
-        // )
+            // Submit feedback to backend (no authentication required)
+            let response: FeedbackSubmitResponse = try await apiClient.request(
+                endpoint: .submitFeedback,
+                method: .post,
+                body: feedback,
+                requiresAuth: false
+            )
 
-        setLoading(false)
-        showSuccessMessage = true
+            setLoading(false)
 
-        // Reset form after showing success
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.resetForm()
+            // Show success message from backend or default
+            if response.success {
+                showSuccessMessage = true
+
+                // Reset form after showing success for 2 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.resetForm()
+                }
+            } else {
+                // Backend returned success=false - treat as error
+                error = NSError(
+                    domain: "FeedbackViewModel",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: response.message]
+                )
+            }
+        } catch let apiError {
+            setLoading(false)
+            handleError(apiError, context: .submitFeedback) { [weak self] in
+                await self?.submitFeedback()
+            }
         }
     }
 

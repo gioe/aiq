@@ -22,6 +22,8 @@ enum NetworkOperation {
     case logout
     /// User delete account operation
     case deleteAccount
+    /// Submit user feedback
+    case submitFeedback
     /// Generic network operation
     case generic
 
@@ -48,6 +50,8 @@ enum NetworkOperation {
             "signing out"
         case .deleteAccount:
             "deleting account"
+        case .submitFeedback:
+            "submitting feedback"
         case .generic:
             "completing request"
         }
@@ -83,6 +87,8 @@ enum APIError: Error, LocalizedError {
     case unknown(message: String? = nil)
     /// Unprocessable entity
     case unprocessableEntity(message: String? = nil)
+    /// Rate limit exceeded
+    case rateLimitExceeded(message: String? = nil)
 
     /// User-friendly error description with clear guidance
     var errorDescription: String? {
@@ -133,6 +139,8 @@ enum APIError: Error, LocalizedError {
             "The request took too long to complete. Please check your internet connection and try again."
         case .noInternetConnection:
             "No internet connection detected. Please check your Wi-Fi or cellular data settings and try again."
+        case let .rateLimitExceeded(message):
+            message ?? "You've made too many requests. Please wait a moment and try again."
         case let .unknown(message):
             message ?? "Something unexpected happened. Please try again or contact support if the issue continues."
         }
@@ -141,7 +149,7 @@ enum APIError: Error, LocalizedError {
     /// Whether this error is retryable (e.g., network errors, timeouts, server errors)
     var isRetryable: Bool {
         switch self {
-        case .networkError, .timeout, .noInternetConnection, .serverError:
+        case .networkError, .timeout, .noInternetConnection, .serverError, .rateLimitExceeded:
             true
         case .badRequest, .unprocessableEntity, .unauthorized, .forbidden,
              .invalidURL, .invalidResponse, .notFound,

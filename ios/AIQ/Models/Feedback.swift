@@ -38,3 +38,16 @@ enum FeedbackCategory: String, Codable, CaseIterable {
         }
     }
 }
+
+/// Response from feedback submission endpoint
+struct FeedbackSubmitResponse: Decodable {
+    let success: Bool
+    let submissionId: Int?
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case submissionId = "submission_id"
+        case message
+    }
+}

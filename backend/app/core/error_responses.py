@@ -101,8 +101,10 @@ class ErrorMessages:
     # ==========================================================================
     # Server Errors (500)
     # ==========================================================================
+    GENERIC_SERVER_ERROR = "An unexpected error occurred. Please try again later."
     ACCOUNT_CREATION_FAILED = "Failed to create user account. Please try again later."
     LOGIN_FAILED = "Login failed due to a server error. Please try again later."
+    FEEDBACK_SUBMISSION_FAILED = "Failed to submit feedback. Please try again later."
     RELIABILITY_REPORT_FAILED = (
         "Failed to generate reliability report. Please try again later."
     )
