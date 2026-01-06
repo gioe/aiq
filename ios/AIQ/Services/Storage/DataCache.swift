@@ -21,7 +21,7 @@ actor DataCache {
     // MARK: - Properties
 
     private var cache: [String: Any] = [:]
-    private let defaultExpiration: TimeInterval = 300 // 5 minutes
+    private let defaultExpiration: TimeInterval = Constants.Cache.defaultExpiration
 
     // MARK: - Public Methods
 

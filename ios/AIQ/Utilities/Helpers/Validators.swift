@@ -52,8 +52,8 @@ enum Validators {
         guard password.isNotEmpty else {
             return .invalid("Password is required")
         }
-        guard password.count >= 8 else {
-            return .invalid("Password must be at least 8 characters")
+        guard password.count >= Constants.Validation.minPasswordLength else {
+            return .invalid("Password must be at least \(Constants.Validation.minPasswordLength) characters")
         }
         return .valid
     }
@@ -74,8 +74,8 @@ enum Validators {
         guard name.isNotEmpty else {
             return .invalid("\(fieldName) is required")
         }
-        guard name.count >= 2 else {
-            return .invalid("\(fieldName) must be at least 2 characters")
+        guard name.count >= Constants.Validation.minNameLength else {
+            return .invalid("\(fieldName) must be at least \(Constants.Validation.minNameLength) characters")
         }
         return .valid
     }

@@ -7,8 +7,8 @@ import UIKit
 class TestTimerManager: ObservableObject {
     // MARK: - Published Properties
 
-    /// Remaining time in seconds (starts at 30 minutes = 1800 seconds)
-    @Published private(set) var remainingSeconds: Int = 1800
+    /// Remaining time in seconds (starts at 30 minutes)
+    @Published private(set) var remainingSeconds: Int = Constants.Timing.totalTestTimeSeconds
 
     /// Whether to show the warning banner (shown at 5 minutes remaining)
     @Published private(set) var showWarning: Bool = false
@@ -19,10 +19,10 @@ class TestTimerManager: ObservableObject {
     // MARK: - Constants
 
     /// Total time limit in seconds (30 minutes)
-    static let totalTimeSeconds: Int = 1800
+    static let totalTimeSeconds: Int = Constants.Timing.totalTestTimeSeconds
 
     /// Warning threshold in seconds (5 minutes)
-    static let warningThresholdSeconds: Int = 300
+    static let warningThresholdSeconds: Int = Constants.Timing.warningThresholdSeconds
 
     // MARK: - Private Properties
 
@@ -128,9 +128,12 @@ class TestTimerManager: ObservableObject {
         // Record when this timing segment started
         currentSegmentStartTime = Date()
 
-        // Use a faster interval (0.25s) for more responsive UI updates
+        // Use a faster interval for more responsive UI updates
         // while still using wall-clock reference for accuracy
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(
+            withTimeInterval: Constants.Timing.timerUpdateInterval,
+            repeats: true
+        ) { [weak self] _ in
             Task { @MainActor in
                 self?.tick()
             }
