@@ -5,7 +5,6 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, status, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -14,8 +13,7 @@ from app.schemas.feedback import (
     FeedbackSubmitRequest,
     FeedbackSubmitResponse,
 )
-from app.core.auth import security_optional
-from app.core.security import decode_token
+from app.core.auth import get_current_user_optional
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.ratelimit.limiter import RateLimiter
 from app.ratelimit.storage import InMemoryStorage
@@ -35,43 +33,6 @@ feedback_limiter = RateLimiter(
     default_limit=5,
     default_window=3600,  # 1 hour in seconds
 )
-
-
-def _get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials],
-    db: Session,
-) -> Optional[User]:
-    """
-    Get the current user if authenticated, None otherwise.
-
-    Args:
-        credentials: Optional HTTP Bearer token credentials
-        db: Database session
-
-    Returns:
-        User object if authenticated, None otherwise
-    """
-    if not credentials:
-        return None
-
-    try:
-        # Decode token
-        payload = decode_token(credentials.credentials)
-        if payload is None:
-            return None
-
-        # Extract user_id
-        user_id = payload.get("user_id")
-        if user_id is None:
-            return None
-
-        # Get user from database
-        user = db.query(User).filter(User.id == user_id).first()
-        return user
-    except Exception as e:
-        # Log but don't fail - authentication is optional
-        logger.debug(f"Optional auth failed: {e}")
-        return None
 
 
 def _get_client_ip(request: Request) -> str:
@@ -159,7 +120,7 @@ async def submit_feedback(
     feedback_data: FeedbackSubmitRequest,
     request: Request,
     db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Submit user feedback, bug report, or feature request.
@@ -174,7 +135,7 @@ async def submit_feedback(
         feedback_data: Feedback submission data
         request: FastAPI request object (for IP extraction)
         db: Database session
-        credentials: Optional authentication credentials
+        current_user: Optional authenticated user (injected by dependency)
 
     Returns:
         Feedback submission confirmation with submission ID
@@ -198,9 +159,6 @@ async def submit_feedback(
             },
             headers={"Retry-After": str(retry_after)},
         )
-
-    # Get optional user (if authenticated)
-    current_user = _get_optional_user(credentials, db)
 
     # Extract request headers
     headers = _extract_headers(request)
