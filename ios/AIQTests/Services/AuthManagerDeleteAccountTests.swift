@@ -7,15 +7,18 @@ import XCTest
 final class AuthManagerDeleteAccountTests: XCTestCase {
     var sut: AuthManager!
     fileprivate var mockAuthService: MockAuthService!
+    fileprivate var mockDeviceTokenManager: MockDeviceTokenManager!
 
     override func setUp() async throws {
         try await super.setUp()
         mockAuthService = MockAuthService()
+        mockDeviceTokenManager = MockDeviceTokenManager()
     }
 
     override func tearDown() {
         sut = nil
         mockAuthService = nil
+        mockDeviceTokenManager = nil
         super.tearDown()
     }
 
@@ -39,13 +42,14 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
         mockAuthService.shouldSucceedDeleteAccount = true
-        sut = AuthManager(authService: mockAuthService)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
 
         // When
         try await sut.deleteAccount()
 
         // Then
         XCTAssertTrue(mockAuthService.deleteAccountCalled, "deleteAccount should be called on auth service")
+        XCTAssertTrue(mockDeviceTokenManager.unregisterCalled, "unregisterDeviceToken should be called")
         XCTAssertFalse(sut.isAuthenticated, "user should not be authenticated after deleting account")
         XCTAssertNil(sut.currentUser, "current user should be nil after deleting account")
         XCTAssertFalse(sut.isLoading, "should not be loading after completion")
@@ -70,7 +74,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
         mockAuthService.shouldSucceedDeleteAccount = false
-        sut = AuthManager(authService: mockAuthService)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
 
         // When
         do {
@@ -79,6 +83,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         } catch {
             // Then
             XCTAssertTrue(mockAuthService.deleteAccountCalled, "deleteAccount should be called on auth service")
+            XCTAssertTrue(mockDeviceTokenManager.unregisterCalled, "unregisterDeviceToken should be called even on failure")
             XCTAssertNotNil(sut.authError, "should have error on failure")
             XCTAssertFalse(sut.isLoading, "should not be loading after error")
             // User should still be authenticated on failure
@@ -91,7 +96,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         // Given
         mockAuthService.shouldSucceedDeleteAccount = true
         mockAuthService.deleteAccountDelay = 0.1
-        sut = AuthManager(authService: mockAuthService)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
 
         // When
         let expectation = expectation(description: "Loading state should be set")
@@ -117,7 +122,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
     func testDeleteAccount_CompletesSuccessfully() async throws {
         // Given
         mockAuthService.shouldSucceedDeleteAccount = true
-        sut = AuthManager(authService: mockAuthService)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
 
         // When
         try await sut.deleteAccount()
@@ -125,6 +130,19 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         // Then
         XCTAssertTrue(mockAuthService.deleteAccountCalled, "deleteAccount should complete")
         XCTAssertFalse(sut.isAuthenticated, "user should not be authenticated")
+    }
+
+    func testDeleteAccount_UsesInjectedDeviceTokenManager() async throws {
+        // Given - custom mock to verify protocol dependency
+        let customMock = MockDeviceTokenManager()
+        mockAuthService.shouldSucceedDeleteAccount = true
+        sut = AuthManager(authService: mockAuthService, deviceTokenManager: customMock)
+
+        // When
+        try await sut.deleteAccount()
+
+        // Then - verify the injected mock was used, not NotificationManager.shared
+        XCTAssertTrue(customMock.unregisterCalled, "injected deviceTokenManager should be used")
     }
 }
 
@@ -181,5 +199,16 @@ private class MockAuthService: AuthServiceProtocol {
 
     func getAccessToken() -> String? {
         nil
+    }
+}
+
+// MARK: - Mock Device Token Manager
+
+@MainActor
+private class MockDeviceTokenManager: DeviceTokenManagerProtocol {
+    var unregisterCalled = false
+
+    func unregisterDeviceToken() async {
+        unregisterCalled = true
     }
 }

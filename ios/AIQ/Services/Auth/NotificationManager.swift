@@ -5,7 +5,7 @@ import UserNotifications
 
 /// Manager for coordinating push notification permissions, device tokens, and backend synchronization
 @MainActor
-class NotificationManager: ObservableObject, NotificationManagerProtocol {
+class NotificationManager: ObservableObject, NotificationManagerProtocol, DeviceTokenManagerProtocol {
     // MARK: - Singleton
 
     static let shared = NotificationManager()
