@@ -133,6 +133,7 @@ enum AccessibilityIdentifiers {
         static let notificationsSection = "settingsView.notificationsSection"
         static let helpButton = "settingsView.helpButton"
         static let viewOnboardingButton = "settingsView.viewOnboardingButton"
+        static let feedbackButton = "settingsView.feedbackButton"
         static let logoutButton = "settingsView.logoutButton"
         static let deleteAccountButton = "settingsView.deleteAccountButton"
         static let appVersionLabel = "settingsView.appVersionLabel"
@@ -186,5 +187,15 @@ enum AccessibilityIdentifiers {
         static let scrollView = "helpView.scrollView"
         static let contactSupportButton = "helpView.contactSupportButton"
         static let faqSection = "helpView.faqSection"
+    }
+
+    // MARK: - Feedback View
+
+    enum FeedbackView {
+        static let nameTextField = "feedbackView.nameTextField"
+        static let emailTextField = "feedbackView.emailTextField"
+        static let categoryMenu = "feedbackView.categoryMenu"
+        static let descriptionTextField = "feedbackView.descriptionTextField"
+        static let submitButton = "feedbackView.submitButton"
     }
 }
