@@ -13,7 +13,7 @@ struct SavedTestProgress: Codable {
 
     var isValid: Bool {
         // Progress is only valid if saved within last 24 hours
-        let dayAgo = Date().addingTimeInterval(-24 * 60 * 60)
+        let dayAgo = Date().addingTimeInterval(-Constants.Test.progressValidityDuration)
         return savedAt > dayAgo
     }
 

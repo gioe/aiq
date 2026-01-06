@@ -447,7 +447,7 @@ class APIClient: APIClientProtocol {
             let result: T = try handleResponse(data: data, statusCode: response.statusCode)
 
             // Track slow requests (> 2 seconds)
-            if duration > 2.0 {
+            if duration > Constants.Network.slowRequestThreshold {
                 AnalyticsService.shared.trackSlowRequest(
                     endpoint: endpoint.path,
                     durationSeconds: duration,
