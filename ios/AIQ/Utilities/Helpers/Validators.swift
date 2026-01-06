@@ -97,6 +97,26 @@ enum Validators {
         }
         return .valid
     }
+
+    // MARK: - Feedback Description Validation
+
+    /// Validate feedback description field
+    ///
+    /// Requirements:
+    /// - Description must not be empty or whitespace-only
+    /// - Description must be at least 10 characters to ensure meaningful feedback
+    ///
+    /// - Parameter description: The feedback description to validate
+    /// - Returns: `.valid` if description meets all requirements, `.invalid(message)` otherwise
+    static func validateFeedbackDescription(_ description: String) -> ValidationResult {
+        guard description.isNotEmpty else {
+            return .invalid("Description is required")
+        }
+        guard description.count >= 10 else {
+            return .invalid("Description must be at least 10 characters")
+        }
+        return .valid
+    }
 }
 
 /// Result of validation

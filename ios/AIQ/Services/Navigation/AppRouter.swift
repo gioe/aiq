@@ -38,6 +38,9 @@ enum Route: Hashable, Equatable {
     /// Help screen
     case help
 
+    /// Feedback screen
+    case feedback
+
     // MARK: - Equatable Conformance
 
     static func == (lhs: Route, rhs: Route) -> Bool {
@@ -57,6 +60,8 @@ enum Route: Hashable, Equatable {
         case (.notificationSettings, .notificationSettings):
             true
         case (.help, .help):
+            true
+        case (.feedback, .feedback):
             true
         default:
             false
@@ -86,6 +91,8 @@ enum Route: Hashable, Equatable {
             hasher.combine("notificationSettings")
         case .help:
             hasher.combine("help")
+        case .feedback:
+            hasher.combine("feedback")
         }
     }
 }

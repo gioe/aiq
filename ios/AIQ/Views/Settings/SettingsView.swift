@@ -3,7 +3,7 @@ import SwiftUI
 /// Settings view for user preferences and account management
 struct SettingsView: View {
     @Environment(\.appRouter) private var router
-    @StateObject private var authManager = AuthManager.shared
+    @ObservedObject private var authManager = AuthManager.shared
     @State private var showLogoutConfirmation = false
     @State private var isLoggingOut = false
     @State private var showDeleteAccountConfirmation = false
@@ -62,6 +62,24 @@ struct SettingsView: View {
                     .accessibilityLabel("Help & FAQ")
                     .accessibilityHint("Opens help documentation")
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.helpButton)
+
+                    Button {
+                        router.push(.feedback)
+                    } label: {
+                        HStack {
+                            Image(systemName: "envelope")
+                                .foregroundColor(.accentColor)
+                            Text("Send Feedback")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    .accessibilityLabel("Send Feedback")
+                    .accessibilityHint("Opens feedback form")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.feedbackButton)
 
                     Button {
                         showOnboarding = true

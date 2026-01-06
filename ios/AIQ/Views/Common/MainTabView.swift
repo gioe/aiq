@@ -168,6 +168,8 @@ private struct SettingsTabNavigationView: View {
             HelpView()
         case .notificationSettings:
             NotificationSettingsView()
+        case .feedback:
+            FeedbackView()
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)
