@@ -408,3 +408,106 @@ enum Constants {
 
 **Total magic numbers identified:** ~100
 **Recommended for extraction:** 21 (High Priority) + optional 30 (Medium Priority)
+
+---
+
+## PR Review Recommendations (PR #480)
+
+The following recommendations were captured from Claude's code review of this audit. These should be addressed during the ICG-096 implementation work.
+
+### 1. Consolidate Duplicate Timeout Values
+
+**Issue:** The audit shows `30.0` timeout appearing in multiple locations:
+- `APIClient.swift:195`
+- `AnalyticsService.swift:194,205,579`
+
+**Recommendation:** Ensure ICG-096 consolidates these into a single constant. Consider if Analytics needs a separate timeout from general API requests, or if they should share `Constants.Network.requestTimeout`.
+
+---
+
+### 2. Preserve Set Performance for RetryPolicy Status Codes
+
+**Issue:** The `retryableStatusCodes` is currently a `Set<Int>`:
+```swift
+static let retryableStatusCodes: Set<Int> = [408, 429, 500, 502, 503, 504]
+```
+
+**Recommendation:** Ensure `Constants.Network.retryableStatusCodes` maintains this as a `Set` for O(1) lookup performance. Do not convert to an Array.
+
+---
+
+### 3. Add Security Documentation to Certificate Pinning Constant
+
+**Issue:** `minRequiredPins = 2` is a security requirement with no documentation.
+
+**Recommendation:** When extracting to `Constants.Security.minRequiredPins`, add a comment explaining this is a TrustKit best practice requirement:
+```swift
+/// Minimum number of certificate pins required per domain.
+/// Per TrustKit best practices: always pin at least 2 certificates
+/// (primary + backup) to avoid lockouts during certificate rotation.
+/// See: ios/docs/security/CERTIFICATE-PINNING.md
+static let minRequiredPins: Int = 2
+```
+
+---
+
+### 4. Validate Animation Delay Intentionality
+
+**Issue:** The audit identifies many animation delays (0.1, 0.2, 0.4, 0.6, 0.8) across views.
+
+**Questions to Resolve Before Extraction:**
+- Are these intentional differences or copy-paste?
+- Should onboarding have different timing than general views?
+- Could some of these use existing `DesignSystem.Animation.quick/standard/smooth`?
+
+**Recommendation:** Before extracting, audit whether these delays are semantically different (e.g., `stagger1` vs `onboardingStagger1`) or can be consolidated.
+
+---
+
+### 5. Add Methodology References to Critical Constants
+
+**Issue:** Business-critical constants lack context about why these values were chosen.
+
+**Recommendation:** For product-defining constants, add doc comments linking to methodology documentation:
+```swift
+/// Total test time limit in seconds (30 minutes)
+/// Based on psychometric testing standards for cognitive assessments.
+/// See: docs/methodology/TEST-TIMING.md
+static let totalTestTimeSeconds: Int = 1800
+
+/// Default number of questions per test session.
+/// Calibrated for statistical reliability while minimizing test fatigue.
+/// See: docs/methodology/QUESTION-COUNT.md
+static let defaultQuestionCount: Int = 20
+```
+
+---
+
+### 6. Create Dead Constants Prevention Test
+
+**Issue:** After extracting constants, there's a risk of creating constants that never get used (dead code).
+
+**Recommendation:** Before merging ICG-096, create a test or linting rule that validates all extracted constants are actually used in the codebase. This could be:
+- A SwiftLint custom rule
+- A CI script that greps for unused constants
+- A unit test that uses reflection to verify constant usage
+
+---
+
+### 7. Consider Unified vs Separate Timeout Constants
+
+**Issue:** The proposed structure has both `Network.requestTimeout` and `Analytics.requestTimeout` (both 30.0).
+
+**Recommendation:** Decide during implementation:
+- **Option A:** Single `Network.defaultTimeout` used everywhere
+- **Option B:** Separate timeouts if Analytics genuinely needs different behavior
+
+If choosing Option B, document why Analytics needs a separate timeout.
+
+---
+
+### 8. Re-validate Line Numbers Before Implementation
+
+**Issue:** The audit references specific line numbers that may shift as the codebase evolves.
+
+**Recommendation:** Before implementing ICG-096, re-run searches to validate current line numbers. The values themselves are accurate, but locations may have changed.
