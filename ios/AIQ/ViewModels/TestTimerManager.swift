@@ -55,7 +55,7 @@ class TestTimerManager: ObservableObject {
 
     /// Color for the timer based on remaining time
     var timerColor: TimerColorState {
-        if remainingSeconds <= 60 {
+        if remainingSeconds <= Constants.Timing.criticalThresholdSeconds {
             .critical // Last minute - red
         } else if remainingSeconds <= Self.warningThresholdSeconds {
             .warning // Last 5 minutes - orange/yellow

@@ -625,7 +625,7 @@ class TestTakingViewModel: BaseViewModel {
         saveWorkItem = workItem
 
         // Schedule save after 1 second
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.Timing.autoSaveDelay, execute: workItem)
     }
 
     private func saveProgress() {
