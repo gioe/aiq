@@ -19,27 +19,37 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create feedback_category enum
+    # Create feedback_category enum (if not exists)
     op.execute(
         """
-        CREATE TYPE feedbackcategory AS ENUM (
-            'bug_report',
-            'feature_request',
-            'general_feedback',
-            'question_help',
-            'other'
-        )
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedbackcategory') THEN
+                CREATE TYPE feedbackcategory AS ENUM (
+                    'bug_report',
+                    'feature_request',
+                    'general_feedback',
+                    'question_help',
+                    'other'
+                );
+            END IF;
+        END$$;
         """
     )
 
-    # Create feedback_status enum
+    # Create feedback_status enum (if not exists)
     op.execute(
         """
-        CREATE TYPE feedbackstatus AS ENUM (
-            'pending',
-            'reviewed',
-            'resolved'
-        )
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedbackstatus') THEN
+                CREATE TYPE feedbackstatus AS ENUM (
+                    'pending',
+                    'reviewed',
+                    'resolved'
+                );
+            END IF;
+        END$$;
         """
     )
 
