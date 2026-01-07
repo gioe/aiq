@@ -96,8 +96,10 @@ def _send_feedback_notification(feedback: FeedbackSubmission) -> None:
         else feedback.description
     )
 
+    # Log without PII - redact email to protect user privacy
+    email_domain = feedback.email.split("@")[-1] if "@" in feedback.email else "unknown"
     logger.info(
-        f"New feedback received from {feedback.email}: "
+        f"New feedback received (domain: {email_domain}): "
         f"{category_display} - {description_preview}"
     )
 
