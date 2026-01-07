@@ -26,32 +26,31 @@ For example, from `https://github.com/mattgioe/aiq/pull/{{pr_number}}`:
 - Repo: `aiq`
 - PR number: `225`
 
-## Step 3: Fetch PR Comments
+## Step 3: Fetch the Latest Claude Review
 
-Use the GitHub CLI to fetch comments. Run these commands:
+Claude's reviews appear as issue comments from `claude[bot]`. Fetch them and get only the most recent one:
 
 ```bash
-# Get PR review comments (inline code comments)
-gh api repos/{owner}/{repo}/pulls/{pr_number}/comments --paginate
-
-# Get PR issue comments (general discussion comments)
-gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
+# Get PR issue comments and filter for claude[bot], sorted by created_at descending
+gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate \
+  --jq '[.[] | select(.user.login == "claude[bot]")] | sort_by(.created_at) | reverse | .[0]'
 ```
 
-## Step 4: Filter for Claude's Comments
+This command:
+1. Fetches all issue comments
+2. Filters for comments where the user is `claude[bot]`
+3. Sorts by `created_at` descending
+4. Returns only the most recent comment
 
-Look for comments where the author matches any of these patterns:
-- Username contains "claude" (case-insensitive)
-- Username is "github-actions[bot]" AND comment body contains "Claude" signature
-- Comment body contains signatures like "🤖 Generated with Claude" or similar
-- Author login: `anthropics-claude`, `claude-bot`, `claude`, or similar
+If there are no Claude comments, the result will be `null`.
 
-Extract from each matching comment:
+## Step 4: Extract Comment Details
+
+From the latest Claude comment, extract:
 - Comment ID
 - Comment body (full text)
-- File path (for review comments)
-- Line number (for review comments)
 - Created timestamp
+- HTML URL (for reference)
 
 ## Step 5: Analyze Each Comment
 
@@ -99,7 +98,32 @@ Comments that can be addressed later:
    **Claude's Comment**: "The comment text..."
    **Reason for deferral**: "We can do this later because..."
    ```
+
 2. Using the jira-workflow-architect subagent, create a ticket in the Jira backlog. Check to see if any similar tasks are already in the backlog before creating a new one. **Include the reason for deferral in the ticket description**
+
+3. **Document for next PR**: Append the deferral to `.github/DEFERRED_REVIEW_ITEMS.md` so it can be included in the next PR's commit message. This file should be committed with the PR changes:
+
+   ```markdown
+   ## Deferred from PR #{{pr_number}} Review
+
+   ### [Brief description of deferred item]
+   - **Original comment**: "[Abbreviated comment text]"
+   - **Reason deferred**: [Why this can wait]
+   - **Jira ticket**: [TICKET-ID]
+   ```
+
+   When creating the final commit for this PR, include a summary of deferrals in the commit body:
+   ```
+   [TASK-ID] Address PR review feedback
+
+   Addressed:
+   - [List of items fixed]
+
+   Deferred (see Jira):
+   - [TICKET-ID]: [Brief description] - [Reason]
+   ```
+
+   This ensures the next reviewer can see why certain review comments weren't addressed in this PR.
 
 ## Step 7: Generate Summary Report
 
