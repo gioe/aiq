@@ -23,6 +23,8 @@ Use this reference to:
 10. [Test Isolation](#pattern-10-test-isolation)
 11. [Type Safety - TypedDict](#pattern-11-type-safety---typeddict)
 12. [Type Safety - Pydantic Validators](#pattern-12-type-safety---pydantic-validators)
+13. [Code Duplication and Reuse](#pattern-13-code-duplication-and-reuse)
+14. [Backend-iOS Schema Consistency](#pattern-14-backend-ios-schema-consistency)
 
 ---
 
@@ -960,9 +962,159 @@ class SplitHalfMetrics(BaseModel):
 
 ---
 
+## Pattern 13: Code Duplication and Reuse
+
+### Description
+Implementing functionality that already exists in the codebase, particularly for security-sensitive operations like authentication. This leads to inconsistent behavior and maintenance burden.
+
+### Example from BTS-46 (PR #486)
+
+**Original Comment:**
+> "The _get_optional_user() function duplicates existing functionality in app.core.auth.get_current_user_optional(). This creates inconsistent behavior - the existing function raises HTTP 503 on database errors while the new function silently returns None."
+
+**Original Code:**
+```python
+from app.core.auth import security_optional
+from app.core.security import decode_token
+
+def _get_optional_user(credentials, db):
+    """Custom implementation duplicating existing auth dependency."""
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        if payload is None:
+            return None
+        user_id = payload.get("user_id")
+        if user_id is None:
+            return None
+        user = db.query(User).filter(User.id == user_id).first()
+        return user
+    except Exception as e:
+        # Silent failure - swallows database errors!
+        logger.debug(f"Optional auth failed: {e}")
+        return None
+
+@router.post("/submit")
+async def submit_feedback(
+    data: FeedbackRequest,
+    db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+):
+    current_user = _get_optional_user(credentials, db)
+    # ...
+```
+
+**Fixed Code:**
+```python
+from app.core.auth import get_current_user_optional
+
+@router.post("/submit")
+async def submit_feedback(
+    data: FeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),  # Reuse existing
+):
+    # current_user is already resolved by the dependency
+    # Database errors properly raise HTTP 503
+    # ...
+```
+
+### Why This Matters
+
+The original implementation had a **critical flaw**: it caught `Exception` broadly, meaning database errors (connection timeouts, transaction failures) would be silently ignored. The user would appear anonymous even when authenticated because the database was unavailable.
+
+The existing `get_current_user_optional` in `app/core/auth.py`:
+- Properly catches only `HTTPException` for invalid tokens
+- Catches `SQLAlchemyError` separately and raises HTTP 503
+- Has been tested and reviewed
+
+### Prevention Checklist
+
+- [ ] Search `app/core/` before implementing auth-related functionality
+- [ ] Check if similar functionality exists: `grep -r "def similar_name" backend/app/`
+- [ ] If extending existing functionality, modify the original rather than duplicating
+
+---
+
+## Pattern 14: Backend-iOS Schema Consistency
+
+### Description
+iOS models that don't match backend Pydantic schemas exactly, particularly making fields optional when the backend returns them as required. This masks decoding failures and can cause bugs that are difficult to debug.
+
+### Example from BTS-46 (PR #486)
+
+**Original Comment:**
+> "The backend returns submission_id as required, but iOS defines it as optional. This could mask decoding failures."
+
+**Backend Schema:**
+```python
+class FeedbackSubmitResponse(BaseModel):
+    success: bool
+    submission_id: int  # Required - always returned on success
+    message: str
+```
+
+**Original iOS Code:**
+```swift
+struct FeedbackSubmitResponse: Decodable {
+    let success: Bool
+    let submissionId: Int?  // Wrong! Backend always returns this
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case submissionId = "submission_id"
+        case message
+    }
+}
+```
+
+**Fixed iOS Code:**
+```swift
+struct FeedbackSubmitResponse: Decodable {
+    let success: Bool
+    let submissionId: Int  // Correct - matches backend schema
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case submissionId = "submission_id"
+        case message
+    }
+}
+```
+
+### Why This Matters
+
+When `submissionId` is optional but the backend always returns it:
+1. **If decoding fails** (e.g., backend returns `null` unexpectedly), `submissionId` becomes `nil` silently
+2. **No error is thrown** - the app continues with missing data
+3. **Debugging is difficult** - the issue manifests far from the actual problem
+
+When `submissionId` is required and decoding fails:
+1. **JSONDecoder throws an error** immediately
+2. **Error handling kicks in** - user sees appropriate error message
+3. **Easy to debug** - stack trace points directly to the schema mismatch
+
+### Prevention Checklist
+
+Before creating/modifying iOS models:
+- [ ] Read the backend Pydantic schema in `backend/app/schemas/`
+- [ ] Verify every field's optionality matches
+- [ ] Test with actual backend response, not just mock data
+- [ ] Use the type mapping table in iOS Coding Standards
+
+### Related Documentation
+
+- [iOS Coding Standards: API Schema Consistency](../ios/docs/CODING_STANDARDS.md#api-schema-consistency)
+- [Backend README: Code Reuse and DRY Principles](../backend/README.md#code-reuse-and-dry-principles)
+
+---
+
 ## Summary
 
-These 12 patterns represent the most common issues found during code reviews. By understanding and avoiding these anti-patterns, you can:
+These 14 patterns represent the most common issues found during code reviews. By understanding and avoiding these anti-patterns, you can:
 
 1. **Reduce review iterations** - Fewer follow-up tasks from PR reviews
 2. **Improve code quality** - More maintainable, type-safe, and performant code

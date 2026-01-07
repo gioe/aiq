@@ -841,6 +841,79 @@ RATE_LIMIT_REDIS_URL=rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/0
 
 The following sections provide prescriptive guidance for writing backend code.
 
+### Code Reuse and DRY Principles
+
+Before implementing new functionality, **always search for existing implementations**. The codebase has many reusable utilities that should be used rather than duplicated.
+
+#### Reusable Authentication Dependencies
+
+| Dependency | Location | Use Case |
+|------------|----------|----------|
+| `get_current_user` | `app/core/auth.py` | Required authentication - raises 401 if not authenticated |
+| `get_current_user_optional` | `app/core/auth.py` | Optional authentication - returns None if not authenticated, raises 503 on DB errors |
+| `get_current_user_from_refresh_token` | `app/core/auth.py` | Token refresh endpoint |
+| `security` | `app/core/auth.py` | HTTPBearer scheme that fails on missing auth |
+| `security_optional` | `app/core/auth.py` | HTTPBearer scheme that allows missing auth |
+
+**Example - Correct usage:**
+```python
+from app.core.auth import get_current_user_optional
+
+@router.post("/submit")
+async def submit_feedback(
+    data: FeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),  # Reuse existing
+):
+    ...
+```
+
+**Anti-pattern - Do NOT duplicate:**
+```python
+# BAD: Duplicating authentication logic
+def _get_optional_user(credentials, db):
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        # ... custom implementation
+    except Exception:
+        return None  # Inconsistent error handling!
+```
+
+#### Common Utility Modules
+
+| Module | Purpose | Key Functions |
+|--------|---------|---------------|
+| `app/core/security.py` | Token handling | `decode_token()`, `verify_token_type()`, `create_access_token()` |
+| `app/core/error_responses.py` | Standardized errors | `raise_bad_request()`, `raise_not_found()`, `ErrorMessages` |
+| `app/core/db_error_handling.py` | DB error context manager | `handle_db_error()` |
+| `app/core/question_utils.py` | Question selection | `get_unseen_questions()`, `filter_by_difficulty()` |
+
+#### How to Search for Existing Code
+
+Before implementing new functionality:
+
+```bash
+# Search for similar function names
+grep -r "def get_current" backend/app/
+
+# Search for patterns in auth
+grep -r "optional.*auth\|auth.*optional" backend/app/ --include="*.py"
+
+# Check the core directory for utilities
+ls backend/app/core/
+```
+
+#### Why This Matters
+
+Duplicated code leads to:
+- **Inconsistent behavior**: Different error handling, logging, or edge cases
+- **Maintenance burden**: Bugs must be fixed in multiple places
+- **Security risks**: Security-sensitive code (like auth) should be centralized
+
+When in doubt, check `app/core/` first - if similar functionality exists, use it or extend it rather than reimplementing.
+
 ### Magic Numbers and Constants
 
 Extract numeric literals to named constants when:
