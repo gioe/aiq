@@ -1,23 +1,16 @@
 ## Project Overview
 
-AIQ is a product built to enable the tracking of a user's congitive capacities over time. We track our weight, our heart rate, our steps. Why not our cognitive capacity? AIQ does this in roughly the same manner as an IQ test, though does not claim to be identical to an IQ test in the interest of clarity.
-
-The product is made of 3 components stored in a single Github repo: an iOS app, a FastAPI backend, and an AI-powered question generation service. The app enables users to track their IQ scores over time through periodic testing with fresh, AI-generated questions. The question service generates new questions every night. These questions are delivered to the iOS client via the FastAPI backend. The FastAPI backend is also responsible for admin related tasks. Our current recommendation is that users take AIQ every 3 months to track their cognitive capacities.
-
-## Who You Are
-
-You operate as a combination of AIQ's CEO, CTO and CPO (Chief Product Officer). Your role is to make decisions that are in the best interest of the success of AIQ as a product that peolple will use and thus, as a business. Often times that means delegating decision making to one of your many expert subagents. Other times, if you disagree or find that you have no expert subagent available for questioning, you are capable of making decisions on your own. In general, you prefer to at the very least hear out your subagent before making a decision.
+AIQ tracks cognitive capacity over time, similar to how fitness apps track physical metrics. Users take periodic IQ-style tests with AI-generated questions, and the app visualizes their cognitive trends.
 
 ## Quick Reference
-When making decisions, make sure to consult the docs relevant documentation at the very least. That way you are the most informed.
 
-| Resource | Location | Subagent |
-|----------|----------|---------|
-| **Ongoing Product Plans** | [docs/plans/](docs/plans/) | N/A |
-| **Product Reasearch and Methodology** | [docs/methodology/](docs/methodology/) | N/A |
-| **Backend** | [backend/README.md](backend/README.md) | fastapi-architect |
-| **Question Service** | [question-service/README.md](question-service/README.md) | database-architect |
-| **iOS App** | [ios/README.md](ios/README.md) | ios-engineer |
+| Resource | Location |
+|----------|----------|
+| **Product Plans** | [docs/plans/](docs/plans/) |
+| **Methodology** | [docs/methodology/](docs/methodology/) |
+| **Backend** | [backend/README.md](backend/README.md) |
+| **Question Service** | [question-service/README.md](question-service/README.md) |
+| **iOS App** | [ios/README.md](ios/README.md) |
 
 ## External Services
 
@@ -26,12 +19,17 @@ When making decisions, make sure to consult the docs relevant documentation at t
 - **Site URL**: https://gioematt.atlassian.net
 - Always use this cloudId for all Atlassian MCP tool calls.
 
-## Tool Preferences
+### GitHub
+- **Repository**: `gioe/aiq`
+- Use the `gh` CLI for all GitHub operations instead of WebSearch or manual API calls.
 
-**Prefer CLI/MCP integrations over WebSearch.** When you have direct API access via MCP tools or CLI commands, always use those instead of searching the web. This provides faster, more accurate, and more actionable results.
-
-| Service | Use This | Not This |
-|---------|----------|----------|
-| Jira/Confluence | Atlassian MCP tools (skills) | WebSearch for "Jira ticket BTS-123" |
-| GitHub | `gh` CLI commands | WebSearch for GitHub issues/PRs |
-| Project info | Local docs in `docs/` | WebSearch for AIQ documentation |
+**Common Commands:**
+| Task | Command |
+|------|---------|
+| View PR | `gh pr view <number>` |
+| List PRs | `gh pr list` |
+| Create PR | `gh pr create --title "..." --body "..."` |
+| View issue | `gh issue view <number>` |
+| List issues | `gh issue list` |
+| Check CI status | `gh run list` / `gh run view <id>` |
+| View PR comments | `gh api repos/{owner}/{repo}/pulls/<number>/comments` |
