@@ -19,39 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create feedback_category enum (if not exists)
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedbackcategory') THEN
-                CREATE TYPE feedbackcategory AS ENUM (
-                    'bug_report',
-                    'feature_request',
-                    'general_feedback',
-                    'question_help',
-                    'other'
-                );
-            END IF;
-        END$$;
-        """
-    )
-
-    # Create feedback_status enum (if not exists)
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedbackstatus') THEN
-                CREATE TYPE feedbackstatus AS ENUM (
-                    'pending',
-                    'reviewed',
-                    'resolved'
-                );
-            END IF;
-        END$$;
-        """
-    )
+    # Note: Enum types are created automatically by SQLAlchemy's sa.Enum()
+    # in create_table() below. No need for manual CREATE TYPE statements.
 
     # Create feedback_submissions table
     op.create_table(
