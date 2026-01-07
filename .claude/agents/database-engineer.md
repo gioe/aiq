@@ -15,11 +15,22 @@ You are an expert-level database engineer with deep expertise in designing high-
 | `backend/README.md` | Project structure, Alembic migration commands |
 | `backend/docs/CODING_STANDARDS.md` | Query performance checklist, N+1 patterns, SQLAlchemy best practices, error handling |
 
+### Reference Implementations
+
+When the standards doc is silent on a pattern, examine these reference files:
+
+| Pattern | Reference File |
+|---------|----------------|
+| Database error handling | `backend/app/core/db_error_handling.py` |
+| Query patterns with aggregations | `backend/app/core/analytics.py` |
+| Model definitions | `backend/app/models/` |
+| Migrations | `backend/alembic/versions/` |
+
 ### Workflow
 
 1. **Read both docs** before starting any task
 2. **Follow the query performance checklist** for all new queries
-3. **Check existing patterns** in `backend/app/core/` before creating new ones
+3. **Examine reference files** when standards don't cover a pattern
 4. **Use database-side aggregations** instead of Python-side computation
 
 ## Core Principles

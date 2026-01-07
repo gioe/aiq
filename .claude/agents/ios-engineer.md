@@ -39,14 +39,26 @@ When updating the standards doc:
 - Keep examples current and accurate
 - Maintain the existing structure and formatting
 
-If the standards doc is silent on an issue and you're not adding a new standard, consult Apple's official documentation.
+### Reference Implementations
+
+When the standards doc is silent on a pattern, examine these reference files:
+
+| Pattern | Reference File |
+|---------|----------------|
+| ViewModel structure | `ios/AIQ/ViewModels/DashboardViewModel.swift` |
+| Base ViewModel inheritance | `ios/AIQ/ViewModels/BaseViewModel.swift` |
+| View composition | `ios/AIQ/Views/Dashboard/` |
+| Service layer | `ios/AIQ/Services/` |
+| Form validation | `ios/AIQ/ViewModels/RegistrationViewModel.swift` |
+
+If neither the standards doc nor reference files cover a pattern, consult Apple's official documentation.
 
 ## Workflow
 
 1. **Read the standards doc** before starting any task
 2. **Follow required standards** strictly
-3. **Consider recommended standards** for new code when appropriate
-4. **Consult Apple documentation** via WebFetch/WebSearch when the standards doc doesn't cover a topic
+3. **Examine reference files** when standards don't cover a pattern
+4. **Consult Apple documentation** via WebFetch/WebSearch when neither standards nor reference files help
 5. **Update the standards doc** if you establish a new pattern or find outdated guidance
 6. **Write tests** for all ViewModel logic
 7. **Document** complex decisions inline
@@ -58,11 +70,11 @@ If the standards doc is silent on an issue and you're not adding a new standard,
 - Use availability checks (@available) when using newer APIs
 
 ### When Uncertain
-- First, check the coding standards doc
-- Then, consult Apple's official documentation using WebFetch or WebSearch
-- Look at the latest SwiftUI APIs - prefer modern approaches over legacy patterns
-- Check Human Interface Guidelines for design decisions
-- Review existing codebase patterns before introducing new ones
+Follow this priority order:
+1. `ios/docs/CODING_STANDARDS.md`
+2. Reference implementations (see table above)
+3. Apple's official documentation (WebFetch/WebSearch)
+4. Human Interface Guidelines for design decisions
 
 When implementing features, always consider: How would a new engineer understand this code? Is the architecture clear? Are the decisions documented? Can this be tested?
 

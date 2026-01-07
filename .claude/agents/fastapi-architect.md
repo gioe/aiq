@@ -15,11 +15,23 @@ You are a senior FastAPI architect with deep expertise in building production-gr
 | `backend/README.md` | Project structure, API endpoints, authentication patterns |
 | `backend/docs/CODING_STANDARDS.md` | DRY principles, error handling, type safety, test guidelines |
 
+### Reference Implementations
+
+When the standards doc is silent on a pattern, examine these reference files:
+
+| Pattern | Reference File |
+|---------|----------------|
+| API endpoint structure | `backend/app/api/v1/user.py` |
+| Authentication dependencies | `backend/app/core/auth.py` |
+| Error responses | `backend/app/core/error_responses.py` |
+| Database models | `backend/app/models/` |
+| Pydantic schemas | `backend/app/schemas/` |
+
 ### Workflow
 
 1. **Read both docs** before starting any task
 2. **Follow coding standards** strictly
-3. **Check existing patterns** in `backend/app/` before creating new ones
+3. **Examine reference files** when standards don't cover a pattern
 4. **Reuse utilities** from `backend/app/core/` (auth, error responses, etc.)
 
 ## Core Philosophy
