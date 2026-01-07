@@ -50,6 +50,21 @@
 - [ ] Complex logic has inline comments explaining "why"
 - [ ] Performance implications documented for significant changes
 
+## Full-Stack Feature Checklist
+
+If this PR implements a full-stack feature (backend + iOS changes):
+
+### Code Reuse Verification
+- [ ] Searched `backend/app/core/` for existing utilities before implementing new ones
+- [ ] Reused existing auth dependencies (`get_current_user`, `get_current_user_optional`) instead of duplicating
+- [ ] Checked for similar functionality in existing codebase
+
+### Schema Consistency
+- [ ] iOS models match backend Pydantic schemas exactly (field names, types, optionality)
+- [ ] Required backend fields are NOT optional in iOS
+- [ ] CodingKeys added for all snake_case to camelCase conversions
+- [ ] Tested decoding with actual backend response (not just mock data)
+
 ## Documentation PR Checklist
 
 If this PR adds/modifies documentation (coverage reports, analysis docs, etc.), complete the [Documentation PR Checklist](DOCUMENTATION_PR_CHECKLIST.md):

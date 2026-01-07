@@ -695,6 +695,102 @@ Authentication tokens are handled automatically by `AuthService` and `APIClient`
 - Retry logic is built into the API client
 - No manual token management needed in ViewModels
 
+### API Schema Consistency
+
+When implementing features that involve backend API responses, **always verify iOS models match the backend Pydantic schemas exactly**. Schema mismatches can cause silent decoding failures or mask bugs.
+
+#### Verification Process
+
+Before implementing an iOS model for a backend response:
+
+1. **Read the backend schema**: Check `backend/app/schemas/` for the Pydantic model
+2. **Verify field optionality**: If backend returns a field as required, iOS should NOT make it optional
+3. **Verify field types**: Match Python types to Swift types exactly
+4. **Check CodingKeys**: Ensure snake_case to camelCase mapping is correct
+
+#### Type Mapping Reference
+
+| Python (Pydantic) | Swift | Notes |
+|-------------------|-------|-------|
+| `str` | `String` | |
+| `int` | `Int` | |
+| `float` | `Double` | Not `Float` - use `Double` for API responses |
+| `bool` | `Bool` | |
+| `Optional[T]` | `T?` | Only if backend field is truly optional |
+| `List[T]` | `[T]` | |
+| `datetime` | `Date` | Requires date decoding strategy |
+| `Enum` | `String` (with enum) | Match raw values exactly |
+
+#### Common Mistakes
+
+**Mistake 1: Making required fields optional**
+```swift
+// Backend schema (required field):
+// class FeedbackResponse(BaseModel):
+//     submission_id: int  # Required - always returned
+
+// BAD: iOS makes it optional
+struct FeedbackResponse: Decodable {
+    let submissionId: Int?  // Wrong! Masks decoding failures
+}
+
+// GOOD: iOS matches backend
+struct FeedbackResponse: Decodable {
+    let submissionId: Int  // Correct - will fail loudly if missing
+}
+```
+
+**Mistake 2: Wrong type precision**
+```swift
+// Backend returns float
+// score: float = 85.5
+
+// BAD: Using Float instead of Double
+let score: Float  // Float has less precision
+
+// GOOD: Use Double for API floats
+let score: Double
+```
+
+**Mistake 3: Missing CodingKeys**
+```swift
+// Backend uses snake_case: "iq_score", "completed_at"
+
+// BAD: No CodingKeys - decoding fails silently
+struct TestResult: Decodable {
+    let iqScore: Int  // Won't decode from "iq_score"
+}
+
+// GOOD: Explicit CodingKeys
+struct TestResult: Decodable {
+    let iqScore: Int
+
+    enum CodingKeys: String, CodingKey {
+        case iqScore = "iq_score"
+    }
+}
+```
+
+#### Schema Verification Checklist
+
+Before creating/modifying an iOS model for a backend response:
+
+- [ ] Read the backend Pydantic schema in `backend/app/schemas/`
+- [ ] Verify every field's optionality matches (required vs Optional)
+- [ ] Verify field types match using the type mapping table
+- [ ] Add CodingKeys for all snake_case fields
+- [ ] Test decoding with actual backend response (not mock data)
+
+#### Why This Matters
+
+Schema mismatches cause:
+- **Silent failures**: Optional fields that should be required don't trigger errors
+- **Runtime crashes**: When backend changes a field and iOS expects old schema
+- **Data loss**: Missing fields due to decoding errors are silently nil
+- **Debugging difficulty**: Issues manifest far from the actual problem
+
+When implementing full-stack features, verify schemas as the **first step** before writing any iOS code.
+
 ---
 
 ## Design System
