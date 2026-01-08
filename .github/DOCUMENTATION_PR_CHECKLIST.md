@@ -6,6 +6,9 @@ Use this checklist for PRs that add or modify:
 - Architecture documentation
 - Process improvement proposals
 - README files with technical claims
+- CODING_STANDARDS.md sections (especially technical procedures)
+- Emergency runbooks and recovery documentation
+- Configuration guides with file path references
 
 ## Metadata Accuracy
 
