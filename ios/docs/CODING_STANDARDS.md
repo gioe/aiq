@@ -1843,15 +1843,20 @@ openssl s_client -servername aiq-backend-production.up.railway.app \
 
 If the hotfix cannot be deployed in time:
 
-1. Locate `SecurityService.swift` and set `TSKEnforcePinning` to `false`
-2. Deploy via expedited review
-3. **Immediately** begin work on a proper fix with correct hashes
-4. Re-enable pinning within 48 hours maximum
+1. Open `ios/AIQ/TrustKit.plist`
+2. Locate the `TSKEnforcePinning` key under the Railway domain configuration (line 19)
+3. Change `<true/>` to `<false/>` to temporarily disable enforcement
+4. Deploy via expedited review
+5. **Immediately** begin work on a proper fix with correct hashes
+6. Re-enable pinning within 48 hours maximum
 
-```swift
-// TEMPORARY EMERGENCY ONLY - Re-enable immediately after deploying fix
-// TSKEnforcePinning: false  // Disables enforcement
+```xml
+<!-- TEMPORARY EMERGENCY ONLY - Re-enable immediately after deploying fix -->
+<key>TSKEnforcePinning</key>
+<false/>  <!-- Changed from <true/> to disable enforcement -->
 ```
+
+**Note**: In DEBUG builds, certificate pinning is already disabled (see `AppDelegate.swift:24-27`). This workaround is only needed for production builds.
 
 **3. Monitoring During Outage**
 
