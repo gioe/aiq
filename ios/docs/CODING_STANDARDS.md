@@ -1815,6 +1815,128 @@ openssl s_client -servername aiq-backend-production.up.railway.app \
 
 Set calendar reminders 30 days before expiration to update hashes.
 
+#### Emergency Certificate Pinning Recovery
+
+If certificate pinning causes production outages (e.g., unexpected certificate rotation, invalid hash deployment), follow this recovery runbook:
+
+**1. Immediate Mitigation (Preferred)**
+
+Release a hotfix with the updated certificate hash:
+
+```bash
+# Get the new certificate hash
+openssl s_client -servername aiq-backend-production.up.railway.app \
+  -showcerts -connect aiq-backend-production.up.railway.app:443 2>/dev/null | \
+  openssl x509 -pubkey -noout | \
+  openssl pkey -pubin -outform der | \
+  openssl dgst -sha256 -binary | \
+  base64
+```
+
+1. Update `TrustKit.plist` with the new hash
+2. Submit for expedited App Store review
+3. Request expedited review citing "critical bug fix"
+
+**2. Short-Term Workaround (NOT RECOMMENDED - Security Risk)**
+
+> **⚠️ WARNING: This temporarily disables certificate pinning and exposes users to MITM attacks. Only use as a last resort when a hotfix cannot be deployed quickly enough.**
+
+If the hotfix cannot be deployed in time:
+
+1. Open `ios/AIQ/TrustKit.plist`
+2. Locate the `TSKEnforcePinning` key under the Railway domain configuration (line 19)
+3. Change `<true/>` to `<false/>` to temporarily disable enforcement
+4. Deploy via expedited review
+5. **Immediately** begin work on a proper fix with correct hashes
+6. Re-enable pinning within 48 hours maximum
+
+```xml
+<!-- TEMPORARY EMERGENCY ONLY - Re-enable immediately after deploying fix -->
+<key>TSKEnforcePinning</key>
+<false/>  <!-- Changed from <true/> to disable enforcement -->
+```
+
+**Note**: In DEBUG builds, certificate pinning is already disabled (see `AppDelegate.swift:24-27`). This workaround is only needed for production builds.
+
+**3. Monitoring During Outage**
+
+Check TrustKit logs for validation failures:
+
+```swift
+// In console or Crashlytics, look for:
+// - "TrustKit: Pin validation failed for domain..."
+// - "TrustKit: Certificate chain validation failed..."
+```
+
+Monitor:
+- App Store review status
+- User complaints and crash reports
+- Crashlytics for pinning-related crashes
+
+**4. Post-Mortem Template**
+
+After resolving the incident, complete this template:
+
+```markdown
+## Certificate Pinning Incident Post-Mortem
+
+**Date:** [Date of incident]
+**Duration:** [How long users were affected]
+**Severity:** [Critical/High/Medium]
+
+### What Happened
+[Description of the failure - certificate rotation, wrong hash deployed, etc.]
+
+### Timeline
+- [Time]: Incident detected
+- [Time]: Investigation started
+- [Time]: Root cause identified
+- [Time]: Fix deployed
+- [Time]: Incident resolved
+
+### Root Cause
+[Detailed explanation of why the pinning failed]
+
+### Impact
+- Users affected: [Number/percentage]
+- Duration of outage: [Time]
+- Security implications: [Any exposure during workaround]
+
+### What Went Wrong
+1. [Factor 1]
+2. [Factor 2]
+
+### What Went Right
+1. [Factor 1]
+2. [Factor 2]
+
+### Action Items
+- [ ] [Action 1 with owner and due date]
+- [ ] [Action 2 with owner and due date]
+
+### Lessons Learned
+[Key takeaways to prevent recurrence]
+```
+
+**5. Prevention Checklist**
+
+To prevent future certificate pinning emergencies:
+
+- [ ] **Test hash updates in TestFlight** before production release
+- [ ] **Keep backup pin valid** for at least 30 days after certificate rotation
+- [ ] **Set up monitoring** for certificate expiration (30-day warning)
+- [ ] **Document certificate expiration dates** in team calendar
+- [ ] **Verify hashes from multiple sources** before deployment
+- [ ] **Have expedited review request ready** as template
+- [ ] **Test pinning against production** in DEBUG builds before release
+- [ ] **Maintain runbook familiarity** - review quarterly
+
+**Certificate Expiration Monitoring:**
+
+Add these dates to team calendar with 30-day advance warnings:
+- Railway certificate: March 6, 2026
+- R12 intermediate: March 12, 2027
+
 ### Sensitive Data Logging
 
 See [SENSITIVE_LOGGING_AUDIT.md](./SENSITIVE_LOGGING_AUDIT.md) for guidelines on logging sensitive data.
