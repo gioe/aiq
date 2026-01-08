@@ -1,8 +1,15 @@
 """
 Question calibration admin endpoints.
 
+AI-assigned difficulty labels (easy/medium/hard) may not match real user
+performance. A question labeled "hard" might actually be easy for real users
+(high empirical p-value). This module validates assigned labels against
+observed performance and flags or recalibrates miscalibrated items.
+
 Endpoints for validating and recalibrating question difficulty labels
 based on empirical user performance data.
+
+See docs/methodology/METHODOLOGY.md Section 5.3 for psychometric context.
 """
 from typing import Any, Dict
 

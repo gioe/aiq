@@ -1,8 +1,15 @@
 """
-Discrimination analysis business logic (IDA-008).
+Discrimination analysis business logic.
 
-This module provides functions for generating discrimination reports and
-analyzing question-level discrimination data for the admin dashboard.
+Item discrimination measures how well a question differentiates between
+high-ability and low-ability test-takers. Questions with negative discrimination
+are actively harmful - high performers get them wrong while low performers
+get them right - and should be removed immediately.
+
+Key metrics:
+- Point-biserial correlation (r_pb): Standard discrimination measure
+- Quality tiers: Excellent (>0.40), Good (0.30-0.40), Acceptable (0.20-0.30),
+  Poor (0.10-0.20), Very Poor (0.00-0.10), Negative (<0.00)
 
 Functions:
 - get_quality_tier: Classify discrimination value into quality tier
@@ -10,9 +17,7 @@ Functions:
 - get_discrimination_report: Generate comprehensive discrimination report
 - get_question_discrimination_detail: Get detailed discrimination info for a question
 
-Reference:
-    docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md (IDA-008)
-    docs/gaps/ITEM-DISCRIMINATION-ANALYSIS.md
+See docs/methodology/METHODOLOGY.md Section 5.2 for psychometric context.
 """
 
 import logging

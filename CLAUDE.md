@@ -10,13 +10,17 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 | **Question Service** | [question-service/README.md](question-service/README.md) |
 | **iOS App** | [ios/README.md](ios/README.md) |
 | **Architecture** | [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) |
-| **Methodology** | [docs/methodology/](docs/methodology/) |
-| **Deployment** | [docs/deployment/](docs/deployment/) |
-| **Code Review Patterns** | [docs/code-review-patterns.md](docs/code-review-patterns.md) |
-| **Privacy Policy** | [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) |
-| **Terms of Service** | [docs/TERMS_OF_SERVICE.md](docs/TERMS_OF_SERVICE.md) |
+| **Methodology** | [docs/methodology/METHODOLOGY.md](docs/methodology/METHODOLOGY.md) |
+| **Deployment** | [backend/DEPLOYMENT.md](backend/DEPLOYMENT.md) |
+| **Privacy Policy** | [website/PRIVACY_POLICY.md](website/PRIVACY_POLICY.md) |
+| **Terms of Service** | [website/TERMS_OF_SERVICE.md](website/TERMS_OF_SERVICE.md) |
 
 ## External Services
+
+### Railway (Production)
+- **Backend API**: `https://aiq-backend-production.up.railway.app`
+- **Health Check**: `https://aiq-backend-production.up.railway.app/v1/health`
+- **API Docs**: `https://aiq-backend-production.up.railway.app/v1/docs`
 
 ### Atlassian (Jira/Confluence)
 - **Cloud ID**: `db4de7e6-1840-4ba8-8e45-13fdf7ae9753`

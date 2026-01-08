@@ -1,17 +1,22 @@
 """
-Distractor analysis for multiple-choice questions (DA-003+).
+Distractor analysis for multiple-choice questions.
 
-This module implements tracking and analysis of distractor (wrong answer option)
-effectiveness for multiple-choice IQ test questions.
+For multiple-choice questions, non-functioning distractors (wrong answer options
+that nobody selects) reduce effective choices and skew guessing probability.
+A well-designed distractor should be plausible enough that some test-takers
+choose it, but not so attractive that it misleads high-ability examinees.
 
 Key metrics tracked:
 1. Selection count: How often each option is selected
-2. Top quartile selections: Selections by high scorers
+2. Top quartile selections: Selections by high scorers (potential ambiguity flag)
 3. Bottom quartile selections: Selections by low scorers
 
-Based on:
-- docs/methodology/gaps/DISTRACTOR-ANALYSIS.md
-- docs/plans/drafts/PLAN-DISTRACTOR-ANALYSIS.md
+Red flags:
+- Non-functioning: Selected by <5% (reduces effective options)
+- Correct-competitor: Chosen by high scorers (may indicate ambiguity)
+- Universal attractor: Chosen by >40% when wrong (may indicate key error)
+
+See docs/methodology/METHODOLOGY.md Section 5.4 for psychometric context.
 """
 import logging
 from typing import Dict, Any, Optional, Tuple

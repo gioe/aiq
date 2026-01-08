@@ -10,10 +10,7 @@ Reliability is fundamental to psychometric validity - without it, we cannot
 establish confidence intervals, calculate Standard Error of Measurement,
 or claim scientific validity for IQ scores.
 
-Based on:
-- docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md
-- docs/gaps/RELIABILITY-ESTIMATION.md
-- IQ_METHODOLOGY.md Section 7 (Psychometric Validation)
+See docs/methodology/METHODOLOGY.md Section 5 for psychometric context.
 
 Usage Example
 -------------
