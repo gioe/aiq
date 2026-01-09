@@ -219,6 +219,7 @@ private struct HistoryStatCard: View {
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 

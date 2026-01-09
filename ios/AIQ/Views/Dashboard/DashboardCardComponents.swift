@@ -121,6 +121,7 @@ struct TestCardHeader: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Latest Result" + (dateFormatted.map { ", \($0)" } ?? ""))
     }
 }
 
