@@ -98,23 +98,42 @@ final class NotificationServiceTests: XCTestCase {
         }
     }
 
-    func testRegisterDeviceToken_EmptyToken() async throws {
+    func testRegisterDeviceToken_EmptyToken_ThrowsError() async throws {
         // Given
         let deviceToken = ""
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Device token registered"
-        )
 
-        await mockAPIClient.setResponse(mockResponse, for: .notificationRegisterDevice)
+        // When/Then - Should throw NotificationError.emptyDeviceToken before API call
+        do {
+            _ = try await sut.registerDeviceToken(deviceToken)
+            XCTFail("Should throw emptyDeviceToken error")
+        } catch let error as NotificationError {
+            XCTAssertEqual(error, .emptyDeviceToken, "Should throw emptyDeviceToken error")
+        } catch {
+            XCTFail("Should throw NotificationError, got \(error)")
+        }
 
-        // When
-        let response = try await sut.registerDeviceToken(deviceToken)
-
-        // Then - Should still call API (server will validate)
+        // Verify API was NOT called
         let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "Should call API even with empty token")
-        XCTAssertTrue(response.success)
+        XCTAssertFalse(requestCalled, "Should not call API with empty token")
+    }
+
+    func testRegisterDeviceToken_WhitespaceOnlyToken_ThrowsError() async throws {
+        // Given
+        let deviceToken = "   \n\t  "
+
+        // When/Then - Should throw NotificationError.emptyDeviceToken for whitespace-only tokens
+        do {
+            _ = try await sut.registerDeviceToken(deviceToken)
+            XCTFail("Should throw emptyDeviceToken error")
+        } catch let error as NotificationError {
+            XCTAssertEqual(error, .emptyDeviceToken, "Should throw emptyDeviceToken error for whitespace-only token")
+        } catch {
+            XCTFail("Should throw NotificationError, got \(error)")
+        }
+
+        // Verify API was NOT called
+        let requestCalled = await mockAPIClient.requestCalled
+        XCTAssertFalse(requestCalled, "Should not call API with whitespace-only token")
     }
 
     // MARK: - Unregister Device Token Tests

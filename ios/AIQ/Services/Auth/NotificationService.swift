@@ -37,6 +37,20 @@ struct NotificationPreferencesResponse: Codable {
     }
 }
 
+// MARK: - NotificationError
+
+/// Errors that can occur during notification operations
+enum NotificationError: Error, LocalizedError, Equatable {
+    case emptyDeviceToken
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyDeviceToken:
+            NSLocalizedString("error.notification.empty.device.token", comment: "")
+        }
+    }
+}
+
 // MARK: - NotificationService Protocol
 
 /// Protocol defining notification service operations
@@ -74,6 +88,10 @@ class NotificationService: NotificationServiceProtocol {
     }
 
     func registerDeviceToken(_ deviceToken: String) async throws -> DeviceTokenResponse {
+        guard !deviceToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw NotificationError.emptyDeviceToken
+        }
+
         let request = DeviceTokenRegister(deviceToken: deviceToken)
 
         let response: DeviceTokenResponse = try await apiClient.request(
