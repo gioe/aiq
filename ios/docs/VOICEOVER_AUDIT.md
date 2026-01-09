@@ -289,7 +289,7 @@ This document contains the results of a comprehensive VoiceOver accessibility au
 
 - ✅ Progress indicator hidden
 - ✅ Uses `accessibilityElement(children: .combine)`
-- ✅ Has `accessibilityAddTraits(.updatesFrequently)`
+- ✅ Accessible label describes loading state
 
 ---
 

@@ -15,7 +15,6 @@ struct LoadingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message)
-        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
