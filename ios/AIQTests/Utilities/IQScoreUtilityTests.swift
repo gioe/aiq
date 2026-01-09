@@ -298,6 +298,36 @@ final class IQScoreUtilityTests: XCTestCase {
         XCTAssertEqual(IQScoreUtility.Category.invalid.icon, "circle")
     }
 
+    // MARK: - Category Text Color Tests
+
+    func testCategoryTextColor_ExtremelyLow_ReturnsErrorText() {
+        XCTAssertEqual(IQScoreUtility.Category.extremelyLow.textColor, ColorPalette.errorText)
+    }
+
+    func testCategoryTextColor_BelowAverage_ReturnsWarningText() {
+        XCTAssertEqual(IQScoreUtility.Category.belowAverage.textColor, ColorPalette.warningText)
+    }
+
+    func testCategoryTextColor_Average_ReturnsInfoText() {
+        XCTAssertEqual(IQScoreUtility.Category.average.textColor, ColorPalette.infoText)
+    }
+
+    func testCategoryTextColor_AboveAverage_ReturnsInfoText() {
+        XCTAssertEqual(IQScoreUtility.Category.aboveAverage.textColor, ColorPalette.infoText)
+    }
+
+    func testCategoryTextColor_Gifted_ReturnsSuccessText() {
+        XCTAssertEqual(IQScoreUtility.Category.gifted.textColor, ColorPalette.successText)
+    }
+
+    func testCategoryTextColor_HighlyGifted_ReturnsSuccessText() {
+        XCTAssertEqual(IQScoreUtility.Category.highlyGifted.textColor, ColorPalette.successText)
+    }
+
+    func testCategoryTextColor_Invalid_ReturnsErrorText() {
+        XCTAssertEqual(IQScoreUtility.Category.invalid.textColor, ColorPalette.errorText)
+    }
+
     // MARK: - Integration Tests
 
     func testClassify_EndToEnd_ReturnsCorrectDescriptions() {
@@ -346,6 +376,31 @@ final class IQScoreUtilityTests: XCTestCase {
                 color,
                 testCase.expectedColor,
                 "Score \(testCase.score) should have color \(testCase.expectedColor)"
+            )
+        }
+    }
+
+    func testClassify_EndToEnd_ReturnsCorrectTextColors() {
+        // Test the full flow from score to text color using ColorPalette text variants
+        let testCases: [(score: Int, expectedTextColor: Color)] = [
+            (50, ColorPalette.errorText),
+            (75, ColorPalette.warningText),
+            (100, ColorPalette.infoText),
+            (120, ColorPalette.infoText),
+            (135, ColorPalette.successText),
+            (160, ColorPalette.successText),
+            (-5, ColorPalette.errorText)
+        ]
+
+        for testCase in testCases {
+            // When
+            let textColor = IQScoreUtility.classify(testCase.score).textColor
+
+            // Then
+            XCTAssertEqual(
+                textColor,
+                testCase.expectedTextColor,
+                "Score \(testCase.score) should have text color \(testCase.expectedTextColor)"
             )
         }
     }

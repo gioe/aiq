@@ -33,6 +33,8 @@ enum IQScoreUtility {
         }
 
         /// Color representing the score category
+        /// - Note: For backgrounds, badges, and icons only. Use `textColor` for text labels.
+        /// - Warning: Light mode contrast may be insufficient for text (WCAG AA requires 4.5:1)
         /// Uses ColorPalette semantic colors for design system consistency
         var color: Color {
             switch self {
@@ -46,6 +48,26 @@ enum IQScoreUtility {
                 ColorPalette.warning
             case .extremelyLow, .invalid:
                 ColorPalette.error
+            }
+        }
+
+        /// WCAG AA compliant text color for the score category
+        /// - Note: Use this for all text labels. Use `color` for backgrounds, badges, and icons.
+        /// - Returns: A color meeting WCAG AA 4.5:1 contrast ratio in both light and dark modes
+        ///
+        /// This property ensures accessibility by using darker color variants in light mode
+        /// that meet WCAG AA contrast requirements (4.5:1) for normal text on white backgrounds.
+        /// In dark mode, standard semantic colors provide excellent contrast (7.5:1 to 11.4:1).
+        var textColor: Color {
+            switch self {
+            case .highlyGifted, .gifted:
+                ColorPalette.successText
+            case .aboveAverage, .average:
+                ColorPalette.infoText
+            case .belowAverage:
+                ColorPalette.warningText
+            case .extremelyLow, .invalid:
+                ColorPalette.errorText
             }
         }
 
