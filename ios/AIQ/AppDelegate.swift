@@ -8,6 +8,7 @@ import UserNotifications
 class AppDelegate: NSObject, UIApplicationDelegate {
     private let notificationManager = NotificationManager.shared
     private let deepLinkHandler = DeepLinkHandler()
+    private let analyticsService = AnalyticsService.shared
     private static let logger = Logger(subsystem: "com.aiq.app", category: "AppDelegate")
 
     /// Weak reference to the app router for deep link navigation
@@ -26,34 +27,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             Self.logger.info("DEBUG build: Certificate pinning disabled for development")
             Self.logger.info("API URL: \(AppConfig.apiBaseURL)")
         #else
-            // Initialize TrustKit for SSL certificate pinning (RELEASE builds only)
-            // Configuration is loaded from TrustKit.plist in the app bundle
-            if let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
-               let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any] {
-                // Verify minimum required pins are configured before initializing
-                guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
-                    fatalError("TrustKit config missing TSKPinnedDomains")
-                }
-                guard let railwayConfig = pinnedDomains[AppConfig.productionDomain] as? [String: Any] else {
-                    fatalError("TrustKit config missing pinning for \(AppConfig.productionDomain)")
-                }
-                guard let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String] else {
-                    fatalError("TrustKit config missing TSKPublicKeyHashes")
-                }
-                guard hashes.count >= Constants.Security.minRequiredPins else {
-                    fatalError(
-                        "Certificate pinning requires at least \(Constants.Security.minRequiredPins) pins " +
-                            "(primary + backup), found \(hashes.count)"
-                    )
-                }
-
-                TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
-                Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
-            } else {
-                Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
-                // Certificate pinning is critical for security - fail hard in production
-                fatalError("Certificate pinning config failed to load. App cannot continue.")
-            }
+            initializeTrustKit()
         #endif
 
         // Set notification delegate
@@ -64,6 +38,77 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // This provides better UX and follows Apple's guidelines
 
         return true
+    }
+
+    // MARK: - TrustKit Initialization
+
+    /// Initialize TrustKit for SSL certificate pinning (RELEASE builds only)
+    ///
+    /// Configuration is loaded from TrustKit.plist in the app bundle.
+    ///
+    /// Analytics tracking:
+    /// - Initialization success/failure is tracked at startup
+    /// - Runtime pinning validation failures are NOT tracked here because:
+    ///   * TrustKit uses auto-swizzling (TSKSwizzleNetworkDelegates = true)
+    ///   * Auto-swizzling automatically validates all NSURLSession connections
+    ///   * No programmatic callback mechanism is provided for validation failures
+    ///   * TrustKit logs failures to console and can send reports via TSKReportUris
+    /// - To monitor runtime pinning failures in production:
+    ///   * Configure TSKReportUris in TrustKit.plist to send reports to a backend endpoint
+    ///   * Use Data Theorem's dashboard (free) at https://datatheorem.com
+    ///   * Monitor console logs for "TrustKit" messages in development/TestFlight builds
+    private func initializeTrustKit() {
+        guard let trustKitConfigPath = Bundle.main.path(forResource: "TrustKit", ofType: "plist"),
+              let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any]
+        else {
+            Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
+            analyticsService.trackCertificatePinningInitializationFailed(
+                reason: "TrustKit.plist missing or invalid format"
+            )
+            // Certificate pinning is critical for security - fail hard in production
+            fatalError("Certificate pinning config failed to load. App cannot continue.")
+        }
+
+        // Verify minimum required pins are configured before initializing
+        guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
+            analyticsService.trackCertificatePinningInitializationFailed(
+                reason: "TSKPinnedDomains missing from config"
+            )
+            fatalError("TrustKit config missing TSKPinnedDomains")
+        }
+        guard let railwayConfig = pinnedDomains[AppConfig.productionDomain] as? [String: Any] else {
+            analyticsService.trackCertificatePinningInitializationFailed(
+                reason: "Domain config missing",
+                domain: AppConfig.productionDomain
+            )
+            fatalError("TrustKit config missing pinning for \(AppConfig.productionDomain)")
+        }
+        guard let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String] else {
+            analyticsService.trackCertificatePinningInitializationFailed(
+                reason: "TSKPublicKeyHashes missing",
+                domain: AppConfig.productionDomain
+            )
+            fatalError("TrustKit config missing TSKPublicKeyHashes")
+        }
+        guard hashes.count >= Constants.Security.minRequiredPins else {
+            analyticsService.trackCertificatePinningInitializationFailed(
+                reason: "Insufficient pins (found \(hashes.count), need \(Constants.Security.minRequiredPins))",
+                domain: AppConfig.productionDomain
+            )
+            fatalError(
+                "Certificate pinning requires at least \(Constants.Security.minRequiredPins) pins " +
+                    "(primary + backup), found \(hashes.count)"
+            )
+        }
+
+        TrustKit.initSharedInstance(withConfiguration: trustKitConfig)
+        Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
+
+        // Track successful initialization
+        analyticsService.trackCertificatePinningInitialized(
+            domain: AppConfig.productionDomain,
+            pinCount: hashes.count
+        )
     }
 
     // MARK: - Remote Notification Callbacks

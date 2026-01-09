@@ -30,6 +30,8 @@ enum AnalyticsEvent: String {
 
     // Security events
     case authFailed = "security.auth_failed"
+    case certificatePinningInitialized = "security.certificate_pinning.initialized"
+    case certificatePinningInitializationFailed = "security.certificate_pinning.initialization_failed"
 
     // Account events
     case accountDeleted = "account.deleted"
@@ -444,6 +446,39 @@ class AnalyticsService {
         track(event: .authFailed, properties: [
             "reason": reason
         ])
+    }
+
+    /// Track certificate pinning initialization success
+    ///
+    /// - Parameters:
+    ///   - domain: Domain for which pinning was configured
+    ///   - pinCount: Number of certificate pins configured
+    func trackCertificatePinningInitialized(domain: String, pinCount: Int) {
+        logger.info("Certificate Pinning Initialized: \(domain) with \(pinCount) pins")
+
+        track(event: .certificatePinningInitialized, properties: [
+            "domain": domain,
+            "pin_count": pinCount
+        ])
+    }
+
+    /// Track certificate pinning initialization failure
+    ///
+    /// - Parameters:
+    ///   - reason: Reason for initialization failure
+    ///   - domain: Domain for which pinning initialization failed (if available)
+    func trackCertificatePinningInitializationFailed(reason: String, domain: String? = nil) {
+        errorLogger.error("Certificate Pinning Initialization Failed: \(reason)")
+
+        var properties: [String: Any] = [
+            "reason": reason
+        ]
+
+        if let domain {
+            properties["domain"] = domain
+        }
+
+        track(event: .certificatePinningInitializationFailed, properties: properties)
     }
 
     /// Force submission of all pending events

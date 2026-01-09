@@ -628,4 +628,74 @@ final class AnalyticsServiceTests: XCTestCase {
         // Then
         XCTAssertEqual(sut.eventQueueCount, 0, "Flush should submit all events")
     }
+
+    // MARK: - Certificate Pinning Analytics Tests
+
+    func testTrackCertificatePinningInitialized_TracksSuccessWithDomainAndPinCount() {
+        // Given
+        let domain = "aiq-backend-production.up.railway.app"
+        let pinCount = 2
+
+        // When
+        sut.trackCertificatePinningInitialized(domain: domain, pinCount: pinCount)
+
+        // Then
+        XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialized event")
+    }
+
+    func testTrackCertificatePinningInitializationFailed_TracksFailureWithReason() {
+        // Given
+        let reason = "TrustKit.plist missing or invalid format"
+
+        // When
+        sut.trackCertificatePinningInitializationFailed(reason: reason)
+
+        // Then
+        XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialization failure")
+    }
+
+    func testTrackCertificatePinningInitializationFailed_TracksFailureWithReasonAndDomain() {
+        // Given
+        let reason = "TSKPublicKeyHashes missing"
+        let domain = "aiq-backend-production.up.railway.app"
+
+        // When
+        sut.trackCertificatePinningInitializationFailed(reason: reason, domain: domain)
+
+        // Then
+        XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialization failure with domain")
+    }
+
+    func testTrackCertificatePinningInitializationFailed_TracksInsufficientPins() {
+        // Given
+        let reason = "Insufficient pins (found 1, need 2)"
+        let domain = "aiq-backend-production.up.railway.app"
+
+        // When
+        sut.trackCertificatePinningInitializationFailed(reason: reason, domain: domain)
+
+        // Then
+        XCTAssertEqual(sut.eventQueueCount, 1, "Should track insufficient pins error")
+    }
+
+    func testCertificatePinningEvents_HaveCorrectEventNames() {
+        // Given/When
+        sut.trackCertificatePinningInitialized(domain: "test.com", pinCount: 2)
+        sut.trackCertificatePinningInitializationFailed(reason: "test failure")
+
+        // Then
+        XCTAssertEqual(sut.eventQueueCount, 2, "Should track both events")
+
+        // Verify event names by checking if they're defined in AnalyticsEvent enum
+        XCTAssertEqual(
+            AnalyticsEvent.certificatePinningInitialized.rawValue,
+            "security.certificate_pinning.initialized",
+            "Event name should match expected format"
+        )
+        XCTAssertEqual(
+            AnalyticsEvent.certificatePinningInitializationFailed.rawValue,
+            "security.certificate_pinning.initialization_failed",
+            "Event name should match expected format"
+        )
+    }
 }
