@@ -46,6 +46,8 @@ enum CrashlyticsErrorRecorder {
         // Storage & Persistence
         case localSave = "storage_local_save"
         case localLoad = "storage_local_load"
+        case storageRetrieve = "storage_retrieve"
+        case storageDelete = "storage_delete"
 
         // Analytics
         case analytics = "analytics_event"
