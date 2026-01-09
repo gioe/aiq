@@ -40,23 +40,22 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     // MARK: - Initialization
 
-    nonisolated init(
+    init(
         notificationService: NotificationServiceProtocol = NotificationService.shared,
         authManager: AuthManagerProtocol = AuthManager.shared
     ) {
         self.notificationService = notificationService
         self.authManager = authManager
 
-        // Initialize on main actor
-        Task { @MainActor in
-            // Load cached device token
-            self.loadCachedDeviceToken()
+        // Load cached device token synchronously (UserDefaults is fast)
+        loadCachedDeviceToken()
 
-            // Observe authentication state changes
-            self.observeAuthStateChanges()
+        // Set up Combine subscription synchronously (critical for token handling)
+        observeAuthStateChanges()
 
-            // Check current authorization status
-            await self.checkAuthorizationStatus()
+        // Check authorization status asynchronously (non-critical, just updates UI state)
+        Task {
+            await checkAuthorizationStatus()
         }
     }
 
