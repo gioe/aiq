@@ -1,10 +1,13 @@
 """
 Tests for RateLimitMiddleware with per-endpoint rate limits.
 """
-from fastapi import FastAPI
+from unittest.mock import MagicMock
+
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.ratelimit import RateLimiter, RateLimitMiddleware, InMemoryStorage
+from app.ratelimit.middleware import get_user_identifier
 
 
 def create_test_app_with_rate_limiting(
@@ -295,3 +298,218 @@ class TestRateLimitMiddlewareWithRealAdminEndpoints:
         # 6th request should be rate limited
         response = client.post("/v1/admin/trigger")
         assert response.status_code == 429
+
+
+class TestRateLimitMiddlewareIPExtraction:
+    """
+    Security tests for IP extraction in rate limiting.
+
+    These tests verify that the middleware correctly uses secure IP extraction
+    and cannot be bypassed by spoofing X-Forwarded-For or X-Real-IP headers.
+    """
+
+    def test_rate_limit_cannot_be_bypassed_with_spoofed_x_forwarded_for(self):
+        """
+        Test that spoofing X-Forwarded-For header does NOT bypass rate limiting.
+
+        Security fix for BTS-221: Previously, attackers could bypass rate limiting
+        by sending different X-Forwarded-For values with each request.
+        """
+        app = create_test_app_with_rate_limiting(default_limit=3)
+        client = TestClient(app)
+
+        # Make 3 requests with different spoofed X-Forwarded-For headers
+        for i in range(3):
+            response = client.get(
+                "/", headers={"X-Forwarded-For": f"192.168.1.{i}"}  # Different IPs
+            )
+            assert response.status_code == 200
+
+        # 4th request with yet another spoofed IP should STILL be rate limited
+        # because we ignore X-Forwarded-For
+        response = client.get("/", headers={"X-Forwarded-For": "192.168.1.99"})
+        assert response.status_code == 429, (
+            "Rate limit was bypassed by X-Forwarded-For spoofing! "
+            "This is a security vulnerability."
+        )
+
+    def test_rate_limit_cannot_be_bypassed_with_spoofed_x_real_ip(self):
+        """
+        Test that spoofing X-Real-IP header does NOT bypass rate limiting.
+        """
+        app = create_test_app_with_rate_limiting(default_limit=3)
+        client = TestClient(app)
+
+        # Make 3 requests with different spoofed X-Real-IP headers
+        for i in range(3):
+            response = client.get("/", headers={"X-Real-IP": f"10.0.0.{i}"})
+            assert response.status_code == 200
+
+        # 4th request with yet another spoofed IP should STILL be rate limited
+        response = client.get("/", headers={"X-Real-IP": "10.0.0.99"})
+        assert response.status_code == 429, (
+            "Rate limit was bypassed by X-Real-IP spoofing! "
+            "This is a security vulnerability."
+        )
+
+    def test_rate_limit_uses_envoy_external_address_header(self):
+        """
+        Test that X-Envoy-External-Address header (Railway infrastructure) is trusted.
+
+        Different X-Envoy-External-Address values should count as different clients.
+        """
+        app = create_test_app_with_rate_limiting(default_limit=2)
+        client = TestClient(app)
+
+        # Make 2 requests from "first" IP
+        for _ in range(2):
+            response = client.get(
+                "/", headers={"X-Envoy-External-Address": "203.0.113.1"}
+            )
+            assert response.status_code == 200
+
+        # 3rd request from same IP should be rate limited
+        response = client.get("/", headers={"X-Envoy-External-Address": "203.0.113.1"})
+        assert response.status_code == 429
+
+        # Request from different IP should succeed (separate limit)
+        response = client.get("/", headers={"X-Envoy-External-Address": "203.0.113.2"})
+        assert response.status_code == 200
+
+    def test_envoy_header_takes_priority_over_untrusted_headers(self):
+        """
+        Test that X-Envoy-External-Address takes priority over spoofed headers.
+        """
+        app = create_test_app_with_rate_limiting(default_limit=2)
+        client = TestClient(app)
+
+        # Make 2 requests with real Envoy header (even with spoofed X-Forwarded-For)
+        for _ in range(2):
+            response = client.get(
+                "/",
+                headers={
+                    "X-Envoy-External-Address": "203.0.113.5",
+                    "X-Forwarded-For": "1.2.3.4",  # Should be ignored
+                    "X-Real-IP": "5.6.7.8",  # Should be ignored
+                },
+            )
+            assert response.status_code == 200
+
+        # Even with different spoofed headers, should still be rate limited
+        # based on the same Envoy address
+        response = client.get(
+            "/",
+            headers={
+                "X-Envoy-External-Address": "203.0.113.5",
+                "X-Forwarded-For": "different.ip.address",  # Should be ignored
+            },
+        )
+        assert response.status_code == 429
+
+
+class TestGetUserIdentifierSecurity:
+    """Tests for get_user_identifier function security."""
+
+    def _create_mock_request(
+        self,
+        user_id: str | None = None,
+        envoy_ip: str | None = None,
+        forwarded_for: str | None = None,
+        real_ip: str | None = None,
+        client_host: str = "127.0.0.1",
+    ) -> MagicMock:
+        """Create a mock request with specified headers and attributes."""
+        request = MagicMock(spec=Request)
+
+        # Mock request.state.user
+        if user_id:
+            request.state.user = MagicMock()
+            request.state.user.id = user_id
+        else:
+            request.state.user = None
+
+        # Mock headers
+        headers = {}
+        if envoy_ip:
+            headers["X-Envoy-External-Address"] = envoy_ip
+        if forwarded_for:
+            headers["X-Forwarded-For"] = forwarded_for
+        if real_ip:
+            headers["X-Real-IP"] = real_ip
+        request.headers.get = lambda key, default=None: headers.get(key, default)
+
+        # Mock client
+        request.client = MagicMock()
+        request.client.host = client_host
+
+        return request
+
+    def test_authenticated_user_returns_user_id(self):
+        """Test that authenticated users are identified by user ID."""
+        request = self._create_mock_request(user_id="user-123")
+
+        result = get_user_identifier(request)
+
+        assert result == "user:user-123"
+
+    def test_unauthenticated_uses_envoy_header(self):
+        """Test that unauthenticated requests use X-Envoy-External-Address."""
+        request = self._create_mock_request(envoy_ip="203.0.113.10")
+
+        result = get_user_identifier(request)
+
+        assert result == "ip:203.0.113.10"
+
+    def test_ignores_x_forwarded_for_header(self):
+        """
+        Test that X-Forwarded-For is ignored (security fix BTS-221).
+
+        This header can be spoofed by clients and must not be trusted.
+        """
+        request = self._create_mock_request(
+            forwarded_for="1.2.3.4", client_host="192.168.1.100"
+        )
+
+        result = get_user_identifier(request)
+
+        # Should use client.host, NOT the spoofed X-Forwarded-For
+        assert result == "ip:192.168.1.100"
+        assert "1.2.3.4" not in result
+
+    def test_ignores_x_real_ip_header(self):
+        """
+        Test that X-Real-IP is ignored (security fix BTS-221).
+
+        This header can be spoofed by clients and must not be trusted.
+        """
+        request = self._create_mock_request(
+            real_ip="5.6.7.8", client_host="192.168.1.100"
+        )
+
+        result = get_user_identifier(request)
+
+        # Should use client.host, NOT the spoofed X-Real-IP
+        assert result == "ip:192.168.1.100"
+        assert "5.6.7.8" not in result
+
+    def test_envoy_header_takes_priority_over_spoofed_headers(self):
+        """Test that Envoy header is used when present, ignoring spoofed headers."""
+        request = self._create_mock_request(
+            envoy_ip="203.0.113.99",
+            forwarded_for="1.2.3.4",  # Should be ignored
+            real_ip="5.6.7.8",  # Should be ignored
+            client_host="192.168.1.100",  # Should be ignored
+        )
+
+        result = get_user_identifier(request)
+
+        # Should use the trusted Envoy header
+        assert result == "ip:203.0.113.99"
+
+    def test_falls_back_to_client_host_without_envoy(self):
+        """Test fallback to request.client.host when no Envoy header present."""
+        request = self._create_mock_request(client_host="10.0.0.50")
+
+        result = get_user_identifier(request)
+
+        assert result == "ip:10.0.0.50"
