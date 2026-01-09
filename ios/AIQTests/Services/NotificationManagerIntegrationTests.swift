@@ -26,6 +26,42 @@ final class NotificationManagerIntegrationTests: XCTestCase {
     // UserDefaults key used by NotificationManager
     private let deviceTokenKey = "com.aiq.deviceToken"
 
+    // MARK: - Async Test Helpers
+
+    /// Wait for a condition to become true with timeout
+    /// - Parameters:
+    ///   - condition: The condition to wait for
+    ///   - timeout: Maximum time to wait (default 2.0 seconds)
+    ///   - message: Failure message if timeout is reached
+    private func waitForCondition(
+        timeout: TimeInterval = 2.0,
+        message: String = "Condition not met within timeout",
+        _ condition: @escaping () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while await !condition() {
+            if Date() > deadline {
+                XCTFail(message)
+                return
+            }
+            await Task.yield()
+        }
+    }
+
+    /// Wait for mock service to receive a register call
+    private func waitForRegisterCall(timeout: TimeInterval = 2.0) async throws {
+        try await waitForCondition(timeout: timeout, message: "registerDeviceToken was not called within timeout") {
+            await mockNotificationService.registerDeviceTokenCalled
+        }
+    }
+
+    /// Wait for device token registration state to change
+    private func waitForRegistrationState(_ expected: Bool, timeout: TimeInterval = 2.0) async throws {
+        try await waitForCondition(timeout: timeout, message: "isDeviceTokenRegistered did not become \(expected) within timeout") {
+            sut.isDeviceTokenRegistered == expected
+        }
+    }
+
     override func setUp() async throws {
         try await super.setUp()
         cancellables = Set<AnyCancellable>()
@@ -58,7 +94,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - Auth State Integration Tests
 
-    func testAuthStateChange_UnauthenticatedToAuthenticated_TriggersRegistration() async {
+    func testAuthStateChange_UnauthenticatedToAuthenticated_TriggersRegistration() async throws {
         // Given - User is unauthenticated with a cached device token
         XCTAssertFalse(mockAuthManager.isAuthenticated, "Should start unauthenticated")
 
@@ -75,8 +111,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - User authenticates
         mockAuthManager.isAuthenticated = true
 
-        // Small delay to allow Combine to propagate and registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         // Then - Should call notificationService.registerDeviceToken
         let registerCalled = await mockNotificationService.registerDeviceTokenCalled
@@ -89,7 +125,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should update isDeviceTokenRegistered to true")
     }
 
-    func testAuthStateChange_AuthenticatedToUnauthenticated_ClearsRegistrationState() async {
+    func testAuthStateChange_AuthenticatedToUnauthenticated_ClearsRegistrationState() async throws {
         // Given - User is authenticated with registered token
         mockAuthManager.isAuthenticated = true
 
@@ -106,8 +142,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // Trigger registration
         await sut.retryDeviceTokenRegistration()
 
-        // Small delay for registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         // Verify registered
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before logout")
@@ -115,10 +151,12 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - User logs out
         mockAuthManager.isAuthenticated = false
 
-        // Small delay to allow Combine to propagate
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for state to clear
+        try await waitForRegistrationState(false)
 
         // Then - Should clear registration state but NOT clear cached token
+        // Note: Logout only clears isDeviceTokenRegistered; it does NOT call unregisterDeviceToken()
+        // on the backend. The token is kept cached for re-registration on next login.
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should clear isDeviceTokenRegistered on logout")
 
         // Token should still be cached for next login
@@ -128,7 +166,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - Device Token Registration Flow Tests
 
-    func testDeviceTokenRegistration_WhenAuthenticated_RegistersWithBackend() async {
+    func testDeviceTokenRegistration_WhenAuthenticated_RegistersWithBackend() async throws {
         // Given - User is authenticated
         mockAuthManager.isAuthenticated = true
 
@@ -145,8 +183,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Device token is received
         sut.didReceiveDeviceToken(deviceToken)
 
-        // Small delay to allow async registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         // Then - Should register with backend
         let registerCalled = await mockNotificationService.registerDeviceTokenCalled
@@ -163,7 +201,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertEqual(cachedToken, expectedTokenString, "Should cache token in UserDefaults")
     }
 
-    func testDeviceTokenRegistration_WhenUnauthenticated_CachesForLater() async {
+    func testDeviceTokenRegistration_WhenUnauthenticated_CachesForLater() async throws {
         // Given - User is NOT authenticated
         XCTAssertFalse(mockAuthManager.isAuthenticated, "Should start unauthenticated")
 
@@ -173,8 +211,10 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Device token is received
         sut.didReceiveDeviceToken(deviceToken)
 
-        // Small delay to allow any async operations
-        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 second
+        // Wait for token to be cached (poll for UserDefaults update)
+        try await waitForCondition(message: "Token should be cached in UserDefaults") {
+            UserDefaults.standard.string(forKey: self.deviceTokenKey) == expectedTokenString
+        }
 
         // Then - Should cache token but NOT register with backend
         let registerCalled = await mockNotificationService.registerDeviceTokenCalled
@@ -222,7 +262,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - Device Token Unregistration Flow Tests
 
-    func testDeviceTokenUnregistration_WhenRegistered_UnregistersWithBackend() async {
+    func testDeviceTokenUnregistration_WhenRegistered_UnregistersWithBackend() async throws {
         // Given - Token is registered with backend
         mockAuthManager.isAuthenticated = true
 
@@ -237,8 +277,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         await mockNotificationService.setRegisterResponse(registerResponse)
         await sut.retryDeviceTokenRegistration()
 
-        // Small delay for registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before unregister")
 
@@ -283,7 +323,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertEqual(unregisterCount, 0, "Should not call unregister, got \(unregisterCount) calls")
     }
 
-    func testDeviceTokenUnregistration_BackendError_ClearsLocalStateAnyway() async {
+    func testDeviceTokenUnregistration_BackendError_ClearsLocalStateAnyway() async throws {
         // Given - Token is registered
         mockAuthManager.isAuthenticated = true
 
@@ -298,8 +338,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         await mockNotificationService.setRegisterResponse(registerResponse)
         await sut.retryDeviceTokenRegistration()
 
-        // Small delay for registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before unregister")
 
@@ -443,14 +483,13 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - Complex Scenario Tests
 
-    func testCompleteFlow_LoginRegisterLogout() async {
+    func testCompleteFlow_LoginRegisterLogout() async throws {
         // Scenario: User logs in, receives device token, registers, then logs out
 
         // Given - User logs in
         mockAuthManager.isAuthenticated = true
 
         // Configure mock service
-        let deviceToken = "flow_test_token"
         let mockResponse = DeviceTokenResponse(
             success: true,
             message: "Registered"
@@ -467,8 +506,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let tokenData = Data([0xAA, 0xBB, 0xCC, 0xDD])
         sut.didReceiveDeviceToken(tokenData)
 
-        // Small delay for registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         // Then - Should be registered
         var registerCount = await mockNotificationService.registerCallCount
@@ -476,11 +515,14 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered after login and token receipt")
 
         // When - User logs out
-        await mockNotificationService.reset() // Reset to track logout unregister
+        // Note: Reset mock to track subsequent calls after logout
+        await mockNotificationService.reset()
         mockAuthManager.isAuthenticated = false
 
-        // Small delay for state change
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for state to clear
+        // Note: Logout only clears isDeviceTokenRegistered locally; it does NOT call
+        // unregisterDeviceToken() on the backend. The token remains cached for re-registration.
+        try await waitForRegistrationState(false)
 
         // Then - Should clear registration state
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should clear registration state after logout")
@@ -490,8 +532,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         await mockNotificationService.setRegisterResponse(mockResponse)
         mockAuthManager.isAuthenticated = true
 
-        // Small delay for re-registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for re-registration
+        try await waitForRegistrationState(true)
 
         // Then - Should re-register with cached token
         registerCount = await mockNotificationService.registerCallCount
@@ -502,7 +544,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered after re-login")
     }
 
-    func testCompleteFlow_ReceiveTokenBeforeLogin() async {
+    func testCompleteFlow_ReceiveTokenBeforeLogin() async throws {
         // Scenario: User receives device token before logging in
 
         // Given - User is NOT authenticated
@@ -514,8 +556,10 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Device token received before login
         sut.didReceiveDeviceToken(deviceToken)
 
-        // Small delay
-        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 second
+        // Wait for token to be cached
+        try await waitForCondition(message: "Token should be cached in UserDefaults") {
+            UserDefaults.standard.string(forKey: self.deviceTokenKey) == expectedTokenString
+        }
 
         // Then - Should cache token but NOT register
         var registerCount = await mockNotificationService.registerCallCount
@@ -533,8 +577,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         mockAuthManager.isAuthenticated = true
 
-        // Small delay for registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         // Then - Should register cached token
         registerCount = await mockNotificationService.registerCallCount
@@ -597,7 +641,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - State Consistency Tests
 
-    func testStateConsistency_AfterMultipleAuthStateChanges() async {
+    func testStateConsistency_AfterMultipleAuthStateChanges() async throws {
         // Scenario: Rapid auth state changes should maintain consistency
 
         // Configure mock service
@@ -612,13 +656,15 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         // When - Rapid auth state changes
         mockAuthManager.isAuthenticated = true
-        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 second
+        await Task.yield() // Allow Combine to propagate
 
         mockAuthManager.isAuthenticated = false
-        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 second
+        await Task.yield() // Allow Combine to propagate
 
         mockAuthManager.isAuthenticated = true
-        try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 second (longer for completion)
+
+        // Wait for final registration state to stabilize
+        try await waitForRegistrationState(true)
 
         // Then - Final state should be consistent
         let registerCount = await mockNotificationService.registerCallCount
@@ -630,13 +676,12 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertEqual(cachedToken, deviceToken, "Should maintain cached token")
     }
 
-    func testStateConsistency_BetweenNotificationManagerInstances() async {
+    func testStateConsistency_BetweenNotificationManagerInstances() async throws {
         // Scenario: Token should persist across NotificationManager instances
 
         // Given - First instance registers token
         mockAuthManager.isAuthenticated = true
 
-        let deviceToken = "persistent_token"
         let tokenData = Data([0xFF, 0xEE, 0xDD, 0xCC])
 
         let mockResponse = DeviceTokenResponse(
@@ -647,8 +692,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         sut.didReceiveDeviceToken(tokenData)
 
-        // Small delay for registration
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait for registration to complete
+        try await waitForRegistrationState(true)
 
         XCTAssertTrue(sut.isDeviceTokenRegistered, "First instance should be registered")
 
@@ -664,8 +709,10 @@ final class NotificationManagerIntegrationTests: XCTestCase {
             authManager: newMockAuthManager
         )
 
-        // Small delay for initialization
-        try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 second
+        // Wait for new instance to register with cached token
+        try await waitForCondition(message: "New instance should call register with cached token") {
+            await newMockNotificationService.registerDeviceTokenCalled
+        }
 
         // Then - New instance should load cached token and register
         let registerCalled = await newMockNotificationService.registerDeviceTokenCalled
