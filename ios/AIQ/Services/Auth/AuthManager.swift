@@ -17,14 +17,20 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     private let authService: AuthServiceProtocol
     private let tokenRefreshInterceptor: TokenRefreshInterceptor
-    private let deviceTokenManager: DeviceTokenManagerProtocol
+
+    /// Factory closure for creating DeviceTokenManager - using lazy initialization
+    /// to break circular dependency with NotificationManager
+    private let deviceTokenManagerFactory: () -> DeviceTokenManagerProtocol
+    private lazy var deviceTokenManager: DeviceTokenManagerProtocol = deviceTokenManagerFactory()
 
     init(
         authService: AuthServiceProtocol = AuthService.shared,
-        deviceTokenManager: DeviceTokenManagerProtocol = NotificationManager.shared
+        deviceTokenManagerFactory: @escaping @MainActor () -> DeviceTokenManagerProtocol = {
+            NotificationManager.shared
+        }
     ) {
         self.authService = authService
-        self.deviceTokenManager = deviceTokenManager
+        self.deviceTokenManagerFactory = deviceTokenManagerFactory
         tokenRefreshInterceptor = TokenRefreshInterceptor(authService: authService)
 
         // Set up token refresh interceptor in APIClient
