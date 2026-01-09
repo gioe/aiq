@@ -139,17 +139,17 @@ actor MockNotificationService: NotificationServiceProtocol {
     }
 
     /// Set mock register error
-    func setRegisterError(_ error: Error) {
+    func setRegisterError(_ error: Error?) {
         mockRegisterError = error
     }
 
     /// Set mock unregister error
-    func setUnregisterError(_ error: Error) {
+    func setUnregisterError(_ error: Error?) {
         mockUnregisterError = error
     }
 
     /// Set mock update preferences error
-    func setUpdatePreferencesError(_ error: Error) {
+    func setUpdatePreferencesError(_ error: Error?) {
         mockUpdatePreferencesError = error
     }
 
