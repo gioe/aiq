@@ -187,11 +187,12 @@ class InMemoryStorage(RateLimiterStorage):
         Args:
             key: The key to mark as recently used
         """
-        # Remove if exists (to re-add at end)
         if key in self._lru_order:
-            del self._lru_order[key]
-        # Add to end (most recently used)
-        self._lru_order[key] = None
+            # Use move_to_end for O(1) reordering of existing keys
+            self._lru_order.move_to_end(key)
+        else:
+            # Add new key to end (most recently used)
+            self._lru_order[key] = None
 
     def _evict_lru(self) -> None:
         """
