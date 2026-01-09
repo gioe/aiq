@@ -4,7 +4,7 @@ import SwiftUI
 
 extension TestDetailView {
     var scoreColor: Color {
-        IQScoreUtility.classify(testResult.iqScore).color
+        IQScoreUtility.classify(testResult.iqScore).textColor
     }
 
     var scoreGradient: LinearGradient {
