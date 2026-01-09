@@ -197,25 +197,79 @@ class AuthService: AuthServiceProtocol {
     // MARK: - Private Methods
 
     private func saveAuthData(_ response: AuthResponse) throws {
-        // Save tokens to keychain
-        try secureStorage.save(
-            response.accessToken,
-            forKey: SecureStorageKey.accessToken.rawValue
-        )
-        try secureStorage.save(
-            response.refreshToken,
-            forKey: SecureStorageKey.refreshToken.rawValue
-        )
-        try secureStorage.save(
-            String(describing: response.user.id),
-            forKey: SecureStorageKey.userId.rawValue
-        )
+        // Step 1: Capture current state before making changes
+        let oldAccessToken = try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        let oldRefreshToken = try? secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue)
+        let oldUserId = try? secureStorage.retrieve(forKey: SecureStorageKey.userId.rawValue)
 
-        // Update API client with new token
-        apiClient.setAuthToken(response.accessToken)
+        do {
+            // Step 2: Attempt all saves
+            try secureStorage.save(
+                response.accessToken,
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            try secureStorage.save(
+                response.refreshToken,
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            try secureStorage.save(
+                String(describing: response.user.id),
+                forKey: SecureStorageKey.userId.rawValue
+            )
 
-        // Store current user
-        _currentUser = response.user
+            // Step 3: Only update API client and in-memory state after successful saves
+            apiClient.setAuthToken(response.accessToken)
+            _currentUser = response.user
+        } catch {
+            // Step 4: Rollback on any failure
+            do {
+                try restoreAuthState(
+                    accessToken: oldAccessToken,
+                    refreshToken: oldRefreshToken,
+                    userId: oldUserId
+                )
+            } catch let rollbackError {
+                #if DEBUG
+                    print("⚠️ Auth rollback failed: \(rollbackError)")
+                #endif
+                // Note: We still throw the original error below.
+                // Rollback failure is logged but doesn't change error propagation.
+            }
+            throw error
+        }
+    }
+
+    /// Restores authentication state to previous values
+    /// - Parameters:
+    ///   - accessToken: Previous access token (nil if none existed)
+    ///   - refreshToken: Previous refresh token (nil if none existed)
+    ///   - userId: Previous user ID (nil if none existed)
+    /// - Throws: SecureStorageError if restoration fails
+    /// - Note: If this method throws during rollback, auth state may be inconsistent.
+    ///         The caller logs the failure but propagates the original error.
+    private func restoreAuthState(
+        accessToken: String?,
+        refreshToken: String?,
+        userId: String?
+    ) throws {
+        // Restore or delete each key based on previous state
+        if let accessToken {
+            try secureStorage.save(accessToken, forKey: SecureStorageKey.accessToken.rawValue)
+        } else {
+            try secureStorage.delete(forKey: SecureStorageKey.accessToken.rawValue)
+        }
+
+        if let refreshToken {
+            try secureStorage.save(refreshToken, forKey: SecureStorageKey.refreshToken.rawValue)
+        } else {
+            try secureStorage.delete(forKey: SecureStorageKey.refreshToken.rawValue)
+        }
+
+        if let userId {
+            try secureStorage.save(userId, forKey: SecureStorageKey.userId.rawValue)
+        } else {
+            try secureStorage.delete(forKey: SecureStorageKey.userId.rawValue)
+        }
     }
 
     private func clearAuthData() {
