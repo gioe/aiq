@@ -20,6 +20,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [State Management](#state-management)
 - [Error Handling](#error-handling)
   - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
+  - [Localization for Error Messages](#localization-for-error-messages)
 - [Networking](#networking)
 - [Design System](#design-system)
 - [Documentation](#documentation)
@@ -613,6 +614,69 @@ Silent failures in parsing utilities create bugs that are:
 - **Production-impacting**: Malformed data can cause UI issues or incorrect behavior
 
 By making parsing functions failable or throwing errors, you make invalid states unrepresentable and force callers to handle error cases explicitly.
+
+### Localization for Error Messages
+
+When creating new error types that use `LocalizedError`, you MUST add the corresponding localization string to `Localizable.strings`. Missing localization keys will display as raw key strings to users.
+
+#### Checklist for Adding New Errors
+
+When adding a new error enum or case:
+
+- [ ] Define the error enum/case with `LocalizedError` conformance
+- [ ] Add the localization key to `AIQ/en.lproj/Localizable.strings`
+- [ ] Place it in the appropriate `// MARK: - Service Errors` section
+- [ ] Verify the key matches exactly (case-sensitive)
+
+#### Pattern to Follow
+
+```swift
+// 1. Define error in Swift
+enum NotificationError: Error, LocalizedError, Equatable {
+    case emptyDeviceToken
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyDeviceToken:
+            NSLocalizedString("error.notification.empty.device.token", comment: "")
+        }
+    }
+}
+
+// 2. Add to Localizable.strings (REQUIRED!)
+// In AIQ/en.lproj/Localizable.strings:
+// MARK: - Service Errors - Notification
+"error.notification.empty.device.token" = "Device token cannot be empty";
+```
+
+#### Naming Convention for Error Keys
+
+Follow this pattern for consistency:
+```
+error.<service>.<error_case_in_snake_case>
+```
+
+Examples:
+- `error.auth.no.refresh.token`
+- `error.keychain.save.failed`
+- `error.notification.empty.device.token`
+- `error.deeplink.unrecognized.scheme`
+
+#### Common Mistakes
+
+| Mistake | Problem | Fix |
+|---------|---------|-----|
+| Missing Localizable.strings entry | Raw key shown to users | Add the key before merging |
+| Key mismatch (typo) | Key not found, raw string shown | Verify exact match |
+| Wrong section in Localizable.strings | Hard to maintain | Use `// MARK: - Service Errors - <ServiceName>` |
+
+#### Why This Matters
+
+When a `NSLocalizedString` key doesn't exist in `Localizable.strings`:
+- The raw key string (e.g., `"error.notification.empty.device.token"`) is displayed to users
+- This creates a poor user experience
+- The error appears technical and confusing
+- It's easily missed during development because it doesn't crash
 
 ---
 
