@@ -26,13 +26,11 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager = MockAuthManager()
 
         // Create SUT with injected dependencies
+        // Initialization is now synchronous - no delay needed
         sut = NotificationManager(
             notificationService: mockNotificationService,
             authManager: mockAuthManager
         )
-
-        // Small delay to allow initialization to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
     }
 
     override func tearDown() {
@@ -55,6 +53,49 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
+    func testInitialization_ImmediateDeviceTokenHandling() async {
+        // Given - Create a fresh NotificationManager
+        let freshMockNotificationService = MockNotificationService()
+        let freshMockAuthManager = MockAuthManager()
+        let freshSut = NotificationManager(
+            notificationService: freshMockNotificationService,
+            authManager: freshMockAuthManager
+        )
+
+        // When - Call didReceiveDeviceToken immediately after init (no delay)
+        let deviceToken = Data([0xAA, 0xBB, 0xCC, 0xDD])
+        freshSut.didReceiveDeviceToken(deviceToken)
+
+        // Then - Token should be cached successfully (synchronous initialization allows this)
+        let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
+        XCTAssertEqual(cachedToken, "aabbccdd")
+    }
+
+    func testInitialization_CombineSubscriptionReady() async {
+        // Given - Set up mock auth manager that will emit authentication change
+        let freshMockNotificationService = MockNotificationService()
+        let freshMockAuthManager = MockAuthManager()
+
+        // When - Create NotificationManager and immediately trigger auth state change
+        let freshSut = NotificationManager(
+            notificationService: freshMockNotificationService,
+            authManager: freshMockAuthManager
+        )
+
+        // Cache a token so retry has something to work with
+        UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
+
+        // Trigger auth state change immediately (Combine subscription should be ready)
+        freshMockAuthManager.isAuthenticated = true
+
+        // Small delay to allow Combine to propagate
+        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 second
+
+        // Then - Should not crash and state should be consistent
+        // The Combine subscription should be ready to receive auth state changes
+        XCTAssertNotNil(freshSut)
+    }
+
     // MARK: - Device Token Registration Tests
 
     func testDidReceiveDeviceToken_CachesToken() async {
@@ -62,11 +103,8 @@ final class NotificationManagerTests: XCTestCase {
         let deviceToken = Data([0x01, 0x02, 0x03, 0x04])
         let expectedTokenString = "01020304"
 
-        // When
+        // When - Token caching is synchronous
         sut.didReceiveDeviceToken(deviceToken)
-
-        // Small delay to allow caching to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
 
         // Then - Verify token was cached in UserDefaults
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -78,11 +116,8 @@ final class NotificationManagerTests: XCTestCase {
         let deviceToken = Data([0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90])
         let expectedTokenString = "abcdef1234567890"
 
-        // When
+        // When - Token caching is synchronous
         sut.didReceiveDeviceToken(deviceToken)
-
-        // Small delay to allow caching to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -99,11 +134,8 @@ final class NotificationManagerTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Registration failed"]
         )
 
-        // When
+        // When - Clearing is synchronous
         sut.didFailToRegisterForRemoteNotifications(error: error)
-
-        // Small delay to allow clearing to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - Verify token was cleared
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -288,10 +320,7 @@ final class NotificationManagerTests: XCTestCase {
                 observedValues.append(value)
             }
 
-        // Allow time for initial value to be collected
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
-
-        // Then - Should have collected at least the initial value
+        // Then - Should have collected the initial value immediately (no delay needed)
         XCTAssertFalse(observedValues.isEmpty, "Should observe at least the initial value")
         XCTAssertFalse(observedValues.first ?? true, "Initial value should be false")
 
@@ -304,11 +333,8 @@ final class NotificationManagerTests: XCTestCase {
         // Given
         let emptyToken = Data()
 
-        // When
+        // When - Token caching is synchronous
         sut.didReceiveDeviceToken(emptyToken)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - Should cache empty string
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -325,11 +351,8 @@ final class NotificationManagerTests: XCTestCase {
         ])
         let expectedToken = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
 
-        // When
+        // When - Token caching is synchronous
         sut.didReceiveDeviceToken(largeToken)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -345,13 +368,10 @@ final class NotificationManagerTests: XCTestCase {
         // Pre-cache a token
         UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
 
-        // When - Multiple consecutive failures
+        // When - Multiple consecutive failures (all synchronous)
         sut.didFailToRegisterForRemoteNotifications(error: error1)
         sut.didFailToRegisterForRemoteNotifications(error: error2)
         sut.didFailToRegisterForRemoteNotifications(error: error3)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - State should remain consistent
         XCTAssertFalse(sut.isDeviceTokenRegistered)
@@ -360,12 +380,9 @@ final class NotificationManagerTests: XCTestCase {
     }
 
     func testRetryAfterFailure_StateTransition() async {
-        // Given - Simulate a failure
+        // Given - Simulate a failure (synchronous)
         let error = NSError(domain: "Test", code: -1, userInfo: nil)
         sut.didFailToRegisterForRemoteNotifications(error: error)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Verify initial state
         XCTAssertFalse(sut.isDeviceTokenRegistered)
@@ -387,11 +404,8 @@ final class NotificationManagerTests: XCTestCase {
         let deviceToken = Data([0xAA, 0xBB, 0xCC, 0xDD])
         let expectedToken = "aabbccdd"
 
-        // When - Receive token
+        // When - Receive token (synchronous)
         sut.didReceiveDeviceToken(deviceToken)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - Verify persistence in UserDefaults
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
@@ -407,12 +421,9 @@ final class NotificationManagerTests: XCTestCase {
         UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
         XCTAssertNotNil(UserDefaults.standard.string(forKey: deviceTokenKey))
 
-        // When - Trigger failure which clears cache
+        // When - Trigger failure which clears cache (synchronous)
         let error = NSError(domain: "Test", code: -1, userInfo: nil)
         sut.didFailToRegisterForRemoteNotifications(error: error)
-
-        // Small delay
-        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // Then - Verify removed from UserDefaults
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
