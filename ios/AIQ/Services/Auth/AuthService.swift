@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Authentication service implementation
 class AuthService: AuthServiceProtocol {
@@ -7,6 +8,7 @@ class AuthService: AuthServiceProtocol {
     private let apiClient: APIClientProtocol
     private let secureStorage: SecureStorageProtocol
     private var _currentUser: User?
+    private let logger = Logger(subsystem: "com.aiq.app", category: "AuthService")
 
     var isAuthenticated: Bool {
         getAccessToken() != nil
@@ -24,8 +26,21 @@ class AuthService: AuthServiceProtocol {
         self.secureStorage = secureStorage
 
         // Try to load existing token and set on API client
-        if let token = try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue) {
-            apiClient.setAuthToken(token)
+        do {
+            if let token = try secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue) {
+                apiClient.setAuthToken(token)
+            }
+        } catch {
+            // Log storage error but don't crash - this is graceful degradation
+            logger.error("Failed to retrieve access token during init: \(error.localizedDescription, privacy: .public)")
+            CrashlyticsErrorRecorder.recordError(
+                error,
+                context: .storageRetrieve,
+                additionalInfo: ["key": SecureStorageKey.accessToken.rawValue, "operation": "init"]
+            )
+            #if DEBUG
+                print("⚠️ [AuthService] Storage error during init: \(error)")
+            #endif
         }
     }
 
@@ -191,7 +206,21 @@ class AuthService: AuthServiceProtocol {
     }
 
     func getAccessToken() -> String? {
-        try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        do {
+            return try secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        } catch {
+            // Log storage error but return nil for graceful degradation
+            logger.error("Failed to retrieve access token: \(error.localizedDescription, privacy: .public)")
+            CrashlyticsErrorRecorder.recordError(
+                error,
+                context: .storageRetrieve,
+                additionalInfo: ["key": SecureStorageKey.accessToken.rawValue, "operation": "getAccessToken"]
+            )
+            #if DEBUG
+                print("⚠️ [AuthService] Storage error in getAccessToken: \(error)")
+            #endif
+            return nil
+        }
     }
 
     // MARK: - Private Methods
@@ -274,7 +303,25 @@ class AuthService: AuthServiceProtocol {
 
     private func clearAuthData() {
         // Remove tokens from keychain
-        try? secureStorage.deleteAll()
+        do {
+            try secureStorage.deleteAll()
+            #if DEBUG
+                print("✅ [AuthService] Successfully cleared secure storage")
+            #endif
+        } catch {
+            // Log storage error but continue clearing other state
+            // This is critical - if deletion fails, tokens remain in storage!
+            logger.error("Failed to clear secure storage: \(error.localizedDescription, privacy: .public)")
+            CrashlyticsErrorRecorder.recordError(
+                error,
+                context: .storageDelete,
+                additionalInfo: ["operation": "clearAuthData", "severity": "critical"]
+            )
+            #if DEBUG
+                print("❌ [AuthService] Storage error during clearAuthData: \(error)")
+                print("   WARNING: Tokens may still exist in secure storage!")
+            #endif
+        }
 
         // Clear API client token
         apiClient.setAuthToken(nil)
