@@ -8,7 +8,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // "."')
 
 cd "$CWD" 2>/dev/null || {
     # Can't change to directory, allow stop
-    echo '{"decision": "stop"}'
+    echo '{}'
     exit 0
 }
 
@@ -17,7 +17,7 @@ MODIFIED_FILES=$(git diff --name-only HEAD 2>/dev/null || true)
 
 if [ -z "$MODIFIED_FILES" ]; then
     # No modifications, allow stop
-    echo '{"decision": "stop"}'
+    echo '{}'
     exit 0
 fi
 
@@ -46,9 +46,9 @@ if [ -n "$REVIEW_MSG" ]; then
     # Output JSON with the review message and continue flag
     # This tells Claude to continue and provides context about what to do
     cat <<EOF
-{"decision": "continue", "reason": "[Auto-Review] $REVIEW_MSG"}
+{"continue": true, "reason": "[Auto-Review] $REVIEW_MSG"}
 EOF
 else
     # Modified files exist but none are Python or Swift, allow stop
-    echo '{"decision": "stop"}'
+    echo '{}'
 fi
