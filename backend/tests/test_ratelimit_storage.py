@@ -161,6 +161,274 @@ class TestInMemoryStorage:
         assert True
 
 
+class TestInMemoryStorageLRU:
+    """Tests for InMemoryStorage LRU eviction functionality."""
+
+    def test_lru_disabled_by_default(self):
+        """Test that LRU eviction is disabled by default (max_keys=0)."""
+        storage = InMemoryStorage()
+
+        # Add many keys - should not trigger eviction
+        for i in range(1000):
+            storage.set(f"key{i}", f"value{i}")
+
+        # All keys should still exist
+        assert storage.get("key0") == "value0"
+        assert storage.get("key999") == "value999"
+
+        stats = storage.get_stats()
+        assert stats["total_keys"] == 1000
+        assert stats["lru_enabled"] is False
+        assert stats["max_keys"] == 0
+
+    def test_lru_basic_eviction(self):
+        """Test basic LRU eviction when max_keys is exceeded."""
+        storage = InMemoryStorage(max_keys=3)
+
+        # Add 3 keys - should all fit
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+        storage.set("key3", "value3")
+
+        assert storage.get("key1") == "value1"
+        assert storage.get("key2") == "value2"
+        assert storage.get("key3") == "value3"
+
+        # Add 4th key - should evict key1 (least recently used)
+        storage.set("key4", "value4")
+
+        assert storage.get("key1") is None  # Evicted
+        assert storage.get("key2") == "value2"
+        assert storage.get("key3") == "value3"
+        assert storage.get("key4") == "value4"
+
+        stats = storage.get_stats()
+        assert stats["total_keys"] == 3
+        assert stats["lru_enabled"] is True
+        assert stats["max_keys"] == 3
+
+    def test_lru_get_updates_access_order(self):
+        """Test that get() updates LRU access order."""
+        storage = InMemoryStorage(max_keys=3)
+
+        # Add 3 keys
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+        storage.set("key3", "value3")
+
+        # Access key1 to make it recently used
+        assert storage.get("key1") == "value1"
+
+        # Add 4th key - should evict key2 (now the LRU)
+        storage.set("key4", "value4")
+
+        assert storage.get("key1") == "value1"  # Still exists
+        assert storage.get("key2") is None  # Evicted
+        assert storage.get("key3") == "value3"
+        assert storage.get("key4") == "value4"
+
+    def test_lru_set_updates_existing_key(self):
+        """Test that setting an existing key updates its value and LRU order."""
+        storage = InMemoryStorage(max_keys=3)
+
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+        storage.set("key3", "value3")
+
+        # Update key1 - should move it to end of LRU order
+        storage.set("key1", "value1_updated")
+
+        # Add 4th key - should evict key2 (now the LRU)
+        storage.set("key4", "value4")
+
+        assert storage.get("key1") == "value1_updated"  # Still exists, updated
+        assert storage.get("key2") is None  # Evicted
+        assert storage.get("key3") == "value3"
+        assert storage.get("key4") == "value4"
+
+    def test_lru_multiple_evictions(self):
+        """Test multiple consecutive evictions work correctly."""
+        storage = InMemoryStorage(max_keys=2)
+
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+
+        # Add keys 3, 4, 5 - should evict in order
+        storage.set("key3", "value3")
+        assert storage.get("key1") is None
+
+        storage.set("key4", "value4")
+        assert storage.get("key2") is None
+
+        storage.set("key5", "value5")
+        assert storage.get("key3") is None
+
+        # Only key4 and key5 should remain
+        assert storage.get("key4") == "value4"
+        assert storage.get("key5") == "value5"
+        assert storage.get_stats()["total_keys"] == 2
+
+    def test_lru_with_ttl_expiration(self):
+        """Test that LRU eviction works correctly with TTL-based expiration.
+
+        Both mechanisms should work independently:
+        - Expired entries are removed on access
+        - LRU eviction happens when max_keys is exceeded
+        """
+        storage = InMemoryStorage(max_keys=3, cleanup_interval=0.5)
+
+        # Add 2 keys with short TTL
+        storage.set("key1", "value1", ttl=0.3)
+        storage.set("key2", "value2", ttl=0.3)
+
+        # Add 1 key without TTL
+        storage.set("key3", "value3")
+
+        # Wait for TTL expiration
+        time.sleep(0.5)
+
+        # Access key3 to trigger cleanup of expired entries
+        assert storage.get("key3") == "value3"
+
+        # After cleanup, we should have 1 active key
+        stats = storage.get_stats()
+        assert stats["active_keys"] == 1
+
+        # Now add 2 more keys - should not trigger LRU eviction
+        # because we're under max_keys after TTL cleanup
+        storage.set("key4", "value4")
+        storage.set("key5", "value5")
+
+        assert storage.get("key3") == "value3"
+        assert storage.get("key4") == "value4"
+        assert storage.get("key5") == "value5"
+        assert storage.get_stats()["total_keys"] == 3
+
+        # Add one more - should evict key3 (LRU)
+        storage.set("key6", "value6")
+        assert storage.get("key3") is None
+
+    def test_lru_delete_removes_from_lru_order(self):
+        """Test that delete() properly removes keys from LRU tracking."""
+        storage = InMemoryStorage(max_keys=3)
+
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+        storage.set("key3", "value3")
+
+        # Delete key1
+        storage.delete("key1")
+        assert storage.get("key1") is None
+
+        # Add 2 more keys - should not evict anything
+        storage.set("key4", "value4")
+        storage.set("key5", "value5")
+
+        # key2 should be evicted (it's now the LRU)
+        assert storage.get("key2") is None
+        assert storage.get("key3") == "value3"
+        assert storage.get("key4") == "value4"
+        assert storage.get("key5") == "value5"
+        assert storage.get_stats()["total_keys"] == 3
+
+    def test_lru_clear_resets_lru_order(self):
+        """Test that clear() resets LRU order tracking."""
+        storage = InMemoryStorage(max_keys=3)
+
+        storage.set("key1", "value1")
+        storage.set("key2", "value2")
+        storage.set("key3", "value3")
+
+        storage.clear()
+
+        # Add 3 new keys after clear
+        storage.set("key4", "value4")
+        storage.set("key5", "value5")
+        storage.set("key6", "value6")
+
+        # Add one more - should evict key4 (first added after clear)
+        storage.set("key7", "value7")
+
+        assert storage.get("key4") is None
+        assert storage.get("key5") == "value5"
+        assert storage.get("key6") == "value6"
+        assert storage.get("key7") == "value7"
+
+    def test_lru_boundary_condition_max_keys_one(self):
+        """Test LRU with max_keys=1 (boundary condition)."""
+        storage = InMemoryStorage(max_keys=1)
+
+        storage.set("key1", "value1")
+        assert storage.get("key1") == "value1"
+
+        # Adding another key should immediately evict the first
+        storage.set("key2", "value2")
+        assert storage.get("key1") is None
+        assert storage.get("key2") == "value2"
+
+        storage.set("key3", "value3")
+        assert storage.get("key2") is None
+        assert storage.get("key3") == "value3"
+
+    def test_lru_memory_exhaustion_attack_prevented(self):
+        """Test that LRU prevents memory exhaustion attacks.
+
+        Simulates an attack where an attacker tries to fill memory with
+        unique rate limit keys. With LRU enabled, memory usage is bounded.
+        """
+        storage = InMemoryStorage(max_keys=100)
+
+        # Simulate attack: try to add 10,000 unique keys
+        for i in range(10000):
+            storage.set(f"attacker_ip_{i}", {"count": 1})
+
+        # Storage should be limited to max_keys
+        stats = storage.get_stats()
+        assert stats["total_keys"] == 100
+        assert stats["total_keys"] <= stats["max_keys"]
+
+        # Early keys should be evicted
+        assert storage.get("attacker_ip_0") is None
+        assert storage.get("attacker_ip_50") is None
+
+        # Recent keys should exist
+        assert storage.get("attacker_ip_9999") is not None
+        assert storage.get("attacker_ip_9900") is not None
+
+    def test_lru_thread_safety_with_eviction(self):
+        """Test that LRU eviction is thread-safe."""
+        import threading
+
+        storage = InMemoryStorage(max_keys=50)
+
+        def writer(thread_id):
+            for i in range(100):
+                storage.set(f"thread{thread_id}_key{i}", f"value{i}")
+
+        def reader(thread_id):
+            for i in range(100):
+                storage.get(f"thread{thread_id}_key{i}")
+
+        threads = []
+        for i in range(5):
+            t1 = threading.Thread(target=writer, args=(i,))
+            t2 = threading.Thread(target=reader, args=(i,))
+            threads.extend([t1, t2])
+
+        for t in threads:
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # Should be limited to max_keys despite concurrent writes
+        stats = storage.get_stats()
+        assert stats["total_keys"] <= 50
+
+        # If we get here without errors, thread safety is working
+        assert True
+
+
 @pytest.mark.skipif(not REDIS_AVAILABLE, reason="redis-py not installed")
 class TestRedisStorage:
     """Tests for RedisStorage with mocked Redis client.

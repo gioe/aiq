@@ -90,23 +90,27 @@ def _create_rate_limit_storage() -> RateLimiterStorage:
                     "Redis not available for rate limiting, falling back to in-memory storage. "
                     "Rate limits will NOT be shared across workers."
                 )
-                return InMemoryStorage()
+                return InMemoryStorage(max_keys=settings.RATE_LIMIT_MAX_KEYS)
         except ImportError:
             logger.warning(
                 "Redis storage configured but redis-py not installed. "
                 "Falling back to in-memory storage. "
                 "Install redis-py with: pip install redis"
             )
-            return InMemoryStorage()
+            return InMemoryStorage(max_keys=settings.RATE_LIMIT_MAX_KEYS)
         except Exception as e:
             logger.warning(
                 f"Failed to initialize Redis storage: {e}. "
                 "Falling back to in-memory storage."
             )
-            return InMemoryStorage()
+            return InMemoryStorage(max_keys=settings.RATE_LIMIT_MAX_KEYS)
     else:
-        logger.info("Rate limiting using in-memory storage")
-        return InMemoryStorage()
+        max_keys = settings.RATE_LIMIT_MAX_KEYS
+        logger.info(
+            f"Rate limiting using in-memory storage "
+            f"(max_keys={max_keys}, LRU={'enabled' if max_keys > 0 else 'disabled'})"
+        )
+        return InMemoryStorage(max_keys=max_keys)
 
 
 @asynccontextmanager

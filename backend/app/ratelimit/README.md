@@ -130,17 +130,38 @@ limiter = RateLimiter(strategy=strategy)
 
 ### In-Memory Storage
 
-**Current implementation**. Thread-safe with automatic cleanup of expired entries.
+**Current implementation**. Thread-safe with automatic cleanup of expired entries and LRU eviction to prevent memory exhaustion.
 
 ```python
 from app.ratelimit import InMemoryStorage
 
-storage = InMemoryStorage(cleanup_interval=60)  # Cleanup every 60 seconds
+# Basic usage with default settings
+storage = InMemoryStorage()
+
+# With custom cleanup interval and max keys
+storage = InMemoryStorage(
+    cleanup_interval=60,  # Cleanup expired entries every 60 seconds
+    max_keys=100000       # Maximum 100k keys (LRU eviction when exceeded)
+)
+
+# Unlimited keys (not recommended for production)
+storage = InMemoryStorage(max_keys=0)  # 0 = unlimited
 ```
+
+**Features**:
+- **TTL-based cleanup**: Expired entries are automatically removed
+- **LRU eviction**: When `max_keys` is exceeded, least recently used entries are evicted
+- **Memory protection**: Prevents memory exhaustion attacks from unique identifiers
+- **Thread-safe**: Safe for concurrent access with RLock
 
 **Limitations**:
 - Data lost on process restart
-- Not suitable for multi-worker deployments
+- Not suitable for multi-worker deployments (each worker has its own memory)
+
+**Recommended Settings**:
+- Development: `max_keys=10000` (10k keys)
+- Production: `max_keys=100000` (100k keys, default)
+- High-traffic: Consider Redis storage instead
 
 ### Redis Storage (Future)
 
