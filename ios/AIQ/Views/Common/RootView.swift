@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Root view that determines whether to show consent, auth flow, onboarding, or main app
 struct RootView: View {
-    @StateObject private var authManager = AuthManager.shared
-    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @ObservedObject private var authManager = AuthManager.shared
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
     @State private var showSplash = true
     @State private var hasAcceptedConsent: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
