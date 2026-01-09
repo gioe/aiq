@@ -149,6 +149,17 @@ actor MockAPIClient: APIClientProtocol {
 
     // MARK: - Helper Methods
 
+    /// Returns the last request body as a JSON dictionary for assertions
+    /// Encodes the body using the same strategy as APIClient (no keyEncodingStrategy)
+    var lastBodyAsDictionary: [String: Any]? {
+        guard let body = lastBody else { return nil }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        // Note: No keyEncodingStrategy set - uses default (matches APIClient)
+        guard let data = try? encoder.encode(AnyEncodable(body)) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
     /// Set response for a specific endpoint
     /// - Parameters:
     ///   - response: The response to return for this endpoint
@@ -247,5 +258,21 @@ actor MockAPIClient: APIClientProtocol {
         } else {
             fatalError("Cannot cast nil to type \(T.self) - type must be Optional")
         }
+    }
+}
+
+// MARK: - AnyEncodable Wrapper
+
+/// Wrapper to encode any Encodable type
+/// Needed because Encodable protocol doesn't conform to itself
+private struct AnyEncodable: Encodable {
+    let wrapped: Encodable
+
+    init(_ wrapped: Encodable) {
+        self.wrapped = wrapped
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try wrapped.encode(to: encoder)
     }
 }
