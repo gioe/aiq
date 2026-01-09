@@ -41,6 +41,149 @@ This report documents code coverage results for the AIQ iOS application after co
 4. **Views have very low coverage** (~10%) - SwiftUI views are largely untested, which is expected
 5. **18 out of 22 View files** with coverage data have 0% coverage - This is acceptable for SwiftUI views
 
+## Risk-Based Prioritization Framework
+
+This report uses a **risk-based prioritization methodology** to identify which coverage gaps should be addressed first. Rather than simply prioritizing files with 0% coverage, we assess files based on their **risk level** combined with their **coverage gap**.
+
+### Why Risk-Based Prioritization?
+
+Traditional coverage reports prioritize files with the lowest coverage percentage. However, this approach has limitations:
+
+- A 0% coverage file containing only constants is less critical than a 60% coverage file handling authentication
+- Security-critical code with *any* coverage gap poses higher risk than utility code with no coverage
+- Not all code paths carry equal weight for application security and data integrity
+
+**Risk-based prioritization ensures testing effort is allocated where it matters most for security, reliability, and user safety.**
+
+### Risk Categories
+
+Files are classified into four risk categories based on their function and security impact:
+
+| Risk Level | Description | Coverage Target | Examples |
+|------------|-------------|-----------------|----------|
+| **Critical** | Security, authentication, validation, sensitive data handling | **100%** | `AuthManager.swift`, `Validators.swift`, `KeychainStorage.swift`, `TokenRefreshInterceptor.swift` |
+| **High** | User data processing, network communication, session management | **95%+** | `APIClient.swift`, `NetworkMonitor.swift`, `NotificationManager.swift`, `PrivacyConsentStorage.swift` |
+| **Medium** | Business logic, state management, analytics | **80%+** | `DashboardViewModel.swift`, `AnalyticsService.swift`, `PerformanceInsights.swift` |
+| **Low** | UI utilities, styling, constants, design system | **60%+** | `ColorPalette.swift`, `Typography.swift`, `DesignSystem.swift` |
+
+### Risk Classification Criteria
+
+Use the following criteria to classify files:
+
+#### Critical Risk Indicators
+- Handles authentication tokens, credentials, or session state
+- Validates user input (email, password, form data)
+- Accesses Keychain or secure storage
+- Manages authorization/permissions
+- Processes sensitive user data (PII, health data)
+
+#### High Risk Indicators
+- Makes network requests to external APIs
+- Processes or transforms user data
+- Manages persistent storage
+- Handles push notifications or user preferences
+- Implements retry/recovery logic
+
+#### Medium Risk Indicators
+- Contains business logic or calculations
+- Manages application state
+- Tracks analytics or metrics
+- Provides user-facing features
+
+#### Low Risk Indicators
+- Defines constants, colors, or typography
+- Contains pure UI styling/extensions
+- Provides developer utilities
+- Has no side effects or state
+
+### Identifying Security-Critical Code Paths
+
+When reviewing code for risk classification, look for these patterns that indicate security-critical functionality:
+
+#### Authentication & Authorization Paths
+```swift
+// Look for these patterns:
+- Token storage/retrieval (Keychain, UserDefaults)
+- Login/logout state management
+- Session validation
+- Permission checks
+- OAuth/JWT handling
+```
+
+**Files to examine:** Any file importing `Security`, `KeychainAccess`, or containing `token`, `auth`, `credential`, `session` in names.
+
+#### Input Validation Paths
+```swift
+// Critical validation points:
+- User registration (email, password strength)
+- Form submission (sanitization)
+- API parameter construction
+- Deep link parsing
+- URL handling
+```
+
+**Files to examine:** Files with `Validator`, `Sanitizer`, or validation functions like `isValid`, `validate`, `check`.
+
+#### Data Flow Paths
+```swift
+// Sensitive data touchpoints:
+- Network request construction (headers, body)
+- Response parsing (credentials in response)
+- Local storage (caching sensitive data)
+- Logging (PII exposure risk)
+```
+
+**Files to examine:** `APIClient`, `NetworkLogger`, `Cache`, `Storage` files and their callers.
+
+#### Error Handling Paths
+```swift
+// Security-relevant error handling:
+- Auth failure responses (don't leak info)
+- Network error recovery (retry with credentials)
+- Crash reporting (PII in stack traces)
+```
+
+**Files to examine:** Error handlers, interceptors, crash reporting integrations.
+
+### Priority Score Calculation
+
+Files are prioritized using a **Priority Score** that combines risk level with coverage gap:
+
+```
+Priority Score = Risk Multiplier × Coverage Gap
+```
+
+| Risk Level | Multiplier |
+|------------|------------|
+| Critical | 4x |
+| High | 3x |
+| Medium | 2x |
+| Low | 1x |
+
+**Coverage Gap** = Target Coverage - Current Coverage
+
+**Example Calculations:**
+
+| File | Risk | Current | Target | Gap | Multiplier | Score |
+|------|------|---------|--------|-----|------------|-------|
+| `AuthManager.swift` | Critical | 34.4% | 100% | 65.6% | 4x | **262.4** |
+| `Validators.swift` | Critical | 0% | 100% | 100% | 4x | **400** |
+| `NetworkMonitor.swift` | High | 85% | 95% | 10% | 3x | **30** |
+| `PerformanceInsights.swift` | Medium | 0% | 80% | 80% | 2x | **160** |
+| `ColorPalette.swift` | Low | 0% | 60% | 60% | 1x | **60** |
+
+**Result:** Even though `PerformanceInsights.swift` has 0% coverage like `ColorPalette.swift`, it has a higher priority score due to its medium risk level. `AuthManager.swift` at 34.4% coverage still ranks high because it's a critical security component.
+
+### Security Alert Threshold
+
+**Files marked with ⚠️ SECURITY ALERT require immediate attention:**
+
+Any **Critical** or **High** risk file with less than its target coverage is flagged:
+- Critical files below 100% coverage: ⚠️ SECURITY ALERT
+- High risk files below 95% coverage: ⚠️ SECURITY ALERT
+
+These files should be prioritized regardless of other coverage gaps in the codebase.
+
 ## Detailed Coverage by Category
 
 ### Models (5 files with coverage data)
@@ -177,66 +320,94 @@ Low view coverage is **expected and acceptable** for SwiftUI projects because:
 
 **Recommendation:** Do not prioritize unit tests for SwiftUI views. Focus on ViewModels and UITests instead.
 
-## Coverage Gaps Analysis
+## Coverage Gaps Analysis (Risk-Based)
 
-### Critical Gaps (Priority 1 - High Impact)
+This section prioritizes coverage gaps using the **Risk-Based Prioritization Framework** defined above. Files are ordered by Priority Score (Risk Multiplier × Coverage Gap), not simply by coverage percentage.
 
-These files contain core business logic that should have comprehensive test coverage:
+### ⚠️ Security Alerts (Immediate Action Required)
 
-1. **Models/PerformanceInsights.swift** - 0% (0/241 lines)
-   - Contains performance analysis logic
-   - Impact: High - Affects user insights and analytics
-   - Recommendation: Add comprehensive unit tests
+These files are security-critical and fall below their required coverage targets:
 
-2. **ViewModels/NotificationSettingsViewModel.swift** - 0% (0/216 lines)
-   - Manages notification preferences
-   - Impact: High - Affects user engagement and retention
-   - Recommendation: Add unit tests for notification logic
+| File | Risk | Coverage | Target | Gap | Score | Status |
+|------|------|----------|--------|-----|-------|--------|
+| **Utilities/Helpers/Validators.swift** | Critical | 0% | 100% | 100% | **400** | ⚠️ SECURITY ALERT |
+| **Services/Auth/AuthManager.swift** | Critical | 34.4% | 100% | 65.6% | **262.4** | ⚠️ SECURITY ALERT |
+| **Services/API/RequestInterceptor.swift** | Critical | 0% | 100% | 100% | **400** | ⚠️ SECURITY ALERT |
+| **Services/Storage/KeychainStorage.swift** | Critical | 81.3% | 100% | 18.7% | **74.8** | ⚠️ SECURITY ALERT |
 
-3. **Services/API/RequestInterceptor.swift** - 0% (0/22 executable lines)
-   - Contains 2 protocol definitions and 3 concrete implementations (51 total lines)
-   - Used by `APIClient.swift` for request interception (ConnectivityInterceptor, LoggingInterceptor)
-   - Impact: High - Affects all API calls
-   - Recommendation: Add unit tests for request/response handling
+**Why these files are critical:**
+- `Validators.swift` - Validates all user input (email, password, name). Insufficient validation testing could allow malformed or malicious input.
+- `AuthManager.swift` - Manages authentication state, token lifecycle, and session security. Untested paths could expose security vulnerabilities.
+- `RequestInterceptor.swift` - Intercepts all API requests. Untested interception logic could leak tokens or mishandle authentication.
+- `KeychainStorage.swift` - Handles secure credential storage. All keychain operations must be thoroughly tested.
 
-4. **Utilities/Helpers/Validators.swift** - 0% (0/45 lines)
-   - Email, password, and input validation
-   - Impact: High - Critical for security and UX
-   - Recommendation: Add comprehensive validation tests
+### Priority 1: Critical Risk Files
 
-### Medium Priority Gaps (Priority 2)
+Files handling authentication, validation, or sensitive data:
 
-Files that would benefit from additional test coverage:
+| File | Risk | Current | Target | Gap | Score | Action |
+|------|------|---------|--------|-----|-------|--------|
+| Validators.swift | Critical | 0% | 100% | 100% | **400** | Add comprehensive validation tests |
+| RequestInterceptor.swift | Critical | 0% | 100% | 100% | **400** | Add request/response handling tests |
+| AuthManager.swift | Critical | 34.4% | 100% | 65.6% | **262.4** | Expand auth state management tests |
+| KeychainStorage.swift | Critical | 81.3% | 100% | 18.7% | **74.8** | Complete remaining edge cases |
+| TokenRefreshInterceptor.swift | Critical | 100% | 100% | 0% | **0** | ✅ Complete |
+| AuthService.swift | Critical | 94.8% | 100% | 5.2% | **20.8** | Minor gaps to close |
 
-1. **Services/Auth/AuthManager.swift** - 34.41% (64/186 lines)
-   - Authentication state management
-   - Recommendation: Increase coverage to 80%+
+### Priority 2: High Risk Files
 
-2. **Services/API/NetworkLogger.swift** - 31.11% (14/45 lines)
-   - Network request/response logging
-   - Recommendation: Test all logging scenarios
+Files handling network communication, user data, or session management:
 
-3. **Models/SavedTestProgress.swift** - 50.00% (5/10 lines)
-   - Test progress persistence
-   - Recommendation: Complete remaining 5 lines
+| File | Risk | Current | Target | Gap | Score | Action |
+|------|------|---------|--------|-----|-------|--------|
+| PrivacyConsentStorage.swift | High | 36.4% | 95% | 58.6% | **175.8** | Expand privacy consent tests |
+| NetworkLogger.swift | High | 31.1% | 95% | 63.9% | **191.7** | Test all logging scenarios |
+| NotificationManager.swift | High | 66.7% | 95% | 28.3% | **84.9** | Complete notification flow tests |
+| APIClient.swift | High | 78.5% | 95% | 16.5% | **49.5** | Close remaining gaps |
+| NetworkMonitor.swift | High | 85% | 95% | 10% | **30** | Test edge cases |
+| RetryPolicy.swift | High | 92.9% | 95% | 2.1% | **6.3** | Minor improvements |
+| DataCache.swift | High | 94.3% | 95% | 0.7% | **2.1** | Nearly complete |
 
-4. **Utilities/Design/Typography.swift** - 13.95% (6/43 lines)
-   - Typography design system
-   - Recommendation: Add tests for font calculations
+### Priority 3: Medium Risk Files
 
-5. **ViewModels/TestTakingViewModel.swift** - 69.57% (448/644 lines)
-   - Core test-taking logic
-   - Recommendation: Increase to 90%+ coverage
+Files containing business logic, state management, or analytics:
 
-### Low Priority Gaps (Priority 3 - Views)
+| File | Risk | Current | Target | Gap | Score | Action |
+|------|------|---------|--------|-----|-------|--------|
+| PerformanceInsights.swift | Medium | 0% | 80% | 80% | **160** | Add performance analysis tests |
+| NotificationSettingsViewModel.swift | Medium | 0% | 80% | 80% | **160** | Add notification preference tests |
+| TestTakingViewModel.swift | Medium | 69.6% | 80% | 10.4% | **20.8** | Expand test-taking logic coverage |
+| HistoryViewModel.swift | Medium | 74.1% | 80% | 5.9% | **11.8** | Minor improvements |
+| DashboardViewModel.swift | Medium | 84.5% | 80% | -4.5% | **0** | ✅ Exceeds target |
+| AnalyticsService.swift | Medium | 83.6% | 80% | -3.6% | **0** | ✅ Exceeds target |
 
-SwiftUI views are difficult to unit test and typically have lower coverage. Consider:
+### Priority 4: Low Risk Files
 
-1. **UI Tests** - Most View files (33 files with 0% coverage) would benefit from UI tests rather than unit tests
-2. **Snapshot Tests** - Consider adding snapshot tests for complex views
-3. **Preview Tests** - Ensure SwiftUI previews compile and render correctly
+UI utilities, styling, and constants (lowest priority for testing):
 
-The following views should be prioritized for UI testing (by usage frequency):
+| File | Risk | Current | Target | Gap | Score | Action |
+|------|------|---------|--------|-----|-------|--------|
+| DesignSystem.swift | Low | 0% | 60% | 60% | **60** | Consider snapshot tests |
+| ColorPalette.swift | Low | 0% | 60% | 60% | **60** | Consider snapshot tests |
+| String+Extensions.swift | Low | 0% | 60% | 60% | **60** | Low priority |
+| Typography.swift | Low | 14% | 60% | 46% | **46** | Low priority |
+| View+Extensions.swift | Low | 0% | 60% | 60% | **60** | Low priority |
+
+**Note:** Low risk files contain mostly constants and styling. Consider snapshot tests for visual regression rather than unit tests.
+
+### SwiftUI Views (Excluded from Risk Scoring)
+
+SwiftUI views are excluded from risk-based scoring because:
+1. Views should contain minimal business logic (delegate to ViewModels)
+2. Views are better tested through UI tests and snapshot tests
+3. SwiftUI view code is difficult to unit test in isolation
+
+**Recommended approach for views:**
+- UI Tests for critical user flows
+- Snapshot tests for visual regression
+- Extract any complex logic to ViewModels or testable helpers
+
+The following views should be prioritized for **UI testing** (by user impact):
 1. TestTakingView.swift - Core test experience
 2. DashboardView.swift - Main app screen
 3. HistoryView.swift - Test history
@@ -245,61 +416,80 @@ The following views should be prioritized for UI testing (by usage frequency):
 
 ## Recommendations
 
-### High Priority (Critical Business Logic - Immediate Action)
+Based on the **Risk-Based Prioritization Framework**, recommendations are ordered by Priority Score rather than coverage percentage alone.
 
-1. **Validators.swift** (0%, 45 executable lines) - **Proposed: BTS-28**
-   - Contains critical email, password, and name validation
-   - Used throughout authentication flows
-   - High security and UX impact
-   - **Target:** 100% coverage
+### Immediate Action Required (Security Alerts)
 
-2. **NotificationSettingsViewModel.swift** (0%, 216 executable lines) - **Proposed: BTS-29**
-   - Manages notification preferences
-   - Affects user engagement and retention
-   - Should follow ViewModel testing patterns
-   - **Target:** 90%+ coverage
+These files have active security alerts and should be addressed before any other coverage work:
 
-3. **RequestInterceptor.swift** (0%, 22 executable lines) - **Proposed: BTS-30**
-   - Critical network layer component
-   - Affects all API calls
-   - **Target:** 90%+ coverage
+1. **Validators.swift** (Score: 400, Critical Risk) - **Proposed: BTS-28**
+   - ⚠️ 0% coverage on input validation logic
+   - Validates email, password, and name throughout auth flows
+   - Security impact: Malformed input could bypass validation
+   - **Target:** 100% coverage (Critical requirement)
 
-4. **PerformanceInsights.swift** (0%, 241 executable lines) - **Proposed: BTS-31**
-   - Complex model with business logic
-   - Used for analytics and insights features
-   - **Target:** 80%+ coverage
+2. **RequestInterceptor.swift** (Score: 400, Critical Risk) - **Proposed: BTS-30**
+   - ⚠️ 0% coverage on request interception
+   - Intercepts all API calls for auth token injection
+   - Security impact: Untested paths could leak credentials
+   - **Target:** 100% coverage (Critical requirement)
 
-### Medium Priority (Improve Existing Coverage)
+3. **AuthManager.swift** (Score: 262.4, Critical Risk) - **Proposed: BTS-32**
+   - ⚠️ Only 34.4% coverage on authentication state
+   - Manages token lifecycle and session security
+   - Security impact: Auth bypass or session fixation risks
+   - **Target:** 100% coverage (Critical requirement)
 
-5. **AuthManager.swift** (34.4% → 80%+) - **Proposed: BTS-32**
-   - Authentication state management
-   - Critical security component
-   - **Target:** 80%+ coverage
+4. **KeychainStorage.swift** (Score: 74.8, Critical Risk) - **Proposed: BTS-36**
+   - ⚠️ 81.3% coverage, but handles secure credential storage
+   - All keychain read/write paths must be tested
+   - Security impact: Credential exposure or storage failures
+   - **Target:** 100% coverage (Critical requirement)
 
-6. **PrivacyConsentStorage.swift** (36.4% → 80%+) - **Proposed: BTS-33**
-   - Privacy compliance is critical
-   - Small file, easy to complete
-   - **Target:** 90%+ coverage
+### High Priority (High Risk Files)
 
-7. **NetworkLogger.swift** (31.1% → 80%+) - **Proposed: BTS-34**
-   - Important for debugging and monitoring
-   - **Target:** 80%+ coverage
+5. **NetworkLogger.swift** (Score: 191.7, High Risk) - **Proposed: BTS-34**
+   - 31.1% coverage on network logging
+   - Could inadvertently log sensitive data
+   - **Target:** 95% coverage
+
+6. **PrivacyConsentStorage.swift** (Score: 175.8, High Risk) - **Proposed: BTS-33**
+   - 36.4% coverage on privacy consent handling
+   - Privacy compliance is legally required
+   - **Target:** 95% coverage
+
+7. **NotificationManager.swift** (Score: 84.9, High Risk) - **Proposed: BTS-37**
+   - 66.7% coverage on notification handling
+   - Handles user preferences and push notifications
+   - **Target:** 95% coverage
+
+### Medium Priority (Business Logic)
+
+8. **PerformanceInsights.swift** (Score: 160, Medium Risk) - **Proposed: BTS-31**
+   - 0% coverage but medium risk (analytics logic)
+   - No security implications, affects user insights
+   - **Target:** 80% coverage
+
+9. **NotificationSettingsViewModel.swift** (Score: 160, Medium Risk) - **Proposed: BTS-29**
+   - 0% coverage but medium risk (UI state)
+   - Manages notification preference UI
+   - **Target:** 80% coverage
 
 ### Low Priority (Design System & Constants)
 
-8. **Design System Files** (0% coverage) - **Proposed: BTS-35 (batch)**
-   - ColorPalette.swift, Typography.swift, DesignSystem.swift
-   - Mostly constants and SwiftUI modifiers
-   - Consider snapshot tests instead of unit tests
-   - **Target:** Snapshot tests for visual regression
+10. **Design System Files** (Score: ~60 each, Low Risk) - **Proposed: BTS-35 (batch)**
+    - ColorPalette.swift, Typography.swift, DesignSystem.swift
+    - Mostly constants and SwiftUI modifiers
+    - Consider snapshot tests instead of unit tests
+    - **Target:** 60% coverage or snapshot tests
 
-### Not Recommended
+### Not Recommended for Unit Testing
 
-**SwiftUI Views** - Do not prioritize unit testing for views:
+**SwiftUI Views** - Excluded from risk scoring:
 - Views should contain minimal logic (delegate to ViewModels)
-- SwiftUI views are covered by UITests
+- SwiftUI views are better covered by UITests
 - Extract any complex logic to ViewModels or testable helpers
-- Focus efforts on ViewModels, Services, and Models instead
+- Focus efforts on security-critical components first
 
 ---
 
@@ -409,25 +599,28 @@ Excellent examples of comprehensive testing:
 - **Utilities/Extensions/Date+Extensions.swift** (30/30)
 - **Views/Onboarding/PrivacyConsentView.swift** (98.7% - 846/857)
 
-### Files with 0% Coverage (28 files)
+### Files with 0% Coverage (28 files) - Risk-Based Classification
 
-**Critical Business Logic (4 files - HIGH PRIORITY):**
-- Models/PerformanceInsights.swift (241 lines)
-- ViewModels/NotificationSettingsViewModel.swift (216 lines)
-- Services/API/RequestInterceptor.swift (22 lines)
-- Utilities/Helpers/Validators.swift (45 lines)
+**⚠️ Critical Risk (Security Alert - Immediate Action):**
+- Utilities/Helpers/Validators.swift (45 lines) - Score: 400
+- Services/API/RequestInterceptor.swift (22 lines) - Score: 400
 
-**Design System (6 files - LOW PRIORITY):**
-- Utilities/Design/ColorPalette.swift (54 lines)
-- Utilities/Design/DesignSystem.swift (145 lines)
-- Utilities/Design/Typography.swift (partial - 14.0%)
-- Utilities/Extensions/View+Extensions.swift (16 lines)
-- Utilities/Extensions/String+Extensions.swift (39 lines)
-- Utilities/Helpers/AccessibilityIdentifiers.swift (1 line)
+**Medium Risk (Business Logic):**
+- Models/PerformanceInsights.swift (241 lines) - Score: 160
+- ViewModels/NotificationSettingsViewModel.swift (216 lines) - Score: 160
 
-**Views (18+ files - EXPECTED):**
+**Low Risk (Design System):**
+- Utilities/Design/ColorPalette.swift (54 lines) - Score: 60
+- Utilities/Design/DesignSystem.swift (145 lines) - Score: 60
+- Utilities/Design/Typography.swift (partial - 14.0%) - Score: 46
+- Utilities/Extensions/View+Extensions.swift (16 lines) - Score: 60
+- Utilities/Extensions/String+Extensions.swift (39 lines) - Score: 60
+- Utilities/Helpers/AccessibilityIdentifiers.swift (1 line) - Score: 60
+
+**Views (18+ files - Excluded from Risk Scoring):**
 - See detailed Views section above
 - Low view coverage is expected for SwiftUI projects
+- Views should be tested via UI tests, not unit tests
 
 ## Appendix: Test Execution Details
 
@@ -494,20 +687,31 @@ Coverage data was extracted and analyzed using:
 - Overall coverage: **26.45%** (AIQ.app target only)
 - Strong coverage in Models, ViewModels, and Services
 - Expected low coverage in SwiftUI Views
-- 4 critical files with 0% coverage identified
 
-**Next Steps:**
-1. Complete high-priority test additions (BTS-28 to BTS-31)
-2. Improve existing coverage (BTS-32 to BTS-34)
-3. Re-run coverage report after test additions
-4. Track coverage trends over time
+**Risk-Based Assessment:**
+- **4 Security Alerts Active:** Validators.swift, RequestInterceptor.swift, AuthManager.swift, KeychainStorage.swift
+- **Total Critical Risk Files:** 6 (2 at 100%, 4 below target)
+- **Total High Risk Files:** 7 (most below 95% target)
+- **Files Prioritized by Risk Score:** Security-critical files now rank higher than 0% coverage utility files
 
-**Target:** Achieve 50% overall coverage after completing recommended test additions.
+**Next Steps (Risk-Prioritized Order):**
+1. ⚠️ **Immediate:** Address security alerts - Validators.swift (BTS-28), RequestInterceptor.swift (BTS-30)
+2. ⚠️ **Immediate:** Complete AuthManager.swift (BTS-32), KeychainStorage.swift (BTS-36) to 100%
+3. **High Priority:** NetworkLogger.swift (BTS-34), PrivacyConsentStorage.swift (BTS-33)
+4. **Medium Priority:** PerformanceInsights.swift (BTS-31), NotificationSettingsViewModel.swift (BTS-29)
+5. Re-run coverage report after test additions
+6. Track coverage trends and risk scores over time
+
+**Targets:**
+- All Critical Risk files: **100% coverage**
+- All High Risk files: **95% coverage**
+- Overall coverage: **50%+** after completing risk-prioritized test additions
 
 ---
 
 **Report Generated:** January 3, 2026
+**Risk Framework Added:** January 9, 2026 (BTS-177)
 **Branch:** feature/BTS-27-code-coverage-report
-**Related Tasks:** BTS-27 (this report), BTS-18 to BTS-26 (completed)
-**Next Review:** After completing BTS-28 to BTS-35
+**Related Tasks:** BTS-27 (original report), BTS-177 (risk-based prioritization), BTS-18 to BTS-26 (completed)
+**Next Review:** After completing security alert items (BTS-28, BTS-30, BTS-32, BTS-36)
 **Maintained By:** iOS Engineering Team
