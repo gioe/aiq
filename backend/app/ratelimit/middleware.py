@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
+from app.core.ip_extraction import get_secure_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -143,26 +144,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         Default identifier resolver using client IP.
 
+        Uses secure IP extraction that only trusts infrastructure-set headers
+        (X-Envoy-External-Address from Railway's Envoy proxy) to prevent
+        IP spoofing attacks that could bypass rate limiting.
+
         Args:
             request: Incoming request
 
         Returns:
             Client IP address
         """
-        # Try to get real IP from headers (for proxies/load balancers)
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip
-
-        # Fall back to client host
-        if request.client:
-            return request.client.host
-
-        return "unknown"
+        return get_secure_client_ip(request)
 
     def _rate_limit_response(self, metadata: dict) -> JSONResponse:
         """
@@ -215,13 +207,14 @@ def get_user_identifier(request: Request) -> str:
     """
     Extract user ID from authenticated request.
 
-    Falls back to IP address if not authenticated.
+    Falls back to IP address if not authenticated. Uses secure IP extraction
+    that only trusts infrastructure-set headers to prevent IP spoofing attacks.
 
     Args:
         request: Incoming request
 
     Returns:
-        User ID or IP address
+        User ID (format: "user:{id}") or IP address (format: "ip:{address}")
     """
     # Try to get user from request state (set by auth middleware)
     if hasattr(request.state, "user") and request.state.user:
@@ -229,16 +222,7 @@ def get_user_identifier(request: Request) -> str:
         if user_id:
             return f"user:{user_id}"
 
-    # Fall back to IP-based identification
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return f"ip:{forwarded.split(',')[0].strip()}"
-
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return f"ip:{real_ip}"
-
-    if request.client:
-        return f"ip:{request.client.host}"
-
-    return "ip:unknown"
+    # Fall back to secure IP-based identification
+    # Uses X-Envoy-External-Address (Railway infrastructure) or request.client.host
+    client_ip = get_secure_client_ip(request)
+    return f"ip:{client_ip}"

@@ -382,6 +382,73 @@ class TestFeedbackRateLimiting:
         data = response.json()["detail"]
         assert "retry_after" in data
 
+    def test_rate_limit_cannot_be_bypassed_with_spoofed_header(self, client):
+        """Test that spoofing X-Forwarded-For cannot bypass rate limiting (BTS-221)."""
+        feedback_data_base = {
+            "name": "Attacker",
+            "email": "attacker@example.com",
+            "category": "bug_report",
+            "description": "Attempting to bypass rate limiting.",
+        }
+
+        # Submit 5 requests without spoofing - should succeed
+        for i in range(5):
+            feedback_data = feedback_data_base.copy()
+            feedback_data["email"] = f"attacker{i}@example.com"
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+            assert response.status_code == 201
+
+        # Try to bypass rate limit by spoofing X-Forwarded-For
+        # This should FAIL because we now ignore X-Forwarded-For
+        feedback_data = feedback_data_base.copy()
+        feedback_data["email"] = "attacker_spoofed@example.com"
+
+        # Attacker tries different IPs to bypass rate limiting
+        spoofed_ips = [
+            "1.2.3.4",
+            "5.6.7.8",
+            "9.10.11.12",
+        ]
+
+        for spoofed_ip in spoofed_ips:
+            headers = {"X-Forwarded-For": spoofed_ip}
+            response = client.post(
+                "/v1/feedback/submit", json=feedback_data, headers=headers
+            )
+            # Should be rate limited (429) because spoofed header is ignored
+            assert (
+                response.status_code == 429
+            ), f"Spoofed IP {spoofed_ip} should not bypass rate limiting"
+
+    def test_rate_limit_with_envoy_header_per_unique_ip(self, client):
+        """Test that rate limiting works correctly with X-Envoy-External-Address."""
+        feedback_data_base = {
+            "name": "Railway User",
+            "email": "railway@example.com",
+            "category": "bug_report",
+            "description": "Testing rate limiting with Envoy header.",
+        }
+
+        # Different real IPs from Railway should have separate rate limits
+        ip_addresses = [
+            "203.0.113.1",
+            "203.0.113.2",
+            "203.0.113.3",
+        ]
+
+        for ip in ip_addresses:
+            # Each IP should be able to submit (not rate limited across IPs)
+            feedback_data = feedback_data_base.copy()
+            feedback_data["email"] = f"user_{ip.replace('.', '_')}@example.com"
+            headers = {"X-Envoy-External-Address": ip}
+
+            response = client.post(
+                "/v1/feedback/submit", json=feedback_data, headers=headers
+            )
+            assert (
+                response.status_code == 201
+            ), f"Different IP {ip} should have its own rate limit"
+
 
 class TestFeedbackHeaderExtraction:
     """Tests for extracting request headers in feedback submission."""
@@ -600,15 +667,41 @@ class TestFeedbackIPAddressCapture:
         # TestClient typically uses 'testclient' as the default client host
         assert isinstance(submission.ip_address, str)
 
-    def test_submit_feedback_respects_x_forwarded_for(self, client, db_session):
-        """Test that X-Forwarded-For header is used for IP when present."""
+    def test_submit_feedback_uses_envoy_header_from_railway(self, client, db_session):
+        """Test that X-Envoy-External-Address header (Railway) is used for IP when present."""
         feedback_data = {
-            "name": "Forwarded IP User",
-            "email": "forwarded@example.com",
+            "name": "Railway IP User",
+            "email": "railway@example.com",
             "category": "bug_report",
-            "description": "Testing X-Forwarded-For IP extraction.",
+            "description": "Testing X-Envoy-External-Address IP extraction.",
         }
 
+        headers = {"X-Envoy-External-Address": "203.0.113.45"}
+        response = client.post(
+            "/v1/feedback/submit", json=feedback_data, headers=headers
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        # Verify Envoy IP is used
+        submission = (
+            db_session.query(FeedbackSubmission)
+            .filter(FeedbackSubmission.id == data["submission_id"])
+            .first()
+        )
+        assert submission.ip_address == "203.0.113.45"
+
+    def test_submit_feedback_ignores_spoofed_x_forwarded_for(self, client, db_session):
+        """Test that X-Forwarded-For is IGNORED (security fix for BTS-221)."""
+        feedback_data = {
+            "name": "Spoofed IP User",
+            "email": "spoofed@example.com",
+            "category": "bug_report",
+            "description": "Testing that X-Forwarded-For cannot be spoofed.",
+        }
+
+        # Attacker tries to bypass rate limiting by spoofing X-Forwarded-For
         headers = {"X-Forwarded-For": "192.168.1.100, 10.0.0.1"}
         response = client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
@@ -617,13 +710,48 @@ class TestFeedbackIPAddressCapture:
         assert response.status_code == 201
         data = response.json()
 
-        # Verify first IP from X-Forwarded-For is used
+        # Verify X-Forwarded-For is NOT used (should use testclient default)
         submission = (
             db_session.query(FeedbackSubmission)
             .filter(FeedbackSubmission.id == data["submission_id"])
             .first()
         )
-        assert submission.ip_address == "192.168.1.100"
+        # Should NOT be the spoofed IP
+        assert submission.ip_address != "192.168.1.100"
+        # Should be the default test client IP
+        assert isinstance(submission.ip_address, str)
+
+    def test_submit_feedback_envoy_takes_priority_over_forwarded_for(
+        self, client, db_session
+    ):
+        """Test that X-Envoy-External-Address takes priority over X-Forwarded-For."""
+        feedback_data = {
+            "name": "Priority Test User",
+            "email": "priority@example.com",
+            "category": "bug_report",
+            "description": "Testing header priority.",
+        }
+
+        # Both headers present - Envoy should win
+        headers = {
+            "X-Envoy-External-Address": "198.51.100.50",
+            "X-Forwarded-For": "192.168.1.100",
+        }
+        response = client.post(
+            "/v1/feedback/submit", json=feedback_data, headers=headers
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        # Verify Envoy IP takes priority
+        submission = (
+            db_session.query(FeedbackSubmission)
+            .filter(FeedbackSubmission.id == data["submission_id"])
+            .first()
+        )
+        assert submission.ip_address == "198.51.100.50"
+        assert submission.ip_address != "192.168.1.100"
 
 
 class TestFeedbackDatabaseErrorHandling:

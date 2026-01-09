@@ -15,6 +15,7 @@ from app.schemas.feedback import (
 )
 from app.core.auth import get_current_user_optional
 from app.core.error_responses import raise_server_error, ErrorMessages
+from app.core.ip_extraction import get_secure_client_ip
 from app.ratelimit.limiter import RateLimiter
 from app.ratelimit.storage import InMemoryStorage
 from app.ratelimit.strategies import TokenBucketStrategy
@@ -37,10 +38,10 @@ feedback_limiter = RateLimiter(
 
 def _get_client_ip(request: Request) -> str:
     """
-    Extract client IP address from request.
+    Extract client IP for rate limiting and logging.
 
-    Checks X-Forwarded-For header first (for proxy/load balancer scenarios),
-    then falls back to direct client IP.
+    Delegates to the shared secure IP extraction utility.
+    See app.core.ip_extraction for security documentation.
 
     Args:
         request: FastAPI request object
@@ -48,18 +49,7 @@ def _get_client_ip(request: Request) -> str:
     Returns:
         Client IP address as string
     """
-    # Check X-Forwarded-For header (used by proxies/load balancers)
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        # X-Forwarded-For can contain multiple IPs, take the first one
-        return forwarded_for.split(",")[0].strip()
-
-    # Fall back to direct client IP
-    if request.client:
-        return request.client.host
-
-    # Default fallback
-    return "unknown"
+    return get_secure_client_ip(request)
 
 
 def _extract_headers(request: Request) -> dict:
