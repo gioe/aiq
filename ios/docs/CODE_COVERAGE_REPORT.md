@@ -755,6 +755,310 @@ Based on current coverage analysis, follow these guidelines:
    - Simple getters/setters without logic
    - Basic property wrappers (@Published, @State)
 
+## Edge Case Testing Recommendations
+
+Files with statistical calculations, mathematical models, or complex business logic require more thorough edge case testing than simple CRUD operations. This section provides systematic guidance for identifying and testing edge cases in complex logic.
+
+### Why Edge Case Testing Matters
+
+Code coverage percentage tells you *which lines executed*, not *which scenarios were tested*. A function can have 100% line coverage while missing critical edge cases:
+
+- A `calculateAverage()` function that crashes on empty arrays
+- A `validateEmail()` function that accepts invalid unicode characters
+- A `NetworkMonitor` that behaves incorrectly during rapid state transitions
+
+**Edge case testing is most critical for files classified as Critical or High risk** in the Risk-Based Prioritization Framework. Security-sensitive code with untested edge cases poses the highest risk to application stability and user data.
+
+### Complex Logic Categories
+
+Files with complex logic fall into four main categories, each with distinct edge case patterns:
+
+| Category | Description | AIQ Examples | Risk Level |
+|----------|-------------|--------------|------------|
+| **Statistical/Mathematical** | Calculations involving aggregations, averages, percentiles, standard deviation | `PerformanceInsights.swift` (lines 130-147) | Medium-High |
+| **Input Validation** | Pattern matching, boundary checking, sanitization | `Validators.swift` (lines 22-35, 51-59) | Critical |
+| **State Machines** | Components with multiple states and transitions | `NetworkMonitor.swift`, `NotificationManager.swift` | High |
+| **Boundary Logic** | Date/time handling, collection operations, numeric limits | `Date+Extensions.swift`, `Number+Extensions.swift` | Medium |
+
+### Edge Case Checklists by Category
+
+#### Statistical/Mathematical Logic
+
+Files containing statistical calculations (mean, median, percentile, standard deviation) require testing of data distribution edge cases.
+
+**Checklist:**
+
+- [ ] **Empty data set**: What happens with 0 elements?
+- [ ] **Single element**: Does the calculation make sense with n=1?
+- [ ] **Two elements**: Minimum for comparative statistics
+- [ ] **Identical values**: All elements have the same value (std dev = 0)
+- [ ] **Extreme outliers**: Values far outside normal range
+- [ ] **Division by zero**: Any divisor that could be zero
+- [ ] **Negative values**: If applicable to the domain
+- [ ] **Integer overflow**: Large sums that could overflow Int
+- [ ] **Floating point precision**: Calculations that accumulate rounding errors
+- [ ] **NaN/Infinity propagation**: Operations that could produce non-finite results
+
+**AIQ Example: `PerformanceInsights.swift`**
+
+```swift
+// File: Models/PerformanceInsights.swift
+// Lines 130-147: calculateConsistency() - Statistical calculation
+
+// Edge cases to test:
+// 1. Empty test history → handled at line 49, returns consistencyScore = 0
+// 2. Single test → guard at line 132 returns 0
+// 3. Two tests with identical scores → std dev = 0, should return 100
+// 4. Tests with extreme score variance → std dev > 15, score could be negative
+// 5. Very large scores → overflow in squaredDifferences calculation?
+
+// Specific edge case test recommendations:
+func testCalculateConsistency_EmptyArray_ReturnsZero()
+func testCalculateConsistency_SingleTest_ReturnsZero()
+func testCalculateConsistency_IdenticalScores_ReturnsHundred()
+func testCalculateConsistency_HighVariance_ReturnsLowScore()
+func testCalculateConsistency_NormalDistribution_ReturnsReasonableScore()
+```
+
+**Lines requiring edge case attention in `PerformanceInsights.swift`:**
+
+| Method | Line | Edge Case Risk | Test Required |
+|--------|------|----------------|---------------|
+| `calculateTrend()` | 94-128 | Empty array, single test, division by zero | ✅ |
+| `calculateConsistency()` | 131-147 | Identical scores, extreme variance | ✅ |
+| `calculateImprovementSinceFirst()` | 182-192 | Division by zero if firstScore = 0 | ⚠️ |
+| `describeRecentPerformance()` | 150-169 | Force unwrap at line 159 with empty array | ⚠️ |
+
+#### Input Validation Logic
+
+Files validating user input require testing of boundary conditions and malformed input.
+
+**Checklist:**
+
+- [ ] **Empty string**: "" and whitespace-only "   "
+- [ ] **Boundary length**: Exactly at min/max character limits
+- [ ] **Off-by-one**: One character below/above limits
+- [ ] **Special characters**: `<>'"&;\/` and other injection vectors
+- [ ] **Unicode edge cases**: Emoji, RTL characters, zero-width joiners
+- [ ] **Null bytes**: `\0` embedded in strings
+- [ ] **Very long input**: 10,000+ characters
+- [ ] **Format variations**: Uppercase, lowercase, mixed case
+- [ ] **Leading/trailing whitespace**: " value " vs "value"
+- [ ] **Control characters**: Tab, newline, carriage return
+
+**AIQ Example: `Validators.swift`**
+
+```swift
+// File: Utilities/Helpers/Validators.swift
+// Lines 22-35: validateEmail() - Email validation
+
+// Edge cases to test:
+// 1. Empty string → handled, returns "Email is required"
+// 2. Whitespace only → depends on isNotEmpty implementation
+// 3. Valid format variations: user@domain.co, user+tag@domain.com
+// 4. Invalid formats: @domain.com, user@, user@domain, user@@domain.com
+// 5. Unicode in local part: üser@domain.com
+// 6. Very long email: 254+ characters (RFC 5321 limit)
+// 7. Special chars: "user.name"@domain.com (quoted local part)
+// 8. Case sensitivity: USER@DOMAIN.COM
+
+// Specific edge case test recommendations:
+func testValidateEmail_EmptyString_ReturnsInvalid()
+func testValidateEmail_WhitespaceOnly_ReturnsInvalid()
+func testValidateEmail_MissingAtSymbol_ReturnsInvalid()
+func testValidateEmail_MissingDomain_ReturnsInvalid()
+func testValidateEmail_DoubleDot_ReturnsInvalid()
+func testValidateEmail_UnicodeCharacters_ValidatesCorrectly()
+func testValidateEmail_MaxLength254_ReturnsValid()
+func testValidateEmail_ExceedsMaxLength_ReturnsInvalid()
+```
+
+**Lines requiring edge case attention in `Validators.swift`:**
+
+| Method | Line | Edge Case Risk | Test Required |
+|--------|------|----------------|---------------|
+| `validateEmail()` | 22-35 | Unicode, length limits, format edge cases | ✅ Critical |
+| `validatePassword()` | 51-59 | Whitespace handling, exactly 8 chars | ✅ Critical |
+| `validateName()` | 73-81 | Unicode names, exactly 2 chars | ✅ |
+| `validatePasswordConfirmation()` | 94-99 | Case sensitivity, whitespace differences | ✅ |
+
+#### State Machine Logic
+
+Files managing state transitions require testing of transition sequences and concurrent access.
+
+**Checklist:**
+
+- [ ] **Initial state**: Correct state before any transitions
+- [ ] **All valid transitions**: Every allowed state→state path
+- [ ] **Invalid transitions**: Attempts to transition to disallowed states
+- [ ] **Rapid transitions**: Quick succession of state changes
+- [ ] **Concurrent transitions**: Multiple threads changing state
+- [ ] **Transition during transition**: State change while processing another
+- [ ] **Edge state persistence**: State survives app lifecycle events
+- [ ] **Timeout boundaries**: Behavior at exact timeout thresholds
+- [ ] **Recovery from invalid state**: Graceful handling of corruption
+- [ ] **Observer notification timing**: Observers notified in correct order
+
+**AIQ Example: `NetworkMonitor.swift`**
+
+```swift
+// File: Services/API/NetworkMonitor.swift
+// Lines 32-39: startMonitoring() - State transitions
+
+// Edge cases to test:
+// 1. Initial state before monitoring starts
+// 2. Rapid connect/disconnect cycles (network flapping)
+// 3. State change during app background/foreground transition
+// 4. Multiple startMonitoring() calls
+// 5. stopMonitoring() when not monitoring
+// 6. connectionType changes while isConnected remains true
+// 7. Thread safety of @Published property updates
+
+// Specific edge case test recommendations:
+func testNetworkMonitor_InitialState_IsConnectedTrue()
+func testNetworkMonitor_RapidStateChanges_HandlesCorrectly()
+func testNetworkMonitor_MultipleStartCalls_DoesNotDuplicate()
+func testNetworkMonitor_StopWhenNotStarted_DoesNotCrash()
+func testNetworkMonitor_ConnectionTypeChange_UpdatesCorrectly()
+```
+
+**Lines requiring edge case attention in `NetworkMonitor.swift`:**
+
+| Method | Line | Edge Case Risk | Test Required |
+|--------|------|----------------|---------------|
+| `startMonitoring()` | 32-39 | Multiple calls, thread safety | ✅ |
+| `stopMonitoring()` | 42-44 | Stop when not started | ✅ |
+| `updateConnectionType()` | 46-56 | Unknown interface types | ✅ |
+
+#### Boundary Logic
+
+Files handling boundaries (dates, numbers, collections) require testing at exact boundary values.
+
+**Checklist:**
+
+- [ ] **Minimum value**: Smallest valid input
+- [ ] **Maximum value**: Largest valid input
+- [ ] **Off-by-one below minimum**: min - 1
+- [ ] **Off-by-one above maximum**: max + 1
+- [ ] **Zero**: Often a special case
+- [ ] **Negative values**: If domain allows
+- [ ] **Empty collection**: Array/Dictionary with 0 elements
+- [ ] **Single element collection**: n = 1
+- [ ] **Date boundaries**: Midnight, month end, year end, leap years
+- [ ] **Timezone edge cases**: DST transitions, UTC vs local
+- [ ] **Epoch boundaries**: Dates near 1970, 2038 (32-bit), far future
+
+**Example patterns:**
+
+```swift
+// Testing boundary conditions
+func testOffByOne_BelowMinimum() {
+    // Given: Input at minimum - 1
+    let input = minimumValue - 1
+
+    // When: Validation is performed
+    let result = validate(input)
+
+    // Then: Should be invalid
+    XCTAssertFalse(result.isValid)
+}
+
+func testExactlyAtBoundary() {
+    // Given: Input exactly at minimum
+    let input = minimumValue
+
+    // When: Validation is performed
+    let result = validate(input)
+
+    // Then: Should be valid
+    XCTAssertTrue(result.isValid)
+}
+```
+
+### Identifying Complex Logic in Your Files
+
+Use this decision tree to determine which edge case category applies to your file:
+
+```
+Does the file contain calculations with aggregations (sum, average, count)?
+├── YES → Statistical/Mathematical Logic
+│         Review: Empty arrays, single elements, division by zero
+│
+└── NO → Does the file validate user input or external data?
+         ├── YES → Input Validation Logic
+         │         Review: Empty strings, boundary lengths, special characters
+         │
+         └── NO → Does the file manage state with multiple possible values?
+                  ├── YES → State Machine Logic
+                  │         Review: All transitions, rapid changes, concurrency
+                  │
+                  └── NO → Does the file handle dates, numbers, or collections with limits?
+                           ├── YES → Boundary Logic
+                           │         Review: Min/max values, off-by-one, empty collections
+                           │
+                           └── NO → Standard testing practices apply
+                                    (see Testing Best Practices section above)
+```
+
+### Files Requiring Edge Case Analysis
+
+Based on current coverage data and complexity analysis, these files require systematic edge case testing:
+
+| File | Category | Coverage | Priority Score | Edge Cases Identified |
+|------|----------|----------|----------------|----------------------|
+| `PerformanceInsights.swift` | Statistical | 0% | 160 | 12+ (see checklist above) |
+| `Validators.swift` | Validation | 0% | 400 | 20+ (see checklist above) |
+| `NetworkMonitor.swift` | State Machine | 85% | 30 | 6+ (see checklist above) |
+| `AuthManager.swift` | State Machine | 34.4% | 262.4 | Auth state transitions |
+| `RetryPolicy.swift` | Boundary | 92.9% | 6.3 | Retry count boundaries |
+| `Date+Extensions.swift` | Boundary | 100% | 0 | ✅ Covered |
+
+### Edge Case Coverage Evaluation Checklist
+
+When reviewing tests for a file with complex logic, verify:
+
+#### Pre-Test Checklist
+
+- [ ] **Category identified**: Which complex logic category does this file fall into?
+- [ ] **Edge cases documented**: Have all relevant edge cases from the category checklist been identified?
+- [ ] **Priority assessed**: Does the file's risk level justify comprehensive edge case testing?
+
+#### Test Implementation Checklist
+
+- [ ] **Boundary conditions tested**: Min, max, and off-by-one values
+- [ ] **Empty/null inputs tested**: Empty strings, arrays, nil optionals
+- [ ] **Error paths tested**: All error conditions have explicit test cases
+- [ ] **State transitions tested**: All valid and invalid state changes (for state machines)
+- [ ] **Concurrent access tested**: Thread safety verified if applicable
+
+#### Post-Test Verification
+
+- [ ] **No force unwraps in production code**: Test edge cases that could cause crashes
+- [ ] **Division by zero protected**: All divisors validated before use
+- [ ] **Array access protected**: Index bounds checked before access
+- [ ] **Overflow protected**: Large value calculations verified
+
+### Integration with Risk-Based Prioritization
+
+Edge case testing effort should align with the Risk-Based Prioritization Framework:
+
+| Risk Level | Edge Case Testing Requirement |
+|------------|------------------------------|
+| **Critical** | All edge cases from applicable category checklist must be tested |
+| **High** | Most edge cases tested; may skip low-probability scenarios |
+| **Medium** | Key edge cases tested; focus on likely failure modes |
+| **Low** | Basic edge cases only; empty input and boundary values |
+
+**Example prioritization:**
+
+`Validators.swift` is **Critical Risk** (input validation) with **0% coverage**:
+- **Required**: All 20+ edge cases from Input Validation checklist
+- **Focus**: Security-relevant edge cases (injection, unicode, length limits)
+
+`PerformanceInsights.swift` is **Medium Risk** (business logic) with **0% coverage**:
+- **Required**: Key statistical edge cases (empty array, single element, division by zero)
+- **Optional**: Extreme outlier and overflow testing (lower probability)
+
 ## Testing Standards Compliance
 
 Code coverage percentage alone does not guarantee test quality. Tests must also follow documented standards from [CODING_STANDARDS.md](./CODING_STANDARDS.md) to ensure consistency, maintainability, and reliability.
@@ -1078,7 +1382,8 @@ Coverage data was extracted and analyzed using:
 **Report Generated:** January 3, 2026
 **Risk Framework Added:** January 9, 2026 (BTS-177)
 **Accessibility Coverage Added:** January 9, 2026 (BTS-174)
+**Edge Case Testing Guidance Added:** January 9, 2026 (BTS-176)
 **Branch:** feature/BTS-27-code-coverage-report
-**Related Tasks:** BTS-27 (original report), BTS-177 (risk-based prioritization), BTS-174 (accessibility coverage), BTS-18 to BTS-26 (completed)
+**Related Tasks:** BTS-27 (original report), BTS-177 (risk-based prioritization), BTS-174 (accessibility coverage), BTS-176 (edge case testing guidance), BTS-18 to BTS-26 (completed)
 **Next Review:** After completing security alert items (BTS-28, BTS-30, BTS-32, BTS-36)
 **Maintained By:** iOS Engineering Team
