@@ -640,16 +640,16 @@ class TestFeedbackSQLInjectionPrevention:
         assert "I would like to see" in submission.description
 
 
-class TestFeedbackIPAddressCapture:
-    """Tests for IP address capture in feedback submission."""
+class TestFeedbackIPAddressNotStored:
+    """Tests verifying IP addresses are NOT stored for privacy compliance."""
 
-    def test_submit_feedback_captures_ip_address(self, client, db_session):
-        """Test that IP address is captured from request."""
+    def test_submit_feedback_does_not_store_ip_address(self, client, db_session):
+        """Test that IP address is NOT stored in database (privacy compliance)."""
         feedback_data = {
-            "name": "IP Test User",
-            "email": "iptest@example.com",
+            "name": "Privacy User",
+            "email": "privacy@example.com",
             "category": "bug_report",
-            "description": "Testing IP address capture.",
+            "description": "Testing that IP addresses are not persisted.",
         }
 
         response = client.post("/v1/feedback/submit", json=feedback_data)
@@ -657,23 +657,23 @@ class TestFeedbackIPAddressCapture:
         assert response.status_code == 201
         data = response.json()
 
-        # Verify IP address in database
+        # Verify IP address is NULL in database
         submission = (
             db_session.query(FeedbackSubmission)
             .filter(FeedbackSubmission.id == data["submission_id"])
             .first()
         )
-        assert submission.ip_address is not None
-        # TestClient typically uses 'testclient' as the default client host
-        assert isinstance(submission.ip_address, str)
+        assert submission.ip_address is None
 
-    def test_submit_feedback_uses_envoy_header_from_railway(self, client, db_session):
-        """Test that X-Envoy-External-Address header (Railway) is used for IP when present."""
+    def test_submit_feedback_with_envoy_header_still_not_stored(
+        self, client, db_session
+    ):
+        """Test that IP address from X-Envoy-External-Address is NOT stored."""
         feedback_data = {
-            "name": "Railway IP User",
+            "name": "Railway User",
             "email": "railway@example.com",
             "category": "bug_report",
-            "description": "Testing X-Envoy-External-Address IP extraction.",
+            "description": "Testing IP not stored even with Envoy header.",
         }
 
         headers = {"X-Envoy-External-Address": "203.0.113.45"}
@@ -684,74 +684,13 @@ class TestFeedbackIPAddressCapture:
         assert response.status_code == 201
         data = response.json()
 
-        # Verify Envoy IP is used
+        # Verify IP is still NULL even when header is present
         submission = (
             db_session.query(FeedbackSubmission)
             .filter(FeedbackSubmission.id == data["submission_id"])
             .first()
         )
-        assert submission.ip_address == "203.0.113.45"
-
-    def test_submit_feedback_ignores_spoofed_x_forwarded_for(self, client, db_session):
-        """Test that X-Forwarded-For is IGNORED (security fix for BTS-221)."""
-        feedback_data = {
-            "name": "Spoofed IP User",
-            "email": "spoofed@example.com",
-            "category": "bug_report",
-            "description": "Testing that X-Forwarded-For cannot be spoofed.",
-        }
-
-        # Attacker tries to bypass rate limiting by spoofing X-Forwarded-For
-        headers = {"X-Forwarded-For": "192.168.1.100, 10.0.0.1"}
-        response = client.post(
-            "/v1/feedback/submit", json=feedback_data, headers=headers
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-
-        # Verify X-Forwarded-For is NOT used (should use testclient default)
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
-        )
-        # Should NOT be the spoofed IP
-        assert submission.ip_address != "192.168.1.100"
-        # Should be the default test client IP
-        assert isinstance(submission.ip_address, str)
-
-    def test_submit_feedback_envoy_takes_priority_over_forwarded_for(
-        self, client, db_session
-    ):
-        """Test that X-Envoy-External-Address takes priority over X-Forwarded-For."""
-        feedback_data = {
-            "name": "Priority Test User",
-            "email": "priority@example.com",
-            "category": "bug_report",
-            "description": "Testing header priority.",
-        }
-
-        # Both headers present - Envoy should win
-        headers = {
-            "X-Envoy-External-Address": "198.51.100.50",
-            "X-Forwarded-For": "192.168.1.100",
-        }
-        response = client.post(
-            "/v1/feedback/submit", json=feedback_data, headers=headers
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-
-        # Verify Envoy IP takes priority
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
-        )
-        assert submission.ip_address == "198.51.100.50"
-        assert submission.ip_address != "192.168.1.100"
+        assert submission.ip_address is None
 
 
 class TestFeedbackDatabaseErrorHandling:

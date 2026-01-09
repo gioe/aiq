@@ -156,6 +156,8 @@ async def submit_feedback(
     headers = _extract_headers(request)
 
     # Create feedback submission
+    # Note: IP address extraction still used for rate limiting but NOT persisted
+    # to comply with privacy policy (no IP-based location data collection)
     feedback_submission = FeedbackSubmission(
         user_id=current_user.id if current_user else None,
         name=feedback_data.name,
@@ -165,7 +167,6 @@ async def submit_feedback(
         app_version=headers["app_version"],
         ios_version=headers["ios_version"],
         device_id=headers["device_id"],
-        ip_address=client_ip,
     )
 
     try:
