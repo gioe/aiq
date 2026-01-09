@@ -59,6 +59,7 @@ struct InfoCard: View {
             y: DesignSystem.Shadow.sm.y
         )
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(description)")
     }
 }
 

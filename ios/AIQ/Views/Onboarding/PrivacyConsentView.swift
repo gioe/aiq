@@ -198,6 +198,7 @@ struct PrivacyConsentView: View {
             y: DesignSystem.Shadow.sm.y
         )
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(description)")
     }
 
     // MARK: - Actions
