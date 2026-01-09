@@ -145,6 +145,13 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(lastEndpoint, .login, "Should call login endpoint")
         XCTAssertEqual(lastMethod, .post, "Should use POST method")
         XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for login")
+
+        // Verify request body contains correct fields
+        let requestBody = await mockAPIClient.lastBodyAsDictionary
+        XCTAssertNotNil(requestBody, "Login request should have a body")
+        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
+        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
+
         XCTAssertEqual(response.accessToken, "access_token_123")
         XCTAssertEqual(response.refreshToken, "refresh_token_456")
         XCTAssertEqual(response.user.id, 1)
@@ -307,6 +314,19 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(lastEndpoint, .register, "Should call register endpoint")
         XCTAssertEqual(lastMethod, .post, "Should use POST method")
         XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for registration")
+
+        // Verify request body contains correct fields (with snake_case conversion)
+        let requestBody = await mockAPIClient.lastBodyAsDictionary
+        XCTAssertNotNil(requestBody, "Register request should have a body")
+        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
+        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
+        XCTAssertEqual(requestBody?["first_name"] as? String, firstName, "Request body should contain first_name")
+        XCTAssertEqual(requestBody?["last_name"] as? String, lastName, "Request body should contain last_name")
+        XCTAssertEqual(requestBody?["birth_year"] as? Int, birthYear, "Request body should contain birth_year")
+        XCTAssertEqual(requestBody?["education_level"] as? String, educationLevel.rawValue, "Request body should contain education_level")
+        XCTAssertEqual(requestBody?["country"] as? String, country, "Request body should contain country")
+        XCTAssertEqual(requestBody?["region"] as? String, region, "Request body should contain region")
+
         XCTAssertEqual(response.accessToken, "new_access_token")
         XCTAssertEqual(response.user.id, 2)
 
@@ -368,6 +388,19 @@ final class AuthServiceTests: XCTestCase {
         )
 
         // Then
+        // Verify request body contains only required fields
+        let requestBody = await mockAPIClient.lastBodyAsDictionary
+        XCTAssertNotNil(requestBody, "Register request should have a body")
+        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
+        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
+        XCTAssertEqual(requestBody?["first_name"] as? String, firstName, "Request body should contain first_name")
+        XCTAssertEqual(requestBody?["last_name"] as? String, lastName, "Request body should contain last_name")
+        // Verify optional fields are omitted (not present in JSON, not sent as null)
+        XCTAssertNil(requestBody?["birth_year"], "birth_year should be omitted when nil")
+        XCTAssertNil(requestBody?["education_level"], "education_level should be omitted when nil")
+        XCTAssertNil(requestBody?["country"], "country should be omitted when nil")
+        XCTAssertNil(requestBody?["region"], "region should be omitted when nil")
+
         XCTAssertEqual(response.accessToken, "minimal_access_token")
         XCTAssertEqual(response.user.id, 3)
         XCTAssertNil(response.user.birthYear)
@@ -621,6 +654,10 @@ final class AuthServiceTests: XCTestCase {
             "Bearer \(oldRefreshToken)",
             "Should send refresh token in Authorization header"
         )
+
+        // Verify request body is nil (refresh token sent in header, not body)
+        let lastBody = await mockAPIClient.lastBody
+        XCTAssertNil(lastBody, "Refresh token request should not have a body (token is in header)")
 
         XCTAssertEqual(response.accessToken, "new_access_token")
         XCTAssertEqual(response.refreshToken, "new_refresh_token")
