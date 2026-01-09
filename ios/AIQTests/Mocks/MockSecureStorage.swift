@@ -16,6 +16,10 @@ class MockSecureStorage: SecureStorageProtocol {
     var shouldThrowOnDelete = false
     var shouldThrowOnDeleteAll = false
 
+    /// Per-key failure configuration for testing partial storage failures
+    /// Maps storage keys to whether they should fail on save
+    var shouldThrowOnSaveForKeys: [String: Bool] = [:]
+
     // MARK: - Initialization
 
     init() {}
@@ -25,6 +29,12 @@ class MockSecureStorage: SecureStorageProtocol {
     func save(_ value: String, forKey key: String) throws {
         saveCalled = true
 
+        // Check per-key failure configuration first
+        if let shouldThrow = shouldThrowOnSaveForKeys[key], shouldThrow {
+            throw MockSecureStorageError.saveFailed
+        }
+
+        // Fall back to blanket failure flag
         if shouldThrowOnSave {
             throw MockSecureStorageError.saveFailed
         }
@@ -74,10 +84,19 @@ class MockSecureStorage: SecureStorageProtocol {
         shouldThrowOnRetrieve = false
         shouldThrowOnDelete = false
         shouldThrowOnDeleteAll = false
+        shouldThrowOnSaveForKeys.removeAll()
     }
 
     func hasValue(forKey key: String) -> Bool {
         storage[key] != nil
+    }
+
+    /// Configure per-key save failure for testing partial storage failures
+    /// - Parameters:
+    ///   - key: The storage key that should fail
+    ///   - shouldThrow: Whether the save should throw an error for this key
+    func setShouldThrowOnSave(forKey key: String, _ shouldThrow: Bool) {
+        shouldThrowOnSaveForKeys[key] = shouldThrow
     }
 }
 
