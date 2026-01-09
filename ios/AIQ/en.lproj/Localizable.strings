@@ -638,3 +638,6 @@
 "error.keychain.save.failed" = "Failed to save to keychain (status: %d)";
 "error.keychain.retrieval.failed" = "Failed to retrieve from keychain (status: %d)";
 "error.keychain.deletion.failed" = "Failed to delete from keychain (status: %d)";
+
+// MARK: - Service Errors - Notification
+"error.notification.empty.device.token" = "Device token cannot be empty";
