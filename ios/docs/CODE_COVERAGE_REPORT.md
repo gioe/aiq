@@ -536,6 +536,187 @@ After completing the recommended test additions, estimated coverage:
    - Set quarterly coverage improvement goals
    - Review coverage reports in sprint retrospectives
 
+## Accessibility Testing Coverage
+
+Code coverage reports traditionally focus only on unit test coverage. However, per [CODING_STANDARDS.md](./CODING_STANDARDS.md#accessibility), VoiceOver testing is a **required practice** for all SwiftUI views. This section tracks accessibility testing compliance to ensure the app is usable for all users.
+
+### Why Track Accessibility Coverage?
+
+- **App Store Requirement**: Apple requires accessibility compliance for App Store approval
+- **Legal Compliance**: ADA and similar regulations require accessible software
+- **User Impact**: ~15% of the global population has some form of disability
+- **Quality Indicator**: Accessibility coverage demonstrates thorough testing beyond code execution
+
+### Accessibility Metrics Overview
+
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| **Views with VoiceOver Support** | TBD | 100% of interactive views | 🟡 In Progress |
+| **Views with Accessibility Identifiers** | TBD | 100% of interactive views | 🟡 In Progress |
+| **Critical/High Issues Resolved** | TBD | 0 open issues | 🟡 In Progress |
+| **Reusable Components Compliant** | 8/8 | 8/8 | 🟢 Complete |
+
+**Note:** Update these metrics when running a fresh VoiceOver audit. See [VOICEOVER_AUDIT.md](./VOICEOVER_AUDIT.md) for the latest audit results.
+
+### Accessibility Coverage by View Category
+
+Based on the most recent [VoiceOver Audit](./VOICEOVER_AUDIT.md):
+
+| Category | Views | Excellent | Good | Medium | Critical |
+|----------|-------|-----------|------|--------|----------|
+| **Authentication** | 2 | 0 | 0 | 2 | 0 |
+| **Main App** | 3 | 0 | 2 | 1 | 0 |
+| **Test Taking** | 5 | 2 | 1 | 1 | 1 |
+| **Results & History** | 2 | 0 | 2 | 0 | 0 |
+| **Onboarding** | 1 | 0 | 0 | 1 | 0 |
+| **Reusable Components** | 8 | 6 | 0 | 0 | 2 |
+| **Total** | 21 | 8 | 5 | 5 | 3 |
+
+### Accessibility Audit Severity Levels
+
+| Severity | Description | App Store Impact | Count |
+|----------|-------------|------------------|-------|
+| 🔴 **Critical** | Screen unusable with VoiceOver | Likely rejection | TBD |
+| 🟠 **High** | Major functionality impaired | Possible rejection | TBD |
+| 🟡 **Medium** | Suboptimal experience | May pass but poor UX | TBD |
+| 🟢 **Low** | Minor enhancement opportunity | Will pass | TBD |
+
+### What Accessibility Metrics to Track
+
+#### 1. VoiceOver Element Coverage
+
+Track which views have proper VoiceOver support:
+
+| Requirement | Description | How to Measure |
+|-------------|-------------|----------------|
+| **accessibilityLabel** | All interactive elements have descriptive labels | Grep for `.accessibilityLabel` in View files |
+| **accessibilityHint** | Non-obvious interactions have hints | Grep for `.accessibilityHint` in interactive elements |
+| **accessibilityElement(children:)** | Related content is grouped | Grep for `.accessibilityElement(children:` |
+| **accessibilityHidden** | Decorative elements are hidden | Grep for `.accessibilityHidden(true)` |
+| **accessibilityAddTraits** | Proper traits applied | Grep for `.accessibilityAddTraits` |
+
+#### 2. Accessibility Identifier Coverage
+
+Track which views have identifiers for automated UI testing:
+
+| File Type | Expected Pattern | How to Measure |
+|-----------|------------------|----------------|
+| **Views** | All buttons, text fields, interactive elements | Count elements with `.accessibilityIdentifier` |
+| **Custom Controls** | All custom interactive components | Audit `Views/Common/` directory |
+| **Test Flows** | Critical user journey elements | Verify against UI test requirements |
+
+#### 3. Dynamic Type Support
+
+Track which views properly support Dynamic Type scaling:
+
+| Requirement | Description | How to Verify |
+|-------------|-------------|---------------|
+| **Typography system usage** | All text uses `Typography.*` constants | Grep for `Font.system(size:` (should be 0) |
+| **No fixed heights** | Text containers don't truncate at large sizes | Visual audit at AX5 size |
+| **Scrollable content** | Long content is scrollable | Test at XXXL and AX5 sizes |
+
+#### 4. Touch Target Compliance
+
+Track which interactive elements meet 44x44pt minimum:
+
+| Component Type | Requirement | How to Verify |
+|----------------|-------------|---------------|
+| **Buttons** | minHeight: 44 | Audit button implementations |
+| **Icon buttons** | Use `IconButton` component | Grep for icon-only buttons |
+| **List rows** | Built-in 44pt compliance | SwiftUI List handles this |
+
+### Measuring Accessibility Coverage
+
+#### Automated Checks
+
+Run these commands to measure accessibility implementation:
+
+```bash
+# Count files with accessibility labels
+grep -r "\.accessibilityLabel" ios/AIQ/Views/ | wc -l
+
+# Count files with accessibility hints
+grep -r "\.accessibilityHint" ios/AIQ/Views/ | wc -l
+
+# Count files with element combining
+grep -r "\.accessibilityElement(children:" ios/AIQ/Views/ | wc -l
+
+# Count files with accessibility identifiers
+grep -r "\.accessibilityIdentifier" ios/AIQ/Views/ | wc -l
+
+# Find hardcoded font sizes (should be 0)
+grep -r "Font.system(size:" ios/AIQ/ | grep -v "Test" | wc -l
+```
+
+#### Manual VoiceOver Audit
+
+Per [CODING_STANDARDS.md](./CODING_STANDARDS.md#accessibility-testing), test with:
+
+1. **VoiceOver enabled** - Navigate through each screen
+2. **Dynamic Type sizes** - Test at M, XL, XXXL, AX5
+3. **Light and dark modes** - Verify contrast and visibility
+4. **Reduced motion** - Test animation-free experience
+5. **RTL languages** - Test layout mirroring (if supporting Arabic/Hebrew)
+
+#### UI Test Verification
+
+```swift
+// Example accessibility UI test
+func testAccessibilityLabels() {
+    let app = XCUIApplication()
+    app.launch()
+
+    // Verify key elements have accessibility labels
+    XCTAssertTrue(app.buttons["signInButton"].exists)
+    XCTAssertTrue(app.textFields["emailTextField"].exists)
+    XCTAssertTrue(app.secureTextFields["passwordTextField"].exists)
+}
+```
+
+### Current Accessibility Issues
+
+Based on [VOICEOVER_AUDIT.md](./VOICEOVER_AUDIT.md), these issues require attention:
+
+#### 🔴 Critical Issues (Must Fix Before App Store)
+
+| Issue | View | Description | Ticket |
+|-------|------|-------------|--------|
+| Timer inaccessible | TestTimerView.swift | VoiceOver users cannot know remaining time | TBD |
+| Loading overlay silent | LoadingOverlay.swift | VoiceOver users don't know loading is happening | TBD |
+
+#### 🟠 High Priority Issues
+
+| Issue | View | Description | Ticket |
+|-------|------|-------------|--------|
+| Education dropdown | RegistrationView.swift | Menu picker lacks proper accessibility label | TBD |
+| Progress not announced | TestProgressView.swift | VoiceOver users don't get progress information | TBD |
+| Chart inaccessible | IQTrendChart | Chart needs accessibility audit | TBD |
+
+#### 🟡 Medium Priority Issues
+
+| Issue | View | Description |
+|-------|------|-------------|
+| FeatureCard not combined | WelcomeView.swift | Cards should use `accessibilityElement(children: .combine)` |
+| RegistrationBenefitCard not combined | RegistrationView.swift | Cards should combine icon, title, description |
+| HistoryStatCard not combined | HistoryView.swift | Stat cards need accessibility combining |
+| TestCard components not combined | DashboardView.swift | Card sections should be combined |
+| privacyPointCard not combined | PrivacyConsentView.swift | Privacy points should combine elements |
+
+### Accessibility Coverage Goals
+
+| Milestone | Target | Status |
+|-----------|--------|--------|
+| **App Store Ready** | All Critical + High issues resolved | 🟡 In Progress |
+| **Good Experience** | All Medium issues resolved | ⏳ Not Started |
+| **Excellent Experience** | All Low issues resolved | ⏳ Not Started |
+
+### References
+
+- **[VOICEOVER_AUDIT.md](./VOICEOVER_AUDIT.md)** - Detailed VoiceOver audit results
+- **[CODING_STANDARDS.md#accessibility](./CODING_STANDARDS.md#accessibility)** - Accessibility implementation standards
+- **[Apple Accessibility Guidelines](https://developer.apple.com/accessibility/)** - Official Apple documentation
+- **[WCAG 2.1 Guidelines](https://www.w3.org/TR/WCAG21/)** - Web Content Accessibility Guidelines
+
 ## Testing Best Practices
 
 Based on current coverage analysis, follow these guidelines:
@@ -896,8 +1077,8 @@ Coverage data was extracted and analyzed using:
 
 **Report Generated:** January 3, 2026
 **Risk Framework Added:** January 9, 2026 (BTS-177)
-**Standards Compliance Added:** January 9, 2026 (BTS-175)
+**Accessibility Coverage Added:** January 9, 2026 (BTS-174)
 **Branch:** feature/BTS-27-code-coverage-report
-**Related Tasks:** BTS-27 (original report), BTS-177 (risk-based prioritization), BTS-175 (standards compliance), BTS-18 to BTS-26 (completed)
+**Related Tasks:** BTS-27 (original report), BTS-177 (risk-based prioritization), BTS-174 (accessibility coverage), BTS-18 to BTS-26 (completed)
 **Next Review:** After completing security alert items (BTS-28, BTS-30, BTS-32, BTS-36)
 **Maintained By:** iOS Engineering Team
