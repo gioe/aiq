@@ -755,6 +755,191 @@ Based on current coverage analysis, follow these guidelines:
    - Simple getters/setters without logic
    - Basic property wrappers (@Published, @State)
 
+## Testing Standards Compliance
+
+Code coverage percentage alone does not guarantee test quality. Tests must also follow documented standards from [CODING_STANDARDS.md](./CODING_STANDARDS.md) to ensure consistency, maintainability, and reliability.
+
+### Why Standards Compliance Matters
+
+- **Coverage without quality is meaningless**: 100% coverage with poorly structured tests provides false confidence
+- **Consistent patterns reduce maintenance burden**: Following established patterns makes tests easier to understand and modify
+- **Flaky tests erode trust**: Improper async handling and synchronization cause intermittent failures
+- **Assertions must be diagnostic**: Tests that fail without clear messages waste debugging time
+
+### Referenced Standards
+
+The following sections from [CODING_STANDARDS.md](./CODING_STANDARDS.md#testing) should be followed when writing or reviewing tests:
+
+| Standard | CODING_STANDARDS.md Section | Key Requirements |
+|----------|----------------------------|------------------|
+| **SUT Pattern** | [Unit Testing ViewModels](#unit-testing-viewmodels) | Use `sut` variable naming, proper setUp/tearDown |
+| **Test Organization** | [Test File Organization](#test-file-organization) | Mirror app structure, use `Tests` suffix |
+| **Given/When/Then** | [Unit Testing ViewModels](#unit-testing-viewmodels) | Structure test bodies clearly |
+| **Async Testing** | [Async Test Synchronization Patterns](#async-test-synchronization-patterns) | Use `waitForCondition`, never `Task.sleep()` for sync |
+| **Mocking** | [Mocking](#mocking) | Protocol-based mocks in `AIQTests/Mocks/` |
+| **Test Naming** | [Test Naming](#test-naming) | `test<Method>_<Scenario>_<ExpectedBehavior>` |
+| **Diagnostic Assertions** | [Assertion Best Practices](#assertion-best-practices) | Include actual values in failure messages |
+| **Safe Data Encoding** | [Safe Test Data Encoding](#safe-test-data-encoding) | Use `XCTUnwrap()` instead of force unwrapping |
+| **Coverage Completeness** | [Test Coverage Completeness](#test-coverage-completeness) | Verify ALL state changes, not just primary ones |
+
+### Test File Quality Checklist
+
+When reviewing test coverage, verify tests meet these quality standards:
+
+#### Structure & Organization
+
+- [ ] **SUT pattern used correctly**: Test class has `var sut: <Type>!` and proper setUp/tearDown
+- [ ] **MARK comments organize sections**: `// MARK: - Setup`, `// MARK: - Success Cases`, `// MARK: - Error Cases`
+- [ ] **Given/When/Then structure**: Each test clearly separates setup, action, and assertion phases
+- [ ] **Test naming convention**: Names follow `test<Method>_<Scenario>_<ExpectedBehavior>` pattern
+
+```swift
+// ✅ Good Example - From CODING_STANDARDS.md
+@MainActor
+final class DashboardViewModelTests: XCTestCase {
+    var sut: DashboardViewModel!
+    var mockAPIClient: MockAPIClient!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        mockAPIClient = MockAPIClient()
+        sut = DashboardViewModel(apiClient: mockAPIClient)
+    }
+
+    override func tearDown() {
+        sut = nil
+        mockAPIClient = nil
+        super.tearDown()
+    }
+
+    func testFetchDashboardData_Success() async {
+        // Given
+        let mockResult = TestResult(...)
+        await mockAPIClient.setTestHistoryResponse([mockResult])
+
+        // When
+        await sut.fetchDashboardData()
+
+        // Then
+        XCTAssertEqual(sut.testCount, 1)
+        XCTAssertNotNil(sut.latestTestResult)
+        XCTAssertFalse(sut.isLoading)
+    }
+}
+```
+
+#### Async Testing Compliance
+
+- [ ] **No `Task.sleep()` for synchronization**: Use `waitForCondition` helper instead
+- [ ] **No `try?` silencing errors**: Tests should `throw` and propagate errors
+- [ ] **Proper await on async operations**: All async calls properly awaited
+- [ ] **Domain-specific wait helpers**: Common wait patterns extracted to reusable helpers
+
+```swift
+// ✅ Good - Proper async waiting pattern
+private func waitForCondition(
+    timeout: TimeInterval = 2.0,
+    message: String = "Condition not met within timeout",
+    _ condition: @escaping () async -> Bool
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !(await condition()) {
+        if Date() > deadline {
+            XCTFail(message)
+            return
+        }
+        await Task.yield()
+    }
+}
+
+// ❌ Bad - Arbitrary delay
+try? await Task.sleep(nanoseconds: 100_000_000)  // NEVER DO THIS
+```
+
+#### Mocking & Dependencies
+
+- [ ] **Protocol-based mocks**: Dependencies injected via protocols for testability
+- [ ] **Mocks in correct location**: All mocks in `AIQTests/Mocks/` directory
+- [ ] **Actor-based mocks for concurrency**: Use `actor MockAPIClient` for thread-safe mock state
+- [ ] **Mock state verification**: Tests verify mock interactions (e.g., `requestCalled`)
+
+```swift
+// ✅ Good - Actor-based mock from CODING_STANDARDS.md
+actor MockAPIClient: APIClientProtocol {
+    var requestCalled = false
+    var mockResponse: Any?
+    var mockError: Error?
+
+    func request<T: Decodable>(...) async throws -> T {
+        requestCalled = true
+        if let error = mockError { throw error }
+        guard let response = mockResponse as? T else { throw NSError(...) }
+        return response
+    }
+}
+```
+
+#### Assertion Quality
+
+- [ ] **Diagnostic messages included**: All assertions include actual values for debugging
+- [ ] **State completeness verified**: Tests check ALL state changes, not just primary ones
+- [ ] **Error types verified**: Error handling tests verify specific error types
+
+```swift
+// ✅ Good - Diagnostic assertion
+XCTAssertTrue(error is MockSecureStorageError,
+              "Should throw MockSecureStorageError, got \(type(of: error))")
+
+// ❌ Bad - Generic message
+XCTAssertTrue(error is MockSecureStorageError, "Wrong error type")
+```
+
+#### Edge Cases & Reliability
+
+- [ ] **Time-based tests use safe margins**: 10+ minute margins for hour-scale boundaries
+- [ ] **Thread safety verified before testing**: Implementation checked for synchronization primitives
+- [ ] **Safe test data encoding**: `XCTUnwrap()` used instead of force unwrapping
+
+### Compliance Audit Example
+
+When reviewing test files for standards compliance, document findings like this:
+
+| File | SUT Pattern | Async Pattern | Mock Quality | Assertions | Overall |
+|------|-------------|---------------|--------------|------------|---------|
+| DashboardViewModelTests.swift | ✅ | ✅ | ✅ | ✅ | ✅ Compliant |
+| LoginViewModelTests.swift | ✅ | ⚠️ Uses Task.sleep | ✅ | ✅ | ⚠️ Needs fix |
+| AuthServiceTests.swift | ✅ | ✅ | ✅ | ⚠️ Missing diagnostics | ⚠️ Needs fix |
+| ValidatorsTests.swift | ❌ No SUT | N/A | N/A | ✅ | ⚠️ Needs refactor |
+
+### Quick Reference Links
+
+For detailed information on each testing standard, refer to these sections in [CODING_STANDARDS.md](./CODING_STANDARDS.md):
+
+- **[Testing Section](./CODING_STANDARDS.md#testing)** - Complete testing standards overview
+- **[Test File Organization](./CODING_STANDARDS.md#test-file-organization)** - Directory structure and naming
+- **[Unit Testing ViewModels](./CODING_STANDARDS.md#unit-testing-viewmodels)** - SUT pattern and Given/When/Then
+- **[Mocking](./CODING_STANDARDS.md#mocking)** - Protocol-based mock creation
+- **[Test Naming](./CODING_STANDARDS.md#test-naming)** - Naming conventions
+- **[Async Testing](./CODING_STANDARDS.md#async-testing)** - Basic async/await in tests
+- **[Async Test Synchronization Patterns](./CODING_STANDARDS.md#async-test-synchronization-patterns)** - waitForCondition and polling
+- **[Safe Test Data Encoding](./CODING_STANDARDS.md#safe-test-data-encoding)** - XCTUnwrap usage
+- **[Assertion Best Practices](./CODING_STANDARDS.md#assertion-best-practices)** - Diagnostic messages
+- **[Test Coverage Completeness](./CODING_STANDARDS.md#test-coverage-completeness)** - Verifying all state changes
+- **[UI Test Wait Patterns](./CODING_STANDARDS.md#ui-test-wait-patterns)** - Never use Thread.sleep()
+- **[Verify Implementation Before Testing](./CODING_STANDARDS.md#verify-implementation-before-testing-advanced-capabilities)** - Thread safety verification
+
+### Reviewer Checklist
+
+When reviewing PRs that add or modify tests, verify:
+
+1. **Coverage percentage meets target** for the file's risk level (Critical: 100%, High: 95%, Medium: 80%, Low: 60%)
+2. **SUT pattern used** with proper setUp/tearDown lifecycle management
+3. **No Task.sleep() for synchronization** - use waitForCondition helpers
+4. **Diagnostic assertions** include actual values for CI debugging
+5. **All state changes tested** - not just the primary mutation
+6. **Given/When/Then structure** makes test intent clear
+7. **Test names follow convention** - `test<Method>_<Scenario>_<ExpectedBehavior>`
+
 ## Files Analyzed
 
 **Total Files (AIQ.app target):** 67
