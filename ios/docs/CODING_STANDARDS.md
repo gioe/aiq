@@ -1089,6 +1089,90 @@ func testModelDecoding() throws {
 - Makes tests more maintainable
 - Prevents silent test failures
 
+### Assertion Best Practices
+
+Include diagnostic information in assertion messages to aid debugging test failures:
+
+```swift
+// Good - Includes actual value on failure
+XCTAssertTrue(error is MockSecureStorageError,
+              "Should throw MockSecureStorageError, got \(type(of: error))")
+
+XCTAssertEqual(sut.testCount, 1,
+               "Should have 1 test after successful fetch, got \(sut.testCount)")
+
+// Bad - Generic message without diagnostics
+XCTAssertTrue(error is MockSecureStorageError, "Wrong error type")
+XCTAssertEqual(sut.testCount, 1, "Wrong count")
+```
+
+**Why this matters**: When tests fail in CI or on different machines, diagnostic messages provide immediate context without requiring a developer to reproduce the failure locally.
+
+### Test Coverage Completeness
+
+When testing methods that modify multiple pieces of state, verify ALL state changes, not just the primary one.
+
+**Pattern**: Methods that update storage, API client state, published properties, or caches should have tests that verify each component:
+
+```swift
+// Example: AuthService.login() modifies:
+// 1. SecureStorage (access token, refresh token, userId)
+// 2. APIClient state (setAuthToken called)
+// 3. Published properties (currentUser, isAuthenticated)
+
+func testLogin_PartialStorageFailure() async throws {
+    // Given
+    mockStorage.setShouldThrowOnSave(forKey: SecureStorageKey.refreshToken.rawValue, true)
+
+    // When
+    do {
+        _ = try await sut.login(email: "test@example.com", password: "pass123")
+        XCTFail("Should throw storage error")
+    } catch {
+        // Then - Verify ALL state components
+
+        // 1. Storage state (primary)
+        let savedAccessToken = try? mockStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        XCTAssertEqual(savedAccessToken, "new_access_token", "Access token saved before failure")
+
+        let savedRefreshToken = try? mockStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue)
+        XCTAssertNil(savedRefreshToken, "Refresh token should not be saved (threw error)")
+
+        // 2. API client state (often missed!)
+        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+        let lastAuthToken = await mockAPIClient.lastAuthToken
+        XCTAssertTrue(setAuthTokenCalled, "API client should be updated before storage failure")
+        XCTAssertEqual(lastAuthToken, "new_access_token", "API client should have new token")
+
+        // 3. Published properties
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after partial save")
+
+        let currentUser = await sut.currentUser
+        XCTAssertNil(currentUser, "Current user should be nil after error")
+    }
+}
+```
+
+**Common Gaps:**
+- Testing storage but not API client state
+- Testing success path but not failure path state consistency
+- Testing published properties but not cache invalidation
+- Testing primary state but not derived/computed state
+
+**Why This Matters:**
+- Partial state updates create subtle bugs that are hard to debug
+- State mismatches between components (storage vs. API client) cause inconsistent behavior
+- Tests should verify the system is in a consistent state after both success and error conditions
+
+**Checklist for Test Coverage:**
+When writing tests for methods that modify state:
+- [ ] Identify ALL state mutations (storage, API client, published properties, caches, analytics)
+- [ ] Test each state component in success scenarios
+- [ ] Test each state component in failure scenarios (what's saved vs. what's not)
+- [ ] Verify state consistency between components (e.g., API client token matches storage token)
+- [ ] Test edge cases (first item fails vs. middle item fails vs. last item fails)
+
 ### UI Testing Helpers
 
 Create reusable helpers in `AIQUITests/Helpers/`:

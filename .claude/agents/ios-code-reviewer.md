@@ -68,6 +68,11 @@ Perform a systematic review checking:
 4. **Memory**: Any retain cycles? Proper use of weak/unowned?
 5. **Error Handling**: Are errors caught and handled gracefully?
 6. **Parsing Safety**: Do parsing/conversion functions fail explicitly (failable init, throwing) or silently (returning default values)? Silent failures hide bugs.
+7. **Test Coverage Completeness**: For test files, do tests verify ALL state changes?
+   - Identify all state mutations (storage, API client, published properties, caches, analytics)
+   - Verify tests check each component in both success and failure scenarios
+   - Flag tests that only verify primary state without checking dependent state
+   - Example: If `login()` modifies storage AND calls `apiClient.setAuthToken()`, tests should verify both
 
 ### Step 3: Standards Verification
 - Compare code against `ios/docs/CODING_STANDARDS.md`

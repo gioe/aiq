@@ -257,6 +257,164 @@ final class AuthServiceTests: XCTestCase {
         }
     }
 
+    func testLogin_PartialStorageSave_AccessTokenSucceeds_RefreshTokenFails() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token_123",
+            refreshToken: "refresh_token_456",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // Configure storage to fail only on refresh token save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.refreshToken.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw storage error when refresh token save fails")
+        } catch {
+            // Expected - refresh token save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: access token WAS saved before failure
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "access_token_123",
+                "Access token should be saved before refresh token failure"
+            )
+
+            // Verify refresh token was NOT saved (threw error)
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertNil(
+                savedRefreshToken,
+                "Refresh token should not be saved when save fails"
+            )
+
+            // Verify userId was NOT saved (saveAuthData stops on first failure)
+            let savedUserId = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.userId.rawValue
+            )
+            XCTAssertNil(
+                savedUserId,
+                "User ID should not be saved after refresh token failure"
+            )
+
+            // CURRENT BEHAVIOR: Storage is left in inconsistent state
+            // - Access token exists but refresh token and userId don't
+            // - This means isAuthenticated would return true, but token refresh would fail
+            // - User would appear authenticated but be unable to make authenticated requests
+            //
+            // POTENTIAL IMPROVEMENT: Consider implementing rollback/transaction semantics:
+            // 1. Save all values to temporary keys first
+            // 2. If all saves succeed, rename to actual keys atomically
+            // 3. If any save fails, clean up temporary keys
+            // OR: Delete successfully saved keys if later saves fail
+        }
+    }
+
+    func testLogin_PartialStorageSave_RefreshTokenSucceeds_UserIdFails() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "access_token_123",
+            refreshToken: "refresh_token_456",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // Configure storage to fail only on userId save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.userId.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw storage error when userId save fails")
+        } catch {
+            // Expected - userId save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: both tokens WERE saved before failure
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "access_token_123",
+                "Access token should be saved before userId failure"
+            )
+
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertEqual(
+                savedRefreshToken,
+                "refresh_token_456",
+                "Refresh token should be saved before userId failure"
+            )
+
+            // Verify userId was NOT saved (threw error)
+            let savedUserId = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.userId.rawValue
+            )
+            XCTAssertNil(
+                savedUserId,
+                "User ID should not be saved when save fails"
+            )
+
+            // CURRENT BEHAVIOR: Storage is left in inconsistent state
+            // - Access token and refresh token exist but userId doesn't
+            // - This is less critical than missing refresh token (tokens work for auth)
+            // - But userId is missing, which may affect analytics or user tracking
+            //
+            // POTENTIAL IMPROVEMENT: Same as above - implement rollback/transaction semantics
+        }
+    }
+
     // MARK: - Registration Tests
 
     func testRegister_Success_WithAllFields() async throws {
@@ -452,6 +610,148 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw bad request error")
         } catch {
             assertAPIError(error, is: validationError)
+        }
+    }
+
+    func testRegister_PartialStorageSave_AccessTokenSucceeds_RefreshTokenFails() async throws {
+        // Given
+        let email = "newuser@example.com"
+        let password = "password123"
+        let firstName = "New"
+        let lastName = "User"
+        let mockUser = User(
+            id: 2,
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+
+        // Configure storage to fail only on refresh token save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.refreshToken.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.register(
+                email: email,
+                password: password,
+                firstName: firstName,
+                lastName: lastName
+            )
+            XCTFail("Should throw storage error when refresh token save fails")
+        } catch {
+            // Expected - refresh token save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: access token WAS saved before failure
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "new_access_token",
+                "Access token should be saved before refresh token failure"
+            )
+
+            // Verify refresh token was NOT saved (threw error)
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertNil(
+                savedRefreshToken,
+                "Refresh token should not be saved when save fails"
+            )
+
+            // CURRENT BEHAVIOR: Same as login - storage left in inconsistent state
+            // Registration fails to complete, leaving partial auth data in storage
+        }
+    }
+
+    func testRegister_PartialStorageSave_RefreshTokenSucceeds_UserIdFails() async throws {
+        // Given
+        let email = "newuser@example.com"
+        let password = "password123"
+        let firstName = "New"
+        let lastName = "User"
+        let mockUser = User(
+            id: 2,
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+
+        // Configure storage to fail only on userId save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.userId.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.register(
+                email: email,
+                password: password,
+                firstName: firstName,
+                lastName: lastName
+            )
+            XCTFail("Should throw storage error when userId save fails")
+        } catch {
+            // Expected - userId save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: both tokens WERE saved before failure
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "new_access_token",
+                "Access token should be saved before userId failure"
+            )
+
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertEqual(
+                savedRefreshToken,
+                "new_refresh_token",
+                "Refresh token should be saved before userId failure"
+            )
+
+            // CURRENT BEHAVIOR: Same as login - storage left in inconsistent state
+            // Both tokens saved but userId missing
         }
     }
 
@@ -727,6 +1027,143 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw network error")
         } catch {
             assertAPIError(error, is: networkError)
+        }
+    }
+
+    func testRefreshToken_PartialStorageSave_AccessTokenSucceeds_RefreshTokenFails() async throws {
+        // Given
+        try mockSecureStorage.save("old_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "refreshed_access_token",
+            refreshToken: "refreshed_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+
+        // Configure storage to fail only on refresh token save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.refreshToken.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.refreshToken()
+            XCTFail("Should throw storage error when refresh token save fails")
+        } catch {
+            // Expected - refresh token save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: new access token WAS saved before failure
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "refreshed_access_token",
+                "New access token should be saved before refresh token failure"
+            )
+
+            // Verify refresh token was NOT updated (threw error)
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertEqual(
+                savedRefreshToken,
+                "old_refresh_token",
+                "Refresh token should remain as old value when save fails"
+            )
+
+            // CURRENT BEHAVIOR: Critical inconsistency in token refresh scenario
+            // - New access token saved but refresh token NOT updated
+            // - Access token and refresh token are now mismatched/out of sync
+            // - Next API call uses new access token but old refresh token
+            // - When access token expires, refresh will fail (old refresh token invalid)
+            // - This is MORE CRITICAL than login/register failures because it affects
+            //   already-authenticated users and will force re-login
+            //
+            // POTENTIAL IMPROVEMENT: Token refresh atomicity is critical for user experience
+        }
+    }
+
+    func testRefreshToken_PartialStorageSave_RefreshTokenSucceeds_UserIdFails() async throws {
+        // Given
+        try mockSecureStorage.save("old_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        let mockUser = User(
+            id: 1,
+            email: "test@example.com",
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "refreshed_access_token",
+            refreshToken: "refreshed_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+
+        // Configure storage to fail only on userId save
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.userId.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.refreshToken()
+            XCTFail("Should throw storage error when userId save fails")
+        } catch {
+            // Expected - userId save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
+
+            // Verify partial state: both tokens WERE updated successfully
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "refreshed_access_token",
+                "Access token should be saved before userId failure"
+            )
+
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertEqual(
+                savedRefreshToken,
+                "refreshed_refresh_token",
+                "Refresh token should be saved before userId failure"
+            )
+
+            // CURRENT BEHAVIOR: Both tokens updated successfully but userId save failed
+            // - This is less critical than refresh token failure (tokens are in sync)
+            // - But userId storage failed, which may affect analytics/tracking
         }
     }
 

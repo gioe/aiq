@@ -1,23 +1,11 @@
-# Deferred Review Items
+## Deferred from PR #496 Review
 
-This file tracks PR review comments that were intentionally deferred to later work. Each deferral includes the reason and associated Jira ticket.
+### 1. Implement atomic save with rollback in AuthService.saveAuthData()
+- **Original comment**: "The tests correctly document a critical security and UX issue in AuthService.saveAuthData()... If any save() call fails, storage is left in an inconsistent state."
+- **Reason deferred**: Out of scope for test-only PR; requires production code changes and careful implementation of transaction semantics
+- **Jira ticket**: BTS-228
 
----
-
-## Deferred from PR #487 Review
-
-### Certificate Pinning Documentation Enhancements
-
-**Jira ticket**: [BTS-226](https://gioematt.atlassian.net/browse/BTS-226)
-
-**Deferred items**:
-
-1. **TestFlight verification step**: Add explicit TestFlight verification step to "Immediate Mitigation" section
-   - *Original comment*: "Add a TestFlight verification step before submitting for expedited review"
-   - *Reason deferred*: Partially duplicative - prevention checklist already mentions TestFlight testing
-
-2. **Related Files reference section**: Add quick reference at top of recovery section
-   - *Original comment*: "Add a 'Related Files' reference section at the top"
-   - *Reason deferred*: Nice-to-have usability improvement, not critical for incident response
-
-**Priority**: Low - Core recovery procedures are already accurate and functional
+### 2. Add tests for apiClient state after partial storage save failures
+- **Original comment**: "Consider testing apiClient state: Current tests verify storage state but not apiClient.setAuthToken() calls"
+- **Reason deferred**: Enhancement to test coverage, not blocking for the initial PR
+- **Jira ticket**: BTS-229
