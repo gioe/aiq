@@ -1,5 +1,5 @@
 ---
-description: Groom the Jira backlog by removing redundant/stale tickets and reprioritizing
+description: Groom the Jira backlog by closing completed tickets, removing redundant/stale tickets, and reprioritizing
 args: []
 ---
 
@@ -25,19 +25,25 @@ jira issue list --raw
 
 Analyze each ticket and categorize it into one of the following:
 
-### Category A: Candidates for Deletion
+### Category A: Candidates for Done (Acceptance Criteria Already Met)
+Tickets where the acceptance criteria has already been implemented in the codebase:
+
+1. **Verify against code**: For each ticket, read the acceptance criteria and search the codebase to determine if the work has already been completed
+2. **Evidence required**: Provide specific file paths, function names, or code snippets that demonstrate the criteria is met
+3. **Transition to Done**: Use the Jira CLI to move these tickets to Done status: `jira issue move ISSUE-KEY "Done"`
+
+### Category B: Candidates for Deletion
 Tickets that should be removed from the backlog:
 
 1. **Redundant tickets**: Duplicates or near-duplicates of other tickets
-2. **Completed work**: Tickets describing work that has already been done
-3. **Obsolete tickets**: Tickets for features or fixes that are no longer relevant due to:
+2. **Obsolete tickets**: Tickets for features or fixes that are no longer relevant due to:
    - Changes in product direction
    - Superseded by other work
    - Technical approach that's no longer applicable
-4. **Stale tickets**: Tickets that have been untouched for an extended period with no clear path forward
-5. **Vague tickets**: Tickets with insufficient detail that cannot be acted upon
+3. **Stale tickets**: Tickets that have been untouched for an extended period with no clear path forward
+4. **Vague tickets**: Tickets with insufficient detail that cannot be acted upon
 
-### Category B: Candidates for Reprioritization
+### Category C: Candidates for Reprioritization
 Tickets that have incorrect priority levels:
 
 1. **Under-prioritized**: Important tickets marked as low priority
@@ -49,7 +55,7 @@ Tickets that have incorrect priority levels:
    - Minor code improvements
    - Speculative future work
 
-### Category C: Healthy Tickets
+### Category D: Healthy Tickets
 Tickets that are correctly prioritized and relevant. No action needed.
 
 ## Step 3: Review Context
@@ -77,12 +83,21 @@ Present your analysis to the user in the following format:
 
 ---
 
+### Ready for Done - Acceptance Criteria Met (W tickets)
+
+| Ticket | Summary | Evidence |
+|--------|---------|----------|
+| BTS-120 | "Add login validation" | Implemented in `src/auth/validator.ts:45-89` |
+| BTS-121 | "Create user model" | Found in `backend/models/user.py` with all required fields |
+
+---
+
 ### Recommended for Deletion (Y tickets)
 
 | Ticket | Summary | Reason |
 |--------|---------|--------|
 | BTS-123 | "Add feature X" | Duplicate of BTS-456 |
-| BTS-124 | "Fix bug Y" | Already completed in commit abc123 |
+| BTS-124 | "Fix bug Y" | Obsolete - feature removed |
 
 ---
 
@@ -95,7 +110,7 @@ Present your analysis to the user in the following format:
 
 ---
 
-### No Action Needed (W tickets)
+### No Action Needed (V tickets)
 These tickets are correctly prioritized and relevant.
 ```
 
@@ -103,15 +118,21 @@ These tickets are correctly prioritized and relevant.
 
 **IMPORTANT**: Before making any changes, explicitly ask the user:
 
-1. "Do you approve deleting the X tickets listed above?"
-2. "Do you approve the priority changes for the Y tickets listed above?"
-3. "Would you like me to modify any of these recommendations?"
+1. "Do you approve moving the W tickets to Done (acceptance criteria verified in codebase)?"
+2. "Do you approve deleting the X tickets listed above?"
+3. "Do you approve the priority changes for the Y tickets listed above?"
+4. "Would you like me to modify any of these recommendations?"
 
 Wait for explicit user approval before proceeding.
 
 ## Step 6: Execute Changes
 
 Only after user approval, execute the changes:
+
+### For Done Transitions (Acceptance Criteria Met):
+```bash
+jira issue move ISSUE-KEY "Done"
+```
 
 ### For Deletions:
 ```bash
@@ -133,13 +154,18 @@ After all changes are complete, provide a summary:
 ## Backlog Grooming Complete
 
 ### Actions Taken:
+- **Moved to Done**: W tickets (acceptance criteria verified)
 - **Deleted**: X tickets
 - **Reprioritized**: Y tickets
 - **Unchanged**: Z tickets
 
+### Completed Tickets (Moved to Done):
+- BTS-120: "Add login validation" (verified in `src/auth/validator.ts`)
+- BTS-121: "Create user model" (verified in `backend/models/user.py`)
+
 ### Deleted Tickets:
 - BTS-123: "Add feature X" (was duplicate)
-- BTS-124: "Fix bug Y" (already completed)
+- BTS-124: "Fix bug Y" (obsolete)
 
 ### Priority Changes:
 - BTS-125: Low -> High
@@ -154,15 +180,17 @@ After all changes are complete, provide a summary:
 
 ## Important Guidelines
 
-1. **Never delete without approval**: Always present findings and wait for explicit user confirmation before deleting any tickets
-2. **Be conservative**: When in doubt about deletion, recommend keeping the ticket and flagging it for review
-3. **Preserve history**: Note in the summary which tickets were deleted and why, so the information is not lost
-4. **Consider dependencies**: Before deleting a ticket, check if other tickets reference it
-5. **Explain reasoning**: For each recommendation, provide clear reasoning that the user can evaluate
-6. **Batch operations carefully**: Execute deletions one at a time to handle any errors gracefully
+1. **Never modify without approval**: Always present findings and wait for explicit user confirmation before moving tickets to Done or deleting them
+2. **Verify against code thoroughly**: When checking if acceptance criteria is met, search the codebase comprehensively. Use Glob, Grep, and Read tools to find evidence. Provide specific file paths and line numbers as proof.
+3. **Be conservative**: When in doubt about completion or deletion, recommend keeping the ticket open and flagging it for review
+4. **Preserve history**: Note in the summary which tickets were moved to Done or deleted and why, so the information is not lost
+5. **Consider dependencies**: Before deleting a ticket, check if other tickets reference it
+6. **Explain reasoning**: For each recommendation, provide clear reasoning that the user can evaluate
+7. **Batch operations carefully**: Execute changes one at a time to handle any errors gracefully
 
 ## Error Handling
 
+- If a ticket cannot be moved to Done (invalid transition, permissions), report the error and continue with other tickets
 - If a ticket cannot be deleted (permissions, dependencies), report the error and continue with other tickets
 - If the Jira CLI returns an error, report it and suggest troubleshooting steps
 - If no tickets are found, report "No open tickets found in the backlog"
