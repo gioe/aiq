@@ -42,7 +42,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
         mockAuthService.shouldSucceedDeleteAccount = true
-        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManagerFactory: { self.mockDeviceTokenManager })
 
         // When
         try await sut.deleteAccount()
@@ -74,7 +74,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
         mockAuthService.shouldSucceedDeleteAccount = false
-        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManagerFactory: { self.mockDeviceTokenManager })
 
         // When
         do {
@@ -96,7 +96,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         // Given
         mockAuthService.shouldSucceedDeleteAccount = true
         mockAuthService.deleteAccountDelay = 0.1
-        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManagerFactory: { self.mockDeviceTokenManager })
 
         // When
         let expectation = expectation(description: "Loading state should be set")
@@ -122,7 +122,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
     func testDeleteAccount_CompletesSuccessfully() async throws {
         // Given
         mockAuthService.shouldSucceedDeleteAccount = true
-        sut = AuthManager(authService: mockAuthService, deviceTokenManager: mockDeviceTokenManager)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManagerFactory: { self.mockDeviceTokenManager })
 
         // When
         try await sut.deleteAccount()
@@ -136,7 +136,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         // Given - custom mock to verify protocol dependency
         let customMock = MockDeviceTokenManager()
         mockAuthService.shouldSucceedDeleteAccount = true
-        sut = AuthManager(authService: mockAuthService, deviceTokenManager: customMock)
+        sut = AuthManager(authService: mockAuthService, deviceTokenManagerFactory: { customMock })
 
         // When
         try await sut.deleteAccount()
