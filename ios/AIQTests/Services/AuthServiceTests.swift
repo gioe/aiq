@@ -295,7 +295,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when refresh token save fails")
         } catch {
             // Expected - refresh token save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: access token WAS saved before failure
             let savedAccessToken = try? mockSecureStorage.retrieve(
@@ -376,7 +376,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when userId save fails")
         } catch {
             // Expected - userId save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: both tokens WERE saved before failure
             let savedAccessToken = try? mockSecureStorage.retrieve(
@@ -658,7 +658,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when refresh token save fails")
         } catch {
             // Expected - refresh token save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: access token WAS saved before failure
             let savedAccessToken = try? mockSecureStorage.retrieve(
@@ -729,7 +729,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when userId save fails")
         } catch {
             // Expected - userId save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: both tokens WERE saved before failure
             let savedAccessToken = try? mockSecureStorage.retrieve(
@@ -1068,7 +1068,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when refresh token save fails")
         } catch {
             // Expected - refresh token save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: new access token WAS saved before failure
             let savedAccessToken = try? mockSecureStorage.retrieve(
@@ -1140,7 +1140,7 @@ final class AuthServiceTests: XCTestCase {
             XCTFail("Should throw storage error when userId save fails")
         } catch {
             // Expected - userId save failed
-            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError, got \(type(of: error))")
 
             // Verify partial state: both tokens WERE updated successfully
             let savedAccessToken = try? mockSecureStorage.retrieve(
