@@ -5,6 +5,7 @@ Provides abstract interface and implementations for storing rate limit state.
 Easily extensible to support Redis, Memcached, or other backends.
 """
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Optional, Dict
 import threading
 import time
@@ -64,7 +65,8 @@ class InMemoryStorage(RateLimiterStorage):
     In-memory storage backend.
 
     Uses Python dictionaries with TTL support via expiration timestamps.
-    Includes background cleanup of expired entries.
+    Includes background cleanup of expired entries and LRU eviction to prevent
+    memory exhaustion attacks.
 
     Thread-safe with locks for concurrent access.
 
@@ -72,18 +74,24 @@ class InMemoryStorage(RateLimiterStorage):
     workers, use Redis or another distributed storage backend.
     """
 
-    def __init__(self, cleanup_interval: int = 60):
+    def __init__(self, cleanup_interval: int = 60, max_keys: int = 0):
         """
         Initialize in-memory storage.
 
         Args:
             cleanup_interval: How often to cleanup expired entries (seconds)
+            max_keys: Maximum number of keys to store. When exceeded, least
+                      recently used (LRU) entries are evicted. Set to 0 for
+                      unlimited (default). Recommended: 10000-100000 depending
+                      on expected traffic and available memory.
         """
         self._data: Dict[str, Any] = {}
         self._expiry: Dict[str, float] = {}
+        self._lru_order: OrderedDict[str, None] = OrderedDict()
         self._lock = threading.RLock()
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
+        self._max_keys = max_keys
 
     def get(self, key: str) -> Optional[Any]:
         """Get value for a key, returning None if expired or not found."""
@@ -98,15 +106,24 @@ class InMemoryStorage(RateLimiterStorage):
             if key in self._expiry:
                 if time.time() > self._expiry[key]:
                     # Expired, remove it
-                    del self._data[key]
-                    del self._expiry[key]
+                    self._remove_key(key)
                     return None
+
+            # Update LRU order (move to end = most recently used)
+            self._update_lru(key)
 
             return self._data[key]
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """Set value for a key with optional TTL."""
         with self._lock:
+            # Check if we need to evict before adding a new key
+            is_new_key = key not in self._data
+            if is_new_key and self._max_keys > 0:
+                # Evict LRU entries until we have room
+                while len(self._data) >= self._max_keys:
+                    self._evict_lru()
+
             self._data[key] = value
 
             if ttl is not None:
@@ -115,19 +132,20 @@ class InMemoryStorage(RateLimiterStorage):
                 # Remove expiry if no TTL provided
                 del self._expiry[key]
 
+            # Update LRU order (move to end = most recently used)
+            self._update_lru(key)
+
     def delete(self, key: str) -> None:
         """Delete a key."""
         with self._lock:
-            if key in self._data:
-                del self._data[key]
-            if key in self._expiry:
-                del self._expiry[key]
+            self._remove_key(key)
 
     def clear(self) -> None:
         """Clear all stored data."""
         with self._lock:
             self._data.clear()
             self._expiry.clear()
+            self._lru_order.clear()
 
     def _maybe_cleanup(self) -> None:
         """Cleanup expired entries if cleanup interval has passed."""
@@ -143,16 +161,60 @@ class InMemoryStorage(RateLimiterStorage):
         ]
 
         for key in expired_keys:
-            if key in self._data:
-                del self._data[key]
+            self._remove_key(key)
+
+    def _remove_key(self, key: str) -> None:
+        """
+        Remove a key from all internal data structures.
+
+        This is a helper method to ensure consistent cleanup across
+        _data, _expiry, and _lru_order dictionaries.
+
+        Args:
+            key: The key to remove
+        """
+        if key in self._data:
+            del self._data[key]
+        if key in self._expiry:
             del self._expiry[key]
+        if key in self._lru_order:
+            del self._lru_order[key]
+
+    def _update_lru(self, key: str) -> None:
+        """
+        Update LRU order by moving key to end (most recently used).
+
+        Args:
+            key: The key to mark as recently used
+        """
+        if key in self._lru_order:
+            # Use move_to_end for O(1) reordering of existing keys
+            self._lru_order.move_to_end(key)
+        else:
+            # Add new key to end (most recently used)
+            self._lru_order[key] = None
+
+    def _evict_lru(self) -> None:
+        """
+        Evict the least recently used (LRU) entry.
+
+        Removes the oldest entry from the cache when max_keys limit is reached.
+        Called automatically by set() when adding a new key would exceed max_keys.
+        """
+        if not self._lru_order:
+            return
+
+        # Get the first key (least recently used)
+        lru_key = next(iter(self._lru_order))
+        self._remove_key(lru_key)
 
     def get_stats(self) -> dict:
         """
         Get storage statistics (for monitoring/debugging).
 
         Returns:
-            Dict with keys: total_keys, expired_keys, memory_usage_estimate
+            Dict with keys: total_keys, expired_keys, active_keys, max_keys,
+                           lru_enabled
         """
         with self._lock:
             current_time = time.time()
@@ -160,11 +222,15 @@ class InMemoryStorage(RateLimiterStorage):
                 1 for expiry in self._expiry.values() if current_time > expiry
             )
 
-            return {
+            stats = {
                 "total_keys": len(self._data),
                 "expired_keys": expired_count,
                 "active_keys": len(self._data) - expired_count,
+                "max_keys": self._max_keys,
+                "lru_enabled": self._max_keys > 0,
             }
+
+            return stats
 
 
 class RedisStorage(RateLimiterStorage):

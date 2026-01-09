@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_STORAGE: Literal["memory", "redis"] = "memory"
     # Redis connection URL (required if RATE_LIMIT_STORAGE="redis")
     RATE_LIMIT_REDIS_URL: str = "redis://localhost:6379/0"
+    # Maximum keys for in-memory storage (0 = unlimited, recommended: 10000-100000)
+    # Prevents memory exhaustion attacks by using LRU eviction when limit is reached
+    RATE_LIMIT_MAX_KEYS: int = 100000
 
     # Notification Scheduling
     TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days
