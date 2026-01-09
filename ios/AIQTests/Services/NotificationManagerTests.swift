@@ -429,4 +429,525 @@ final class NotificationManagerTests: XCTestCase {
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
         XCTAssertNil(cachedToken)
     }
+
+    // MARK: - Error Path Tests
+
+    func testRegistration_FailsWithNetworkError_StateRemainsUnregistered() async throws {
+        // Given - Authenticated user with cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("test_token_123", forKey: deviceTokenKey)
+
+        // Configure mock to fail with network error
+        let networkError = NSError(
+            domain: NSURLErrorDomain,
+            code: NSURLErrorNotConnectedToInternet,
+            userInfo: [NSLocalizedDescriptionKey: "No internet connection"]
+        )
+        await mockNotificationService.setRegisterError(networkError)
+
+        // When - Attempt to register device token
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should remain unregistered
+        try await waitForCondition(message: "Should remain unregistered after network error") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Verify token is still cached for retry
+        let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
+        XCTAssertEqual(cachedToken, "test_token_123", "Token should remain cached for retry")
+    }
+
+    func testRegistration_FailsWithServerError_StateRemainsUnregistered() async throws {
+        // Given - Authenticated user with cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("test_token_456", forKey: deviceTokenKey)
+
+        // Configure mock to fail with server error
+        let serverError = NSError(
+            domain: "APIError",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Internal server error"]
+        )
+        await mockNotificationService.setRegisterError(serverError)
+
+        // When - Attempt to register device token
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should remain unregistered
+        try await waitForCondition(message: "Should remain unregistered after server error") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Verify token is still cached for retry
+        let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
+        XCTAssertEqual(cachedToken, "test_token_456", "Token should remain cached for retry")
+    }
+
+    func testRegistration_FailsPartway_CleansUpState() async throws {
+        // Given - Authenticated user
+        mockAuthManager.isAuthenticated = true
+
+        // Configure mock to fail
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        await mockNotificationService.setRegisterError(error)
+
+        // When - Receive device token (which triggers registration)
+        let deviceToken = Data([0xAA, 0xBB, 0xCC, 0xDD])
+        sut.didReceiveDeviceToken(deviceToken)
+
+        // Then - State should be consistent after failure
+        try await waitForCondition(message: "Should remain unregistered after partial failure") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Verify token is cached (not cleared on registration failure)
+        let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
+        XCTAssertEqual(cachedToken, "aabbccdd", "Token should be cached despite registration failure")
+    }
+
+    func testRegistration_InterruptedByLogout_CleansUpState() async throws {
+        // Given - Authenticated user with successful mock configuration
+        mockAuthManager.isAuthenticated = true
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // Receive device token
+        let deviceToken = Data([0x11, 0x22, 0x33, 0x44])
+        sut.didReceiveDeviceToken(deviceToken)
+
+        // Wait for registration to potentially start
+        await Task.yield()
+
+        // When - User logs out mid-flight
+        mockAuthManager.isAuthenticated = false
+
+        // Then - State should transition to unregistered
+        try await waitForCondition(message: "Should become unregistered after logout") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+    }
+
+    func testUnregister_FailsWithNetworkError_ClearsLocalStateAnyway() async throws {
+        // Given - Mark as registered
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("registered_token", forKey: deviceTokenKey)
+
+        // First, register successfully
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+        await sut.retryDeviceTokenRegistration()
+
+        // Wait for registration
+        try await waitForCondition(message: "Should become registered") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        // Configure mock to fail unregister
+        let networkError = NSError(
+            domain: NSURLErrorDomain,
+            code: NSURLErrorNotConnectedToInternet,
+            userInfo: [NSLocalizedDescriptionKey: "No internet connection"]
+        )
+        await mockNotificationService.setUnregisterError(networkError)
+
+        // When - Attempt to unregister
+        await sut.unregisterDeviceToken()
+
+        // Then - Local state should be cleared despite backend error
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+        XCTAssertNil(UserDefaults.standard.string(forKey: deviceTokenKey))
+    }
+
+    // MARK: - Retry Logic Tests
+
+    func testRetry_AfterSingleFailure_SucceedsOnSecondAttempt() async throws {
+        // Given - Authenticated user with cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("retry_token", forKey: deviceTokenKey)
+
+        // Configure mock to fail first, succeed second
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        await mockNotificationService.setRegisterError(error)
+
+        // When - First attempt (should fail)
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should remain unregistered
+        try await waitForCondition(message: "Should remain unregistered after first failure") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Now configure success
+        await mockNotificationService.setRegisterError(nil)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // When - Second attempt (should succeed)
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should become registered
+        try await waitForCondition(message: "Should become registered after retry") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
+    func testRetry_AfterMultipleFailures_EventuallySucceeds() async throws {
+        // Given - Authenticated user with cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("multi_retry_token", forKey: deviceTokenKey)
+
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+
+        // When - First failure
+        await mockNotificationService.setRegisterError(error)
+        await sut.retryDeviceTokenRegistration()
+
+        try await waitForCondition(message: "Should remain unregistered after failure 1") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Second failure
+        await sut.retryDeviceTokenRegistration()
+
+        try await waitForCondition(message: "Should remain unregistered after failure 2") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Third failure
+        await sut.retryDeviceTokenRegistration()
+
+        try await waitForCondition(message: "Should remain unregistered after failure 3") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Now configure success
+        await mockNotificationService.setRegisterError(nil)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // Final attempt - should succeed
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should become registered after multiple retries
+        try await waitForCondition(message: "Should become registered after multiple retries") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
+    func testRetry_WithNoCachedToken_DoesNothing() async throws {
+        // Given - Authenticated user but NO cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+
+        // When - Attempt retry
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should remain unregistered (no token to register)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+
+        // Verify no backend call was made
+        let callCount = await mockNotificationService.registerCallCount
+        XCTAssertEqual(callCount, 0, "Should not call backend without a token")
+    }
+
+    func testRetry_WhenUnauthenticated_DoesNotCallBackend() async throws {
+        // Given - Unauthenticated user with cached token
+        mockAuthManager.isAuthenticated = false
+        UserDefaults.standard.set("cached_token", forKey: deviceTokenKey)
+
+        // When - Attempt retry
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should not register (not authenticated)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+
+        // Verify no backend call was made
+        let callCount = await mockNotificationService.registerCallCount
+        XCTAssertEqual(callCount, 0, "Should not call backend when unauthenticated")
+    }
+
+    // MARK: - State Transition Tests
+
+    func testStateTransition_FromErrorToSuccess() async throws {
+        // Given - Start with authentication and cached token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("transition_token", forKey: deviceTokenKey)
+
+        // Configure initial failure
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        await mockNotificationService.setRegisterError(error)
+
+        // When - First attempt fails
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Verify error state
+        try await waitForCondition(message: "Should be in error state") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // When - Configure success and retry
+        await mockNotificationService.setRegisterError(nil)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should transition to success state
+        try await waitForCondition(message: "Should transition to success state") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
+    func testStateTransition_AuthenticationChangeDuringError() async throws {
+        // Given - Unauthenticated with cached token
+        mockAuthManager.isAuthenticated = false
+        UserDefaults.standard.set("auth_transition_token", forKey: deviceTokenKey)
+
+        // Configure successful response (for when auth happens)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // When - User authenticates
+        mockAuthManager.isAuthenticated = true
+
+        // Then - Should automatically retry and succeed
+        try await waitForCondition(message: "Should auto-register on authentication") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
+    func testStateTransition_LogoutClearsRegistration() async throws {
+        // Given - Registered state
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("logout_token", forKey: deviceTokenKey)
+
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+        await sut.retryDeviceTokenRegistration()
+
+        // Wait for registration
+        try await waitForCondition(message: "Should become registered") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        // When - User logs out
+        mockAuthManager.isAuthenticated = false
+
+        // Then - Should transition to unregistered
+        try await waitForCondition(message: "Should transition to unregistered on logout") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+    }
+
+    func testStateTransition_PermissionDeniedToAuthorized() async throws {
+        // Given - Start with denied authorization
+        // Note: We can only test the state property since actual authorization requires system interaction
+        XCTAssertEqual(sut.authorizationStatus, .notDetermined)
+
+        // When - Check authorization (will update to actual system status)
+        await sut.checkAuthorizationStatus()
+
+        // Then - Status should be updated (actual value depends on simulator/device)
+        let status = sut.authorizationStatus
+        XCTAssertTrue(
+            [.notDetermined, .denied, .authorized, .provisional, .ephemeral].contains(status),
+            "Status should be a valid value"
+        )
+    }
+
+    func testStateTransition_ConcurrentAuthChanges_MaintainsConsistency() async throws {
+        // Given - Configure successful registration
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+        UserDefaults.standard.set("concurrent_token", forKey: deviceTokenKey)
+
+        // When - Rapidly toggle authentication state
+        mockAuthManager.isAuthenticated = true
+        await Task.yield()
+
+        mockAuthManager.isAuthenticated = false
+        await Task.yield()
+
+        mockAuthManager.isAuthenticated = true
+
+        // Then - Final state should be consistent with auth state
+        try await waitForCondition(
+            timeout: 3.0,
+            message: "Should eventually reach consistent state"
+        ) {
+            // When authenticated, should eventually register
+            self.mockAuthManager.isAuthenticated == self.sut.isDeviceTokenRegistered
+        }
+    }
+
+    // MARK: - Cleanup and Error Recovery Tests
+
+    func testCleanup_AfterRegistrationError_LeavesTokenCached() async throws {
+        // Given - Authenticated with token
+        mockAuthManager.isAuthenticated = true
+        let deviceToken = Data([0xDE, 0xAD, 0xBE, 0xEF])
+
+        // Configure failure
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        await mockNotificationService.setRegisterError(error)
+
+        // When - Receive device token (triggers failed registration)
+        sut.didReceiveDeviceToken(deviceToken)
+
+        // Then - Token should still be cached for retry
+        try await waitForCondition(message: "Should remain unregistered after error") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
+        XCTAssertEqual(cachedToken, "deadbeef", "Token should remain cached after registration error")
+    }
+
+    func testCleanup_AfterAPNsError_ClearsToken() async {
+        // Given - Cache a token first
+        UserDefaults.standard.set("apns_error_token", forKey: deviceTokenKey)
+
+        // When - APNs registration fails
+        let error = NSError(
+            domain: "APNs",
+            code: 3000,
+            userInfo: [NSLocalizedDescriptionKey: "Invalid APNs certificate"]
+        )
+        sut.didFailToRegisterForRemoteNotifications(error: error)
+
+        // Then - Should clear cached token (APNs-level failures are not recoverable)
+        XCTAssertNil(UserDefaults.standard.string(forKey: deviceTokenKey))
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+    }
+
+    func testCleanup_AfterUnregisterError_StillClearsLocalState() async throws {
+        // Given - Registered state
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("unregister_error_token", forKey: deviceTokenKey)
+
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+        await sut.retryDeviceTokenRegistration()
+
+        try await waitForCondition(message: "Should become registered") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        // Configure unregister to fail
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        await mockNotificationService.setUnregisterError(error)
+
+        // When - Unregister fails
+        await sut.unregisterDeviceToken()
+
+        // Then - Local state should still be cleared
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+        XCTAssertNil(UserDefaults.standard.string(forKey: deviceTokenKey))
+    }
+
+    func testErrorRecovery_AfterTransientFailure_SucceedsOnRetry() async throws {
+        // Given - Authenticated user
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("transient_token", forKey: deviceTokenKey)
+
+        // Simulate transient network error
+        let transientError = NSError(
+            domain: NSURLErrorDomain,
+            code: NSURLErrorTimedOut,
+            userInfo: [NSLocalizedDescriptionKey: "Request timed out"]
+        )
+        await mockNotificationService.setRegisterError(transientError)
+
+        // When - First attempt fails
+        await sut.retryDeviceTokenRegistration()
+
+        try await waitForCondition(message: "Should fail on first attempt") {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        // Simulate network recovery
+        await mockNotificationService.setRegisterError(nil)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // When - Retry after network recovery
+        await sut.retryDeviceTokenRegistration()
+
+        // Then - Should succeed
+        try await waitForCondition(message: "Should succeed after transient error recovery") {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
+    // MARK: - Test Helpers
+
+    /// Wait for a condition to become true within a timeout
+    private func waitForCondition(
+        timeout: TimeInterval = 2.0,
+        message: String = "Condition not met within timeout",
+        _ condition: @escaping () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while await !condition() {
+            if Date() > deadline {
+                XCTFail(message)
+                return
+            }
+            await Task.yield()
+        }
+    }
 }

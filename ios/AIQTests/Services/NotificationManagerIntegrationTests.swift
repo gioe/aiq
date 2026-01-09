@@ -51,14 +51,14 @@ final class NotificationManagerIntegrationTests: XCTestCase {
     /// Wait for mock service to receive a register call
     private func waitForRegisterCall(timeout: TimeInterval = 2.0) async throws {
         try await waitForCondition(timeout: timeout, message: "registerDeviceToken was not called within timeout") {
-            await mockNotificationService.registerDeviceTokenCalled
+            await self.mockNotificationService.registerDeviceTokenCalled
         }
     }
 
     /// Wait for device token registration state to change
     private func waitForRegistrationState(_ expected: Bool, timeout: TimeInterval = 2.0) async throws {
         try await waitForCondition(timeout: timeout, message: "isDeviceTokenRegistered did not become \(expected) within timeout") {
-            sut.isDeviceTokenRegistered == expected
+            self.sut.isDeviceTokenRegistered == expected
         }
     }
 
