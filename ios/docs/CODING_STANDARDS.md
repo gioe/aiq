@@ -1120,6 +1120,149 @@ func testAsyncOperation() async {
 }
 ```
 
+### Async Test Synchronization Patterns
+
+**NEVER use `Task.sleep()` for synchronization in unit/integration tests.** Arbitrary delays cause flaky tests, slow CI runs, and can mask race conditions.
+
+#### Anti-Pattern: Task.sleep()
+
+```swift
+// ❌ BAD - Arbitrary delay, flaky, slow
+func testAuthStateChange_TriggersRegistration() async {
+    mockAuthManager.isAuthenticated = true
+
+    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second - DON'T DO THIS
+
+    XCTAssertTrue(sut.isDeviceTokenRegistered)
+}
+```
+
+**Why this is problematic:**
+- Tests may pass locally but fail on slower CI machines
+- No guarantee operations complete within the delay
+- `try?` silently swallows errors (see below)
+- Artificial delays add up, making test suites slow
+- Race conditions can still occur
+
+#### Correct Pattern: Poll for Conditions
+
+Use a helper function that polls for a condition with a timeout:
+
+```swift
+// ✅ GOOD - Proper async waiting pattern
+private func waitForCondition(
+    timeout: TimeInterval = 2.0,
+    message: String = "Condition not met within timeout",
+    _ condition: @escaping () async -> Bool
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !(await condition()) {
+        if Date() > deadline {
+            XCTFail(message)
+            return
+        }
+        await Task.yield()  // Yield to allow other tasks to run
+    }
+}
+
+// Usage
+func testAuthStateChange_TriggersRegistration() async throws {
+    mockAuthManager.isAuthenticated = true
+
+    try await waitForCondition(message: "Should become registered") {
+        sut.isDeviceTokenRegistered
+    }
+
+    XCTAssertTrue(sut.isDeviceTokenRegistered)
+}
+```
+
+#### Domain-Specific Helpers
+
+Create reusable helpers for common wait patterns:
+
+```swift
+/// Wait for device token registration state to change
+private func waitForRegistrationState(_ expected: Bool, timeout: TimeInterval = 2.0) async throws {
+    try await waitForCondition(
+        timeout: timeout,
+        message: "isDeviceTokenRegistered did not become \(expected) within timeout"
+    ) {
+        sut.isDeviceTokenRegistered == expected
+    }
+}
+
+/// Wait for mock service to receive a call
+private func waitForRegisterCall(timeout: TimeInterval = 2.0) async throws {
+    try await waitForCondition(
+        timeout: timeout,
+        message: "registerDeviceToken was not called within timeout"
+    ) {
+        await mockNotificationService.registerDeviceTokenCalled
+    }
+}
+```
+
+#### Never Use `try?` with Async Operations
+
+**NEVER use `try?` to silence errors in tests.** This hides failures and causes tests to pass when they shouldn't.
+
+```swift
+// ❌ BAD - Silently discards errors
+try? await Task.sleep(nanoseconds: 100_000_000)  // If this throws, test continues as if delay happened
+
+// ❌ BAD - Hides assertion failures from waitForCondition
+try? await waitForCondition { sut.isReady }  // Timeout failures are silently ignored
+
+// ✅ GOOD - Make test throw so errors propagate
+func testAuthStateChange() async throws {  // Note: `throws`
+    try await waitForCondition { sut.isReady }  // Failures will fail the test
+}
+```
+
+**Why `try?` is dangerous in tests:**
+- If `Task.sleep` is cancelled, the test continues without the intended delay
+- If `waitForCondition` times out, `XCTFail` is called but may be swallowed
+- Tests appear to pass when they should fail
+- Debugging becomes difficult because errors are hidden
+
+#### Acceptable Uses of Task.sleep
+
+`Task.sleep` is acceptable ONLY when:
+1. Testing time-based behavior (cache expiration, debounce)
+2. Simulating network latency in mock services
+3. Testing timer/delay-specific logic
+
+```swift
+// ✅ OK - Testing cache expiration requires actual time passage
+func testCache_ExpiresAfterTTL() async throws {
+    await cache.set("key", value: "data", ttl: 0.1)
+
+    try await Task.sleep(nanoseconds: 150_000_000)  // Must wait for TTL
+
+    let result = await cache.get("key")
+    XCTAssertNil(result, "Cache should expire after TTL")
+}
+
+// ✅ OK - Mock simulating slow network
+actor MockSlowService: ServiceProtocol {
+    func fetch() async throws -> Data {
+        try await Task.sleep(nanoseconds: 50_000_000)  // Simulate latency
+        return mockData
+    }
+}
+```
+
+#### Quick Reference
+
+| Scenario | Use This | NOT This |
+|----------|----------|----------|
+| Wait for state change | `waitForCondition { state == expected }` | `Task.sleep()` |
+| Wait for mock called | `waitForCondition { mock.wasCalled }` | `Task.sleep()` |
+| Wait for Published property | `waitForCondition { vm.isLoaded }` | `Task.sleep()` |
+| Test cache expiration | `Task.sleep()` (unavoidable) | - |
+| Test debounce/throttle | `Task.sleep()` (unavoidable) | - |
+
 ### Safe Test Data Encoding
 
 When creating JSON data for decoding tests, use `XCTUnwrap()` instead of force unwrapping:
