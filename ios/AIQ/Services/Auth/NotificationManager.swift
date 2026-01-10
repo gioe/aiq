@@ -27,6 +27,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     private let notificationService: NotificationServiceProtocol
     private let authManager: AuthManagerProtocol
+    private let notificationCenter: UserNotificationCenterProtocol
     private var cancellables = Set<AnyCancellable>()
 
     /// Cached device token (stored until user is authenticated)
@@ -55,10 +56,12 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     init(
         notificationService: NotificationServiceProtocol = NotificationService.shared,
-        authManager: AuthManagerProtocol = AuthManager.shared
+        authManager: AuthManagerProtocol = AuthManager.shared,
+        notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current()
     ) {
         self.notificationService = notificationService
         self.authManager = authManager
+        self.notificationCenter = notificationCenter
 
         // Load cached device token synchronously (UserDefaults is fast)
         loadCachedDeviceToken()
@@ -83,7 +86,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         hasRequestedNotificationPermission = true
 
         do {
-            let granted = try await UNUserNotificationCenter.current()
+            let granted = try await notificationCenter
                 .requestAuthorization(options: [.alert, .sound, .badge])
 
             await checkAuthorizationStatus()
@@ -105,7 +108,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     /// Check and update current authorization status
     func checkAuthorizationStatus() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        let settings = await notificationCenter.notificationSettings()
         authorizationStatus = settings.authorizationStatus
     }
 

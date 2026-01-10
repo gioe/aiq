@@ -21,6 +21,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
     var sut: NotificationManager!
     var mockNotificationService: MockNotificationService!
     var mockAuthManager: MockAuthManager!
+    var mockNotificationCenter: MockUserNotificationCenter!
     var cancellables: Set<AnyCancellable>!
 
     // UserDefaults key used by NotificationManager
@@ -72,11 +73,13 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // Create mocks
         mockNotificationService = MockNotificationService()
         mockAuthManager = MockAuthManager()
+        mockNotificationCenter = MockUserNotificationCenter()
 
         // Create SUT with injected dependencies
         sut = NotificationManager(
             notificationService: mockNotificationService,
-            authManager: mockAuthManager
+            authManager: mockAuthManager,
+            notificationCenter: mockNotificationCenter
         )
     }
 
@@ -85,6 +88,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         sut = nil
         mockNotificationService = nil
         mockAuthManager = nil
+        mockNotificationCenter = nil
 
         // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
@@ -700,13 +704,15 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Create new instance (simulating app restart)
         let newMockNotificationService = MockNotificationService()
         let newMockAuthManager = MockAuthManager()
+        let newMockNotificationCenter = MockUserNotificationCenter()
         newMockAuthManager.isAuthenticated = true
 
         await newMockNotificationService.setRegisterResponse(mockResponse)
 
         let newSut = NotificationManager(
             notificationService: newMockNotificationService,
-            authManager: newMockAuthManager
+            authManager: newMockAuthManager,
+            notificationCenter: newMockNotificationCenter
         )
 
         // Wait for new instance to register with cached token
