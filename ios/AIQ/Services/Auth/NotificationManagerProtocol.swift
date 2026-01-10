@@ -15,6 +15,9 @@ protocol NotificationManagerProtocol: AnyObject {
     /// Whether the device token has been successfully registered with the backend
     var isDeviceTokenRegistered: Bool { get }
 
+    /// Whether notification permission has been requested from the user
+    var hasRequestedNotificationPermission: Bool { get set }
+
     /// Request notification authorization from the system
     /// - Returns: Whether authorization was granted
     @discardableResult

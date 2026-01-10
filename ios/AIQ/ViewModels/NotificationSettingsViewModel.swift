@@ -107,6 +107,26 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     /// Request system notification permission
     func requestSystemPermission() async {
+        // Check if we've already requested permission
+        if notificationManager.hasRequestedNotificationPermission {
+            // Permission was already requested - check if user needs to go to Settings
+            if notificationManager.authorizationStatus == .denied {
+                // User denied permission previously - direct them to Settings
+                openSystemSettings()
+                return
+            } else if notificationManager.authorizationStatus == .notDetermined {
+                // Edge case: app reinstall or UserDefaults cleared but system permission reset
+                // This is unlikely but we'll allow re-requesting
+                // Allow re-request in this edge case
+                print("⚠️ [NotificationSettings] Status .notDetermined despite flag - allowing re-request")
+            } else {
+                // Status is .authorized or .provisional - shouldn't get here, but handle gracefully
+                systemPermissionGranted = (notificationManager.authorizationStatus == .authorized)
+                return
+            }
+        }
+
+        // Request authorization (this will set hasRequestedNotificationPermission = true)
         let granted = await notificationManager.requestAuthorization()
         systemPermissionGranted = granted
 

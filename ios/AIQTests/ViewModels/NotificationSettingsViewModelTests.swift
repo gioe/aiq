@@ -492,4 +492,112 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         // Then
         XCTAssertNil(sut.error)
     }
+
+    // MARK: - Permission Request Tracking Tests
+
+    func testRequestSystemPermission_FirstTime_RequestsAuthorization() async {
+        // Given - Permission not yet requested
+        mockNotificationManager.hasRequestedNotificationPermission = false
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should call requestAuthorization
+        XCTAssertTrue(mockNotificationManager.requestAuthorizationCalled, "Should request authorization for first time")
+    }
+
+    func testRequestSystemPermission_AlreadyRequested_StatusDenied_OpensSettings() async {
+        // Given - Permission already requested and denied
+        mockNotificationManager.hasRequestedNotificationPermission = true
+        mockNotificationManager.setAuthorizationStatus(.denied)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should NOT call requestAuthorization again, just opens settings
+        // Note: We can't easily test if openSystemSettings was called without more mocking,
+        // but we can verify requestAuthorization was NOT called
+        XCTAssertEqual(
+            mockNotificationManager.requestAuthorizationCallCount,
+            0,
+            "Should not request authorization again when already denied"
+        )
+    }
+
+    func testRequestSystemPermission_AlreadyRequested_StatusAuthorized_NoAction() async {
+        // Given - Permission already requested and granted
+        mockNotificationManager.hasRequestedNotificationPermission = true
+        mockNotificationManager.setAuthorizationStatus(.authorized)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should not request authorization again
+        XCTAssertEqual(
+            mockNotificationManager.requestAuthorizationCallCount,
+            0,
+            "Should not request authorization again when already authorized"
+        )
+        XCTAssertTrue(sut.systemPermissionGranted, "systemPermissionGranted should be true")
+    }
+
+    func testRequestSystemPermission_EdgeCase_FlagSetButStatusNotDetermined() async {
+        // Given - Edge case: flag is set but status is .notDetermined
+        // This can happen if app was reinstalled or UserDefaults persisted but system permission was reset
+        mockNotificationManager.hasRequestedNotificationPermission = true
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should allow re-requesting (handles edge case gracefully)
+        XCTAssertTrue(
+            mockNotificationManager.requestAuthorizationCalled,
+            "Should allow re-requesting for edge case (app reinstall)"
+        )
+    }
+
+    func testRequestSystemPermission_Success_EnablesBackend() async {
+        // Given - Permission not requested, backend disabled
+        mockNotificationManager.hasRequestedNotificationPermission = false
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+        mockNotificationManager.mockAuthorizationGranted = true
+        await mockNotificationService.setUpdatePreferencesResponse(NotificationPreferencesResponse(notificationEnabled: true, message: "Success"))
+        sut.notificationEnabled = false
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should enable in backend after granting permission
+        XCTAssertTrue(sut.notificationEnabled, "Should enable in backend after permission granted")
+    }
+
+    func testRequestSystemPermission_Denied_DoesNotEnableBackend() async {
+        // Given - Permission not requested, backend disabled, user will deny
+        mockNotificationManager.hasRequestedNotificationPermission = false
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+        mockNotificationManager.mockAuthorizationGranted = false // User denies
+        sut.notificationEnabled = false
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should NOT enable in backend after denial
+        XCTAssertFalse(sut.notificationEnabled, "Should not enable in backend after permission denied")
+        XCTAssertFalse(sut.systemPermissionGranted, "systemPermissionGranted should be false")
+    }
+
+    func testToggleNotifications_WhenEnabled_NoPermission_RequestsPermission() async {
+        // Given - Notifications disabled, no system permission
+        sut.notificationEnabled = false
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+        mockNotificationManager.hasRequestedNotificationPermission = false
+
+        // When
+        await sut.toggleNotifications()
+
+        // Then - Should request system permission instead of toggling
+        XCTAssertTrue(mockNotificationManager.requestAuthorizationCalled, "Should request permission first")
+    }
 }

@@ -933,6 +933,94 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered)
     }
 
+    // MARK: - Permission Request Tracking Tests
+
+    func testRequestAuthorization_SetsPermissionRequestedFlag() async {
+        // Given - Fresh NotificationManager with flag not set
+        XCTAssertFalse(sut.hasRequestedNotificationPermission, "Flag should initially be false")
+
+        // When - Request authorization (note: this calls the real UNUserNotificationCenter)
+        _ = await sut.requestAuthorization()
+
+        // Then - Flag should be set to true
+        XCTAssertTrue(sut.hasRequestedNotificationPermission, "Flag should be true after requesting permission")
+    }
+
+    func testHasRequestedNotificationPermission_DefaultsToFalse() async {
+        // Given - Fresh NotificationManager
+        // When - Check initial value
+        let hasRequested = sut.hasRequestedNotificationPermission
+
+        // Then - Should default to false
+        XCTAssertFalse(hasRequested, "hasRequestedNotificationPermission should default to false")
+    }
+
+    func testHasRequestedNotificationPermission_PersistsInUserDefaults() async {
+        // Given - Set the flag
+        sut.hasRequestedNotificationPermission = true
+
+        // When - Create a new NotificationManager instance (simulates app restart)
+        let newSut = NotificationManager(
+            notificationService: mockNotificationService,
+            authManager: mockAuthManager
+        )
+
+        // Then - Flag should persist
+        XCTAssertTrue(newSut.hasRequestedNotificationPermission, "Flag should persist across app restarts")
+    }
+
+    func testUnregisterDeviceToken_ClearsPermissionRequestedFlag() async {
+        // Given - Set up registered state with permission requested
+        sut.hasRequestedNotificationPermission = true
+        UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
+
+        // Manually set isDeviceTokenRegistered to true (normally done by successful registration)
+        // We can't easily trigger this through the public API without mocking more, so we'll
+        // test that clearCachedDeviceToken is called by didFailToRegisterForRemoteNotifications
+        // which also clears the flag
+
+        // When - Fail to register (which calls clearCachedDeviceToken)
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        sut.didFailToRegisterForRemoteNotifications(error: error)
+
+        // Then - Permission requested flag should be cleared
+        XCTAssertFalse(sut.hasRequestedNotificationPermission, "Flag should be cleared on token failure")
+    }
+
+    func testHasRequestedNotificationPermission_GetterSetter() async {
+        // Given - Initial state
+        XCTAssertFalse(sut.hasRequestedNotificationPermission)
+
+        // When - Set to true
+        sut.hasRequestedNotificationPermission = true
+
+        // Then - Should be true
+        XCTAssertTrue(sut.hasRequestedNotificationPermission)
+
+        // When - Set to false
+        sut.hasRequestedNotificationPermission = false
+
+        // Then - Should be false
+        XCTAssertFalse(sut.hasRequestedNotificationPermission)
+    }
+
+    func testRequestAuthorization_SetsFlag_BeforeShowingDialog() async {
+        // Given - Verify initial state
+        XCTAssertFalse(sut.hasRequestedNotificationPermission)
+
+        // When - Call requestAuthorization
+        // Note: This will show the real system dialog in the test environment
+        _ = await sut.requestAuthorization()
+
+        // Then - Flag should be set regardless of user's choice
+        // (The flag is set BEFORE the dialog is shown, so even if the test fails
+        // to get permission, the flag should be true)
+        XCTAssertTrue(
+            sut.hasRequestedNotificationPermission,
+            "Flag should be set before dialog is shown, regardless of user choice"
+        )
+    }
+
     // MARK: - Test Helpers
 
     /// Wait for a condition to become true within a timeout

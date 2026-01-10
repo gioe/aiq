@@ -35,8 +35,21 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// UserDefaults key for storing device token
     private let deviceTokenKey = "com.aiq.deviceToken"
 
+    /// UserDefaults key for tracking if permission has been requested
+    private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
+
     /// Whether we're currently processing a device token registration
     private var isRegisteringToken = false
+
+    /// Whether notification permission has been requested from the user
+    var hasRequestedNotificationPermission: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: permissionRequestedKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: permissionRequestedKey)
+        }
+    }
 
     // MARK: - Initialization
 
@@ -65,6 +78,10 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// - Returns: Whether authorization was granted
     @discardableResult
     func requestAuthorization() async -> Bool {
+        // Mark that we've requested permission BEFORE showing the dialog
+        // This prevents duplicate requests throughout the app lifecycle
+        hasRequestedNotificationPermission = true
+
         do {
             let granted = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
@@ -234,6 +251,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Clear cached device token from UserDefaults
     private func clearCachedDeviceToken() {
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+        UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
         pendingDeviceToken = nil
     }
 }
