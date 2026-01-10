@@ -16,6 +16,9 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         $authorizationStatus
     }
 
+    /// Whether notification permission has been requested from the user
+    var hasRequestedNotificationPermission: Bool = false
+
     // MARK: - Call Tracking
 
     var requestAuthorizationCalled = false
@@ -43,6 +46,7 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     func requestAuthorization() async -> Bool {
         requestAuthorizationCalled = true
         requestAuthorizationCallCount += 1
+        hasRequestedNotificationPermission = true
 
         if shouldFailAuthorization {
             return false
@@ -102,6 +106,7 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
 
         authorizationStatus = .notDetermined
         isDeviceTokenRegistered = false
+        hasRequestedNotificationPermission = false
         mockAuthorizationGranted = true
         mockAuthorizationStatus = .authorized
         shouldFailAuthorization = false
