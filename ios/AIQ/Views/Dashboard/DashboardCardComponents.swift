@@ -76,7 +76,6 @@ struct StatCard: View {
                     lineWidth: 1
                 )
         )
-        .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
         .accessibilityIdentifier(accessibilityId ?? "")
     }
