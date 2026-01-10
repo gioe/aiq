@@ -11,9 +11,11 @@ protocol UserNotificationCenterProtocol {
     /// - Returns: Whether authorization was granted
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
 
-    /// Get current notification settings
-    /// - Returns: The current notification settings
-    func notificationSettings() async -> UNNotificationSettings
+    /// Get current authorization status
+    /// - Returns: The current authorization status
+    /// Note: Returns status directly instead of UNNotificationSettings to enable proper mocking
+    /// (UNNotificationSettings cannot be instantiated directly for testing)
+    func getAuthorizationStatus() async -> UNAuthorizationStatus
 }
 
 /// Extend UNUserNotificationCenter to conform to our protocol
@@ -30,5 +32,10 @@ extension UNUserNotificationCenter: UserNotificationCenterProtocol {
                 }
             }
         }
+    }
+
+    @MainActor
+    func getAuthorizationStatus() async -> UNAuthorizationStatus {
+        await notificationSettings().authorizationStatus
     }
 }

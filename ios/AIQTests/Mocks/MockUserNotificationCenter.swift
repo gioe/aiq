@@ -14,7 +14,7 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
     /// Error to throw from requestAuthorization (if any)
     var authorizationError: Error?
 
-    /// Authorization status to return from notificationSettings
+    /// Authorization status to return from getAuthorizationStatus
     var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     // MARK: - Call Tracking
@@ -28,11 +28,11 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
     /// Options passed to last requestAuthorization call
     var lastAuthorizationOptions: UNAuthorizationOptions?
 
-    /// Whether notificationSettings was called
-    var notificationSettingsCalled = false
+    /// Whether getAuthorizationStatus was called
+    var getAuthorizationStatusCalled = false
 
-    /// Number of times notificationSettings was called
-    var notificationSettingsCallCount = 0
+    /// Number of times getAuthorizationStatus was called
+    var getAuthorizationStatusCallCount = 0
 
     // MARK: - UserNotificationCenterProtocol Implementation
 
@@ -48,12 +48,10 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
         return authorizationGranted
     }
 
-    func notificationSettings() async -> UNNotificationSettings {
-        notificationSettingsCalled = true
-        notificationSettingsCallCount += 1
-
-        // Use the mock settings builder
-        return MockNotificationSettings.create(authorizationStatus: authorizationStatus)
+    func getAuthorizationStatus() async -> UNAuthorizationStatus {
+        getAuthorizationStatusCalled = true
+        getAuthorizationStatusCallCount += 1
+        return authorizationStatus
     }
 
     // MARK: - Helper Methods
@@ -66,34 +64,7 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
         requestAuthorizationCalled = false
         requestAuthorizationCallCount = 0
         lastAuthorizationOptions = nil
-        notificationSettingsCalled = false
-        notificationSettingsCallCount = 0
-    }
-}
-
-// MARK: - Mock Notification Settings Helper
-
-/// Helper to create mock UNNotificationSettings for testing
-/// UNNotificationSettings cannot be directly instantiated, so we use the archiver trick
-enum MockNotificationSettings {
-    /// Create mock notification settings with the specified authorization status
-    /// - Parameter authorizationStatus: The authorization status to return
-    /// - Returns: A UNNotificationSettings instance with the specified status
-    static func create(authorizationStatus _: UNAuthorizationStatus) -> UNNotificationSettings {
-        // UNNotificationSettings is created by the system and can't be directly instantiated.
-        // We use NSCoding to create a mock instance by encoding/decoding with modified values.
-        // This approach works because UNNotificationSettings conforms to NSSecureCoding.
-
-        // Get the real settings as a base
-        let semaphore = DispatchSemaphore(value: 0)
-        var settings: UNNotificationSettings!
-
-        UNUserNotificationCenter.current().getNotificationSettings { s in
-            settings = s
-            semaphore.signal()
-        }
-        semaphore.wait()
-
-        return settings
+        getAuthorizationStatusCalled = false
+        getAuthorizationStatusCallCount = 0
     }
 }
