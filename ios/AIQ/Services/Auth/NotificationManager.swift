@@ -28,6 +28,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private let notificationService: NotificationServiceProtocol
     private let authManager: AuthManagerProtocol
     private let notificationCenter: UserNotificationCenterProtocol
+    private let application: ApplicationProtocol
     private var cancellables = Set<AnyCancellable>()
 
     /// Cached device token (stored until user is authenticated)
@@ -57,11 +58,13 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     init(
         notificationService: NotificationServiceProtocol = NotificationService.shared,
         authManager: AuthManagerProtocol = AuthManager.shared,
-        notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current()
+        notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
+        application: ApplicationProtocol = UIApplication.shared
     ) {
         self.notificationService = notificationService
         self.authManager = authManager
         self.notificationCenter = notificationCenter
+        self.application = application
 
         // Load cached device token synchronously (UserDefaults is fast)
         loadCachedDeviceToken()
@@ -93,9 +96,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
             if granted {
                 // Register for remote notifications
-                await MainActor.run {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
+                application.registerForRemoteNotifications()
             }
 
             return granted
