@@ -55,9 +55,11 @@
 		2408A59DEBFD3633CB167EE2 /* RationaleCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E180808A3B53FB7C540F1AC /* RationaleCard.swift */; };
 		244EA27AB1C30F260E1CC417 /* OnboardingPage2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D77FAF15383915BA01D39FC /* OnboardingPage2View.swift */; };
 		249AC46262089A599B5D176D /* DashboardCardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 825C4BA5CEF4D5D8E8C70190 /* DashboardCardComponents.swift */; };
+		24BD646379E4121DD1DEFC82 /* ApplicationProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */; };
 		24E15231306FC8A7CEBC07C0 /* StringLocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F8C9F55B117C21CD8CDF7 /* StringLocalizationTests.swift */; };
 		253DB88D03548BADAFF80023 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA9D8DFE3D7775DC45E88DD /* Typography.swift */; };
 		25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5F67568DF35617BE6981320E /* FirebaseAnalytics */; };
+		274DEA0A6EC19369D9E10DA0 /* MockApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */; };
 		2B5CCA8DB0C2482BBDEB778D /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C496159D2E04EA9B19FA657 /* NotificationManagerTests.swift */; };
 		2C0C55F3DEC090A91726FC04 /* AccessibilityIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */; };
 		2CE5E95B1E8B58E4951D07FE /* TestTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B882AA36D10AE403C1E8655 /* TestTimerView.swift */; };
@@ -343,6 +345,7 @@
 		9EC23CD0B01044C988C0DF26 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
 		A16988A601D72DDA897C6605 /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
 		A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandlerTests.swift; sourceTree = "<group>"; };
+		A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockApplication.swift; sourceTree = "<group>"; };
 		A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		A4822133E0084FC6B5E58520 /* UserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTests.swift; sourceTree = "<group>"; };
 		A69F71CE91E33159738DFCAC /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
@@ -351,6 +354,7 @@
 		A7892D0170116927D3924308 /* APIClientIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientIntegrationTests.swift; sourceTree = "<group>"; };
 		A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestInterceptor.swift; sourceTree = "<group>"; };
 		AA7782CE071C4128230BA182 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationProtocol.swift; sourceTree = "<group>"; };
 		B3F9E7E6F76233D867D7559F /* AuthManagerDeleteAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthManagerDeleteAccountTests.swift; sourceTree = "<group>"; };
 		B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B83031AE2038521C3574E49F /* PerformanceInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceInsights.swift; sourceTree = "<group>"; };
@@ -662,6 +666,7 @@
 				F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */,
 				945134461CB72E20E086213F /* MockNotificationManager.swift */,
 				A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */,
+				A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -885,6 +890,7 @@
 				D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */,
 				1C4F7E3B53001FD9067CC61A /* NotificationManagerProtocol.swift */,
 				6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */,
+				ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -1136,6 +1142,7 @@
 				3AC11B85E9F247E74E27B4FC /* FeedbackViewModelTests.swift in Sources */,
 				472E5C55E218C72274F6A975 /* NotificationManagerIntegrationTests.swift in Sources */,
 				BAA949803FAB113CC544D70E /* MockUserNotificationCenter.swift in Sources */,
+				274DEA0A6EC19369D9E10DA0 /* MockApplication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1255,6 +1262,7 @@
 				228B5D811844F5ED4CB6C1D8 /* FeedbackViewModel.swift in Sources */,
 				7B4895CDC518617882D07FF8 /* FeedbackView.swift in Sources */,
 				D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */,
+				24BD646379E4121DD1DEFC82 /* ApplicationProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

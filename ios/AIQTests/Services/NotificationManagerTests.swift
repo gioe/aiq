@@ -10,6 +10,7 @@ final class NotificationManagerTests: XCTestCase {
     var mockNotificationService: MockNotificationService!
     var mockAuthManager: MockAuthManager!
     var mockNotificationCenter: MockUserNotificationCenter!
+    var mockApplication: MockApplication!
     var cancellables: Set<AnyCancellable>!
 
     // UserDefaults keys used by NotificationManager
@@ -28,13 +29,15 @@ final class NotificationManagerTests: XCTestCase {
         mockNotificationService = MockNotificationService()
         mockAuthManager = MockAuthManager()
         mockNotificationCenter = MockUserNotificationCenter()
+        mockApplication = MockApplication()
 
         // Create SUT with injected dependencies
         // Initialization is now synchronous - no delay needed
         sut = NotificationManager(
             notificationService: mockNotificationService,
             authManager: mockAuthManager,
-            notificationCenter: mockNotificationCenter
+            notificationCenter: mockNotificationCenter,
+            application: mockApplication
         )
     }
 
@@ -44,6 +47,7 @@ final class NotificationManagerTests: XCTestCase {
         mockNotificationService = nil
         mockAuthManager = nil
         mockNotificationCenter = nil
+        mockApplication = nil
 
         // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
@@ -65,10 +69,12 @@ final class NotificationManagerTests: XCTestCase {
         let freshMockNotificationService = MockNotificationService()
         let freshMockAuthManager = MockAuthManager()
         let freshMockNotificationCenter = MockUserNotificationCenter()
+        let freshMockApplication = MockApplication()
         let freshSut = NotificationManager(
             notificationService: freshMockNotificationService,
             authManager: freshMockAuthManager,
-            notificationCenter: freshMockNotificationCenter
+            notificationCenter: freshMockNotificationCenter,
+            application: freshMockApplication
         )
 
         // When - Call didReceiveDeviceToken immediately after init (no delay)
@@ -85,12 +91,14 @@ final class NotificationManagerTests: XCTestCase {
         let freshMockNotificationService = MockNotificationService()
         let freshMockAuthManager = MockAuthManager()
         let freshMockNotificationCenter = MockUserNotificationCenter()
+        let freshMockApplication = MockApplication()
 
         // When - Create NotificationManager and immediately trigger auth state change
         let freshSut = NotificationManager(
             notificationService: freshMockNotificationService,
             authManager: freshMockAuthManager,
-            notificationCenter: freshMockNotificationCenter
+            notificationCenter: freshMockNotificationCenter,
+            application: freshMockApplication
         )
 
         // Cache a token so retry has something to work with
@@ -977,7 +985,8 @@ final class NotificationManagerTests: XCTestCase {
         let newSut = NotificationManager(
             notificationService: mockNotificationService,
             authManager: mockAuthManager,
-            notificationCenter: mockNotificationCenter
+            notificationCenter: mockNotificationCenter,
+            application: mockApplication
         )
 
         // Then - Flag should persist
