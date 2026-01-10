@@ -9,10 +9,12 @@ final class NotificationManagerTests: XCTestCase {
     var sut: NotificationManager!
     var mockNotificationService: MockNotificationService!
     var mockAuthManager: MockAuthManager!
+    var mockNotificationCenter: MockUserNotificationCenter!
     var cancellables: Set<AnyCancellable>!
 
-    // UserDefaults key used by NotificationManager
+    // UserDefaults keys used by NotificationManager
     private let deviceTokenKey = "com.aiq.deviceToken"
+    private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
 
     override func setUp() async throws {
         try await super.setUp()
@@ -20,16 +22,19 @@ final class NotificationManagerTests: XCTestCase {
 
         // Clear UserDefaults before each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+        UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
 
         // Create mocks
         mockNotificationService = MockNotificationService()
         mockAuthManager = MockAuthManager()
+        mockNotificationCenter = MockUserNotificationCenter()
 
         // Create SUT with injected dependencies
         // Initialization is now synchronous - no delay needed
         sut = NotificationManager(
             notificationService: mockNotificationService,
-            authManager: mockAuthManager
+            authManager: mockAuthManager,
+            notificationCenter: mockNotificationCenter
         )
     }
 
@@ -38,9 +43,11 @@ final class NotificationManagerTests: XCTestCase {
         sut = nil
         mockNotificationService = nil
         mockAuthManager = nil
+        mockNotificationCenter = nil
 
         // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+        UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
 
         super.tearDown()
     }
@@ -57,9 +64,11 @@ final class NotificationManagerTests: XCTestCase {
         // Given - Create a fresh NotificationManager
         let freshMockNotificationService = MockNotificationService()
         let freshMockAuthManager = MockAuthManager()
+        let freshMockNotificationCenter = MockUserNotificationCenter()
         let freshSut = NotificationManager(
             notificationService: freshMockNotificationService,
-            authManager: freshMockAuthManager
+            authManager: freshMockAuthManager,
+            notificationCenter: freshMockNotificationCenter
         )
 
         // When - Call didReceiveDeviceToken immediately after init (no delay)
@@ -75,11 +84,13 @@ final class NotificationManagerTests: XCTestCase {
         // Given - Set up mock auth manager that will emit authentication change
         let freshMockNotificationService = MockNotificationService()
         let freshMockAuthManager = MockAuthManager()
+        let freshMockNotificationCenter = MockUserNotificationCenter()
 
         // When - Create NotificationManager and immediately trigger auth state change
         let freshSut = NotificationManager(
             notificationService: freshMockNotificationService,
-            authManager: freshMockAuthManager
+            authManager: freshMockAuthManager,
+            notificationCenter: freshMockNotificationCenter
         )
 
         // Cache a token so retry has something to work with
@@ -939,7 +950,10 @@ final class NotificationManagerTests: XCTestCase {
         // Given - Fresh NotificationManager with flag not set
         XCTAssertFalse(sut.hasRequestedNotificationPermission, "Flag should initially be false")
 
-        // When - Request authorization (note: this calls the real UNUserNotificationCenter)
+        // Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Request authorization (uses mock, no real dialog shown)
         _ = await sut.requestAuthorization()
 
         // Then - Flag should be set to true
@@ -962,7 +976,8 @@ final class NotificationManagerTests: XCTestCase {
         // When - Create a new NotificationManager instance (simulates app restart)
         let newSut = NotificationManager(
             notificationService: mockNotificationService,
-            authManager: mockAuthManager
+            authManager: mockAuthManager,
+            notificationCenter: mockNotificationCenter
         )
 
         // Then - Flag should persist
@@ -1008,8 +1023,10 @@ final class NotificationManagerTests: XCTestCase {
         // Given - Verify initial state
         XCTAssertFalse(sut.hasRequestedNotificationPermission)
 
-        // When - Call requestAuthorization
-        // Note: This will show the real system dialog in the test environment
+        // Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Call requestAuthorization (uses mock, no real dialog shown)
         _ = await sut.requestAuthorization()
 
         // Then - Flag should be set regardless of user's choice
@@ -1019,6 +1036,9 @@ final class NotificationManagerTests: XCTestCase {
             sut.hasRequestedNotificationPermission,
             "Flag should be set before dialog is shown, regardless of user choice"
         )
+
+        // Verify mock was called
+        XCTAssertTrue(mockNotificationCenter.requestAuthorizationCalled)
     }
 
     // MARK: - Test Helpers

@@ -145,6 +145,7 @@
 		B86CFCC15797CE1A4D9F86FB /* IconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */; };
 		B9A95CA3A8D6D6283555F7E5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7782CE071C4128230BA182 /* RootView.swift */; };
 		B9EB105521003CA3424BA490 /* RegistrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4FAEB67D62A917317348E0 /* RegistrationViewModel.swift */; };
+		BAA949803FAB113CC544D70E /* MockUserNotificationCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */; };
 		BC77B3CA6DF041F7FD00BE25 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E676AB96E42CF5A5F8F0231C /* AppConfig.swift */; };
 		BCB8275C8446132B10C1D20D /* OnboardingPage4View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11C5A7D620E9ED27D3968B2F /* OnboardingPage4View.swift */; };
 		BD95485C0DD4CC5ED93E99A7 /* AuthServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A03B180242F54340F85306F /* AuthServiceProtocol.swift */; };
@@ -166,6 +167,7 @@
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
 		D57FC4ECD3320E9B6563E7BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 764993E8667FA60C49C142E3 /* Assets.xcassets */; };
+		D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */; };
 		D80C1EFE0746B3D87A147AE4 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */; };
 		DATACACHE002BBBB /* DataCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATACACHE001AAAA /* DataCacheTests.swift */; };
 		DB1D7E114176275F1B03152A /* PrivacyConsentStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451DCC1088B05DD66CC0F5B3 /* PrivacyConsentStorageTests.swift */; };
@@ -304,6 +306,7 @@
 		667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionFlowIntegrationTests.swift; sourceTree = "<group>"; };
 		6692209AC679B3F2DE179326 /* PrivacyFeatureRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PrivacyFeatureRow.swift; sourceTree = "<group>"; };
 		67917E637F178829655DE396 /* TestProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestProgressView.swift; sourceTree = "<group>"; };
+		6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UserNotificationCenterProtocol.swift; sourceTree = "<group>"; };
 		6E670DCBD950D08051713258 /* RegistrationViewModelValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelValidationTests.swift; sourceTree = "<group>"; };
 		6F65A561E55D0962F63D8A98 /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		70A5A9453EBC3FF647D25AB8 /* LoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModelTests.swift; sourceTree = "<group>"; };
@@ -340,6 +343,7 @@
 		9EC23CD0B01044C988C0DF26 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
 		A16988A601D72DDA897C6605 /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
 		A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandlerTests.swift; sourceTree = "<group>"; };
+		A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		A4822133E0084FC6B5E58520 /* UserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTests.swift; sourceTree = "<group>"; };
 		A69F71CE91E33159738DFCAC /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 		A6C113F55160505AB65C0AA7 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
@@ -657,6 +661,7 @@
 				2199668A3916B07E37543DDE /* MockLocalAnswerStorage.swift */,
 				F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */,
 				945134461CB72E20E086213F /* MockNotificationManager.swift */,
+				A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -879,6 +884,7 @@
 				F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */,
 				D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */,
 				1C4F7E3B53001FD9067CC61A /* NotificationManagerProtocol.swift */,
+				6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -1129,6 +1135,7 @@
 				C05AF491D5998015314ADF06 /* OnboardingViewModelTests.swift in Sources */,
 				3AC11B85E9F247E74E27B4FC /* FeedbackViewModelTests.swift in Sources */,
 				472E5C55E218C72274F6A975 /* NotificationManagerIntegrationTests.swift in Sources */,
+				BAA949803FAB113CC544D70E /* MockUserNotificationCenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1247,6 +1254,7 @@
 				3EC6082B483B4D1EC7E9576B /* Feedback.swift in Sources */,
 				228B5D811844F5ED4CB6C1D8 /* FeedbackViewModel.swift in Sources */,
 				7B4895CDC518617882D07FF8 /* FeedbackView.swift in Sources */,
+				D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
