@@ -324,16 +324,112 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should not be saved after refresh token failure"
             )
 
-            // Verify API client token was NOT set
+            // BTS-229: Verify API client state after partial save failure
+            // EXPECTED BEHAVIOR: setAuthToken() should NOT be called at all when storage fails
+            // The implementation correctly defers apiClient.setAuthToken() until after all saves succeed
+            // This maintains atomicity between storage and apiClient state
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be set when storage save fails"
+                "API client setAuthToken should not be called when storage save fails"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken should have 0 calls when storage save fails"
             )
 
             // Verify currentUser was NOT set
             let currentUser = await sut.currentUser
             XCTAssertNil(currentUser, "Current user should not be set when storage save fails")
+        }
+    }
+
+    func testLogin_PartialStorageSave_WithExistingAuth_RollsBackToOldToken() async throws {
+        // Given - User already has valid auth from a previous login
+        try mockSecureStorage.save("old_access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("old_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+        try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
+
+        // Simulate that apiClient already has the old token
+        await mockAPIClient.resetAuthTokenTracking()
+
+        let email = "test@example.com"
+        let password = "password123"
+        let mockUser = User(
+            id: 1,
+            email: email,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let mockAuthResponse = AuthResponse(
+            accessToken: "new_access_token",
+            refreshToken: "new_refresh_token",
+            tokenType: "Bearer",
+            user: mockUser
+        )
+
+        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+
+        // Configure storage to fail on refresh token save (after access token succeeds)
+        mockSecureStorage.setShouldThrowOnSave(
+            forKey: SecureStorageKey.refreshToken.rawValue,
+            true
+        )
+
+        // When/Then
+        do {
+            _ = try await sut.login(email: email, password: password)
+            XCTFail("Should throw storage error when refresh token save fails")
+        } catch {
+            // Expected - refresh token save failed
+            XCTAssertTrue(error is MockSecureStorageError, "Should throw MockSecureStorageError")
+
+            // BTS-229: Verify storage is rolled back to OLD state
+            let savedAccessToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.accessToken.rawValue
+            )
+            XCTAssertEqual(
+                savedAccessToken,
+                "old_access_token",
+                "Access token should be rolled back to old value when partial save fails"
+            )
+
+            let savedRefreshToken = try? mockSecureStorage.retrieve(
+                forKey: SecureStorageKey.refreshToken.rawValue
+            )
+            XCTAssertEqual(
+                savedRefreshToken,
+                "old_refresh_token",
+                "Refresh token should remain as old value when save fails"
+            )
+
+            // BTS-229: Verify apiClient.setAuthToken() was NOT called with new token
+            // CRITICAL: apiClient should still have old token, not new token
+            // The implementation correctly does NOT call setAuthToken on partial failure
+            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            XCTAssertFalse(
+                setAuthTokenCalled,
+                "API client setAuthToken should not be called when storage rollback occurs"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 after rollback"
+            )
+
+            // Note: In a real scenario, apiClient would still have "old_access_token"
+            // This test verifies that we don't UPDATE it with the new token
+            // The lack of setAuthToken calls means apiClient state is preserved
         }
     }
 
@@ -403,11 +499,17 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should not be saved when save fails"
             )
 
-            // Verify API client token was NOT set
+            // BTS-229: Verify API client state - enhanced with call count verification
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be set when storage save fails"
+                "API client setAuthToken should not be called when storage save fails"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -679,11 +781,17 @@ final class AuthServiceTests: XCTestCase {
                 "Refresh token should not be saved when save fails"
             )
 
-            // Verify API client token was NOT set
+            // BTS-229: Verify API client state after partial save failure
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be set when storage save fails"
+                "API client setAuthToken should not be called when storage save fails"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -756,11 +864,17 @@ final class AuthServiceTests: XCTestCase {
                 "Refresh token should be rolled back when userId save fails"
             )
 
-            // Verify API client token was NOT set
+            // BTS-229: Verify API client state after partial save failure
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be set when storage save fails"
+                "API client setAuthToken should not be called when storage save fails"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -1116,11 +1230,18 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should remain unchanged when refresh token save fails"
             )
 
-            // Verify API client token was NOT updated
+            // BTS-229: Verify API client state - enhanced with call count verification
+            // CRITICAL: When rollback occurs, apiClient should preserve old token (not update to new token)
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be updated when storage save fails"
+                "API client setAuthToken should not be called when storage rollback occurs"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 when storage save fails"
             )
 
             // Verify currentUser was NOT updated
@@ -1200,11 +1321,17 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should remain unchanged when save fails"
             )
 
-            // Verify API client token was NOT updated
+            // BTS-229: Verify API client state - enhanced with call count verification
             let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
+            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
             XCTAssertFalse(
                 setAuthTokenCalled,
-                "API client token should not be updated when storage save fails"
+                "API client setAuthToken should not be called when storage rollback occurs"
+            )
+            XCTAssertEqual(
+                setAuthTokenCallCount,
+                0,
+                "API client setAuthToken call count should be 0 when storage save fails"
             )
 
             // Verify currentUser was NOT updated
