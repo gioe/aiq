@@ -21,7 +21,6 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     private let notificationService: NotificationServiceProtocol
     private let notificationManager: NotificationManagerProtocol
-    private let authManager: AuthManager
     private var viewCancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
@@ -32,7 +31,6 @@ class NotificationSettingsViewModel: BaseViewModel {
     ) {
         self.notificationService = notificationService
         self.notificationManager = notificationManager
-        authManager = AuthManager.shared
         super.init()
 
         // Observe app lifecycle to check permission changes
