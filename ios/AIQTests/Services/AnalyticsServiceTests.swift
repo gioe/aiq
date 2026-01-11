@@ -567,7 +567,9 @@ final class AnalyticsServiceTests: XCTestCase {
     }
 
     func testConcurrentPersistence_ThreadSafety() async {
-        // Given - Add some events
+        // Given - Disable network to prevent auto-batch submission from clearing the queue
+        mockNetworkMonitor.isConnected = false
+
         for i in 0 ..< 50 {
             sut.track(event: .userLogin, properties: ["index": i])
         }
