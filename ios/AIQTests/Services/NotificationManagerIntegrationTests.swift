@@ -22,6 +22,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
     var mockNotificationService: MockNotificationService!
     var mockAuthManager: MockAuthManager!
     var mockNotificationCenter: MockUserNotificationCenter!
+    var mockApplication: MockApplication!
     var cancellables: Set<AnyCancellable>!
 
     // UserDefaults key used by NotificationManager
@@ -74,12 +75,14 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         mockNotificationService = MockNotificationService()
         mockAuthManager = MockAuthManager()
         mockNotificationCenter = MockUserNotificationCenter()
+        mockApplication = MockApplication()
 
         // Create SUT with injected dependencies
         sut = NotificationManager(
             notificationService: mockNotificationService,
             authManager: mockAuthManager,
-            notificationCenter: mockNotificationCenter
+            notificationCenter: mockNotificationCenter,
+            application: mockApplication
         )
     }
 
@@ -89,6 +92,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         mockNotificationService = nil
         mockAuthManager = nil
         mockNotificationCenter = nil
+        mockApplication = nil
 
         // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
@@ -705,6 +709,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let newMockNotificationService = MockNotificationService()
         let newMockAuthManager = MockAuthManager()
         let newMockNotificationCenter = MockUserNotificationCenter()
+        let newMockApplication = MockApplication()
         newMockAuthManager.isAuthenticated = true
 
         await newMockNotificationService.setRegisterResponse(mockResponse)
@@ -712,7 +717,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let newSut = NotificationManager(
             notificationService: newMockNotificationService,
             authManager: newMockAuthManager,
-            notificationCenter: newMockNotificationCenter
+            notificationCenter: newMockNotificationCenter,
+            application: newMockApplication
         )
 
         // Wait for new instance to register with cached token
