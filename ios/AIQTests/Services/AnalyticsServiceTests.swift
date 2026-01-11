@@ -250,18 +250,24 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Batch Submission Tests
 
     func testSubmitBatch_BatchesEventsCorrectly() async {
-        // Disable network to prevent auto-submission while adding events
-        mockNetworkMonitor.isConnected = false
+        // Create a separate SUT with autoSubmitWhenFull disabled to prevent race conditions
+        let testSut = AnalyticsService(
+            userDefaults: mockUserDefaults,
+            networkMonitor: mockNetworkMonitor,
+            urlSession: mockURLSession,
+            secureStorage: mockSecureStorage,
+            batchInterval: 1000.0,
+            startTimer: false,
+            autoSubmitWhenFull: false
+        )
 
         // Given - Add more events than max batch size
-        let maxBatchSize = sut.maxBatchSize
+        let maxBatchSize = testSut.maxBatchSize
         for i in 0 ..< (maxBatchSize + 10) {
-            sut.track(event: .userLogin, properties: ["index": i])
+            testSut.track(event: .userLogin, properties: ["index": i])
         }
 
-        // Re-enable network and set up handler for the explicit submit
-        mockNetworkMonitor.isConnected = true
-
+        // Set up mock handler
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in
             requestCount += 1
@@ -278,11 +284,11 @@ final class AnalyticsServiceTests: XCTestCase {
         }
 
         // When - Submit batch (should only submit maxBatchSize events)
-        await sut.testSubmitBatch()
+        await testSut.testSubmitBatch()
 
         // Then
         XCTAssertEqual(requestCount, 1, "Should make exactly one request")
-        XCTAssertEqual(sut.eventQueueCount, 10, "Should have 10 events remaining")
+        XCTAssertEqual(testSut.eventQueueCount, 10, "Should have 10 events remaining")
     }
 
     func testSubmitBatch_IncludesCorrectMetadata() async {

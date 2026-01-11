@@ -198,6 +198,9 @@ class AnalyticsService {
         )
     }
 
+    /// Whether to auto-submit when queue reaches maxBatchSize
+    private let autoSubmitWhenFull: Bool
+
     /// Internal initializer for dependency injection (used in tests)
     init(
         userDefaults: UserDefaults,
@@ -205,7 +208,8 @@ class AnalyticsService {
         urlSession: URLSession,
         secureStorage: SecureStorageProtocol,
         batchInterval: TimeInterval = Constants.Analytics.batchInterval,
-        startTimer: Bool = true
+        startTimer: Bool = true,
+        autoSubmitWhenFull: Bool = true
     ) {
         // Create separate loggers for different categories
         logger = Logger(subsystem: "com.aiq.app", category: "analytics")
@@ -216,6 +220,7 @@ class AnalyticsService {
         self.urlSession = urlSession
         self.secureStorage = secureStorage
         self.batchInterval = batchInterval
+        self.autoSubmitWhenFull = autoSubmitWhenFull
 
         // Load any persisted events from previous sessions
         loadPersistedEvents()
@@ -270,8 +275,8 @@ class AnalyticsService {
             errorLogger.warning("Analytics: Dropped \(droppedCount) oldest events due to queue overflow")
         }
 
-        // If queue is full, submit immediately
-        if shouldSubmit {
+        // If queue is full and auto-submit is enabled, submit immediately
+        if shouldSubmit && autoSubmitWhenFull {
             Task {
                 await submitBatch()
             }
