@@ -80,155 +80,6 @@ final class NotificationSoftPromptViewTests: XCTestCase {
         XCTAssertFalse(enableRemindersCalled, "Enable reminders callback should not be called on dismiss")
     }
 
-    // MARK: - Content Tests
-
-    func testView_ContainsRequiredTitle() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Note: Testing SwiftUI views requires ViewInspector or similar libraries for full content verification
-        // For now, we verify the view can be rendered without crashing
-        XCTAssertNotNil(viewBody, "View body should be renderable")
-    }
-
-    func testView_ContainsRequiredBodyCopy() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Verify the view renders successfully
-        XCTAssertNotNil(viewBody, "View body should contain the expected content structure")
-    }
-
-    // MARK: - Accessibility Tests
-
-    func testView_HasAccessibilityIdentifiers() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // The view should define accessibility identifiers for testability
-        // Testing this requires ViewInspector or UI tests
-        XCTAssertNotNil(viewBody, "View should be accessible for testing")
-    }
-
-    func testView_SupportsVoiceOver() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Verify view can be rendered with accessibility features
-        XCTAssertNotNil(viewBody, "View should support VoiceOver through accessibility labels and traits")
-    }
-
-    // MARK: - Layout Tests
-
-    func testView_RendersOnSmallDevice() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When - render for iPhone SE size
-        let viewBody = view.body
-
-        // Then
-        XCTAssertNotNil(viewBody, "View should render correctly on small devices (iPhone SE)")
-    }
-
-    func testView_RendersOnLargeDevice() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When - render for iPhone Pro Max size
-        let viewBody = view.body
-
-        // Then
-        XCTAssertNotNil(viewBody, "View should render correctly on large devices (iPhone Pro Max)")
-    }
-
-    func testView_RendersWithLargeTextSize() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Note: Environment modifiers cannot be tested this way in unit tests.
-        // This verifies the base view renders, which is sufficient for unit testing.
-        // Dynamic Type support should be verified through SwiftUI previews and UI tests.
-        XCTAssertNotNil(viewBody, "View should render correctly (Dynamic Type tested via previews)")
-    }
-
-    // MARK: - Color Scheme Tests
-
-    func testView_RendersInDarkMode() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Note: Color scheme modifiers cannot be tested this way in unit tests.
-        // This verifies the base view renders, which is sufficient for unit testing.
-        // Dark mode support should be verified through SwiftUI previews and UI tests.
-        XCTAssertNotNil(viewBody, "View should render correctly (dark mode tested via previews)")
-    }
-
-    func testView_RendersInLightMode() {
-        // Given
-        let view = NotificationSoftPromptView(
-            onEnableReminders: {},
-            onDismiss: {}
-        )
-
-        // When
-        let viewBody = view.body
-
-        // Then
-        // Note: Color scheme modifiers cannot be tested this way in unit tests.
-        // This verifies the base view renders, which is sufficient for unit testing.
-        // Light mode support should be verified through SwiftUI previews and UI tests.
-        XCTAssertNotNil(viewBody, "View should render correctly (light mode tested via previews)")
-    }
-
     // MARK: - Integration Tests
 
     func testView_CallbacksAreIndependent() {
@@ -302,5 +153,28 @@ final class NotificationSoftPromptViewTests: XCTestCase {
         // Then
         XCTAssertTrue(view1EnableCalled, "First view's callback should still be true")
         XCTAssertTrue(view2EnableCalled, "Second view's callback should now be called")
+    }
+
+    func testCallbacks_CanBeCalledMultipleTimes() {
+        // Given
+        var callCount = 0
+
+        let view = NotificationSoftPromptView(
+            onEnableReminders: {
+                callCount += 1
+            },
+            onDismiss: {}
+        )
+
+        // When
+        let mirror = Mirror(reflecting: view)
+        if let callback = mirror.descendant("onEnableReminders") as? () -> Void {
+            callback()
+            callback()
+            callback()
+        }
+
+        // Then - view doesn't debounce, caller is responsible
+        XCTAssertEqual(callCount, 3, "Callback should be called each time")
     }
 }
