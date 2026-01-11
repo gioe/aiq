@@ -69,6 +69,7 @@
 		33B55DFD3E71E8BD7E62234F /* HistoryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A839FCC317A5FF03CFAD3F /* HistoryViewModelTests.swift */; };
 		35F3E0F6D466CAD40795F6F9 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACC5F041A4B134FDDFD8A84 /* String+Extensions.swift */; };
 		364A1095E19013479FF24683 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7585F7DE65C589585935EB9 /* AnalyticsService.swift */; };
+		36BF1A734D0A529378F6B325 /* NotificationSoftPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */; };
 		387B3C6AC967D1D6693CD209 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330A2EFE8EEF29B2E4D50CDD /* ErrorView.swift */; };
 		392C4883901BFBF0E46469B2 /* CrashlyticsErrorRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAA1814DC1180D4FEEBA3EF /* CrashlyticsErrorRecorderTests.swift */; };
 		3994005DF68942F2F93BA0F5 /* SavedTestProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED0FE853EEB74DF308E3DE5 /* SavedTestProgress.swift */; };
@@ -169,6 +170,7 @@
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
 		D57FC4ECD3320E9B6563E7BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 764993E8667FA60C49C142E3 /* Assets.xcassets */; };
+		D6A0576C226366DA8EFDACD8 /* NotificationSoftPromptViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE0E4487A7D030B36E44B24C /* NotificationSoftPromptViewTests.swift */; };
 		D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */; };
 		D80C1EFE0746B3D87A147AE4 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */; };
 		DATACACHE002BBBB /* DataCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATACACHE001AAAA /* DataCacheTests.swift */; };
@@ -297,6 +299,7 @@
 		571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManagerProtocol.swift; sourceTree = "<group>"; };
 		578FAC9B7717F895FC3AE5CB /* OnboardingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
 		58ADF55481E64C9FAC5ED49B /* AIQUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSoftPromptView.swift; sourceTree = "<group>"; };
 		5D77FAF15383915BA01D39FC /* OnboardingPage2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPage2View.swift; sourceTree = "<group>"; };
 		5E271D9299641787F0F895AD /* NotificationManagerIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManagerIntegrationTests.swift; sourceTree = "<group>"; };
 		5E92CF0848C8EACC3C1FF0DE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -361,6 +364,7 @@
 		BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTokenManagerProtocol.swift; sourceTree = "<group>"; };
 		BB7097E0EB2DFDF74B56C8E0 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
 		BCA19A5C88EDBB917FA54F8D /* DateExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DateExtensionsTests.swift; sourceTree = "<group>"; };
+		BE0E4487A7D030B36E44B24C /* NotificationSoftPromptViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSoftPromptViewTests.swift; sourceTree = "<group>"; };
 		BEA9D8DFE3D7775DC45E88DD /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		BEAE7366A4160F33F8AEC311 /* InfoCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InfoCard.swift; sourceTree = "<group>"; };
 		BEE8B13BEAD376112B969FAA /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
@@ -459,6 +463,7 @@
 			isa = PBXGroup;
 			children = (
 				300F0EB6567454426087E83B /* IQTrendChartTests.swift */,
+				BE0E4487A7D030B36E44B24C /* NotificationSoftPromptViewTests.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -851,6 +856,7 @@
 				AA7782CE071C4128230BA182 /* RootView.swift */,
 				2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */,
 				BEAE7366A4160F33F8AEC311 /* InfoCard.swift */,
+				58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -1143,6 +1149,7 @@
 				472E5C55E218C72274F6A975 /* NotificationManagerIntegrationTests.swift in Sources */,
 				BAA949803FAB113CC544D70E /* MockUserNotificationCenter.swift in Sources */,
 				274DEA0A6EC19369D9E10DA0 /* MockApplication.swift in Sources */,
+				D6A0576C226366DA8EFDACD8 /* NotificationSoftPromptViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1263,6 +1270,7 @@
 				7B4895CDC518617882D07FF8 /* FeedbackView.swift in Sources */,
 				D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */,
 				24BD646379E4121DD1DEFC82 /* ApplicationProtocol.swift in Sources */,
+				36BF1A734D0A529378F6B325 /* NotificationSoftPromptView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
