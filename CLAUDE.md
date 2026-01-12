@@ -41,3 +41,12 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 | List issues | `gh issue list` |
 | Check CI status | `gh run list` / `gh run view <id>` |
 | View PR comments | `gh api repos/{owner}/{repo}/pulls/<number>/comments` |
+
+## Required Skills Usage
+
+When performing these operations, always use the corresponding skill instead of running commands directly:
+
+| Operation | Skill | Instead of |
+|-----------|-------|------------|
+| Running iOS tests | `/run-ios-test` | `xcodebuild test` |
+| Adding Swift files to Xcode | `/xcode-file-manager` | Manual project.pbxproj edits |
