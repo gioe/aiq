@@ -116,6 +116,10 @@ enum Constants {
         /// Minimum name length in characters
         /// Ensures meaningful user identification
         static let minNameLength: Int = 2
+
+        /// Minimum birth year allowed for user registration
+        /// Set to 1900 to support oldest living users
+        static let minBirthYear: Int = 1900
     }
 
     // MARK: - Pagination Constants

@@ -117,6 +117,44 @@ enum Validators {
         }
         return .valid
     }
+
+    // MARK: - Birth Year Validation
+
+    /// Validate birth year field
+    ///
+    /// Requirements:
+    /// - Year must be a valid integer
+    /// - Year must be between 1900 and current year (inclusive)
+    ///
+    /// - Parameter birthYear: The birth year string to validate
+    /// - Returns: `.valid` if birth year meets all requirements, `.invalid(message)` otherwise
+    static func validateBirthYear(_ birthYear: String) -> ValidationResult {
+        // Empty birth year is valid (optional field)
+        let trimmed = birthYear.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            return .valid
+        }
+
+        // Must be a valid integer
+        guard let year = Int(trimmed) else {
+            return .invalid("Birth year must be a valid year")
+        }
+
+        // Get current year dynamically
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        // Year must be >= 1900
+        guard year >= Constants.Validation.minBirthYear else {
+            return .invalid("Birth year must be 1900 or later")
+        }
+
+        // Year must be <= current year
+        guard year <= currentYear else {
+            return .invalid("Birth year cannot be in the future")
+        }
+
+        return .valid
+    }
 }
 
 /// Result of validation
