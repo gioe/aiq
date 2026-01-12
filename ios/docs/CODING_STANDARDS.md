@@ -19,12 +19,16 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
 - [Error Handling](#error-handling)
+  - [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)
   - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
   - [Localization for Error Messages](#localization-for-error-messages)
 - [Networking](#networking)
 - [Design System](#design-system)
 - [Documentation](#documentation)
+  - [Documenting Lifecycle and Concurrency Constraints](#documenting-lifecycle-and-concurrency-constraints)
 - [Testing](#testing)
+  - [Test Isolation and Shared Resources](#test-isolation-and-shared-resources)
+  - [Testing Factory Methods and Initialization](#testing-factory-methods-and-initialization)
 - [Code Formatting](#code-formatting)
 - [Accessibility](#accessibility)
 - [Concurrency](#concurrency)
@@ -544,6 +548,57 @@ All errors handled through `BaseViewModel.handleError()` are automatically recor
 handleError(error, context: .login)  // Provides context for debugging
 ```
 
+### Fatal Errors vs. Recoverable Errors
+
+Use `fatalError()` for programmer errors that should never occur in production. These are configuration or development mistakes, not runtime errors.
+
+**DO use `fatalError()`:**
+- Dependency injection failures (service not registered)
+- Invalid enum cases that should be exhaustive
+- Required resources missing from bundle
+- Precondition violations in critical paths
+- Factory methods when required dependencies are missing
+
+**DON'T use `fatalError()`:**
+- User input validation failures
+- Network request failures
+- File system errors
+- Any error that could occur during normal operation
+
+**Example - Factory Methods:**
+
+```swift
+// ✅ Good - fatalError for programmer error (missing DI registration)
+func makeDashboardViewModel(container: ServiceContainer) -> DashboardViewModel {
+    guard let apiClient = container.resolve(APIClientProtocol.self) else {
+        fatalError("APIClientProtocol not registered in ServiceContainer")
+    }
+    return DashboardViewModel(apiClient: apiClient)
+}
+
+// ❌ Bad - fatalError for user/runtime error
+func parseUserInput(_ input: String) -> Configuration {
+    guard let data = input.data(using: .utf8) else {
+        fatalError("Invalid input encoding")  // Wrong! This can happen at runtime
+    }
+    // ...
+}
+
+// ✅ Good - throw for user/runtime error
+func parseUserInput(_ input: String) throws -> Configuration {
+    guard let data = input.data(using: .utf8) else {
+        throw ConfigurationError.invalidEncoding
+    }
+    // ...
+}
+```
+
+**Why This Distinction Matters:**
+- `fatalError()` crashes the app immediately - appropriate for "this should never happen" scenarios
+- Throws/errors allow graceful recovery - appropriate for "this might happen" scenarios
+- Using `fatalError()` for runtime errors gives users a poor experience
+- Using throws for programmer errors allows bugs to propagate silently
+
 ### Parsing and Validation Utilities
 
 When creating utilities that parse external input (strings, files, network data), follow these safety guidelines to avoid silent failures.
@@ -1024,6 +1079,73 @@ private func handleResponse() {
 }
 ```
 
+### Documenting Lifecycle and Concurrency Constraints
+
+When implementing types with initialization-time vs. runtime behavior, document the constraints explicitly. This is especially important for singletons, service containers, and configuration objects.
+
+**Required Documentation Patterns:**
+
+**1. Startup-only APIs** - APIs that should only be called during app initialization:
+
+```swift
+/// Registers a service in the container.
+///
+/// - Warning: This method must only be called during app startup before the container
+///            is accessed by application code. While thread-safe, runtime registration
+///            after app launch may cause race conditions with concurrent resolution.
+/// - Parameters:
+///   - type: The protocol type to register
+///   - factory: A closure that creates instances of the service
+func register<T>(_ type: T.Type, factory: @escaping () -> T)
+```
+
+**2. Thread-safety guarantees** - Document what operations are thread-safe:
+
+```swift
+/// Thread-safe service container for dependency injection.
+///
+/// ## Thread Safety
+/// - `register()` and `resolve()` are thread-safe (protected by NSLock)
+/// - `register()` should only be called during app startup
+/// - `resolve()` is safe to call from any thread after configuration
+///
+/// ## Usage
+/// Configure all services at app launch:
+/// ```swift
+/// // In AppDelegate or App struct
+/// let container = ServiceContainer()
+/// ServiceConfiguration.configureServices(container: container)
+/// ```
+class ServiceContainer {
+    // ...
+}
+```
+
+**3. Testing-only APIs** - Methods not intended for production use:
+
+```swift
+/// Removes all registered services from the container.
+///
+/// - Warning: For testing only. Do not call in production code.
+///            Calling this while the app is running will cause crashes
+///            when ViewModels attempt to resolve dependencies.
+func reset()
+```
+
+**When to Add Lifecycle Documentation:**
+- Singletons with an initialization phase
+- Service containers and registries
+- Configuration objects that affect app behavior
+- Any API where "when you call it" matters as much as "what it does"
+- APIs with different thread-safety guarantees for different operations
+
+**Why This Matters:**
+- Prevents misuse of APIs in ways that cause race conditions
+- Makes lifecycle constraints explicit for future maintainers
+- Helps code reviewers identify concurrency issues
+- Reduces debugging time when threading issues occur
+- Creates self-documenting code that explains intent
+
 ---
 
 ## Testing
@@ -1072,6 +1194,57 @@ final class DashboardViewModelTests: XCTestCase {
     }
 }
 ```
+
+### Test Isolation and Shared Resources
+
+**Principle:** Each test should be fully independent and not rely on side effects from other tests.
+
+**For Shared Resources (Singletons, Containers):**
+
+**DO:**
+- Reset shared state in `setUp()` for each test
+- Configure dependencies explicitly in each test class
+- Make test dependencies obvious by initializing in `setUp()`
+- Clean up resources in `tearDown()` without reconfiguring
+
+**DON'T:**
+- Reconfigure shared state in `tearDown()` "for other tests"
+- Assume other tests have left state in a particular configuration
+- Create implicit dependencies between test execution order
+
+**Example - ServiceContainer Tests:**
+
+```swift
+// ✅ Good - Each test configures explicitly
+final class ServiceConfigurationTests: XCTestCase {
+    var container: ServiceContainer!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        container = ServiceContainer()
+        ServiceConfiguration.configureServices(container: container)
+    }
+
+    override func tearDown() async throws {
+        container.reset()  // Clean up, but don't reconfigure
+        container = nil
+        try await super.tearDown()
+    }
+}
+
+// ❌ Bad - Defensive reconfiguration masks dependencies
+override func tearDown() async throws {
+    container.reset()
+    ServiceConfiguration.configureServices(container: container)  // Don't do this
+    try await super.tearDown()
+}
+```
+
+**Why This Matters:**
+- If Test B depends on the container being configured, Test B should configure it in `setUp()`
+- Reconfiguring in `tearDown()` hides this dependency
+- Test isolation issues become obvious when tests fail independently
+- Debugging is easier when each test is self-contained
 
 ### Mocking
 
@@ -1379,6 +1552,43 @@ When writing tests for methods that modify state:
 - [ ] Test each state component in failure scenarios (what's saved vs. what's not)
 - [ ] Verify state consistency between components (e.g., API client token matches storage token)
 - [ ] Test edge cases (first item fails vs. middle item fails vs. last item fails)
+
+### Testing Factory Methods and Initialization
+
+When factory methods or initializers use `fatalError()` for missing dependencies (see [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)), add a verification test to catch configuration errors at test time.
+
+**Required Test Pattern:**
+
+```swift
+func testProductionConfiguration_SatisfiesAllFactories() {
+    // Given - Production configuration
+    let container = ServiceContainer()
+    ServiceConfiguration.configureServices(container: container)
+
+    // When/Then - All factories should succeed without fatalError
+    // Note: If any service is missing, fatalError() will crash the test
+    _ = ViewModelFactory.makeDashboardViewModel(container: container)
+    _ = ViewModelFactory.makeHistoryViewModel(container: container)
+    _ = ViewModelFactory.makeTestTakingViewModel(container: container)
+    _ = ViewModelFactory.makeFeedbackViewModel(container: container)
+    _ = ViewModelFactory.makeNotificationSettingsViewModel(container: container)
+    _ = ViewModelFactory.makeLoginViewModel(container: container)
+    _ = ViewModelFactory.makeRegistrationViewModel(container: container)
+    // ... verify all factory methods
+}
+```
+
+**Why This Matters:**
+- Catches configuration gaps at test time instead of production runtime
+- Prevents app crashes from missing dependency registrations
+- Documents the relationship between ServiceConfiguration and ViewModelFactory
+- Fails fast in CI when new factories are added without corresponding service registration
+- Ensures all app entry points will succeed (main app, extensions, widgets)
+
+**When to Add This Test:**
+- When creating a new factory method in `ViewModelFactory`
+- When adding a new service registration in `ServiceConfiguration`
+- As part of any DI infrastructure changes
 
 ### UI Testing Helpers
 
