@@ -5,7 +5,9 @@ import SwiftUI
 struct MainTabView: View {
     private static let logger = Logger(subsystem: "com.aiq.app", category: "MainTabView")
     @Environment(\.appRouter) private var router
-    @State private var selectedTab: TabDestination = .dashboard
+    /// Selected tab with persistence across app launches.
+    /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
+    @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
 
     var body: some View {
@@ -39,6 +41,14 @@ struct MainTabView: View {
             router.currentTab = newTab
         }
         .onAppear {
+            // Validate stored tab value and log if corrupted
+            let storedKey = "com.aiq.selectedTab"
+            let storedValue = UserDefaults.standard.integer(forKey: storedKey)
+            if TabDestination(rawValue: storedValue) == nil && storedValue != 0 {
+                Self.logger.warning("Invalid stored tab value: \(storedValue). Resetting to dashboard.")
+                UserDefaults.standard.removeObject(forKey: storedKey)
+            }
+
             // Initialize router's current tab
             router.currentTab = selectedTab
         }
