@@ -19,6 +19,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
 - [Error Handling](#error-handling)
+  - [Operation-Specific Error Properties](#operation-specific-error-properties)
   - [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)
   - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
   - [Localization for Error Messages](#localization-for-error-messages)
@@ -537,6 +538,110 @@ if let error = viewModel.error {
     ErrorView(error: error) {
         Task { await viewModel.retry() }
     }
+}
+```
+
+### Operation-Specific Error Properties
+
+ViewModels inherit `error` from BaseViewModel for general error display. However, some operations require **operation-specific error properties** for contextual UI alerts. This is a valid pattern when used appropriately.
+
+#### When to Use BaseViewModel's `error` Property (Default)
+
+Use the inherited `error` property and `handleError()` for most operations:
+
+```swift
+do {
+    let result = try await apiClient.request(...)
+    // Handle success
+} catch {
+    handleError(error, context: .fetchDashboard) { [weak self] in
+        await self?.fetchDashboardData()  // Retry closure
+    }
+}
+
+// In View - Uses standard error display:
+if let error = viewModel.error {
+    ErrorView(error: error) {
+        Task { await viewModel.retry() }
+    }
+}
+```
+
+#### When to Use Operation-Specific Error Properties
+
+Use a separate error property when:
+- The operation needs a **specific alert title/message** distinct from general errors
+- The UI requires **separate error state** for a particular action (e.g., confirmation dialogs)
+- The operation's error should **not affect** BaseViewModel's retry state or general error display
+- Multiple independent operations could fail and need distinct error handling
+
+**Example - Delete Account with Specific Alert:**
+
+```swift
+// In ViewModel:
+@Published var deleteAccountError: Error?
+
+func deleteAccount() async {
+    isDeletingAccount = true
+    deleteAccountError = nil  // Clear previous delete error
+    clearError()  // Clear general errors
+
+    do {
+        try await authManager.deleteAccount()
+        isDeletingAccount = false
+    } catch {
+        deleteAccountError = error  // Operation-specific error
+        isDeletingAccount = false
+        // NOTE: Using operation-specific error because:
+        // - Delete account needs a specific "Delete Account Failed" alert title
+        // - This error shouldn't affect general error state or retry logic
+        // - AuthManager already logs this error to Crashlytics
+    }
+}
+
+func clearDeleteAccountError() {
+    deleteAccountError = nil
+}
+
+// In View - Specific alert for delete operation:
+.alert("Delete Account Failed", isPresented: Binding(
+    get: { viewModel.deleteAccountError != nil },
+    set: { if !$0 { viewModel.clearDeleteAccountError() } }
+)) {
+    Button("OK") {}
+} message: {
+    if let error = viewModel.deleteAccountError {
+        Text(error.localizedDescription)
+    }
+}
+```
+
+#### Pattern Comparison
+
+| Pattern | Use When | Example |
+|---------|----------|---------|
+| `handleError()` with retry | Operation is retryable, uses standard error UI | Dashboard fetch, API calls |
+| Operation-specific error | Operation needs custom alert title/message | Delete account, logout confirmation |
+| Service error binding | ViewModel observes service error state | LoginViewModel binding to AuthManager |
+
+#### Documenting Error Handling Decisions
+
+When using operation-specific error properties, **document why** in a comment:
+
+```swift
+// ✅ Good - Explains the architectural decision
+} catch {
+    deleteAccountError = error
+    // NOTE: Using operation-specific error instead of handleError() because:
+    // - Delete account needs a specific "Delete Account Failed" alert title
+    // - This error shouldn't affect general error state or retry logic
+    // - AuthManager already logs this error to Crashlytics
+}
+
+// ❌ Bad - States what but not why
+} catch {
+    deleteAccountError = error
+    // We don't need to call handleError here since we're setting deleteAccountError
 }
 ```
 

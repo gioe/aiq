@@ -1,3 +1,32 @@
+## Deferred from PR #525 Review
+
+### 1. Consolidate SettingsViewModel error handling properties
+- **Original comment**: "The ViewModel maintains a separate deleteAccountError property in addition to the inherited error property from BaseViewModel. This creates two error channels which could be confusing."
+- **Reason deferred**: Refactoring suggestion that doesn't affect functionality; current implementation works correctly
+- **Jira ticket**: BTS-254
+
+### 2. Add error handling to logout() method
+- **Original comment**: "The logout() method doesn't handle errors. Check if AuthManager.logout() implementation can fail."
+- **Reason deferred**: Requires investigation of AuthManager; current method is non-throwing
+- **Jira ticket**: BTS-255
+
+### 3. Add Crashlytics integration tests
+- **Original comment**: "The tests verify functional behavior but don't verify that errors are properly logged to Crashlytics."
+- **Reason deferred**: Test enhancement that provides additional confidence but doesn't affect production functionality
+- **Jira ticket**: BTS-256
+
+### 4. Document dual error handling architecture
+- **Original comment**: "Add a comment explaining why deleteAccount uses a separate error property instead of BaseViewModel's standard error handling."
+- **Reason deferred**: Documentation improvement that doesn't affect functionality
+- **Jira ticket**: BTS-257
+
+### 5. Add concurrent operation protection
+- **Original comment**: "If logout() or deleteAccount() is called twice concurrently, the loading state could be incorrect."
+- **Reason deferred**: Very low impact edge case; UI already prevents double-taps
+- **Jira ticket**: BTS-258
+
+---
+
 ## Deferred from PR #504 Review
 
 ### 1. Extract UserDefaults deviceTokenKey to shared constant

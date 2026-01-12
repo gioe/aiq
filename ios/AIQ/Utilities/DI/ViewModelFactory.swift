@@ -119,4 +119,17 @@ enum ViewModelFactory {
         }
         return RegistrationViewModel(authManager: authManager)
     }
+
+    // MARK: - Settings
+
+    /// Create a SettingsViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured SettingsViewModel instance
+    @MainActor
+    static func makeSettingsViewModel(container: ServiceContainer) -> SettingsViewModel {
+        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
+            fatalError("AuthManagerProtocol not registered in ServiceContainer")
+        }
+        return SettingsViewModel(authManager: authManager)
+    }
 }
