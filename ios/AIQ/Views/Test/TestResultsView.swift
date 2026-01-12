@@ -3,9 +3,13 @@ import SwiftUI
 struct TestResultsView: View {
     let result: SubmittedTestResult
     let onDismiss: () -> Void
+    let isFirstTest: Bool
 
     @State private var showAnimation = false
     @State private var showConfidenceIntervalInfo = false
+    @State private var showNotificationSoftPrompt = false
+    @State private var hasDismissed = false
+    @ObservedObject private var notificationManager = NotificationManager.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
@@ -50,7 +54,7 @@ struct TestResultsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        onDismiss()
+                        handleDismiss()
                     }
                     .accessibilityLabel("Done")
                     .accessibilityHint("Return to dashboard")
@@ -66,7 +70,58 @@ struct TestResultsView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showNotificationSoftPrompt) {
+                NotificationSoftPromptView(
+                    onEnableReminders: {
+                        Task {
+                            await notificationManager.requestAuthorization()
+                        }
+                    },
+                    onDismiss: {
+                        // User declined - just dismiss
+                    }
+                )
+            }
+            .onChange(of: showNotificationSoftPrompt) { isShowing in
+                // When the soft prompt is dismissed, call the original onDismiss
+                // Guard against double dismissal
+                if !isShowing && !hasDismissed {
+                    hasDismissed = true
+                    onDismiss()
+                }
+            }
         }
+    }
+
+    // MARK: - Helper Methods
+
+    /// Handles dismissal of the results view, potentially showing the notification soft prompt
+    private func handleDismiss() {
+        // Guard against double dismissal
+        guard !hasDismissed else { return }
+
+        // Check if we should show the notification soft prompt
+        if shouldShowNotificationPrompt() {
+            showNotificationSoftPrompt = true
+        } else {
+            hasDismissed = true
+            onDismiss()
+        }
+    }
+
+    /// Determines if the notification soft prompt should be shown
+    /// - Returns: True if this is the first test and permission hasn't been requested
+    private func shouldShowNotificationPrompt() -> Bool {
+        // Only show on first test
+        guard isFirstTest else { return false }
+
+        // Don't show if permission already requested
+        guard !notificationManager.hasRequestedNotificationPermission else { return false }
+
+        // Don't show if permission already granted
+        guard notificationManager.authorizationStatus != .authorized else { return false }
+
+        return true
     }
 
     // MARK: - IQ Score Card
@@ -294,7 +349,7 @@ struct TestResultsView: View {
             .accessibilityHint("See question-by-question analysis of your test performance")
 
             Button {
-                onDismiss()
+                handleDismiss()
             } label: {
                 Text("Return to Dashboard")
                     .font(Typography.button)
@@ -401,7 +456,8 @@ struct TestResultsView: View {
                 standardError: 3.5
             )
         ),
-        onDismiss: {}
+        onDismiss: {},
+        isFirstTest: false
     )
 }
 
@@ -436,7 +492,8 @@ struct TestResultsView: View {
                 standardError: 3.5
             )
         ),
-        onDismiss: {}
+        onDismiss: {},
+        isFirstTest: false
     )
 }
 
@@ -471,7 +528,8 @@ struct TestResultsView: View {
                 standardError: 6.7
             )
         ),
-        onDismiss: {}
+        onDismiss: {},
+        isFirstTest: false
     )
 }
 
@@ -501,7 +559,8 @@ struct TestResultsView: View {
             weakestDomain: nil,
             confidenceInterval: nil
         ),
-        onDismiss: {}
+        onDismiss: {},
+        isFirstTest: false
     )
 }
 
@@ -529,6 +588,7 @@ struct TestResultsView: View {
                 standardError: 3.5
             )
         ),
-        onDismiss: {}
+        onDismiss: {},
+        isFirstTest: false
     )
 }

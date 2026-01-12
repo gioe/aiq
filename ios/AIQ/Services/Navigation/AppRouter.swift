@@ -20,7 +20,7 @@ enum Route: Hashable, Equatable {
     case testTaking
 
     /// Test results screen showing the completed test results
-    case testResults(result: SubmittedTestResult)
+    case testResults(result: SubmittedTestResult, isFirstTest: Bool = false)
 
     // MARK: - History Routes
 
@@ -51,8 +51,8 @@ enum Route: Hashable, Equatable {
             true
         case (.testTaking, .testTaking):
             true
-        case let (.testResults(lhsResult), .testResults(rhsResult)):
-            lhsResult.id == rhsResult.id
+        case let (.testResults(lhsResult, lhsFirst), .testResults(rhsResult, rhsFirst)):
+            lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
         case (.settings, .settings):
@@ -78,9 +78,10 @@ enum Route: Hashable, Equatable {
             hasher.combine("registration")
         case .testTaking:
             hasher.combine("testTaking")
-        case let .testResults(result):
+        case let .testResults(result, isFirstTest):
             hasher.combine("testResults")
             hasher.combine(result.id)
+            hasher.combine(isFirstTest)
         case let .testDetail(result, average):
             hasher.combine("testDetail")
             hasher.combine(result.id)

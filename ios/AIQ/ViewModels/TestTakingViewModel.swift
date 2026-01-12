@@ -35,6 +35,10 @@ class TestTakingViewModel: BaseViewModel {
     private let answerStorage: LocalAnswerStorageProtocol
     private var saveWorkItem: DispatchWorkItem?
 
+    /// Test count before starting this test (used to determine if this is the first test)
+    /// Defaults to 1 (not first test) as a safe fallback until actual count is fetched
+    private var testCountAtStart: Int = 1
+
     // MARK: - Initialization
 
     init(
@@ -100,6 +104,11 @@ class TestTakingViewModel: BaseViewModel {
         return Double(currentQuestionIndex + 1) / Double(questions.count)
     }
 
+    /// Whether this test will be the user's first completed test
+    var isFirstTest: Bool {
+        testCountAtStart == 0
+    }
+
     /// Cached set of answered question indices for performance
     /// Recalculated when userAnswers changes
     @Published private(set) var answeredQuestionIndices: Set<Int> = []
@@ -150,6 +159,9 @@ class TestTakingViewModel: BaseViewModel {
     func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
         setLoading(true)
         clearError()
+
+        // Fetch current test count to determine if this will be the first test
+        await fetchTestCountAtStart()
 
         do {
             let response = try await fetchTestQuestions(questionCount: questionCount)
@@ -238,6 +250,30 @@ class TestTakingViewModel: BaseViewModel {
             loadMockQuestions(count: questionCount)
             setLoading(false)
         #endif
+    }
+
+    /// Fetch the current test count before starting a new test
+    /// This is used to determine if the upcoming test will be the user's first test
+    private func fetchTestCountAtStart() async {
+        do {
+            let response: PaginatedTestHistoryResponse = try await apiClient.request(
+                endpoint: .testHistory(limit: 1, offset: nil),
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: true
+            )
+            testCountAtStart = response.totalCount
+        } catch {
+            // If we fail to fetch test count, assume it's not the first test to avoid false positives
+            // This is a safe fallback - we'd rather skip showing the prompt than show it incorrectly
+            testCountAtStart = 1
+            #if DEBUG
+                print("⚠️ [TestTakingViewModel] Failed to fetch test count: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     /// Resume an active test session

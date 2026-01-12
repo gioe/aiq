@@ -90,10 +90,14 @@ private struct DashboardTabNavigationView: View {
         switch route {
         case .testTaking:
             TestTakingView()
-        case let .testResults(result):
-            TestResultsView(result: result) {
-                router.pop()
-            }
+        case let .testResults(result, isFirstTest):
+            TestResultsView(
+                result: result,
+                onDismiss: {
+                    router.pop()
+                },
+                isFirstTest: isFirstTest
+            )
         case let .testDetail(result, userAverage):
             TestDetailView(testResult: result, userAverage: userAverage)
         case .notificationSettings:
