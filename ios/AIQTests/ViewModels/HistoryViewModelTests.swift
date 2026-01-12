@@ -7,9 +7,19 @@ import XCTest
 final class HistoryViewModelTests: XCTestCase {
     var sut: HistoryViewModel!
     var mockAPIClient: MockAPIClient!
+    var testUserDefaults: UserDefaults!
+    var testSuiteName: String!
+
+    private let sortOrderStorageKey = "com.aiq.historySortOrder"
+    private let dateFilterStorageKey = "com.aiq.historyDateFilter"
 
     override func setUp() async throws {
         try await super.setUp()
+
+        // Create a test-specific UserDefaults suite to isolate tests
+        testSuiteName = "com.aiq.tests.HistoryViewModel.\(UUID().uuidString)"
+        testUserDefaults = UserDefaults(suiteName: testSuiteName)!
+
         mockAPIClient = MockAPIClient()
         sut = HistoryViewModel(apiClient: mockAPIClient)
 
@@ -17,6 +27,15 @@ final class HistoryViewModelTests: XCTestCase {
     }
 
     override func tearDown() {
+        // Clean up test UserDefaults
+        testUserDefaults.removePersistentDomain(forName: testSuiteName)
+        testUserDefaults = nil
+        testSuiteName = nil
+
+        // Clean up filter persistence in standard UserDefaults
+        UserDefaults.standard.removeObject(forKey: sortOrderStorageKey)
+        UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
+
         sut = nil
         mockAPIClient = nil
         super.tearDown()
@@ -311,5 +330,529 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set on failure")
         XCTAssertEqual(sut.testHistory.count, 1, "Original results should be preserved")
         XCTAssertFalse(sut.isLoadingMore, "isLoadingMore should be false after error")
+    }
+
+    // MARK: - Filter Persistence Tests
+
+    /// Test that sort order defaults to .newestFirst when no saved state exists
+    func testSortOrder_DefaultsToNewestFirst_WhenNoSavedState() {
+        // Given - No saved sort order in UserDefaults
+        XCTAssertNil(
+            testUserDefaults.object(forKey: sortOrderStorageKey),
+            "UserDefaults should not have a saved sort order before test"
+        )
+
+        // When - Reading the default value
+        // @AppStorage provides .newestFirst as the default value
+        let defaultValue = testUserDefaults.string(forKey: sortOrderStorageKey)
+
+        // Then - Should return nil (no stored value), which will trigger @AppStorage's default
+        XCTAssertNil(
+            defaultValue,
+            "When no value is stored, UserDefaults returns nil for string keys"
+        )
+
+        // Verify the ViewModel uses the default
+        XCTAssertEqual(
+            sut.sortOrder,
+            .newestFirst,
+            "Sort order should default to .newestFirst"
+        )
+    }
+
+    /// Test that date filter defaults to .all when no saved state exists
+    func testDateFilter_DefaultsToAll_WhenNoSavedState() {
+        // Given - No saved date filter in UserDefaults
+        XCTAssertNil(
+            testUserDefaults.object(forKey: dateFilterStorageKey),
+            "UserDefaults should not have a saved date filter before test"
+        )
+
+        // When - Reading the default value
+        let defaultValue = testUserDefaults.string(forKey: dateFilterStorageKey)
+
+        // Then - Should return nil (no stored value), which will trigger @AppStorage's default
+        XCTAssertNil(
+            defaultValue,
+            "When no value is stored, UserDefaults returns nil for string keys"
+        )
+
+        // Verify the ViewModel uses the default
+        XCTAssertEqual(
+            sut.dateFilter,
+            .all,
+            "Date filter should default to .all"
+        )
+    }
+
+    /// Test that sort order persists when changed to oldestFirst
+    func testSortOrder_PersistsToUserDefaults_WhenChangedToOldestFirst() {
+        // Given - Starting with default sort order
+        XCTAssertEqual(sut.sortOrder, .newestFirst)
+
+        // When - Changing sort order to oldestFirst
+        sut.sortOrder = .oldestFirst
+
+        // Then - Value should persist in UserDefaults
+        let savedValue = UserDefaults.standard.string(forKey: sortOrderStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistorySortOrder.oldestFirst.rawValue,
+            "OldestFirst sort order should persist to UserDefaults"
+        )
+    }
+
+    /// Test that sort order persists when changed back to newestFirst
+    func testSortOrder_PersistsToUserDefaults_WhenChangedBackToNewestFirst() {
+        // Given - Starting with oldestFirst
+        sut.sortOrder = .oldestFirst
+
+        // When - Changing back to newestFirst
+        sut.sortOrder = .newestFirst
+
+        // Then - NewestFirst selection should persist
+        let savedValue = UserDefaults.standard.string(forKey: sortOrderStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistorySortOrder.newestFirst.rawValue,
+            "NewestFirst sort order should persist to UserDefaults"
+        )
+    }
+
+    /// Test that date filter persists when changed to lastMonth
+    func testDateFilter_PersistsToUserDefaults_WhenChangedToLastMonth() {
+        // Given - Starting with default filter
+        XCTAssertEqual(sut.dateFilter, .all)
+
+        // When - Changing filter to lastMonth
+        sut.dateFilter = .lastMonth
+
+        // Then - Value should persist in UserDefaults
+        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistoryDateFilter.lastMonth.rawValue,
+            "LastMonth filter should persist to UserDefaults"
+        )
+    }
+
+    /// Test that date filter persists when changed to lastSixMonths
+    func testDateFilter_PersistsToUserDefaults_WhenChangedToLastSixMonths() {
+        // Given - Starting with default filter, reset to ensure clean state
+        sut.dateFilter = .all
+        XCTAssertEqual(sut.dateFilter, .all)
+
+        // When - Changing filter to lastSixMonths
+        sut.dateFilter = .lastSixMonths
+
+        // Then - Value should persist in UserDefaults
+        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistoryDateFilter.lastSixMonths.rawValue,
+            "LastSixMonths filter should persist to UserDefaults"
+        )
+    }
+
+    /// Test that date filter persists when changed to lastYear
+    func testDateFilter_PersistsToUserDefaults_WhenChangedToLastYear() {
+        // Given - Starting with default filter, reset to ensure clean state
+        sut.dateFilter = .all
+        XCTAssertEqual(sut.dateFilter, .all)
+
+        // When - Changing filter to lastYear
+        sut.dateFilter = .lastYear
+
+        // Then - Value should persist in UserDefaults
+        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistoryDateFilter.lastYear.rawValue,
+            "LastYear filter should persist to UserDefaults"
+        )
+    }
+
+    /// Test that date filter persists when changed back to all
+    func testDateFilter_PersistsToUserDefaults_WhenChangedBackToAll() {
+        // Given - Starting with lastMonth filter
+        sut.dateFilter = .lastMonth
+
+        // When - Changing back to all
+        sut.dateFilter = .all
+
+        // Then - All filter selection should persist
+        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        XCTAssertEqual(
+            savedValue,
+            TestHistoryDateFilter.all.rawValue,
+            "All filter should persist to UserDefaults"
+        )
+    }
+
+    /// Test that sort order is restored from UserDefaults when oldestFirst was previously selected
+    func testSortOrder_RestoresFromUserDefaults_WhenOldestFirstWasPreviouslySelected() {
+        // Given - OldestFirst was previously selected and saved
+        UserDefaults.standard.set(
+            TestHistorySortOrder.oldestFirst.rawValue,
+            forKey: sortOrderStorageKey
+        )
+
+        // When - Creating a new ViewModel instance (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should restore oldestFirst sort order
+        XCTAssertEqual(
+            newViewModel.sortOrder,
+            .oldestFirst,
+            "OldestFirst sort order should be restored from UserDefaults"
+        )
+    }
+
+    /// Test that date filter is restored from UserDefaults when lastMonth was previously selected
+    func testDateFilter_RestoresFromUserDefaults_WhenLastMonthWasPreviouslySelected() {
+        // Given - LastMonth was previously selected and saved
+        UserDefaults.standard.set(
+            TestHistoryDateFilter.lastMonth.rawValue,
+            forKey: dateFilterStorageKey
+        )
+
+        // When - Creating a new ViewModel instance (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should restore lastMonth filter
+        XCTAssertEqual(
+            newViewModel.dateFilter,
+            .lastMonth,
+            "LastMonth filter should be restored from UserDefaults"
+        )
+    }
+
+    /// Test that date filter is restored from UserDefaults when lastSixMonths was previously selected
+    func testDateFilter_RestoresFromUserDefaults_WhenLastSixMonthsWasPreviouslySelected() {
+        // Given - LastSixMonths was previously selected and saved
+        UserDefaults.standard.set(
+            TestHistoryDateFilter.lastSixMonths.rawValue,
+            forKey: dateFilterStorageKey
+        )
+
+        // When - Creating a new ViewModel instance (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should restore lastSixMonths filter
+        XCTAssertEqual(
+            newViewModel.dateFilter,
+            .lastSixMonths,
+            "LastSixMonths filter should be restored from UserDefaults"
+        )
+    }
+
+    /// Test that date filter is restored from UserDefaults when lastYear was previously selected
+    func testDateFilter_RestoresFromUserDefaults_WhenLastYearWasPreviouslySelected() {
+        // Given - LastYear was previously selected and saved
+        UserDefaults.standard.set(
+            TestHistoryDateFilter.lastYear.rawValue,
+            forKey: dateFilterStorageKey
+        )
+
+        // When - Creating a new ViewModel instance (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should restore lastYear filter
+        XCTAssertEqual(
+            newViewModel.dateFilter,
+            .lastYear,
+            "LastYear filter should be restored from UserDefaults"
+        )
+    }
+
+    /// Test that invalid stored sort order falls back to default
+    func testSortOrder_FallsBackToDefault_WhenStoredValueIsInvalid() {
+        // Given - Invalid sort order value in UserDefaults
+        UserDefaults.standard.set("InvalidSortOrder", forKey: sortOrderStorageKey)
+
+        // When - Creating a new ViewModel instance
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should fall back to default (.newestFirst)
+        XCTAssertEqual(
+            newViewModel.sortOrder,
+            .newestFirst,
+            "Should fall back to .newestFirst when stored value is invalid"
+        )
+    }
+
+    /// Test that invalid stored date filter falls back to default
+    func testDateFilter_FallsBackToDefault_WhenStoredValueIsInvalid() {
+        // Given - Invalid date filter value in UserDefaults
+        UserDefaults.standard.set("InvalidDateFilter", forKey: dateFilterStorageKey)
+
+        // When - Creating a new ViewModel instance
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Should fall back to default (.all)
+        XCTAssertEqual(
+            newViewModel.dateFilter,
+            .all,
+            "Should fall back to .all when stored value is invalid"
+        )
+    }
+
+    /// Test that both filters can be persisted and restored together
+    func testFilters_PersistAndRestoreTogether() {
+        // Given - Set both filters to non-default values
+        sut.sortOrder = .oldestFirst
+        sut.dateFilter = .lastSixMonths
+
+        // Verify persistence
+        let savedSortOrder = UserDefaults.standard.string(forKey: sortOrderStorageKey)
+        let savedDateFilter = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        XCTAssertEqual(savedSortOrder, TestHistorySortOrder.oldestFirst.rawValue)
+        XCTAssertEqual(savedDateFilter, TestHistoryDateFilter.lastSixMonths.rawValue)
+
+        // When - Creating a new ViewModel instance (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Then - Both filters should be restored
+        XCTAssertEqual(
+            newViewModel.sortOrder,
+            .oldestFirst,
+            "Sort order should be restored"
+        )
+        XCTAssertEqual(
+            newViewModel.dateFilter,
+            .lastSixMonths,
+            "Date filter should be restored"
+        )
+
+        UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
+    }
+
+    /// Test that storage keys use correct reverse-DNS notation
+    func testFilterPersistence_UsesCorrectStorageKeys() {
+        // This test verifies the storage keys match the expected format
+
+        // Given/When - Set filter values
+        sut.sortOrder = .oldestFirst
+        sut.dateFilter = .lastMonth
+
+        // Then - Verify storage keys exist with correct naming convention
+        let sortOrderExists = UserDefaults.standard.object(forKey: sortOrderStorageKey) != nil
+        let dateFilterExists = UserDefaults.standard.object(forKey: dateFilterStorageKey) != nil
+
+        XCTAssertTrue(sortOrderExists, "Sort order should be stored with key: \(sortOrderStorageKey)")
+        XCTAssertTrue(dateFilterExists, "Date filter should be stored with key: \(dateFilterStorageKey)")
+
+        // Verify the keys follow reverse-DNS notation (com.aiq.*)
+        XCTAssertTrue(sortOrderStorageKey.hasPrefix("com.aiq."), "Storage key should use reverse-DNS notation")
+        XCTAssertTrue(dateFilterStorageKey.hasPrefix("com.aiq."), "Storage key should use reverse-DNS notation")
+
+        UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
+    }
+
+    // MARK: - Filter Application Behavior Tests
+
+    /// Test that setSortOrder applies newestFirst sorting correctly
+    func testSetSortOrder_AppliesNewestFirstSort_WhenSet() async {
+        // Given - Load test data with known dates
+        let oldDate = Date().addingTimeInterval(-86400 * 2) // 2 days ago
+        let newDate = Date()
+        let results = [
+            createMockTestResult(id: 1, completedAt: oldDate),
+            createMockTestResult(id: 2, completedAt: newDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Set sort order to newestFirst
+        sut.setSortOrder(.newestFirst)
+
+        // Then - Verify newest is first
+        XCTAssertEqual(sut.testHistory.count, 2, "Should have 2 test results")
+        XCTAssertEqual(sut.testHistory.first?.id, 2, "Newest test should be first")
+        XCTAssertEqual(sut.testHistory.last?.id, 1, "Oldest test should be last")
+    }
+
+    /// Test that setSortOrder applies oldestFirst sorting correctly
+    func testSetSortOrder_AppliesOldestFirstSort_WhenSet() async {
+        // Given - Load test data with known dates
+        let oldDate = Date().addingTimeInterval(-86400 * 2) // 2 days ago
+        let newDate = Date()
+        let results = [
+            createMockTestResult(id: 1, completedAt: oldDate),
+            createMockTestResult(id: 2, completedAt: newDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Set sort order to oldestFirst
+        sut.setSortOrder(.oldestFirst)
+
+        // Then - Verify oldest is first
+        XCTAssertEqual(sut.testHistory.count, 2, "Should have 2 test results")
+        XCTAssertEqual(sut.testHistory.first?.id, 1, "Oldest test should be first")
+        XCTAssertEqual(sut.testHistory.last?.id, 2, "Newest test should be last")
+    }
+
+    /// Test that setDateFilter filters to last 30 days correctly
+    func testSetDateFilter_FiltersToLastMonth_WhenSet() async {
+        // Given - Load test data with dates inside and outside the filter
+        let ancientDate = Date().addingTimeInterval(-86400 * 60) // 60 days ago
+        let recentDate = Date().addingTimeInterval(-86400 * 15) // 15 days ago
+        let results = [
+            createMockTestResult(id: 1, completedAt: ancientDate),
+            createMockTestResult(id: 2, completedAt: recentDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Apply lastMonth filter
+        sut.setDateFilter(.lastMonth)
+
+        // Then - Verify only recent test is included
+        XCTAssertEqual(sut.testHistory.count, 1, "Should filter to 1 result")
+        XCTAssertEqual(sut.testHistory.first?.id, 2, "Should only include recent test")
+    }
+
+    /// Test that setDateFilter filters to last 6 months correctly
+    func testSetDateFilter_FiltersToLastSixMonths_WhenSet() async {
+        // Given - Load test data with dates inside and outside the filter
+        let ancientDate = Date().addingTimeInterval(-86400 * 200) // 200 days ago (outside 6 months)
+        let recentDate = Date().addingTimeInterval(-86400 * 90) // 90 days ago (within 6 months)
+        let results = [
+            createMockTestResult(id: 1, completedAt: ancientDate),
+            createMockTestResult(id: 2, completedAt: recentDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Apply lastSixMonths filter
+        sut.setDateFilter(.lastSixMonths)
+
+        // Then - Verify only recent test is included
+        XCTAssertEqual(sut.testHistory.count, 1, "Should filter to 1 result")
+        XCTAssertEqual(sut.testHistory.first?.id, 2, "Should only include test within 6 months")
+    }
+
+    /// Test that setDateFilter filters to last year correctly
+    func testSetDateFilter_FiltersToLastYear_WhenSet() async {
+        // Given - Load test data with dates inside and outside the filter
+        let ancientDate = Date().addingTimeInterval(-86400 * 400) // 400 days ago (outside 1 year)
+        let recentDate = Date().addingTimeInterval(-86400 * 180) // 180 days ago (within 1 year)
+        let results = [
+            createMockTestResult(id: 1, completedAt: ancientDate),
+            createMockTestResult(id: 2, completedAt: recentDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Apply lastYear filter
+        sut.setDateFilter(.lastYear)
+
+        // Then - Verify only recent test is included
+        XCTAssertEqual(sut.testHistory.count, 1, "Should filter to 1 result")
+        XCTAssertEqual(sut.testHistory.first?.id, 2, "Should only include test within 1 year")
+    }
+
+    /// Test that setDateFilter shows all results when set to .all
+    func testSetDateFilter_ShowsAllResults_WhenSetToAll() async {
+        // Given - Load test data with various dates
+        let ancientDate = Date().addingTimeInterval(-86400 * 400) // 400 days ago
+        let recentDate = Date()
+        let results = [
+            createMockTestResult(id: 1, completedAt: ancientDate),
+            createMockTestResult(id: 2, completedAt: recentDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // First apply a restrictive filter
+        sut.setDateFilter(.lastMonth)
+        XCTAssertEqual(sut.testHistory.count, 1, "Should have 1 result with lastMonth filter")
+
+        // When - Set filter back to all
+        sut.setDateFilter(.all)
+
+        // Then - All results should be shown
+        XCTAssertEqual(sut.testHistory.count, 2, "Should show all results")
+    }
+
+    /// Test that filters work together correctly (sort + date filter)
+    func testFilters_ApplyBothSortAndDateFilter_Together() async {
+        // Given - Load test data with various dates
+        let oldWithinMonth = Date().addingTimeInterval(-86400 * 20) // 20 days ago
+        let newWithinMonth = Date().addingTimeInterval(-86400 * 5) // 5 days ago
+        let outsideMonth = Date().addingTimeInterval(-86400 * 60) // 60 days ago
+        let results = [
+            createMockTestResult(id: 1, completedAt: oldWithinMonth),
+            createMockTestResult(id: 2, completedAt: newWithinMonth),
+            createMockTestResult(id: 3, completedAt: outsideMonth)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Apply both filters
+        sut.setDateFilter(.lastMonth)
+        sut.setSortOrder(.oldestFirst)
+
+        // Then - Should filter to 2 results and sort oldest first
+        XCTAssertEqual(sut.testHistory.count, 2, "Should have 2 results within last month")
+        XCTAssertEqual(sut.testHistory.first?.id, 1, "Oldest within filter should be first")
+        XCTAssertEqual(sut.testHistory.last?.id, 2, "Newest within filter should be last")
+    }
+
+    /// Test that filter handles empty results gracefully
+    func testSetDateFilter_HandlesEmptyResults_WhenAllFiltered() async {
+        // Given - Load test data outside the filter range
+        let ancientDate = Date().addingTimeInterval(-86400 * 60) // 60 days ago
+        let results = [
+            createMockTestResult(id: 1, completedAt: ancientDate)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // When - Apply restrictive filter
+        sut.setDateFilter(.lastMonth)
+
+        // Then - Should handle empty results gracefully
+        XCTAssertTrue(sut.testHistory.isEmpty, "Should have no results after filtering")
+        XCTAssertEqual(sut.filteredResultsCount, 0, "Filtered count should be 0")
+        XCTAssertEqual(sut.totalTestsTaken, 1, "Total tests should still reflect all data")
+    }
+
+    /// Test that restored filters are applied when fetching data
+    func testRestoredFilters_AreApplied_WhenFetchingData() async {
+        // Given - Previously saved filters
+        UserDefaults.standard.set(
+            TestHistorySortOrder.oldestFirst.rawValue,
+            forKey: sortOrderStorageKey
+        )
+        UserDefaults.standard.set(
+            TestHistoryDateFilter.lastMonth.rawValue,
+            forKey: dateFilterStorageKey
+        )
+
+        // Create new ViewModel (simulating app restart)
+        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+
+        // Load test data
+        let oldWithinMonth = Date().addingTimeInterval(-86400 * 20)
+        let newWithinMonth = Date().addingTimeInterval(-86400 * 5)
+        let outsideMonth = Date().addingTimeInterval(-86400 * 60)
+        let results = [
+            createMockTestResult(id: 1, completedAt: oldWithinMonth),
+            createMockTestResult(id: 2, completedAt: newWithinMonth),
+            createMockTestResult(id: 3, completedAt: outsideMonth)
+        ]
+        await mockAPIClient.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
+
+        // When - Fetch data
+        await newViewModel.fetchHistory(forceRefresh: true)
+
+        // Then - Restored filters should be applied
+        XCTAssertEqual(newViewModel.sortOrder, .oldestFirst, "Sort order should be restored")
+        XCTAssertEqual(newViewModel.dateFilter, .lastMonth, "Date filter should be restored")
+        XCTAssertEqual(newViewModel.testHistory.count, 2, "Should filter to results within last month")
+        XCTAssertEqual(newViewModel.testHistory.first?.id, 1, "Oldest within filter should be first")
+        XCTAssertEqual(newViewModel.testHistory.last?.id, 2, "Newest within filter should be last")
     }
 }
