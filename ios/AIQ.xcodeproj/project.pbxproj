@@ -159,6 +159,7 @@
 		C042EEDE614666623F4F0532 /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A885B4A077ACA85644D0D8B /* RetryPolicy.swift */; };
 		C05AF491D5998015314ADF06 /* OnboardingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD9DF64F613104CF2BAD04F /* OnboardingViewModelTests.swift */; };
 		C0BB0798614D085DE1FF5804 /* TokenRefreshInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54CC6937560F5BA8B8F2C69 /* TokenRefreshInterceptor.swift */; };
+		C18EB9D4688030489E08164D /* RegistrationViewModelBirthYearTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2D93BDF3F42258903E80CB3 /* RegistrationViewModelBirthYearTests.swift */; };
 		C1FB7BA89C5B4759AAAD1C05 /* MockNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5731323B6AD4C2CA7DA7B4B /* MockNotificationService.swift */; };
 		C33EAFE750E37D752ED4776D /* OnboardingContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C7E70A15D25C7D186F8235 /* OnboardingContainerView.swift */; };
 		C39A39C098AD0EFF51830459 /* NotificationSettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E35EFF2A9D35CE899EB4F1 /* NotificationSettingsViewModelTests.swift */; };
@@ -386,6 +387,7 @@
 		CF3DD9397AACDA7CDAC43ECE /* TestSessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStatus.swift; sourceTree = "<group>"; };
 		CF89F4647B4C4FC9854DDA7B /* TokenRefreshInterceptorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Network/TokenRefreshInterceptorTests.swift; sourceTree = "<group>"; };
 		D0F338D7B19C9AB39FCD2931 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D2D93BDF3F42258903E80CB3 /* RegistrationViewModelBirthYearTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelBirthYearTests.swift; sourceTree = "<group>"; };
 		D3156B81FE7350FE04530E5C /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NetworkMonitorTests.swift; path = Network/NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		D3A775DE31FFFF20A525DAFA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D3F26BDAE0ABE57AD6F64015 /* LocalAnswerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAnswerStorage.swift; sourceTree = "<group>"; };
@@ -566,6 +568,7 @@
 				65E35EFF2A9D35CE899EB4F1 /* NotificationSettingsViewModelTests.swift */,
 				8AD9DF64F613104CF2BAD04F /* OnboardingViewModelTests.swift */,
 				47B029F2D8A7A84C7D5BC812 /* FeedbackViewModelTests.swift */,
+				D2D93BDF3F42258903E80CB3 /* RegistrationViewModelBirthYearTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1161,6 +1164,7 @@
 				D6A0576C226366DA8EFDACD8 /* NotificationSoftPromptViewTests.swift in Sources */,
 				396A0E2060CF6864C0BA63D1 /* TestResultsViewTests.swift in Sources */,
 				E904B381E22BD76186DF144C /* NotificationPermissionBannerTests.swift in Sources */,
+				C18EB9D4688030489E08164D /* RegistrationViewModelBirthYearTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

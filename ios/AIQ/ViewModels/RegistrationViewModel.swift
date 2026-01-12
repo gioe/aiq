@@ -40,7 +40,7 @@ class RegistrationViewModel: BaseViewModel {
 
     var isFormValid: Bool {
         isEmailValid && isPasswordValid && isConfirmPasswordValid &&
-            isFirstNameValid && isLastNameValid
+            isFirstNameValid && isLastNameValid && isBirthYearValid
     }
 
     var isEmailValid: Bool {
@@ -62,6 +62,10 @@ class RegistrationViewModel: BaseViewModel {
 
     var isLastNameValid: Bool {
         Validators.validateName(lastName, fieldName: "Last name").isValid
+    }
+
+    var isBirthYearValid: Bool {
+        Validators.validateBirthYear(birthYear).isValid
     }
 
     var emailError: String? {
@@ -91,6 +95,12 @@ class RegistrationViewModel: BaseViewModel {
     var lastNameError: String? {
         guard !lastName.isEmpty else { return nil }
         let result = Validators.validateName(lastName, fieldName: "Last name")
+        return result.errorMessage
+    }
+
+    var birthYearError: String? {
+        guard !birthYear.isEmpty else { return nil }
+        let result = Validators.validateBirthYear(birthYear)
         return result.errorMessage
     }
 
