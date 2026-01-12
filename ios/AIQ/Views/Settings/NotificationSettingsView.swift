@@ -85,6 +85,19 @@ struct NotificationSettingsView: View {
             // Load preferences when view appears
             await viewModel.loadNotificationPreferences()
         }
+        .alert(
+            "notification.settings.redirect.alert.title".localized,
+            isPresented: $viewModel.showSettingsRedirectAlert
+        ) {
+            Button("action.cancel".localized, role: .cancel) {
+                viewModel.dismissSettingsRedirectAlert()
+            }
+            Button("notification.settings.redirect.alert.go.to.settings".localized) {
+                viewModel.confirmOpenSystemSettings()
+            }
+        } message: {
+            Text("notification.settings.redirect.alert.message".localized)
+        }
     }
 }
 

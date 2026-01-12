@@ -677,4 +677,51 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         // Then - Banner should disappear
         XCTAssertFalse(sut.showPermissionRecoveryBanner, "Should hide banner after authorization")
     }
+
+    // MARK: - Settings Redirect Alert Tests (BTS-239)
+
+    func testShowSettingsRedirectAlert_InitialValue_IsFalse() {
+        // Then
+        XCTAssertFalse(sut.showSettingsRedirectAlert, "showSettingsRedirectAlert should start as false")
+    }
+
+    func testRequestSystemPermission_AlreadyRequestedAndDenied_ShowsSettingsRedirectAlert() async {
+        // Given - Permission already requested and denied
+        mockNotificationManager.hasRequestedNotificationPermission = true
+        mockNotificationManager.setAuthorizationStatus(.denied)
+
+        // When
+        await sut.requestSystemPermission()
+
+        // Then - Should show the settings redirect alert
+        XCTAssertTrue(sut.showSettingsRedirectAlert, "Should show settings redirect alert when permission already denied")
+        XCTAssertEqual(
+            mockNotificationManager.requestAuthorizationCallCount,
+            0,
+            "Should not request authorization again"
+        )
+    }
+
+    func testConfirmOpenSystemSettings_DismissesAlert() {
+        // Given - Alert is showing
+        sut.showSettingsRedirectAlert = true
+
+        // When
+        sut.confirmOpenSystemSettings()
+
+        // Then - Alert should be dismissed
+        XCTAssertFalse(sut.showSettingsRedirectAlert, "confirmOpenSystemSettings should dismiss the alert")
+        // Note: We can't easily verify UIApplication.shared.open was called without more complex mocking
+    }
+
+    func testDismissSettingsRedirectAlert_DismissesAlert() {
+        // Given - Alert is showing
+        sut.showSettingsRedirectAlert = true
+
+        // When
+        sut.dismissSettingsRedirectAlert()
+
+        // Then - Alert should be dismissed
+        XCTAssertFalse(sut.showSettingsRedirectAlert, "dismissSettingsRedirectAlert should dismiss the alert")
+    }
 }

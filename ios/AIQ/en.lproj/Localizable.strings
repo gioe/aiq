@@ -647,3 +647,8 @@
 "notification.permission.open.settings" = "Go to Settings";
 "notification.permission.banner.accessibility.label" = "Notification permission denied";
 "notification.permission.banner.accessibility.hint" = "Double tap to open iOS Settings and enable notifications";
+
+// MARK: - Notification Settings Redirect Alert
+"notification.settings.redirect.alert.title" = "Enable Notifications";
+"notification.settings.redirect.alert.message" = "To receive reminders for your AIQ tests, please enable notifications in Settings.";
+"notification.settings.redirect.alert.go.to.settings" = "Go to Settings";
