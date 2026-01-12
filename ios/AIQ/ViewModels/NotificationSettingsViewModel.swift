@@ -17,6 +17,9 @@ class NotificationSettingsViewModel: BaseViewModel {
     /// Whether we're currently checking permissions
     @Published var isCheckingPermission: Bool = false
 
+    /// Whether to show the settings redirect confirmation alert
+    @Published var showSettingsRedirectAlert: Bool = false
+
     // MARK: - Private Properties
 
     private let notificationService: NotificationServiceProtocol
@@ -109,8 +112,8 @@ class NotificationSettingsViewModel: BaseViewModel {
         if notificationManager.hasRequestedNotificationPermission {
             // Permission was already requested - check if user needs to go to Settings
             if notificationManager.authorizationStatus == .denied {
-                // User denied permission previously - direct them to Settings
-                openSystemSettings()
+                // User denied permission previously - show confirmation alert
+                showSettingsRedirectAlert = true
                 return
             } else if notificationManager.authorizationStatus == .notDetermined {
                 // Edge case: app reinstall or UserDefaults cleared but system permission reset
@@ -132,6 +135,17 @@ class NotificationSettingsViewModel: BaseViewModel {
             // Now enable in backend
             await toggleNotifications()
         }
+    }
+
+    /// Confirm and open system settings
+    func confirmOpenSystemSettings() {
+        showSettingsRedirectAlert = false
+        openSystemSettings()
+    }
+
+    /// Dismiss the settings redirect alert
+    func dismissSettingsRedirectAlert() {
+        showSettingsRedirectAlert = false
     }
 
     /// Open system settings for the app
