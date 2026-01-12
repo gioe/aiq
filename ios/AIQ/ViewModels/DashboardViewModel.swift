@@ -21,7 +21,7 @@ class DashboardViewModel: BaseViewModel {
 
     // MARK: - Initialization
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(apiClient: APIClientProtocol) {
         self.apiClient = apiClient
         super.init()
     }

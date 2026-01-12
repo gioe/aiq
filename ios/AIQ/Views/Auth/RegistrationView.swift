@@ -2,8 +2,14 @@ import SwiftUI
 
 /// Registration screen - User's first entry into the app
 struct RegistrationView: View {
-    @StateObject private var viewModel = RegistrationViewModel(authManager: AuthManager.shared)
+    @StateObject private var viewModel: RegistrationViewModel
     @Environment(\.dismiss) private var dismiss
+
+    init() {
+        let vm = ViewModelFactory.makeRegistrationViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
+
     @State private var isAnimating = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 

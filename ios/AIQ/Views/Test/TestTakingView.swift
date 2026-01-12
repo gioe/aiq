@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Main view for taking an IQ test
 struct TestTakingView: View {
-    @StateObject private var viewModel = TestTakingViewModel()
+    @StateObject private var viewModel: TestTakingViewModel
     @StateObject private var timerManager = TestTimerManager()
     @Environment(\.appRouter) var router
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -14,6 +14,11 @@ struct TestTakingView: View {
     @State private var warningBannerDismissed = false
     @State private var showTimeExpiredAlert = false
     @State private var isAutoSubmitting = false
+
+    init() {
+        let vm = ViewModelFactory.makeTestTakingViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     /// Check if the current error is an active session conflict
     private var isActiveSessionConflict: Bool {

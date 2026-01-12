@@ -2,7 +2,12 @@ import SwiftUI
 
 /// View for managing notification preferences
 struct NotificationSettingsView: View {
-    @StateObject private var viewModel = NotificationSettingsViewModel()
+    @StateObject private var viewModel: NotificationSettingsViewModel
+
+    init() {
+        let vm = ViewModelFactory.makeNotificationSettingsViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         VStack(spacing: 0) {

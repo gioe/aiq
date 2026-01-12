@@ -111,6 +111,9 @@ final class ServiceContainer {
 
     /// Remove all registered services
     ///
+    /// - Warning: This method is intended for testing only. Calling it in production code
+    ///            will clear all service registrations and cause resolution failures.
+    ///
     /// Primarily used in tests to reset the container state between test cases.
     func reset() {
         lock.lock()
@@ -122,6 +125,8 @@ final class ServiceContainer {
     ///
     /// - Parameter type: The type to check
     /// - Returns: True if the type has a registered factory, false otherwise
+    ///
+    /// Primarily used in tests to verify service registration.
     func isRegistered(_ type: (some Any).Type) -> Bool {
         let key = String(describing: type)
         lock.lock()

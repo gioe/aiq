@@ -19,7 +19,7 @@ class FeedbackViewModel: BaseViewModel {
 
     /// Initialize the ViewModel with dependencies
     /// - Parameter apiClient: API client for network requests
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(apiClient: APIClientProtocol) {
         self.apiClient = apiClient
         super.init()
     }

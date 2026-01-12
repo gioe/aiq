@@ -29,8 +29,8 @@ class NotificationSettingsViewModel: BaseViewModel {
     // MARK: - Initialization
 
     init(
-        notificationService: NotificationServiceProtocol = NotificationService.shared,
-        notificationManager: NotificationManagerProtocol = NotificationManager.shared
+        notificationService: NotificationServiceProtocol,
+        notificationManager: NotificationManagerProtocol
     ) {
         self.notificationService = notificationService
         self.notificationManager = notificationManager
