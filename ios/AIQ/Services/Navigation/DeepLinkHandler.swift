@@ -52,6 +52,10 @@ enum DeepLink: Equatable {
     case resumeTest(sessionId: Int)
 
     /// Navigate to settings
+    ///
+    /// Note: Settings navigation is handled at the tab level (MainTabView), not via
+    /// router.push(). This deep link switches to the settings tab rather than pushing
+    /// a route onto the navigation stack.
     case settings
 
     /// Invalid or unrecognized deep link
@@ -286,10 +290,10 @@ extension DeepLinkHandler {
             return false
 
         case .settings:
-            // Settings navigation is handled at the tab level in MainTabView
-            // This case shouldn't be called, but return true for consistency
-            Self.logger.info("Settings deep link handled at tab level")
-            return true
+            // Settings navigation is handled at the tab level in MainTabView.
+            // This case should never be reached - if it is, there's a bug in the deep link routing logic.
+            Self.logger.error("Settings deep link incorrectly routed to handleNavigation - programming error")
+            fatalError("Settings deep link should be handled in MainTabView, not via router navigation")
 
         case .invalid:
             Self.logger.warning("Attempted to navigate with invalid deep link")
