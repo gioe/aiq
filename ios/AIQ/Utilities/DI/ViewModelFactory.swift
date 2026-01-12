@@ -1,0 +1,122 @@
+import Foundation
+
+/// Factory for creating ViewModels with resolved dependencies
+///
+/// This utility simplifies ViewModel creation in SwiftUI views by automatically
+/// resolving dependencies from the ServiceContainer. It provides type-safe factory
+/// methods for each ViewModel that requires dependency injection.
+///
+/// Usage in Views:
+/// ```swift
+/// struct DashboardView: View {
+///     @Environment(\.serviceContainer) var container
+///     @StateObject private var viewModel: DashboardViewModel
+///
+///     init() {
+///         // Temporary container reference for initialization
+///         let container = ServiceContainer.shared
+///         _viewModel = StateObject(wrappedValue: ViewModelFactory.makeDashboardViewModel(container: container))
+///     }
+/// }
+/// ```
+enum ViewModelFactory {
+    // MARK: - Dashboard
+
+    /// Create a DashboardViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured DashboardViewModel instance
+    @MainActor
+    static func makeDashboardViewModel(container: ServiceContainer) -> DashboardViewModel {
+        guard let apiClient = container.resolve(APIClientProtocol.self) else {
+            fatalError("APIClientProtocol not registered in ServiceContainer")
+        }
+        return DashboardViewModel(apiClient: apiClient)
+    }
+
+    // MARK: - History
+
+    /// Create a HistoryViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured HistoryViewModel instance
+    @MainActor
+    static func makeHistoryViewModel(container: ServiceContainer) -> HistoryViewModel {
+        guard let apiClient = container.resolve(APIClientProtocol.self) else {
+            fatalError("APIClientProtocol not registered in ServiceContainer")
+        }
+        return HistoryViewModel(apiClient: apiClient)
+    }
+
+    // MARK: - Test Taking
+
+    /// Create a TestTakingViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured TestTakingViewModel instance
+    @MainActor
+    static func makeTestTakingViewModel(container: ServiceContainer) -> TestTakingViewModel {
+        guard let apiClient = container.resolve(APIClientProtocol.self) else {
+            fatalError("APIClientProtocol not registered in ServiceContainer")
+        }
+        guard let answerStorage = container.resolve(LocalAnswerStorageProtocol.self) else {
+            fatalError("LocalAnswerStorageProtocol not registered in ServiceContainer")
+        }
+        return TestTakingViewModel(apiClient: apiClient, answerStorage: answerStorage)
+    }
+
+    // MARK: - Feedback
+
+    /// Create a FeedbackViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured FeedbackViewModel instance
+    @MainActor
+    static func makeFeedbackViewModel(container: ServiceContainer) -> FeedbackViewModel {
+        guard let apiClient = container.resolve(APIClientProtocol.self) else {
+            fatalError("APIClientProtocol not registered in ServiceContainer")
+        }
+        return FeedbackViewModel(apiClient: apiClient)
+    }
+
+    // MARK: - Notification Settings
+
+    /// Create a NotificationSettingsViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured NotificationSettingsViewModel instance
+    @MainActor
+    static func makeNotificationSettingsViewModel(container: ServiceContainer) -> NotificationSettingsViewModel {
+        guard let notificationService = container.resolve(NotificationServiceProtocol.self) else {
+            fatalError("NotificationServiceProtocol not registered in ServiceContainer")
+        }
+        guard let notificationManager = container.resolve(NotificationManagerProtocol.self) else {
+            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+        }
+        return NotificationSettingsViewModel(
+            notificationService: notificationService,
+            notificationManager: notificationManager
+        )
+    }
+
+    // MARK: - Login
+
+    /// Create a LoginViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured LoginViewModel instance
+    @MainActor
+    static func makeLoginViewModel(container: ServiceContainer) -> LoginViewModel {
+        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
+            fatalError("AuthManagerProtocol not registered in ServiceContainer")
+        }
+        return LoginViewModel(authManager: authManager)
+    }
+
+    // MARK: - Registration
+
+    /// Create a RegistrationViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured RegistrationViewModel instance
+    @MainActor
+    static func makeRegistrationViewModel(container: ServiceContainer) -> RegistrationViewModel {
+        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
+            fatalError("AuthManagerProtocol not registered in ServiceContainer")
+        }
+        return RegistrationViewModel(authManager: authManager)
+    }
+}

@@ -42,8 +42,8 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Initialization
 
     init(
-        apiClient: APIClientProtocol = APIClient.shared,
-        answerStorage: LocalAnswerStorageProtocol = LocalAnswerStorage.shared
+        apiClient: APIClientProtocol,
+        answerStorage: LocalAnswerStorageProtocol
     ) {
         self.apiClient = apiClient
         self.answerStorage = answerStorage

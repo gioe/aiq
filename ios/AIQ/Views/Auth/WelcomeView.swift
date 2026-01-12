@@ -2,8 +2,14 @@ import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification
 struct WelcomeView: View {
-    @StateObject private var viewModel = LoginViewModel(authManager: AuthManager.shared)
+    @StateObject private var viewModel: LoginViewModel
     @State private var isAnimating = false
+
+    init() {
+        let vm = ViewModelFactory.makeLoginViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
+
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {

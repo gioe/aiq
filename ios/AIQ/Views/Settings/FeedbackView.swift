@@ -2,8 +2,13 @@ import SwiftUI
 
 /// Feedback form view for user feedback submissions
 struct FeedbackView: View {
-    @StateObject private var viewModel = FeedbackViewModel()
+    @StateObject private var viewModel: FeedbackViewModel
     @Environment(\.dismiss) private var dismiss
+
+    init() {
+        let vm = ViewModelFactory.makeFeedbackViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         ZStack {

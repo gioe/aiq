@@ -2,8 +2,13 @@ import SwiftUI
 
 /// History view showing past test results
 struct HistoryView: View {
-    @StateObject private var viewModel = HistoryViewModel()
+    @StateObject private var viewModel: HistoryViewModel
     @Environment(\.appRouter) private var router
+
+    init() {
+        let vm = ViewModelFactory.makeHistoryViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         ZStack {

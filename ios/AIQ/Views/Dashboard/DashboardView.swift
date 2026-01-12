@@ -2,9 +2,14 @@ import SwiftUI
 
 /// Dashboard/Home view showing user stats and test availability
 struct DashboardView: View {
-    @StateObject private var viewModel = DashboardViewModel()
+    @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var authManager = AuthManager.shared
     @Environment(\.appRouter) var router
+
+    init() {
+        let vm = ViewModelFactory.makeDashboardViewModel(container: ServiceContainer.shared)
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         ZStack {
