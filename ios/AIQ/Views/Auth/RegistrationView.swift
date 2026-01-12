@@ -244,6 +244,7 @@ struct RegistrationView: View {
                                 .background(ColorPalette.backgroundSecondary)
                                 .cornerRadius(DesignSystem.CornerRadius.md)
                             }
+                            .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.educationLevelButton)
                             .accessibilityLabel(
                                 "Education Level, optional, " +
                                     "\(viewModel.selectedEducationLevel?.displayName ?? "not selected")"

@@ -405,10 +405,45 @@ final class RegistrationFlowTests: BaseUITest {
 
         // Verify optional elements exist
         assertExists(registrationHelper.birthYearTextField, "Birth year field should exist")
+        assertExists(registrationHelper.educationLevelButton, "Education level button should exist")
         assertExists(registrationHelper.countryTextField, "Country field should exist")
         assertExists(registrationHelper.regionTextField, "Region field should exist")
 
         takeScreenshot(named: "RegistrationScreenOptionalFields")
+    }
+
+    func testEducationLevelPickerSelection() throws {
+        // Skip: Example test showing education level picker interaction
+        throw XCTSkip("Example test - requires backend connection")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Scroll down to see optional fields
+        let scrollView = app.scrollViews.firstMatch
+        scrollView.swipeUp()
+
+        // Verify education level button exists
+        let educationButton = registrationHelper.educationLevelButton
+        assertExists(educationButton, "Education level button should exist")
+
+        // Verify initial state shows placeholder text
+        XCTAssertTrue(
+            educationButton.label.contains("not selected"),
+            "Education level should initially show 'not selected'"
+        )
+
+        // Test selecting an education level
+        let success = registrationHelper.fillEducationLevel("Bachelor's Degree")
+        XCTAssertTrue(success, "Should successfully select education level")
+
+        // Verify the selected value is displayed
+        XCTAssertTrue(
+            educationButton.label.contains("Bachelor's Degree"),
+            "Education level button should display selected value"
+        )
+
+        takeScreenshot(named: "EducationLevelSelected")
     }
 
     // MARK: - Integration Tests
