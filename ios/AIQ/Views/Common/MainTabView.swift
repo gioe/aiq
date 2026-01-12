@@ -5,7 +5,7 @@ import SwiftUI
 struct MainTabView: View {
     private static let logger = Logger(subsystem: "com.aiq.app", category: "MainTabView")
     @Environment(\.appRouter) private var router
-    @State private var selectedTab = 0
+    @State private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
 
     var body: some View {
@@ -15,24 +15,24 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Dashboard", systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(0)
-                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.dashboardTab)
+                .tag(TabDestination.dashboard)
+                .accessibilityIdentifier(TabDestination.dashboard.accessibilityIdentifier)
 
             // History Tab
             HistoryTabNavigationView()
                 .tabItem {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }
-                .tag(1)
-                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.historyTab)
+                .tag(TabDestination.history)
+                .accessibilityIdentifier(TabDestination.history.accessibilityIdentifier)
 
             // Settings Tab
             SettingsTabNavigationView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(2)
-                .accessibilityIdentifier(AccessibilityIdentifiers.TabBar.settingsTab)
+                .tag(TabDestination.settings)
+                .accessibilityIdentifier(TabDestination.settings.accessibilityIdentifier)
         }
         .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
@@ -42,13 +42,13 @@ struct MainTabView: View {
                 switch deepLink {
                 case .settings:
                     // For settings deep link, switch to the settings tab
-                    selectedTab = 2 // Settings tab
+                    selectedTab = .settings
                     router.popToRoot() // Pop to root in case there's a navigation stack
 
                 case .testResults, .resumeTest:
                     // Switch to Dashboard tab first for test-related deep links
                     // This ensures navigation happens in the correct tab context
-                    selectedTab = 0 // Dashboard tab
+                    selectedTab = .dashboard
                     router.popToRoot() // Clear any existing navigation stack
 
                     let success = await deepLinkHandler.handleNavigation(deepLink, router: router)
@@ -164,10 +164,6 @@ private struct SettingsTabNavigationView: View {
     @ViewBuilder
     private func destinationView(for route: Route) -> some View {
         switch route {
-        case .settings:
-            // Settings is the root of this tab, so navigation to it should pop to root
-            // Since we're already at SettingsView, this case shouldn't occur in navigation stack
-            EmptyView()
         case .help:
             HelpView()
         case .notificationSettings:

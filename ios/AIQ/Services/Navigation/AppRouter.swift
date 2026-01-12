@@ -1,9 +1,41 @@
 import Foundation
 import SwiftUI
 
+/// Represents tab-level navigation destinations
+///
+/// These destinations are handled by switching tabs in MainTabView,
+/// not by pushing to the navigation stack. Each tab contains its own
+/// NavigationStack that can have Route destinations pushed onto it.
+///
+/// Usage:
+/// ```swift
+/// // In MainTabView
+/// TabView(selection: $selectedTab) {
+///     DashboardView()
+///         .tag(TabDestination.dashboard.rawValue)
+/// }
+/// ```
+enum TabDestination: Int, Hashable {
+    case dashboard = 0
+    case history = 1
+    case settings = 2
+
+    /// The string identifier for accessibility purposes
+    var accessibilityIdentifier: String {
+        switch self {
+        case .dashboard: "tabBar.dashboardTab"
+        case .history: "tabBar.historyTab"
+        case .settings: "tabBar.settingsTab"
+        }
+    }
+}
+
 /// Navigation routes for the AIQ app
 ///
-/// Defines all navigable destinations in the app.
+/// Defines all navigable destinations in the app that are pushed onto
+/// NavigationStack within individual tabs. Tab-level navigation is handled
+/// separately via TabDestination.
+///
 /// Routes are organized by feature area for clarity.
 enum Route: Hashable, Equatable {
     // MARK: - Authentication Routes
@@ -29,8 +61,8 @@ enum Route: Hashable, Equatable {
 
     // MARK: - Settings Routes
 
-    /// Main settings screen
-    case settings
+    // Note: The main settings screen is a tab (TabDestination.settings).
+    //       These routes represent sub-screens pushed from the settings tab.
 
     /// Notification settings screen
     case notificationSettings
@@ -55,8 +87,6 @@ enum Route: Hashable, Equatable {
             lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
-        case (.settings, .settings):
-            true
         case (.notificationSettings, .notificationSettings):
             true
         case (.help, .help):
@@ -86,8 +116,6 @@ enum Route: Hashable, Equatable {
             hasher.combine("testDetail")
             hasher.combine(result.id)
             hasher.combine(average)
-        case .settings:
-            hasher.combine("settings")
         case .notificationSettings:
             hasher.combine("notificationSettings")
         case .help:
