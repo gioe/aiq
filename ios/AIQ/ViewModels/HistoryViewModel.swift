@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SwiftUI
 
 /// Sort order for test history
 enum TestHistorySortOrder: String, CaseIterable, Identifiable {
@@ -43,8 +44,14 @@ class HistoryViewModel: BaseViewModel {
 
     @Published var testHistory: [TestResult] = []
     @Published var isRefreshing: Bool = false
-    @Published var sortOrder: TestHistorySortOrder = .newestFirst
-    @Published var dateFilter: TestHistoryDateFilter = .all
+
+    /// Sort order with persistence across app launches.
+    /// Defaults to .newestFirst on first launch or if stored value is invalid.
+    @AppStorage("com.aiq.historySortOrder") var sortOrder: TestHistorySortOrder = .newestFirst
+
+    /// Date filter with persistence across app launches.
+    /// Defaults to .all on first launch or if stored value is invalid.
+    @AppStorage("com.aiq.historyDateFilter") var dateFilter: TestHistoryDateFilter = .all
 
     // MARK: - Pagination State
 
