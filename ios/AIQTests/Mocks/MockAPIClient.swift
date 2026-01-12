@@ -164,8 +164,10 @@ actor MockAPIClient: APIClientProtocol {
     /// - Parameters:
     ///   - response: The response to return for this endpoint
     ///   - endpoint: The API endpoint
+    /// - Note: Query parameters are stripped from the path for matching purposes
     func setResponse(_ response: some Any, for endpoint: APIEndpoint) {
-        endpointResponses[endpoint.path] = response
+        let basePath = endpoint.path.components(separatedBy: "?").first ?? endpoint.path
+        endpointResponses[basePath] = response
     }
 
     /// Set test history response, automatically wrapping in paginated format (BCQ-004)
@@ -215,8 +217,10 @@ actor MockAPIClient: APIClientProtocol {
     /// - Parameters:
     ///   - error: The error to throw for this endpoint
     ///   - endpoint: The API endpoint
+    /// - Note: Query parameters are stripped from the path for matching purposes
     func setError(_ error: Error, for endpoint: APIEndpoint) {
-        endpointErrors[endpoint.path] = error
+        let basePath = endpoint.path.components(separatedBy: "?").first ?? endpoint.path
+        endpointErrors[basePath] = error
     }
 
     func setMockError(_ error: APIError?) {

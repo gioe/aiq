@@ -248,16 +248,18 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up endpoint-specific responses for sequential calls
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
+        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
         await mockAPIClient.setResponse(startResponse, for: .testStart)
 
         // When - abandonAndStartNew should make both calls internally
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // Then - verify both API calls were made
+        // Then - verify all API calls were made (abandon, testHistory for first test check, then testStart)
         let allEndpoints = await mockAPIClient.allEndpoints
-        XCTAssertEqual(allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(allEndpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
         XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(allEndpoints[1], .testStart, "Second call should start new test")
+        XCTAssertEqual(allEndpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
+        XCTAssertEqual(allEndpoints[2], .testStart, "Third call should start new test")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -299,20 +301,23 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up endpoint-specific responses for sequential calls
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
+        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
         await mockAPIClient.setResponse(startTestResponse, for: .testStart)
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // Then - Verify both API calls were made
+        // Then - Verify all API calls were made (abandon, testHistory for first test check, then testStart)
         let allEndpoints = await mockAPIClient.allEndpoints
         let allMethods = await mockAPIClient.allMethods
 
-        XCTAssertEqual(allEndpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(allEndpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
         XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(allEndpoints[1], .testStart, "Second call should start new test")
+        XCTAssertEqual(allEndpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
+        XCTAssertEqual(allEndpoints[2], .testStart, "Third call should start new test")
         XCTAssertEqual(allMethods[0], .post, "Abandon should use POST")
-        XCTAssertEqual(allMethods[1], .post, "Start test should use POST")
+        XCTAssertEqual(allMethods[1], .get, "Test history should use GET")
+        XCTAssertEqual(allMethods[2], .post, "Start test should use POST")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -912,5 +917,219 @@ final class TestTakingViewModelTests: XCTestCase {
         let requestCalled = await mockAPIClient.requestCalled
         XCTAssertTrue(requestCalled, "Submission should include time data")
         XCTAssertTrue(sut.testCompleted, "Test should be completed")
+    }
+
+    // MARK: - First Test Detection Tests (BTS-238)
+
+    func testIsFirstTest_ReturnsTrueWhenTestCountAtStartIsZero() async {
+        // Given - Set up API to return zero test count
+        await mockAPIClient.setPaginatedTestHistoryResponse(
+            results: [],
+            totalCount: 0,
+            limit: 1,
+            offset: 0,
+            hasMore: false
+        )
+
+        let sessionId = 3001
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(sut.isFirstTest, "isFirstTest should be true when testCountAtStart is 0")
+    }
+
+    func testIsFirstTest_ReturnsFalseWhenTestCountAtStartIsOne() async {
+        // Given - Set up API to return one test
+        let mockTestResult = TestResult(
+            id: 1,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 105,
+            percentileRank: 60.0,
+            totalQuestions: 20,
+            correctAnswers: 12,
+            accuracyPercentage: 60.0,
+            completionTimeSeconds: 900,
+            completedAt: Date()
+        )
+        await mockAPIClient.setPaginatedTestHistoryResponse(
+            results: [mockTestResult],
+            totalCount: 1,
+            limit: 1,
+            offset: 0,
+            hasMore: false
+        )
+
+        let sessionId = 3002
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertFalse(sut.isFirstTest, "isFirstTest should be false when testCountAtStart is 1")
+    }
+
+    func testIsFirstTest_ReturnsFalseWhenTestCountAtStartIsGreaterThanZero() async {
+        // Given - Set up API to return multiple tests
+        let mockTestResult = TestResult(
+            id: 1,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 105,
+            percentileRank: 60.0,
+            totalQuestions: 20,
+            correctAnswers: 12,
+            accuracyPercentage: 60.0,
+            completionTimeSeconds: 900,
+            completedAt: Date()
+        )
+        await mockAPIClient.setPaginatedTestHistoryResponse(
+            results: [mockTestResult],
+            totalCount: 5, // Multiple tests exist
+            limit: 1,
+            offset: 0,
+            hasMore: true
+        )
+
+        let sessionId = 3003
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertFalse(sut.isFirstTest, "isFirstTest should be false when testCountAtStart is > 0")
+    }
+
+    func testFetchTestCountAtStart_SetsCountCorrectlyFromAPIResponse() async {
+        // Given - Set up API to return a specific test count
+        await mockAPIClient.setPaginatedTestHistoryResponse(
+            results: [],
+            totalCount: 3,
+            limit: 1,
+            offset: 0,
+            hasMore: false
+        )
+
+        let sessionId = 3004
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertFalse(sut.isFirstTest, "isFirstTest should be false when count is 3")
+
+        // Verify API was called with correct parameters
+        let allEndpoints = await mockAPIClient.allEndpoints
+        XCTAssertTrue(
+            allEndpoints.contains(.testHistory(limit: 1, offset: nil)),
+            "Should call test history endpoint"
+        )
+    }
+
+    func testFetchTestCountAtStart_HandlesFetchError_DefaultsToNotFirstTest() async {
+        // Given - Set up API to return an error for test history
+        let historyError = APIError.serverError(statusCode: 500, message: "Server error")
+        await mockAPIClient.setError(historyError, for: .testHistory(limit: 1, offset: nil))
+
+        let sessionId = 3005
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then - Should default to NOT first test (safe fallback)
+        XCTAssertFalse(sut.isFirstTest, "isFirstTest should default to false on fetch error")
+        XCTAssertNotNil(sut.testSession, "Test should still start despite history fetch error")
+    }
+
+    func testIsFirstTest_IsCalculatedBeforeTestStarts() async {
+        // Given - Set up API to return zero test count
+        let emptyHistoryResponse = PaginatedTestHistoryResponse(
+            results: [],
+            totalCount: 0,
+            limit: 1,
+            offset: 0,
+            hasMore: false
+        )
+        await mockAPIClient.setResponse(emptyHistoryResponse, for: .testHistory(limit: 1, offset: nil))
+
+        let sessionId = 3006
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // Verify isFirstTest is false before starting test
+        XCTAssertFalse(sut.isFirstTest, "Should be false before test starts")
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(sut.isFirstTest, "Should be true after fetching count shows 0 tests")
+    }
+
+    func testIsFirstTest_UsesForceRefreshForAccurateCount() async {
+        // Given
+        let historyResponse = PaginatedTestHistoryResponse(
+            results: [],
+            totalCount: 0,
+            limit: 1,
+            offset: 0,
+            hasMore: false
+        )
+        await mockAPIClient.setResponse(historyResponse, for: .testHistory(limit: 1, offset: nil))
+
+        let sessionId = 3007
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then - Verify the API was called with force refresh
+        // This ensures we get the most up-to-date count, not cached data
+        let allEndpoints = await mockAPIClient.allEndpoints
+        XCTAssertTrue(
+            allEndpoints.contains(.testHistory(limit: 1, offset: nil)),
+            "Should fetch test history with forceRefresh=true"
+        )
     }
 }

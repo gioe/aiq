@@ -216,7 +216,7 @@ struct TestTakingView: View {
 
             // Navigate to results after submission
             if let result = viewModel.testResult {
-                router.push(.testResults(result: result))
+                router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
             }
         }
     }
@@ -421,7 +421,7 @@ struct TestTakingView: View {
                     title: "View Results",
                     action: {
                         if let result = viewModel.testResult {
-                            router.push(.testResults(result: result))
+                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
                         }
                     },
                     isLoading: false
