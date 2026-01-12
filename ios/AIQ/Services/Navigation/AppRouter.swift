@@ -274,9 +274,7 @@ final class AppRouter: ObservableObject {
     ///
     /// - Parameter tab: The tab to pop to root in
     func popToRoot(in tab: TabDestination) {
-        var tabPath = path(for: tab)
-        tabPath.removeLast(tabPath.count)
-        setPath(tabPath, for: tab)
+        setPath(NavigationPath(), for: tab)
     }
 
     /// Navigate directly to a specific route, replacing the current stack

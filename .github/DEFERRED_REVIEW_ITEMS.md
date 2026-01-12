@@ -1,3 +1,22 @@
+## Deferred from PR #527 Review
+
+### 1. Add UI tests for per-tab navigation isolation
+- **Original comment**: "While unit tests are comprehensive, there are no UI tests verifying the behavior in a real TabView context with actual navigation."
+- **Reason deferred**: Unit tests (39 passing) give good confidence, but UI tests would catch SwiftUI-specific binding issues. Not blocking for the feature.
+- **Jira ticket**: BTS-259
+
+### 2. Optimize AppRouter navigation path mutations
+- **Original comment**: "The current implementation uses copy-modify-set pattern which creates unnecessary copies of NavigationPath for every operation."
+- **Reason deferred**: Minor performance overhead using idiomatic Swift patterns; NavigationPath uses copy-on-write semantics which minimizes actual impact
+- **Jira ticket**: BTS-260
+
+### 3. Race condition in tab switching (Dismissed)
+- **Original comment**: "The onChange and onAppear handlers create a potential race condition... If a navigation call happens between tab switch initiation and the onChange firing, it might target the wrong tab."
+- **Resolution**: After analysis, this is not a real issue. All navigation operations happen on @MainActor (synchronously on main thread), and the deep link handler explicitly syncs both selectedTab and router.currentTab before navigating.
+- **No ticket created**: Not a real issue
+
+---
+
 ## Deferred from PR #525 Review
 
 ### 1. Consolidate SettingsViewModel error handling properties
