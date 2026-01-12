@@ -41,15 +41,8 @@ struct MainTabView: View {
             router.currentTab = newTab
         }
         .onAppear {
-            // Validate stored tab value and log if corrupted
-            let storedKey = "com.aiq.selectedTab"
-            let storedValue = UserDefaults.standard.integer(forKey: storedKey)
-            if TabDestination(rawValue: storedValue) == nil && storedValue != 0 {
-                Self.logger.warning("Invalid stored tab value: \(storedValue). Resetting to dashboard.")
-                UserDefaults.standard.removeObject(forKey: storedKey)
-            }
-
             // Initialize router's current tab
+            // Note: @AppStorage handles invalid values by falling back to the default (.dashboard)
             router.currentTab = selectedTab
         }
         .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
