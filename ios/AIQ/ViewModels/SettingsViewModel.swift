@@ -63,8 +63,10 @@ class SettingsViewModel: BaseViewModel {
         } catch {
             deleteAccountError = error
             isDeletingAccount = false
-            // Note: AuthManager already logs this error to Crashlytics with proper context
-            // We don't need to call handleError here since we're setting deleteAccountError
+            // NOTE: Using operation-specific error instead of handleError() because:
+            // - Delete account needs a specific "Delete Account Failed" alert title
+            // - This error shouldn't affect general error state or retry logic
+            // - AuthManager already logs this error to Crashlytics
         }
     }
 
