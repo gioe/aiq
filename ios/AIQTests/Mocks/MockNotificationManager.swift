@@ -52,7 +52,9 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
             return false
         }
 
-        authorizationStatus = mockAuthorizationGranted ? .authorized : .denied
+        let status: UNAuthorizationStatus = mockAuthorizationGranted ? .authorized : .denied
+        authorizationStatus = status
+        mockAuthorizationStatus = status // Keep mock state consistent for subsequent checkAuthorizationStatus() calls
         return mockAuthorizationGranted
     }
 

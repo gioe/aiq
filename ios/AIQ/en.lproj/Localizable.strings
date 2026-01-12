@@ -641,3 +641,9 @@
 
 // MARK: - Service Errors - Notification
 "error.notification.empty.device.token" = "Device token cannot be empty";
+
+// MARK: - Notification Permission Recovery
+"notification.permission.denied.message" = "Notifications are disabled. Enable them in Settings to get test reminders.";
+"notification.permission.open.settings" = "Go to Settings";
+"notification.permission.banner.accessibility.label" = "Notification permission denied";
+"notification.permission.banner.accessibility.hint" = "Double tap to open iOS Settings and enable notifications";
