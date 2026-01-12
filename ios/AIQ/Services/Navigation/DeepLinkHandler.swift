@@ -242,19 +242,24 @@ extension DeepLinkHandler {
     /// Handle a deep link by converting it to a route and navigating via the router
     ///
     /// This method performs any necessary data fetching (e.g., fetching test results by ID)
-    /// before navigating to the appropriate route.
+    /// before navigating to the appropriate route in the specified tab.
     ///
     /// - Parameters:
     ///   - deepLink: The parsed deep link to handle
     ///   - router: The app router to use for navigation
+    ///   - tab: The tab to navigate in (defaults to current tab)
     ///   - apiClient: The API client for fetching data (optional, defaults to shared instance)
     /// - Returns: True if navigation was initiated, false if the deep link couldn't be handled
     @MainActor
     func handleNavigation(
         _ deepLink: DeepLink,
         router: AppRouter,
+        tab: TabDestination? = nil,
         apiClient: APIClientProtocol = APIClient.shared
     ) async -> Bool {
+        // Determine target tab (use provided tab or router's current tab)
+        let targetTab = tab ?? router.currentTab
+
         switch deepLink {
         case let .testResults(id):
             // Fetch test result from API
@@ -268,7 +273,7 @@ extension DeepLinkHandler {
 
                 // Convert TestResult to SubmittedTestResult for navigation
                 // Note: We use the result data we have; userAverage can be nil for deep links
-                router.navigateTo(.testDetail(result: result, userAverage: nil))
+                router.navigateTo(.testDetail(result: result, userAverage: nil), in: targetTab)
                 return true
             } catch {
                 Self.logger.error("Failed to fetch test result \(id): \(error.localizedDescription, privacy: .public)")

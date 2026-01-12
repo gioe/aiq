@@ -34,6 +34,14 @@ struct MainTabView: View {
                 .tag(TabDestination.settings)
                 .accessibilityIdentifier(TabDestination.settings.accessibilityIdentifier)
         }
+        .onChange(of: selectedTab) { newTab in
+            // Update router's current tab so navigation methods target the correct tab
+            router.currentTab = newTab
+        }
+        .onAppear {
+            // Initialize router's current tab
+            router.currentTab = selectedTab
+        }
         .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
 
@@ -43,15 +51,17 @@ struct MainTabView: View {
                 case .settings:
                     // For settings deep link, switch to the settings tab
                     selectedTab = .settings
-                    router.popToRoot() // Pop to root in case there's a navigation stack
+                    router.currentTab = .settings
+                    router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
 
                 case .testResults, .resumeTest:
                     // Switch to Dashboard tab first for test-related deep links
                     // This ensures navigation happens in the correct tab context
                     selectedTab = .dashboard
-                    router.popToRoot() // Clear any existing navigation stack
+                    router.currentTab = .dashboard
+                    router.popToRoot(in: .dashboard) // Clear any existing navigation stack
 
-                    let success = await deepLinkHandler.handleNavigation(deepLink, router: router)
+                    let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
                     if !success {
                         // Note: User error feedback tracked in ICG-122
                         let linkDesc = String(describing: deepLink)
@@ -73,10 +83,7 @@ private struct DashboardTabNavigationView: View {
     @Environment(\.appRouter) private var router
 
     var body: some View {
-        NavigationStack(path: Binding(
-            get: { router.path },
-            set: { router.path = $0 }
-        )) {
+        NavigationStack(path: router.binding(for: .dashboard)) {
             DashboardView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)
@@ -118,10 +125,7 @@ private struct HistoryTabNavigationView: View {
     @Environment(\.appRouter) private var router
 
     var body: some View {
-        NavigationStack(path: Binding(
-            get: { router.path },
-            set: { router.path = $0 }
-        )) {
+        NavigationStack(path: router.binding(for: .history)) {
             HistoryView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)
@@ -149,10 +153,7 @@ private struct SettingsTabNavigationView: View {
     @Environment(\.appRouter) private var router
 
     var body: some View {
-        NavigationStack(path: Binding(
-            get: { router.path },
-            set: { router.path = $0 }
-        )) {
+        NavigationStack(path: router.binding(for: .settings)) {
             SettingsView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)

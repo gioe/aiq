@@ -18,6 +18,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Naming Conventions](#naming-conventions)
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
+  - [Navigation Path Management](#navigation-path-management)
 - [Error Handling](#error-handling)
   - [Operation-Specific Error Properties](#operation-specific-error-properties)
   - [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)
@@ -33,6 +34,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Code Formatting](#code-formatting)
 - [Accessibility](#accessibility)
 - [Concurrency](#concurrency)
+  - [Main Actor Synchronization and Race Conditions](#main-actor-synchronization-and-race-conditions)
 - [Performance](#performance)
 - [Security](#security)
 - [Recommended Enhancements](#recommended-enhancements)
@@ -463,6 +465,40 @@ func updateState() {
     latestTestResult = result
 }
 ```
+
+### Navigation Path Management
+
+When working with `NavigationPath` in `AppRouter`, follow these patterns to avoid edge cases and ensure clean navigation state.
+
+**DO:**
+- Use `setPath(NavigationPath(), for: tab)` to clear/reset navigation for a tab
+- This creates a clean navigation state and avoids edge cases
+
+**DON'T:**
+- Mutate path by removing items and then setting it
+- Use `path.removeLast(count)` patterns that risk edge cases
+
+**Example:**
+
+```swift
+// ✅ Good - Clean navigation reset
+func popToRoot(in tab: TabDestination) {
+    setPath(NavigationPath(), for: tab)
+}
+
+// ❌ Bad - Manual removal with edge case risks
+func popToRoot(in tab: TabDestination) {
+    var path = path(for: tab)
+    path.removeLast(path.count)  // What if count is calculated incorrectly?
+    setPath(path, for: tab)
+}
+```
+
+**Why This Matters:**
+- `NavigationPath` doesn't expose its count property publicly, making validation difficult
+- Manual removal can crash if count exceeds path depth
+- Creating a new `NavigationPath()` is more explicit and self-documenting
+- The copy-modify-set pattern for `NavigationPath` uses Swift's copy-on-write semantics, so it's efficient, but the simpler pattern is still preferred for `popToRoot`
 
 ---
 
@@ -2316,6 +2352,90 @@ async let sessionTask: Void = fetchActiveSession()
 await historyTask
 await sessionTask
 ```
+
+### Main Actor Synchronization and Race Conditions
+
+`@MainActor` guarantees synchronous execution on the main thread, which eliminates race conditions for UI state. Understanding when race conditions are and aren't possible prevents false flags in code reviews.
+
+**When Race Conditions Are NOT Possible:**
+
+All operations within `@MainActor` context execute sequentially on the main thread:
+
+```swift
+// ✅ No race condition - @MainActor guarantees sequential execution
+@MainActor
+class AppRouter: ObservableObject {
+    @Published var selectedTab: TabDestination = .dashboard
+    @Published var currentTab: TabDestination = .dashboard
+
+    func switchTab(to tab: TabDestination) {
+        // These assignments are synchronous and sequential
+        selectedTab = tab   // Completes before next line
+        currentTab = tab    // Completes after previous line
+        // No race condition possible - all on main thread
+    }
+}
+
+// ✅ No race condition - SwiftUI onChange runs on @MainActor
+struct MainTabView: View {
+    @StateObject var router = AppRouter()
+    @State private var selectedTab: TabDestination = .dashboard
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Tab content...
+        }
+        .onChange(of: selectedTab) { newTab in
+            // This runs on @MainActor, synchronous with other router updates
+            router.currentTab = newTab
+        }
+    }
+}
+```
+
+**When Race Conditions ARE Possible:**
+
+Race conditions can occur with multiple async tasks updating shared state:
+
+```swift
+// ⚠️ Potential race - Multiple async tasks updating shared state
+@MainActor
+class DataManager: ObservableObject {
+    @Published var data: String = ""
+
+    func fetchConcurrently() async {
+        async let userTask = fetchUser()
+        async let profileTask = fetchProfile()
+
+        // If both tasks complete and update data, order is non-deterministic
+        let user = await userTask
+        self.data = user.name  // Could race with profile update
+
+        let profile = await profileTask
+        self.data = profile.bio  // Final value depends on timing
+    }
+}
+```
+
+**Rule of Thumb for Code Reviews:**
+
+| Scenario | Race Condition Risk |
+|----------|---------------------|
+| `@MainActor` + synchronous property updates | ❌ No risk |
+| SwiftUI `onChange`/`onAppear` modifiers | ❌ No risk (runs on main) |
+| Multiple `async let` tasks updating same property | ⚠️ Possible risk |
+| Background tasks without `@MainActor` isolation | ⚠️ Possible risk |
+| Combine publishers on main scheduler | ❌ No risk |
+
+**Don't Flag Race Conditions When:**
+- All state updates are within `@MainActor` classes
+- SwiftUI view modifiers (`onChange`, `onAppear`) update `@MainActor` state
+- Deep link handlers explicitly sync state before navigation
+
+**Do Flag Race Conditions When:**
+- Multiple concurrent async operations update shared state
+- State updates happen outside `@MainActor` context
+- Background queues update published properties without actor isolation
 
 ---
 
