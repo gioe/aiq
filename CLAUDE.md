@@ -48,5 +48,6 @@ When performing these operations, always use the corresponding skill instead of 
 
 | Operation | Skill | Instead of |
 |-----------|-------|------------|
+| Building iOS project | `/build-ios-project` | `xcodebuild build` |
 | Running iOS tests | `/run-ios-test` | `xcodebuild test` |
 | Adding Swift files to Xcode | `/xcode-file-manager` | Manual project.pbxproj edits |

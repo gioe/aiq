@@ -60,8 +60,19 @@ If neither the standards doc nor reference files cover a pattern, consult Apple'
 3. **Examine reference files** when standards don't cover a pattern
 4. **Consult Apple documentation** via WebFetch/WebSearch when neither standards nor reference files help
 5. **Update the standards doc** if you establish a new pattern or find outdated guidance
-6. **Write tests** for all ViewModel logic
-7. **Document** complex decisions inline
+6. **Verify compilation** using `/build-ios-project` after writing code
+7. **Write tests** for all ViewModel logic
+8. **Document** complex decisions inline
+
+## Required Skills
+
+When performing iOS development tasks, use these skills instead of running commands directly:
+
+| Operation | Skill |
+|-----------|-------|
+| Building the project | `/build-ios-project` |
+| Running tests | `/run-ios-test` |
+| Adding Swift files to Xcode | `/xcode-file-manager` |
 
 ## Technical Requirements
 
