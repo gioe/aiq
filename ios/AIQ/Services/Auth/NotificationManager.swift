@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import os
 import UIKit
 import UserNotifications
 
@@ -30,6 +31,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private let notificationCenter: UserNotificationCenterProtocol
     private let application: ApplicationProtocol
     private var cancellables = Set<AnyCancellable>()
+    private let logger = Logger(subsystem: "com.aiq.app", category: "NotificationManager")
 
     /// Cached device token (stored until user is authenticated)
     private var pendingDeviceToken: String?
@@ -88,6 +90,9 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         // This prevents duplicate requests throughout the app lifecycle
         hasRequestedNotificationPermission = true
 
+        // Capture previous status for error reporting
+        let previousStatus = authorizationStatus
+
         do {
             let granted = try await notificationCenter
                 .requestAuthorization(options: [.alert, .sound, .badge])
@@ -102,7 +107,20 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
             return granted
 
         } catch {
-            print("❌ [NotificationManager] Authorization request failed: \(error.localizedDescription)")
+            logger.error(
+                "Failed to request notification authorization: \(error.localizedDescription, privacy: .public)"
+            )
+            CrashlyticsErrorRecorder.recordError(
+                error,
+                context: .notificationPermission,
+                additionalInfo: [
+                    "operation": "requestAuthorization",
+                    "previousStatus": "\(previousStatus.rawValue)"
+                ]
+            )
+            #if DEBUG
+                print("❌ [NotificationManager] Authorization request failed: \(error.localizedDescription)")
+            #endif
             return false
         }
     }
