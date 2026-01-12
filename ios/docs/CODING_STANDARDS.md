@@ -305,6 +305,7 @@ Use the correct property wrapper for each scenario:
 | `@EnvironmentObject` | Shared dependency injected into environment |
 | `@Binding` | Two-way binding to parent's state |
 | `@Environment` | System environment values |
+| `@AppStorage` | Simple values persisted to UserDefaults (must conform to RawRepresentable) |
 
 ```swift
 struct DashboardView: View {
@@ -321,6 +322,16 @@ struct StatCard: View {
 
     var body: some View {
         // Implementation
+    }
+}
+
+struct MainTabView: View {
+    @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard  // Persisted to UserDefaults
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Implementation
+        }
     }
 }
 ```
@@ -342,6 +353,120 @@ struct StatCard: View {
 **Rule of thumb:**
 - Creating a new instance → `@StateObject private var vm = MyViewModel()`
 - Referencing a singleton → `@ObservedObject private var manager = Manager.shared`
+
+#### @AppStorage Best Practices
+
+`@AppStorage` provides automatic persistence to UserDefaults with built-in invalid value handling. Understanding how it works prevents unnecessary validation code.
+
+**How @AppStorage Works:**
+
+1. **On initialization**: Reads from UserDefaults using the specified key
+2. **If stored value is valid**: Uses the stored value
+3. **If stored value is invalid or missing**: Uses the default value provided
+4. **On change**: Automatically writes to UserDefaults
+
+**DO:**
+- Use `@AppStorage` for simple value types that conform to `RawRepresentable` (Int, String, Bool, enums with raw values)
+- Provide a default value that will be used if the stored value is invalid or missing
+- Trust `@AppStorage` to handle invalid values automatically
+- Use consistent key naming with reverse-DNS notation (e.g., `"com.aiq.selectedTab"`)
+
+**DON'T:**
+- Manually validate or "fix" stored values in `.onAppear` (duplicate effort - `@AppStorage` already handled it)
+- Access the same UserDefaults key directly with `UserDefaults.standard` (creates two sources of truth)
+- Duplicate storage key strings in validation logic (maintenance hazard)
+- Try to "clean up" invalid values with `removeObject(forKey:)` (happens too late, `@AppStorage` already initialized)
+
+**Example - Correct Usage:**
+
+```swift
+struct MainTabView: View {
+    // @AppStorage automatically handles invalid values by using default
+    @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Tab content...
+        }
+        .onAppear {
+            // No validation needed - @AppStorage already handled it
+            router.currentTab = selectedTab
+        }
+    }
+}
+```
+
+**Anti-Pattern - Unnecessary Validation:**
+
+```swift
+// ❌ BAD - Duplicates key, mixed access, unnecessary complexity
+struct MainTabView: View {
+    @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Tab content...
+        }
+        .onAppear {
+            // ALL OF THIS IS UNNECESSARY:
+            let storedKey = "com.aiq.selectedTab"  // ❌ Duplicate key declaration
+            let storedValue = UserDefaults.standard.integer(forKey: storedKey)  // ❌ Mixed access
+            if TabDestination(rawValue: storedValue) == nil {
+                UserDefaults.standard.removeObject(forKey: storedKey)  // ❌ @AppStorage already handled this
+            }
+            router.currentTab = selectedTab
+        }
+    }
+}
+
+// ✅ GOOD - Trust @AppStorage to handle edge cases
+struct MainTabView: View {
+    @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Tab content...
+        }
+        .onAppear {
+            router.currentTab = selectedTab  // Simple and correct
+        }
+    }
+}
+```
+
+**Why Manual Validation is Problematic:**
+
+1. **Timing Issue**: Validation in `.onAppear` happens after `@AppStorage` has already initialized and handled invalid values
+2. **Duplicate Effort**: `@AppStorage` already fell back to the default if value was invalid
+3. **Two Sources of Truth**: Mixing `@AppStorage` with direct `UserDefaults` access creates confusion
+4. **Maintenance Burden**: Duplicating key strings means changes must be made in multiple places
+5. **No Benefit**: The validation doesn't affect the already-loaded value
+
+**When Manual Access Might Be Justified:**
+
+Manual UserDefaults access might be appropriate in rare cases:
+- **Migration**: Converting from old storage format to new format (one-time operation)
+- **Diagnostic Logging**: Logging when invalid values are encountered (for debugging, not to "fix" them)
+- **Complex Transformation**: Data requires transformation before use that `@AppStorage` can't handle
+
+**Example - Legitimate Diagnostic Logging:**
+
+```swift
+.onAppear {
+    // Optional: Log if we encountered an invalid stored value (debugging only)
+    // Note: This is purely diagnostic - @AppStorage already handled it
+    if let storedInt = UserDefaults.standard.integer(forKey: "com.aiq.selectedTab") as Int?,
+       storedInt != 0,  // 0 means "not set"
+       TabDestination(rawValue: storedInt) == nil {
+        logger.debug("Encountered invalid stored tab value: \(storedInt). Using default (.dashboard).")
+        // Don't try to "fix" it - @AppStorage already used the default
+    }
+
+    router.currentTab = selectedTab
+}
+```
+
+Even in this diagnostic case, the logging happens after `@AppStorage` initialization, so it's purely for observability.
 
 ### View Decomposition
 
