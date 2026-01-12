@@ -59,6 +59,7 @@ enum AccessibilityIdentifiers {
         static let emailTextField = "registrationView.emailTextField"
         static let passwordTextField = "registrationView.passwordTextField"
         static let confirmPasswordTextField = "registrationView.confirmPasswordTextField"
+        static let educationLevelButton = "registrationView.educationLevelButton"
         static let createAccountButton = "registrationView.createAccountButton"
         static let signInLink = "registrationView.signInLink"
     }

@@ -83,7 +83,7 @@ class RegistrationHelper {
 
     /// Education Level menu button (optional)
     var educationLevelButton: XCUIElement {
-        app.buttons["Select education level"]
+        app.buttons["registrationView.educationLevelButton"]
     }
 
     /// Submit button - uses "Create Account" label
@@ -226,15 +226,47 @@ class RegistrationHelper {
         return true
     }
 
+    /// Fill the education level picker
+    /// - Parameter educationLevel: The display name of the education level (e.g., "Bachelor's Degree")
+    /// - Returns: true if selection succeeded, false otherwise
+    @discardableResult
+    func fillEducationLevel(_ educationLevel: String) -> Bool {
+        // Wait for the education level button
+        guard educationLevelButton.waitForExistence(timeout: timeout) else {
+            XCTFail("Education Level button not found")
+            return false
+        }
+
+        // Tap to open the menu
+        educationLevelButton.tap()
+
+        // Find the menu item and wait for it to be hittable (ensures menu animation is complete)
+        let menuItem = app.buttons[educationLevel]
+        let hittablePredicate = NSPredicate(format: "exists == true AND hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: hittablePredicate, object: menuItem)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+
+        guard result == .completed else {
+            XCTFail("Education level option '\(educationLevel)' not found or not hittable in menu")
+            return false
+        }
+
+        menuItem.tap()
+
+        return true
+    }
+
     /// Fill optional demographic fields
     /// - Parameters:
     ///   - birthYear: User's birth year (optional)
+    ///   - educationLevel: User's education level display name (optional)
     ///   - country: User's country (optional)
     ///   - region: User's state/region (optional)
     /// - Returns: true if fields were filled, false otherwise
     @discardableResult
     func fillDemographicFields(
         birthYear: String? = nil,
+        educationLevel: String? = nil,
         country: String? = nil,
         region: String? = nil
     ) -> Bool {
@@ -245,6 +277,12 @@ class RegistrationHelper {
             }
             birthYearTextField.tap()
             birthYearTextField.typeText(birthYear)
+        }
+
+        if let educationLevel {
+            guard fillEducationLevel(educationLevel) else {
+                return false
+            }
         }
 
         if let country {
@@ -302,6 +340,7 @@ class RegistrationHelper {
     ///   - password: User password
     ///   - confirmPassword: Password confirmation (defaults to password)
     ///   - includeDemographics: Whether to fill optional demographic fields
+    ///   - educationLevel: Optional education level display name (only used if includeDemographics is true)
     /// - Returns: true if registration completed successfully, false otherwise
     @discardableResult
     func completeRegistration(
@@ -310,7 +349,8 @@ class RegistrationHelper {
         email: String,
         password: String,
         confirmPassword: String? = nil,
-        includeDemographics: Bool = false
+        includeDemographics: Bool = false,
+        educationLevel: String? = nil
     ) -> Bool {
         // Navigate to registration screen
         guard navigateToRegistration() else {
@@ -333,6 +373,7 @@ class RegistrationHelper {
         if includeDemographics {
             fillDemographicFields(
                 birthYear: "1990",
+                educationLevel: educationLevel,
                 country: "United States",
                 region: "California"
             )
