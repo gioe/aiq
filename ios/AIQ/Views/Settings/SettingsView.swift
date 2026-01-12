@@ -3,21 +3,21 @@ import SwiftUI
 /// Settings view for user preferences and account management
 struct SettingsView: View {
     @Environment(\.appRouter) private var router
-    @ObservedObject private var authManager = AuthManager.shared
-    @State private var showLogoutConfirmation = false
-    @State private var isLoggingOut = false
-    @State private var showDeleteAccountConfirmation = false
-    @State private var isDeletingAccount = false
-    @State private var deleteAccountError: Error?
+    @StateObject private var viewModel: SettingsViewModel
     @State private var showCrashConfirmation = false
-    @State private var showOnboarding = false
+
+    init() {
+        // Temporary container reference for initialization
+        let container = ServiceContainer.shared
+        _viewModel = StateObject(wrappedValue: ViewModelFactory.makeSettingsViewModel(container: container))
+    }
 
     var body: some View {
         ZStack {
             List {
                 // User Info Section
                 Section {
-                    if let user = authManager.currentUser {
+                    if let user = viewModel.currentUser {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(user.fullName)
                                 .font(.headline)
@@ -82,7 +82,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.feedbackButton)
 
                     Button {
-                        showOnboarding = true
+                        viewModel.showOnboardingFlow()
                     } label: {
                         HStack {
                             Image(systemName: "arrow.clockwise.circle")
@@ -120,7 +120,7 @@ struct SettingsView: View {
                     Button(
                         role: .destructive,
                         action: {
-                            showLogoutConfirmation = true
+                            viewModel.showLogoutDialog()
                         },
                         label: {
                             HStack {
@@ -135,7 +135,7 @@ struct SettingsView: View {
                     Button(
                         role: .destructive,
                         action: {
-                            showDeleteAccountConfirmation = true
+                            viewModel.showDeleteAccountDialog()
                         },
                         label: {
                             HStack {
@@ -183,35 +183,24 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .confirmationDialog(
                 "Are you sure you want to logout?",
-                isPresented: $showLogoutConfirmation,
+                isPresented: $viewModel.showLogoutConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Logout", role: .destructive) {
                     Task {
-                        isLoggingOut = true
-                        await authManager.logout()
-                        isLoggingOut = false
+                        await viewModel.logout()
                     }
                 }
                 Button("Cancel", role: .cancel) {}
             }
             .confirmationDialog(
                 "Delete Account",
-                isPresented: $showDeleteAccountConfirmation,
+                isPresented: $viewModel.showDeleteAccountConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Delete Account", role: .destructive) {
                     Task {
-                        isDeletingAccount = true
-                        deleteAccountError = nil
-                        do {
-                            try await authManager.deleteAccount()
-                            isDeletingAccount = false
-                            // Navigation to welcome screen is handled automatically by auth state change
-                        } catch {
-                            deleteAccountError = error
-                            isDeletingAccount = false
-                        }
+                        await viewModel.deleteAccount()
                     }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -219,12 +208,12 @@ struct SettingsView: View {
                 Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
             }
             .alert("Delete Account Failed", isPresented: Binding(
-                get: { deleteAccountError != nil },
-                set: { if !$0 { deleteAccountError = nil } }
+                get: { viewModel.deleteAccountError != nil },
+                set: { if !$0 { viewModel.clearDeleteAccountError() } }
             )) {
                 Button("OK") {}
             } message: {
-                if let error = deleteAccountError {
+                if let error = viewModel.deleteAccountError {
                     Text(error.localizedDescription)
                 }
             }
@@ -241,14 +230,14 @@ struct SettingsView: View {
                     Button("Cancel", role: .cancel) {}
                 }
             #endif
-                .fullScreenCover(isPresented: $showOnboarding) {
+                .fullScreenCover(isPresented: $viewModel.showOnboarding) {
                     OnboardingContainerView()
                 }
 
             // Loading overlay
-            if isLoggingOut {
+            if viewModel.isLoggingOut {
                 LoadingOverlay(message: "Logging out...")
-            } else if isDeletingAccount {
+            } else if viewModel.isDeletingAccount {
                 LoadingOverlay(message: "Deleting account...")
             }
         }
