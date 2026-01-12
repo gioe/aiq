@@ -600,4 +600,81 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         // Then - Should request system permission instead of toggling
         XCTAssertTrue(mockNotificationManager.requestAuthorizationCalled, "Should request permission first")
     }
+
+    // MARK: - Permission Recovery Banner Tests (BTS-239)
+
+    func testShowPermissionRecoveryBanner_WhenDenied_ReturnsTrue() {
+        // Given
+        mockNotificationManager.setAuthorizationStatus(.denied)
+
+        // When
+        let showBanner = sut.showPermissionRecoveryBanner
+
+        // Then
+        XCTAssertTrue(showBanner, "Should show recovery banner when permission is denied")
+    }
+
+    func testShowPermissionRecoveryBanner_WhenNotDetermined_ReturnsFalse() {
+        // Given
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+
+        // When
+        let showBanner = sut.showPermissionRecoveryBanner
+
+        // Then
+        XCTAssertFalse(showBanner, "Should not show recovery banner when permission not determined")
+    }
+
+    func testShowPermissionRecoveryBanner_WhenAuthorized_ReturnsFalse() {
+        // Given
+        mockNotificationManager.setAuthorizationStatus(.authorized)
+
+        // When
+        let showBanner = sut.showPermissionRecoveryBanner
+
+        // Then
+        XCTAssertFalse(showBanner, "Should not show recovery banner when permission is authorized")
+    }
+
+    func testShowPermissionRecoveryBanner_WhenProvisional_ReturnsFalse() {
+        // Given
+        mockNotificationManager.setAuthorizationStatus(.provisional)
+
+        // When
+        let showBanner = sut.showPermissionRecoveryBanner
+
+        // Then
+        XCTAssertFalse(showBanner, "Should not show recovery banner when permission is provisional")
+    }
+
+    func testShowPermissionRecoveryBanner_WhenEphemeral_ReturnsFalse() {
+        // Given
+        mockNotificationManager.setAuthorizationStatus(.ephemeral)
+
+        // When
+        let showBanner = sut.showPermissionRecoveryBanner
+
+        // Then
+        XCTAssertFalse(showBanner, "Should not show recovery banner when permission is ephemeral")
+    }
+
+    func testShowPermissionRecoveryBanner_ReactsToStatusChanges() async {
+        // Given - Initially not determined
+        mockNotificationManager.setAuthorizationStatus(.notDetermined)
+        XCTAssertFalse(sut.showPermissionRecoveryBanner, "Should not show banner initially")
+
+        // When - User denies permission
+        mockNotificationManager.setAuthorizationStatus(.denied)
+        await sut.checkSystemPermission()
+
+        // Then - Banner should appear
+        XCTAssertTrue(sut.showPermissionRecoveryBanner, "Should show banner after denial")
+
+        // When - User enables permission in Settings
+        mockNotificationManager.setAuthorizationStatus(.authorized)
+        await sut.checkSystemPermission()
+
+        // Then - Banner should disappear
+        XCTAssertFalse(sut.showPermissionRecoveryBanner, "Should hide banner after authorization")
+    }
 }

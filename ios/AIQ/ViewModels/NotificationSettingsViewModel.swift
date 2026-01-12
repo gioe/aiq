@@ -165,6 +165,12 @@ class NotificationSettingsViewModel: BaseViewModel {
         notificationEnabled && !systemPermissionGranted
     }
 
+    /// Whether to show the permission recovery banner
+    /// Shows when permission is denied at OS level (not just notDetermined)
+    var showPermissionRecoveryBanner: Bool {
+        notificationManager.authorizationStatus == .denied
+    }
+
     // MARK: - Private Methods
 
     /// Observe app lifecycle events to check for permission changes

@@ -14,7 +14,15 @@ struct NotificationSettingsView: View {
                         viewModel.clearError()
                     }
                 )
-                .padding(.bottom, 8)
+                .padding(.bottom, DesignSystem.Spacing.md)
+            }
+
+            // Permission Recovery Banner - Shows when permission is denied at OS level
+            if viewModel.showPermissionRecoveryBanner {
+                NotificationPermissionBanner {
+                    viewModel.openSystemSettings()
+                }
+                .padding(.bottom, DesignSystem.Spacing.md)
             }
 
             // Notification Toggle
@@ -43,8 +51,8 @@ struct NotificationSettingsView: View {
             }
             .padding(.vertical, 8)
 
-            // Permission Warning
-            if viewModel.showPermissionWarning {
+            // Permission Warning (legacy - kept for backward compatibility)
+            if viewModel.showPermissionWarning && !viewModel.showPermissionRecoveryBanner {
                 Button {
                     viewModel.openSystemSettings()
                 } label: {
