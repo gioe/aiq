@@ -184,6 +184,11 @@ struct HistoryView: View {
         .refreshable {
             await viewModel.refreshHistory()
         }
+        .scrollPositionPersistence(
+            viewId: "historyView",
+            items: viewModel.testHistory,
+            shouldClear: viewModel.dateFilter != .all || viewModel.sortOrder != .newestFirst
+        )
     }
 
     private var emptyState: some View {
