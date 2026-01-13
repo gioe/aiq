@@ -387,15 +387,13 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     ///
     /// - Note: Currently a placeholder. APIClient integration to be added when ViewModels use this queue.
     ///   The implementation will decode the payload based on operation type and call the appropriate endpoint.
-    private func executeOperation(_ operation: QueuedOperation) async throws {
-        switch operation.type {
-        case .updateProfile:
-            // APIClient integration pending
-            break
-        case .updateNotificationSettings:
-            // APIClient integration pending
-            break
-        }
+    ///
+    /// - Important: This method throws until APIClient integration is complete to prevent operations
+    ///   from being incorrectly marked as succeeded during development/testing.
+    private func executeOperation(_: QueuedOperation) async throws {
+        // Placeholder: APIClient integration will be added when ViewModels use this queue.
+        // The error thrown documents this is intentionally unimplemented.
+        throw OfflineOperationError.notImplemented
     }
 
     /// Calculate exponential backoff delay for retry attempt
@@ -454,6 +452,20 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
             Self.publishedState.operationCount = snapshot.operationCount
             Self.publishedState.isSyncing = snapshot.isSyncing
             Self.publishedState.failedOperations = snapshot.failedOperations
+        }
+    }
+}
+
+// MARK: - OfflineOperationError
+
+/// Errors specific to offline operation queue
+enum OfflineOperationError: LocalizedError {
+    case notImplemented
+
+    var errorDescription: String? {
+        switch self {
+        case .notImplemented:
+            "Operation execution not yet implemented. APIClient integration pending."
         }
     }
 }
