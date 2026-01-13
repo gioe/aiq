@@ -505,6 +505,64 @@ struct DashboardView: View {
 }
 ```
 
+### Event Handler Refactoring
+
+When multiple event handlers (`.onReceive`, `.onChange`, `.onAppear`) share the same logic, extract it into a private helper method:
+
+```swift
+// ❌ Bad: Duplicate navigation logic in two handlers
+.onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
+    guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
+    Task {
+        switch deepLink {
+        case .settings:
+            selectedTab = .settings
+            // ... 15+ lines of navigation logic
+        }
+    }
+}
+.onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
+    // ... payload extraction ...
+    let deepLink = deepLinkHandler.parse(url)
+    Task {
+        switch deepLink {
+        case .settings:
+            selectedTab = .settings
+            // ... same 15+ lines duplicated
+        }
+    }
+}
+
+// ✅ Good: Extract shared logic into a helper method
+.onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
+    guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
+    handleDeepLinkNavigation(deepLink)
+}
+.onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
+    // ... payload extraction ...
+    let deepLink = deepLinkHandler.parse(url)
+    handleDeepLinkNavigation(deepLink)
+}
+
+// MARK: - Private Helpers
+
+private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
+    Task {
+        switch deepLink {
+        case .settings:
+            selectedTab = .settings
+            // ... navigation logic in one place
+        }
+    }
+}
+```
+
+**Guidelines:**
+- Extract logic when it exceeds ~10 lines or is used in multiple handlers
+- Keep handler bodies focused on event-specific extraction/validation
+- Use descriptive method names that indicate the action (e.g., `handleDeepLinkNavigation`, `processNotificationPayload`)
+- Place helper methods in a `// MARK: - Private Helpers` section
+
 ### ViewModifiers
 
 Extract reusable styling into ViewModifiers:
