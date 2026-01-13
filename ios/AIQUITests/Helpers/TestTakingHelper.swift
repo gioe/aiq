@@ -24,6 +24,7 @@ class TestTakingHelper {
 
     private let app: XCUIApplication
     private let timeout: TimeInterval
+    private let networkTimeout: TimeInterval
 
     // MARK: - UI Element Queries
 
@@ -112,10 +113,12 @@ class TestTakingHelper {
     /// Initialize the test-taking helper
     /// - Parameters:
     ///   - app: The XCUIApplication instance
-    ///   - timeout: Default timeout for operations (default: 5 seconds)
-    init(app: XCUIApplication, timeout: TimeInterval = 5.0) {
+    ///   - timeout: Default timeout for UI operations (default: 5 seconds)
+    ///   - networkTimeout: Timeout for network operations (default: 10 seconds)
+    init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 10.0) {
         self.app = app
         self.timeout = timeout
+        self.networkTimeout = networkTimeout
     }
 
     // MARK: - Test Flow Methods
@@ -329,12 +332,12 @@ class TestTakingHelper {
     }
 
     /// Wait for test results screen to appear
-    /// - Parameter customTimeout: Optional custom timeout (default: 10 seconds for scoring)
+    /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
     /// - Returns: true if results appear, false otherwise
     @discardableResult
     func waitForResults(timeout customTimeout: TimeInterval? = nil) -> Bool {
-        // Results may take longer to calculate and display
-        let waitTimeout = customTimeout ?? timeout * 2
+        // Results may take longer to calculate and display (network operation)
+        let waitTimeout = customTimeout ?? networkTimeout
 
         // Wait for results navigation bar or score label
         let resultsAppeared = resultsTitle.waitForExistence(timeout: waitTimeout) ||

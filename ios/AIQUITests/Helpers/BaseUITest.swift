@@ -29,11 +29,16 @@ class BaseUITest: XCTestCase {
     /// Standard timeout for most UI operations (5 seconds)
     let standardTimeout: TimeInterval = 5.0
 
-    /// Extended timeout for network operations or slow screens (10 seconds)
+    /// Extended timeout for slow animations or complex screens (10 seconds)
     let extendedTimeout: TimeInterval = 10.0
 
     /// Quick timeout for elements that should appear immediately (2 seconds)
     let quickTimeout: TimeInterval = 2.0
+
+    /// Network timeout for operations involving API calls (10 seconds)
+    /// Use this for login, logout, registration, test submission, and data fetching.
+    /// This provides a consistent timeout for network-dependent operations.
+    let networkTimeout: TimeInterval = 10.0
 
     // MARK: - Setup & Teardown
 

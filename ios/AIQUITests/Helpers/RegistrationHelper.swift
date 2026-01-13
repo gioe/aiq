@@ -31,6 +31,7 @@ class RegistrationHelper {
 
     private let app: XCUIApplication
     private let timeout: TimeInterval
+    private let networkTimeout: TimeInterval
 
     // MARK: - UI Element Queries
 
@@ -114,10 +115,12 @@ class RegistrationHelper {
     /// Initialize the registration helper
     /// - Parameters:
     ///   - app: The XCUIApplication instance
-    ///   - timeout: Default timeout for operations (default: 5 seconds)
-    init(app: XCUIApplication, timeout: TimeInterval = 5.0) {
+    ///   - timeout: Default timeout for UI operations (default: 5 seconds)
+    ///   - networkTimeout: Timeout for network operations (default: 15 seconds for registration)
+    init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 15.0) {
         self.app = app
         self.timeout = timeout
+        self.networkTimeout = networkTimeout
     }
 
     // MARK: - Navigation Methods
@@ -386,11 +389,11 @@ class RegistrationHelper {
     // MARK: - Wait Methods
 
     /// Wait for the dashboard screen to appear after registration
-    /// - Parameter customTimeout: Optional custom timeout (uses default if not provided)
+    /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
     /// - Returns: true if dashboard appears, false otherwise
     @discardableResult
     func waitForDashboard(timeout customTimeout: TimeInterval? = nil) -> Bool {
-        let waitTimeout = customTimeout ?? timeout * 3 // Triple timeout for network + account creation
+        let waitTimeout = customTimeout ?? networkTimeout
 
         // Wait for dashboard tab to appear
         let dashboardAppeared = dashboardTab.waitForExistence(timeout: waitTimeout)

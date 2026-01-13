@@ -54,7 +54,7 @@ func testLoginAndNavigate() {
 
 Base class providing:
 - Automatic app launch and termination
-- Standard timeout constants (`standardTimeout`, `extendedTimeout`, `quickTimeout`)
+- Standard timeout constants (`standardTimeout`, `extendedTimeout`, `quickTimeout`, `networkTimeout`)
 - Wait helpers (`wait(for:timeout:)`, `waitForHittable(_:timeout:)`, `waitForDisappearance(of:timeout:)`)
 - Screenshot utilities (`takeScreenshot(named:)`)
 - Assertion helpers (`assertExists(_:_:screenshot:)`, `assertHittable(_:_:screenshot:)`)
@@ -242,11 +242,52 @@ The helpers assume test credentials and data are available. For actual tests:
 - Set up test data before running UI tests
 - Clean up test data after tests complete
 
+### Timeout Usage Guidelines
+
+BaseUITest defines four timeout constants for consistent timing across all UI tests:
+
+| Constant | Duration | Use Case |
+|----------|----------|----------|
+| `quickTimeout` | 2 seconds | Elements that should appear immediately (already loaded views) |
+| `standardTimeout` | 5 seconds | Most UI operations (taps, navigation, animations) |
+| `extendedTimeout` | 10 seconds | Slow animations or complex screen transitions |
+| `networkTimeout` | 10 seconds | Operations involving API calls (login, logout, data fetching) |
+
+**When to use each timeout:**
+
+1. **`quickTimeout`** - Use for elements that are already on screen or should appear instantly:
+   ```swift
+   confirmButton.waitForExistence(timeout: quickTimeout)
+   ```
+
+2. **`standardTimeout`** - Default for most UI operations:
+   ```swift
+   wait(for: button) // Uses standardTimeout by default
+   ```
+
+3. **`extendedTimeout`** - Use for complex UI transitions that don't involve network:
+   ```swift
+   wait(for: complexAnimation, timeout: extendedTimeout)
+   ```
+
+4. **`networkTimeout`** - Use for any operation that involves an API call:
+   - Login/logout (authentication APIs)
+   - Registration (account creation APIs)
+   - Test submission (scoring APIs)
+   - Data fetching (history, dashboard refresh)
+   - Deep link navigation (may require data loading)
+
+**Helper classes** accept `networkTimeout` as an initialization parameter, defaulting to appropriate values:
+- `LoginHelper`: 10 seconds (standard network operations)
+- `NavigationHelper`: 10 seconds (deep link handling)
+- `TestTakingHelper`: 10 seconds (test submission)
+- `RegistrationHelper`: 15 seconds (account creation is slower)
+
 ### Async Operations
 
 Some operations (login, test submission) involve network calls:
-- Use `extendedTimeout` for network-dependent operations
-- Helpers automatically wait for expected results
+- Use `networkTimeout` for network-dependent operations
+- Helpers automatically wait for expected results using `networkTimeout`
 - Consider adding retry logic for flaky network conditions
 
 ## Examples
