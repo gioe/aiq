@@ -96,22 +96,40 @@ class BackgroundRefreshManager: ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Track whether the current background task has been completed
+    /// Used to prevent race condition between expiration handler and normal completion
+    private var taskCompleted = false
+
     /// Handle background refresh task execution
     /// - Parameter task: The BGAppRefreshTask to handle
     private func handleBackgroundRefresh(task: BGAppRefreshTask) async {
         logger.info("Background refresh task started")
 
         let startTime = Date()
+        taskCompleted = false
 
         // Set up task expiration handler
+        // Note: This can race with normal completion, so we guard with taskCompleted flag
         task.expirationHandler = { [weak self] in
-            self?.logger.warning("Background refresh task expired before completion")
-            self?.analyticsService.track(event: .backgroundRefreshExpired)
-            task.setTaskCompleted(success: false)
+            guard let self else { return }
+            Task { @MainActor in
+                guard !self.taskCompleted else { return }
+                self.taskCompleted = true
+                self.logger.warning("Background refresh task expired before completion")
+                self.analyticsService.track(event: .backgroundRefreshExpired)
+                task.setTaskCompleted(success: false)
+            }
         }
 
         // Perform the refresh
         let success = await performRefresh()
+
+        // Guard against race with expiration handler
+        guard !taskCompleted else {
+            logger.info("Task already completed by expiration handler")
+            return
+        }
+        taskCompleted = true
 
         let duration = Date().timeIntervalSince(startTime)
         logger.info("Background refresh completed in \(duration, privacy: .public)s with success: \(success)")
@@ -235,7 +253,8 @@ class BackgroundRefreshManager: ObservableObject {
         content.title = NSLocalizedString("notification.test.available.title", comment: "")
         content.body = NSLocalizedString("notification.test.available.body", comment: "")
         content.sound = .default
-        content.badge = 1
+        // Note: We don't set badge here to avoid overwriting badges from other notification types.
+        // Badge management should be handled centrally by the app when it becomes active.
         content.userInfo = ["type": "test_reminder"]
 
         // Create trigger to deliver immediately
@@ -274,8 +293,10 @@ class BackgroundRefreshManager: ObservableObject {
     }
 
     /// Save the current date as the last refresh timestamp
+    /// Note: Explicit synchronize() ensures persistence before background task completes
     private func saveLastRefreshDate() {
         UserDefaults.standard.set(Date(), forKey: lastRefreshKey)
+        UserDefaults.standard.synchronize()
     }
 
     /// Get the date of the last notification sent
@@ -284,7 +305,9 @@ class BackgroundRefreshManager: ObservableObject {
     }
 
     /// Save the current date as the last notification timestamp
+    /// Note: Explicit synchronize() ensures persistence before background task completes
     private func saveLastNotificationDate() {
         UserDefaults.standard.set(Date(), forKey: lastNotificationKey)
+        UserDefaults.standard.synchronize()
     }
 }
