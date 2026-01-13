@@ -169,17 +169,28 @@ class LoginHelper {
             }
         }
 
-        // Look for Logout button using identifier
-        guard logoutButton.waitForExistence(timeout: timeout) else {
-            XCTFail("Logout button not found in Settings")
+        // Find and tap logout button (with cascading search strategies)
+        guard let button = findLogoutButton() else {
+            // Provide detailed failure information
+            let availableButtons = app.buttons.allElementsBoundByIndex.map(\.label).joined(separator: ", ")
+            XCTFail("""
+            Logout button not found.
+            Available buttons: \(availableButtons.isEmpty ? "none" : availableButtons)
+            """)
             return false
         }
 
-        logoutButton.tap()
+        button.tap()
 
-        // Handle confirmation dialog
-        let confirmButton = app.buttons["Logout"]
-        if confirmButton.waitForExistence(timeout: 2.0) {
+        // Handle confirmation dialog if present
+        let hasDialog = app.sheets.firstMatch.waitForExistence(timeout: 1.0) ||
+            app.alerts.firstMatch.waitForExistence(timeout: 1.0)
+
+        if hasDialog {
+            guard let confirmButton = findConfirmationButton() else {
+                XCTFail("Logout confirmation dialog appeared but no matching button found")
+                return false
+            }
             confirmButton.tap()
         }
 
@@ -190,6 +201,50 @@ class LoginHelper {
         }
 
         return welcomeAppeared
+    }
+
+    // MARK: - Private Helpers
+
+    /// Find the logout button using cascading search strategies.
+    /// Each strategy waits up to `timeout` seconds before trying the next.
+    /// - Returns: The logout button element if found, nil if all strategies fail
+    private func findLogoutButton() -> XCUIElement? {
+        // Strategy 1: Primary accessibility identifier
+        let primaryButton = logoutButton
+        if primaryButton.waitForExistence(timeout: timeout) {
+            return primaryButton
+        }
+
+        // Strategy 2: Button with label containing "logout" (case-insensitive)
+        let logoutPredicate = NSPredicate(format: "label CONTAINS[c] 'logout'")
+        let logoutButtons = app.buttons.matching(logoutPredicate)
+        if logoutButtons.firstMatch.waitForExistence(timeout: timeout) {
+            return logoutButtons.firstMatch
+        }
+
+        // Strategy 3: Button with label containing "sign out" (case-insensitive)
+        let signOutPredicate = NSPredicate(format: "label CONTAINS[c] 'sign out'")
+        let signOutButtons = app.buttons.matching(signOutPredicate)
+        if signOutButtons.firstMatch.waitForExistence(timeout: timeout) {
+            return signOutButtons.firstMatch
+        }
+
+        return nil
+    }
+
+    /// Find the confirmation button in logout dialog
+    /// - Returns: The confirmation button element if found, nil otherwise
+    private func findConfirmationButton() -> XCUIElement? {
+        let possibleLabels = ["Logout", "Log Out", "Sign Out", "Yes"]
+
+        for label in possibleLabels {
+            let button = app.buttons[label]
+            if button.waitForExistence(timeout: 2.0) {
+                return button
+            }
+        }
+
+        return nil
     }
 
     /// Check if user is currently logged in (dashboard visible)
