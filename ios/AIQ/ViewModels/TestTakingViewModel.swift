@@ -363,7 +363,7 @@ class TestTakingViewModel: BaseViewModel {
             code: -1,
             userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.questions".localized]
         )
-        handleError(error)
+        handleError(error, context: .fetchQuestions)
     }
 
     private func handleResumeSessionError(_ error: Error, sessionId: Int) {
@@ -456,7 +456,7 @@ class TestTakingViewModel: BaseViewModel {
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.session".localized]
             )
-            handleError(error)
+            handleError(error, context: .submitTest)
             return
         }
 
@@ -471,7 +471,7 @@ class TestTakingViewModel: BaseViewModel {
                     )
                 ]
             )
-            handleError(error)
+            handleError(error, context: .submitTest)
             return
         }
 
@@ -504,7 +504,7 @@ class TestTakingViewModel: BaseViewModel {
                 domain: "TestTakingViewModel",
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.active.session".localized]
-            ))
+            ), context: .submitTest)
             return
         }
         #if DEBUG

@@ -38,7 +38,7 @@ final class BaseViewModelTests: XCTestCase {
         sut.isLoading = true
 
         // When
-        sut.handleError(testError)
+        sut.handleError(testError, context: .unknown)
 
         // Then
         XCTAssertFalse(sut.isLoading, "isLoading should be set to false")

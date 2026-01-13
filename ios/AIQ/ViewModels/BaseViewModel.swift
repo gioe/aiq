@@ -23,7 +23,7 @@ class BaseViewModel: ObservableObject {
     ///   - retryOperation: Optional closure to retry the failed operation
     func handleError(
         _ error: Error,
-        context: CrashlyticsErrorRecorder.ErrorContext = .unknown,
+        context: CrashlyticsErrorRecorder.ErrorContext,
         retryOperation: (() async -> Void)? = nil
     ) {
         isLoading = false
