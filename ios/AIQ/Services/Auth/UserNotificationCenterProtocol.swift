@@ -16,6 +16,10 @@ protocol UserNotificationCenterProtocol {
     /// Note: Returns status directly instead of UNNotificationSettings to enable proper mocking
     /// (UNNotificationSettings cannot be instantiated directly for testing)
     func getAuthorizationStatus() async -> UNAuthorizationStatus
+
+    /// Add a notification request to the notification center
+    /// - Parameter request: The notification request to add
+    func add(_ request: UNNotificationRequest) async throws
 }
 
 /// Extend UNUserNotificationCenter to conform to our protocol
@@ -37,5 +41,18 @@ extension UNUserNotificationCenter: UserNotificationCenterProtocol {
     @MainActor
     func getAuthorizationStatus() async -> UNAuthorizationStatus {
         await notificationSettings().authorizationStatus
+    }
+
+    @MainActor
+    func add(_ request: UNNotificationRequest) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            add(request) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }

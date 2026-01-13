@@ -17,6 +17,9 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
     /// Authorization status to return from getAuthorizationStatus
     var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
+    /// Error to throw from add (if any)
+    var addNotificationError: Error?
+
     // MARK: - Call Tracking
 
     /// Whether requestAuthorization was called
@@ -33,6 +36,15 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
 
     /// Number of times getAuthorizationStatus was called
     var getAuthorizationStatusCallCount = 0
+
+    /// Whether add was called
+    var addNotificationCalled = false
+
+    /// Number of times add was called
+    var addNotificationCallCount = 0
+
+    /// Requests added via add method
+    var addedRequests: [UNNotificationRequest] = []
 
     // MARK: - UserNotificationCenterProtocol Implementation
 
@@ -54,6 +66,16 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
         return authorizationStatus
     }
 
+    func add(_ request: UNNotificationRequest) async throws {
+        addNotificationCalled = true
+        addNotificationCallCount += 1
+        addedRequests.append(request)
+
+        if let error = addNotificationError {
+            throw error
+        }
+    }
+
     // MARK: - Helper Methods
 
     /// Reset all tracking state
@@ -61,10 +83,14 @@ final class MockUserNotificationCenter: UserNotificationCenterProtocol {
         authorizationGranted = false
         authorizationError = nil
         authorizationStatus = .notDetermined
+        addNotificationError = nil
         requestAuthorizationCalled = false
         requestAuthorizationCallCount = 0
         lastAuthorizationOptions = nil
         getAuthorizationStatusCalled = false
         getAuthorizationStatusCallCount = 0
+        addNotificationCalled = false
+        addNotificationCallCount = 0
+        addedRequests = []
     }
 }

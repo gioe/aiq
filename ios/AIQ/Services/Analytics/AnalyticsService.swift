@@ -35,6 +35,14 @@ enum AnalyticsEvent: String {
 
     // Account events
     case accountDeleted = "account.deleted"
+
+    // Background refresh events
+    case backgroundRefreshCompleted = "background.refresh.completed"
+    case backgroundRefreshFailed = "background.refresh.failed"
+    case backgroundRefreshExpired = "background.refresh.expired"
+    case backgroundRefreshScheduleFailed = "background.refresh.schedule_failed"
+    case backgroundRefreshNotificationSent = "background.refresh.notification_sent"
+    case backgroundRefreshNotificationFailed = "background.refresh.notification_failed"
 }
 
 /// A single analytics event with timestamp and properties
