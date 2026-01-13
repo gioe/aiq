@@ -1,3 +1,4 @@
+import BackgroundTasks
 import FirebaseCore
 import FirebaseCrashlytics
 import os
@@ -9,6 +10,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     private let notificationManager = NotificationManager.shared
     private let deepLinkHandler = DeepLinkHandler()
     private let analyticsService = AnalyticsService.shared
+    private let backgroundRefreshManager = BackgroundRefreshManager.shared
     private static let logger = Logger(subsystem: "com.aiq.app", category: "AppDelegate")
 
     /// Weak reference to the app router for deep link navigation
@@ -32,6 +34,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         // Set notification delegate
         UNUserNotificationCenter.current().delegate = self
+
+        // Register background refresh task
+        Task { @MainActor in
+            backgroundRefreshManager.registerBackgroundTask()
+        }
 
         // Note: We don't request notification permissions at launch anymore
         // Permissions are requested when user explicitly enables notifications in Settings

@@ -652,3 +652,7 @@
 "notification.settings.redirect.alert.title" = "Enable Notifications";
 "notification.settings.redirect.alert.message" = "To receive reminders for your AIQ tests, please enable notifications in Settings.";
 "notification.settings.redirect.alert.go.to.settings" = "Go to Settings";
+
+// MARK: - Background Refresh Notifications
+"notification.test.available.title" = "Ready for Your Next Test?";
+"notification.test.available.body" = "It's been 90 days since your last test. Take a new assessment to track your cognitive progress.";

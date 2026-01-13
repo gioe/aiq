@@ -150,4 +150,24 @@ enum Constants {
         /// See: ios/docs/security/CERTIFICATE-PINNING.md
         static let minRequiredPins: Int = 2
     }
+
+    // MARK: - Background Refresh Constants
+
+    /// Background refresh task configuration
+    enum BackgroundRefresh {
+        /// Background task identifier (must match Info.plist entry)
+        static let taskIdentifier: String = "com.aiq.refresh"
+
+        /// Minimum interval between refresh attempts in seconds (4 hours)
+        /// iOS will optimize actual timing based on app usage patterns
+        static let minimumInterval: TimeInterval = 4 * 60 * 60
+
+        /// Test cadence in days (90 days between tests)
+        /// User is notified when this many days have passed since last test
+        static let testCadenceDays: Int = 90
+
+        /// Maximum execution time for background refresh in seconds
+        /// iOS gives 30s max, we aim for 20s to have safety margin
+        static let maxExecutionTime: TimeInterval = 20.0
+    }
 }
