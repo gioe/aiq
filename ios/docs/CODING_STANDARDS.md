@@ -19,11 +19,13 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
   - [Navigation Path Management](#navigation-path-management)
+  - [Badge Management Patterns](#badge-management-patterns)
 - [Error Handling](#error-handling)
   - [Operation-Specific Error Properties](#operation-specific-error-properties)
   - [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)
   - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
   - [Localization for Error Messages](#localization-for-error-messages)
+  - [Date and Time Edge Cases](#date-and-time-edge-cases)
 - [Networking](#networking)
 - [Design System](#design-system)
 - [Documentation](#documentation)
@@ -31,10 +33,12 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Testing](#testing)
   - [Test Isolation and Shared Resources](#test-isolation-and-shared-resources)
   - [Testing Factory Methods and Initialization](#testing-factory-methods-and-initialization)
+  - [Test Helper Anti-Patterns](#test-helper-anti-patterns)
 - [Code Formatting](#code-formatting)
 - [Accessibility](#accessibility)
 - [Concurrency](#concurrency)
   - [Main Actor Synchronization and Race Conditions](#main-actor-synchronization-and-race-conditions)
+  - [Background Task Execution Patterns](#background-task-execution-patterns)
 - [Performance](#performance)
 - [Security](#security)
 - [Recommended Enhancements](#recommended-enhancements)
@@ -625,6 +629,107 @@ func popToRoot(in tab: TabDestination) {
 - Creating a new `NavigationPath()` is more explicit and self-documenting
 - The copy-modify-set pattern for `NavigationPath` uses Swift's copy-on-write semantics, so it's efficient, but the simpler pattern is still preferred for `popToRoot`
 
+### Badge Management Patterns
+
+App badges require centralized coordination when multiple sources (notifications, background refresh, unread counts) can update the badge. Without coordination, badge values overwrite each other unpredictably.
+
+#### The Problem
+
+```swift
+// ❌ WRONG - Multiple sources overwriting each other
+class BackgroundRefreshManager {
+    func sendTestNotification() {
+        content.badge = 1  // Overwrites any existing badge
+    }
+}
+
+class MessageService {
+    func updateUnreadCount(_ count: Int) {
+        UIApplication.shared.applicationIconBadgeNumber = count  // Overwrites test notification badge
+    }
+}
+```
+
+#### Centralized Badge Management
+
+Use a single manager to coordinate badge state:
+
+```swift
+// ✅ CORRECT - Centralized badge coordination
+@MainActor
+class BadgeManager: ObservableObject {
+    static let shared = BadgeManager()
+
+    @Published private(set) var totalBadgeCount: Int = 0
+
+    private var unreadMessages: Int = 0
+    private var pendingTests: Int = 0
+    private var otherNotifications: Int = 0
+
+    func updateUnreadMessages(_ count: Int) {
+        unreadMessages = count
+        recalculateBadge()
+    }
+
+    func updatePendingTests(_ count: Int) {
+        pendingTests = count
+        recalculateBadge()
+    }
+
+    func clearAll() {
+        unreadMessages = 0
+        pendingTests = 0
+        otherNotifications = 0
+        recalculateBadge()
+    }
+
+    private func recalculateBadge() {
+        totalBadgeCount = unreadMessages + pendingTests + otherNotifications
+        UIApplication.shared.applicationIconBadgeNumber = totalBadgeCount
+    }
+}
+```
+
+#### Notification Badge Pattern
+
+When sending local notifications, **do not set the badge directly**. Let the app update badges when it becomes active:
+
+```swift
+// ✅ CORRECT - Don't set badge in notification content
+func sendTestAvailableNotification() {
+    let content = UNMutableNotificationContent()
+    content.title = "New Test Available"
+    content.body = "Your cognitive assessment is ready"
+    content.sound = .default
+    // Note: We don't set badge here. Badge is updated when app becomes active.
+    content.userInfo = ["type": "test_reminder"]
+
+    // Schedule notification...
+}
+
+// In SceneDelegate or AppDelegate:
+func sceneDidBecomeActive(_ scene: UIScene) {
+    // Centralized badge update when app becomes active
+    Task {
+        await BadgeManager.shared.refreshBadgeCount()
+    }
+}
+
+// ❌ WRONG - Setting badge in notification
+func sendTestAvailableNotification() {
+    let content = UNMutableNotificationContent()
+    content.badge = 1  // Overwrites other badge sources
+}
+```
+
+#### When Badge Coordination Matters
+
+| App Complexity | Recommended Approach |
+|----------------|---------------------|
+| Single badge source | Direct badge setting is OK |
+| Multiple badge sources | Centralized BadgeManager required |
+| Background notifications | Don't set badge in content, update on app active |
+
 ---
 
 ## Error Handling
@@ -998,6 +1103,106 @@ When a `NSLocalizedString` key doesn't exist in `Localizable.strings`:
 - This creates a poor user experience
 - The error appears technical and confusing
 - It's easily missed during development because it doesn't crash
+
+### Date and Time Edge Cases
+
+Date calculations can produce unexpected results due to clock skew, timezone changes, and other edge cases. Defensive coding prevents subtle bugs.
+
+#### Common Pitfalls
+
+| Edge Case | Cause | Impact |
+|-----------|-------|--------|
+| **Negative day count** | Device clock set backwards | Test availability calculated incorrectly |
+| **Nil components** | Invalid date ranges | Crash or unexpected default |
+| **Timezone shifts** | User travels across zones | Day boundaries change |
+| **DST transitions** | Daylight Saving Time | Hour added/removed |
+
+#### Defensive Date Calculation Pattern
+
+Always guard against unexpected values from `Calendar.dateComponents()`:
+
+```swift
+// ✅ CORRECT - Defensive calculation
+func daysSince(date: Date) -> Int {
+    let components = Calendar.current.dateComponents(
+        [.day],
+        from: date,
+        to: Date()
+    )
+
+    let days = components.day ?? 0
+
+    // Guard against clock skew (device clock set backwards)
+    guard days >= 0 else {
+        logger.warning("Date calculation returned negative days (clock skew?): \(days)")
+        return 0  // Fail safe
+    }
+
+    return days
+}
+
+// ❌ WRONG - Assumes positive values
+func daysSince(date: Date) -> Int {
+    Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+    // Could return -5 if device clock is wrong
+}
+```
+
+#### When to Use Defensive Checks
+
+| Scenario | Apply Defensive Check? | Reason |
+|----------|------------------------|--------|
+| Date from server response | ✅ Yes | Clock sync issues |
+| Date from user input | ✅ Yes | Invalid input possible |
+| Date from system (e.g., `Date()`) | ⚠️ Optional | Usually trustworthy |
+| Date stored locally | ✅ Yes | Device clock may have changed |
+
+#### UTC vs. Local Time
+
+Use UTC for server-synced dates to avoid timezone issues:
+
+```swift
+// ✅ CORRECT - Use UTC for server-synced dates
+let utcFormatter = ISO8601DateFormatter()
+utcFormatter.timeZone = TimeZone(identifier: "UTC")
+
+// For display, convert to local timezone
+let displayFormatter = DateFormatter()
+displayFormatter.dateStyle = .medium
+displayFormatter.timeZone = .current
+let displayString = displayFormatter.string(from: serverDate)
+
+// ❌ WRONG - Mixing local and UTC
+let localFormatter = DateFormatter()
+localFormatter.dateFormat = "yyyy-MM-dd"  // Ambiguous timezone
+```
+
+#### Fail-Safe Defaults
+
+When date calculations fail, choose safe defaults:
+
+```swift
+// For "is X available after Y days" checks:
+// - Default to NOT available (false) if uncertain
+// - Better to show "not ready" than allow premature action
+
+func isTestAvailable(lastTestDate: Date?) -> Bool {
+    guard let lastDate = lastTestDate else {
+        // No previous test - test IS available
+        return true
+    }
+
+    let days = Calendar.current.dateComponents([.day], from: lastDate, to: Date()).day ?? 0
+
+    // Defensive: negative days means clock issue, fail safe to "not available"
+    guard days >= 0 else {
+        logger.warning("Negative days since last test: \(days). Assuming not available.")
+        return false
+    }
+
+    return days >= Constants.testCadenceDays
+}
+```
 
 ---
 
@@ -2049,6 +2254,128 @@ Flaky tests undermine confidence in the test suite. A test that fails 1% of the 
 - Erodes trust in all tests
 - May mask real failures when team assumes "it's just flaky"
 
+### Test Helper Anti-Patterns
+
+Test helpers are useful for reducing boilerplate, but they can inadvertently duplicate production logic. When helpers encode business rules, tests give false confidence because they're testing the helper's implementation rather than the actual code.
+
+#### When Helpers Duplicate Too Much Logic
+
+**Anti-pattern**: Helper encodes business rules being tested.
+
+```swift
+// ❌ BAD - Helper duplicates the 90-day business rule
+private func createOldTest() -> TestResult {
+    // Helper encodes the 90-day rule we're supposed to be testing
+    let date = Calendar.current.date(byAdding: .day, value: -91, to: Date())!
+    return TestResult(id: UUID(), completedAt: date, iqScore: 120)
+}
+
+func testAvailability_OldTestMakesNewTestAvailable() async throws {
+    let test = createOldTest()  // Business rule hidden in helper
+    mockAPIClient.setTestHistoryResponse([test])
+
+    let available = try await sut.checkTestAvailability()
+
+    // This passes even if production logic is broken!
+    // If production checks 89 days instead of 90, test still passes
+    // because helper uses 91 days
+    XCTAssertTrue(available)
+}
+```
+
+**Problem**: If the production code's threshold changes from 90 to 120 days, this test would still pass because the helper creates a 91-day-old test (which satisfies both 90 and 120 day thresholds). The test isn't testing the actual boundary.
+
+#### Boundary Testing Best Practices
+
+Test exact boundaries explicitly to catch off-by-one errors and threshold changes:
+
+```swift
+// ✅ GOOD - Explicit boundary testing
+func testCheckTestAvailability_ExactlyAt90Days_IsAvailable() async throws {
+    // Test the EXACT boundary - 90 days
+    let exactly90DaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date())!
+    let testResult = TestResult(id: UUID(), completedAt: exactly90DaysAgo, iqScore: 120)
+    mockAPIClient.setTestHistoryResponse([testResult])
+
+    let available = try await sut.checkTestAvailability()
+
+    // Business rule explicit in test name and assertion
+    XCTAssertTrue(available, "Test should be available at exactly 90-day boundary")
+}
+
+func testCheckTestAvailability_At89Days_IsNotAvailable() async throws {
+    // Test just BEFORE the boundary - 89 days
+    let only89DaysAgo = Calendar.current.date(byAdding: .day, value: -89, to: Date())!
+    let testResult = TestResult(id: UUID(), completedAt: only89DaysAgo, iqScore: 120)
+    mockAPIClient.setTestHistoryResponse([testResult])
+
+    let available = try await sut.checkTestAvailability()
+
+    // Tests the inverse boundary
+    XCTAssertFalse(available, "Test should NOT be available before 90 days")
+}
+```
+
+**Why This Is Better:**
+- If threshold changes to 120 days, both tests fail (alerting you to update tests)
+- Business rules are explicit in test names
+- Catches off-by-one errors in production code
+- No magic numbers hidden in helpers
+
+#### When Helpers Are Appropriate
+
+Helpers ARE appropriate for:
+
+1. **Boilerplate Setup** - Creating complex test objects with many required fields:
+```swift
+// ✅ GOOD - Helper for boilerplate, not business logic
+private func createTestResult(
+    id: UUID = UUID(),
+    completedAt: Date,  // Caller specifies date explicitly
+    iqScore: Int = 120,
+    percentileRank: Double = 85.0
+) -> TestResult {
+    TestResult(
+        id: id,
+        completedAt: completedAt,
+        iqScore: iqScore,
+        percentileRank: percentileRank,
+        domainScores: createDefaultDomainScores(),
+        duration: 1800
+    )
+}
+```
+
+2. **Shared Test Data** - Valid model instances without business logic:
+```swift
+// ✅ GOOD - Valid mock response, no business logic
+private var validTestHistoryResponse: [TestResult] {
+    [createTestResult(completedAt: Date())]
+}
+```
+
+3. **UI Test Flows** - Navigation and interaction sequences:
+```swift
+// ✅ GOOD - UI flow helper
+private func loginAndNavigateToSettings() {
+    loginHelper.login(username: testUser, password: testPassword)
+    app.tabBars.buttons["Settings"].tap()
+}
+```
+
+#### Rule of Thumb
+
+**Ask yourself**: "If the production code's threshold/rule changes, would this test fail?"
+
+- If **YES** → Test is properly testing the boundary
+- If **NO** → Test may be duplicating logic in a helper
+
+**Helper Checklist:**
+- [ ] Helper does NOT encode thresholds being tested (e.g., 90 days, rate limits)
+- [ ] Helper does NOT encode business rules (e.g., "what makes a test 'old'")
+- [ ] Business-critical values are passed as explicit parameters
+- [ ] Test name clearly states what boundary/rule is being tested
+
 ---
 
 ## Code Formatting
@@ -2561,6 +2888,167 @@ class DataManager: ObservableObject {
 - Multiple concurrent async operations update shared state
 - State updates happen outside `@MainActor` context
 - Background queues update published properties without actor isolation
+
+### Background Task Execution Patterns
+
+Background tasks (BGAppRefreshTask, BGProcessingTask) operate under fundamentally different constraints than normal app execution. Understanding these differences prevents critical bugs.
+
+**Key Differences from Normal App Execution:**
+
+| Aspect | Normal App | Background Task |
+|--------|-----------|-----------------|
+| Scheduling | User-initiated | iOS-controlled |
+| Time Budget | Unlimited | ~30 seconds |
+| Termination | Graceful | Abrupt (no warning) |
+| Thread | Main thread available | Background queue |
+| UserDefaults sync | Automatic | Must be explicit |
+
+#### Race Condition in Task Completion
+
+The `expirationHandler` and normal completion path can race. Always guard against double-completion:
+
+```swift
+// ✅ CORRECT - Guard against race condition
+@MainActor
+class BackgroundRefreshManager {
+    private var taskCompleted = false
+
+    func handleBackgroundRefresh(task: BGAppRefreshTask) async {
+        taskCompleted = false
+
+        // Expiration handler runs on background queue
+        task.expirationHandler = { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                guard !self.taskCompleted else { return }  // Guard
+                self.taskCompleted = true
+                task.setTaskCompleted(success: false)
+            }
+        }
+
+        let success = await performRefresh()
+
+        // Guard against race with expiration handler
+        guard !taskCompleted else { return }
+        taskCompleted = true
+        task.setTaskCompleted(success: success)
+    }
+}
+
+// ❌ WRONG - No protection against double setTaskCompleted()
+func handleBackgroundRefresh(task: BGAppRefreshTask) async {
+    task.expirationHandler = {
+        // Could race with normal completion below
+        task.setTaskCompleted(success: false)
+    }
+
+    let success = await performRefresh()
+    task.setTaskCompleted(success: success)  // May crash if expiration fired
+}
+```
+
+**Why This Matters:**
+- Calling `setTaskCompleted()` twice causes undefined behavior
+- iOS may terminate the app immediately after first completion
+- The race window is small but real in production
+
+#### UserDefaults in Background Contexts
+
+**General Rule**: `synchronize()` is unnecessary in normal app contexts.
+
+**Exception for Background Tasks**: Must call `synchronize()` after writes.
+
+```swift
+// ✅ CORRECT for background tasks
+func handleBackgroundRefresh(task: BGAppRefreshTask) async {
+    // ... perform work ...
+
+    // Explicit sync required - task may terminate abruptly
+    UserDefaults.standard.set(Date(), forKey: "lastRefresh")
+    UserDefaults.standard.synchronize()
+
+    task.setTaskCompleted(success: true)
+}
+
+// ❌ WRONG in background context (may lose data)
+func handleBackgroundRefresh(task: BGAppRefreshTask) async {
+    UserDefaults.standard.set(Date(), forKey: "lastRefresh")
+    // No sync - iOS may terminate before automatic flush
+    task.setTaskCompleted(success: true)
+}
+
+// ✅ CORRECT for normal app context (no sync needed)
+class SettingsManager {
+    func saveSetting(_ value: String) {
+        UserDefaults.standard.set(value, forKey: "setting")
+        // No synchronize() needed - automatic sync is sufficient
+    }
+}
+```
+
+**Why Background Tasks Are Different:**
+- iOS can terminate background tasks abruptly after `setTaskCompleted()`
+- No graceful shutdown, no guaranteed automatic sync
+- UserDefaults buffers writes in memory before disk flush
+- Without explicit sync, data may be lost
+
+**When to Use synchronize():**
+
+| Context | Use synchronize()? | Reason |
+|---------|-------------------|--------|
+| Normal app execution | ❌ No | Automatic sync sufficient |
+| App entering background | ❌ No | System handles gracefully |
+| Background task completion | ✅ Yes | Abrupt termination possible |
+| App extensions | ✅ Yes | Limited lifecycle |
+| Before app exit (rare) | ✅ Yes | No graceful shutdown |
+
+**Alternative for Critical Data:**
+
+For highly critical data, consider file-based storage with explicit write:
+
+```swift
+// More robust alternative for critical background data
+func persistCriticalData(_ data: CriticalData) throws {
+    let encoded = try JSONEncoder().encode(data)
+    let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("critical_data.json")
+    try encoded.write(to: url, options: .atomic)  // Atomic write guarantees consistency
+}
+```
+
+#### Battery Optimization Patterns
+
+Background tasks should minimize resource usage:
+
+```swift
+// ✅ GOOD - Fast-fail checks minimize battery usage
+func performRefresh() async -> Bool {
+    // 1. Check preconditions first (no network call needed)
+    guard authManager.isAuthenticated else { return true }
+    guard networkMonitor.isConnected else { return true }
+
+    // 2. Rate limiting (prevent excessive API calls)
+    if let lastRefresh = getLastRefreshDate(),
+       Date().timeIntervalSince(lastRefresh) < minimumInterval {
+        return true  // Not an error, respecting rate limit
+    }
+
+    // 3. Only now make network request
+    do {
+        try await fetchData()
+        return true
+    } catch {
+        return false
+    }
+}
+```
+
+**Battery Optimization Checklist:**
+- [ ] Fast-fail on auth/network preconditions
+- [ ] Rate limit API calls (4+ hour intervals typical)
+- [ ] Complete work in <20 seconds (target, not limit)
+- [ ] Track duration for analytics
+- [ ] Use `limit: 1` when only checking for existence
 
 ---
 
