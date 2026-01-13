@@ -1,3 +1,27 @@
+## Deferred from PR #532 Review
+
+### 1. Store init Task and cancel on deinit
+- **Original comment**: "The unstructured Task in init may outlive the queue or execute after deallocation."
+- **Reason deferred**: Low risk since the queue is typically used as a singleton, and startNetworkMonitoring uses [weak self]. Code quality improvement, not production issue.
+- **Jira ticket**: BTS-274
+
+### 2. Add logging for silent encoding failures
+- **Original comment**: "saveOperations silently fails if encoding fails with no logging or assertions."
+- **Reason deferred**: Encoding is unlikely to fail for these Codable types, and failures only affect persistence (queue still works in memory). Nice-to-have logging improvement.
+- **Jira ticket**: BTS-275
+
+### 3. Optimize O(n²) queue removal
+- **Original comment**: "removeAll(where:) with contains has O(n²) complexity when removing multiple items."
+- **Reason deferred**: With max queue size of 100 operations, O(n²) = 10,000 operations at worst. Negligible on modern devices. Premature optimization.
+- **Jira ticket**: BTS-276
+
+### 4. Add mock NetworkMonitor for test isolation
+- **Original comment**: "Tests use the shared NetworkMonitor singleton, which could cause cross-test interference."
+- **Reason deferred**: Test quality improvement. Current tests pass reliably; no production impact.
+- **Jira ticket**: BTS-277
+
+---
+
 ## Deferred from PR #527 Review
 
 ### 1. Add UI tests for per-tab navigation isolation
