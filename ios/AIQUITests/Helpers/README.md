@@ -54,7 +54,7 @@ func testLoginAndNavigate() {
 
 Base class providing:
 - Automatic app launch and termination
-- Standard timeout constants (`standardTimeout`, `extendedTimeout`, `quickTimeout`)
+- Standard timeout constants (`standardTimeout`, `extendedTimeout`, `quickTimeout`, `networkTimeout`)
 - Wait helpers (`wait(for:timeout:)`, `waitForHittable(_:timeout:)`, `waitForDisappearance(of:timeout:)`)
 - Screenshot utilities (`takeScreenshot(named:)`)
 - Assertion helpers (`assertExists(_:_:screenshot:)`, `assertHittable(_:_:screenshot:)`)
@@ -102,7 +102,7 @@ if loginHelper.hasError {
 }
 ```
 
-**Note:** Currently uses accessibility labels to find elements. When accessibility identifiers are added to the app, update the element queries in `LoginHelper.swift` for more reliable element lookup.
+**Note:** Currently uses accessibility labels to find elements. Accessibility identifiers are available in `AccessibilityIdentifiers.swift` - migration to identifier-based queries is recommended for more reliable element lookup.
 
 ### NavigationHelper
 
@@ -227,13 +227,25 @@ hiddenElement.scrollToVisible(in: app)
 
 ### Accessibility Identifiers
 
-**The app currently does not have accessibility identifiers implemented.** The helpers use accessibility labels as a fallback, which are less reliable.
+**Status (Updated 2026-01-13):** The app has accessibility identifiers implemented in `AccessibilityIdentifiers.swift` with 92 identifiers covering all major views.
 
-**Action Required:** When accessibility identifiers are added to the app:
-1. Update `LoginHelper` element queries to use identifiers
-2. Update `NavigationHelper` screen detection logic
-3. Update `TestTakingHelper` element queries
-4. Add identifier-based queries to extensions
+| View | Identifiers | Helper Status |
+|------|-------------|---------------|
+| WelcomeView | ✅ Implemented | Uses labels (migration needed) |
+| RegistrationView | ✅ Implemented | ✅ Uses identifiers |
+| DashboardView | ✅ Implemented | Uses labels (migration needed) |
+| TestTakingView | ✅ Implemented | Uses labels (migration needed) |
+| TestResultsView | ✅ Implemented | Uses labels (migration needed) |
+| SettingsView | ✅ Implemented | Uses labels (migration needed) |
+| HistoryView | ✅ Implemented | Uses labels (migration needed) |
+| NavigationHelper | ✅ TabBar identifiers | Uses labels (migration needed) |
+
+**Migration Status:** Most helpers still use accessibility labels for backward compatibility. When updating helpers to use identifiers:
+1. Import `AccessibilityIdentifiers` enum from the main app target
+2. Replace label-based queries with identifier-based queries
+3. Example: `app.buttons["Sign In"]` → `app.buttons[AccessibilityIdentifiers.WelcomeView.signInButton]`
+
+See `AccessibilityIdentifiers.swift` in `AIQ/Utilities/Helpers/` for the complete list of available identifiers.
 
 ### Test Data
 
@@ -242,11 +254,52 @@ The helpers assume test credentials and data are available. For actual tests:
 - Set up test data before running UI tests
 - Clean up test data after tests complete
 
+### Timeout Usage Guidelines
+
+BaseUITest defines four timeout constants for consistent timing across all UI tests:
+
+| Constant | Duration | Use Case |
+|----------|----------|----------|
+| `quickTimeout` | 2 seconds | Elements that should appear immediately (already loaded views) |
+| `standardTimeout` | 5 seconds | Most UI operations (taps, navigation, animations) |
+| `extendedTimeout` | 10 seconds | Slow animations or complex screen transitions |
+| `networkTimeout` | 10 seconds | Operations involving API calls (login, logout, data fetching) |
+
+**When to use each timeout:**
+
+1. **`quickTimeout`** - Use for elements that are already on screen or should appear instantly:
+   ```swift
+   confirmButton.waitForExistence(timeout: quickTimeout)
+   ```
+
+2. **`standardTimeout`** - Default for most UI operations:
+   ```swift
+   wait(for: button) // Uses standardTimeout by default
+   ```
+
+3. **`extendedTimeout`** - Use for complex UI transitions that don't involve network:
+   ```swift
+   wait(for: complexAnimation, timeout: extendedTimeout)
+   ```
+
+4. **`networkTimeout`** - Use for any operation that involves an API call:
+   - Login/logout (authentication APIs)
+   - Registration (account creation APIs)
+   - Test submission (scoring APIs)
+   - Data fetching (history, dashboard refresh)
+   - Deep link navigation (may require data loading)
+
+**Helper classes** accept `networkTimeout` as an initialization parameter, defaulting to appropriate values:
+- `LoginHelper`: 10 seconds (standard network operations)
+- `NavigationHelper`: 10 seconds (deep link handling)
+- `TestTakingHelper`: 10 seconds (test submission)
+- `RegistrationHelper`: 15 seconds (account creation is slower)
+
 ### Async Operations
 
 Some operations (login, test submission) involve network calls:
-- Use `extendedTimeout` for network-dependent operations
-- Helpers automatically wait for expected results
+- Use `networkTimeout` for network-dependent operations
+- Helpers automatically wait for expected results using `networkTimeout`
 - Consider adding retry logic for flaky network conditions
 
 ## Examples
@@ -259,7 +312,7 @@ When adding new helpers or extending existing ones:
 
 1. **Follow the existing patterns** - Use similar structure and naming
 2. **Add comprehensive documentation** - Include usage examples
-3. **Use accessibility identifiers** when available, fall back to labels
+3. **Use accessibility identifiers** from `AccessibilityIdentifiers.swift` for new code
 4. **Add timeout parameters** - Allow callers to override default timeouts
 5. **Return Bool for verification** - Indicate success/failure
 6. **Use XCTFail for debugging** - Provide helpful failure messages
@@ -267,7 +320,8 @@ When adding new helpers or extending existing ones:
 
 ## Future Improvements
 
-- [ ] Add accessibility identifiers to app and update helpers
+- [x] Add accessibility identifiers to app *(completed - see `AccessibilityIdentifiers.swift`)*
+- [ ] Migrate remaining helpers to use accessibility identifiers
 - [ ] Add screenshot comparison helpers
 - [ ] Add performance measurement helpers
 - [ ] Add deep link testing helpers

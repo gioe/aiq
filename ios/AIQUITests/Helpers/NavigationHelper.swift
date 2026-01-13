@@ -73,16 +73,19 @@ class NavigationHelper {
 
     private let app: XCUIApplication
     private let timeout: TimeInterval
+    private let networkTimeout: TimeInterval
 
     // MARK: - Initialization
 
     /// Initialize the navigation helper
     /// - Parameters:
     ///   - app: The XCUIApplication instance
-    ///   - timeout: Default timeout for operations (default: 5 seconds)
-    init(app: XCUIApplication, timeout: TimeInterval = 5.0) {
+    ///   - timeout: Default timeout for UI operations (default: 5 seconds)
+    ///   - networkTimeout: Timeout for network operations (default: 10 seconds)
+    init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 10.0) {
         self.app = app
         self.timeout = timeout
+        self.networkTimeout = networkTimeout
     }
 
     // MARK: - Screen Verification
@@ -254,12 +257,12 @@ class NavigationHelper {
     /// Verify deep link navigation occurred
     /// - Parameters:
     ///   - expectedScreen: The screen that should appear after deep link
-    ///   - customTimeout: Optional custom timeout (default: 10 seconds for deep links)
+    ///   - customTimeout: Optional custom timeout (uses networkTimeout if not provided)
     /// - Returns: true if navigation to expected screen succeeded
     @discardableResult
     func verifyDeepLinkNavigation(to expectedScreen: Screen, timeout customTimeout: TimeInterval? = nil) -> Bool {
         // Deep links may take longer due to app state restoration
-        let waitTimeout = customTimeout ?? 10.0
+        let waitTimeout = customTimeout ?? networkTimeout
         return verifyOnScreen(expectedScreen, timeout: waitTimeout)
     }
 

@@ -22,6 +22,7 @@ class LoginHelper {
 
     private let app: XCUIApplication
     private let timeout: TimeInterval
+    private let networkTimeout: TimeInterval
 
     // MARK: - UI Element Queries
 
@@ -75,10 +76,12 @@ class LoginHelper {
     /// Initialize the login helper
     /// - Parameters:
     ///   - app: The XCUIApplication instance
-    ///   - timeout: Default timeout for operations (default: 5 seconds)
-    init(app: XCUIApplication, timeout: TimeInterval = 5.0) {
+    ///   - timeout: Default timeout for UI operations (default: 5 seconds)
+    ///   - networkTimeout: Timeout for network operations (default: 10 seconds)
+    init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 10.0) {
         self.app = app
         self.timeout = timeout
+        self.networkTimeout = networkTimeout
     }
 
     // MARK: - Authentication Methods
@@ -136,11 +139,11 @@ class LoginHelper {
     }
 
     /// Wait for the dashboard screen to appear after login
-    /// - Parameter customTimeout: Optional custom timeout (uses default if not provided)
+    /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
     /// - Returns: true if dashboard appears, false otherwise
     @discardableResult
     func waitForDashboard(timeout customTimeout: TimeInterval? = nil) -> Bool {
-        let waitTimeout = customTimeout ?? timeout * 2 // Double timeout for network operation
+        let waitTimeout = customTimeout ?? networkTimeout
 
         // Wait for dashboard tab or navigation title
         // Using tab as primary indicator since it's more reliable
@@ -180,8 +183,8 @@ class LoginHelper {
             confirmButton.tap()
         }
 
-        // Wait for welcome screen to appear
-        let welcomeAppeared = welcomeIcon.waitForExistence(timeout: timeout * 2)
+        // Wait for welcome screen to appear (network operation - session invalidation)
+        let welcomeAppeared = welcomeIcon.waitForExistence(timeout: networkTimeout)
         if !welcomeAppeared {
             XCTFail("Welcome screen did not appear after logout")
         }
