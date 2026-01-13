@@ -23,9 +23,9 @@ import XCTest
 /// registrationHelper.submitRegistration()
 /// ```
 ///
-/// Note: Since accessibility identifiers are not yet implemented in the app,
-/// this helper uses accessibility labels to find UI elements. When identifiers
-/// are added, update this helper to use them for more reliable element queries.
+/// Note: Accessibility identifiers are implemented in `AccessibilityIdentifiers.swift`.
+/// This helper uses a mix of identifiers (e.g., educationLevelButton) and labels.
+/// Migration to use more identifiers is recommended for more reliable element queries.
 class RegistrationHelper {
     // MARK: - Properties
 
@@ -35,7 +35,7 @@ class RegistrationHelper {
 
     // MARK: - UI Element Queries
 
-    // Note: Using accessibility labels since identifiers are not yet implemented
+    // Note: Uses mix of accessibility identifiers and labels - see AccessibilityIdentifiers.swift
 
     /// Create Account button on Welcome screen
     var createAccountButton: XCUIElement {
