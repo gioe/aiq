@@ -128,10 +128,11 @@ struct QuestionCardView: View {
 
 // MARK: - Preview
 
+// swiftlint:disable force_try
 #Preview {
     VStack {
         QuestionCardView(
-            question: Question(
+            question: try! Question(
                 id: 1,
                 questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
                 questionType: .pattern,
@@ -145,7 +146,7 @@ struct QuestionCardView: View {
         .padding()
 
         QuestionCardView(
-            question: Question(
+            question: try! Question(
                 id: 2,
                 questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
                 questionType: .logic,
@@ -159,3 +160,5 @@ struct QuestionCardView: View {
         .padding()
     }
 }
+
+// swiftlint:enable force_try

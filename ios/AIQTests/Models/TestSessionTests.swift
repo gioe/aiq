@@ -440,7 +440,7 @@ final class TestSessionTests: XCTestCase {
             timeLimitExceeded: nil
         )
 
-        let question = Question(
+        let question = try! Question(
             id: 1,
             questionText: "Test",
             questionType: .pattern,
@@ -491,7 +491,7 @@ final class TestSessionTests: XCTestCase {
     // MARK: - TestSubmission Tests
 
     func testTestSubmissionInitializationWithDefaultTimeLimitExceeded() {
-        let response = QuestionResponse(questionId: 1, userAnswer: "42")
+        let response = try! QuestionResponse(questionId: 1, userAnswer: "42")
 
         let submission = TestSubmission(
             sessionId: 1,
@@ -504,7 +504,7 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmissionInitializationWithExplicitTimeLimitExceeded() {
-        let response = QuestionResponse(questionId: 1, userAnswer: "42")
+        let response = try! QuestionResponse(questionId: 1, userAnswer: "42")
 
         let submission = TestSubmission(
             sessionId: 1,
@@ -563,7 +563,7 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmissionEquality() {
-        let response = QuestionResponse(questionId: 1, userAnswer: "42")
+        let response = try! QuestionResponse(questionId: 1, userAnswer: "42")
 
         let submission1 = TestSubmission(
             sessionId: 1,
@@ -581,7 +581,7 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmissionEncodingRoundTrip() throws {
-        let response = QuestionResponse(questionId: 1, userAnswer: "Test answer", timeSpentSeconds: 30)
+        let response = try! QuestionResponse(questionId: 1, userAnswer: "Test answer", timeSpentSeconds: 30)
 
         let submission = TestSubmission(
             sessionId: 42,
@@ -1635,7 +1635,7 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmissionWithManyResponses() {
-        let responses = (1 ... 100).map { QuestionResponse(questionId: $0, userAnswer: "Answer \($0)") }
+        let responses = (1 ... 100).map { try! QuestionResponse(questionId: $0, userAnswer: "Answer \($0)") }
 
         let submission = TestSubmission(
             sessionId: 1,

@@ -556,8 +556,8 @@ extension APIClientIntegrationTests {
         let submitRequest = TestSubmission(
             sessionId: sessionId,
             responses: [
-                QuestionResponse(questionId: 1, userAnswer: "4"),
-                QuestionResponse(questionId: 2, userAnswer: "4")
+                try! QuestionResponse(questionId: 1, userAnswer: "4"),
+                try! QuestionResponse(questionId: 2, userAnswer: "4")
             ]
         )
 

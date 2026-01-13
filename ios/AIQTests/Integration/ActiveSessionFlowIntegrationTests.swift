@@ -841,7 +841,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         type: QuestionType = .logic,
         difficulty: DifficultyLevel = .medium
     ) -> Question {
-        Question(
+        try! Question(
             id: id,
             questionText: text,
             questionType: type,

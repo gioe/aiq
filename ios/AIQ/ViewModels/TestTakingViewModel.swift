@@ -520,11 +520,21 @@ class TestTakingViewModel: BaseViewModel {
         let responses = questions.compactMap { question -> QuestionResponse? in
             guard let answer = userAnswers[question.id], !answer.isEmpty else { return nil }
             let timeSpent = questionTimeSpent[question.id]
-            return QuestionResponse(
-                questionId: question.id,
-                userAnswer: answer,
-                timeSpentSeconds: timeSpent
-            )
+            do {
+                return try QuestionResponse(
+                    questionId: question.id,
+                    userAnswer: answer,
+                    timeSpentSeconds: timeSpent
+                )
+            } catch {
+                // Log validation error - negative timeSpent shouldn't happen in production
+                #if DEBUG
+                    // swiftlint:disable:next line_length
+                    print("⚠️ Failed to create QuestionResponse for question \(question.id): \(error.localizedDescription)")
+                #endif
+                // Return response without time data rather than losing the answer entirely
+                return try? QuestionResponse(questionId: question.id, userAnswer: answer, timeSpentSeconds: nil)
+            }
         }
         return TestSubmission(
             sessionId: session.id,
