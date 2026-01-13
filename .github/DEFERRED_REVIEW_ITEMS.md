@@ -50,3 +50,20 @@
 - **Original comment**: "Clarify cumulative timeout impact and dialog detection short-circuit behavior"
 - **Reason deferred**: Documentation clarity - doesn't affect test execution
 - **Jira ticket**: BTS-290
+
+## Deferred from PR #538 Review (BTS-102 - Implement .notificationTapped Observer)
+
+### 1. Add navigation behavior tests for notification tap handling
+- **Original comment**: "Tests thoroughly validate payload extraction and deep link parsing, but don't test actual navigation behavior"
+- **Reason deferred**: Unit tests focused on parsing logic are acceptable; integration tests are a nice-to-have
+- **Jira ticket**: BTS-292
+
+### 2. Rename test file to match component
+- **Original comment**: "Test file named NotificationTappedHandlerTests but tests functionality in MainTabView"
+- **Reason deferred**: Not blocking, just a discoverability consideration
+- **Jira ticket**: BTS-293
+
+### 3. Improve test documentation
+- **Original comment**: "Doc comment doesn't specify what happens if deep_link is missing or what URL schemes are supported"
+- **Reason deferred**: Nice-to-have documentation improvement
+- **Jira ticket**: BTS-294

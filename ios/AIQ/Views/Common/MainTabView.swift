@@ -47,34 +47,7 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
-
-            // Handle deep link navigation asynchronously
-            Task {
-                switch deepLink {
-                case .settings:
-                    // For settings deep link, switch to the settings tab
-                    selectedTab = .settings
-                    router.currentTab = .settings
-                    router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
-
-                case .testResults, .resumeTest:
-                    // Switch to Dashboard tab first for test-related deep links
-                    // This ensures navigation happens in the correct tab context
-                    selectedTab = .dashboard
-                    router.currentTab = .dashboard
-                    router.popToRoot(in: .dashboard) // Clear any existing navigation stack
-
-                    let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
-                    if !success {
-                        // Note: User error feedback tracked in ICG-122
-                        let linkDesc = String(describing: deepLink)
-                        Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
-                    }
-
-                case .invalid:
-                    Self.logger.warning("Received invalid deep link")
-                }
-            }
+            handleDeepLinkNavigation(deepLink)
         }
         .onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
             // Extract the payload dictionary containing the original notification userInfo
@@ -98,33 +71,39 @@ struct MainTabView: View {
             // Parse and handle the deep link
             let deepLink = deepLinkHandler.parse(deepLinkURL)
             Self.logger.info("Parsed deep link from notification: \(String(describing: deepLink), privacy: .public)")
+            handleDeepLinkNavigation(deepLink)
+        }
+    }
 
-            // Handle deep link navigation asynchronously
-            Task {
-                switch deepLink {
-                case .settings:
-                    // For settings deep link, switch to the settings tab
-                    selectedTab = .settings
-                    router.currentTab = .settings
-                    router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
+    // MARK: - Private Helpers
 
-                case .testResults, .resumeTest:
-                    // Switch to Dashboard tab first for test-related deep links
-                    // This ensures navigation happens in the correct tab context
-                    selectedTab = .dashboard
-                    router.currentTab = .dashboard
-                    router.popToRoot(in: .dashboard) // Clear any existing navigation stack
+    /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
+    /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
+    private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
+        Task {
+            switch deepLink {
+            case .settings:
+                // For settings deep link, switch to the settings tab
+                selectedTab = .settings
+                router.currentTab = .settings
+                router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
 
-                    let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
-                    if !success {
-                        // Note: User error feedback tracked in ICG-122
-                        let linkDesc = String(describing: deepLink)
-                        Self.logger.error("Failed to handle notification deep link: \(linkDesc, privacy: .public)")
-                    }
+            case .testResults, .resumeTest:
+                // Switch to Dashboard tab first for test-related deep links
+                // This ensures navigation happens in the correct tab context
+                selectedTab = .dashboard
+                router.currentTab = .dashboard
+                router.popToRoot(in: .dashboard) // Clear any existing navigation stack
 
-                case .invalid:
-                    Self.logger.warning("Notification contained invalid deep link: \(deepLinkString, privacy: .public)")
+                let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
+                if !success {
+                    // Note: User error feedback tracked in ICG-122
+                    let linkDesc = String(describing: deepLink)
+                    Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
                 }
+
+            case .invalid:
+                Self.logger.warning("Received invalid deep link: \(String(describing: deepLink), privacy: .public)")
             }
         }
     }
