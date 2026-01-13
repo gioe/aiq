@@ -147,6 +147,9 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     /// Debounce timer for network state changes
     private var debounceTask: Task<Void, Never>?
 
+    /// Cached network connectivity state (actor-isolated to avoid cross-actor access)
+    private var isNetworkConnected: Bool = true
+
     /// Cancellables for Combine subscriptions
     private var cancellables = Set<AnyCancellable>()
 
@@ -247,7 +250,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
     /// Check if sync can start (not already syncing, has operations, and network is available)
     private func canStartSync() -> Bool {
-        !internalIsSyncing && !pendingOperations.isEmpty && networkMonitor.isConnected
+        !internalIsSyncing && !pendingOperations.isEmpty && isNetworkConnected
     }
 
     /// Process a single operation during sync
@@ -349,9 +352,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
             .dropFirst() // Skip initial value
             .removeDuplicates()
             .sink { [weak self] (isConnected: Bool) in
-                guard isConnected else { return }
-
-                // Debounce network state changes to avoid flapping
+                // Debounce network state changes and update cached state
                 Task { [weak self] in
                     await self?.handleNetworkStateChange(isConnected: isConnected)
                 }
@@ -361,6 +362,9 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
     /// Handle network state change with debouncing
     private func handleNetworkStateChange(isConnected: Bool) async {
+        // Update cached network state (actor-isolated)
+        isNetworkConnected = isConnected
+
         // Cancel previous debounce task
         debounceTask?.cancel()
 
