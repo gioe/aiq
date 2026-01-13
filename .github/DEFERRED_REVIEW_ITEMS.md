@@ -33,3 +33,20 @@
 - **Original comment**: "Consider extracting timeout constants to dedicated config file if more timeout types are added"
 - **Reason deferred**: Future scalability enhancement - current implementation is sufficient
 - **Jira ticket**: BTS-286
+
+## Deferred from PR #537 Review (BTS-103 - Add Error Recovery to LoginHelper.logout())
+
+### 1. Optimize fallback timeout strategy
+- **Original comment**: "Each fallback strategy waits full 5s timeout. In worst case, 15 seconds of wait time."
+- **Reason deferred**: Performance optimization, not correctness issue. PR approved as "safe to merge as-is"
+- **Jira ticket**: BTS-290
+
+### 2. Make confirmation button timeout configurable
+- **Original comment**: "Confirmation button uses hardcoded 2.0s timeout"
+- **Reason deferred**: Low priority code style improvement - doesn't affect test functionality
+- **Jira ticket**: BTS-290
+
+### 3. Documentation improvements for timeout behavior
+- **Original comment**: "Clarify cumulative timeout impact and dialog detection short-circuit behavior"
+- **Reason deferred**: Documentation clarity - doesn't affect test execution
+- **Jira ticket**: BTS-290
