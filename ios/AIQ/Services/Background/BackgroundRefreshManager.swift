@@ -149,7 +149,8 @@ class BackgroundRefreshManager: ObservableObject {
 
     /// Perform the actual background refresh logic
     /// - Returns: Whether the refresh completed successfully
-    private func performRefresh() async -> Bool {
+    /// - Note: Internal access for testability via @testable import
+    func performRefresh() async -> Bool {
         // Fast-fail checks to minimize battery usage
 
         // Check if user is authenticated
