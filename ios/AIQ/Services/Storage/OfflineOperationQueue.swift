@@ -158,6 +158,9 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     /// Cancellables for Combine subscriptions
     private var cancellables = Set<AnyCancellable>()
 
+    /// Task for network monitoring initialization (stored to enable cancellation on deinit)
+    private var networkMonitoringTask: Task<Void, Never>?
+
     /// Published state for UI updates (MainActor-isolated)
     ///
     /// This pattern separates actor-isolated internal state from MainActor-isolated published state
@@ -186,10 +189,15 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
         pendingOperations = Self.loadOperations(from: userDefaults, key: QueueConstants.storageKey)
         internalFailedOperations = Self.loadOperations(from: userDefaults, key: QueueConstants.failedStorageKey)
 
-        // Start monitoring network connectivity
-        Task {
+        // Start monitoring network connectivity (store task to enable cancellation on deinit)
+        networkMonitoringTask = Task {
             await startNetworkMonitoring()
         }
+    }
+
+    deinit {
+        networkMonitoringTask?.cancel()
+        debounceTask?.cancel()
     }
 
     // MARK: - Protocol Conformance
