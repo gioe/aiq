@@ -142,7 +142,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     private let userDefaults: UserDefaults
 
     /// Network connectivity monitor
-    private let networkMonitor: NetworkMonitor
+    private let networkMonitor: any NetworkMonitorProtocol
 
     /// Debounce timer for network state changes
     private var debounceTask: Task<Void, Never>?
@@ -172,7 +172,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
     init(
         userDefaults: UserDefaults = .standard,
-        networkMonitor: NetworkMonitor = .shared
+        networkMonitor: any NetworkMonitorProtocol = NetworkMonitor.shared
     ) {
         self.userDefaults = userDefaults
         self.networkMonitor = networkMonitor
@@ -348,7 +348,15 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
     /// Set up network observation (must be called from actor context)
     private func observeNetworkChanges() {
-        networkMonitor.$isConnected
+        // Only observe network changes if the monitor supports Combine publishers
+        // This allows test mocks to avoid implementing publishers
+        guard let observableMonitor = networkMonitor as? NetworkMonitor else {
+            // For mocks that don't support observation, just read the initial state
+            isNetworkConnected = networkMonitor.isConnected
+            return
+        }
+
+        observableMonitor.$isConnected
             .dropFirst() // Skip initial value
             .removeDuplicates()
             .sink { [weak self] (isConnected: Bool) in
