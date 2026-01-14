@@ -128,23 +128,29 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     # Extract PR number from URL (e.g., 540 from https://github.com/gioe/aiq/pull/540)
     PR_NUMBER=<extracted_pr_number>
 
-    # Track the last review timestamp to detect new reviews
-    LAST_REVIEW_TIME="<timestamp_of_last_processed_review or empty>"
-
     # Poll for Claude's review (check every 30 seconds, timeout after 10 minutes)
+    # IMPORTANT: Use `gh pr view --comments` to fetch ALL comment types (issue comments,
+    # PR reviews, and inline review comments). Do NOT use the API endpoint
+    # `/issues/{number}/comments` as it only returns issue comments and misses PR reviews.
     for i in {1..20}; do
-      REVIEW=$(gh api repos/gioe/aiq/issues/$PR_NUMBER/comments --paginate \
-        --jq '[.[] | select(.user.login == "claude[bot]")] | sort_by(.created_at) | reverse | .[0]')
-      if [ "$REVIEW" != "null" ] && [ -n "$REVIEW" ]; then
-        REVIEW_TIME=$(echo "$REVIEW" | jq -r '.created_at')
-        if [ "$REVIEW_TIME" != "$LAST_REVIEW_TIME" ]; then
-          echo "New Claude review found!"
-          break
-        fi
+      COMMENTS=$(gh pr view $PR_NUMBER --comments 2>/dev/null)
+      if echo "$COMMENTS" | grep -q "claude\[bot\]"; then
+        echo "Claude review found!"
+        break
       fi
       echo "Waiting for Claude review... (attempt $i/20)"
       sleep 30
     done
+    ```
+
+    Then fetch the actual review content:
+    ```bash
+    gh pr view $PR_NUMBER --comments | grep -A 500 "claude\[bot\]"
+    ```
+
+    Alternatively, for more structured access to review content:
+    ```bash
+    gh api repos/gioe/aiq/issues/$PR_NUMBER/comments --jq '.[] | select(.user.login == "claude[bot]") | .body'
     ```
 
     **Step 12b: Check if Claude approved**
