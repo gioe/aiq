@@ -642,7 +642,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Settings Navigation Tests
 
     /// Test that .settings deep link switches to settings tab
-    func testSettingsDeepLink_SwitchesToSettingsTab() async {
+    func testSettingsDeepLink_SwitchesToSettingsTab() {
         // Given - router starts on dashboard tab
         router.currentTab = .dashboard
         XCTAssertEqual(router.currentTab, .dashboard, "setup: should start on dashboard")
@@ -663,7 +663,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .settings deep link calls popToRoot on settings tab
-    func testSettingsDeepLink_CallsPopToRootInSettings() async {
+    func testSettingsDeepLink_CallsPopToRootInSettings() {
         // Given - router has navigation state in settings tab
         router.currentTab = .settings
         router.push(.help, in: .settings)
@@ -686,7 +686,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .settings deep link preserves other tabs' navigation state
-    func testSettingsDeepLink_PreservesOtherTabsNavigation() async {
+    func testSettingsDeepLink_PreservesOtherTabsNavigation() {
         // Given - router has navigation state in dashboard and history tabs
         router.push(.testTaking, in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
@@ -710,7 +710,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .settings deep link from universal link switches tabs correctly
-    func testSettingsUniversalLink_SwitchesToSettingsTab() async {
+    func testSettingsUniversalLink_SwitchesToSettingsTab() {
         // Given - router starts on history tab
         router.currentTab = .history
 
@@ -739,7 +739,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Test Results Navigation Tests
 
     /// Test that .testResults deep link switches to dashboard tab
-    func testTestResultsDeepLink_SwitchesToDashboardTab() async {
+    func testTestResultsDeepLink_SwitchesToDashboardTab() {
         // Given - router starts on settings tab
         router.currentTab = .settings
         XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
@@ -759,7 +759,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .testResults deep link calls popToRoot on dashboard tab
-    func testTestResultsDeepLink_CallsPopToRootInDashboard() async {
+    func testTestResultsDeepLink_CallsPopToRootInDashboard() {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
         router.push(.testTaking, in: .dashboard)
@@ -782,7 +782,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .testResults deep link preserves other tabs' navigation state
-    func testTestResultsDeepLink_PreservesOtherTabsNavigation() async {
+    func testTestResultsDeepLink_PreservesOtherTabsNavigation() {
         // Given - router has navigation state in settings and history tabs
         router.push(.help, in: .settings)
         router.push(.notificationSettings, in: .settings)
@@ -807,7 +807,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .testResults from universal link switches tabs correctly
-    func testTestResultsUniversalLink_SwitchesToDashboardTab() async {
+    func testTestResultsUniversalLink_SwitchesToDashboardTab() {
         // Given - router starts on history tab
         router.currentTab = .history
 
@@ -836,7 +836,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Resume Test Navigation Tests
 
     /// Test that .resumeTest deep link switches to dashboard tab
-    func testResumeTestDeepLink_SwitchesToDashboardTab() async {
+    func testResumeTestDeepLink_SwitchesToDashboardTab() {
         // Given - router starts on settings tab
         router.currentTab = .settings
         XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
@@ -856,7 +856,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .resumeTest deep link calls popToRoot on dashboard tab
-    func testResumeTestDeepLink_CallsPopToRootInDashboard() async {
+    func testResumeTestDeepLink_CallsPopToRootInDashboard() {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
         router.push(.testTaking, in: .dashboard)
@@ -877,7 +877,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .resumeTest from universal link switches tabs correctly
-    func testResumeTestUniversalLink_SwitchesToDashboardTab() async {
+    func testResumeTestUniversalLink_SwitchesToDashboardTab() {
         // Given - router starts on settings tab
         router.currentTab = .settings
 
@@ -906,7 +906,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Invalid Deep Link Tests
 
     /// Test that .invalid deep link does not change tab
-    func testInvalidDeepLink_DoesNotChangeTab() async {
+    func testInvalidDeepLink_DoesNotChangeTab() {
         // Given - router is on history tab
         router.currentTab = .history
         XCTAssertEqual(router.currentTab, .history, "setup: should start on history")
@@ -926,7 +926,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .invalid deep link does not affect navigation state
-    func testInvalidDeepLink_PreservesNavigationState() async {
+    func testInvalidDeepLink_PreservesNavigationState() {
         // Given - router has navigation state across all tabs
         router.push(.testTaking, in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
@@ -956,7 +956,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Full Flow Integration Tests
 
     /// Test complete flow: notification tap -> parse -> navigate for settings
-    func testFullFlow_SettingsNotificationTap_NavigatesToSettingsTab() async {
+    func testFullFlow_SettingsNotificationTap_NavigatesToSettingsTab() {
         // Given - notification payload with settings deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -995,7 +995,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test complete flow: notification tap -> parse -> navigate for test results
-    func testFullFlow_TestResultsNotificationTap_NavigatesToDashboard() async {
+    func testFullFlow_TestResultsNotificationTap_NavigatesToDashboard() {
         // Given - notification payload with test results deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -1037,7 +1037,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test complete flow: notification tap -> parse -> navigate for resume test
-    func testFullFlow_ResumeTestNotificationTap_NavigatesToDashboard() async {
+    func testFullFlow_ResumeTestNotificationTap_NavigatesToDashboard() {
         // Given - notification payload with resume test deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -1076,7 +1076,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that malformed notification payload does not crash or navigate
-    func testFullFlow_MalformedPayload_DoesNotNavigate() async {
+    func testFullFlow_MalformedPayload_DoesNotNavigate() {
         // Given - malformed notification payload
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": "not a dictionary"
