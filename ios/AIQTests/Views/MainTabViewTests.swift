@@ -24,7 +24,22 @@ final class MainTabViewTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        // Create a test-specific UserDefaults suite to isolate tests
+        // Create a test-specific UserDefaults suite to isolate tests.
+        //
+        // Trade-off explanation:
+        // - We use a separate UserDefaults suite instead of UserDefaults.standard because:
+        //   1. Test isolation: Each test runs with a clean slate, preventing test pollution
+        //   2. Parallel test safety: Multiple tests can run concurrently without interference
+        //   3. Cleanup simplicity: Suite can be completely removed in tearDown
+        //
+        // - The trade-off is that we're not testing with the production UserDefaults.standard,
+        //   which means we're testing the persistence logic in isolation rather than the exact
+        //   production environment. However, since UserDefaults behaves identically across
+        //   suites (same API, same storage semantics), this provides valid coverage while
+        //   avoiding side effects on user data or flaky tests from shared state.
+        //
+        // - If production-specific UserDefaults behavior needs testing (e.g., iCloud sync,
+        //   app group containers), those would require separate integration tests.
         testSuiteName = "com.aiq.tests.MainTabView.\(UUID().uuidString)"
         testUserDefaults = UserDefaults(suiteName: testSuiteName)!
     }
