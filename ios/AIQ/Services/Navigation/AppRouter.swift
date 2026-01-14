@@ -240,9 +240,11 @@ final class AppRouter: ObservableObject {
     ///   - route: The route to navigate to
     ///   - tab: The tab to push the route in
     func push(_ route: Route, in tab: TabDestination) {
-        var tabPath = path(for: tab)
-        tabPath.append(route)
-        setPath(tabPath, for: tab)
+        switch tab {
+        case .dashboard: dashboardPath.append(route)
+        case .history: historyPath.append(route)
+        case .settings: settingsPath.append(route)
+        }
     }
 
     /// Pop the last route from the navigation stack
@@ -257,10 +259,17 @@ final class AppRouter: ObservableObject {
     ///
     /// - Parameter tab: The tab to pop from
     func pop(from tab: TabDestination) {
-        var tabPath = path(for: tab)
-        guard !tabPath.isEmpty else { return }
-        tabPath.removeLast()
-        setPath(tabPath, for: tab)
+        switch tab {
+        case .dashboard:
+            guard !dashboardPath.isEmpty else { return }
+            dashboardPath.removeLast()
+        case .history:
+            guard !historyPath.isEmpty else { return }
+            historyPath.removeLast()
+        case .settings:
+            guard !settingsPath.isEmpty else { return }
+            settingsPath.removeLast()
+        }
     }
 
     /// Pop all routes and return to the root view
@@ -274,7 +283,11 @@ final class AppRouter: ObservableObject {
     ///
     /// - Parameter tab: The tab to pop to root in
     func popToRoot(in tab: TabDestination) {
-        setPath(NavigationPath(), for: tab)
+        switch tab {
+        case .dashboard: dashboardPath = NavigationPath()
+        case .history: historyPath = NavigationPath()
+        case .settings: settingsPath = NavigationPath()
+        }
     }
 
     /// Navigate directly to a specific route, replacing the current stack
@@ -315,9 +328,14 @@ final class AppRouter: ObservableObject {
     ///   - routes: The routes to navigate to, in order
     ///   - tab: The tab to navigate in
     func navigateTo(_ routes: [Route], in tab: TabDestination) {
-        popToRoot(in: tab)
+        var newPath = NavigationPath()
         for route in routes {
-            push(route, in: tab)
+            newPath.append(route)
+        }
+        switch tab {
+        case .dashboard: dashboardPath = newPath
+        case .history: historyPath = newPath
+        case .settings: settingsPath = newPath
         }
     }
 
