@@ -204,6 +204,25 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(sut.deleteAccountError, "deleteAccountError should be nil after clearing")
     }
 
+    func testDeleteAccountError_IsIndependentFromBaseViewModelError() async {
+        // This test documents the architectural decision that deleteAccountError
+        // is intentionally separate from BaseViewModel.error because:
+        // - Delete account requires a specific alert title ("Delete Account Failed")
+        // - Delete account should not trigger retry logic
+        // - AuthManager already records the error to Crashlytics
+
+        // Given
+        mockAuthManager.shouldSucceedDeleteAccount = false
+
+        // When
+        await sut.deleteAccount()
+
+        // Then - deleteAccountError is set, but BaseViewModel.error remains nil
+        XCTAssertNotNil(sut.deleteAccountError, "deleteAccountError should be set after failure")
+        XCTAssertNil(sut.error, "BaseViewModel.error should remain nil (separate error channel)")
+        XCTAssertFalse(sut.canRetry, "canRetry should be false (delete account is not retryable)")
+    }
+
     // MARK: - User State Binding Tests
 
     func testCurrentUserUpdatesWhenAuthManagerChanges() async {

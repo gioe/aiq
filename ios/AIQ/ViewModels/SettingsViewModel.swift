@@ -1,7 +1,25 @@
 import Combine
 import Foundation
 
-/// ViewModel for managing settings and account actions
+/// ViewModel for managing settings and account actions.
+///
+/// ## Error Handling Architecture
+/// This ViewModel uses a **hybrid error handling approach**:
+///
+/// - **`error` (inherited from BaseViewModel)**: Used for general operations where:
+///   - ErrorBanner/ErrorView display is appropriate
+///   - Retry functionality is needed
+///   - Standard error presentation is acceptable
+///
+/// - **`deleteAccountError` (operation-specific)**: Used for delete account because:
+///   - Requires a specific alert title ("Delete Account Failed") for clarity
+///   - Should not trigger retry logic (account deletion is not retryable)
+///   - AuthManager already records the error to Crashlytics
+///   - Uses a modal alert rather than inline error display
+///
+/// This pattern is intentional. When an operation requires specialized error
+/// presentation (custom titles, different UI treatment), use an operation-specific
+/// error property rather than forcing all errors through `handleError()`.
 @MainActor
 class SettingsViewModel: BaseViewModel {
     // MARK: - Published Properties
@@ -9,6 +27,10 @@ class SettingsViewModel: BaseViewModel {
     @Published var currentUser: User?
     @Published var showLogoutConfirmation = false
     @Published var showDeleteAccountConfirmation = false
+
+    /// Error from delete account operation. Uses a separate property (not BaseViewModel.error)
+    /// because delete account requires a specific alert title and should not trigger retry logic.
+    /// See class documentation for the full architectural rationale.
     @Published var deleteAccountError: Error?
     @Published var isLoggingOut = false
     @Published var isDeletingAccount = false
@@ -63,10 +85,7 @@ class SettingsViewModel: BaseViewModel {
         } catch {
             deleteAccountError = error
             isDeletingAccount = false
-            // NOTE: Using operation-specific error instead of handleError() because:
-            // - Delete account needs a specific "Delete Account Failed" alert title
-            // - This error shouldn't affect general error state or retry logic
-            // - AuthManager already logs this error to Crashlytics
+            // Uses deleteAccountError instead of handleError() - see class documentation for rationale
         }
     }
 
