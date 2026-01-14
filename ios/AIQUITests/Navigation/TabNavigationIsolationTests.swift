@@ -109,13 +109,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testAllTabsAreAccessible() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login first
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Verify Dashboard tab is selected by default
         XCTAssertTrue(navHelper.isTabSelected(.dashboard), "Dashboard should be selected initially")
@@ -150,13 +144,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testTabSwitching_PreservesNavigationStack_Settings() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to Settings tab
         XCTAssertTrue(navHelper.navigateToTab(.settings), "Should navigate to Settings tab")
@@ -184,15 +172,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         takeScreenshot(named: "TabPreserve_HistoryTab")
 
         // Switch back to Settings tab
-        let settingsTab = app.buttons["tabBar.settingsTab"]
-        settingsTab.tap()
-
-        // Wait for Settings tab to be selected
-        let settingsTabSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"),
-            object: settingsTab
-        )
-        XCTWaiter.wait(for: [settingsTabSelected], timeout: standardTimeout)
+        switchToTab(app.buttons["tabBar.settingsTab"])
 
         // Verify Help screen is still shown (navigation stack preserved)
         XCTAssertTrue(
@@ -250,15 +230,19 @@ final class TabNavigationIsolationTests: BaseUITest {
     }
 
     /// Navigate to the first test detail in History tab
-    private func navigateToHistoryDetail() {
+    @discardableResult
+    private func navigateToHistoryDetail(screenshotName: String? = "IndependentNav_HistoryDetail") -> Bool {
         let firstHistoryItem = app.cells.firstMatch
         guard wait(for: firstHistoryItem, timeout: standardTimeout), firstHistoryItem.isHittable else {
             XCTFail("No history items found - test requires existing test history")
-            return
+            return false
         }
         firstHistoryItem.tap()
         navHelper.waitForNavigationToComplete()
-        takeScreenshot(named: "IndependentNav_HistoryDetail")
+        if let name = screenshotName {
+            takeScreenshot(named: name)
+        }
+        return true
     }
 
     /// Test 3: Navigation Depth is Independent Per Tab
@@ -267,13 +251,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testNavigationDepthIsIndependentPerTab() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Dashboard should start at root (depth 0)
         XCTAssertTrue(navHelper.isTabSelected(.dashboard), "Should start on Dashboard")
@@ -316,14 +294,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         takeScreenshot(named: "DepthIndependent_HistoryRoot")
 
         // Go back to Settings - should still be on Help (depth 1)
-        let settingsTab = app.buttons["tabBar.settingsTab"]
-        settingsTab.tap()
-
-        let settingsSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"),
-            object: settingsTab
-        )
-        XCTWaiter.wait(for: [settingsSelected], timeout: standardTimeout)
+        switchToTab(app.buttons["tabBar.settingsTab"])
 
         // Verify Settings still has depth 1
         let helpNavBar = app.navigationBars["Help"]
@@ -343,13 +314,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testPopToRootIsIndependentPerTab() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to Settings > Help
         XCTAssertTrue(navHelper.navigateToTab(.settings), "Should navigate to Settings")
@@ -370,14 +335,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         takeScreenshot(named: "PopToRoot_HistoryRoot")
 
         // Go back to Settings
-        let settingsTab = app.buttons["tabBar.settingsTab"]
-        settingsTab.tap()
-
-        let settingsSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"),
-            object: settingsTab
-        )
-        XCTWaiter.wait(for: [settingsSelected], timeout: standardTimeout)
+        switchToTab(app.buttons["tabBar.settingsTab"])
 
         // Verify Settings still shows Help
         XCTAssertTrue(
@@ -423,13 +381,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testRapidTabSwitchesPreserveState() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to Settings > Help
         XCTAssertTrue(navHelper.navigateToTab(.settings), "Should navigate to Settings")
@@ -461,14 +413,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         takeScreenshot(named: "RapidSwitch_Dashboard")
 
         // Switch back to Settings
-        settingsTab.tap()
-
-        // Wait for Settings to be selected
-        let settingsSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"),
-            object: settingsTab
-        )
-        XCTWaiter.wait(for: [settingsSelected], timeout: standardTimeout)
+        switchToTab(settingsTab)
 
         // Verify Help screen is still shown after rapid switching
         XCTAssertTrue(
@@ -488,13 +433,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testDeepLinkClearsNavigationStackBeforeNavigating() throws {
         throw XCTSkip("Requires backend connection and valid test data for deep link")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to Settings > Help (create navigation stack)
         XCTAssertTrue(navHelper.navigateToTab(.settings), "Should navigate to Settings")
@@ -556,13 +495,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testDeepLinkToDashboardPreservesOtherTabStates() throws {
         throw XCTSkip("Requires backend connection and valid test data")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to Settings > Help
         XCTAssertTrue(navHelper.navigateToTab(.settings), "Should navigate to Settings")
@@ -605,14 +538,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         takeScreenshot(named: "DeepLinkPreserve_AfterDashboardDeepLink")
 
         // Switch to Settings and verify Help is still shown
-        let settingsTab = app.buttons["tabBar.settingsTab"]
-        settingsTab.tap()
-
-        let settingsSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"),
-            object: settingsTab
-        )
-        XCTWaiter.wait(for: [settingsSelected], timeout: standardTimeout)
+        switchToTab(app.buttons["tabBar.settingsTab"])
 
         // Settings should still show Help screen - Dashboard deep link shouldn't affect it
         XCTAssertTrue(
@@ -631,13 +557,7 @@ final class TabNavigationIsolationTests: BaseUITest {
     func testTabSelectionPersistedAcrossAppRestarts() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        loginAndVerify()
 
         // Navigate to History tab
         XCTAssertTrue(navHelper.navigateToTab(.history), "Should navigate to History")
