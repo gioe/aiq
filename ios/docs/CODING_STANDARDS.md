@@ -23,6 +23,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Error Handling](#error-handling)
   - [Operation-Specific Error Properties](#operation-specific-error-properties)
   - [Fatal Errors vs. Recoverable Errors](#fatal-errors-vs-recoverable-errors)
+  - [Validation Philosophy](#validation-philosophy)
   - [Parsing and Validation Utilities](#parsing-and-validation-utilities)
   - [Localization for Error Messages](#localization-for-error-messages)
   - [Date and Time Edge Cases](#date-and-time-edge-cases)
@@ -1027,6 +1028,87 @@ func parseUserInput(_ input: String) throws -> Configuration {
 - Throws/errors allow graceful recovery - appropriate for "this might happen" scenarios
 - Using `fatalError()` for runtime errors gives users a poor experience
 - Using throws for programmer errors allows bugs to propagate silently
+
+### Validation Philosophy
+
+#### Client vs. Server Validation Responsibilities
+
+Understanding where validation belongs prevents unnecessary duplication and maintains clear architectural boundaries.
+
+**Server Validation (Backend)**:
+- Input sanitization (trim whitespace, normalize data)
+- Business rule enforcement (ranges, formats, relationships)
+- Data integrity constraints (uniqueness, foreign keys)
+- Persistent state validation
+
+**Client Validation (iOS)**:
+- User input validation (before sending to server)
+- UI/UX feedback (real-time form validation)
+- Type safety (Swift model constraints)
+- Crash prevention (guard against nil in critical paths)
+
+#### When to Add Model Validation
+
+Add validation to iOS models when:
+1. **Preventing Critical Failures**: Empty strings that would crash UI rendering
+2. **Type Constraints**: Values that violate fundamental assumptions (negative time)
+3. **Test Reliability**: Ensuring test fixtures don't create invalid states
+
+Do NOT add validation when:
+1. **Backend Already Validates**: Trust server-side constraints (IDs, timestamps)
+2. **No User Input Path**: Data only comes from backend API
+3. **Defensive Programming**: Guarding against impossible conditions
+4. **Duplicating Server Logic**: Whitespace trimming, format normalization
+
+#### Helper Method Extraction
+
+Extract validation into helper methods when:
+- Validation logic exceeds ~10 lines
+- Same validation used in 3+ places
+- Complex business rules requiring documentation
+- Validation involves multiple fields or dependencies
+
+Keep validation inline when:
+- Single guard statement (e.g., `guard !text.isEmpty`)
+- Only used in init() and init(from decoder:)
+- Validation is self-documenting
+
+**Example - Keep Inline**:
+```swift
+guard !questionText.isEmpty else {
+    throw QuestionValidationError.emptyQuestionText
+}
+```
+
+**Example - Extract Helper**:
+```swift
+// If validation were complex:
+private static func validateQuestionConstraints(
+    text: String,
+    options: [String]?,
+    type: QuestionType
+) throws {
+    // 15+ lines of complex validation logic
+}
+```
+
+#### Input Sanitization Patterns
+
+**User Input (Registration, Forms)**: Always sanitize
+```swift
+// User provides birth year
+let trimmed = birthYearText.trimmingCharacters(in: .whitespaces)
+let birthYear = Int(trimmed)
+```
+
+**Backend Data (API Responses)**: Trust and validate for crashes only
+```swift
+// Question Model: Backend provides data
+guard !questionText.isEmpty else {
+    throw QuestionValidationError.emptyQuestionText
+}
+// No trimming - backend is source of truth
+```
 
 ### Parsing and Validation Utilities
 
