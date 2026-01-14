@@ -164,8 +164,18 @@ output_text "Date: $(date '+%Y-%m-%d %H:%M:%S')"
 output_text ""
 
 # Get certificate information - capture both stdout and stderr
+# Use timeout to prevent hanging on network issues (10 seconds)
 SSL_ERROR_LOG=$(mktemp)
-CERT_INFO=$(echo | openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:443" 2>"$SSL_ERROR_LOG") || true
+if command -v timeout &> /dev/null; then
+    CERT_INFO=$(echo | timeout 10 openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:443" 2>"$SSL_ERROR_LOG") || true
+else
+    # macOS doesn't have timeout by default, use gtimeout if available or proceed without
+    if command -v gtimeout &> /dev/null; then
+        CERT_INFO=$(echo | gtimeout 10 openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:443" 2>"$SSL_ERROR_LOG") || true
+    else
+        CERT_INFO=$(echo | openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:443" 2>"$SSL_ERROR_LOG") || true
+    fi
+fi
 
 # Check for connection errors
 if [ -z "$CERT_INFO" ]; then
