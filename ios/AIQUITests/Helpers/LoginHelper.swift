@@ -83,8 +83,10 @@ class LoginHelper {
     ///   - fallbackTimeout: Shorter timeout for fallback search strategies (default: 1.5 seconds).
     ///     Since fallback strategies are only tried after the primary identifier fails,
     ///     the element is likely already rendered if it exists, so a shorter wait is sufficient.
+    ///     The 1.5s value allows for minor UI settling while being significantly faster than full timeout.
     ///   - confirmationTimeout: Timeout for finding confirmation dialog buttons (default: 1 second).
     ///     Confirmation dialogs appear immediately after tapping logout, so a short wait is sufficient.
+    ///     The 1s value is generous for an already-visible dialog while keeping iteration fast.
     init(
         app: XCUIApplication,
         timeout: TimeInterval = 5.0,
@@ -200,9 +202,10 @@ class LoginHelper {
         // Handle confirmation dialog if present.
         // Dialog detection short-circuits: if sheets.waitForExistence returns true,
         // alerts.waitForExistence is NOT evaluated (Swift's || short-circuit evaluation).
-        // This means we only wait 1 second total in the common case where a dialog appears,
-        // not 2 seconds. If neither dialog type appears within 1 second, we assume no
-        // confirmation is needed and proceed directly to waiting for the welcome screen.
+        // This means we only wait 1 second in the common case where a sheet dialog appears.
+        // Worst case (no dialog): 2 seconds total (1s for sheets + 1s for alerts).
+        // If neither dialog type appears, we assume no confirmation is needed and proceed
+        // directly to waiting for the welcome screen.
         let hasDialog = app.sheets.firstMatch.waitForExistence(timeout: 1.0) ||
             app.alerts.firstMatch.waitForExistence(timeout: 1.0)
 
@@ -274,7 +277,8 @@ class LoginHelper {
     ///
     /// - Returns: The confirmation button element if found, nil otherwise
     private func findConfirmationButton() -> XCUIElement? {
-        let possibleLabels = ["Logout", "Log Out", "Sign Out", "Yes"]
+        // Ordered by likelihood: "Log Out" is iOS standard, "Logout" is common alternative
+        let possibleLabels = ["Log Out", "Logout", "Sign Out", "Yes"]
 
         for label in possibleLabels {
             let button = app.buttons[label]
