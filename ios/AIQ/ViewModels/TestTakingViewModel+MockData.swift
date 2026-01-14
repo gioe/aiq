@@ -2,9 +2,12 @@ import Foundation
 
 /// Mock data support for TestTakingViewModel
 extension TestTakingViewModel {
+    // swiftlint:disable force_try
     var sampleQuestions: [Question] {
+        // Note: Using try! here is safe because we control the mock data
+        // and guarantee all question text is non-empty
         [
-            Question(
+            try! Question(
                 id: 1,
                 questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
                 questionType: .pattern,
@@ -12,7 +15,7 @@ extension TestTakingViewModel {
                 answerOptions: nil,
                 explanation: "The pattern is doubling: 2×2=4, 4×2=8, 8×2=16, 16×2=32"
             ),
-            Question(
+            try! Question(
                 id: 2,
                 questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
                 questionType: .logic,
@@ -20,7 +23,7 @@ extension TestTakingViewModel {
                 answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
                 explanation: "Carrot is a vegetable, while the others are fruits"
             ),
-            Question(
+            try! Question(
                 id: 3,
                 questionText: "If all roses are flowers and some flowers fade quickly, then:",
                 questionType: .logic,
@@ -33,7 +36,7 @@ extension TestTakingViewModel {
                 ],
                 explanation: "We can only conclude that some roses might fade quickly"
             ),
-            Question(
+            try! Question(
                 id: 4,
                 questionText: "What is 15% of 200?",
                 questionType: .math,
@@ -41,7 +44,7 @@ extension TestTakingViewModel {
                 answerOptions: nil,
                 explanation: "15% of 200 = 0.15 × 200 = 30"
             ),
-            Question(
+            try! Question(
                 id: 5,
                 questionText: "Find the missing letter in the sequence: A, C, F, J, O, ?",
                 questionType: .pattern,
@@ -61,7 +64,8 @@ extension TestTakingViewModel {
             for question in mockQuestions {
                 if allQuestions.count >= count { break }
                 // Create a copy with a new ID
-                let newQuestion = Question(
+                // Note: Using try! here is safe because we're copying from valid mock data
+                let newQuestion = try! Question(
                     id: allQuestions.count + 1,
                     questionText: question.questionText,
                     questionType: question.questionType,
@@ -84,4 +88,6 @@ extension TestTakingViewModel {
             timeLimitExceeded: false
         )
     }
+
+    // swiftlint:enable force_try
 }

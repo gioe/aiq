@@ -407,7 +407,7 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         // Only include questions 1 and 2 in the session
         let mockQuestions = [
-            Question(
+            try! Question(
                 id: 1,
                 questionText: "Question 1?",
                 questionType: .memory,
@@ -415,7 +415,7 @@ final class TestTakingViewModelTests: XCTestCase {
                 answerOptions: ["A", "B", "C", "D"],
                 explanation: nil
             ),
-            Question(
+            try! Question(
                 id: 2,
                 questionText: "Question 2?",
                 questionType: .pattern,
@@ -479,7 +479,7 @@ final class TestTakingViewModelTests: XCTestCase {
         difficulty: DifficultyLevel = .medium,
         options: [String]? = ["A", "B", "C", "D"]
     ) -> Question {
-        Question(
+        try! Question(
             id: id,
             questionText: text,
             questionType: type,

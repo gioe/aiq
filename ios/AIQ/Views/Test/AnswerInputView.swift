@@ -223,9 +223,10 @@ private struct OptionButton: View {
 
 // MARK: - Preview
 
+// swiftlint:disable force_try
 #Preview("Multiple Choice") {
     AnswerInputView(
-        question: Question(
+        question: try! Question(
             id: 1,
             questionText: "Which word doesn't belong?",
             questionType: .logic,
@@ -240,7 +241,7 @@ private struct OptionButton: View {
 
 #Preview("Math Question") {
     AnswerInputView(
-        question: Question(
+        question: try! Question(
             id: 2,
             questionText: "What is 15% of 200?",
             questionType: .math,
@@ -255,7 +256,7 @@ private struct OptionButton: View {
 
 #Preview("Pattern Question - Number") {
     AnswerInputView(
-        question: Question(
+        question: try! Question(
             id: 3,
             questionText: "What number comes next in the sequence: 2, 4, 8, 16, ?",
             questionType: .pattern,
@@ -270,7 +271,7 @@ private struct OptionButton: View {
 
 #Preview("Pattern Question - Letter") {
     AnswerInputView(
-        question: Question(
+        question: try! Question(
             id: 4,
             questionText: "What letter comes next: A, C, F, J, ?",
             questionType: .pattern,
@@ -285,7 +286,7 @@ private struct OptionButton: View {
 
 #Preview("Verbal Question") {
     AnswerInputView(
-        question: Question(
+        question: try! Question(
             id: 5,
             questionText: "Complete the analogy: Dog is to puppy as cat is to ___",
             questionType: .verbal,
@@ -297,3 +298,5 @@ private struct OptionButton: View {
     )
     .padding()
 }
+
+// swiftlint:enable force_try
