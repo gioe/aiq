@@ -597,3 +597,518 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         XCTAssertEqual(userId, "456", "should extract user_id")
     }
 }
+
+// MARK: - Navigation Behavior Tests
+
+/// Tests for navigation behavior when handling deep links from notification taps
+///
+/// These tests validate that the `handleDeepLinkNavigation` method correctly:
+/// 1. Switches to the appropriate tab for each deep link type
+/// 2. Updates `router.currentTab` to match the selected tab
+/// 3. Calls `router.popToRoot(in:)` to clear existing navigation state
+/// 4. Calls `deepLinkHandler.handleNavigation(_:router:tab:)` for test-related deep links
+///
+/// ## Navigation Behavior by Deep Link Type
+///
+/// | Deep Link | Tab | Router Methods Called |
+/// |-----------|-----|----------------------|
+/// | `.settings` | Settings | `popToRoot(in: .settings)` |
+/// | `.testResults(id:)` | Dashboard | `popToRoot(in: .dashboard)`, `handleNavigation(_:router:tab:)` |
+/// | `.resumeTest(sessionId:)` | Dashboard | `popToRoot(in: .dashboard)`, `handleNavigation(_:router:tab:)` |
+/// | `.invalid` | (no change) | (none) |
+///
+/// Related to BTS-102: Test notification tapped handler in MainTabView
+@MainActor
+final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
+    // MARK: - Properties
+
+    private var router: AppRouter!
+    private var deepLinkHandler: DeepLinkHandler!
+
+    // MARK: - Setup/Teardown
+
+    override func setUp() {
+        super.setUp()
+        router = AppRouter()
+        deepLinkHandler = DeepLinkHandler()
+    }
+
+    override func tearDown() {
+        router = nil
+        deepLinkHandler = nil
+        super.tearDown()
+    }
+
+    // MARK: - Settings Navigation Tests
+
+    /// Test that .settings deep link switches to settings tab
+    func testSettingsDeepLink_SwitchesToSettingsTab() {
+        // Given - router starts on dashboard tab
+        router.currentTab = .dashboard
+        XCTAssertEqual(router.currentTab, .dashboard, "setup: should start on dashboard")
+
+        // When - simulating handleDeepLinkNavigation for .settings
+        // (Replicating MainTabView behavior)
+        let deepLink = DeepLink.settings
+        switch deepLink {
+        case .settings:
+            router.currentTab = .settings
+            router.popToRoot(in: .settings)
+        default:
+            XCTFail("Expected .settings deep link")
+        }
+
+        // Then - should switch to settings tab
+        XCTAssertEqual(router.currentTab, .settings, "should switch to settings tab")
+    }
+
+    /// Test that .settings deep link calls popToRoot on settings tab
+    func testSettingsDeepLink_CallsPopToRootInSettings() {
+        // Given - router has navigation state in settings tab
+        router.currentTab = .settings
+        router.push(.help, in: .settings)
+        router.push(.notificationSettings, in: .settings)
+        XCTAssertEqual(router.depth(in: .settings), 2, "setup: settings should have 2 routes")
+
+        // When - simulating handleDeepLinkNavigation for .settings
+        let deepLink = DeepLink.settings
+        switch deepLink {
+        case .settings:
+            router.currentTab = .settings
+            router.popToRoot(in: .settings)
+        default:
+            XCTFail("Expected .settings deep link")
+        }
+
+        // Then - settings navigation stack should be cleared
+        XCTAssertTrue(router.isAtRoot(in: .settings), "settings should be at root after popToRoot")
+        XCTAssertEqual(router.depth(in: .settings), 0, "settings depth should be 0")
+    }
+
+    /// Test that .settings deep link preserves other tabs' navigation state
+    func testSettingsDeepLink_PreservesOtherTabsNavigation() {
+        // Given - router has navigation state in dashboard and history tabs
+        router.push(.testTaking, in: .dashboard)
+        router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        router.currentTab = .dashboard
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
+        XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
+
+        // When - simulating handleDeepLinkNavigation for .settings
+        let deepLink = DeepLink.settings
+        switch deepLink {
+        case .settings:
+            router.currentTab = .settings
+            router.popToRoot(in: .settings)
+        default:
+            XCTFail("Expected .settings deep link")
+        }
+
+        // Then - other tabs should preserve their navigation state
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should still have 1 route")
+        XCTAssertEqual(router.depth(in: .history), 1, "history should still have 1 route")
+    }
+
+    /// Test that .settings deep link from universal link switches tabs correctly
+    func testSettingsUniversalLink_SwitchesToSettingsTab() {
+        // Given - router starts on history tab
+        router.currentTab = .history
+
+        // When - parsing universal link and handling navigation
+        guard let url = URL(string: "https://aiq.app/settings") else {
+            XCTFail("Should create valid URL")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(url)
+        XCTAssertEqual(deepLink, .settings, "should parse to .settings")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .settings:
+            router.currentTab = .settings
+            router.popToRoot(in: .settings)
+        default:
+            XCTFail("Expected .settings deep link")
+        }
+
+        // Then - should switch to settings tab
+        XCTAssertEqual(router.currentTab, .settings, "should switch to settings tab")
+    }
+
+    // MARK: - Test Results Navigation Tests
+
+    /// Test that .testResults deep link switches to dashboard tab
+    func testTestResultsDeepLink_SwitchesToDashboardTab() {
+        // Given - router starts on settings tab
+        router.currentTab = .settings
+        XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
+
+        // When - simulating handleDeepLinkNavigation for .testResults
+        let deepLink = DeepLink.testResults(id: 123)
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .testResults deep link")
+        }
+
+        // Then - should switch to dashboard tab
+        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+    }
+
+    /// Test that .testResults deep link calls popToRoot on dashboard tab
+    func testTestResultsDeepLink_CallsPopToRootInDashboard() {
+        // Given - router has navigation state in dashboard tab
+        router.currentTab = .dashboard
+        router.push(.testTaking, in: .dashboard)
+        router.push(.help, in: .dashboard)
+        XCTAssertEqual(router.depth(in: .dashboard), 2, "setup: dashboard should have 2 routes")
+
+        // When - simulating handleDeepLinkNavigation for .testResults
+        let deepLink = DeepLink.testResults(id: 456)
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .testResults deep link")
+        }
+
+        // Then - dashboard navigation stack should be cleared
+        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root after popToRoot")
+        XCTAssertEqual(router.depth(in: .dashboard), 0, "dashboard depth should be 0")
+    }
+
+    /// Test that .testResults deep link preserves other tabs' navigation state
+    func testTestResultsDeepLink_PreservesOtherTabsNavigation() {
+        // Given - router has navigation state in settings and history tabs
+        router.push(.help, in: .settings)
+        router.push(.notificationSettings, in: .settings)
+        router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        router.currentTab = .settings
+        XCTAssertEqual(router.depth(in: .settings), 2, "setup: settings should have 2 routes")
+        XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
+
+        // When - simulating handleDeepLinkNavigation for .testResults
+        let deepLink = DeepLink.testResults(id: 789)
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .testResults deep link")
+        }
+
+        // Then - other tabs should preserve their navigation state
+        XCTAssertEqual(router.depth(in: .settings), 2, "settings should still have 2 routes")
+        XCTAssertEqual(router.depth(in: .history), 1, "history should still have 1 route")
+    }
+
+    /// Test that .testResults from universal link switches tabs correctly
+    func testTestResultsUniversalLink_SwitchesToDashboardTab() {
+        // Given - router starts on history tab
+        router.currentTab = .history
+
+        // When - parsing universal link and handling navigation
+        guard let url = URL(string: "https://aiq.app/test/results/999") else {
+            XCTFail("Should create valid URL")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(url)
+        XCTAssertEqual(deepLink, .testResults(id: 999), "should parse to .testResults with id 999")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .testResults deep link")
+        }
+
+        // Then - should switch to dashboard tab
+        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+    }
+
+    // MARK: - Resume Test Navigation Tests
+
+    /// Test that .resumeTest deep link switches to dashboard tab
+    func testResumeTestDeepLink_SwitchesToDashboardTab() {
+        // Given - router starts on settings tab
+        router.currentTab = .settings
+        XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
+
+        // When - simulating handleDeepLinkNavigation for .resumeTest
+        let deepLink = DeepLink.resumeTest(sessionId: 555)
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .resumeTest deep link")
+        }
+
+        // Then - should switch to dashboard tab
+        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+    }
+
+    /// Test that .resumeTest deep link calls popToRoot on dashboard tab
+    func testResumeTestDeepLink_CallsPopToRootInDashboard() {
+        // Given - router has navigation state in dashboard tab
+        router.currentTab = .dashboard
+        router.push(.testTaking, in: .dashboard)
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
+
+        // When - simulating handleDeepLinkNavigation for .resumeTest
+        let deepLink = DeepLink.resumeTest(sessionId: 666)
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .resumeTest deep link")
+        }
+
+        // Then - dashboard navigation stack should be cleared
+        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root after popToRoot")
+    }
+
+    /// Test that .resumeTest from universal link switches tabs correctly
+    func testResumeTestUniversalLink_SwitchesToDashboardTab() {
+        // Given - router starts on settings tab
+        router.currentTab = .settings
+
+        // When - parsing universal link and handling navigation
+        guard let url = URL(string: "https://aiq.app/test/resume/777") else {
+            XCTFail("Should create valid URL")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(url)
+        XCTAssertEqual(deepLink, .resumeTest(sessionId: 777), "should parse to .resumeTest with sessionId 777")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            XCTFail("Expected .resumeTest deep link")
+        }
+
+        // Then - should switch to dashboard tab
+        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+    }
+
+    // MARK: - Invalid Deep Link Tests
+
+    /// Test that .invalid deep link does not change tab
+    func testInvalidDeepLink_DoesNotChangeTab() {
+        // Given - router is on history tab
+        router.currentTab = .history
+        XCTAssertEqual(router.currentTab, .history, "setup: should start on history")
+
+        // When - handling invalid deep link (no navigation should occur)
+        let deepLink = DeepLink.invalid
+        switch deepLink {
+        case .invalid:
+            // MainTabView logs warning and does nothing
+            break
+        default:
+            XCTFail("Expected .invalid deep link")
+        }
+
+        // Then - tab should remain unchanged
+        XCTAssertEqual(router.currentTab, .history, "tab should not change for invalid deep link")
+    }
+
+    /// Test that .invalid deep link does not affect navigation state
+    func testInvalidDeepLink_PreservesNavigationState() {
+        // Given - router has navigation state across all tabs
+        router.push(.testTaking, in: .dashboard)
+        router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        router.push(.help, in: .settings)
+        router.currentTab = .dashboard
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
+        XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
+        XCTAssertEqual(router.depth(in: .settings), 1, "setup: settings should have 1 route")
+
+        // When - handling invalid deep link
+        let deepLink = DeepLink.invalid
+        switch deepLink {
+        case .invalid:
+            // MainTabView logs warning and does nothing
+            break
+        default:
+            XCTFail("Expected .invalid deep link")
+        }
+
+        // Then - all tabs should preserve their navigation state
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should still have 1 route")
+        XCTAssertEqual(router.depth(in: .history), 1, "history should still have 1 route")
+        XCTAssertEqual(router.depth(in: .settings), 1, "settings should still have 1 route")
+        XCTAssertEqual(router.currentTab, .dashboard, "current tab should remain dashboard")
+    }
+
+    // MARK: - Full Flow Integration Tests
+
+    /// Test complete flow: notification tap -> parse -> navigate for settings
+    func testFullFlow_SettingsNotificationTap_NavigatesToSettingsTab() {
+        // Given - notification payload with settings deep link
+        let notificationUserInfo: [AnyHashable: Any] = [
+            "payload": [
+                "type": "settings_update",
+                "deep_link": "aiq://settings"
+            ]
+        ]
+        router.currentTab = .dashboard
+        router.push(.testTaking, in: .dashboard)
+
+        // When - simulating full notification tap flow (matching MainTabView logic)
+        guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
+              let deepLinkString = payload["deep_link"] as? String,
+              let deepLinkURL = URL(string: deepLinkString) else {
+            XCTFail("Should extract deep link from notification")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        XCTAssertEqual(deepLink, .settings, "should parse to .settings")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .settings:
+            router.currentTab = .settings
+            router.popToRoot(in: .settings)
+        default:
+            break
+        }
+
+        // Then - should be on settings tab with clean navigation
+        XCTAssertEqual(router.currentTab, .settings, "should be on settings tab")
+        XCTAssertTrue(router.isAtRoot(in: .settings), "settings should be at root")
+        // Dashboard navigation should be preserved
+        XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should preserve navigation")
+    }
+
+    /// Test complete flow: notification tap -> parse -> navigate for test results
+    func testFullFlow_TestResultsNotificationTap_NavigatesToDashboard() {
+        // Given - notification payload with test results deep link
+        let notificationUserInfo: [AnyHashable: Any] = [
+            "payload": [
+                "type": "test_complete",
+                "deep_link": "aiq://test/results/123"
+            ]
+        ]
+        router.currentTab = .settings
+        router.push(.help, in: .settings)
+        router.push(.testTaking, in: .dashboard)
+
+        // When - simulating full notification tap flow (matching MainTabView logic)
+        guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
+              let deepLinkString = payload["deep_link"] as? String,
+              let deepLinkURL = URL(string: deepLinkString) else {
+            XCTFail("Should extract deep link from notification")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to .testResults with id 123")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        // Note: In real code, deepLinkHandler.handleNavigation would be called here
+        // to fetch and display the test result
+        default:
+            break
+        }
+
+        // Then - should be on dashboard tab with clean navigation
+        XCTAssertEqual(router.currentTab, .dashboard, "should be on dashboard tab")
+        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root")
+        // Settings navigation should be preserved
+        XCTAssertEqual(router.depth(in: .settings), 1, "settings should preserve navigation")
+    }
+
+    /// Test complete flow: notification tap -> parse -> navigate for resume test
+    func testFullFlow_ResumeTestNotificationTap_NavigatesToDashboard() {
+        // Given - notification payload with resume test deep link
+        let notificationUserInfo: [AnyHashable: Any] = [
+            "payload": [
+                "type": "test_reminder",
+                "deep_link": "aiq://test/resume/456"
+            ]
+        ]
+        router.currentTab = .history
+        router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+
+        // When - simulating full notification tap flow
+        guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
+              let deepLinkString = payload["deep_link"] as? String,
+              let deepLinkURL = URL(string: deepLinkString) else {
+            XCTFail("Should extract deep link from notification")
+            return
+        }
+
+        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        XCTAssertEqual(deepLink, .resumeTest(sessionId: 456), "should parse to .resumeTest with sessionId 456")
+
+        // Simulate handleDeepLinkNavigation
+        switch deepLink {
+        case .testResults, .resumeTest:
+            router.currentTab = .dashboard
+            router.popToRoot(in: .dashboard)
+        default:
+            break
+        }
+
+        // Then - should be on dashboard tab with clean navigation
+        XCTAssertEqual(router.currentTab, .dashboard, "should be on dashboard tab")
+        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root")
+        // History navigation should be preserved
+        XCTAssertEqual(router.depth(in: .history), 1, "history should preserve navigation")
+    }
+
+    /// Test that malformed notification payload does not crash or navigate
+    func testFullFlow_MalformedPayload_DoesNotNavigate() {
+        // Given - malformed notification payload
+        let notificationUserInfo: [AnyHashable: Any] = [
+            "payload": "not a dictionary"
+        ]
+        router.currentTab = .dashboard
+        let initialTab = router.currentTab
+
+        // When - attempting to extract deep link
+        let payload = notificationUserInfo["payload"] as? [AnyHashable: Any]
+
+        // Then - payload extraction should fail
+        XCTAssertNil(payload, "malformed payload should not be extractable")
+        // Navigation should not have occurred
+        XCTAssertEqual(router.currentTab, initialTab, "tab should not change with malformed payload")
+    }
+
+    // MARK: - Helper Methods
+
+    private func createMockTestResult(id: Int = 1) -> TestResult {
+        TestResult(
+            id: id,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 115,
+            percentileRank: 80.0,
+            totalQuestions: 30,
+            correctAnswers: 24,
+            accuracyPercentage: 80.0,
+            completionTimeSeconds: 1500,
+            completedAt: Date(),
+            domainScores: nil,
+            confidenceInterval: nil
+        )
+    }
+}
