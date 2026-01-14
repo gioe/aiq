@@ -23,6 +23,8 @@ class LoginHelper {
     private let app: XCUIApplication
     private let timeout: TimeInterval
     private let networkTimeout: TimeInterval
+    private let fallbackTimeout: TimeInterval
+    private let confirmationTimeout: TimeInterval
 
     // MARK: - UI Element Queries
 
@@ -78,10 +80,23 @@ class LoginHelper {
     ///   - app: The XCUIApplication instance
     ///   - timeout: Default timeout for UI operations (default: 5 seconds)
     ///   - networkTimeout: Timeout for network operations (default: 10 seconds)
-    init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 10.0) {
+    ///   - fallbackTimeout: Shorter timeout for fallback search strategies (default: 1.5 seconds).
+    ///     Since fallback strategies are only tried after the primary identifier fails,
+    ///     the element is likely already rendered if it exists, so a shorter wait is sufficient.
+    ///   - confirmationTimeout: Timeout for finding confirmation dialog buttons (default: 1 second).
+    ///     Confirmation dialogs appear immediately after tapping logout, so a short wait is sufficient.
+    init(
+        app: XCUIApplication,
+        timeout: TimeInterval = 5.0,
+        networkTimeout: TimeInterval = 10.0,
+        fallbackTimeout: TimeInterval = 1.5,
+        confirmationTimeout: TimeInterval = 1.0
+    ) {
         self.app = app
         self.timeout = timeout
         self.networkTimeout = networkTimeout
+        self.fallbackTimeout = fallbackTimeout
+        self.confirmationTimeout = confirmationTimeout
     }
 
     // MARK: - Authentication Methods
@@ -182,7 +197,12 @@ class LoginHelper {
 
         button.tap()
 
-        // Handle confirmation dialog if present
+        // Handle confirmation dialog if present.
+        // Dialog detection short-circuits: if sheets.waitForExistence returns true,
+        // alerts.waitForExistence is NOT evaluated (Swift's || short-circuit evaluation).
+        // This means we only wait 1 second total in the common case where a dialog appears,
+        // not 2 seconds. If neither dialog type appears within 1 second, we assume no
+        // confirmation is needed and proceed directly to waiting for the welcome screen.
         let hasDialog = app.sheets.firstMatch.waitForExistence(timeout: 1.0) ||
             app.alerts.firstMatch.waitForExistence(timeout: 1.0)
 
@@ -206,40 +226,59 @@ class LoginHelper {
     // MARK: - Private Helpers
 
     /// Find the logout button using cascading search strategies.
-    /// Each strategy waits up to `timeout` seconds before trying the next.
+    ///
+    /// **Timeout behavior:**
+    /// - Strategy 1 (primary identifier): Uses full `timeout` (default 5s) since this is the expected path
+    /// - Strategies 2-3 (fallbacks): Use shorter `fallbackTimeout` (default 1.5s) since if the primary
+    ///   identifier wasn't found, the element is likely already rendered with a different identifier
+    ///
+    /// **Cumulative worst-case timeout:** `timeout` + 2 × `fallbackTimeout` (default: 5 + 3 = 8 seconds)
+    /// This is a significant improvement over the previous 15-second worst case.
+    ///
     /// - Returns: The logout button element if found, nil if all strategies fail
     private func findLogoutButton() -> XCUIElement? {
-        // Strategy 1: Primary accessibility identifier
+        // Strategy 1: Primary accessibility identifier (full timeout - expected path)
         let primaryButton = logoutButton
         if primaryButton.waitForExistence(timeout: timeout) {
             return primaryButton
         }
 
         // Strategy 2: Button with label containing "logout" (case-insensitive)
+        // Uses shorter fallbackTimeout since element should already be rendered if it exists
         let logoutPredicate = NSPredicate(format: "label CONTAINS[c] 'logout'")
         let logoutButtons = app.buttons.matching(logoutPredicate)
-        if logoutButtons.firstMatch.waitForExistence(timeout: timeout) {
+        if logoutButtons.firstMatch.waitForExistence(timeout: fallbackTimeout) {
             return logoutButtons.firstMatch
         }
 
         // Strategy 3: Button with label containing "sign out" (case-insensitive)
+        // Uses shorter fallbackTimeout since element should already be rendered if it exists
         let signOutPredicate = NSPredicate(format: "label CONTAINS[c] 'sign out'")
         let signOutButtons = app.buttons.matching(signOutPredicate)
-        if signOutButtons.firstMatch.waitForExistence(timeout: timeout) {
+        if signOutButtons.firstMatch.waitForExistence(timeout: fallbackTimeout) {
             return signOutButtons.firstMatch
         }
 
         return nil
     }
 
-    /// Find the confirmation button in logout dialog
+    /// Find the confirmation button in logout dialog.
+    ///
+    /// **Timeout behavior:**
+    /// Uses `confirmationTimeout` (default 1s) for each label check. Since the dialog
+    /// is already visible when this method is called (checked by the caller), buttons
+    /// should be immediately available.
+    ///
+    /// **Cumulative worst-case timeout:** 4 × `confirmationTimeout` (default: 4 seconds)
+    /// This is an improvement over the previous 8-second worst case (4 × 2.0s).
+    ///
     /// - Returns: The confirmation button element if found, nil otherwise
     private func findConfirmationButton() -> XCUIElement? {
         let possibleLabels = ["Logout", "Log Out", "Sign Out", "Yes"]
 
         for label in possibleLabels {
             let button = app.buttons[label]
-            if button.waitForExistence(timeout: 2.0) {
+            if button.waitForExistence(timeout: confirmationTimeout) {
                 return button
             }
         }
