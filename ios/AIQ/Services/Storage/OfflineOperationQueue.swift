@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import os
 
 // MARK: - QueuedOperation
 
@@ -116,6 +117,10 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     // MARK: - Singleton
 
     static let shared = OfflineOperationQueue()
+
+    // MARK: - Logging
+
+    private static let logger = Logger(subsystem: "com.aiq.app", category: "OfflineOperationQueue")
 
     // MARK: - Constants
 
@@ -442,10 +447,14 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     /// Save operations to UserDefaults
     private static func saveOperations(_ operations: [QueuedOperation], to userDefaults: UserDefaults, key: String) {
         let encoder = JSONEncoder()
-        guard let data = try? encoder.encode(operations) else {
-            return
+        do {
+            let data = try encoder.encode(operations)
+            userDefaults.set(data, forKey: key)
+        } catch {
+            let errorDesc = error.localizedDescription
+            logger.error("Failed to encode operations for '\(key, privacy: .public)': \(errorDesc, privacy: .public)")
+            assertionFailure("JSON encoding failed for QueuedOperation array: \(error)")
         }
-        userDefaults.set(data, forKey: key)
     }
 
     /// Update published state on MainActor
