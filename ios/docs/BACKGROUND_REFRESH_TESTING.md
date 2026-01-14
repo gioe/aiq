@@ -192,7 +192,6 @@ Console should show: `Background refresh task expired before completion`
    ```xml
    <key>UIBackgroundModes</key>
    <array>
-       <string>fetch</string>
        <string>processing</string>
    </array>
    ```
@@ -215,8 +214,8 @@ Console should show: `Background refresh task expired before completion`
 4. **Verify notification content:**
    Check that `Localizable.strings` contains:
    ```
-   "notification.test.available.title" = "Time for Your AIQ Check!";
-   "notification.test.available.body" = "It's been 90 days since your last test. See how your cognitive abilities have changed.";
+   "notification.test.available.title" = "Ready for Your Next Test?";
+   "notification.test.available.body" = "It's been 90 days since your last test. Take a new assessment to track your cognitive progress.";
    ```
 
 ### Rate Limiting Issues
