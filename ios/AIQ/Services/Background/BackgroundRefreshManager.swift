@@ -212,11 +212,12 @@ class BackgroundRefreshManager: ObservableObject {
         }
 
         // Check if 90 days have passed since last test
-        let daysSinceLastTest = Calendar.current.dateComponents(
+        // Note: max(0, ...) guards against negative values from clock changes or timezone shifts
+        let daysSinceLastTest = max(0, Calendar.current.dateComponents(
             [.day],
             from: lastTest.completedAt,
             to: Date()
-        ).day ?? 0
+        ).day ?? 0)
 
         let isAvailable = daysSinceLastTest >= Constants.BackgroundRefresh.testCadenceDays
 
@@ -229,11 +230,12 @@ class BackgroundRefreshManager: ObservableObject {
     private func sendTestAvailableNotification() async {
         // Check if we've already notified for this test window
         if let lastNotification = getLastNotificationDate() {
-            let daysSinceNotification = Calendar.current.dateComponents(
+            // Note: max(0, ...) guards against negative values from clock changes or timezone shifts
+            let daysSinceNotification = max(0, Calendar.current.dateComponents(
                 [.day],
                 from: lastNotification,
                 to: Date()
-            ).day ?? 0
+            ).day ?? 0)
 
             // Don't notify more than once per test cadence period
             if daysSinceNotification < Constants.BackgroundRefresh.testCadenceDays {

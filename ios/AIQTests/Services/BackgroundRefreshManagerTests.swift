@@ -282,6 +282,60 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertFalse(mockNotificationCenter.addNotificationCalled)
     }
 
+    // MARK: - Edge Case Tests
+
+    func testCheckTestAvailability_HandlesNegativeDaysGracefully_WhenClockRolledBack() async {
+        // Given: Simulate a scenario where clock was rolled back
+        // Test date appears to be in the "future" relative to now
+        // This tests the max(0, ...) guard against negative day values
+        mockAuthManager.isAuthenticated = true
+        mockNetworkMonitor.isConnected = true
+        mockNotificationCenter.authorizationStatus = .authorized
+
+        // Create a test with a future date (simulates clock rolled back)
+        // daysAgo: -5 creates a completedAt date 5 days in the future
+        let futureTest = createTestResult(daysAgo: -5)
+
+        await mockAPIClient.setTestHistoryResponse([futureTest], totalCount: 1, hasMore: false)
+
+        // When
+        let result = await sut.performRefresh()
+
+        // Then - Should succeed without crashing
+        XCTAssertTrue(result)
+
+        // Should NOT send notification because daysSinceLastTest would be 0 (clamped from negative)
+        // which is less than the 90-day threshold
+        XCTAssertFalse(mockNotificationCenter.addNotificationCalled)
+    }
+
+    func testNotificationDeduplication_HandlesNegativeDaysGracefully_WhenClockRolledBack() async {
+        // Given: Simulate notification timestamp appearing to be in the "future"
+        // This tests the max(0, ...) guard in the notification deduplication logic
+        mockAuthManager.isAuthenticated = true
+        mockNetworkMonitor.isConnected = true
+        mockNotificationCenter.authorizationStatus = .authorized
+
+        // Set last notification to 5 days in the future (simulates clock rolled back)
+        let futureNotification = Date(timeIntervalSinceNow: 5 * 24 * 60 * 60)
+        UserDefaults.standard.set(futureNotification, forKey: lastNotificationKey)
+
+        // Create test from 100 days ago (past threshold, would normally trigger notification)
+        let oldTest = createTestResult(daysAgo: 100)
+
+        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+
+        // When
+        let result = await sut.performRefresh()
+
+        // Then - Should succeed without crashing
+        XCTAssertTrue(result)
+
+        // Should NOT send notification because daysSinceNotification would be 0 (clamped from negative)
+        // which is less than the 90-day threshold
+        XCTAssertFalse(mockNotificationCenter.addNotificationCalled)
+    }
+
     // MARK: - Helper Methods
 
     /// Create a test result with the given days ago for completedAt
