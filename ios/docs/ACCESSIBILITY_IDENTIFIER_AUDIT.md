@@ -116,7 +116,7 @@ var accessibilityIdentifier: String {
 
 The following identifiers are correctly defined and applied:
 
-### OnboardingView (8/8 applied)
+### OnboardingView (9/9 applied)
 - `containerView`, `page1`, `page2`, `page3`, `page4`, `continueButton`, `skipButton`, `getStartedButton`, `privacyPolicyLink`
 
 ### PrivacyConsentView (4/4 applied)
