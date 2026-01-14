@@ -59,7 +59,7 @@ import XCTest
 /// via `CrashlyticsErrorRecorder.recordError(_:context:)`.
 ///
 /// Related to BTS-102: Test notification tapped handler in MainTabView
-final class NotificationTappedHandlerTests: XCTestCase {
+final class MainTabViewNotificationTappedTests: XCTestCase {
     // MARK: - Properties
 
     private var deepLinkHandler: DeepLinkHandler!
