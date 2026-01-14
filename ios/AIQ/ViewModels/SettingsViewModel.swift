@@ -8,7 +8,7 @@ import Foundation
 ///
 /// - **`error` (inherited from BaseViewModel)**: Used for general operations where:
 ///   - ErrorBanner/ErrorView display is appropriate
-///   - Retry functionality is needed
+///   - The operation can be retried (e.g., network requests, data fetches)
 ///   - Standard error presentation is acceptable
 ///
 /// - **`deleteAccountError` (operation-specific)**: Used for delete account because:
