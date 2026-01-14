@@ -99,7 +99,15 @@ Comments that can be addressed later:
    **Reason for deferral**: "We can do this later because..."
    ```
 
-2. Using the jira-workflow-architect subagent, create a ticket in the Jira backlog. Check to see if any similar tasks are already in the backlog before creating a new one. **Include the reason for deferral in the ticket description**
+2. Create a task in the local SQLite database. First check if a similar task already exists:
+   ```bash
+   # Check for existing similar tasks
+   sqlite3 -header -column tasks.db "SELECT id, summary FROM tasks WHERE summary LIKE '%<keyword>%' AND status != 'Done'"
+
+   # If no duplicate, create the task
+   sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
+     VALUES ('[Deferred] <brief description>', 'Deferred from PR #{{pr_number}} review.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
+   ```
 
 3. **Document for next PR**: Append the deferral to `.github/DEFERRED_REVIEW_ITEMS.md` so it can be included in the next PR's commit message. This file should be committed with the PR changes:
 
@@ -109,7 +117,7 @@ Comments that can be addressed later:
    ### [Brief description of deferred item]
    - **Original comment**: "[Abbreviated comment text]"
    - **Reason deferred**: [Why this can wait]
-   - **Jira ticket**: [TICKET-ID]
+   - **Task ID**: [ID from SQLite insert]
    ```
 
    When creating the final commit for this PR, include a summary of deferrals in the commit body:
@@ -119,8 +127,8 @@ Comments that can be addressed later:
    Addressed:
    - [List of items fixed]
 
-   Deferred (see Jira):
-   - [TICKET-ID]: [Brief description] - [Reason]
+   Deferred (see tasks.db):
+   - Task #[ID]: [Brief description] - [Reason]
    ```
 
    This ensures the next reviewer can see why certain review comments weren't addressed in this PR.

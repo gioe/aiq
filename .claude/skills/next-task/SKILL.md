@@ -93,18 +93,137 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     git push -u origin feature/TASK-<id>-description
     gh pr create --title "[TASK-<id>] Brief task description" --body "..."
     ```
+    Capture the PR URL from the output (e.g., `https://github.com/gioe/aiq/pull/540`).
 
-11. **Update the task status** to In Review:
+11. **Update the task status and PR URL**:
     ```bash
-    sqlite3 tasks.db "UPDATE tasks SET status = 'In Review', updated_at = datetime('now') WHERE id = <id>"
+    sqlite3 tasks.db "UPDATE tasks SET status = 'In Review', github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
     ```
 
-12. **End task metrics tracking**:
+12. **Review loop - iterate until Claude approves**:
+    After the PR is created, enter a review loop with the remote Claude reviewer. Continue until agreement is reached that the PR is ready to merge.
+
+    ```
+    ┌─► Poll for Claude's review
+    │         │
+    │         ▼
+    │   Analyze review
+    │         │
+    │         ▼
+    │   ┌─────────────┐
+    │   │ Approved?   │───Yes──► Exit loop (ready to merge)
+    │   └─────────────┘
+    │         │ No
+    │         ▼
+    │   Address comments
+    │         │
+    │         ▼
+    │   Push fixes
+    │         │
+    └─────────┘
+    ```
+
+    **Step 12a: Poll for Claude's review**
+    ```bash
+    # Extract PR number from URL (e.g., 540 from https://github.com/gioe/aiq/pull/540)
+    PR_NUMBER=<extracted_pr_number>
+
+    # Track the last review timestamp to detect new reviews
+    LAST_REVIEW_TIME="<timestamp_of_last_processed_review or empty>"
+
+    # Poll for Claude's review (check every 30 seconds, timeout after 10 minutes)
+    for i in {1..20}; do
+      REVIEW=$(gh api repos/gioe/aiq/issues/$PR_NUMBER/comments --paginate \
+        --jq '[.[] | select(.user.login == "claude[bot]")] | sort_by(.created_at) | reverse | .[0]')
+      if [ "$REVIEW" != "null" ] && [ -n "$REVIEW" ]; then
+        REVIEW_TIME=$(echo "$REVIEW" | jq -r '.created_at')
+        if [ "$REVIEW_TIME" != "$LAST_REVIEW_TIME" ]; then
+          echo "New Claude review found!"
+          break
+        fi
+      fi
+      echo "Waiting for Claude review... (attempt $i/20)"
+      sleep 30
+    done
+    ```
+
+    **Step 12b: Check if Claude approved**
+    Parse the review to determine if Claude has approved the PR. Look for approval signals:
+    - "LGTM" (Looks Good To Me)
+    - "Approved"
+    - "Ready to merge"
+    - "No blocking issues"
+    - No Category A (blocking) comments in the review
+
+    If approved → Exit loop, proceed to step 13.
+    If not approved → Continue to step 12c.
+
+    **Step 12c: Address Claude's review comments**
+
+    **Category A - Address Immediately (blocking):**
+    - Security concerns (XSS, SQL injection, auth issues, secrets)
+    - Bug reports (logic errors, null pointers, race conditions)
+    - Breaking changes (API contract violations)
+    - Test failures or missing tests
+    - Critical performance issues
+    - Type errors or missing error handling
+
+    For each Category A comment:
+    1. Read the relevant file(s)
+    2. Make the code fix using Edit tool
+    3. Commit: `[TASK-<id>] Address PR review: <brief description>`
+
+    **Category B - Defer to backlog (non-blocking):**
+    - Code style suggestions
+    - Refactoring suggestions
+    - Documentation requests
+    - Nice-to-have improvements
+    - Minor TODOs
+
+    For each Category B comment:
+    1. Create a task in the local SQLite database:
+       ```bash
+       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
+         VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
+       ```
+    2. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
+
+    **Step 12d: Push fixes and loop back**
+    ```bash
+    git push origin feature/TASK-<id>-description
+    ```
+    Update `LAST_REVIEW_TIME` to the current review's timestamp, then loop back to step 12a to wait for Claude's next review.
+
+13. **PR approved - finalize and merge**:
+    Once Claude approves, automatically perform ALL of these steps:
+
+    **Step 13a: Create deferred tasks for Category B items**
+    For each non-blocking suggestion in the review, create a task:
+    ```bash
+    sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
+      VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
+
+Original comment: <comment text>
+
+Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
+    ```
+
+    **Step 13b: Merge the PR**
+    ```bash
+    gh pr merge $PR_NUMBER --squash --delete-branch
+    ```
+
+    **Step 13c: Update task status to Done**
+    ```bash
+    sqlite3 tasks.db "UPDATE tasks SET status = 'Done', updated_at = datetime('now') WHERE id = <id>"
+    ```
+
+14. **End task metrics tracking**:
     ```bash
     ~/.claude/task-metrics.sh end
     ```
 
-13. **Check for newly unblocked tasks**:
+15. **Check for newly unblocked tasks**:
     ```bash
     sqlite3 -header -column tasks.db "
     SELECT t.id, t.summary, t.priority
@@ -195,7 +314,15 @@ ORDER BY t.id
 When called with `wip` or `in-progress`:
 
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee FROM tasks WHERE status = 'In Progress'"
+sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee, github_pr FROM tasks WHERE status = 'In Progress'"
+```
+
+### Show Tasks In Review
+
+When called with `review` or `in-review`:
+
+```bash
+sqlite3 -header -column tasks.db "SELECT id, summary, priority, github_pr FROM tasks WHERE status = 'In Review'"
 ```
 
 ### Preview Next Task (without starting)
@@ -240,6 +367,7 @@ LIMIT 1;
 | `assignee <value>` | Filter next task by assignee |
 | `blocked` | Show all blocked tasks |
 | `wip` | Show all In Progress tasks |
+| `review` | Show all In Review tasks with PR URLs |
 | `preview` | Show next ready task without starting it |
 
 ## Important Guidelines
