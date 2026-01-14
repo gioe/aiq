@@ -1,8 +1,10 @@
 """
 Pydantic schemas for question endpoints.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
+
+from app.core.validators import TextValidator
 
 
 class QuestionResponse(BaseModel):
@@ -23,6 +25,18 @@ class QuestionResponse(BaseModel):
     explanation: Optional[str] = Field(
         None, description="Explanation for the correct answer (if available)"
     )
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, v: int) -> int:
+        """Validate that ID is a positive integer."""
+        return TextValidator.validate_positive_id(v, "Question ID")
+
+    @field_validator("question_text")
+    @classmethod
+    def validate_question_text(cls, v: str) -> str:
+        """Validate that question text is not empty or whitespace-only."""
+        return TextValidator.validate_non_empty_text(v, "Question text")
 
     class Config:
         """Pydantic configuration."""

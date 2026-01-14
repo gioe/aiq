@@ -248,6 +248,72 @@ class IntegerValidator:
         return True, None
 
 
+class TextValidator:
+    """
+    Text validation utilities for schema field validation.
+    """
+
+    @staticmethod
+    def validate_non_empty_text(value: str, field_name: str = "Text") -> str:
+        """
+        Validate that text is not empty or whitespace-only.
+
+        Args:
+            value: Text to validate
+            field_name: Name of the field for error messages
+
+        Returns:
+            The stripped value if valid
+
+        Raises:
+            ValueError: If the text is empty or whitespace-only
+        """
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError(f"{field_name} cannot be empty or whitespace-only")
+        return stripped
+
+    @staticmethod
+    def validate_non_negative_int(
+        value: Optional[int], field_name: str = "Value"
+    ) -> Optional[int]:
+        """
+        Validate that an optional integer is non-negative.
+
+        Args:
+            value: Integer to validate (can be None)
+            field_name: Name of the field for error messages
+
+        Returns:
+            The value if valid (including None)
+
+        Raises:
+            ValueError: If the value is negative
+        """
+        if value is not None and value < 0:
+            raise ValueError(f"{field_name} cannot be negative")
+        return value
+
+    @staticmethod
+    def validate_positive_id(value: int, field_name: str = "ID") -> int:
+        """
+        Validate that an ID is a positive integer.
+
+        Args:
+            value: ID to validate
+            field_name: Name of the field for error messages
+
+        Returns:
+            The value if valid
+
+        Raises:
+            ValueError: If the ID is not positive
+        """
+        if value <= 0:
+            raise ValueError(f"{field_name} must be a positive integer")
+        return value
+
+
 def validate_no_sql_injection(value: str) -> bool:
     """
     Basic SQL injection pattern detection.

@@ -1,12 +1,17 @@
 """
 Tests for input validation and security measures.
 """
+import pytest
+
 from app.core.validators import (
     PasswordValidator,
     StringSanitizer,
     EmailValidator,
+    TextValidator,
     validate_no_sql_injection,
 )
+from app.schemas.questions import QuestionResponse
+from app.schemas.responses import ResponseItem, ResponseSubmission
 
 
 class TestPasswordValidator:
@@ -348,3 +353,252 @@ class TestRequestSizeLimit:
         response = client.post("/v1/auth/register", json=large_payload)
         # Should be rejected by size limit middleware
         assert response.status_code == 413 or response.status_code == 422
+
+
+class TestTextValidator:
+    """Tests for TextValidator utility methods."""
+
+    def test_validate_non_empty_text_with_valid_string(self):
+        """Test that valid non-empty strings pass validation."""
+        result = TextValidator.validate_non_empty_text("Hello World", "Test Field")
+        assert result == "Hello World"
+
+    def test_validate_non_empty_text_strips_whitespace(self):
+        """Test that whitespace is stripped from valid strings."""
+        result = TextValidator.validate_non_empty_text("  Hello World  ", "Test Field")
+        assert result == "Hello World"
+
+    def test_validate_non_empty_text_rejects_empty_string(self):
+        """Test that empty strings are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_non_empty_text("", "Test Field")
+        assert "Test Field cannot be empty or whitespace-only" in str(exc_info.value)
+
+    def test_validate_non_empty_text_rejects_whitespace_only(self):
+        """Test that whitespace-only strings are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_non_empty_text("   ", "Test Field")
+        assert "Test Field cannot be empty or whitespace-only" in str(exc_info.value)
+
+    def test_validate_non_empty_text_rejects_tabs_only(self):
+        """Test that tab-only strings are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_non_empty_text("\t\t\t", "Test Field")
+        assert "cannot be empty or whitespace-only" in str(exc_info.value)
+
+    def test_validate_non_negative_int_with_positive_value(self):
+        """Test that positive integers pass validation."""
+        result = TextValidator.validate_non_negative_int(42, "Test Field")
+        assert result == 42
+
+    def test_validate_non_negative_int_with_zero(self):
+        """Test that zero passes validation."""
+        result = TextValidator.validate_non_negative_int(0, "Test Field")
+        assert result == 0
+
+    def test_validate_non_negative_int_with_none(self):
+        """Test that None passes validation."""
+        result = TextValidator.validate_non_negative_int(None, "Test Field")
+        assert result is None
+
+    def test_validate_non_negative_int_rejects_negative(self):
+        """Test that negative integers are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_non_negative_int(-5, "Time spent")
+        assert "Time spent cannot be negative" in str(exc_info.value)
+
+    def test_validate_positive_id_with_valid_id(self):
+        """Test that positive IDs pass validation."""
+        result = TextValidator.validate_positive_id(1, "Question ID")
+        assert result == 1
+
+        result = TextValidator.validate_positive_id(999999, "Question ID")
+        assert result == 999999
+
+    def test_validate_positive_id_rejects_zero(self):
+        """Test that zero is rejected for IDs."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_positive_id(0, "Question ID")
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+    def test_validate_positive_id_rejects_negative(self):
+        """Test that negative IDs are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            TextValidator.validate_positive_id(-1, "Question ID")
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+
+class TestQuestionResponseSchemaValidation:
+    """Tests for QuestionResponse schema validation."""
+
+    def test_valid_question_response(self):
+        """Test that valid QuestionResponse data passes validation."""
+        data = {
+            "id": 1,
+            "question_text": "What is 2 + 2?",
+            "question_type": "math",
+            "difficulty_level": "easy",
+            "answer_options": ["A", "B", "C", "D"],
+            "explanation": None,
+        }
+        response = QuestionResponse(**data)
+        assert response.id == 1
+        assert response.question_text == "What is 2 + 2?"
+
+    def test_question_response_rejects_zero_id(self):
+        """Test that QuestionResponse rejects zero ID."""
+        data = {
+            "id": 0,
+            "question_text": "What is 2 + 2?",
+            "question_type": "math",
+            "difficulty_level": "easy",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            QuestionResponse(**data)
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+    def test_question_response_rejects_negative_id(self):
+        """Test that QuestionResponse rejects negative ID."""
+        data = {
+            "id": -5,
+            "question_text": "What is 2 + 2?",
+            "question_type": "math",
+            "difficulty_level": "easy",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            QuestionResponse(**data)
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+    def test_question_response_rejects_empty_text(self):
+        """Test that QuestionResponse rejects empty question text."""
+        data = {
+            "id": 1,
+            "question_text": "",
+            "question_type": "math",
+            "difficulty_level": "easy",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            QuestionResponse(**data)
+        assert "Question text cannot be empty or whitespace-only" in str(exc_info.value)
+
+    def test_question_response_rejects_whitespace_only_text(self):
+        """Test that QuestionResponse rejects whitespace-only question text."""
+        data = {
+            "id": 1,
+            "question_text": "   \t\n   ",
+            "question_type": "math",
+            "difficulty_level": "easy",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            QuestionResponse(**data)
+        assert "Question text cannot be empty or whitespace-only" in str(exc_info.value)
+
+    def test_question_response_strips_whitespace(self):
+        """Test that QuestionResponse strips whitespace from question text."""
+        data = {
+            "id": 1,
+            "question_text": "  What is 2 + 2?  ",
+            "question_type": "math",
+            "difficulty_level": "easy",
+        }
+        response = QuestionResponse(**data)
+        assert response.question_text == "What is 2 + 2?"
+
+
+class TestResponseItemSchemaValidation:
+    """Tests for ResponseItem schema validation."""
+
+    def test_valid_response_item(self):
+        """Test that valid ResponseItem data passes validation."""
+        data = {
+            "question_id": 1,
+            "user_answer": "A",
+            "time_spent_seconds": 30,
+        }
+        item = ResponseItem(**data)
+        assert item.question_id == 1
+        assert item.time_spent_seconds == 30
+
+    def test_response_item_rejects_zero_question_id(self):
+        """Test that ResponseItem rejects zero question ID."""
+        data = {
+            "question_id": 0,
+            "user_answer": "A",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            ResponseItem(**data)
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+    def test_response_item_rejects_negative_question_id(self):
+        """Test that ResponseItem rejects negative question ID."""
+        data = {
+            "question_id": -1,
+            "user_answer": "A",
+        }
+        with pytest.raises(ValueError) as exc_info:
+            ResponseItem(**data)
+        assert "Question ID must be a positive integer" in str(exc_info.value)
+
+    def test_response_item_accepts_none_time_spent(self):
+        """Test that ResponseItem accepts None for time_spent_seconds."""
+        data = {
+            "question_id": 1,
+            "user_answer": "A",
+            "time_spent_seconds": None,
+        }
+        item = ResponseItem(**data)
+        assert item.time_spent_seconds is None
+
+    def test_response_item_accepts_zero_time_spent(self):
+        """Test that ResponseItem accepts zero time_spent_seconds."""
+        data = {
+            "question_id": 1,
+            "user_answer": "A",
+            "time_spent_seconds": 0,
+        }
+        item = ResponseItem(**data)
+        assert item.time_spent_seconds == 0
+
+    def test_response_item_rejects_negative_time_spent(self):
+        """Test that ResponseItem rejects negative time_spent_seconds."""
+        data = {
+            "question_id": 1,
+            "user_answer": "A",
+            "time_spent_seconds": -10,
+        }
+        with pytest.raises(ValueError) as exc_info:
+            ResponseItem(**data)
+        assert "Time spent cannot be negative" in str(exc_info.value)
+
+
+class TestResponseSubmissionSchemaValidation:
+    """Tests for ResponseSubmission schema validation."""
+
+    def test_valid_response_submission(self):
+        """Test that valid ResponseSubmission data passes validation."""
+        data = {
+            "session_id": 1,
+            "responses": [{"question_id": 1, "user_answer": "A"}],
+        }
+        submission = ResponseSubmission(**data)
+        assert submission.session_id == 1
+
+    def test_response_submission_rejects_zero_session_id(self):
+        """Test that ResponseSubmission rejects zero session ID."""
+        data = {
+            "session_id": 0,
+            "responses": [{"question_id": 1, "user_answer": "A"}],
+        }
+        with pytest.raises(ValueError) as exc_info:
+            ResponseSubmission(**data)
+        assert "Session ID must be a positive integer" in str(exc_info.value)
+
+    def test_response_submission_rejects_negative_session_id(self):
+        """Test that ResponseSubmission rejects negative session ID."""
+        data = {
+            "session_id": -1,
+            "responses": [{"question_id": 1, "user_answer": "A"}],
+        }
+        with pytest.raises(ValueError) as exc_info:
+            ResponseSubmission(**data)
+        assert "Session ID must be a positive integer" in str(exc_info.value)
