@@ -67,3 +67,20 @@
 - **Original comment**: "Doc comment doesn't specify what happens if deep_link is missing or what URL schemes are supported"
 - **Reason deferred**: Nice-to-have documentation improvement
 - **Jira ticket**: BTS-294
+
+## Deferred from PR #539 Review (BTS-170 - Question Model Validation)
+
+### 1. Extract validation logic to private helper methods
+- **Original comment**: "Extract validation to private helper methods to follow DRY principle"
+- **Reason deferred**: Code duplication is minimal; suggestion marked as optional and doesn't block merging
+- **Jira ticket**: BTS-295
+
+### 2. Whitespace validation for question text
+- **Original comment**: "Consider trimming whitespace in questionText validation"
+- **Reason deferred**: Low priority enhancement - current validation already catches empty strings
+- **Jira ticket**: BTS-295
+
+### 3. ID validation for positive values
+- **Original comment**: "Consider validating positive IDs"
+- **Reason deferred**: Low priority - IDs come from the backend which already validates them
+- **Jira ticket**: BTS-295
