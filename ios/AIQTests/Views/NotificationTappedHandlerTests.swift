@@ -7,6 +7,8 @@ import XCTest
 /// correctly extracts payload structure, parses deep links, and handles various
 /// edge cases when a user taps on a push notification.
 ///
+/// ## Notification Payload Structure
+///
 /// The notification payload structure from AppDelegate is:
 /// ```
 /// NotificationCenter.default.post(
@@ -16,7 +18,45 @@ import XCTest
 /// )
 /// ```
 ///
-/// The originalNotificationUserInfo should contain a "deep_link" key with a URL string.
+/// The `originalNotificationUserInfo` should contain a `deep_link` key with a URL string.
+///
+/// ## Missing Key Behavior
+///
+/// - **Missing `payload` key**: Returns `nil` when casting to `[AnyHashable: Any]`. The handler
+///   logs a warning and returns early without navigation.
+/// - **Missing `deep_link` key**: Returns `nil` when extracting from payload. The handler
+///   logs a warning and returns early without navigation.
+/// - **Wrong type**: If `payload` is not a dictionary or `deep_link` is not a string, casting
+///   fails and returns `nil`. No crash occurs.
+///
+/// ## Supported URL Schemes
+///
+/// - **`aiq://`**: Custom URL scheme for deep links (e.g., `aiq://test/results/123`)
+/// - **`https://aiq.app`**: Universal links (e.g., `https://aiq.app/test/results/123`)
+///
+/// Any other scheme or host parses to `.invalid` and logs an error to Crashlytics.
+///
+/// ## Valid Deep Link Paths
+///
+/// | Path | Description | Example |
+/// |------|-------------|---------|
+/// | `test/results/{id}` | View test results by ID | `aiq://test/results/123` |
+/// | `test/resume/{sessionId}` | Resume test session | `aiq://test/resume/456` |
+/// | `settings` | Open settings tab | `aiq://settings` |
+///
+/// - IDs must be positive integers (> 0)
+/// - Query parameters and fragments are ignored during parsing
+/// - Unrecognized paths parse to `.invalid`
+///
+/// ## Error Handling
+///
+/// - **Empty string**: `URL(string:)` returns `nil` for empty strings
+/// - **Malformed URL**: May still create a URL object, but parses to `.invalid`
+/// - **Invalid ID**: Non-integer or non-positive IDs parse to `.invalid`
+/// - **Unrecognized route**: Unknown paths parse to `.invalid`
+///
+/// All parsing failures are logged via `os.Logger` and recorded to Crashlytics
+/// via `CrashlyticsErrorRecorder.recordError(_:context:)`.
 ///
 /// Related to BTS-102: Test notification tapped handler in MainTabView
 final class NotificationTappedHandlerTests: XCTestCase {
