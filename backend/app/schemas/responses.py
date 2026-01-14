@@ -7,7 +7,11 @@ from typing_extensions import Self
 from datetime import datetime
 
 from app.schemas.test_sessions import TestSessionResponse
-from app.core.validators import StringSanitizer, validate_no_sql_injection
+from app.core.validators import (
+    StringSanitizer,
+    TextValidator,
+    validate_no_sql_injection,
+)
 
 
 # =============================================================================
@@ -71,6 +75,18 @@ class ResponseItem(BaseModel):
         None, description="Time spent on this question in seconds"
     )
 
+    @field_validator("question_id")
+    @classmethod
+    def validate_question_id(cls, v: int) -> int:
+        """Validate that question ID is a positive integer."""
+        return TextValidator.validate_positive_id(v, "Question ID")
+
+    @field_validator("time_spent_seconds")
+    @classmethod
+    def validate_time_spent(cls, v: Optional[int]) -> Optional[int]:
+        """Validate that time spent is non-negative."""
+        return TextValidator.validate_non_negative_int(v, "Time spent")
+
     @field_validator("user_answer")
     @classmethod
     def sanitize_answer(cls, v: str) -> str:
@@ -97,6 +113,12 @@ class ResponseSubmission(BaseModel):
         False,
         description="Flag indicating if the time limit was exceeded (client-reported)",
     )
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id(cls, v: int) -> int:
+        """Validate that session ID is a positive integer."""
+        return TextValidator.validate_positive_id(v, "Session ID")
 
 
 class TestResultResponse(BaseModel):
