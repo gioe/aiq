@@ -8,7 +8,7 @@ final class OfflineOperationQueueTests: XCTestCase {
 
     var sut: OfflineOperationQueue!
     var mockUserDefaults: UserDefaults!
-    var mockNetworkMonitor: NetworkMonitor!
+    var mockNetworkMonitor: MockNetworkMonitor!
     var cancellables: Set<AnyCancellable>!
 
     // MARK: - Setup & Teardown
@@ -20,8 +20,8 @@ final class OfflineOperationQueueTests: XCTestCase {
         let suiteName = "com.aiq.test.\(UUID().uuidString)"
         mockUserDefaults = UserDefaults(suiteName: suiteName)!
 
-        // Use shared NetworkMonitor (it's a singleton)
-        mockNetworkMonitor = NetworkMonitor.shared
+        // Create mock NetworkMonitor for test isolation
+        mockNetworkMonitor = MockNetworkMonitor(isConnected: true)
 
         // Create SUT
         sut = OfflineOperationQueue(
