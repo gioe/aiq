@@ -39,6 +39,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Accessibility](#accessibility)
 - [Concurrency](#concurrency)
   - [Main Actor Synchronization and Race Conditions](#main-actor-synchronization-and-race-conditions)
+  - [Cross-Actor Property Access](#cross-actor-property-access)
   - [Background Task Execution Patterns](#background-task-execution-patterns)
 - [Performance](#performance)
 - [Security](#security)
@@ -3028,6 +3029,107 @@ class DataManager: ObservableObject {
 - Multiple concurrent async operations update shared state
 - State updates happen outside `@MainActor` context
 - Background queues update published properties without actor isolation
+
+### Cross-Actor Property Access
+
+When a Swift actor needs to read state from `@MainActor`-isolated classes (like `ObservableObject` with `@Published` properties), direct access causes cross-actor isolation violations in Swift 6 strict concurrency.
+
+**Why It's a Problem:**
+
+`@Published` properties on `ObservableObject` are implicitly `@MainActor`-isolated. Accessing them from an actor method crosses actor isolation boundaries, which Swift 6 strict concurrency mode flags as an error.
+
+**Anti-Pattern - Direct Access:**
+
+```swift
+// ❌ Don't access MainActor-isolated properties directly from actors
+actor MyQueue {
+    private let monitor: NetworkMonitor  // ObservableObject is MainActor-isolated
+
+    func checkStatus() -> Bool {
+        monitor.isConnected  // ❌ Cross-actor isolation violation
+    }
+}
+```
+
+**Correct Pattern - Cache State via Combine Observation:**
+
+The solution is to cache the state within the actor and update it through Combine observation, which safely transfers values across actor boundaries:
+
+```swift
+// ✅ Cache state within the actor via Combine observation
+actor MyQueue {
+    private var isNetworkConnected: Bool = true  // Actor-isolated cache
+    private var cancellables = Set<AnyCancellable>()
+
+    func observeNetwork(monitor: NetworkMonitor) {
+        monitor.$isConnected
+            .sink { [weak self] isConnected in
+                Task { await self?.updateNetworkState(isConnected) }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateNetworkState(_ isConnected: Bool) {
+        isNetworkConnected = isConnected  // Update within actor context
+    }
+
+    func checkStatus() -> Bool {
+        isNetworkConnected  // ✅ Actor-isolated access
+    }
+}
+```
+
+**Why This Works:**
+- Combine publishers deliver values across isolation boundaries safely
+- The `Task { await ... }` call transfers execution to the actor's isolation context
+- The cached property is actor-isolated, so all reads are synchronous and safe
+- No cross-actor property access occurs in the actor's methods
+
+**Real-World Example:**
+
+See `OfflineOperationQueue.swift` for a production implementation of this pattern:
+
+```swift
+actor OfflineOperationQueue {
+    /// Cached network connectivity state (actor-isolated to avoid cross-actor access)
+    private var isNetworkConnected: Bool = true
+
+    private var cancellables = Set<AnyCancellable>()
+
+    /// Set up network observation (must be called from actor context)
+    private func observeNetworkChanges() {
+        networkMonitor.$isConnected
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] (isConnected: Bool) in
+                Task { [weak self] in
+                    await self?.handleNetworkStateChange(isConnected: isConnected)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleNetworkStateChange(isConnected: Bool) async {
+        // Update cached network state (actor-isolated)
+        isNetworkConnected = isConnected
+        // ... trigger sync if connected
+    }
+
+    private func canStartSync() -> Bool {
+        // ✅ Safe actor-isolated access
+        !internalIsSyncing && !pendingOperations.isEmpty && isNetworkConnected
+    }
+}
+```
+
+**When to Apply This Pattern:**
+
+| Scenario | Use This Pattern? |
+|----------|-------------------|
+| Actor needs state from `@MainActor` class | ✅ Yes |
+| Actor needs state from another actor | ❌ No (use `await` instead) |
+| `@MainActor` class needs state from actor | ❌ No (use `await` instead) |
+| Non-actor code needs `@Published` state | ❌ No (use Combine directly) |
 
 ### Background Task Execution Patterns
 
