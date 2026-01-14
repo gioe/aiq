@@ -26,6 +26,14 @@ class BaseUITest: XCTestCase {
 
     // MARK: - Timeouts
 
+    //
+    // Note: These timeout constants are intentionally defined here in BaseUITest rather than
+    // in a separate configuration file. With only 4 timeout types, keeping them co-located
+    // with the base test class follows the principle of keeping related constants close to
+    // their usage point. If timeout types exceed 6-8 constants in the future, consider
+    // extracting to a dedicated UITestConfiguration.swift file.
+    // See: TASK-7 evaluation (January 2026)
+
     /// Standard timeout for most UI operations (5 seconds)
     let standardTimeout: TimeInterval = 5.0
 
