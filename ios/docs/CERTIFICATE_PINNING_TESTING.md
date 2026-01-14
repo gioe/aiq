@@ -357,6 +357,10 @@ Location: `ios/AIQ/TrustKit.plist`
 
 **Calendar Reminders**: Set reminders for 2026-02-04 and 2027-02-10 to update certificate hashes.
 
+**Monitoring Script**: Run `./ios/scripts/check_certificate_expiration.sh` to check current certificate status.
+
+**Rotation Runbook**: See [CERTIFICATE_ROTATION_RUNBOOK.md](./CERTIFICATE_ROTATION_RUNBOOK.md) for step-by-step rotation procedures.
+
 ## Troubleshooting
 
 ### Test Failures
@@ -417,5 +421,6 @@ Location: `ios/AIQ/TrustKit.plist`
 
 - [TrustKit Documentation](https://github.com/datatheorem/TrustKit)
 - [CODING_STANDARDS.md - Security Section](./CODING_STANDARDS.md#security)
+- [CERTIFICATE_ROTATION_RUNBOOK.md](./CERTIFICATE_ROTATION_RUNBOOK.md) - Certificate rotation procedures
 - [Railway Certificate Info](https://railway.app/legal/privacy)
 - [Let's Encrypt Certificate Chain](https://letsencrypt.org/certificates/)
