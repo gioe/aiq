@@ -303,7 +303,8 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
     /// Apply sync result changes to the queue
     private func applyChanges(_ result: SyncResult) {
-        pendingOperations.removeAll { result.idsToRemove.contains($0.id) }
+        let idsToRemoveSet = Set(result.idsToRemove)
+        pendingOperations.removeAll { idsToRemoveSet.contains($0.id) }
         for (id, updatedOp) in result.operationsToUpdate {
             if let index = pendingOperations.firstIndex(where: { $0.id == id }) {
                 pendingOperations[index] = updatedOp
