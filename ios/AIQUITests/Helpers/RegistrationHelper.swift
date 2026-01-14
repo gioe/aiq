@@ -117,6 +117,11 @@ class RegistrationHelper {
     ///   - app: The XCUIApplication instance
     ///   - timeout: Default timeout for UI operations (default: 5 seconds)
     ///   - networkTimeout: Timeout for network operations (default: 15 seconds for registration)
+    ///
+    /// - Note: Registration uses a 15-second network timeout (vs. the standard 10 seconds used elsewhere)
+    ///   because the registration endpoint performs additional backend processing: creating the user account,
+    ///   hashing the password, initializing user preferences, and setting up default data. This extra buffer
+    ///   ensures reliable test execution even under slower network conditions or higher backend load.
     init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 15.0) {
         self.app = app
         self.timeout = timeout
