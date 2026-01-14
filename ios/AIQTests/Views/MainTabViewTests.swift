@@ -229,6 +229,45 @@ final class MainTabViewTests: XCTestCase {
         )
     }
 
+    // MARK: - App Upgrade Scenario Tests
+
+    /// Test that upgrading from a version without tab persistence defaults to dashboard
+    ///
+    /// Scenario: A user upgrades from an older app version that did not have tab persistence
+    /// (i.e., the `com.aiq.selectedTab` key does not exist in UserDefaults).
+    /// The app should default to the dashboard tab without crashing or showing unexpected behavior.
+    ///
+    /// This test explicitly verifies the upgrade path behavior, ensuring:
+    /// 1. The absence of the storage key is handled gracefully
+    /// 2. The app defaults to the dashboard tab (rawValue 0)
+    /// 3. The TabDestination enum correctly interprets the default value
+    func testAppUpgrade_DefaultsToDashboard_WhenNoPersistedTabExists() {
+        // Given - Fresh UserDefaults simulating upgrade from version without tab persistence
+        // (No com.aiq.selectedTab key exists)
+        XCTAssertNil(
+            testUserDefaults.object(forKey: tabStorageKey),
+            "Precondition: No tab selection should exist (simulating upgrade scenario)"
+        )
+
+        // When - Reading the persisted tab value (as the app would on first launch after upgrade)
+        let storedValue = testUserDefaults.integer(forKey: tabStorageKey)
+
+        // Then - Should return 0 (UserDefaults default for missing integer keys)
+        XCTAssertEqual(
+            storedValue,
+            0,
+            "Missing key should return 0, which corresponds to dashboard tab"
+        )
+
+        // And - This value should map to the dashboard tab
+        let defaultTab = TabDestination(rawValue: storedValue)
+        XCTAssertEqual(
+            defaultTab,
+            .dashboard,
+            "Default value (0) should map to dashboard tab after app upgrade"
+        )
+    }
+
     // MARK: - Edge Case Tests
 
     /// Test behavior when UserDefaults contains an invalid tab value
