@@ -99,3 +99,6 @@ temp/
 *.bak
 *.bak2
 *.backup
+ios/TestResults.xcresult/
+*.xcresult
+ios/AIQ.xcodeproj/project.xcworkspace/xcuserdata/
