@@ -19,8 +19,12 @@
             <key>TSKEnforcePinning</key>
             <true/>
 
-            <!-- Include subdomains: false because we only use the exact domain -->
-            <!-- aiq-backend-production.up.railway.app - no subdomains are used -->
+            <!-- TSKIncludeSubdomains Configuration -->
+            <!-- Set to false because we only connect to the exact domain -->
+            <!-- aiq-backend-production.up.railway.app with no subdomains. -->
+            <!-- Set to true if Railway introduces subdomain routing (e.g., -->
+            <!-- api.aiq-backend-production.up.railway.app) or if we add -->
+            <!-- additional backend endpoints on subdomains. -->
             <key>TSKIncludeSubdomains</key>
             <false/>
 
