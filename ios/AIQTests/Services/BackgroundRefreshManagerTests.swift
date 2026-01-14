@@ -68,8 +68,8 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Given
         mockAuthManager.isAuthenticated = false
 
-        // When - Use internal test helper to directly test refresh logic
-        let result = await performRefreshForTesting()
+        // When - Call actual production implementation
+        let result = await sut.performRefresh()
 
         // Then - Should return true (not an error, just nothing to do)
         XCTAssertTrue(result)
@@ -85,7 +85,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         mockNetworkMonitor.isConnected = false
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then - Should return true (not an error, just nothing to do)
         XCTAssertTrue(result)
@@ -105,7 +105,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         UserDefaults.standard.set(oneHourAgo, forKey: lastRefreshKey)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then - Should return true (not an error, respecting rate limit)
         XCTAssertTrue(result)
@@ -126,7 +126,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then - Should succeed
         XCTAssertTrue(result)
@@ -152,7 +152,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -181,7 +181,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -202,7 +202,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -218,7 +218,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setMockError(.unknown(message: "Test error"))
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then - Should return false (failed)
         XCTAssertFalse(result)
@@ -235,7 +235,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([], totalCount: 0, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -256,7 +256,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -273,7 +273,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([recentTest], totalCount: 1, hasMore: false)
 
         // When
-        let result = await performRefreshForTesting()
+        let result = await sut.performRefresh()
 
         // Then
         XCTAssertTrue(result)
@@ -300,109 +300,5 @@ final class BackgroundRefreshManagerTests: XCTestCase {
             domainScores: nil,
             confidenceInterval: nil
         )
-    }
-
-    /// Test helper to simulate performRefresh logic
-    /// Since we can't directly call private methods, we simulate the logic here
-    private func performRefreshForTesting() async -> Bool {
-        // Check authentication
-        guard mockAuthManager.isAuthenticated else {
-            return true
-        }
-
-        // Check network
-        guard mockNetworkMonitor.isConnected else {
-            return true
-        }
-
-        // Check last refresh time
-        if let lastRefresh = UserDefaults.standard.object(forKey: lastRefreshKey) as? Date {
-            if Date().timeIntervalSince(lastRefresh) < Constants.BackgroundRefresh.minimumInterval {
-                return true
-            }
-        }
-
-        // Fetch test availability
-        do {
-            let response: PaginatedTestHistoryResponse = try await mockAPIClient.request(
-                endpoint: .testHistory(limit: 1, offset: nil),
-                method: .get,
-                body: nil,
-                requiresAuth: true,
-                customHeaders: nil,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: true
-            )
-
-            // Save refresh timestamp
-            UserDefaults.standard.set(Date(), forKey: lastRefreshKey)
-
-            // Check if test is available
-            let isTestAvailable: Bool
-            if let lastTest = response.results.first {
-                let daysSinceLastTest = Calendar.current.dateComponents(
-                    [.day],
-                    from: lastTest.completedAt,
-                    to: Date()
-                ).day ?? 0
-                isTestAvailable = daysSinceLastTest >= Constants.BackgroundRefresh.testCadenceDays
-            } else {
-                isTestAvailable = true
-            }
-
-            // Send notification if test is available
-            if isTestAvailable {
-                await sendTestAvailableNotificationForTesting()
-            }
-
-            return true
-
-        } catch {
-            return false
-        }
-    }
-
-    /// Test helper to simulate notification sending
-    private func sendTestAvailableNotificationForTesting() async {
-        // Check if we've already notified
-        if let lastNotification = UserDefaults.standard.object(forKey: lastNotificationKey) as? Date {
-            let daysSinceNotification = Calendar.current.dateComponents(
-                [.day],
-                from: lastNotification,
-                to: Date()
-            ).day ?? 0
-
-            if daysSinceNotification < Constants.BackgroundRefresh.testCadenceDays {
-                return
-            }
-        }
-
-        // Check authorization
-        let status = await mockNotificationCenter.getAuthorizationStatus()
-        guard status == .authorized else {
-            return
-        }
-
-        // Mock sending notification
-        let content = UNMutableNotificationContent()
-        content.title = "Test Available"
-        content.body = "Take a new test"
-
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let request = UNNotificationRequest(
-            identifier: "test_\(Date().timeIntervalSince1970)",
-            content: content,
-            trigger: trigger
-        )
-
-        do {
-            try await mockNotificationCenter.add(request)
-
-            // Save notification timestamp
-            UserDefaults.standard.set(Date(), forKey: lastNotificationKey)
-        } catch {
-            // Handle error silently in tests
-        }
     }
 }
