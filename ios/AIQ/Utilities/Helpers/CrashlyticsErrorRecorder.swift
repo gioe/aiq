@@ -23,6 +23,7 @@ enum CrashlyticsErrorRecorder {
         case logout = "auth_logout"
         case registration = "auth_registration"
         case tokenRefresh = "auth_token_refresh"
+        case deleteAccount = "auth_delete_account"
 
         // Test Operations
         case startTest = "test_start"
