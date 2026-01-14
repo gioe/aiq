@@ -132,9 +132,10 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     # IMPORTANT: Use `gh pr view --comments` to fetch ALL comment types (issue comments,
     # PR reviews, and inline review comments). Do NOT use the API endpoint
     # `/issues/{number}/comments` as it only returns issue comments and misses PR reviews.
+    # NOTE: `gh pr view --comments` shows author as "claude" (not "claude[bot]")
     for i in {1..20}; do
       COMMENTS=$(gh pr view $PR_NUMBER --comments 2>/dev/null)
-      if echo "$COMMENTS" | grep -q "claude\[bot\]"; then
+      if echo "$COMMENTS" | grep -q "^author:.*claude"; then
         echo "Claude review found!"
         break
       fi
@@ -145,7 +146,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
     Then fetch the actual review content:
     ```bash
-    gh pr view $PR_NUMBER --comments | grep -A 500 "claude\[bot\]"
+    gh pr view $PR_NUMBER --comments | grep -A 500 "^author:.*claude"
     ```
 
     Alternatively, for more structured access to review content:
