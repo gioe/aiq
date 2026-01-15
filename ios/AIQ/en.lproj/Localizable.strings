@@ -656,3 +656,44 @@
 // MARK: - Background Refresh Notifications
 "notification.test.available.title" = "Ready for Your Next Test?";
 "notification.test.available.body" = "It's been 90 days since your last test. Take a new assessment to track your cognitive progress.";
+
+// MARK: - Onboarding Container
+"onboarding.skip" = "Skip";
+"onboarding.continue" = "Continue";
+"onboarding.get.started" = "Get Started";
+"onboarding.skip.hint" = "Double tap to skip onboarding";
+
+// MARK: - Onboarding Page 1 - Value Proposition
+"onboarding.page1.title" = "Track Your Cognitive Capacity";
+"onboarding.page1.subtitle" = "AIQ helps you measure and monitor your cognitive performance over time through scientifically-designed assessments.";
+"onboarding.page1.feature.tracking" = "Track your cognitive performance over time";
+"onboarding.page1.feature.ai" = "Fresh questions generated daily using AI";
+"onboarding.page1.feature.privacy" = "Private and secure - your data stays yours";
+
+// MARK: - Onboarding Page 2 - How Tests Work
+"onboarding.page2.title" = "How AIQ Tests Work";
+"onboarding.page2.subtitle" = "Each test is designed to comprehensively assess your cognitive abilities across multiple domains.";
+"onboarding.page2.step1" = "Answer 20 unique questions across different cognitive domains";
+"onboarding.page2.step2" = "Complete the test in one sitting (approximately 15-20 minutes)";
+"onboarding.page2.step3" = "Receive your IQ score and detailed performance breakdown";
+"onboarding.page2.info.note" = "Questions are refreshed daily, so every test is unique.";
+
+// MARK: - Onboarding Page 3 - Testing Frequency
+"onboarding.page3.title" = "Test Every 3 Months";
+"onboarding.page3.subtitle" = "We recommend testing every 3 months for the most meaningful insights into your cognitive capacity.";
+"onboarding.page3.rationale.neuroplasticity.title" = "Neuroplasticity Takes Time";
+"onboarding.page3.rationale.neuroplasticity.description" = "Your cognitive abilities don't change overnight. Testing every 3 months gives your brain time to adapt and grow.";
+"onboarding.page3.rationale.trends.title" = "Meaningful Trends";
+"onboarding.page3.rationale.trends.description" = "Spacing tests allows you to see real trends in your performance, not just daily fluctuations.";
+"onboarding.page3.reminder.note" = "You can enable reminders in Settings to help you track your progress.";
+
+// MARK: - Onboarding Page 4 - Privacy & Security
+"onboarding.page4.title" = "Your Data is Secure";
+"onboarding.page4.subtitle" = "We take your privacy seriously. Your cognitive data is protected with industry-leading security.";
+"onboarding.page4.feature.encryption" = "End-to-end encryption for all test data";
+"onboarding.page4.feature.no.sale" = "No sale of personal information to third parties";
+"onboarding.page4.feature.compliance" = "GDPR and CCPA compliant data handling";
+"onboarding.page4.feature.private.results" = "Your results are private and only visible to you";
+"onboarding.page4.privacy.policy.intro" = "For more details, read our";
+"onboarding.page4.privacy.policy.link" = "Privacy Policy";
+"onboarding.page4.privacy.policy.hint" = "Opens privacy policy in Safari";

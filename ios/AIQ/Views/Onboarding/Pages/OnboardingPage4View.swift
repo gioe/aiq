@@ -22,14 +22,13 @@ struct OnboardingPage4View: View {
 
                 // Headline and Body
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    Text("Your Data is Secure")
+                    Text("onboarding.page4.title")
                         .font(Typography.displayMedium)
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                    // swiftlint:disable:next line_length
-                    Text("We take your privacy seriously. Your cognitive data is protected with industry-leading security.")
+                    Text("onboarding.page4.subtitle")
                         .font(Typography.bodyLarge)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.center)
@@ -38,10 +37,10 @@ struct OnboardingPage4View: View {
 
                 // Privacy Features
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    PrivacyFeatureRow(text: "End-to-end encryption for all test data")
-                    PrivacyFeatureRow(text: "No sale of personal information to third parties")
-                    PrivacyFeatureRow(text: "GDPR and CCPA compliant data handling")
-                    PrivacyFeatureRow(text: "Your results are private and only visible to you")
+                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.encryption"))
+                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.no.sale"))
+                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.compliance"))
+                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.private.results"))
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)
@@ -53,16 +52,16 @@ struct OnboardingPage4View: View {
 
                 // Privacy Policy Link
                 VStack(spacing: DesignSystem.Spacing.sm) {
-                    Text("For more details, read our")
+                    Text("onboarding.page4.privacy.policy.intro")
                         .font(Typography.bodyMedium)
                         .foregroundColor(ColorPalette.textSecondary)
 
-                    Link("Privacy Policy", destination: privacyPolicyURL)
+                    Link(String(localized: "onboarding.page4.privacy.policy.link"), destination: privacyPolicyURL)
                         .font(Typography.labelLarge)
                         .foregroundColor(ColorPalette.primary)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.privacyPolicyLink)
-                        .accessibilityHint("Opens privacy policy in Safari")
+                        .accessibilityHint(String(localized: "onboarding.page4.privacy.policy.hint"))
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)

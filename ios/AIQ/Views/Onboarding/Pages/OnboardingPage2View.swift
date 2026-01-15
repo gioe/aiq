@@ -22,14 +22,13 @@ struct OnboardingPage2View: View {
 
                 // Headline and Body
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    Text("How AIQ Tests Work")
+                    Text("onboarding.page2.title")
                         .font(Typography.displayMedium)
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                    // swiftlint:disable:next line_length
-                    Text("Each test is designed to comprehensively assess your cognitive abilities across multiple domains.")
+                    Text("onboarding.page2.subtitle")
                         .font(Typography.bodyLarge)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.center)
@@ -40,17 +39,17 @@ struct OnboardingPage2View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     ProcessStepRow(
                         number: 1,
-                        text: "Answer 20 unique questions across different cognitive domains"
+                        text: String(localized: "onboarding.page2.step1")
                     )
 
                     ProcessStepRow(
                         number: 2,
-                        text: "Complete the test in one sitting (approximately 15-20 minutes)"
+                        text: String(localized: "onboarding.page2.step2")
                     )
 
                     ProcessStepRow(
                         number: 3,
-                        text: "Receive your IQ score and detailed performance breakdown"
+                        text: String(localized: "onboarding.page2.step3")
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
@@ -67,7 +66,7 @@ struct OnboardingPage2View: View {
                         .foregroundColor(ColorPalette.info)
                         .accessibilityHidden(true)
 
-                    Text("Questions are refreshed daily, so every test is unique.")
+                    Text("onboarding.page2.info.note")
                         .font(Typography.bodyMedium)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.leading)
