@@ -42,7 +42,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private var pendingDeviceToken: String?
 
     /// UserDefaults key for storing device token
-    private let deviceTokenKey = "com.aiq.deviceToken"
+    /// Internal static constant to allow tests to reference the same key without needing an instance
+    static let deviceTokenKey = "com.aiq.deviceToken"
 
     /// UserDefaults key for tracking if permission has been requested
     private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
@@ -334,14 +335,14 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Cache device token to UserDefaults
     /// - Parameter token: The device token string
     private func cacheDeviceToken(_ token: String) {
-        UserDefaults.standard.set(token, forKey: deviceTokenKey)
+        UserDefaults.standard.set(token, forKey: Self.deviceTokenKey)
         pendingDeviceToken = token
     }
 
     /// Get cached device token from UserDefaults
     /// - Returns: Cached device token if available
     private func getCachedDeviceToken() -> String? {
-        UserDefaults.standard.string(forKey: deviceTokenKey)
+        UserDefaults.standard.string(forKey: Self.deviceTokenKey)
     }
 
     /// Load cached device token from UserDefaults
@@ -351,7 +352,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     /// Clear cached device token from UserDefaults
     private func clearCachedDeviceToken() {
-        UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+        UserDefaults.standard.removeObject(forKey: Self.deviceTokenKey)
         UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
         UserDefaults.standard.removeObject(forKey: provisionalPermissionRequestedKey)
         UserDefaults.standard.removeObject(forKey: upgradePromptShownKey)
