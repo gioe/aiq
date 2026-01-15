@@ -460,7 +460,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     // MARK: - Error Propagation Tests
 
-    func testAPIError_PropagatesCorrectly() async {
+    func testAPIError_WhenRegistrationFails_DoesNotMarkAsRegistered() async {
         // Given - Authenticated user
         mockAuthManager.isAuthenticated = true
 
@@ -474,13 +474,13 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Attempt registration
         await sut.retryDeviceTokenRegistration()
 
-        // Then - Should propagate error correctly
+        // Then - Should attempt call but not mark as registered
         let registerCalled = await mockNotificationService.registerDeviceTokenCalled
         XCTAssertTrue(registerCalled, "Should attempt to call backend")
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should not mark as registered on error")
     }
 
-    func testNetworkError_PropagatesCorrectly() async {
+    func testNetworkError_WhenRegistrationFails_KeepsTokenForRetry() async {
         // Given - Authenticated user
         mockAuthManager.isAuthenticated = true
 
@@ -498,7 +498,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // When - Attempt registration
         await sut.retryDeviceTokenRegistration()
 
-        // Then - Should handle network error
+        // Then - Should not mark as registered and keep token for retry
         let registerCalled = await mockNotificationService.registerDeviceTokenCalled
         XCTAssertTrue(registerCalled, "Should attempt to call backend")
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should not mark as registered on network error")
