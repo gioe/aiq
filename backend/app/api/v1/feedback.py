@@ -2,6 +2,7 @@
 Feedback submission endpoints for user feedback, bug reports, and feature requests.
 """
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, status, HTTPException
@@ -17,7 +18,7 @@ from app.core.auth import get_current_user_optional
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.core.ip_extraction import get_secure_client_ip
 from app.ratelimit.limiter import RateLimiter
-from app.ratelimit.storage import InMemoryStorage
+from app.ratelimit.storage import InMemoryStorage, RedisStorage
 from app.ratelimit.strategies import TokenBucketStrategy
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,61 @@ router = APIRouter()
 FEEDBACK_RATE_LIMIT_MAX_REQUESTS = 5
 FEEDBACK_RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
 
-feedback_storage = InMemoryStorage()
+
+def _create_rate_limiter_storage():
+    """
+    Create rate limiter storage with Redis fallback to in-memory.
+
+    Attempts to use Redis if REDIS_URL is configured, falling back to
+    in-memory storage if Redis is unavailable or not configured.
+
+    This ensures the rate limiter works correctly in both:
+    - Multi-worker production deployments (with Redis)
+    - Single-worker local development (without Redis)
+
+    Returns:
+        RateLimiterStorage: Redis storage if available, otherwise in-memory
+    """
+    redis_url = os.environ.get("REDIS_URL", "").strip()
+
+    if redis_url:
+        try:
+            logger.info("Attempting to connect to Redis for rate limiting")
+            redis_storage = RedisStorage(redis_url=redis_url)
+
+            # Test connection
+            if redis_storage.is_connected():
+                logger.info(
+                    "Successfully connected to Redis for feedback rate limiting"
+                )
+                return redis_storage
+            else:
+                logger.warning(
+                    "Redis connection failed. Falling back to in-memory storage. "
+                    "Rate limiting will not work correctly across multiple workers."
+                )
+        except ImportError:
+            logger.warning(
+                "Redis library not installed. Install with: pip install redis. "
+                "Falling back to in-memory storage."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize Redis storage: {e}. "
+                f"Falling back to in-memory storage. "
+                f"Rate limiting will not work correctly across multiple workers."
+            )
+
+    # Fallback to in-memory storage
+    logger.info(
+        "Using in-memory storage for feedback rate limiting. "
+        "Set REDIS_URL environment variable for multi-worker deployments."
+    )
+    return InMemoryStorage()
+
+
+# Initialize rate limiter with Redis fallback
+feedback_storage = _create_rate_limiter_storage()
 feedback_strategy = TokenBucketStrategy(feedback_storage)
 feedback_limiter = RateLimiter(
     strategy=feedback_strategy,
