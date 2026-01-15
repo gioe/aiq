@@ -59,10 +59,9 @@ RATE_LIMIT_ENABLED=True
 RATE_LIMIT_STRATEGY=token_bucket
 RATE_LIMIT_DEFAULT_LIMIT=100
 RATE_LIMIT_DEFAULT_WINDOW=60
-
-# Redis for Distributed Rate Limiting (optional but recommended for multi-worker)
-# If not set, rate limiter falls back to in-memory storage (won't work correctly across workers)
-# REDIS_URL=redis://your-redis-host:6379/0
+# For multi-worker deployments, use Redis storage:
+# RATE_LIMIT_STORAGE=redis
+# RATE_LIMIT_REDIS_URL=redis://your-redis-host:6379/0
 
 # Admin Dashboard (optional)
 ADMIN_ENABLED=False

@@ -819,20 +819,24 @@ The validity system aims for:
 
 ## Redis for Distributed Rate Limiting
 
-The feedback rate limiter supports Redis for multi-worker deployments. When `REDIS_URL` is set, the rate limiter uses Redis for shared state across workers. If Redis is unavailable or not configured, it gracefully falls back to in-memory storage.
+Both the global rate limiter and feedback rate limiter support Redis for multi-worker deployments. When `RATE_LIMIT_STORAGE=redis` is set, the rate limiters use Redis for shared state across workers. If Redis is unavailable, they gracefully fall back to in-memory storage.
 
 **Local Development (no Redis)**:
 ```bash
-# No REDIS_URL needed - uses in-memory storage by default
+# Uses in-memory storage by default
+RATE_LIMIT_STORAGE=memory
 ```
 
 **Production with Redis**:
 ```bash
+# Enable Redis storage
+RATE_LIMIT_STORAGE=redis
+
 # Development (local Redis)
-REDIS_URL=redis://localhost:6379/0
+RATE_LIMIT_REDIS_URL=redis://localhost:6379/0
 
 # Production (TLS + auth)
-REDIS_URL=rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/0
+RATE_LIMIT_REDIS_URL=rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/0
 ```
 
 **Redis Security Checklist** (Production):

@@ -2,7 +2,6 @@
 Feedback submission endpoints for user feedback, bug reports, and feature requests.
 """
 import logging
-import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, status, HTTPException
@@ -15,10 +14,11 @@ from app.schemas.feedback import (
     FeedbackSubmitResponse,
 )
 from app.core.auth import get_current_user_optional
+from app.core.config import settings
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.core.ip_extraction import get_secure_client_ip
 from app.ratelimit.limiter import RateLimiter
-from app.ratelimit.storage import InMemoryStorage, RedisStorage
+from app.ratelimit.storage import InMemoryStorage, RateLimiterStorage
 from app.ratelimit.strategies import TokenBucketStrategy
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,12 @@ FEEDBACK_RATE_LIMIT_MAX_REQUESTS = 5
 FEEDBACK_RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
 
 
-def _create_rate_limiter_storage():
+def _create_rate_limiter_storage() -> RateLimiterStorage:
     """
     Create rate limiter storage with Redis fallback to in-memory.
 
-    Attempts to use Redis if REDIS_URL is configured, falling back to
-    in-memory storage if Redis is unavailable or not configured.
+    Uses the same RATE_LIMIT_STORAGE and RATE_LIMIT_REDIS_URL settings
+    as the global rate limiter to maintain consistent configuration.
 
     This ensures the rate limiter works correctly in both:
     - Multi-worker production deployments (with Redis)
@@ -44,12 +44,13 @@ def _create_rate_limiter_storage():
     Returns:
         RateLimiterStorage: Redis storage if available, otherwise in-memory
     """
-    redis_url = os.environ.get("REDIS_URL", "").strip()
-
-    if redis_url:
+    if settings.RATE_LIMIT_STORAGE == "redis":
         try:
-            logger.info("Attempting to connect to Redis for rate limiting")
-            redis_storage = RedisStorage(redis_url=redis_url)
+            # Import RedisStorage only when needed (redis-py is optional)
+            from app.ratelimit.storage import RedisStorage
+
+            logger.info("Attempting to connect to Redis for feedback rate limiting")
+            redis_storage = RedisStorage(redis_url=settings.RATE_LIMIT_REDIS_URL)
 
             # Test connection
             if redis_storage.is_connected():
@@ -59,17 +60,18 @@ def _create_rate_limiter_storage():
                 return redis_storage
             else:
                 logger.warning(
-                    "Redis connection failed. Falling back to in-memory storage. "
+                    "Redis connection failed for feedback rate limiter. "
+                    "Falling back to in-memory storage. "
                     "Rate limiting will not work correctly across multiple workers."
                 )
         except ImportError:
             logger.warning(
                 "Redis library not installed. Install with: pip install redis. "
-                "Falling back to in-memory storage."
+                "Falling back to in-memory storage for feedback rate limiting."
             )
         except Exception as e:
             logger.warning(
-                f"Failed to initialize Redis storage: {e}. "
+                f"Failed to initialize Redis storage for feedback rate limiter: {e}. "
                 f"Falling back to in-memory storage. "
                 f"Rate limiting will not work correctly across multiple workers."
             )
@@ -77,9 +79,9 @@ def _create_rate_limiter_storage():
     # Fallback to in-memory storage
     logger.info(
         "Using in-memory storage for feedback rate limiting. "
-        "Set REDIS_URL environment variable for multi-worker deployments."
+        "Set RATE_LIMIT_STORAGE=redis for multi-worker deployments."
     )
-    return InMemoryStorage()
+    return InMemoryStorage(max_keys=settings.RATE_LIMIT_MAX_KEYS)
 
 
 # Initialize rate limiter with Redis fallback

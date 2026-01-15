@@ -53,15 +53,6 @@ class Settings(BaseSettings):
     # Prevents memory exhaustion attacks by using LRU eviction when limit is reached
     RATE_LIMIT_MAX_KEYS: int = 100000
 
-    # Redis URL for distributed rate limiting (optional)
-    # If set, rate limiter uses Redis for multi-worker deployments
-    # If not set, falls back to in-memory storage (for local development)
-    # Production: Use rediss:// (TLS) with authentication
-    REDIS_URL: str = Field(
-        default="",
-        description="Redis connection URL for distributed rate limiting (optional)",
-    )
-
     # Notification Scheduling
     TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
