@@ -134,12 +134,17 @@ class FeedbackViewModel: BaseViewModel {
         }
     }
 
-    /// Reset the form to initial state
+    /// Reset the form to initial state, preserving pre-populated email for authenticated users
     func resetForm() {
         resetTask?.cancel()
         resetTask = nil
         name = ""
-        email = ""
+        // Preserve pre-populated email for authenticated users
+        if let currentUser = authManager?.currentUser {
+            email = currentUser.email
+        } else {
+            email = ""
+        }
         selectedCategory = nil
         description = ""
         showSuccessMessage = false
