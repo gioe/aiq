@@ -498,4 +498,54 @@ final class IQScoreUtilityTests: XCTestCase {
     func testClassify_IntMinValue_ReturnsInvalid() {
         XCTAssertEqual(IQScoreUtility.classify(Int.min), .invalid)
     }
+
+    // MARK: - Protocol Conformance Tests
+
+    func testCategory_CaseIterable_ContainsAllCases() {
+        // Verify CaseIterable returns all expected categories
+        let allCases = IQScoreUtility.Category.allCases
+        XCTAssertEqual(allCases.count, 7)
+        XCTAssertTrue(allCases.contains(.extremelyLow))
+        XCTAssertTrue(allCases.contains(.belowAverage))
+        XCTAssertTrue(allCases.contains(.average))
+        XCTAssertTrue(allCases.contains(.aboveAverage))
+        XCTAssertTrue(allCases.contains(.gifted))
+        XCTAssertTrue(allCases.contains(.highlyGifted))
+        XCTAssertTrue(allCases.contains(.invalid))
+    }
+
+    func testCategory_AllCases_HaveValidDescriptions() {
+        // Verify every category has a non-empty description
+        for category in IQScoreUtility.Category.allCases {
+            XCTAssertFalse(category.description.isEmpty, "Category \(category) should have a non-empty description")
+        }
+    }
+
+    func testCategory_AllCases_HaveValidIcons() {
+        // Verify every category has a non-empty icon name
+        for category in IQScoreUtility.Category.allCases {
+            XCTAssertFalse(category.icon.isEmpty, "Category \(category) should have a non-empty icon")
+        }
+    }
+
+    func testCategory_AllCases_HaveValidPercentileRanges() {
+        // Verify every category has a non-empty percentile range
+        for category in IQScoreUtility.Category.allCases {
+            XCTAssertFalse(category.percentileRange.isEmpty, "Category \(category) should have a non-empty percentile range")
+        }
+    }
+
+    func testCategory_Equatable_SameCasesAreEqual() {
+        // Verify Equatable conformance works correctly
+        let category1 = IQScoreUtility.Category.average
+        let category2 = IQScoreUtility.Category.average
+        XCTAssertEqual(category1, category2)
+    }
+
+    func testCategory_Equatable_DifferentCasesAreNotEqual() {
+        // Verify different cases are not equal
+        let category1 = IQScoreUtility.Category.average
+        let category2 = IQScoreUtility.Category.gifted
+        XCTAssertNotEqual(category1, category2)
+    }
 }
