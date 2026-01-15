@@ -256,6 +256,57 @@ final class ServiceContainerTests: XCTestCase {
         XCTAssertNil(sut.resolve(TestServiceProtocol.self), "Should not resolve Protocol after reset")
     }
 
+    func testReset_ClearsConfigurationCompleteFlag() {
+        // Given - Mark configuration complete after registration
+        sut.register(String.self) { "Test" }
+        sut.markConfigurationComplete()
+
+        // When - Reset and try to register again
+        sut.reset()
+
+        // Then - Should be able to register without assertion (proves flag was cleared)
+        // If the flag wasn't cleared, this would trigger an assertion in DEBUG builds
+        sut.register(Int.self) { 42 }
+        XCTAssertTrue(sut.isRegistered(Int.self), "Should successfully register after reset clears configuration flag")
+    }
+
+    // MARK: - Configuration Lifecycle Tests
+
+    func testMarkConfigurationComplete_AllowsRegistrationBeforeMarking() {
+        // Given - Container is fresh (not marked complete)
+
+        // When - Register services before marking complete
+        sut.register(String.self) { "Test" }
+        sut.register(Int.self) { 42 }
+
+        // Then - Registrations should succeed
+        XCTAssertTrue(sut.isRegistered(String.self), "Should register String before marking complete")
+        XCTAssertTrue(sut.isRegistered(Int.self), "Should register Int before marking complete")
+    }
+
+    func testMarkConfigurationComplete_FullLifecycle() {
+        // This test verifies the complete lifecycle:
+        // 1. Register services
+        // 2. Mark configuration complete
+        // 3. Reset (simulating test teardown)
+        // 4. Register again (simulating next test setup)
+
+        // Phase 1: Initial configuration
+        sut.register(String.self) { "Phase1" }
+        XCTAssertEqual(sut.resolve(String.self), "Phase1", "Should resolve after initial registration")
+
+        // Phase 2: Mark complete
+        sut.markConfigurationComplete()
+
+        // Phase 3: Reset (like tearDown would do)
+        sut.reset()
+        XCTAssertFalse(sut.isRegistered(String.self), "Should clear registrations on reset")
+
+        // Phase 4: Re-register (like setUp would do for next test)
+        sut.register(String.self) { "Phase4" }
+        XCTAssertEqual(sut.resolve(String.self), "Phase4", "Should resolve after re-registration post-reset")
+    }
+
     // MARK: - Shared Instance Tests
 
     func testSharedInstance_PersistsRegistrations() {
