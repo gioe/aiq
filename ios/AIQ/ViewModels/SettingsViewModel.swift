@@ -19,7 +19,7 @@ import Foundation
 /// - **`deleteAccountError` (operation-specific)**: Used for delete account because:
 ///   - Requires a specific alert title ("Delete Account Failed") for clarity
 ///   - Should not trigger retry logic (account deletion is not retryable)
-///   - AuthManager already records the error to Crashlytics
+///   - Error is recorded to Crashlytics via the injected `errorRecorder`
 ///   - Uses a modal alert rather than inline error display
 ///
 /// This pattern is intentional. When an operation requires specialized error
@@ -41,16 +41,28 @@ class SettingsViewModel: BaseViewModel {
     @Published var isDeletingAccount = false
     @Published var showOnboarding = false
 
+    // MARK: - Type Aliases
+
+    /// Closure type for error recording. Used for dependency injection to enable testing.
+    typealias ErrorRecorder = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
+
     // MARK: - Private Properties
 
     private let authManager: AuthManagerProtocol
+    private let errorRecorder: ErrorRecorder
 
     // MARK: - Initialization
 
     /// Initialize the ViewModel with dependencies
-    /// - Parameter authManager: Authentication manager for account operations
-    init(authManager: AuthManagerProtocol) {
+    /// - Parameters:
+    ///   - authManager: Authentication manager for account operations
+    ///   - errorRecorder: Closure for recording errors (defaults to CrashlyticsErrorRecorder)
+    init(
+        authManager: AuthManagerProtocol,
+        errorRecorder: @escaping ErrorRecorder = { CrashlyticsErrorRecorder.recordError($0, context: $1) }
+    ) {
         self.authManager = authManager
+        self.errorRecorder = errorRecorder
         super.init()
 
         // Observe current user from AuthManager
@@ -105,7 +117,9 @@ class SettingsViewModel: BaseViewModel {
         } catch {
             deleteAccountError = error
             isDeletingAccount = false
+            // Record to Crashlytics for production monitoring
             // Uses deleteAccountError instead of handleError() - see class documentation for rationale
+            errorRecorder(error, .deleteAccount)
         }
     }
 

@@ -235,7 +235,7 @@ final class SettingsViewModelTests: XCTestCase {
         // is intentionally separate from BaseViewModel.error because:
         // - Delete account requires a specific alert title ("Delete Account Failed")
         // - Delete account should not trigger retry logic
-        // - AuthManager already records the error to Crashlytics
+        // - The error is recorded to Crashlytics via errorRecorder
 
         // Given
         mockAuthManager.shouldSucceedDeleteAccount = false
@@ -247,6 +247,90 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.deleteAccountError, "deleteAccountError should be set after failure")
         XCTAssertNil(sut.error, "BaseViewModel.error should remain nil (separate error channel)")
         XCTAssertFalse(sut.canRetry, "canRetry should be false (delete account is not retryable)")
+    }
+
+    // MARK: - Crashlytics Error Recording Tests
+
+    func testDeleteAccount_Failure_RecordsErrorToCrashlytics() async {
+        // Given - Set up to capture error recording calls
+        var recordedError: Error?
+        var recordedContext: CrashlyticsErrorRecorder.ErrorContext?
+
+        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { error, context in
+            recordedError = error
+            recordedContext = context
+        }
+
+        // Create ViewModel with mock error recorder
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            errorRecorder: mockErrorRecorder
+        )
+        mockAuthManager.shouldSucceedDeleteAccount = false
+
+        // When
+        await sut.deleteAccount()
+
+        // Then - Verify error was recorded with correct context
+        XCTAssertNotNil(recordedError, "Error should be recorded to Crashlytics on delete failure")
+        XCTAssertEqual(
+            recordedContext,
+            .deleteAccount,
+            "Error should be recorded with .deleteAccount context"
+        )
+    }
+
+    func testDeleteAccount_Success_DoesNotRecordError() async {
+        // Given - Set up to capture error recording calls
+        var errorRecorded = false
+
+        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { _, _ in
+            errorRecorded = true
+        }
+
+        // Create ViewModel with mock error recorder
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            errorRecorder: mockErrorRecorder
+        )
+        mockAuthManager.shouldSucceedDeleteAccount = true
+
+        // When
+        await sut.deleteAccount()
+
+        // Then - No error should be recorded on success
+        XCTAssertFalse(errorRecorded, "No error should be recorded when delete succeeds")
+    }
+
+    func testDeleteAccount_Failure_RecordsCorrectErrorType() async {
+        // Given - Set up to capture the actual error recorded
+        var recordedError: Error?
+
+        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { error, _ in
+            recordedError = error
+        }
+
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            errorRecorder: mockErrorRecorder
+        )
+        mockAuthManager.shouldSucceedDeleteAccount = false
+
+        // When
+        await sut.deleteAccount()
+
+        // Then - The recorded error should match deleteAccountError
+        XCTAssertNotNil(recordedError)
+        XCTAssertEqual(
+            (recordedError as NSError?)?.domain,
+            (sut.deleteAccountError as NSError?)?.domain,
+            "Recorded error should match deleteAccountError"
+        )
+        XCTAssertEqual(
+            (recordedError as NSError?)?.code,
+            (sut.deleteAccountError as NSError?)?.code,
+            "Recorded error code should match deleteAccountError code"
+        )
     }
 
     // MARK: - User State Binding Tests
