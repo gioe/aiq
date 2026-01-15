@@ -81,6 +81,18 @@ struct OnboardingPage1View: View {
     }
 }
 
-#Preview {
+// MARK: - Previews
+
+#Preview("Light Mode") {
     OnboardingPage1View()
+}
+
+#Preview("Dark Mode") {
+    OnboardingPage1View()
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Large Text") {
+    OnboardingPage1View()
+        .environment(\.sizeCategory, .accessibilityLarge)
 }

@@ -148,6 +148,18 @@ struct OnboardingContainerView: View {
     }
 }
 
-#Preview {
+// MARK: - Previews
+
+#Preview("Light Mode") {
     OnboardingContainerView()
+}
+
+#Preview("Dark Mode") {
+    OnboardingContainerView()
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Large Text") {
+    OnboardingContainerView()
+        .environment(\.sizeCategory, .accessibilityLarge)
 }
