@@ -47,16 +47,16 @@ struct OnboardingContainerView: View {
                     OnboardingPage4View()
                         .tag(3)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
-                .onAppear {
-                    configurePageControl()
-                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .onChange(of: viewModel.currentPage) { _ in
                     // Haptic feedback on page change
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                 }
+
+                // Custom page indicator (scoped styling, no global UIPageControl modifications)
+                PageIndicator(currentPage: $viewModel.currentPage, totalPages: 4)
+                    .padding(.bottom, DesignSystem.Spacing.md)
 
                 // Bottom Button Area
                 VStack(spacing: DesignSystem.Spacing.md) {
@@ -138,19 +138,6 @@ struct OnboardingContainerView: View {
 
         // Dismiss if presented as a sheet (e.g., from Settings)
         dismiss()
-    }
-
-    // MARK: - Configuration
-
-    /// Configure UIPageControl appearance for onboarding
-    /// - Note: This modifies the global UIPageControl appearance, affecting all TabView page indicators
-    ///   throughout the app. SwiftUI does not currently provide a scoped API for customizing
-    ///   page indicators within a single TabView. If different styling is needed elsewhere,
-    ///   consider implementing a custom page indicator component.
-    private func configurePageControl() {
-        let appearance = UIPageControl.appearance()
-        appearance.currentPageIndicatorTintColor = UIColor(ColorPalette.primary)
-        appearance.pageIndicatorTintColor = UIColor(ColorPalette.textTertiary)
     }
 }
 
