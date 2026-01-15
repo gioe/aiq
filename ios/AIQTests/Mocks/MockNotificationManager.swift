@@ -19,10 +19,15 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     /// Whether notification permission has been requested from the user
     var hasRequestedNotificationPermission: Bool = false
 
+    /// Whether provisional notification permission has been requested
+    var hasRequestedProvisionalPermission: Bool = false
+
     // MARK: - Call Tracking
 
     var requestAuthorizationCalled = false
     var requestAuthorizationCallCount = 0
+    var requestProvisionalAuthorizationCalled = false
+    var requestProvisionalAuthorizationCallCount = 0
     var checkAuthorizationStatusCalled = false
     var didReceiveDeviceTokenCalled = false
     var lastDeviceToken: String?
@@ -55,6 +60,21 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         let status: UNAuthorizationStatus = mockAuthorizationGranted ? .authorized : .denied
         authorizationStatus = status
         mockAuthorizationStatus = status // Keep mock state consistent for subsequent checkAuthorizationStatus() calls
+        return mockAuthorizationGranted
+    }
+
+    func requestProvisionalAuthorization() async -> Bool {
+        requestProvisionalAuthorizationCalled = true
+        requestProvisionalAuthorizationCallCount += 1
+        hasRequestedProvisionalPermission = true
+
+        if shouldFailAuthorization {
+            return false
+        }
+
+        let status: UNAuthorizationStatus = mockAuthorizationGranted ? .provisional : .denied
+        authorizationStatus = status
+        mockAuthorizationStatus = status
         return mockAuthorizationGranted
     }
 
@@ -98,6 +118,8 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     func reset() {
         requestAuthorizationCalled = false
         requestAuthorizationCallCount = 0
+        requestProvisionalAuthorizationCalled = false
+        requestProvisionalAuthorizationCallCount = 0
         checkAuthorizationStatusCalled = false
         didReceiveDeviceTokenCalled = false
         lastDeviceToken = nil
@@ -109,6 +131,7 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         authorizationStatus = .notDetermined
         isDeviceTokenRegistered = false
         hasRequestedNotificationPermission = false
+        hasRequestedProvisionalPermission = false
         mockAuthorizationGranted = true
         mockAuthorizationStatus = .authorized
         shouldFailAuthorization = false

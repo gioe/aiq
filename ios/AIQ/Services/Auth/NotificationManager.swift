@@ -47,6 +47,9 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// UserDefaults key for tracking if permission has been requested
     private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
 
+    /// UserDefaults key for tracking if provisional permission has been requested
+    private let provisionalPermissionRequestedKey = "com.aiq.hasRequestedProvisionalPermission"
+
     /// Whether we're currently processing a device token registration
     private var isRegisteringToken = false
 
@@ -57,6 +60,16 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         }
         set {
             UserDefaults.standard.set(newValue, forKey: permissionRequestedKey)
+        }
+    }
+
+    /// Whether provisional notification permission has been requested
+    var hasRequestedProvisionalPermission: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: provisionalPermissionRequestedKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: provisionalPermissionRequestedKey)
         }
     }
 
@@ -126,6 +139,45 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
             #if DEBUG
                 print("❌ [NotificationManager] Authorization request failed: \(error.localizedDescription)")
             #endif
+            return false
+        }
+    }
+
+    /// Request provisional notification authorization (silent notifications)
+    /// Provisional notifications appear only in Notification Center without alerts, sounds, or badges
+    /// - Returns: Whether provisional authorization was granted (typically always true initially)
+    @discardableResult
+    func requestProvisionalAuthorization() async -> Bool {
+        // Mark that we've requested provisional permission
+        hasRequestedProvisionalPermission = true
+
+        do {
+            let granted = try await notificationCenter
+                .requestAuthorization(options: [.alert, .sound, .badge, .provisional])
+
+            await checkAuthorizationStatus()
+
+            if granted {
+                // Register for remote notifications
+                application.registerForRemoteNotifications()
+            }
+
+            return granted
+
+        } catch {
+            logger.error(
+                """
+                Failed to request provisional notification authorization: \
+                \(error.localizedDescription, privacy: .public)
+                """
+            )
+            CrashlyticsErrorRecorder.recordError(
+                error,
+                context: .notificationPermission,
+                additionalInfo: [
+                    "operation": "requestProvisionalAuthorization"
+                ]
+            )
             return false
         }
     }
@@ -278,6 +330,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private func clearCachedDeviceToken() {
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
         UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
+        UserDefaults.standard.removeObject(forKey: provisionalPermissionRequestedKey)
         pendingDeviceToken = nil
     }
 }

@@ -18,10 +18,19 @@ protocol NotificationManagerProtocol: AnyObject {
     /// Whether notification permission has been requested from the user
     var hasRequestedNotificationPermission: Bool { get set }
 
+    /// Whether provisional notification permission has been requested
+    var hasRequestedProvisionalPermission: Bool { get set }
+
     /// Request notification authorization from the system
     /// - Returns: Whether authorization was granted
     @discardableResult
     func requestAuthorization() async -> Bool
+
+    /// Request provisional notification authorization (silent notifications)
+    /// Provisional notifications appear only in Notification Center without alerts, sounds, or badges
+    /// - Returns: Whether provisional authorization was granted (typically always true initially)
+    @discardableResult
+    func requestProvisionalAuthorization() async -> Bool
 
     /// Check and update current authorization status
     func checkAuthorizationStatus() async
