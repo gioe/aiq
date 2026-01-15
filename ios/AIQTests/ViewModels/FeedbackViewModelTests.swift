@@ -542,4 +542,113 @@ final class FeedbackViewModelTests: XCTestCase {
             sut.resetForm()
         }
     }
+
+    // MARK: - Rapid Submission Tests (Race Condition Prevention)
+
+    func testRapidSubmission_CancelsPendingReset() async {
+        // Given - Setup valid form
+        sut.name = "John Doe"
+        sut.email = "john@example.com"
+        sut.selectedCategory = .bugReport
+        sut.description = "This is a detailed bug report"
+
+        let mockResponse = FeedbackSubmitResponse(
+            success: true,
+            submissionId: 123,
+            message: "Thank you"
+        )
+        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+
+        // When - First submission
+        await sut.submitFeedback()
+        XCTAssertTrue(sut.showSuccessMessage, "should show success after first submission")
+
+        // Immediately update form and submit again (before the 2-second reset fires)
+        sut.name = "Jane Doe"
+        sut.description = "Second submission before reset"
+        await mockAPIClient.reset()
+        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await sut.submitFeedback()
+
+        // Then - Form should still have second submission data, not be reset
+        XCTAssertEqual(sut.name, "Jane Doe", "name should retain second submission value")
+        XCTAssertEqual(sut.description, "Second submission before reset", "description should retain second submission value")
+        XCTAssertTrue(sut.showSuccessMessage, "should still show success message")
+    }
+
+    func testRapidSubmission_OnlyLastResetExecutes() async throws {
+        // Given - Setup valid form
+        sut.name = "John Doe"
+        sut.email = "john@example.com"
+        sut.selectedCategory = .bugReport
+        sut.description = "This is a detailed bug report"
+
+        let mockResponse = FeedbackSubmitResponse(
+            success: true,
+            submissionId: 123,
+            message: "Thank you"
+        )
+        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+
+        // When - Submit multiple times rapidly
+        for i in 1 ... 3 {
+            sut.name = "User \(i)"
+            sut.description = "Submission number \(i) with details"
+            await mockAPIClient.reset()
+            await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+            await sut.submitFeedback()
+        }
+
+        // Immediately after last submission, form should have last values
+        XCTAssertEqual(sut.name, "User 3", "name should be from last submission")
+        XCTAssertEqual(sut.description, "Submission number 3 with details", "description should be from last submission")
+
+        // Wait for reset timer (2 seconds + buffer)
+        try await Task.sleep(for: .seconds(2.5))
+
+        // Then - Form should be reset exactly once (from the last submission's timer)
+        XCTAssertEqual(sut.name, "", "name should be reset after timer")
+        XCTAssertEqual(sut.email, "", "email should be reset after timer")
+        XCTAssertNil(sut.selectedCategory, "category should be reset after timer")
+        XCTAssertEqual(sut.description, "", "description should be reset after timer")
+        XCTAssertFalse(sut.showSuccessMessage, "success message should be hidden after reset")
+    }
+
+    func testResetForm_CancelsPendingResetTask() async throws {
+        // Given - Setup valid form and submit
+        sut.name = "John Doe"
+        sut.email = "john@example.com"
+        sut.selectedCategory = .bugReport
+        sut.description = "This is a detailed bug report"
+
+        let mockResponse = FeedbackSubmitResponse(
+            success: true,
+            submissionId: 123,
+            message: "Thank you"
+        )
+        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await sut.submitFeedback()
+
+        // A reset task is now scheduled for 2 seconds later
+        XCTAssertTrue(sut.showSuccessMessage, "should show success message")
+
+        // When - Manually reset form immediately
+        sut.resetForm()
+        XCTAssertFalse(sut.showSuccessMessage, "success message should be hidden after manual reset")
+
+        // Fill form with new data
+        sut.name = "New User"
+        sut.email = "new@example.com"
+        sut.selectedCategory = .featureRequest
+        sut.description = "New submission data"
+
+        // Wait for what would have been the original reset timer
+        try await Task.sleep(for: .seconds(2.5))
+
+        // Then - Form should NOT be reset (the pending task was cancelled)
+        XCTAssertEqual(sut.name, "New User", "name should not be reset by cancelled task")
+        XCTAssertEqual(sut.email, "new@example.com", "email should not be reset by cancelled task")
+        XCTAssertEqual(sut.selectedCategory, .featureRequest, "category should not be reset by cancelled task")
+        XCTAssertEqual(sut.description, "New submission data", "description should not be reset by cancelled task")
+    }
 }
