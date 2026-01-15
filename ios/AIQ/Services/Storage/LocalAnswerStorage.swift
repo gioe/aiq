@@ -10,6 +10,11 @@ protocol LocalAnswerStorageProtocol {
 
 /// UserDefaults-based implementation for storing test progress locally
 class LocalAnswerStorage: LocalAnswerStorageProtocol {
+    /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(LocalAnswerStorageProtocol.self)` instead.
+    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(LocalAnswerStorageProtocol.self) instead")
     static let shared = LocalAnswerStorage()
 
     private let userDefaults: UserDefaults

@@ -4,6 +4,11 @@ import Foundation
 /// Manages authentication state for the entire app
 @MainActor
 class AuthManager: ObservableObject, AuthManagerProtocol {
+    /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(AuthManagerProtocol.self)` instead.
+    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(AuthManagerProtocol.self) instead")
     static let shared = AuthManager()
 
     @Published private(set) var isAuthenticated: Bool = false

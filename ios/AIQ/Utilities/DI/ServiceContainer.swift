@@ -43,11 +43,15 @@ final class ServiceContainer {
 
     // MARK: - Private Properties
 
-    /// Thread-safe lock for synchronizing access to the factory dictionary
+    /// Thread-safe lock for synchronizing access to the factory dictionary and instance cache
     private let lock = NSLock()
 
     /// Storage for registered service factories, keyed by type name
     private var factories: [String: () -> Any] = [:]
+
+    /// Cache for resolved instances (singleton behavior)
+    /// Once a factory is called, the result is cached here to ensure the same instance is returned
+    private var instances: [String: Any] = [:]
 
     /// Indicates whether initial configuration is complete.
     /// When true, DEBUG builds will assert if `register()` is called.
@@ -114,11 +118,55 @@ final class ServiceContainer {
         factories[key] = factory
     }
 
+    /// Register a service instance directly for a given type
+    ///
+    /// The instance is stored directly in the container's instance cache, bypassing factory creation.
+    /// This is the preferred method for registering services when the container owns the instances.
+    ///
+    /// - Important: This method is intended for **application startup configuration only**.
+    ///   All service registrations should be performed in `ServiceConfiguration.configureServices()`
+    ///   during app initialization, before any user interactions begin. While this method is
+    ///   thread-safe, calling it at runtime to swap services can lead to unpredictable behavior.
+    ///
+    /// - Parameters:
+    ///   - type: The type to register (typically a protocol)
+    ///   - instance: The instance to register
+    ///
+    /// - Note: Registering the same type multiple times will overwrite the previous registration
+    ///
+    /// Example:
+    /// ```swift
+    /// // Create instance owned by container
+    /// let apiClient = APIClient()
+    /// container.register(APIClientProtocol.self, instance: apiClient)
+    /// ```
+    func register<T>(_ type: T.Type, instance: T) {
+        #if DEBUG
+            assert(
+                !configurationComplete,
+                """
+                ServiceContainer.register() called after configuration was marked complete.
+                Registration should only happen during app startup in ServiceConfiguration.configureServices().
+                Type being registered: \(type)
+                """
+            )
+        #endif
+
+        let key = String(describing: type)
+        lock.lock()
+        defer { lock.unlock() }
+        instances[key] = instance
+        // Also register a factory that returns this instance for backward compatibility
+        // Capture the instance directly to avoid potential nil if self is deallocated
+        factories[key] = { instance }
+    }
+
     // MARK: - Resolution
 
     /// Resolve a service of the given type
     ///
-    /// Executes the factory closure registered for this type and returns the result.
+    /// Returns a cached instance if one exists, otherwise executes the factory closure
+    /// registered for this type, caches the result, and returns it.
     /// Returns nil if no factory has been registered for this type.
     ///
     /// - Parameter type: The type to resolve (must match a registered type)
@@ -136,11 +184,20 @@ final class ServiceContainer {
         lock.lock()
         defer { lock.unlock() }
 
+        // Return cached instance if it exists
+        if let instance = instances[key] {
+            return instance as? T
+        }
+
+        // No cached instance, check if factory exists
         guard let factory = factories[key] else {
             return nil
         }
 
-        return factory() as? T
+        // Call factory and cache the result
+        let instance = factory()
+        instances[key] = instance
+        return instance as? T
     }
 
     // MARK: - Configuration Lifecycle
@@ -178,20 +235,21 @@ final class ServiceContainer {
         lock.lock()
         defer { lock.unlock() }
         factories.removeAll()
+        instances.removeAll()
         configurationComplete = false
     }
 
     /// Check if a type is registered
     ///
     /// - Parameter type: The type to check
-    /// - Returns: True if the type has a registered factory, false otherwise
+    /// - Returns: True if the type has a registered factory or instance, false otherwise
     ///
     /// Primarily used in tests to verify service registration.
     func isRegistered(_ type: (some Any).Type) -> Bool {
         let key = String(describing: type)
         lock.lock()
         defer { lock.unlock() }
-        return factories[key] != nil
+        return instances[key] != nil || factories[key] != nil
     }
 }
 

@@ -79,6 +79,10 @@ protocol NotificationServiceProtocol {
 /// Service for managing push notification device tokens and preferences
 class NotificationService: NotificationServiceProtocol {
     /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(NotificationServiceProtocol.self)` instead.
+    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(NotificationServiceProtocol.self) instead")
     static let shared = NotificationService()
 
     private let apiClient: APIClientProtocol

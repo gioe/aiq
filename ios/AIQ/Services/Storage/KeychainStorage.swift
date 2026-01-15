@@ -3,6 +3,11 @@ import Security
 
 /// Keychain storage implementation for secure data persistence
 class KeychainStorage: SecureStorageProtocol {
+    /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Instances are now created and owned by ServiceContainer.
+    ///   This property remains only for backward compatibility with tests.
+    @available(*, deprecated, message: "KeychainStorage instances are now created by ServiceContainer")
     static let shared = KeychainStorage()
 
     private let serviceName: String
