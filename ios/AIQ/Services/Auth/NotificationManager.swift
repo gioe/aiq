@@ -9,6 +9,11 @@ import UserNotifications
 class NotificationManager: ObservableObject, NotificationManagerProtocol, DeviceTokenManagerProtocol {
     // MARK: - Singleton
 
+    /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(NotificationManagerProtocol.self)` instead.
+    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(NotificationManagerProtocol.self) instead")
     static let shared = NotificationManager()
 
     // MARK: - Published Properties

@@ -4,6 +4,30 @@ import Foundation
 ///
 /// This provides a centralized location for dependency registration,
 /// ensuring all services are properly configured during app initialization.
+///
+/// ## Architecture
+///
+/// ServiceContainer now **owns** the singleton instances instead of relying on external
+/// `.shared` properties. Services are created in dependency order and registered directly
+/// with the container.
+///
+/// ## Dependency Order
+///
+/// Services are created in the following order to resolve dependencies:
+/// 1. **No dependencies**: APIClient, LocalAnswerStorage
+/// 2. **Depends on APIClient**: AuthService, NotificationService
+/// 3. **Depends on AuthService**: AuthManager (with lazy NotificationManager factory)
+/// 4. **Depends on NotificationService + AuthManager**: NotificationManager
+///
+/// ## Circular Dependency Handling
+///
+/// AuthManager ↔ NotificationManager have a circular dependency:
+/// - AuthManager uses NotificationManager for device token operations (lazy via factory)
+/// - NotificationManager uses AuthManager for auth state monitoring
+///
+/// This is resolved by passing a factory closure to AuthManager that lazily resolves
+/// NotificationManager from the container after all services are registered.
+@MainActor
 enum ServiceConfiguration {
     /// Configure all services in the dependency injection container
     ///
@@ -12,11 +36,11 @@ enum ServiceConfiguration {
     /// to enable testability through mocking.
     ///
     /// Registered Services:
-    /// - `APIClientProtocol`: Singleton instance for making API requests
-    /// - `AuthManagerProtocol`: Singleton instance for authentication management
-    /// - `NotificationServiceProtocol`: Singleton instance for notification operations
-    /// - `NotificationManagerProtocol`: Singleton instance for notification coordination
-    /// - `LocalAnswerStorageProtocol`: Singleton instance for local test progress storage
+    /// - `APIClientProtocol`: Container-owned instance for making API requests
+    /// - `AuthManagerProtocol`: Container-owned instance for authentication management
+    /// - `NotificationServiceProtocol`: Container-owned instance for notification operations
+    /// - `NotificationManagerProtocol`: Container-owned instance for notification coordination
+    /// - `LocalAnswerStorageProtocol`: Container-owned instance for local test progress storage
     ///
     /// - Parameter container: The ServiceContainer to register services with
     ///
@@ -26,32 +50,48 @@ enum ServiceConfiguration {
     /// ServiceConfiguration.configureServices(container: ServiceContainer.shared)
     /// ```
     static func configureServices(container: ServiceContainer) {
-        // MARK: - API Client
+        // MARK: - Layer 1: Services with no dependencies
 
-        container.register(APIClientProtocol.self) {
-            APIClient.shared
-        }
+        let apiClient = APIClient(
+            baseURL: AppConfig.apiBaseURL,
+            retryPolicy: .default
+        )
+        container.register(APIClientProtocol.self, instance: apiClient)
 
-        // MARK: - Authentication
+        let localAnswerStorage = LocalAnswerStorage()
+        container.register(LocalAnswerStorageProtocol.self, instance: localAnswerStorage)
 
-        container.register(AuthManagerProtocol.self) {
-            AuthManager.shared
-        }
+        // MARK: - Layer 2: Services depending on Layer 1
 
-        // MARK: - Notifications
+        let keychainStorage = KeychainStorage()
+        let authService = AuthService(apiClient: apiClient, secureStorage: keychainStorage)
 
-        container.register(NotificationServiceProtocol.self) {
-            NotificationService.shared
-        }
+        let notificationService = NotificationService(apiClient: apiClient)
+        container.register(NotificationServiceProtocol.self, instance: notificationService)
 
-        container.register(NotificationManagerProtocol.self) {
-            NotificationManager.shared
-        }
+        // MARK: - Layer 3: AuthManager with lazy NotificationManager dependency
 
-        // MARK: - Local Storage
+        // Create AuthManager with a factory closure that will resolve NotificationManager
+        // from the container after it's registered (breaking the circular dependency)
+        let authManager = AuthManager(
+            authService: authService,
+            deviceTokenManagerFactory: {
+                // Lazily resolve NotificationManager from container (breaks circular dependency)
+                guard let manager = container.resolve(NotificationManagerProtocol.self),
+                      let tokenManager = manager as? DeviceTokenManagerProtocol else {
+                    fatalError("NotificationManagerProtocol must be registered before AuthManager uses it")
+                }
+                return tokenManager
+            }
+        )
+        container.register(AuthManagerProtocol.self, instance: authManager)
 
-        container.register(LocalAnswerStorageProtocol.self) {
-            LocalAnswerStorage.shared
-        }
+        // MARK: - Layer 4: NotificationManager (now AuthManager is available)
+
+        let notificationManager = NotificationManager(
+            notificationService: notificationService,
+            authManager: authManager
+        )
+        container.register(NotificationManagerProtocol.self, instance: notificationManager)
     }
 }

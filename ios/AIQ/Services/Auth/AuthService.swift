@@ -3,6 +3,11 @@ import os
 
 /// Authentication service implementation
 class AuthService: AuthServiceProtocol {
+    /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Instances are now created and owned by ServiceContainer.
+    ///   This property remains only for backward compatibility with tests.
+    @available(*, deprecated, message: "AuthService instances are now created by ServiceContainer")
     static let shared = AuthService()
 
     private let apiClient: APIClientProtocol

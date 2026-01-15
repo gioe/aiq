@@ -99,8 +99,10 @@ final class ServiceContainerTests: XCTestCase {
         XCTAssertTrue(resolved is MockTestService, "Resolved instance should be MockTestService, got \(type(of: resolved))")
     }
 
-    func testResolve_TransientLifetime_ReturnsNewInstanceEachTime() {
+    func testResolve_CachesInstancesFromFactory() {
         // Given - Register factory that creates new instances
+        // NOTE: ServiceContainer now caches instances automatically, so even factories
+        // that create new objects will only be called once, and the result is cached
         sut.register(TransientService.self) {
             TransientService()
         }
@@ -112,7 +114,7 @@ final class ServiceContainerTests: XCTestCase {
         // Then
         XCTAssertNotNil(instance1, "First resolution should succeed")
         XCTAssertNotNil(instance2, "Second resolution should succeed")
-        XCTAssertFalse(instance1 === instance2, "Should return different instances for transient lifetime")
+        XCTAssertTrue(instance1 === instance2, "Should return same cached instance (container owns instances)")
     }
 
     func testResolve_SingletonLifetime_ReturnsSameInstance() {

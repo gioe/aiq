@@ -169,6 +169,10 @@ private struct RequestContext {
 /// Main API client implementation
 class APIClient: APIClientProtocol {
     /// Shared singleton instance
+    ///
+    /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(APIClientProtocol.self)` instead.
+    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(APIClientProtocol.self) instead")
     static let shared = APIClient(
         baseURL: AppConfig.apiBaseURL,
         retryPolicy: .default
