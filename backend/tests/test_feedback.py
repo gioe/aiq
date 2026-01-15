@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import FeedbackSubmission
+from app.ratelimit.storage import InMemoryStorage
 
 
 @pytest.fixture(autouse=True)
@@ -1086,3 +1087,175 @@ class TestFeedbackNotificationErrorHandling:
         success_log = [c for c in info_calls if "Feedback submission successful" in c]
         assert len(success_log) > 0
         assert "notification_sent=False" in success_log[0]
+
+
+class TestCreateRateLimiterStorage:
+    """Tests for _create_rate_limiter_storage() function."""
+
+    def test_returns_in_memory_storage_when_storage_is_memory(self):
+        """Test that in-memory storage is returned when RATE_LIMIT_STORAGE is 'memory'."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "memory"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 100000
+
+            storage = _create_rate_limiter_storage()
+
+            assert isinstance(storage, InMemoryStorage)
+
+    def test_returns_redis_storage_when_configured_and_connected(self):
+        """Test that Redis storage is returned when configured and connection succeeds."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        mock_redis_storage = MagicMock()
+        mock_redis_storage.is_connected.return_value = True
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "redis"
+            mock_settings.RATE_LIMIT_REDIS_URL = "redis://localhost:6379/0"
+
+            # Mock at the source module level since import is inside function
+            with patch(
+                "app.ratelimit.storage.RedisStorage",
+                return_value=mock_redis_storage,
+            ):
+                storage = _create_rate_limiter_storage()
+
+                assert storage == mock_redis_storage
+                mock_redis_storage.is_connected.assert_called_once()
+
+    def test_fallback_to_in_memory_when_redis_connection_fails(self):
+        """Test fallback to in-memory when Redis connection fails."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        mock_redis_storage = MagicMock()
+        mock_redis_storage.is_connected.return_value = False
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "redis"
+            mock_settings.RATE_LIMIT_REDIS_URL = "redis://localhost:6379/0"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 50000
+
+            with patch(
+                "app.ratelimit.storage.RedisStorage",
+                return_value=mock_redis_storage,
+            ):
+                with patch("app.api.v1.feedback.logger") as mock_logger:
+                    storage = _create_rate_limiter_storage()
+
+                    assert isinstance(storage, InMemoryStorage)
+                    mock_logger.warning.assert_called()
+
+    def test_fallback_to_in_memory_when_redis_import_fails(self):
+        """Test fallback to in-memory when redis library is not installed."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "redis"
+            mock_settings.RATE_LIMIT_REDIS_URL = "redis://localhost:6379/0"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 100000
+
+            # Simulate ImportError when RedisStorage is instantiated
+            with patch(
+                "app.ratelimit.storage.RedisStorage",
+                side_effect=ImportError("No module named 'redis'"),
+            ):
+                with patch("app.api.v1.feedback.logger") as mock_logger:
+                    storage = _create_rate_limiter_storage()
+
+                    assert isinstance(storage, InMemoryStorage)
+                    mock_logger.warning.assert_called()
+                    warning_message = str(mock_logger.warning.call_args)
+                    assert "not installed" in warning_message.lower()
+
+    def test_fallback_to_in_memory_when_redis_raises_exception(self):
+        """Test fallback to in-memory when Redis initialization raises exception."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "redis"
+            mock_settings.RATE_LIMIT_REDIS_URL = "redis://localhost:6379/0"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 100000
+
+            # Simulate connection error at the source module
+            with patch(
+                "app.ratelimit.storage.RedisStorage",
+                side_effect=ConnectionError("Connection refused"),
+            ):
+                with patch("app.api.v1.feedback.logger") as mock_logger:
+                    storage = _create_rate_limiter_storage()
+
+                    assert isinstance(storage, InMemoryStorage)
+                    mock_logger.warning.assert_called()
+                    warning_message = str(mock_logger.warning.call_args)
+                    assert "Failed to initialize" in warning_message
+
+    def test_logs_info_when_using_in_memory_storage(self):
+        """Test that info log is generated when using in-memory storage."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "memory"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 100000
+
+            with patch("app.api.v1.feedback.logger") as mock_logger:
+                storage = _create_rate_limiter_storage()
+
+                assert isinstance(storage, InMemoryStorage)
+                mock_logger.info.assert_called()
+                info_message = str(mock_logger.info.call_args)
+                assert "in-memory" in info_message.lower()
+
+    def test_logs_info_when_redis_connection_succeeds(self):
+        """Test that info log is generated when Redis connection succeeds."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        mock_redis_storage = MagicMock()
+        mock_redis_storage.is_connected.return_value = True
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "redis"
+            mock_settings.RATE_LIMIT_REDIS_URL = "redis://localhost:6379/0"
+
+            with patch(
+                "app.ratelimit.storage.RedisStorage",
+                return_value=mock_redis_storage,
+            ):
+                with patch("app.api.v1.feedback.logger") as mock_logger:
+                    storage = _create_rate_limiter_storage()
+
+                    assert storage == mock_redis_storage
+                    # Check that success was logged
+                    info_calls = [str(c) for c in mock_logger.info.call_args_list]
+                    success_logs = [
+                        c for c in info_calls if "Successfully connected" in c
+                    ]
+                    assert len(success_logs) > 0
+
+    def test_in_memory_storage_uses_max_keys_setting(self):
+        """Test that in-memory storage is initialized with correct max_keys."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "memory"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 75000
+
+            storage = _create_rate_limiter_storage()
+
+            assert isinstance(storage, InMemoryStorage)
+            assert storage._max_keys == 75000
+
+    def test_return_type_is_rate_limiter_storage(self):
+        """Test that return type conforms to RateLimiterStorage interface."""
+        from app.api.v1.feedback import _create_rate_limiter_storage
+        from app.ratelimit.storage import RateLimiterStorage
+
+        with patch("app.api.v1.feedback.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_STORAGE = "memory"
+            mock_settings.RATE_LIMIT_MAX_KEYS = 100000
+
+            storage = _create_rate_limiter_storage()
+
+            # Verify it's an instance of the abstract class
+            assert isinstance(storage, RateLimiterStorage)
