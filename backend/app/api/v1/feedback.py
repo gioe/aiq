@@ -24,15 +24,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Rate limiter for feedback submissions
-# 5 submissions per hour (3600 seconds) per IP address
+# Rate limiting configuration for feedback submissions
+FEEDBACK_RATE_LIMIT_MAX_REQUESTS = 5
+FEEDBACK_RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
+
 feedback_storage = InMemoryStorage()
 feedback_strategy = TokenBucketStrategy(feedback_storage)
 feedback_limiter = RateLimiter(
     strategy=feedback_strategy,
     storage=feedback_storage,
-    default_limit=5,
-    default_window=3600,  # 1 hour in seconds
+    default_limit=FEEDBACK_RATE_LIMIT_MAX_REQUESTS,
+    default_window=FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
 )
 
 
