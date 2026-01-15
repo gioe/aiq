@@ -548,3 +548,20 @@ class TestGetUsersForDay30Reminder:
         user_ids = {u.id for u in users}
         expected_ids = {u.id for u in eligible_users}
         assert user_ids == expected_ids
+
+    def test_user_already_received_reminder_not_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test that users who already received a Day 30 reminder are excluded."""
+        # Create a test result from 30 days ago
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+
+        # Mark user as having already received the reminder
+        user_with_device_token.day_30_reminder_sent_at = utc_now() - timedelta(days=1)
+        db_session.commit()
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        # User should NOT be returned because they already received the reminder
+        assert len(users) == 0

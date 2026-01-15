@@ -187,6 +187,7 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
     # - Have only 1 test (first test)
     # - First test was completed ~30 days ago
     # - Have notifications enabled and device token registered
+    # - Have NOT already received a Day 30 reminder (deduplication)
     users_for_reminder = (
         db.query(User)
         .join(first_test_subquery, User.id == first_test_subquery.c.user_id)
@@ -202,6 +203,8 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
                 # First test was completed approximately 30 days ago
                 first_test_subquery.c.first_test_date >= target_date_start,
                 first_test_subquery.c.first_test_date <= target_date_end,
+                # User has NOT already received a Day 30 reminder (deduplication)
+                User.day_30_reminder_sent_at.is_(None),
             )
         )
         .all()
@@ -385,6 +388,9 @@ class NotificationScheduler:
         to users with provisional authorization. Users with full authorization
         will receive the standard alert notification.
 
+        After successful sending, users are marked with day_30_reminder_sent_at
+        timestamp to prevent duplicate notifications.
+
         Returns:
             Dictionary with counts: {"total": X, "success": Y, "failed": Z, "users_found": N}
         """
@@ -397,7 +403,10 @@ class NotificationScheduler:
             return {"total": 0, "success": 0, "failed": 0, "users_found": 0}
 
         # Build notification payloads for Day 30 reminder
+        # Keep track of user_id -> notification mapping for deduplication marking
         notifications = []
+        user_id_to_notification_index: Dict[int, int] = {}
+
         for user in users_to_notify:
             if not user.apns_device_token:
                 continue
@@ -408,6 +417,7 @@ class NotificationScheduler:
             title = "Your Cognitive Journey Continues"
             body = f"Hi {first_name}! It's been 30 days since your first test. Your next test is in 60 days."
 
+            user_id_to_notification_index[user.id] = len(notifications)
             notifications.append(
                 {
                     "device_token": user.apns_device_token,
@@ -439,6 +449,17 @@ class NotificationScheduler:
         try:
             await apns_service.connect()
             results = await apns_service.send_batch_notifications(notifications)
+
+            # Mark all users as having received the notification to prevent duplicates
+            # We mark all users even if some individual sends failed, because:
+            # 1. The send attempt was made
+            # 2. Failed sends are typically due to invalid tokens (user won't get it anyway)
+            # 3. Retrying could cause duplicate notifications for users who did receive it
+            now = utc_now()
+            for user in users_to_notify:
+                if user.id in user_id_to_notification_index:
+                    user.day_30_reminder_sent_at = now
+            self.db.commit()
 
             return {
                 "total": len(notifications),
