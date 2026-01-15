@@ -151,7 +151,14 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         // Mark that we've requested provisional permission
         hasRequestedProvisionalPermission = true
 
+        // Capture previous status for error reporting
+        let previousStatus = authorizationStatus
+
         do {
+            // Request provisional authorization with full capability options.
+            // Including .alert, .sound, .badge alongside .provisional means if the user
+            // has previously granted full authorization, the system will return that status.
+            // This allows seamless upgrade from provisional to full authorization.
             let granted = try await notificationCenter
                 .requestAuthorization(options: [.alert, .sound, .badge, .provisional])
 
@@ -175,7 +182,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
                 error,
                 context: .notificationPermission,
                 additionalInfo: [
-                    "operation": "requestProvisionalAuthorization"
+                    "operation": "requestProvisionalAuthorization",
+                    "previousStatus": "\(previousStatus.rawValue)"
                 ]
             )
             return false
