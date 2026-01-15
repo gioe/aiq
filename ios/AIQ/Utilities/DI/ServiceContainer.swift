@@ -157,9 +157,8 @@ final class ServiceContainer {
         defer { lock.unlock() }
         instances[key] = instance
         // Also register a factory that returns this instance for backward compatibility
-        factories[key] = { [weak self] in
-            self?.instances[key] as Any
-        }
+        // Capture the instance directly to avoid potential nil if self is deallocated
+        factories[key] = { instance }
     }
 
     // MARK: - Resolution
@@ -243,14 +242,14 @@ final class ServiceContainer {
     /// Check if a type is registered
     ///
     /// - Parameter type: The type to check
-    /// - Returns: True if the type has a registered factory, false otherwise
+    /// - Returns: True if the type has a registered factory or instance, false otherwise
     ///
     /// Primarily used in tests to verify service registration.
     func isRegistered(_ type: (some Any).Type) -> Bool {
         let key = String(describing: type)
         lock.lock()
         defer { lock.unlock() }
-        return factories[key] != nil
+        return instances[key] != nil || factories[key] != nil
     }
 }
 

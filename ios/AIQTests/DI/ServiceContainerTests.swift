@@ -60,6 +60,35 @@ final class ServiceContainerTests: XCTestCase {
         XCTAssertEqual(resolved, "Second", "Should resolve to most recent registration")
     }
 
+    func testRegister_Instance_RegistersDirectly() {
+        // Given
+        let instance = MockTestService()
+
+        // When - Register instance directly
+        sut.register(TestServiceProtocol.self, instance: instance)
+
+        // Then
+        XCTAssertTrue(sut.isRegistered(TestServiceProtocol.self), "Type should be registered")
+        let resolved = sut.resolve(TestServiceProtocol.self)
+        XCTAssertNotNil(resolved, "Should resolve the registered instance")
+        XCTAssertTrue(resolved === instance, "Should return the exact same instance")
+    }
+
+    func testRegister_Instance_ReturnsSameInstanceMultipleTimes() {
+        // Given
+        let instance = TransientService()
+        sut.register(TransientService.self, instance: instance)
+
+        // When - Resolve multiple times
+        let resolved1 = sut.resolve(TransientService.self)
+        let resolved2 = sut.resolve(TransientService.self)
+
+        // Then
+        XCTAssertTrue(resolved1 === instance, "First resolution should be the registered instance")
+        XCTAssertTrue(resolved2 === instance, "Second resolution should be the registered instance")
+        XCTAssertTrue(resolved1 === resolved2, "Both resolutions should return the same instance")
+    }
+
     // MARK: - Resolution Tests
 
     func testResolve_RegisteredType_ReturnsInstance() {
