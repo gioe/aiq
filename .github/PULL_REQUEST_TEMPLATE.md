@@ -65,6 +65,36 @@ If this PR implements a full-stack feature (backend + iOS changes):
 - [ ] CodingKeys added for all snake_case to camelCase conversions
 - [ ] Tested decoding with actual backend response (not just mock data)
 
+## iOS Changes Checklist
+
+If this PR includes iOS code changes:
+
+### Architecture & Patterns
+- [ ] ViewModels inherit from `BaseViewModel`
+- [ ] Views use appropriate property wrappers (`@StateObject` for owned, `@ObservedObject` for shared/singletons)
+- [ ] Business logic is in ViewModel, not View
+- [ ] No direct SwiftUI imports in ViewModels
+
+### State Management
+- [ ] Loading/error states use `BaseViewModel` methods (`setLoading()`, `handleError()`)
+- [ ] Navigation uses `AppRouter` patterns
+- [ ] `@AppStorage` used correctly (no redundant validation - see CODING_STANDARDS.md)
+
+### Accessibility
+- [ ] VoiceOver labels on interactive elements
+- [ ] Dynamic Type supported (no hardcoded font sizes)
+- [ ] Semantic colors used for dark mode support
+
+### Security (if applicable)
+- [ ] Sensitive data not logged (see SENSITIVE_LOGGING_AUDIT.md)
+- [ ] Token handling follows established patterns
+- [ ] Certificate pinning not bypassed in release builds
+
+### Testing
+- [ ] Unit tests for new ViewModel logic
+- [ ] Mock data uses realistic values
+- [ ] Async tests handle proper wait conditions
+
 ## Documentation PR Checklist
 
 If this PR adds/modifies documentation (coverage reports, analysis docs, etc.), complete the [Documentation PR Checklist](DOCUMENTATION_PR_CHECKLIST.md):
@@ -73,3 +103,55 @@ If this PR adds/modifies documentation (coverage reports, analysis docs, etc.), 
 - [ ] Metrics include units and context (e.g., "executable lines" vs "total lines")
 - [ ] Claims about code usage verified by searching references
 - [ ] Technical claims verified against actual codebase
+
+---
+
+## Review Comment Severity Guide
+
+For reviewers and authors to align on comment priority:
+
+### Blocking (must fix before merge)
+
+These issues MUST be addressed before the PR can be merged:
+
+| Category | Examples |
+|----------|----------|
+| **Security** | XSS vulnerabilities, SQL injection, auth bypasses, secrets in code |
+| **Bugs** | Logic errors, null pointer crashes, race conditions, data corruption |
+| **Breaking Changes** | API contract violations, backwards-incompatible changes |
+| **Test Failures** | Tests that fail, missing tests for critical paths |
+| **Type Errors** | Compiler errors, type mismatches, missing error handling |
+
+Reviewers should prefix blocking comments with: `[Blocking]` or `Must fix:`
+
+### Non-Blocking (can be deferred)
+
+These issues are valid but can be addressed in follow-up PRs:
+
+| Category | Examples |
+|----------|----------|
+| **Code Style** | Naming suggestions, formatting preferences |
+| **Refactoring** | "This could be cleaner if..." suggestions |
+| **Documentation** | Missing comments, docstring improvements |
+| **Nice-to-Haves** | Performance optimizations (unless critical), additional test cases |
+| **Minor TODOs** | Small improvements that don't affect functionality |
+
+Reviewers should prefix non-blocking comments with: `[Nit]`, `[Optional]`, or `Consider:`
+
+### How to Handle Deferred Items
+
+1. Author creates a task in the backlog database for each deferred item
+2. Author adds entry to `.github/DEFERRED_REVIEW_ITEMS.md`
+3. Author responds to review comment with link to the created task
+4. Reviewer approves the PR
+
+### Author Response Guidelines
+
+For blocking comments:
+1. Fix the issue
+2. Push the fix
+3. Reply with "Fixed in [commit]"
+
+For non-blocking comments:
+1. If fixing now: Fix and reply "Fixed in [commit]"
+2. If deferring: Create task, add to DEFERRED_REVIEW_ITEMS.md, reply with task reference

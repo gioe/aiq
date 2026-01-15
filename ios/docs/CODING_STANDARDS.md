@@ -15,6 +15,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 
 - [Project Structure](#project-structure)
 - [Architecture Patterns](#architecture-patterns)
+- [UI-First Development Workflow](#ui-first-development-workflow)
 - [Naming Conventions](#naming-conventions)
 - [SwiftUI Best Practices](#swiftui-best-practices)
 - [State Management](#state-management)
@@ -244,6 +245,114 @@ init(apiClient: APIClientProtocol = APIClient.shared) {
     self.apiClient = apiClient
 }
 ```
+
+---
+
+## UI-First Development Workflow
+
+When implementing full-stack features that span iOS and backend, follow a **UI-first development approach**. This workflow ensures better UX outcomes, clearer API contracts, and fewer integration issues.
+
+### Why UI-First?
+
+1. **Better UX outcomes**: Starting with UI forces consideration of user interactions and data display needs before backend implementation
+2. **Clearer API contracts**: Mock data in iOS reveals exactly what fields and types the backend must provide
+3. **Parallel development**: Once iOS establishes the contract via mock data, backend development can proceed in parallel
+4. **Reduced rework**: Changes to data structures are cheaper to make during UI prototyping than after backend implementation
+
+### UI-First Process
+
+#### Step 1: Prototype the UI with Mock Data
+
+Create the full user experience using hardcoded mock data. This step should include:
+
+- Complete SwiftUI views with realistic layout and styling
+- ViewModels with `@Published` properties matching expected data shapes
+- User interactions (buttons, forms, navigation) wired up locally
+- Loading states, error states, and empty states
+
+```swift
+// Example: Mock data during prototyping
+class FeatureViewModel: BaseViewModel {
+    @Published var items: [FeatureItem] = [
+        FeatureItem(id: 1, title: "Mock Item 1", value: 42),
+        FeatureItem(id: 2, title: "Mock Item 2", value: 87)
+    ]
+
+    func fetchItems() async {
+        // TODO: Replace with API call
+        // Mock data already loaded
+    }
+}
+```
+
+#### Step 2: Document the API Contract
+
+Based on the mock data, document what the backend must provide:
+
+- **Request format**: HTTP method, endpoint path, request body structure
+- **Response format**: Field names (snake_case for JSON), types, optionality
+- **Error scenarios**: What errors can occur and how iOS will handle them
+
+This documentation can live in the PR description or a brief spec file.
+
+#### Step 3: Implement Backend API
+
+With a clear contract from the iOS prototype:
+
+- Implement the endpoint matching the documented contract
+- Use Pydantic schemas that match the iOS model expectations
+- Write tests that verify response structure matches the contract
+
+#### Step 4: Wire Up the Real API
+
+Replace mock data with actual API calls:
+
+```swift
+// After backend is ready
+func fetchItems() async {
+    setLoading(true)
+    clearError()
+
+    do {
+        let response: [FeatureItem] = try await apiClient.request(
+            endpoint: .featureItems,
+            method: .get,
+            requiresAuth: true
+        )
+        self.items = response
+    } catch {
+        handleError(error, context: .fetchFeatureItems)
+    }
+
+    setLoading(false)
+}
+```
+
+#### Step 5: Integration Testing
+
+Test the complete flow end-to-end:
+
+- Verify data displays correctly from real API
+- Test error scenarios
+- Confirm loading states work as designed
+
+### Handling Already-Implemented APIs
+
+When the backend API already exists:
+
+1. **Read the API documentation or code** to understand the response format
+2. **Create iOS models that match exactly** (field names, types, optionality)
+3. **Test with real data early** to catch any mismatches
+4. **Avoid assuming** - verify response structure with actual calls
+
+### Common Anti-Patterns to Avoid
+
+| Anti-Pattern | Problem | Better Approach |
+|--------------|---------|-----------------|
+| Backend-first development | UI needs discovered late, causing rework | Start with UI mock, document contract |
+| Optional fields for required data | Runtime crashes when API returns nil | Match optionality to API reality |
+| Mismatch in field naming | Decoding failures | Use CodingKeys for snake_case ↔ camelCase |
+| Untested integration | Bugs found in production | Test against real API before merging |
 
 ---
 
