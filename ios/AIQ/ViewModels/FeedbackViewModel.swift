@@ -101,7 +101,9 @@ class FeedbackViewModel: BaseViewModel {
                 // Cancel any pending reset from a previous submission
                 resetTask?.cancel()
 
-                // Schedule form reset after showing success for 2 seconds
+                // Schedule form reset after showing success for 2 seconds.
+                // Using try? is safe here - CancellationError from Task.sleep is expected
+                // when task is cancelled, and the guard below handles the exit gracefully.
                 resetTask = Task {
                     try? await Task.sleep(for: .seconds(2))
                     guard !Task.isCancelled else { return }
