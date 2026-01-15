@@ -7,6 +7,11 @@ class FeedbackViewModel: BaseViewModel {
 
     private let apiClient: APIClientProtocol
 
+    // MARK: - Private State
+
+    /// Task tracking the delayed form reset, allowing cancellation on rapid resubmission
+    private var resetTask: Task<Void, Never>?
+
     // MARK: - Published Properties
 
     @Published var name: String = ""
@@ -93,9 +98,16 @@ class FeedbackViewModel: BaseViewModel {
             if response.success {
                 showSuccessMessage = true
 
-                // Reset form after showing success for 2 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-                    self?.resetForm()
+                // Cancel any pending reset from a previous submission
+                resetTask?.cancel()
+
+                // Schedule form reset after showing success for 2 seconds.
+                // Using try? is safe here - CancellationError from Task.sleep is expected
+                // when task is cancelled, and the guard below handles the exit gracefully.
+                resetTask = Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    guard !Task.isCancelled else { return }
+                    resetForm()
                 }
             } else {
                 // Backend returned success=false - treat as error
@@ -115,6 +127,8 @@ class FeedbackViewModel: BaseViewModel {
 
     /// Reset the form to initial state
     func resetForm() {
+        resetTask?.cancel()
+        resetTask = nil
         name = ""
         email = ""
         selectedCategory = nil
