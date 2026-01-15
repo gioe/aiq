@@ -14,7 +14,9 @@ final class NotificationManagerTests: XCTestCase {
     var cancellables: Set<AnyCancellable>!
 
     // UserDefaults keys used by NotificationManager
-    private let deviceTokenKey = "com.aiq.deviceToken"
+    /// Accessor for the shared device token key constant from NotificationManager.
+    /// Using `NotificationManager.deviceTokenKey` ensures tests stay in sync if the key value changes.
+    private var deviceTokenKey: String { NotificationManager.deviceTokenKey }
     private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
     private let provisionalPermissionRequestedKey = "com.aiq.hasRequestedProvisionalPermission"
 
