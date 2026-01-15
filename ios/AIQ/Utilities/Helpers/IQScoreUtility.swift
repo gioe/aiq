@@ -3,7 +3,7 @@ import SwiftUI
 /// Utility for classifying IQ scores and providing consistent visual styling
 enum IQScoreUtility {
     /// IQ score classification categories based on standard ranges
-    enum Category {
+    enum Category: Equatable, CaseIterable {
         case extremelyLow
         case belowAverage
         case average
