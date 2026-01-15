@@ -68,6 +68,6 @@ custom_rules:
 
   stateobject_with_shared:
     name: "StateObject with Singleton"
-    regex: '@StateObject\s+(?:private\s+)?var\s+\w+\s*=\s*\w+\.shared\s*$'
+    regex: '@StateObject\s+(?:(?:private|fileprivate|internal|public|open)\s+)?var\s+\w+\s*=\s*\w+\.shared\s*(?://.*)?$'
     message: "Do not use @StateObject with singletons (.shared). Use @ObservedObject instead. See CODING_STANDARDS.md 'Common Property Wrapper Anti-Patterns'"
     severity: error
