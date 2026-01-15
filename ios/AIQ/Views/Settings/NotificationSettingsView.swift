@@ -4,8 +4,11 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @StateObject private var viewModel: NotificationSettingsViewModel
 
-    init() {
-        let vm = ViewModelFactory.makeNotificationSettingsViewModel(container: ServiceContainer.shared)
+    /// Creates a NotificationSettingsView with the specified service container
+    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
+    ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
+    init(serviceContainer: ServiceContainer = .shared) {
+        let vm = ViewModelFactory.makeNotificationSettingsViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
 

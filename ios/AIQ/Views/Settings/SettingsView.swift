@@ -6,10 +6,11 @@ struct SettingsView: View {
     @StateObject private var viewModel: SettingsViewModel
     @State private var showCrashConfirmation = false
 
-    init() {
-        // Temporary container reference for initialization
-        let container = ServiceContainer.shared
-        _viewModel = StateObject(wrappedValue: ViewModelFactory.makeSettingsViewModel(container: container))
+    /// Creates a SettingsView with the specified service container
+    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
+    ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
+    init(serviceContainer: ServiceContainer = .shared) {
+        _viewModel = StateObject(wrappedValue: ViewModelFactory.makeSettingsViewModel(container: serviceContainer))
     }
 
     var body: some View {

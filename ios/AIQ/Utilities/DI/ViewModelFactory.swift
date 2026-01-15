@@ -6,18 +6,31 @@ import Foundation
 /// resolving dependencies from the ServiceContainer. It provides type-safe factory
 /// methods for each ViewModel that requires dependency injection.
 ///
-/// Usage in Views:
+/// ## Usage in Views
+///
+/// Views accept a `ServiceContainer` parameter with a default value, enabling both
+/// production use (with the shared container) and testing (with mock containers):
+///
 /// ```swift
 /// struct DashboardView: View {
-///     @Environment(\.serviceContainer) var container
 ///     @StateObject private var viewModel: DashboardViewModel
 ///
-///     init() {
-///         // Temporary container reference for initialization
-///         let container = ServiceContainer.shared
-///         _viewModel = StateObject(wrappedValue: ViewModelFactory.makeDashboardViewModel(container: container))
+///     /// - Parameter serviceContainer: Container for resolving dependencies.
+///     ///   Defaults to the shared container for production use.
+///     init(serviceContainer: ServiceContainer = .shared) {
+///         let vm = ViewModelFactory.makeDashboardViewModel(container: serviceContainer)
+///         _viewModel = StateObject(wrappedValue: vm)
 ///     }
 /// }
+/// ```
+///
+/// ## Testing
+///
+/// For UI tests, inject a mock container:
+/// ```swift
+/// let mockContainer = ServiceContainer()
+/// mockContainer.register(APIClientProtocol.self) { MockAPIClient() }
+/// let view = DashboardView(serviceContainer: mockContainer)
 /// ```
 enum ViewModelFactory {
     // MARK: - Dashboard

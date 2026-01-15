@@ -5,8 +5,11 @@ struct WelcomeView: View {
     @StateObject private var viewModel: LoginViewModel
     @State private var isAnimating = false
 
-    init() {
-        let vm = ViewModelFactory.makeLoginViewModel(container: ServiceContainer.shared)
+    /// Creates a WelcomeView with the specified service container
+    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
+    ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
+    init(serviceContainer: ServiceContainer = .shared) {
+        let vm = ViewModelFactory.makeLoginViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
 
