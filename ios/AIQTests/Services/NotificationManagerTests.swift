@@ -16,6 +16,7 @@ final class NotificationManagerTests: XCTestCase {
     // UserDefaults keys used by NotificationManager
     private let deviceTokenKey = "com.aiq.deviceToken"
     private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
+    private let provisionalPermissionRequestedKey = "com.aiq.hasRequestedProvisionalPermission"
 
     override func setUp() async throws {
         try await super.setUp()
@@ -24,6 +25,7 @@ final class NotificationManagerTests: XCTestCase {
         // Clear UserDefaults before each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
         UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
+        UserDefaults.standard.removeObject(forKey: provisionalPermissionRequestedKey)
 
         // Create mocks
         mockNotificationService = MockNotificationService()
@@ -52,6 +54,7 @@ final class NotificationManagerTests: XCTestCase {
         // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
         UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
+        UserDefaults.standard.removeObject(forKey: provisionalPermissionRequestedKey)
 
         super.tearDown()
     }
@@ -1160,6 +1163,228 @@ final class NotificationManagerTests: XCTestCase {
 
         // The error handling path (with CrashlyticsErrorRecorder) is not executed
         // when authorization succeeds - verified by the successful return value
+    }
+
+    // MARK: - Provisional Authorization Tests
+
+    func testRequestProvisionalAuthorization_Success_ReturnsTrue() async {
+        // Given - Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+        mockNotificationCenter.authorizationStatus = .provisional
+
+        // When - Request provisional authorization
+        let result = await sut.requestProvisionalAuthorization()
+
+        // Then - Should return true
+        XCTAssertTrue(result, "Provisional authorization should succeed")
+
+        // Verify the authorization was requested with provisional options
+        XCTAssertTrue(mockNotificationCenter.requestAuthorizationCalled)
+        XCTAssertEqual(mockNotificationCenter.requestAuthorizationCallCount, 1)
+
+        // Verify .provisional is included in the options
+        let expectedOptions: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+        XCTAssertEqual(
+            mockNotificationCenter.lastAuthorizationOptions,
+            expectedOptions,
+            "Should request authorization with provisional option"
+        )
+
+        // Verify hasRequestedProvisionalPermission flag is set
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission, "Provisional permission flag should be set")
+    }
+
+    func testRequestProvisionalAuthorization_SetsProvisionalFlag() async {
+        // Given - Fresh NotificationManager with flag not set
+        XCTAssertFalse(sut.hasRequestedProvisionalPermission, "Flag should initially be false")
+
+        // Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Request provisional authorization
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Provisional flag should be set to true
+        XCTAssertTrue(
+            sut.hasRequestedProvisionalPermission,
+            "Provisional flag should be true after requesting permission"
+        )
+    }
+
+    func testRequestProvisionalAuthorization_DoesNotSetFullPermissionFlag() async {
+        // Given - Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Request provisional authorization
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Only provisional flag should be set, NOT the full permission flag
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+        XCTAssertFalse(
+            sut.hasRequestedNotificationPermission,
+            "Full permission flag should NOT be set by provisional request"
+        )
+    }
+
+    func testRequestProvisionalAuthorization_UpdatesAuthorizationStatus() async {
+        // Given - Configure mock to return provisional status
+        mockNotificationCenter.authorizationGranted = true
+        mockNotificationCenter.authorizationStatus = .provisional
+
+        // When - Request provisional authorization
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Authorization status should be updated to provisional
+        XCTAssertEqual(sut.authorizationStatus, .provisional)
+    }
+
+    func testRequestProvisionalAuthorization_RegistersForRemoteNotifications() async {
+        // Given - Configure mock to grant authorization
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Request provisional authorization
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Should register for remote notifications
+        XCTAssertTrue(
+            mockApplication.registerForRemoteNotificationsCalled,
+            "Should register for remote notifications on successful provisional authorization"
+        )
+    }
+
+    func testRequestProvisionalAuthorization_WhenDenied_DoesNotRegisterForRemoteNotifications() async {
+        // Given - Configure mock to deny authorization
+        mockNotificationCenter.authorizationGranted = false
+
+        // When - Request provisional authorization
+        let result = await sut.requestProvisionalAuthorization()
+
+        // Then - Should return false and NOT register for remote notifications
+        XCTAssertFalse(result)
+        XCTAssertFalse(
+            mockApplication.registerForRemoteNotificationsCalled,
+            "Should NOT register for remote notifications when denied"
+        )
+    }
+
+    func testRequestProvisionalAuthorization_WhenThrows_ReturnsFalse() async {
+        // Given - Configure mock to throw an error
+        let authError = NSError(
+            domain: "UNErrorDomain",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Provisional authorization failed"]
+        )
+        mockNotificationCenter.authorizationError = authError
+
+        // When - Request provisional authorization
+        let result = await sut.requestProvisionalAuthorization()
+
+        // Then - Should return false
+        XCTAssertFalse(result, "Should return false when authorization throws error")
+
+        // Provisional flag should still be set (set before the request)
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+    }
+
+    func testHasRequestedProvisionalPermission_DefaultsToFalse() async {
+        // Given - Fresh NotificationManager
+        // When - Check initial value
+        let hasRequested = sut.hasRequestedProvisionalPermission
+
+        // Then - Should default to false
+        XCTAssertFalse(hasRequested, "hasRequestedProvisionalPermission should default to false")
+    }
+
+    func testHasRequestedProvisionalPermission_PersistsInUserDefaults() async {
+        // Given - Set the flag
+        sut.hasRequestedProvisionalPermission = true
+
+        // When - Create a new NotificationManager instance (simulates app restart)
+        let newSut = NotificationManager(
+            notificationService: mockNotificationService,
+            authManager: mockAuthManager,
+            notificationCenter: mockNotificationCenter,
+            application: mockApplication
+        )
+
+        // Then - Flag should persist
+        XCTAssertTrue(
+            newSut.hasRequestedProvisionalPermission,
+            "Provisional flag should persist across app restarts"
+        )
+    }
+
+    func testHasRequestedProvisionalPermission_GetterSetter() async {
+        // Given - Initial state
+        XCTAssertFalse(sut.hasRequestedProvisionalPermission)
+
+        // When - Set to true
+        sut.hasRequestedProvisionalPermission = true
+
+        // Then - Should be true
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+
+        // When - Set to false
+        sut.hasRequestedProvisionalPermission = false
+
+        // Then - Should be false
+        XCTAssertFalse(sut.hasRequestedProvisionalPermission)
+    }
+
+    func testClearCachedDeviceToken_ClearsProvisionalFlag() async {
+        // Given - Set up provisional permission flag
+        sut.hasRequestedProvisionalPermission = true
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+
+        // When - Fail to register (which calls clearCachedDeviceToken)
+        let error = NSError(domain: "Test", code: -1, userInfo: nil)
+        sut.didFailToRegisterForRemoteNotifications(error: error)
+
+        // Then - Provisional permission flag should be cleared
+        XCTAssertFalse(
+            sut.hasRequestedProvisionalPermission,
+            "Provisional flag should be cleared when device token is cleared"
+        )
+    }
+
+    func testProvisionalAndFullPermission_IndependentFlags() async {
+        // Given - Request provisional authorization first
+        mockNotificationCenter.authorizationGranted = true
+        mockNotificationCenter.authorizationStatus = .provisional
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Only provisional flag is set
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+        XCTAssertFalse(sut.hasRequestedNotificationPermission)
+
+        // When - Request full authorization
+        mockNotificationCenter.reset()
+        mockNotificationCenter.authorizationGranted = true
+        mockNotificationCenter.authorizationStatus = .authorized
+        _ = await sut.requestAuthorization()
+
+        // Then - Both flags are now set independently
+        XCTAssertTrue(sut.hasRequestedProvisionalPermission)
+        XCTAssertTrue(sut.hasRequestedNotificationPermission)
+    }
+
+    func testRequestProvisionalAuthorization_IncludesProvisionalInOptions() async {
+        // Given - Configure mock
+        mockNotificationCenter.authorizationGranted = true
+
+        // When - Request provisional authorization
+        _ = await sut.requestProvisionalAuthorization()
+
+        // Then - Verify the options include .provisional
+        guard let options = mockNotificationCenter.lastAuthorizationOptions else {
+            XCTFail("Authorization options should be captured")
+            return
+        }
+
+        XCTAssertTrue(options.contains(.provisional), "Options should include .provisional")
+        XCTAssertTrue(options.contains(.alert), "Options should include .alert")
+        XCTAssertTrue(options.contains(.sound), "Options should include .sound")
+        XCTAssertTrue(options.contains(.badge), "Options should include .badge")
     }
 
     // MARK: - Test Helpers
