@@ -3,6 +3,11 @@ import Foundation
 
 /// ViewModel for managing settings and account actions.
 ///
+/// ## Concurrency
+/// This class is `@MainActor`-isolated, ensuring all property access and method calls
+/// execute on the main thread. The `logout()` and `deleteAccount()` methods include
+/// guards to prevent concurrent execution if called multiple times before completion.
+///
 /// ## Error Handling Architecture
 /// This ViewModel uses a **hybrid error handling approach**:
 ///
@@ -61,8 +66,13 @@ class SettingsViewModel: BaseViewModel {
 
     // MARK: - Public Methods
 
-    /// Perform logout
+    /// Perform logout.
+    ///
+    /// This method should not be called concurrently. The guard ensures idempotent
+    /// behavior if the UI accidentally triggers multiple logout attempts.
     func logout() async {
+        guard !isLoggingOut else { return }
+
         isLoggingOut = true
         clearError()
 
@@ -72,8 +82,13 @@ class SettingsViewModel: BaseViewModel {
         // Navigation to welcome screen is handled automatically by auth state change
     }
 
-    /// Delete user account
+    /// Delete user account.
+    ///
+    /// This method should not be called concurrently. The guard ensures idempotent
+    /// behavior if the UI accidentally triggers multiple delete attempts.
     func deleteAccount() async {
+        guard !isDeletingAccount else { return }
+
         isDeletingAccount = true
         deleteAccountError = nil
         clearError()
