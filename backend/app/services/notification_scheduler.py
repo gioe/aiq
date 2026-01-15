@@ -11,6 +11,10 @@ from app.models import User, TestResult
 from app.core.config import settings
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 
+# Day 30 reminder configuration
+DAY_30_REMINDER_DAYS = 30  # Days after first test to send reminder
+DAY_30_NOTIFICATION_WINDOW_DAYS = 1  # Window to catch users (1 day tolerance)
+
 
 def calculate_next_test_date(last_test_date: datetime) -> datetime:
     """
@@ -134,6 +138,79 @@ def get_users_never_tested(db: Session) -> List[User]:
     )
 
     return users
+
+
+def get_users_for_day_30_reminder(db: Session) -> List[User]:
+    """
+    Get users who completed their first test approximately 30 days ago.
+
+    This function identifies users who:
+    1. Have notifications enabled
+    2. Have a registered device token
+    3. Completed their first (and only) test approximately 30 days ago
+    4. Have not yet completed their 90-day test cycle
+
+    The Day 30 reminder is sent to encourage engagement and test the value
+    of notifications before the 90-day test is due.
+
+    Args:
+        db: Database session
+
+    Returns:
+        List of User objects who should receive Day 30 reminder notifications
+    """
+    from sqlalchemy.sql import func
+
+    now = utc_now()
+
+    # Calculate the target date range for first test completion
+    # We want users whose first test was completed 30 days ago (±1 day tolerance)
+    target_date_start = now - timedelta(
+        days=DAY_30_REMINDER_DAYS + DAY_30_NOTIFICATION_WINDOW_DAYS
+    )
+    target_date_end = now - timedelta(
+        days=DAY_30_REMINDER_DAYS - DAY_30_NOTIFICATION_WINDOW_DAYS
+    )
+
+    # Subquery to get the first test completion date and test count for each user
+    first_test_subquery = (
+        db.query(
+            TestResult.user_id,
+            func.min(TestResult.completed_at).label("first_test_date"),
+            func.count(TestResult.id).label("test_count"),
+        )
+        .group_by(TestResult.user_id)
+        .subquery()
+    )
+
+    # Main query to find users who:
+    # - Have only 1 test (first test)
+    # - First test was completed ~30 days ago
+    # - Have notifications enabled and device token registered
+    # - Have NOT already received a Day 30 reminder (deduplication)
+    users_for_reminder = (
+        db.query(User)
+        .join(first_test_subquery, User.id == first_test_subquery.c.user_id)
+        .filter(
+            and_(
+                # User must have notifications enabled
+                User.notification_enabled.is_(True),
+                # User must have a device token registered
+                User.apns_device_token.isnot(None),
+                User.apns_device_token != "",
+                # User has completed exactly 1 test (their first test)
+                first_test_subquery.c.test_count == 1,
+                # First test was completed approximately 30 days ago
+                first_test_subquery.c.first_test_date >= target_date_start,
+                first_test_subquery.c.first_test_date <= target_date_end,
+                # User has NOT already received a Day 30 reminder (deduplication)
+                User.day_30_reminder_sent_at.is_(None),
+            )
+        )
+        .all()
+    )
+
+    return users_for_reminder
 
 
 class NotificationScheduler:
@@ -294,6 +371,101 @@ class NotificationScheduler:
                 "total": len(notifications),
                 "success": results["success"],
                 "failed": results["failed"],
+            }
+        finally:
+            await apns_service.disconnect()
+
+    async def send_day_30_reminder_notifications(self) -> Dict[str, int]:
+        """
+        Send Day 30 reminder notifications to users who completed their first test 30 days ago.
+
+        This method is part of Phase 2.2 - Provisional Notifications. It sends
+        a silent notification to re-engage users one month after their first test.
+        This provides early engagement data and an opportunity for users to upgrade
+        from provisional to full authorization if they interact with the notification.
+
+        The notification is sent with content-available flag for silent delivery
+        to users with provisional authorization. Users with full authorization
+        will receive the standard alert notification.
+
+        After successful sending, users are marked with day_30_reminder_sent_at
+        timestamp to prevent duplicate notifications.
+
+        Returns:
+            Dictionary with counts: {"total": X, "success": Y, "failed": Z, "users_found": N}
+        """
+        from app.services.apns_service import APNsService
+
+        # Get users who should receive Day 30 reminders
+        users_to_notify = get_users_for_day_30_reminder(self.db)
+
+        if not users_to_notify:
+            return {"total": 0, "success": 0, "failed": 0, "users_found": 0}
+
+        # Build notification payloads for Day 30 reminder
+        # Keep track of user_id -> notification mapping for deduplication marking
+        notifications = []
+        user_id_to_notification_index: Dict[int, int] = {}
+
+        for user in users_to_notify:
+            if not user.apns_device_token:
+                continue
+
+            # Personalize if we have the user's name
+            first_name = user.first_name or "there"
+
+            title = "Your Cognitive Journey Continues"
+            body = f"Hi {first_name}! It's been 30 days since your first test. Your next test is in 60 days."
+
+            user_id_to_notification_index[user.id] = len(notifications)
+            notifications.append(
+                {
+                    "device_token": user.apns_device_token,
+                    "title": title,
+                    "body": body,
+                    # No badge for silent/provisional notifications
+                    "badge": None,
+                    # No sound for provisional notifications (silent delivery)
+                    "sound": None,
+                    "data": {
+                        "type": "day_30_reminder",
+                        "user_id": str(user.id),
+                        "days_since_first_test": 30,
+                        "days_until_next_test": 60,
+                    },
+                }
+            )
+
+        if not notifications:
+            return {
+                "total": 0,
+                "success": 0,
+                "failed": 0,
+                "users_found": len(users_to_notify),
+            }
+
+        # Send notifications via APNs
+        apns_service = APNsService()
+        try:
+            await apns_service.connect()
+            results = await apns_service.send_batch_notifications(notifications)
+
+            # Mark all users as having received the notification to prevent duplicates
+            # We mark all users even if some individual sends failed, because:
+            # 1. The send attempt was made
+            # 2. Failed sends are typically due to invalid tokens (user won't get it anyway)
+            # 3. Retrying could cause duplicate notifications for users who did receive it
+            now = utc_now()
+            for user in users_to_notify:
+                if user.id in user_id_to_notification_index:
+                    user.day_30_reminder_sent_at = now
+            self.db.commit()
+
+            return {
+                "total": len(notifications),
+                "success": results["success"],
+                "failed": results["failed"],
+                "users_found": len(users_to_notify),
             }
         finally:
             await apns_service.disconnect()

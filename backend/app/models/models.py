@@ -105,6 +105,9 @@ class User(Base):
     last_login_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     notification_enabled: Mapped[bool] = mapped_column(default=True)
     apns_device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    day_30_reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
+    )  # Timestamp when Day 30 reminder was sent (Phase 2.2 deduplication)
 
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation

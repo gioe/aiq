@@ -107,7 +107,7 @@ class APNsService:
         title: str,
         body: str,
         badge: Optional[int] = None,
-        sound: str = "default",
+        sound: Optional[str] = "default",
         data: Optional[Dict] = None,
     ) -> bool:
         """
@@ -118,7 +118,7 @@ class APNsService:
             title: Notification title
             body: Notification body text
             badge: Optional badge count to display on app icon
-            sound: Notification sound (default: "default")
+            sound: Notification sound (default: "default", None for silent)
             data: Optional custom data payload
 
         Returns:
@@ -134,8 +134,11 @@ class APNsService:
 
             aps: Dict = {
                 "alert": alert,
-                "sound": sound,
             }
+
+            # Only include sound if explicitly provided (None = silent notification)
+            if sound is not None:
+                aps["sound"] = sound
 
             if badge is not None:
                 aps["badge"] = badge
