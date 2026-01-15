@@ -697,3 +697,9 @@
 "onboarding.page4.privacy.policy.intro" = "For more details, read our";
 "onboarding.page4.privacy.policy.link" = "Privacy Policy";
 "onboarding.page4.privacy.policy.hint" = "Opens privacy policy in Safari";
+
+// MARK: - Onboarding Skipped Info Card (Dashboard)
+"onboarding.skipped.card.title" = "New to AIQ?";
+"onboarding.skipped.card.description" = "Take a quick tour to learn how AIQ tracks your cognitive performance and helps you understand your results.";
+"onboarding.skipped.card.cta" = "Learn More";
+"onboarding.skipped.card.dismiss.accessibility" = "Dismiss info card";

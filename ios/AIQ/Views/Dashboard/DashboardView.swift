@@ -6,6 +6,18 @@ struct DashboardView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @Environment(\.appRouter) var router
 
+    /// Whether user skipped onboarding (determines if info card should show)
+    @AppStorage("didSkipOnboarding") private var didSkipOnboarding: Bool = false
+
+    /// Whether user has dismissed the onboarding info card
+    @AppStorage("hasDissmissedOnboardingInfoCard") private var hasDismissedOnboardingInfoCard: Bool = false
+
+    /// Controls animation state for info card dismissal
+    @State private var showOnboardingInfoCard: Bool = true
+
+    /// Controls presentation of the onboarding flow
+    @State private var showOnboarding: Bool = false
+
     /// Creates a DashboardView with the specified service container
     /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
     ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
@@ -49,6 +61,9 @@ struct DashboardView: View {
         .task {
             await viewModel.fetchDashboardData()
         }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingContainerView()
+        }
     }
 
     // MARK: - Dashboard Content
@@ -58,6 +73,9 @@ struct DashboardView: View {
             VStack(spacing: DesignSystem.Spacing.xxl) {
                 // Welcome Header
                 welcomeHeader
+
+                // Onboarding Skipped Info Card
+                onboardingInfoCardSection
 
                 // In-Progress Test Card
                 if let activeSession = viewModel.activeTestSession {
@@ -154,6 +172,46 @@ struct DashboardView: View {
         case 0 ..< 12: return "sunrise.fill"
         case 12 ..< 17: return "sun.max.fill"
         default: return "moon.stars.fill"
+        }
+    }
+
+    // MARK: - Onboarding Info Card
+
+    /// Whether the onboarding info card should be displayed
+    private var shouldShowOnboardingInfoCard: Bool {
+        didSkipOnboarding && !hasDismissedOnboardingInfoCard && showOnboardingInfoCard
+    }
+
+    /// Info card section for users who skipped onboarding
+    @ViewBuilder
+    private var onboardingInfoCardSection: some View {
+        if shouldShowOnboardingInfoCard {
+            OnboardingSkippedInfoCard(
+                onLearnMore: {
+                    // Dismiss the card and show onboarding
+                    hasDismissedOnboardingInfoCard = true
+                    didSkipOnboarding = false
+                    showOnboarding = true
+                },
+                onDismiss: {
+                    dismissOnboardingInfoCard()
+                }
+            )
+            .transition(.asymmetric(
+                insertion: .opacity,
+                removal: .scale(scale: 0.95).combined(with: .opacity)
+            ))
+        }
+    }
+
+    /// Dismisses the onboarding info card with animation
+    private func dismissOnboardingInfoCard() {
+        withAnimation(DesignSystem.Animation.quick) {
+            showOnboardingInfoCard = false
+        }
+        // Persist dismissal after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            hasDismissedOnboardingInfoCard = true
         }
     }
 
@@ -316,6 +374,9 @@ struct DashboardView: View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.xxl) {
                 welcomeHeader
+
+                // Onboarding Skipped Info Card
+                onboardingInfoCardSection
 
                 // In-Progress Test Card for empty state
                 if let activeSession = viewModel.activeTestSession {
