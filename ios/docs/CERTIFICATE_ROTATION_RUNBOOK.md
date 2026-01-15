@@ -164,6 +164,15 @@ After the old certificate has expired and all users have updated:
 3. Update this runbook with new expiration dates
 4. Set new calendar reminders
 
+## Related Files
+
+These files are essential for certificate pinning incident response:
+
+| File | Purpose |
+|------|---------|
+| [`ios/AIQ/TrustKit.plist`](../AIQ/TrustKit.plist) | Certificate pinning configuration with public key hashes |
+| [`ios/AIQ/AppDelegate.swift`](../AIQ/AppDelegate.swift) (lines 67-119) | TrustKit initialization and validation logic |
+
 ## Emergency Procedures
 
 ### Scenario: Certificate Expired Before App Update
@@ -172,8 +181,9 @@ If users are experiencing connection failures due to expired certificates:
 
 1. **Immediate**: Check if Railway auto-renewed the certificate
 2. **If renewed**: Generate new hash and push emergency app update
-3. **If not renewed**: Contact Railway support
-4. **Communication**: Post status update to users
+3. **Verify via TestFlight**: Before App Store submission, deploy the fix to TestFlight and verify API connectivity works with the new certificate hash
+4. **If not renewed**: Contact Railway support
+5. **Communication**: Post status update to users
 
 ### Scenario: Railway Changes Certificate Unexpectedly
 
