@@ -25,7 +25,7 @@ struct OnboardingContainerView: View {
                     Spacer()
 
                     if viewModel.shouldShowSkip {
-                        Button("Skip") {
+                        Button(String(localized: "onboarding.skip")) {
                             handleSkip()
                         }
                         .font(Typography.labelLarge)
@@ -34,7 +34,7 @@ struct OnboardingContainerView: View {
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                         .padding(.top, DesignSystem.Spacing.md)
                         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.skipButton)
-                        .accessibilityHint("Double tap to skip onboarding")
+                        .accessibilityHint(String(localized: "onboarding.skip.hint"))
                     }
                 }
 
@@ -67,7 +67,7 @@ struct OnboardingContainerView: View {
                     if viewModel.isLastPage {
                         // Get Started Button (final page only)
                         PrimaryButton(
-                            title: "Get Started",
+                            title: String(localized: "onboarding.get.started"),
                             action: handleGetStarted,
                             accessibilityId: AccessibilityIdentifiers.OnboardingView.getStartedButton
                         )
@@ -75,7 +75,7 @@ struct OnboardingContainerView: View {
                     } else {
                         // Continue Button (pages 0-2)
                         PrimaryButton(
-                            title: "Continue",
+                            title: String(localized: "onboarding.continue"),
                             action: handleContinue,
                             accessibilityId: AccessibilityIdentifiers.OnboardingView.continueButton
                         )

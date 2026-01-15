@@ -22,14 +22,13 @@ struct OnboardingPage3View: View {
 
                 // Headline and Body
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    Text("Test Every 3 Months")
+                    Text("onboarding.page3.title")
                         .font(Typography.displayMedium)
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                    // swiftlint:disable:next line_length
-                    Text("We recommend testing every 3 months for the most meaningful insights into your cognitive capacity.")
+                    Text("onboarding.page3.subtitle")
                         .font(Typography.bodyLarge)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.center)
@@ -40,17 +39,15 @@ struct OnboardingPage3View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     RationaleCard(
                         icon: "brain.head.profile",
-                        title: "Neuroplasticity Takes Time",
-                        // swiftlint:disable:next line_length
-                        description: "Your cognitive abilities don't change overnight. Testing every 3 months gives your brain time to adapt and grow.",
+                        title: String(localized: "onboarding.page3.rationale.neuroplasticity.title"),
+                        description: String(localized: "onboarding.page3.rationale.neuroplasticity.description"),
                         iconColor: ColorPalette.statPurple
                     )
 
                     RationaleCard(
                         icon: "chart.xyaxis.line",
-                        title: "Meaningful Trends",
-                        // swiftlint:disable:next line_length
-                        description: "Spacing tests allows you to see real trends in your performance, not just daily fluctuations.",
+                        title: String(localized: "onboarding.page3.rationale.trends.title"),
+                        description: String(localized: "onboarding.page3.rationale.trends.description"),
                         iconColor: ColorPalette.statBlue
                     )
                 }
@@ -68,7 +65,7 @@ struct OnboardingPage3View: View {
                         .foregroundColor(ColorPalette.info)
                         .accessibilityHidden(true)
 
-                    Text("You can enable reminders in Settings to help you track your progress.")
+                    Text("onboarding.page3.reminder.note")
                         .font(Typography.bodyMedium)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.leading)

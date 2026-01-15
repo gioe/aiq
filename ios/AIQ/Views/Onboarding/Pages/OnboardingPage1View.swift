@@ -22,14 +22,13 @@ struct OnboardingPage1View: View {
 
                 // Headline and Body
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    Text("Track Your Cognitive Capacity")
+                    Text("onboarding.page1.title")
                         .font(Typography.displayMedium)
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                    // swiftlint:disable:next line_length
-                    Text("AIQ helps you measure and monitor your cognitive performance over time through scientifically-designed assessments.")
+                    Text("onboarding.page1.subtitle")
                         .font(Typography.bodyLarge)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.center)
@@ -40,19 +39,19 @@ struct OnboardingPage1View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     FeatureHighlightRow(
                         icon: "chart.line.uptrend.xyaxis",
-                        text: "Track your cognitive performance over time",
+                        text: String(localized: "onboarding.page1.feature.tracking"),
                         iconColor: ColorPalette.statBlue
                     )
 
                     FeatureHighlightRow(
                         icon: "brain.head.profile",
-                        text: "Fresh questions generated daily using AI",
+                        text: String(localized: "onboarding.page1.feature.ai"),
                         iconColor: ColorPalette.statPurple
                     )
 
                     FeatureHighlightRow(
                         icon: "lock.shield.fill",
-                        text: "Private and secure - your data stays yours",
+                        text: String(localized: "onboarding.page1.feature.privacy"),
                         iconColor: ColorPalette.successText
                     )
                 }
