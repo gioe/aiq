@@ -1,5 +1,6 @@
 import os
 import SwiftUI
+import UserNotifications
 
 /// Main tab view for authenticated users
 struct MainTabView: View {
@@ -9,6 +10,25 @@ struct MainTabView: View {
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
+
+    // MARK: - Upgrade Prompt State
+
+    /// Whether to show the notification upgrade prompt
+    @State private var showUpgradePrompt = false
+    /// The notification type that triggered the upgrade prompt (for analytics)
+    @State private var triggeringNotificationType: String = ""
+    /// Notification manager for checking authorization status and requesting permission
+    private let notificationManager: NotificationManagerProtocol
+    /// Analytics service for tracking engagement
+    private let analyticsService: AnalyticsService
+
+    // MARK: - Initialization
+
+    init() {
+        // Force unwrap is safe here because NotificationManager is always registered in ServiceContainer
+        notificationManager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)!
+        analyticsService = AnalyticsService.shared
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -50,28 +70,97 @@ struct MainTabView: View {
             handleDeepLinkNavigation(deepLink)
         }
         .onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
-            // Extract the payload dictionary containing the original notification userInfo
-            guard let payload = notification.userInfo?["payload"] as? [AnyHashable: Any] else {
-                Self.logger.warning("Notification tap missing payload")
-                return
-            }
+            handleNotificationTap(notification)
+        }
+        .sheet(isPresented: $showUpgradePrompt) {
+            NotificationUpgradePromptView(
+                onEnableNotifications: {
+                    handleUpgradePromptAccepted()
+                },
+                onDismiss: {
+                    analyticsService.trackNotificationUpgradePromptDismissed()
+                }
+            )
+        }
+    }
 
-            // Extract deep_link URL string from the payload
-            guard let deepLinkString = payload["deep_link"] as? String else {
-                Self.logger.warning("Notification tap missing deep_link in payload")
-                return
-            }
+    // MARK: - Notification Tap Handling
 
-            // Parse the deep link URL string
-            guard let deepLinkURL = URL(string: deepLinkString) else {
-                Self.logger.warning("Invalid deep_link URL string: \(deepLinkString, privacy: .public)")
-                return
-            }
+    /// Handle notification tap and check if upgrade prompt should be shown
+    private func handleNotificationTap(_ notification: Notification) {
+        // Extract notification type
+        let notificationType = notification.userInfo?["type"] as? String ?? "unknown"
 
-            // Parse and handle the deep link
-            let deepLink = deepLinkHandler.parse(deepLinkURL)
-            Self.logger.info("Parsed deep link from notification: \(String(describing: deepLink), privacy: .public)")
-            handleDeepLinkNavigation(deepLink)
+        // Extract authorization status from the notification (set by AppDelegate)
+        let authStatusRawValue = notification.userInfo?["authorizationStatus"] as? Int ?? 0
+        let authStatus = UNAuthorizationStatus(rawValue: authStatusRawValue) ?? .notDetermined
+
+        // Check if we should show upgrade prompt for provisional users
+        if shouldShowUpgradePrompt(authorizationStatus: authStatus) {
+            triggeringNotificationType = notificationType
+            analyticsService.trackNotificationUpgradePromptShown(notificationType: notificationType)
+            notificationManager.hasShownUpgradePrompt = true
+            showUpgradePrompt = true
+            // Note: We still process the notification navigation below
+        }
+
+        // Extract the payload dictionary containing the original notification userInfo
+        guard let payload = notification.userInfo?["payload"] as? [AnyHashable: Any] else {
+            Self.logger.warning("Notification tap missing payload")
+            return
+        }
+
+        // Extract deep_link URL string from the payload
+        guard let deepLinkString = payload["deep_link"] as? String else {
+            Self.logger.warning("Notification tap missing deep_link in payload")
+            return
+        }
+
+        // Parse the deep link URL string
+        guard let deepLinkURL = URL(string: deepLinkString) else {
+            Self.logger.warning("Invalid deep_link URL string: \(deepLinkString, privacy: .public)")
+            return
+        }
+
+        // Parse and handle the deep link
+        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        Self.logger.info("Parsed deep link from notification: \(String(describing: deepLink), privacy: .public)")
+        handleDeepLinkNavigation(deepLink)
+    }
+
+    /// Determine if the upgrade prompt should be shown
+    ///
+    /// Shows the prompt if:
+    /// - User has provisional authorization (not full)
+    /// - Upgrade prompt hasn't been shown before
+    private func shouldShowUpgradePrompt(authorizationStatus: UNAuthorizationStatus) -> Bool {
+        // Only show for provisional users
+        guard authorizationStatus == .provisional else {
+            return false
+        }
+
+        // Don't show if already shown
+        guard !notificationManager.hasShownUpgradePrompt else {
+            Self.logger.info("Upgrade prompt already shown, skipping")
+            return false
+        }
+
+        return true
+    }
+
+    /// Handle user accepting the upgrade prompt
+    private func handleUpgradePromptAccepted() {
+        analyticsService.trackNotificationUpgradePromptAccepted()
+
+        Task {
+            let granted = await notificationManager.requestAuthorization()
+            if granted {
+                analyticsService.trackNotificationFullPermissionGranted()
+                Self.logger.info("User upgraded from provisional to full notification authorization")
+            } else {
+                analyticsService.trackNotificationFullPermissionDenied()
+                Self.logger.info("User denied full notification authorization upgrade")
+            }
         }
     }
 

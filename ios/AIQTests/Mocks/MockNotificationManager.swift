@@ -22,6 +22,9 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     /// Whether provisional notification permission has been requested
     var hasRequestedProvisionalPermission: Bool = false
 
+    /// Whether the upgrade prompt has been shown to a provisional user
+    var hasShownUpgradePrompt: Bool = false
+
     // MARK: - Call Tracking
 
     var requestAuthorizationCalled = false
@@ -132,6 +135,7 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         isDeviceTokenRegistered = false
         hasRequestedNotificationPermission = false
         hasRequestedProvisionalPermission = false
+        hasShownUpgradePrompt = false
         mockAuthorizationGranted = true
         mockAuthorizationStatus = .authorized
         shouldFailAuthorization = false

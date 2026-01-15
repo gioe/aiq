@@ -21,6 +21,10 @@ protocol NotificationManagerProtocol: AnyObject {
     /// Whether provisional notification permission has been requested
     var hasRequestedProvisionalPermission: Bool { get set }
 
+    /// Whether the upgrade prompt has been shown to a provisional user
+    /// Used to track engagement and prevent showing the prompt multiple times in a session
+    var hasShownUpgradePrompt: Bool { get set }
+
     /// Request notification authorization from the system
     /// - Returns: Whether authorization was granted
     @discardableResult

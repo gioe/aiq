@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import OSLog
 import UIKit
@@ -43,6 +44,14 @@ enum AnalyticsEvent: String {
     case backgroundRefreshScheduleFailed = "background.refresh.schedule_failed"
     case backgroundRefreshNotificationSent = "background.refresh.notification_sent"
     case backgroundRefreshNotificationFailed = "background.refresh.notification_failed"
+
+    // Notification engagement events (Phase 2.3 - Provisional notification upgrade flow)
+    case notificationTapped = "notification.tapped"
+    case notificationUpgradePromptShown = "notification.upgrade_prompt.shown"
+    case notificationUpgradePromptAccepted = "notification.upgrade_prompt.accepted"
+    case notificationUpgradePromptDismissed = "notification.upgrade_prompt.dismissed"
+    case notificationFullPermissionGranted = "notification.full_permission.granted"
+    case notificationFullPermissionDenied = "notification.full_permission.denied"
 }
 
 /// A single analytics event with timestamp and properties
@@ -492,6 +501,61 @@ class AnalyticsService {
         }
 
         track(event: .certificatePinningInitializationFailed, properties: properties)
+    }
+
+    // MARK: - Notification Engagement Tracking (Phase 2.3)
+
+    /// Track notification tap event
+    ///
+    /// - Parameters:
+    ///   - notificationType: Type of notification tapped (e.g., "day_30_reminder", "test_reminder")
+    ///   - authorizationStatus: Current notification authorization status
+    func trackNotificationTapped(notificationType: String, authorizationStatus: String) {
+        logger.info("Notification Tapped: type=\(notificationType), authStatus=\(authorizationStatus)")
+
+        track(event: .notificationTapped, properties: [
+            "notification_type": notificationType,
+            "authorization_status": authorizationStatus
+        ])
+    }
+
+    /// Track upgrade prompt shown to provisional user
+    ///
+    /// - Parameter notificationType: Type of notification that triggered the prompt
+    func trackNotificationUpgradePromptShown(notificationType: String) {
+        logger.info("Notification Upgrade Prompt Shown: triggered by \(notificationType)")
+
+        track(event: .notificationUpgradePromptShown, properties: [
+            "notification_type": notificationType
+        ])
+    }
+
+    /// Track user accepting the upgrade prompt
+    func trackNotificationUpgradePromptAccepted() {
+        logger.info("Notification Upgrade Prompt Accepted")
+
+        track(event: .notificationUpgradePromptAccepted)
+    }
+
+    /// Track user dismissing the upgrade prompt
+    func trackNotificationUpgradePromptDismissed() {
+        logger.info("Notification Upgrade Prompt Dismissed")
+
+        track(event: .notificationUpgradePromptDismissed)
+    }
+
+    /// Track full notification permission granted after upgrade prompt
+    func trackNotificationFullPermissionGranted() {
+        logger.info("Full Notification Permission Granted")
+
+        track(event: .notificationFullPermissionGranted)
+    }
+
+    /// Track full notification permission denied after upgrade prompt
+    func trackNotificationFullPermissionDenied() {
+        logger.info("Full Notification Permission Denied")
+
+        track(event: .notificationFullPermissionDenied)
     }
 
     /// Force submission of all pending events
