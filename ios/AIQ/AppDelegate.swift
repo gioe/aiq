@@ -172,10 +172,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Handle different notification types
         switch notificationType {
         case "test_reminder":
-            // Test reminder notification - user should take a new test
+            // Test reminder notification - user should take a new test (90-day cadence)
             print("Test reminder notification received")
             // Navigation will be handled when user taps the notification
             // (see userNotificationCenter(_:didReceive:withCompletionHandler:))
+
+        case "day_30_reminder":
+            // Day 30 reminder - early engagement notification sent 30 days after first test
+            // Part of Phase 2.2 provisional notification testing
+            print("Day 30 reminder notification received")
+            // This notification is designed to be silent for provisional authorization users
+            // Navigation will be handled when user taps the notification
 
         default:
             print("Unknown notification type: \(notificationType)")

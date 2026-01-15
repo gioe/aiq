@@ -14,6 +14,7 @@ Submodules:
     - config: Weighted scoring configuration
     - discrimination: Item discrimination analysis and quality flags
     - reliability: Reliability metrics (Cronbach's alpha, test-retest, split-half)
+    - notifications: Push notification management (Day 30 reminders)
 """
 from fastapi import APIRouter
 
@@ -24,6 +25,7 @@ from . import (
     discrimination,
     distractors,
     generation,
+    notifications,
     reliability,
     validity,
 )
@@ -71,4 +73,9 @@ router.include_router(
 router.include_router(
     reliability.router,
     tags=["Admin - Reliability"],
+)
+
+router.include_router(
+    notifications.router,
+    tags=["Admin - Notifications"],
 )

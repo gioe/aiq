@@ -10,9 +10,12 @@ from sqlalchemy.orm import Session
 from app.models import User, TestSession, TestResult
 from app.models.models import TestStatus
 from app.services.notification_scheduler import (
+    DAY_30_REMINDER_DAYS,
+    DAY_30_NOTIFICATION_WINDOW_DAYS,
     NotificationScheduler,
     calculate_next_test_date,
     get_users_due_for_test,
+    get_users_for_day_30_reminder,
     get_users_never_tested,
 )
 from app.core.config import settings
@@ -396,3 +399,152 @@ class TestNotificationScheduler:
         # Should be based on the recent test, not the old one
         expected = recent_test + timedelta(days=settings.TEST_CADENCE_DAYS)
         assert next_date == expected
+
+
+class TestGetUsersForDay30Reminder:
+    """Tests for get_users_for_day_30_reminder function (Phase 2.2)."""
+
+    def test_user_with_first_test_30_days_ago_is_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test that a user who took their first test 30 days ago is returned."""
+        # Create a test result from exactly 30 days ago
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 1
+        assert users[0].id == user_with_device_token.id
+
+    def test_user_with_first_test_29_days_ago_is_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test user within notification window (29 days) is included."""
+        # Create a test result from 29 days ago (within window)
+        twenty_nine_days_ago = utc_now() - timedelta(
+            days=DAY_30_REMINDER_DAYS - DAY_30_NOTIFICATION_WINDOW_DAYS
+        )
+        create_test_result(db_session, user_with_device_token.id, twenty_nine_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 1
+
+    def test_user_with_first_test_31_days_ago_is_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test user within notification window (31 days) is included."""
+        # Create a test result from 31 days ago
+        # Note: The window is [30-1, 30+1] = [29, 31] days, and
+        # the query is >= target_date_start and <= target_date_end.
+        # 31 days ago should be at the edge of the window.
+        # We need to be inside the window, so use 30.5 days to be safe.
+        thirty_point_five_days_ago = utc_now() - timedelta(days=30.5)
+        create_test_result(
+            db_session, user_with_device_token.id, thirty_point_five_days_ago
+        )
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 1
+
+    def test_user_with_first_test_too_recent_not_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test that a user who took their first test recently is not returned."""
+        # Create a test result from 10 days ago
+        ten_days_ago = utc_now() - timedelta(days=10)
+        create_test_result(db_session, user_with_device_token.id, ten_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 0
+
+    def test_user_with_first_test_too_old_not_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test that a user who took their first test long ago is not returned."""
+        # Create a test result from 60 days ago (outside window)
+        sixty_days_ago = utc_now() - timedelta(days=60)
+        create_test_result(db_session, user_with_device_token.id, sixty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 0
+
+    def test_user_with_multiple_tests_not_returned(
+        self, db_session, user_with_device_token
+    ):
+        """Test that a user with multiple tests is not returned (Day 30 is for first test only)."""
+        # Create first test result from 30 days ago
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+
+        # Create second test result from 20 days ago
+        twenty_days_ago = utc_now() - timedelta(days=20)
+        create_test_result(db_session, user_with_device_token.id, twenty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        # User should not be returned because they've taken more than 1 test
+        assert len(users) == 0
+
+    def test_user_never_tested_not_returned(self, db_session, user_with_device_token):
+        """Test that a user who never tested is not returned."""
+        # Don't create any test results
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 0
+
+    def test_user_without_notifications_not_returned(
+        self, db_session, user_without_notifications
+    ):
+        """Test that users with notifications disabled are not returned."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_without_notifications.id, thirty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 0
+
+    def test_user_without_device_token_not_returned(
+        self, db_session, user_without_device_token
+    ):
+        """Test that users without device tokens are not returned."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_without_device_token.id, thirty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 0
+
+    def test_multiple_eligible_users(self, db_session):
+        """Test handling multiple users who are eligible for Day 30 reminder."""
+        # Create three users who are all eligible
+        eligible_users = []
+        for i in range(3):
+            user = User(
+                email=f"day30user{i}@example.com",
+                password_hash=hash_password("testpassword123"),
+                first_name=f"Day30User{i}",
+                last_name="Test",
+                notification_enabled=True,
+                apns_device_token=f"day30token{i}" + "0" * 32,
+            )
+            db_session.add(user)
+            db_session.commit()
+            db_session.refresh(user)
+            eligible_users.append(user)
+
+            # Create first test results from 30 days ago
+            thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+            create_test_result(db_session, user.id, thirty_days_ago)
+
+        users = get_users_for_day_30_reminder(db_session)
+
+        assert len(users) == 3
+        user_ids = {u.id for u in users}
+        expected_ids = {u.id for u in eligible_users}
+        assert user_ids == expected_ids
