@@ -98,6 +98,32 @@ final class SettingsViewModelTests: XCTestCase {
 
     // MARK: - Logout Tests
 
+    func testLogout_IsNonThrowing_ByDesign() async {
+        // This test documents the architectural decision that logout() does not require error handling.
+        //
+        // The AuthManagerProtocol.logout() method is intentionally non-throwing because:
+        // - Users should always be able to sign out, even if the server is unreachable
+        // - AuthManager catches any network errors internally and silently continues
+        // - Local state (tokens, user data) is always cleared regardless of server response
+        // - This differs from deleteAccount(), which must report failures to the user
+        //
+        // Contrast with deleteAccount():
+        // - deleteAccount() is throwing because the server must confirm deletion
+        // - If server deletion fails, the account still exists and user must be informed
+        // - Retrying may be necessary, so errors must surface to the UI
+
+        // Given - We can call logout without any error handling infrastructure
+        // (no try/catch, no error property to check, no failure callback)
+
+        // When
+        await sut.logout()
+
+        // Then - Logout always "succeeds" from the ViewModel's perspective
+        XCTAssertTrue(mockAuthManager.logoutCalled, "logout should be called on authManager")
+        XCTAssertFalse(sut.isLoggingOut, "isLoggingOut should be false after completion")
+        // Note: There is no sut.logoutError property because logout cannot fail at the API level
+    }
+
     func testLogout_Success() async {
         // Given
         mockAuthManager.isAuthenticated = true

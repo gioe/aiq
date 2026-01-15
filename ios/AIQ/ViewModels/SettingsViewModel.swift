@@ -70,6 +70,11 @@ class SettingsViewModel: BaseViewModel {
     ///
     /// This method should not be called concurrently. The guard ensures idempotent
     /// behavior if the UI accidentally triggers multiple logout attempts.
+    ///
+    /// - Note: Unlike `deleteAccount()`, this method does not require error handling because
+    ///   `AuthManagerProtocol.logout()` is non-throwing by design. The AuthManager catches any
+    ///   server-side errors internally and always completes the local logout regardless of
+    ///   network failures. This ensures users can always sign out, even offline.
     func logout() async {
         guard !isLoggingOut else { return }
 
