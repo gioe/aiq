@@ -310,6 +310,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         let notificationType = userInfo["type"] as? String ?? "unknown"
 
         // Track notification tap with current authorization status
+        // Note: completionHandler is called inside the Task to ensure all processing completes
+        // before the system considers notification handling finished
         Task { @MainActor in
             await notificationManager.checkAuthorizationStatus()
             let authStatusString = authorizationStatusDescription(notificationManager.authorizationStatus)
@@ -329,9 +331,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     "authorizationStatus": notificationManager.authorizationStatus.rawValue
                 ]
             )
-        }
 
-        completionHandler()
+            // Call completion handler after all processing is done
+            completionHandler()
+        }
     }
 
     /// Convert UNAuthorizationStatus to a human-readable string for analytics

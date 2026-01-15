@@ -15,8 +15,6 @@ struct MainTabView: View {
 
     /// Whether to show the notification upgrade prompt
     @State private var showUpgradePrompt = false
-    /// The notification type that triggered the upgrade prompt (for analytics)
-    @State private var triggeringNotificationType: String = ""
     /// Notification manager for checking authorization status and requesting permission
     private let notificationManager: NotificationManagerProtocol
     /// Analytics service for tracking engagement
@@ -25,8 +23,12 @@ struct MainTabView: View {
     // MARK: - Initialization
 
     init() {
-        // Force unwrap is safe here because NotificationManager is always registered in ServiceContainer
-        notificationManager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)!
+        guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self) else {
+            preconditionFailure(
+                "NotificationManager must be registered in ServiceContainer before MainTabView initialization"
+            )
+        }
+        notificationManager = manager
         analyticsService = AnalyticsService.shared
     }
 
@@ -97,7 +99,6 @@ struct MainTabView: View {
 
         // Check if we should show upgrade prompt for provisional users
         if shouldShowUpgradePrompt(authorizationStatus: authStatus) {
-            triggeringNotificationType = notificationType
             analyticsService.trackNotificationUpgradePromptShown(notificationType: notificationType)
             notificationManager.hasShownUpgradePrompt = true
             showUpgradePrompt = true

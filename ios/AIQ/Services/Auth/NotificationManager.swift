@@ -77,7 +77,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private let upgradePromptShownKey = "com.aiq.hasShownUpgradePrompt"
 
     /// Whether the upgrade prompt has been shown to a provisional user
-    /// Used to track engagement and prevent showing the prompt multiple times in a session
+    /// Persists across app launches via UserDefaults to prevent showing the prompt repeatedly.
+    /// Once shown, the prompt will not appear again for this user until they log out or reinstall.
     var hasShownUpgradePrompt: Bool {
         get {
             UserDefaults.standard.bool(forKey: upgradePromptShownKey)
