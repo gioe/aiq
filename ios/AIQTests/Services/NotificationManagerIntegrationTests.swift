@@ -668,6 +668,45 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered after successful retry")
     }
 
+    // MARK: - Concurrency Tests
+
+    func testConcurrentRegistration_OnlyOneRequestSent() async throws {
+        // VERIFIED: NotificationManager uses @MainActor (line 8), which guarantees sequential
+        // execution on the main thread. The isRegisteringToken flag (line 54) prevents concurrent
+        // registrations by checking the flag before starting (lines 297-300) and setting it during
+        // registration (lines 315, 331).
+        //
+        // This test verifies that multiple concurrent calls to retryDeviceTokenRegistration()
+        // are properly serialized by @MainActor and the isRegisteringToken flag ensures only
+        // one backend call is made.
+
+        // Given - Authenticated user with cached token
+        mockAuthManager.isAuthenticated = true
+        let deviceToken = "concurrent_token"
+        UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
+
+        // Configure mock with delay to simulate slow network
+        let mockResponse = DeviceTokenResponse(success: true, message: "Registered")
+        await mockNotificationService.setRegisterResponse(mockResponse)
+        await mockNotificationService.setRegisterDelay(0.2) // 200ms delay to test guard
+
+        // When - Trigger concurrent registrations
+        async let result1 = sut.retryDeviceTokenRegistration()
+        async let result2 = sut.retryDeviceTokenRegistration()
+        async let result3 = sut.retryDeviceTokenRegistration()
+
+        // Wait for all operations to complete
+        _ = await (result1, result2, result3)
+
+        // Wait for registration state to update
+        try await waitForRegistrationState(true)
+
+        // Then - Should only call backend once due to isRegisteringToken guard
+        let count = await mockNotificationService.registerCallCount
+        XCTAssertEqual(count, 1, "Should prevent concurrent registrations, got \(count) calls")
+        XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered after successful call")
+    }
+
     // MARK: - State Consistency Tests
 
     func testStateConsistency_AfterMultipleAuthStateChanges() async throws {
