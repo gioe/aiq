@@ -32,6 +32,52 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertNil(sut.error, "error should be nil initially")
     }
 
+    func testInitialization_WithAuthenticatedUser_PrePopulatesEmail() {
+        // Given
+        let mockAuthManager = MockAuthManager()
+        let expectedEmail = "authenticated@example.com"
+        mockAuthManager.currentUser = User(
+            id: 1,
+            email: expectedEmail,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+
+        // When
+        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+
+        // Then
+        XCTAssertEqual(viewModel.email, expectedEmail, "email should be pre-populated from authenticated user")
+        XCTAssertEqual(viewModel.name, "", "name should remain empty")
+    }
+
+    func testInitialization_WithoutAuthManager_EmailRemainsEmpty() {
+        // When
+        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: nil)
+
+        // Then
+        XCTAssertEqual(viewModel.email, "", "email should be empty when no auth manager provided")
+    }
+
+    func testInitialization_WithUnauthenticatedUser_EmailRemainsEmpty() {
+        // Given
+        let mockAuthManager = MockAuthManager()
+        mockAuthManager.currentUser = nil
+
+        // When
+        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+
+        // Then
+        XCTAssertEqual(viewModel.email, "", "email should be empty when user is not authenticated")
+    }
+
     // MARK: - Name Validation Tests
 
     func testNameValidation_EmptyName_Invalid() {
@@ -448,6 +494,50 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertEqual(sut.description, "")
         XCTAssertFalse(sut.showSuccessMessage)
         XCTAssertNil(sut.error)
+    }
+
+    func testResetForm_WithAuthenticatedUser_PreservesEmail() {
+        // Given - Authenticated user with pre-populated email
+        let mockAuthManager = MockAuthManager()
+        let expectedEmail = "authenticated@example.com"
+        mockAuthManager.currentUser = User(
+            id: 1,
+            email: expectedEmail,
+            firstName: "Test",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: nil,
+            notificationEnabled: false,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+
+        // When - Fill form and reset
+        viewModel.name = "John Doe"
+        viewModel.description = "Test feedback"
+        viewModel.selectedCategory = .bugReport
+        viewModel.resetForm()
+
+        // Then - Email should be preserved, other fields cleared
+        XCTAssertEqual(viewModel.email, expectedEmail, "email should remain pre-populated after reset")
+        XCTAssertEqual(viewModel.name, "", "name should be cleared")
+        XCTAssertNil(viewModel.selectedCategory, "category should be cleared")
+        XCTAssertEqual(viewModel.description, "", "description should be cleared")
+    }
+
+    func testResetForm_WithoutAuthManager_ClearsEmail() {
+        // Given - No auth manager, email manually set
+        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: nil)
+        viewModel.email = "manual@example.com"
+
+        // When
+        viewModel.resetForm()
+
+        // Then - Email should be cleared since there's no authenticated user
+        XCTAssertEqual(viewModel.email, "", "email should be cleared when no auth manager")
     }
 
     // MARK: - Integration Tests

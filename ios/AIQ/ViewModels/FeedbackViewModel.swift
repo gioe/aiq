@@ -6,6 +6,7 @@ class FeedbackViewModel: BaseViewModel {
     // MARK: - Dependencies
 
     private let apiClient: APIClientProtocol
+    private let authManager: AuthManagerProtocol?
 
     // MARK: - Private State
 
@@ -23,10 +24,18 @@ class FeedbackViewModel: BaseViewModel {
     // MARK: - Initialization
 
     /// Initialize the ViewModel with dependencies
-    /// - Parameter apiClient: API client for network requests
-    init(apiClient: APIClientProtocol) {
+    /// - Parameters:
+    ///   - apiClient: API client for network requests
+    ///   - authManager: Auth manager for accessing current user (optional for pre-populating email)
+    init(apiClient: APIClientProtocol, authManager: AuthManagerProtocol? = nil) {
         self.apiClient = apiClient
+        self.authManager = authManager
         super.init()
+
+        // Pre-populate email from authenticated user if available
+        if let currentUser = authManager?.currentUser {
+            email = currentUser.email
+        }
     }
 
     // MARK: - Validation
@@ -125,12 +134,17 @@ class FeedbackViewModel: BaseViewModel {
         }
     }
 
-    /// Reset the form to initial state
+    /// Reset the form to initial state, preserving pre-populated email for authenticated users
     func resetForm() {
         resetTask?.cancel()
         resetTask = nil
         name = ""
-        email = ""
+        // Preserve pre-populated email for authenticated users
+        if let currentUser = authManager?.currentUser {
+            email = currentUser.email
+        } else {
+            email = ""
+        }
         selectedCategory = nil
         description = ""
         showSuccessMessage = false

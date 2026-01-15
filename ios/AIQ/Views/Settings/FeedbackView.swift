@@ -168,18 +168,30 @@ struct FeedbackView: View {
                 .font(Typography.labelMedium)
                 .foregroundColor(ColorPalette.textPrimary)
 
-            TextEditor(text: $viewModel.description)
-                .frame(minHeight: 150)
-                .padding(DesignSystem.Spacing.sm)
-                .background(ColorPalette.backgroundSecondary)
-                .cornerRadius(DesignSystem.CornerRadius.md)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
-                )
-                .accessibilityLabel(viewModel.description.isEmpty ? "Description, empty" : "Description")
-                .accessibilityHint("Text field. Double tap to edit. Minimum 10 characters required.")
-                .accessibilityIdentifier(AccessibilityIdentifiers.FeedbackView.descriptionTextField)
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $viewModel.description)
+                    .frame(minHeight: 150)
+                    .padding(DesignSystem.Spacing.sm)
+                    .scrollContentBackground(.hidden)
+                    .background(ColorPalette.backgroundSecondary)
+                    .cornerRadius(DesignSystem.CornerRadius.md)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                            .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
+                    )
+
+                if viewModel.description.isEmpty {
+                    Text("Describe your feedback, bug, or feature request...")
+                        .font(Typography.bodyMedium)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .padding(.horizontal, DesignSystem.Spacing.lg)
+                        .padding(.vertical, DesignSystem.Spacing.lg)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityLabel(viewModel.description.isEmpty ? "Description, empty" : "Description")
+            .accessibilityHint("Text field. Double tap to edit. Minimum 10 characters required.")
+            .accessibilityIdentifier(AccessibilityIdentifiers.FeedbackView.descriptionTextField)
 
             // Character count
             Text("\(viewModel.description.count) characters")
