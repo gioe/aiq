@@ -73,6 +73,21 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         }
     }
 
+    /// UserDefaults key for tracking if upgrade prompt has been shown
+    private let upgradePromptShownKey = "com.aiq.hasShownUpgradePrompt"
+
+    /// Whether the upgrade prompt has been shown to a provisional user
+    /// Persists across app launches via UserDefaults to prevent showing the prompt repeatedly.
+    /// Once shown, the prompt will not appear again for this user until they log out or reinstall.
+    var hasShownUpgradePrompt: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: upgradePromptShownKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: upgradePromptShownKey)
+        }
+    }
+
     // MARK: - Initialization
 
     init(
@@ -339,6 +354,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
         UserDefaults.standard.removeObject(forKey: permissionRequestedKey)
         UserDefaults.standard.removeObject(forKey: provisionalPermissionRequestedKey)
+        UserDefaults.standard.removeObject(forKey: upgradePromptShownKey)
         pendingDeviceToken = nil
     }
 }

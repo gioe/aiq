@@ -306,17 +306,47 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         let userInfo = response.notification.request.content.userInfo
         handleNotificationData(userInfo)
 
-        // Post notification to navigate to appropriate screen
-        // This will be handled by the view layer
-        if let notificationType = userInfo["type"] as? String {
+        // Get notification type
+        let notificationType = userInfo["type"] as? String ?? "unknown"
+
+        // Track notification tap with current authorization status
+        // Note: completionHandler is called inside the Task to ensure all processing completes
+        // before the system considers notification handling finished
+        Task { @MainActor in
+            await notificationManager.checkAuthorizationStatus()
+            let authStatusString = authorizationStatusDescription(notificationManager.authorizationStatus)
+            analyticsService.trackNotificationTapped(
+                notificationType: notificationType,
+                authorizationStatus: authStatusString
+            )
+
+            // Post notification to navigate to appropriate screen
+            // Include authorization status so MainTabView can decide whether to show upgrade prompt
             NotificationCenter.default.post(
                 name: .notificationTapped,
                 object: nil,
-                userInfo: ["type": notificationType, "payload": userInfo]
+                userInfo: [
+                    "type": notificationType,
+                    "payload": userInfo,
+                    "authorizationStatus": notificationManager.authorizationStatus.rawValue
+                ]
             )
-        }
 
-        completionHandler()
+            // Call completion handler after all processing is done
+            completionHandler()
+        }
+    }
+
+    /// Convert UNAuthorizationStatus to a human-readable string for analytics
+    private func authorizationStatusDescription(_ status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined: "not_determined"
+        case .denied: "denied"
+        case .authorized: "authorized"
+        case .provisional: "provisional"
+        case .ephemeral: "ephemeral"
+        @unknown default: "unknown"
+        }
     }
 }
 
