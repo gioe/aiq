@@ -16,6 +16,22 @@ import XCTest
 /// 2. Verifying data flows across service boundaries
 /// 3. Testing complex, multi-step scenarios
 /// 4. Using mocks to simulate realistic service responses
+///
+/// ## Mock Reset Pattern
+///
+/// Some tests in this file call `await mockNotificationService.reset()` mid-test. This pattern
+/// is used when a test has multiple distinct phases that need to be verified independently:
+///
+/// - **Register-then-unregister tests**: Reset after registration completes so we can verify
+///   that only unregister calls occur in the second phase.
+/// - **Multi-step flow tests**: Reset between phases (e.g., after logout but before re-login)
+///   to verify each phase makes the correct number of API calls.
+/// - **Retry scenarios**: Reset after a failed attempt to verify the retry makes exactly one
+///   new call and succeeds independently.
+///
+/// Tests that don't reset mid-test either:
+/// - Test a single operation from start to finish, OR
+/// - Need to verify cumulative behavior across multiple operations
 @MainActor
 final class NotificationManagerIntegrationTests: XCTestCase {
     var sut: NotificationManager!
@@ -290,7 +306,9 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before unregister")
 
-        // Reset mock to track unregister calls
+        // Reset mock to track unregister calls separately from the initial registration.
+        // Without this reset, the mock would still have registerDeviceTokenCalled=true from the
+        // setup phase, making it impossible to verify that only unregister (not register) was called.
         await mockNotificationService.reset()
 
         // Configure unregister response
@@ -351,7 +369,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before unregister")
 
-        // Reset mock
+        // Reset mock to isolate the unregister error handling test from the successful registration
+        // that occurred during setup. This ensures we only track calls made during the unregister phase.
         await mockNotificationService.reset()
 
         // Configure unregister to fail
@@ -523,7 +542,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered after login and token receipt")
 
         // When - User logs out
-        // Note: Reset mock to track subsequent calls after logout
+        // Reset mock to track subsequent calls after logout separately. This is critical for verifying
+        // that re-login triggers exactly one new registration call, independent of the initial login.
         await mockNotificationService.reset()
         mockAuthManager.isAuthenticated = false
 
@@ -625,7 +645,8 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let cachedToken = UserDefaults.standard.string(forKey: deviceTokenKey)
         XCTAssertEqual(cachedToken, deviceToken, "Should keep token for retry")
 
-        // Reset mock for retry
+        // Reset mock to isolate the retry attempt from the initial failed attempt.
+        // This allows us to verify that the retry makes exactly one new call and succeeds independently.
         await mockNotificationService.reset()
 
         // Configure mock to succeed
