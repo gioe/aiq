@@ -139,12 +139,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         logger.info("Application shutting down - no running background jobs")
 
-    # Close rate limit storage connection pool if using Redis
+    # Close rate limit storage connection pools if using Redis
     if hasattr(app.state, "rate_limit_storage"):
         storage = app.state.rate_limit_storage
         if hasattr(storage, "close"):
             storage.close()
-            logger.info("Closed rate limit storage connection pool")
+            logger.info("Closed global rate limit storage connection pool")
+
+    # Close feedback rate limiter storage connection pool
+    # This is initialized at module load time in app.api.v1.feedback
+    try:
+        from app.api.v1.feedback import feedback_storage
+
+        if hasattr(feedback_storage, "close"):
+            feedback_storage.close()
+            logger.info("Closed feedback rate limit storage connection pool")
+    except ImportError:
+        pass  # Module not imported yet, nothing to close
 
 
 # OpenAPI tags metadata
