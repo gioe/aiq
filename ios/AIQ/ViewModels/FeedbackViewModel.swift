@@ -64,6 +64,9 @@ class FeedbackViewModel: BaseViewModel {
         // Validate form first
         guard isFormValid else { return }
 
+        // Safely unwrap selectedCategory - should always succeed after isFormValid check
+        guard let category = selectedCategory else { return }
+
         setLoading(true)
         clearError()
 
@@ -72,7 +75,7 @@ class FeedbackViewModel: BaseViewModel {
             let feedback = Feedback(
                 name: name,
                 email: email,
-                category: selectedCategory!, // Safe unwrap - validated by isFormValid
+                category: category,
                 description: description
             )
 
