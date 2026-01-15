@@ -16,15 +16,6 @@ final class ServiceConfigurationTests: XCTestCase {
         ServiceConfiguration.configureServices(container: container)
     }
 
-    override func tearDown() async throws {
-        // Reset after each test to clean up
-        container.reset()
-        // Re-configure services for the app (in case other tests need them)
-        ServiceConfiguration.configureServices(container: container)
-        container = nil
-        try await super.tearDown()
-    }
-
     // MARK: - Registration Tests
 
     func testAPIClientProtocolIsRegistered() {
