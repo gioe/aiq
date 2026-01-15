@@ -322,4 +322,69 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertTrue(mockAuthManager.deleteAccountCalled)
         XCTAssertNil(sut.deleteAccountError)
     }
+
+    // MARK: - Concurrent Operation Tests
+
+    func testLogout_IgnoresSecondCallWhileInProgress() async {
+        // Given - Configure mock to have a delay so we can test concurrent calls
+        mockAuthManager.logoutDelay = 0.1
+
+        // When - Start first logout
+        async let firstLogout: Void = sut.logout()
+
+        // Give time for first call to set isLoggingOut
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Verify first call is in progress
+        XCTAssertTrue(sut.isLoggingOut, "First logout should be in progress")
+
+        // Reset the flag to verify second call doesn't trigger logout
+        mockAuthManager.logoutCalled = false
+
+        // When - Start second logout while first is still in progress
+        async let secondLogout: Void = sut.logout()
+
+        // Then - Second call should return immediately without calling authManager
+        await secondLogout
+        XCTAssertFalse(
+            mockAuthManager.logoutCalled,
+            "Second logout should be ignored while first is in progress"
+        )
+
+        // Wait for first logout to complete
+        await firstLogout
+        XCTAssertFalse(sut.isLoggingOut, "isLoggingOut should be false after completion")
+    }
+
+    func testDeleteAccount_IgnoresSecondCallWhileInProgress() async {
+        // Given - Configure mock to have a delay so we can test concurrent calls
+        mockAuthManager.shouldSucceedDeleteAccount = true
+        mockAuthManager.deleteAccountDelay = 0.1
+
+        // When - Start first delete
+        async let firstDelete: Void = sut.deleteAccount()
+
+        // Give time for first call to set isDeletingAccount
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Verify first call is in progress
+        XCTAssertTrue(sut.isDeletingAccount, "First deleteAccount should be in progress")
+
+        // Reset the flag to verify second call doesn't trigger deleteAccount
+        mockAuthManager.deleteAccountCalled = false
+
+        // When - Start second delete while first is still in progress
+        async let secondDelete: Void = sut.deleteAccount()
+
+        // Then - Second call should return immediately without calling authManager
+        await secondDelete
+        XCTAssertFalse(
+            mockAuthManager.deleteAccountCalled,
+            "Second deleteAccount should be ignored while first is in progress"
+        )
+
+        // Wait for first delete to complete
+        await firstDelete
+        XCTAssertFalse(sut.isDeletingAccount, "isDeletingAccount should be false after completion")
+    }
 }

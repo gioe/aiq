@@ -20,6 +20,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var shouldSucceedDeleteAccount: Bool = true
     var loginDelay: TimeInterval = 0
     var registerDelay: TimeInterval = 0
+    var logoutDelay: TimeInterval = 0
     var deleteAccountDelay: TimeInterval = 0
 
     // Track method calls
@@ -141,6 +142,11 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     func logout() async {
         logoutCalled = true
         isLoading = true
+
+        if logoutDelay > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(logoutDelay * 1_000_000_000))
+        }
+
         isAuthenticated = false
         currentUser = nil
         isLoading = false
@@ -188,6 +194,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         shouldSucceedDeleteAccount = true
         loginDelay = 0
         registerDelay = 0
+        logoutDelay = 0
         deleteAccountDelay = 0
         loginCalled = false
         registerCalled = false
