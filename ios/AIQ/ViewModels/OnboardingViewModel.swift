@@ -35,12 +35,18 @@ class OnboardingViewModel: ObservableObject {
         hasCompletedOnboarding = true
     }
 
-    /// Check if the current page is the last page
+    /// Returns true if the current page is the final onboarding page.
+    ///
+    /// Used to determine when to show the "Get Started" button instead of "Next",
+    /// and to hide the skip option on the last page.
     var isLastPage: Bool {
         currentPage == totalPages - 1
     }
 
-    /// Check if skip button should be shown (pages 0-2, not on last page)
+    /// Returns true if the skip button should be displayed.
+    ///
+    /// The skip button is shown on all pages except the last page, allowing users
+    /// to bypass the remaining onboarding content and proceed directly to the app.
     var shouldShowSkip: Bool {
         !isLastPage
     }
