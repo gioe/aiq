@@ -272,6 +272,7 @@ Create the full user experience using hardcoded mock data. This step should incl
 
 ```swift
 // Example: Mock data during prototyping
+// (FeatureItem and featureItems are placeholders - use your actual model/endpoint)
 class FeatureViewModel: BaseViewModel {
     @Published var items: [FeatureItem] = [
         FeatureItem(id: 1, title: "Mock Item 1", value: 42),
@@ -309,19 +310,20 @@ Replace mock data with actual API calls:
 
 ```swift
 // After backend is ready
+// (Replace placeholder endpoint/context with your actual values)
 func fetchItems() async {
     setLoading(true)
     clearError()
 
     do {
         let response: [FeatureItem] = try await apiClient.request(
-            endpoint: .featureItems,
+            endpoint: .featureItems,  // Add to APIEndpoint enum
             method: .get,
             requiresAuth: true
         )
         self.items = response
     } catch {
-        handleError(error, context: .fetchFeatureItems)
+        handleError(error, context: .fetchFeatureItems)  // Add to ErrorContext enum
     }
 
     setLoading(false)

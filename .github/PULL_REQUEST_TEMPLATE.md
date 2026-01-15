@@ -141,7 +141,7 @@ Reviewers should prefix non-blocking comments with: `[Nit]`, `[Optional]`, or `C
 ### How to Handle Deferred Items
 
 1. Author creates a task in the backlog database for each deferred item
-2. Author adds entry to `.github/DEFERRED_REVIEW_ITEMS.md`
+2. Author adds entry to [`.github/DEFERRED_REVIEW_ITEMS.md`](DEFERRED_REVIEW_ITEMS.md) (see existing entries for format)
 3. Author responds to review comment with link to the created task
 4. Reviewer approves the PR
 
