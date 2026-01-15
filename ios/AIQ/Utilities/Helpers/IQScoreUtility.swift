@@ -107,6 +107,32 @@ enum IQScoreUtility {
                 "circle"
             }
         }
+
+        /// Statistical percentile range for the score category
+        ///
+        /// Based on the standard IQ distribution (mean=100, SD=15):
+        /// - z-score cutoffs correspond to IQ thresholds in `classify(_:)`
+        /// - Percentiles derived from cumulative normal distribution
+        ///
+        /// See docs/methodology/METHODOLOGY.md Section 3.3 for reference.
+        var percentileRange: String {
+            switch self {
+            case .highlyGifted:
+                "99.9th percentile and above"
+            case .gifted:
+                "98th to 99.9th percentile"
+            case .aboveAverage:
+                "84th to 98th percentile"
+            case .average:
+                "16th to 84th percentile"
+            case .belowAverage:
+                "2nd to 16th percentile"
+            case .extremelyLow:
+                "Below 2nd percentile"
+            case .invalid:
+                "N/A"
+            }
+        }
     }
 
     /// Classifies an IQ score into a category

@@ -405,6 +405,82 @@ final class IQScoreUtilityTests: XCTestCase {
         }
     }
 
+    // MARK: - Percentile Range Tests
+
+    func testPercentileRange_HighlyGifted_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.highlyGifted.percentileRange,
+            "99.9th percentile and above"
+        )
+    }
+
+    func testPercentileRange_Gifted_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.gifted.percentileRange,
+            "98th to 99.9th percentile"
+        )
+    }
+
+    func testPercentileRange_AboveAverage_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.aboveAverage.percentileRange,
+            "84th to 98th percentile"
+        )
+    }
+
+    func testPercentileRange_Average_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.average.percentileRange,
+            "16th to 84th percentile"
+        )
+    }
+
+    func testPercentileRange_BelowAverage_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.belowAverage.percentileRange,
+            "2nd to 16th percentile"
+        )
+    }
+
+    func testPercentileRange_ExtremelyLow_ReturnsCorrectRange() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.extremelyLow.percentileRange,
+            "Below 2nd percentile"
+        )
+    }
+
+    func testPercentileRange_Invalid_ReturnsNA() {
+        XCTAssertEqual(
+            IQScoreUtility.Category.invalid.percentileRange,
+            "N/A"
+        )
+    }
+
+    func testClassify_EndToEnd_ReturnsCorrectPercentileRanges() {
+        // Test the full flow from score to percentile range
+        let testCases: [(score: Int, expectedPercentileRange: String)] = [
+            (50, "Below 2nd percentile"),
+            (75, "2nd to 16th percentile"),
+            (100, "16th to 84th percentile"),
+            (120, "84th to 98th percentile"),
+            (135, "98th to 99.9th percentile"),
+            (160, "99.9th percentile and above"),
+            (-5, "N/A")
+        ]
+
+        for testCase in testCases {
+            // When
+            let percentileRange = IQScoreUtility.classify(testCase.score).percentileRange
+
+            // Then
+            XCTAssertEqual(
+                percentileRange,
+                testCase.expectedPercentileRange,
+                "Score \(testCase.score) should have percentile range '\(testCase.expectedPercentileRange)'"
+            )
+        }
+    }
+
     // MARK: - Edge Cases
 
     func testClassify_Zero_ReturnsExtremelyLow() {
