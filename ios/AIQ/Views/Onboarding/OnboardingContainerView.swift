@@ -8,6 +8,11 @@ struct OnboardingContainerView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
+    // Reusable haptic generators (created once, reused throughout lifecycle)
+    private let lightImpactGenerator = UIImpactFeedbackGenerator(style: .light)
+    private let mediumImpactGenerator = UIImpactFeedbackGenerator(style: .medium)
+    private let notificationGenerator = UINotificationFeedbackGenerator()
+
     var body: some View {
         ZStack {
             // Background
@@ -50,8 +55,7 @@ struct OnboardingContainerView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .onChange(of: viewModel.currentPage) { _ in
                     // Haptic feedback on page change
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
+                    lightImpactGenerator.impactOccurred()
                 }
 
                 // Custom page indicator (scoped styling, no global UIPageControl modifications)
@@ -82,6 +86,12 @@ struct OnboardingContainerView: View {
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.containerView)
+        .onAppear {
+            // Prepare haptic generators for reduced latency on first use
+            lightImpactGenerator.prepare()
+            mediumImpactGenerator.prepare()
+            notificationGenerator.prepare()
+        }
     }
 
     // MARK: - Actions
@@ -89,8 +99,7 @@ struct OnboardingContainerView: View {
     /// Handle Continue button tap
     private func handleContinue() {
         // Haptic feedback
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        mediumImpactGenerator.impactOccurred()
 
         // Navigate to next page
         if reduceMotion {
@@ -105,8 +114,7 @@ struct OnboardingContainerView: View {
     /// Handle Skip button tap
     private func handleSkip() {
         // Haptic feedback
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        mediumImpactGenerator.impactOccurred()
 
         // Skip onboarding
         if reduceMotion {
@@ -124,8 +132,7 @@ struct OnboardingContainerView: View {
     /// Handle Get Started button tap
     private func handleGetStarted() {
         // Haptic feedback
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
+        notificationGenerator.notificationOccurred(.success)
 
         // Complete onboarding
         if reduceMotion {
