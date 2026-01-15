@@ -218,18 +218,33 @@ async def submit_feedback(
     # Get client IP for rate limiting
     client_ip = _get_client_ip(request)
 
-    # Check rate limit
-    allowed, metadata = feedback_limiter.check(client_ip)
-    if not allowed:
-        retry_after = metadata.get("retry_after", 3600)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": "Rate limit exceeded",
-                "message": "Too many feedback submissions. Please try again later.",
-                "retry_after": retry_after,
-            },
-            headers={"Retry-After": str(retry_after)},
+    # Check rate limit with error handling (fail-open for feedback)
+    # If the rate limiter fails (e.g., Redis connection issue), allow the request
+    # to proceed since feedback collection is more important than strict rate limiting
+    try:
+        allowed, metadata = feedback_limiter.check(client_ip)
+        if not allowed:
+            retry_after = metadata.get("retry_after", 3600)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "Rate limit exceeded",
+                    "message": "Too many feedback submissions. Please try again later.",
+                    "retry_after": retry_after,
+                },
+                headers={"Retry-After": str(retry_after)},
+            )
+    except HTTPException:
+        # Re-raise rate limit exceeded response
+        raise
+    except Exception as e:
+        # Log the error but allow the request to proceed (fail-open)
+        # This ensures feedback can still be submitted when rate limiter has issues
+        logger.warning(
+            f"Rate limiter error during feedback submission: "
+            f"client_ip={client_ip}, "
+            f"error={type(e).__name__}: {e}. "
+            f"Allowing request to proceed (fail-open)."
         )
 
     # Extract request headers

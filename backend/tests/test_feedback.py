@@ -1089,6 +1089,168 @@ class TestFeedbackNotificationErrorHandling:
         assert "notification_sent=False" in success_log[0]
 
 
+class TestRateLimiterErrorHandling:
+    """Tests for rate limiter error handling in feedback submission."""
+
+    def test_submit_feedback_succeeds_when_rate_limiter_throws_exception(
+        self, client, db_session
+    ):
+        """Test that feedback submission succeeds when rate limiter fails (fail-open)."""
+        feedback_data = {
+            "name": "Rate Limiter Error User",
+            "email": "rlerror@example.com",
+            "category": "bug_report",
+            "description": "Testing feedback submission when rate limiter fails.",
+        }
+
+        # Mock the rate limiter check to raise an exception
+        with patch(
+            "app.api.v1.feedback.feedback_limiter.check",
+            side_effect=RuntimeError("Redis connection failed"),
+        ):
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        # Should succeed because we fail-open
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        assert "submission_id" in data
+
+        # Verify feedback was saved to database
+        submission = (
+            db_session.query(FeedbackSubmission)
+            .filter(FeedbackSubmission.id == data["submission_id"])
+            .first()
+        )
+        assert submission is not None
+        assert submission.email == "rlerror@example.com"
+
+    def test_rate_limiter_error_logs_warning(self, client, db_session):
+        """Test that rate limiter errors are logged as warnings."""
+        feedback_data = {
+            "name": "Log Warning User",
+            "email": "logwarn@example.com",
+            "category": "general_feedback",
+            "description": "Testing that rate limiter errors are logged.",
+        }
+
+        with patch(
+            "app.api.v1.feedback.feedback_limiter.check",
+            side_effect=ConnectionError("Storage backend unavailable"),
+        ):
+            with patch("app.api.v1.feedback.logger") as mock_logger:
+                response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        assert response.status_code == 201
+
+        # Verify warning was logged with appropriate context
+        mock_logger.warning.assert_called_once()
+        warning_message = str(mock_logger.warning.call_args)
+        assert "Rate limiter error" in warning_message
+        assert "ConnectionError" in warning_message
+        assert "fail-open" in warning_message
+
+    def test_rate_limiter_error_logs_client_ip(self, client, db_session):
+        """Test that rate limiter error logs include client IP for debugging."""
+        feedback_data = {
+            "name": "IP Log User",
+            "email": "iplog@example.com",
+            "category": "bug_report",
+            "description": "Testing that client IP is logged with rate limiter errors.",
+        }
+
+        with patch(
+            "app.api.v1.feedback.feedback_limiter.check",
+            side_effect=TimeoutError("Rate limiter timed out"),
+        ):
+            with patch("app.api.v1.feedback.logger") as mock_logger:
+                response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        assert response.status_code == 201
+
+        # Verify client_ip is in the log message
+        warning_message = str(mock_logger.warning.call_args)
+        assert "client_ip=" in warning_message
+
+    def test_rate_limit_429_still_returned_when_limit_exceeded(self, client):
+        """Test that 429 is still returned when rate limit is exceeded (not an error)."""
+        # Submit 5 allowed requests
+        for i in range(5):
+            feedback_data = {
+                "name": f"User {i}",
+                "email": f"exceeded{i}@example.com",
+                "category": "bug_report",
+                "description": f"Testing rate limit still works after adding error handling {i}.",
+            }
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+            assert response.status_code == 201
+
+        # 6th request should still be rate limited
+        feedback_data = {
+            "name": "Exceeded User",
+            "email": "exceeded@example.com",
+            "category": "bug_report",
+            "description": "This should be rate limited.",
+        }
+
+        response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        assert response.status_code == 429
+        data = response.json()["detail"]
+        assert data["error"] == "Rate limit exceeded"
+
+    def test_rate_limiter_redis_error_allows_request(self, client, db_session):
+        """Test that Redis-specific errors allow request to proceed."""
+        feedback_data = {
+            "name": "Redis Error User",
+            "email": "rediserr@example.com",
+            "category": "feature_request",
+            "description": "Testing that Redis errors don't block feedback.",
+        }
+
+        # Simulate a Redis-like error
+        with patch(
+            "app.api.v1.feedback.feedback_limiter.check",
+            side_effect=Exception(
+                "READONLY You can't write against a read only replica"
+            ),
+        ):
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+
+    def test_multiple_requests_succeed_when_rate_limiter_fails(
+        self, client, db_session
+    ):
+        """Test that multiple requests can succeed when rate limiter is failing."""
+        # All requests should succeed when rate limiter is broken
+        for i in range(10):  # More than the normal 5 limit
+            feedback_data = {
+                "name": f"Unlimited User {i}",
+                "email": f"unlimited{i}@example.com",
+                "category": "bug_report",
+                "description": f"Request {i} when rate limiter is down.",
+            }
+
+            with patch(
+                "app.api.v1.feedback.feedback_limiter.check",
+                side_effect=RuntimeError("Rate limiter unavailable"),
+            ):
+                response = client.post("/v1/feedback/submit", json=feedback_data)
+
+            assert response.status_code == 201, f"Request {i} should succeed"
+
+        # Verify all 10 submissions were saved
+        submissions = (
+            db_session.query(FeedbackSubmission)
+            .filter(FeedbackSubmission.email.like("unlimited%@example.com"))
+            .all()
+        )
+        assert len(submissions) == 10
+
+
 class TestCreateRateLimiterStorage:
     """Tests for _create_rate_limiter_storage() function."""
 
