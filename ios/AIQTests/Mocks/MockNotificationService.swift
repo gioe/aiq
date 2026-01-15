@@ -32,6 +32,12 @@ actor MockNotificationService: NotificationServiceProtocol {
     var mockUpdatePreferencesError: Error?
     var mockGetPreferencesError: Error?
 
+    // MARK: - Delay Configuration
+
+    /// Configurable delay for register operations (in seconds)
+    /// Used to simulate slow network for concurrency testing
+    var registerDelay: TimeInterval = 0
+
     // MARK: - Initialization
 
     init() {}
@@ -42,6 +48,11 @@ actor MockNotificationService: NotificationServiceProtocol {
         registerDeviceTokenCalled = true
         lastRegisteredToken = deviceToken
         registerCallCount += 1
+
+        // Simulate network delay if configured
+        if registerDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(registerDelay * 1_000_000_000))
+        }
 
         if let error = mockRegisterError {
             throw error
@@ -158,8 +169,14 @@ actor MockNotificationService: NotificationServiceProtocol {
         mockGetPreferencesError = error
     }
 
+    /// Set register delay (for concurrency testing)
+    func setRegisterDelay(_ delay: TimeInterval) {
+        registerDelay = delay
+    }
+
     /// Reset all tracking state
     func reset() {
+        registerDelay = 0
         registerDeviceTokenCalled = false
         lastRegisteredToken = nil
         registerCallCount = 0
