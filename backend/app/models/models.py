@@ -743,7 +743,8 @@ class FeedbackSubmission(Base):
     # Feedback content
     name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(255), index=True)
-    category: Mapped[FeedbackCategory] = mapped_column(index=True)
+    # Category (index: composite only, see __table_args__)
+    category: Mapped[FeedbackCategory] = mapped_column()
     description: Mapped[str] = mapped_column(Text)
 
     # Technical context (captured from request headers)
@@ -754,10 +755,8 @@ class FeedbackSubmission(Base):
         String(45), nullable=True
     )  # IPv6 max length
 
-    # Status tracking
-    status: Mapped[FeedbackStatus] = mapped_column(
-        default=FeedbackStatus.PENDING, index=True
-    )
+    # Status tracking (index: composite only, see __table_args__)
+    status: Mapped[FeedbackStatus] = mapped_column(default=FeedbackStatus.PENDING)
     created_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
 
     # Relationship (optional user)
