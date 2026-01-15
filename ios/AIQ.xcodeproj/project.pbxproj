@@ -120,6 +120,7 @@
 		6D060BE77514F7059B2BE1BF /* RequestInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79E72701DCD6024D4EE6DEA /* RequestInterceptor.swift */; };
 		731CFCF9993A9DF70D8C6FFD /* ExampleUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */; };
 		73430DF9A0CA1845CAED4FB4 /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D5E51F4712FCE75F777B75 /* Validators.swift */; };
+		755819833C8FCA8D8B23ECF9 /* PageIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B854EEF4041AB787B9FE997F /* PageIndicatorTests.swift */; };
 		771FD0877FAA1BCE3BF03006 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B426F8FDE650BFBE5B9DFC0 /* HistoryViewModel.swift */; };
 		7999DB6818A68F5BAF1781FF /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */; };
 		79F01ACE8043927A8ADCA9E7 /* ErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0DF798C3B6252592D78702 /* ErrorBanner.swift */; };
@@ -413,6 +414,7 @@
 		B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B794E1EC683537C5661C9A8F /* NotificationPermissionBannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBannerTests.swift; sourceTree = "<group>"; };
 		B83031AE2038521C3574E49F /* PerformanceInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceInsights.swift; sourceTree = "<group>"; };
+		B854EEF4041AB787B9FE997F /* PageIndicatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PageIndicatorTests.swift; sourceTree = "<group>"; };
 		BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTokenManagerProtocol.swift; sourceTree = "<group>"; };
 		BB7097E0EB2DFDF74B56C8E0 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorage.swift; sourceTree = "<group>"; };
 		BB94772581EEB839D019AEF9 /* NotificationUpgradePromptView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationUpgradePromptView.swift; sourceTree = "<group>"; };
@@ -531,6 +533,7 @@
 				1B177163E2A9A5F2FA27742F /* MainTabViewTests.swift */,
 				3840D923065164044B435316 /* MainTabViewNotificationTappedTests.swift */,
 				C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */,
+				B854EEF4041AB787B9FE997F /* PageIndicatorTests.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1298,6 +1301,7 @@
 				31B4C6885C1366DF1222A1B7 /* MainTabViewNotificationTappedTests.swift in Sources */,
 				37B7684F257261E7FD38A1DB /* ViewModelFactoryTests.swift in Sources */,
 				059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */,
+				755819833C8FCA8D8B23ECF9 /* PageIndicatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
