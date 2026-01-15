@@ -9,6 +9,8 @@ struct AIQApp: App {
     init() {
         // Configure dependency injection container during app initialization
         ServiceConfiguration.configureServices(container: ServiceContainer.shared)
+        // Mark configuration complete to enable DEBUG assertions for late registrations
+        ServiceContainer.shared.markConfigurationComplete()
     }
 
     var body: some Scene {
