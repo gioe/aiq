@@ -97,6 +97,16 @@ enum DesignSystem {
         static let bouncy = SwiftUI.Animation.spring(response: 0.6, dampingFraction: 0.6)
     }
 
+    // MARK: - Animation Delay
+
+    enum AnimationDelay {
+        /// Short delay (0.2s) for staggered element entrance
+        static let short: Double = 0.2
+
+        /// Medium delay (0.4s) for secondary element entrance
+        static let medium: Double = 0.4
+    }
+
     // MARK: - Icon Sizes
 
     enum IconSize {

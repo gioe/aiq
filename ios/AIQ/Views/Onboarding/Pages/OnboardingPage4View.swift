@@ -47,7 +47,7 @@ struct OnboardingPage4View: View {
                 .opacity(isAnimating ? 1.0 : 0.0)
                 .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                 .animation(
-                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
+                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.short),
                     value: isAnimating
                 )
 
@@ -67,7 +67,7 @@ struct OnboardingPage4View: View {
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)
                 .animation(
-                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
+                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium),
                     value: isAnimating
                 )
 

@@ -60,7 +60,7 @@ struct OnboardingPage1View: View {
                 .opacity(isAnimating ? 1.0 : 0.0)
                 .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                 .animation(
-                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
+                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.short),
                     value: isAnimating
                 )
 
