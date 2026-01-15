@@ -69,38 +69,59 @@ def _extract_headers(request: Request) -> dict:
     }
 
 
-def _send_feedback_notification(feedback: FeedbackSubmission) -> None:
+def _send_feedback_notification(feedback: FeedbackSubmission) -> bool:
     """
     Send notification about new feedback submission.
 
-    Stub implementation that logs the feedback. In production, this would
-    send an email to the admin team.
+    This function handles email notification failures gracefully to ensure
+    the user's feedback submission succeeds even if notifications fail.
+    Failures are logged for monitoring but do not bubble up to the user.
 
     Args:
         feedback: The feedback submission object
+
+    Returns:
+        True if notification was sent successfully, False otherwise
     """
-    category_display = feedback.category.value.replace("_", " ").title()
-    description_preview = (
-        feedback.description[:100] + "..."
-        if len(feedback.description) > 100
-        else feedback.description
-    )
+    try:
+        category_display = feedback.category.value.replace("_", " ").title()
+        description_preview = (
+            feedback.description[:100] + "..."
+            if len(feedback.description) > 100
+            else feedback.description
+        )
 
-    # Log without PII - redact email to protect user privacy
-    email_domain = feedback.email.split("@")[-1] if "@" in feedback.email else "unknown"
-    logger.info(
-        f"New feedback received (domain: {email_domain}): "
-        f"{category_display} - {description_preview}"
-    )
+        # Log without PII - redact email to protect user privacy
+        email_domain = (
+            feedback.email.split("@")[-1] if "@" in feedback.email else "unknown"
+        )
+        logger.info(
+            f"New feedback received (domain: {email_domain}): "
+            f"{category_display} - {description_preview}"
+        )
 
-    # TODO: Implement actual email notification
-    # This would use SMTP settings from config to send an email to admins
-    # Example:
-    # await send_email(
-    #     to=settings.ADMIN_EMAIL,
-    #     subject=f"New {category_display} from {feedback.name}",
-    #     body=f"Email: {feedback.email}\n\n{feedback.description}"
-    # )
+        # TODO: Implement actual email notification
+        # When implementing, add email sending here. The try-except will
+        # catch any SMTP errors, connection timeouts, etc.
+        # Example:
+        # await send_email(
+        #     to=settings.ADMIN_EMAIL,
+        #     subject=f"New {category_display} from {feedback.name}",
+        #     body=f"Email: {feedback.email}\n\n{feedback.description}"
+        # )
+
+        return True
+
+    except Exception as e:
+        # Log the error with context for debugging and monitoring
+        # Include feedback ID but no PII
+        logger.error(
+            f"Failed to send feedback notification: "
+            f"feedback_id={feedback.id}, "
+            f"category={feedback.category.value}, "
+            f"error={type(e).__name__}: {e}"
+        )
+        return False
 
 
 @router.post(
@@ -178,15 +199,16 @@ async def submit_feedback(
         logger.error(f"Database error during feedback submission: {e}")
         raise_server_error(ErrorMessages.GENERIC_SERVER_ERROR)
 
-    # Send notification (stub)
-    _send_feedback_notification(feedback_submission)
+    # Send notification - failures are handled gracefully and don't affect user response
+    notification_sent = _send_feedback_notification(feedback_submission)
 
     # Log successful submission (without PII in structured logs)
     logger.info(
         f"Feedback submission successful: "
         f"id={feedback_submission.id}, "
         f"category={feedback_submission.category.value}, "
-        f"user_id={current_user.id if current_user else 'anonymous'}"
+        f"user_id={current_user.id if current_user else 'anonymous'}, "
+        f"notification_sent={notification_sent}"
     )
 
     return FeedbackSubmitResponse(

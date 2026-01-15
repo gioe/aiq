@@ -945,3 +945,144 @@ class TestFeedbackEdgeCases:
             .first()
         )
         assert len(submission.name) == 100
+
+
+class TestFeedbackNotificationErrorHandling:
+    """Tests for email notification error handling in feedback submission."""
+
+    def test_submit_feedback_succeeds_when_notification_returns_false(
+        self, client, db_session
+    ):
+        """Test that feedback submission succeeds even when notification returns False."""
+        feedback_data = {
+            "name": "Notification Fail User",
+            "email": "notifail@example.com",
+            "category": "bug_report",
+            "description": "Testing graceful handling of notification failures.",
+        }
+
+        # Mock the notification function to return False (simulating internal failure)
+        with patch(
+            "app.api.v1.feedback._send_feedback_notification",
+            return_value=False,
+        ):
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        # Should still succeed - notification failure shouldn't crash the endpoint
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        assert "submission_id" in data
+
+        # Verify feedback was saved to database
+        submission = (
+            db_session.query(FeedbackSubmission)
+            .filter(FeedbackSubmission.id == data["submission_id"])
+            .first()
+        )
+        assert submission is not None
+        assert submission.email == "notifail@example.com"
+
+    def test_notification_success_is_logged_correctly(self, client, db_session):
+        """Test that notification success status is logged for monitoring."""
+        feedback_data = {
+            "name": "Log Test User",
+            "email": "lognotif@example.com",
+            "category": "feature_request",
+            "description": "Testing that notification status is logged.",
+        }
+
+        with patch("app.api.v1.feedback.logger") as mock_logger:
+            response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        # Should succeed
+        assert response.status_code == 201
+
+        # Verify success log includes notification_sent status
+        info_calls = [str(call) for call in mock_logger.info.call_args_list]
+        success_logs = [c for c in info_calls if "Feedback submission successful" in c]
+        assert len(success_logs) > 0
+        assert "notification_sent=True" in success_logs[0]
+
+    def test_notification_returns_false_on_exception(self):
+        """Test that _send_feedback_notification returns False on exception."""
+        from app.api.v1.feedback import _send_feedback_notification
+
+        # Create a mock feedback object that will cause an exception
+        mock_feedback = MagicMock()
+        mock_feedback.category.value = "bug_report"
+        # Make description property raise an exception when accessed
+        type(mock_feedback).description = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("Attribute error"))
+        )
+
+        with patch("app.api.v1.feedback.logger"):
+            result = _send_feedback_notification(mock_feedback)
+
+        assert result is False
+
+    def test_notification_returns_true_on_success(self, db_session):
+        """Test that _send_feedback_notification returns True on success."""
+        from app.api.v1.feedback import _send_feedback_notification
+        from app.models import FeedbackCategory
+
+        # Create a real feedback object
+        feedback = FeedbackSubmission(
+            id=999,
+            name="Test User",
+            email="test@example.com",
+            category=FeedbackCategory.BUG_REPORT,
+            description="This is a test feedback submission.",
+        )
+
+        with patch("app.api.v1.feedback.logger"):
+            result = _send_feedback_notification(feedback)
+
+        assert result is True
+
+    def test_notification_failure_logs_feedback_id(self):
+        """Test that notification errors include feedback ID for debugging."""
+        from app.api.v1.feedback import _send_feedback_notification
+
+        # Create a mock feedback that will fail during notification
+        mock_feedback = MagicMock()
+        mock_feedback.id = 12345
+        mock_feedback.category.value = "bug_report"
+        # Cause an exception when accessing email
+        type(mock_feedback).email = property(
+            lambda self: (_ for _ in ()).throw(ValueError("Invalid email"))
+        )
+
+        with patch("app.api.v1.feedback.logger") as mock_logger:
+            result = _send_feedback_notification(mock_feedback)
+
+        assert result is False
+        # Verify error was logged with feedback_id
+        mock_logger.error.assert_called_once()
+        log_message = str(mock_logger.error.call_args)
+        assert "feedback_id=12345" in log_message
+
+    def test_notification_failure_logged_as_false(self, client, db_session):
+        """Test that notification failure is logged with notification_sent=False."""
+        feedback_data = {
+            "name": "Status Log User",
+            "email": "statuslog@example.com",
+            "category": "general_feedback",
+            "description": "Testing that notification failure status is logged.",
+        }
+
+        with patch("app.api.v1.feedback.logger") as mock_logger:
+            # Mock notification to return False
+            with patch(
+                "app.api.v1.feedback._send_feedback_notification",
+                return_value=False,
+            ):
+                response = client.post("/v1/feedback/submit", json=feedback_data)
+
+        assert response.status_code == 201
+
+        # Find the success log call and verify it includes notification_sent=False
+        info_calls = [str(call) for call in mock_logger.info.call_args_list]
+        success_log = [c for c in info_calls if "Feedback submission successful" in c]
+        assert len(success_log) > 0
+        assert "notification_sent=False" in success_log[0]
