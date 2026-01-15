@@ -85,7 +85,8 @@ enum ViewModelFactory {
         guard let apiClient = container.resolve(APIClientProtocol.self) else {
             fatalError("APIClientProtocol not registered in ServiceContainer")
         }
-        return FeedbackViewModel(apiClient: apiClient)
+        let authManager = container.resolve(AuthManagerProtocol.self)
+        return FeedbackViewModel(apiClient: apiClient, authManager: authManager)
     }
 
     // MARK: - Notification Settings
