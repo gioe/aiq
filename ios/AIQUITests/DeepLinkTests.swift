@@ -85,7 +85,7 @@ final class DeepLinkTests: BaseUITest {
         app.terminate()
 
         // Allow time for app to fully terminate
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with deep link
         let deepLinkURL = "aiq://test/results/\(validTestResultID)"
@@ -135,7 +135,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with settings deep link
         let deepLinkURL = "aiq://settings"
@@ -177,7 +177,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with resume test deep link
         let deepLinkURL = "aiq://test/resume/\(validSessionID)"
@@ -267,7 +267,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with deep link
         app.activate()
@@ -290,7 +290,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link
         let deepLinkURL = "https://aiq.app/test/results/\(validTestResultID)"
@@ -328,7 +328,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link to settings
         let deepLinkURL = "https://aiq.app/settings"
@@ -365,7 +365,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link to resume test
         let deepLinkURL = "https://aiq.app/test/resume/\(validSessionID)"
@@ -403,7 +403,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with universal link
         app.activate()
@@ -438,7 +438,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with universal link to settings
         app.activate()
@@ -458,7 +458,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch with invalid deep link
         let invalidDeepLinkURL = "aiq://invalid/path/here"
@@ -495,7 +495,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with deep link to non-existent test result
         app.activate()
@@ -517,7 +517,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Terminate app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch with unrecognized URL scheme
         let unrecognizedScheme = "wrongscheme://test/results/123"
@@ -562,7 +562,7 @@ final class DeepLinkTests: BaseUITest {
         let firstTestRow = app.otherElements["historyView.testRow.0"]
         if firstTestRow.exists {
             firstTestRow.tap()
-            Thread.sleep(forTimeInterval: 0.5)
+            Thread.sleep(forTimeInterval: appTerminationDelay)
         }
 
         takeScreenshot(named: "BeforeDeepLink_InNavigationStack")
@@ -575,7 +575,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate with deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.activate()
 
         // Simulate deep link
@@ -616,7 +616,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.activate()
 
         // Simulate settings deep link
@@ -654,7 +654,7 @@ final class DeepLinkTests: BaseUITest {
 
         // First deep link - settings
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: shortDelay)
         app.activate()
         // Simulate settings deep link
 
@@ -695,7 +695,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate with deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.activate()
 
         // Simulate test results deep link

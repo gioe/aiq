@@ -404,12 +404,12 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Switch to History
         historyTab.tap()
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: shortDelay)
         takeScreenshot(named: "RapidSwitch_History")
 
         // Switch to Dashboard
         dashboardTab.tap()
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: shortDelay)
         takeScreenshot(named: "RapidSwitch_Dashboard")
 
         // Switch back to Settings
@@ -457,7 +457,7 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Background and re-activate to simulate deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate app with settings deep link
         app.launchArguments = ["-deepLink", "aiq://settings"]
@@ -516,7 +516,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         // but NOT affect Settings navigation state
 
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with test results deep link
         // Note: Using a placeholder result ID - actual test would need valid data
@@ -566,7 +566,7 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Terminate and relaunch app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.launch()
 
         // If still authenticated, should restore to History tab
