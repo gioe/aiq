@@ -188,7 +188,8 @@ struct DashboardView: View {
         if shouldShowOnboardingInfoCard {
             OnboardingSkippedInfoCard(
                 onLearnMore: {
-                    // Dismiss the card and show onboarding
+                    // Opening onboarding counts as addressing the skip, even if
+                    // user dismisses partway through. Card won't reappear.
                     hasDismissedOnboardingInfoCard = true
                     didSkipOnboarding = false
                     showOnboarding = true
