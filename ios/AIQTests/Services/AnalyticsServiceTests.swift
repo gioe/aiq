@@ -576,6 +576,37 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertEqual(sut.eventQueueCount, 0, "Events should be submitted successfully")
     }
 
+    func testSubmitBatch_HandlesSecureStorageRetrievalError() async {
+        // Given
+        sut.track(event: .userLogin)
+        mockSecureStorage.shouldThrowOnRetrieve = true
+
+        var authorizationHeader: String?
+        var requestMade = false
+        MockURLProtocol.requestHandler = { request in
+            requestMade = true
+            authorizationHeader = request.value(forHTTPHeaderField: "Authorization")
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            let responseData = try XCTUnwrap("""
+            {"success": true, "events_received": 1, "message": "Success"}
+            """.data(using: .utf8))
+            return (response, responseData)
+        }
+
+        // When
+        await sut.testSubmitBatch()
+
+        // Then
+        XCTAssertTrue(requestMade, "Request should be made even when secure storage throws")
+        XCTAssertNil(authorizationHeader, "Should not include Authorization header when retrieval throws")
+        XCTAssertEqual(sut.eventQueueCount, 0, "Events should be submitted successfully without auth token")
+    }
+
     // MARK: - Thread Safety Tests
 
     func testConcurrentEventTracking_ThreadSafety() async {
