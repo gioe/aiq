@@ -499,16 +499,13 @@ final class TestTakingAccessibilityTests: BaseUITest {
 
         try loginAndStartTest()
 
-        // Progress bar should be accessible
-        let progressBar = app.progressIndicators["testTakingView.progressBar"]
+        // Progress bar is a combined VStack element (otherElements), not a progressIndicator
+        let progressBar = app.otherElements["testTakingView.progressBar"]
 
-        // Note: Progress indicators may be otherElements in some implementations
-        if progressBar.exists {
-            XCTAssertTrue(
-                progressBar.exists,
-                "Progress bar with accessibility identifier should exist"
-            )
-        }
+        XCTAssertTrue(
+            wait(for: progressBar, timeout: standardTimeout),
+            "Progress bar with accessibility identifier should exist"
+        )
 
         takeScreenshot(named: "ProgressBar_Accessible")
     }

@@ -47,6 +47,7 @@ struct TestProgressView: View {
                     value: "\(currentQuestion)/\(totalQuestions)",
                     label: "test.progress.current".localized
                 )
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
 
                 Divider()
                     .frame(height: 20)
