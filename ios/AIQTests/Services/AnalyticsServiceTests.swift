@@ -222,6 +222,31 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertEqual(sut.eventQueueCount, 1, "Events should remain when offline")
     }
 
+    func testSubmitBatch_SkipsRequestWhenQueueEmpty() async {
+        // Given - empty queue (no events tracked)
+        var requestMade = false
+        MockURLProtocol.requestHandler = { _ in
+            requestMade = true
+            let response = HTTPURLResponse(
+                url: URL(string: "https://test.com")!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            let responseData = try XCTUnwrap("""
+            {"success": true, "events_received": 0, "message": "Success"}
+            """.data(using: .utf8))
+            return (response, responseData)
+        }
+
+        // When
+        await sut.testSubmitBatch()
+
+        // Then
+        XCTAssertFalse(requestMade, "Should not make network request for empty queue")
+        XCTAssertEqual(sut.eventQueueCount, 0, "Queue should remain empty")
+    }
+
     func testSubmitBatch_SubmitsWhenOnline() async {
         // Given
         sut.track(event: .userLogin)
