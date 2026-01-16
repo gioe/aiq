@@ -50,26 +50,11 @@ class BaseUITest: XCTestCase {
 
     // MARK: - Thread Sleep Delays
 
-    /// Short delay for brief UI synchronization (0.3 seconds)
-    /// Use this for short waits between rapid UI operations where waiting for
-    /// specific element states is not feasible.
-    let shortDelay: TimeInterval = 0.3
-
     /// App termination delay for lifecycle operations (0.5 seconds)
-    /// Use this when waiting for app termination or launch to complete,
-    /// or for operations requiring slightly longer synchronization.
+    /// Use ONLY when waiting for app termination before relaunch - this is the
+    /// one valid use case for Thread.sleep since there's no UI to wait on after termination.
+    /// See: ios/docs/CODING_STANDARDS.md UI Test Wait Patterns
     let appTerminationDelay: TimeInterval = 0.5
-
-    /// Deep link handling delay (1.0 seconds)
-    /// Use this when waiting for the app to process a deep link after
-    /// activation. Deep links require additional time for URL parsing,
-    /// authentication checks, and navigation.
-    let deepLinkHandlingDelay: TimeInterval = 1.0
-
-    /// Minimal delay for rapid operation testing (0.1 seconds)
-    /// Use this only when testing rapid consecutive operations where
-    /// we intentionally want minimal delay between actions.
-    let minimalDelay: TimeInterval = 0.1
 
     // MARK: - Setup & Teardown
 
@@ -188,5 +173,49 @@ class BaseUITest: XCTestCase {
             takeScreenshot(named: "Failure-\(message)")
         }
         XCTAssertTrue(element.isHittable, message)
+    }
+
+    // MARK: - App State Helpers
+
+    /// Wait for the app to enter a backgrounded state
+    /// - Parameter timeout: Time to wait in seconds (defaults to quickTimeout)
+    /// - Returns: true if app is not running in foreground within timeout
+    @discardableResult
+    func waitForAppToBackground(timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? quickTimeout
+        let predicate = NSPredicate { _, _ in
+            self.app.state != .runningForeground
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeoutValue)
+        return result == .completed
+    }
+
+    /// Wait for the app to be running in the foreground after activation
+    /// - Parameter timeout: Time to wait in seconds (defaults to standardTimeout)
+    /// - Returns: true if app is running in foreground within timeout
+    @discardableResult
+    func waitForAppToForeground(timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? standardTimeout
+        let predicate = NSPredicate { _, _ in
+            self.app.state == .runningForeground
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeoutValue)
+        return result == .completed
+    }
+
+    /// Wait for a tab button to be selected
+    /// - Parameters:
+    ///   - tab: The tab button element to wait for
+    ///   - timeout: Time to wait in seconds (defaults to standardTimeout)
+    /// - Returns: true if tab is selected within timeout
+    @discardableResult
+    func waitForTabSelection(_ tab: XCUIElement, timeout: TimeInterval? = nil) -> Bool {
+        let timeoutValue = timeout ?? standardTimeout
+        let predicate = NSPredicate(format: "isSelected == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: tab)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeoutValue)
+        return result == .completed
     }
 }

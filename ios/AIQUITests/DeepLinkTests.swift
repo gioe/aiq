@@ -217,9 +217,9 @@ final class DeepLinkTests: BaseUITest {
         XCTAssertTrue(loginSuccess, "Should successfully log in")
         takeScreenshot(named: "BeforeBackground")
 
-        // Background the app
+        // Background the app and wait for state change
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
+        waitForAppToBackground()
 
         // Open app with deep link from backgrounded state
         let deepLinkURL = "aiq://test/results/\(validTestResultID)"
@@ -265,18 +265,20 @@ final class DeepLinkTests: BaseUITest {
         wait(for: historyTab, timeout: standardTimeout)
         takeScreenshot(named: "BeforeSettingsDeepLink")
 
-        // Background the app
+        // Background the app and wait for state change
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate with deep link
         app.activate()
+        waitForAppToForeground()
 
         // Simulate settings deep link handling
         // In practice, deep link would be triggered externally
 
         // Verify navigation to settings
         let settingsTab = app.buttons["tabBar.settingsTab"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: standardTimeout), "Settings tab should exist")
         XCTAssertTrue(settingsTab.isSelected, "Settings tab should be selected after deep link")
 
         takeScreenshot(named: "DeepLink_URLScheme_Settings_Backgrounded")
@@ -401,12 +403,13 @@ final class DeepLinkTests: BaseUITest {
             waitForDashboard: true
         )
 
-        // Background the app
+        // Background the app and wait for state change
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate with universal link
         app.activate()
+        waitForAppToForeground()
 
         // Simulate universal link handling
         // Verify navigation to test results
@@ -436,15 +439,17 @@ final class DeepLinkTests: BaseUITest {
             dashboardTab.tap()
         }
 
-        // Background the app
+        // Background the app and wait for state change
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate with universal link to settings
         app.activate()
+        waitForAppToForeground()
 
         // Verify navigation to settings
         let settingsTab = app.buttons["tabBar.settingsTab"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: standardTimeout), "Settings tab should exist")
         XCTAssertTrue(settingsTab.isSelected, "Settings tab should be selected after universal link")
 
         takeScreenshot(named: "DeepLink_UniversalLink_Settings_Backgrounded")
@@ -493,12 +498,13 @@ final class DeepLinkTests: BaseUITest {
             waitForDashboard: true
         )
 
-        // Background the app
+        // Background the app and wait for state change
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate with deep link to non-existent test result
         app.activate()
+        waitForAppToForeground()
 
         // Simulate deep link with invalid ID
         // The app should handle gracefully - either stay on dashboard
@@ -506,7 +512,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Verify app is still functional
         let dashboardTab = app.buttons["tabBar.dashboardTab"]
-        XCTAssertTrue(dashboardTab.exists, "Dashboard should still be accessible")
+        XCTAssertTrue(dashboardTab.waitForExistence(timeout: standardTimeout), "Dashboard should still be accessible")
 
         takeScreenshot(named: "DeepLink_InvalidResultID_Graceful")
     }
@@ -562,7 +568,9 @@ final class DeepLinkTests: BaseUITest {
         let firstTestRow = app.otherElements["historyView.testRow.0"]
         if firstTestRow.exists {
             firstTestRow.tap()
-            Thread.sleep(forTimeInterval: appTerminationDelay)
+            // Wait for navigation to complete
+            let backButton = app.navigationBars.buttons.element(boundBy: 0)
+            _ = wait(for: backButton, timeout: standardTimeout)
         }
 
         takeScreenshot(named: "BeforeDeepLink_InNavigationStack")
@@ -575,8 +583,9 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate with deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
         app.activate()
+        waitForAppToForeground()
 
         // Simulate deep link
         // Verify we're on Dashboard tab
@@ -616,13 +625,15 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
         app.activate()
+        waitForAppToForeground()
 
         // Simulate settings deep link
 
         // Verify we're on Settings tab
         let settingsTab = app.buttons["tabBar.settingsTab"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: standardTimeout), "Settings tab should exist")
         XCTAssertTrue(settingsTab.isSelected, "Should be on Settings tab")
 
         // Verify we're at the root of Settings (no deep navigation stack)
@@ -654,14 +665,16 @@ final class DeepLinkTests: BaseUITest {
 
         // First deep link - settings
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: shortDelay)
+        waitForAppToBackground(timeout: quickTimeout)
         app.activate()
+        waitForAppToForeground(timeout: quickTimeout)
         // Simulate settings deep link
 
         // Immediately follow with test results deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: minimalDelay)
+        waitForAppToBackground(timeout: quickTimeout)
         app.activate()
+        waitForAppToForeground(timeout: quickTimeout)
         // Simulate test results deep link
 
         // The last deep link should win (test results)
@@ -695,8 +708,9 @@ final class DeepLinkTests: BaseUITest {
 
         // Background and re-activate with deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
         app.activate()
+        waitForAppToForeground()
 
         // Simulate test results deep link
 

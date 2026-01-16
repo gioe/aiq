@@ -402,14 +402,14 @@ final class TabNavigationIsolationTests: BaseUITest {
         let dashboardTab = app.buttons["tabBar.dashboardTab"]
         let settingsTab = app.buttons["tabBar.settingsTab"]
 
-        // Switch to History
+        // Switch to History and wait for selection
         historyTab.tap()
-        Thread.sleep(forTimeInterval: shortDelay)
+        waitForTabSelection(historyTab)
         takeScreenshot(named: "RapidSwitch_History")
 
-        // Switch to Dashboard
+        // Switch to Dashboard and wait for selection
         dashboardTab.tap()
-        Thread.sleep(forTimeInterval: shortDelay)
+        waitForTabSelection(dashboardTab)
         takeScreenshot(named: "RapidSwitch_Dashboard")
 
         // Switch back to Settings
@@ -457,14 +457,12 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Background and re-activate to simulate deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate app with settings deep link
         app.launchArguments = ["-deepLink", "aiq://settings"]
         app.activate()
-
-        // Wait for app to handle deep link
-        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
+        waitForAppToForeground()
 
         // Verify we're on Settings tab at root (not on Help)
         let settingsNavBar = app.navigationBars["Settings"]
@@ -516,15 +514,13 @@ final class TabNavigationIsolationTests: BaseUITest {
         // but NOT affect Settings navigation state
 
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: appTerminationDelay)
+        waitForAppToBackground()
 
         // Re-activate with test results deep link
         // Note: Using a placeholder result ID - actual test would need valid data
         app.launchArguments = ["-deepLink", "aiq://test/results/123"]
         app.activate()
-
-        // Wait for deep link handling
-        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
+        waitForAppToForeground()
 
         // Verify we're on Dashboard tab
         let dashboardTab = app.buttons["tabBar.dashboardTab"]
