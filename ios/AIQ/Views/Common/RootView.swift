@@ -41,6 +41,7 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @ObservedObject private var toastManager = ToastManager.shared
     @State private var showSplash = true
     @State private var hasAcceptedConsent: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
@@ -95,6 +96,23 @@ struct RootView: View {
                 Spacer()
             }
             .animation(reduceMotion ? nil : .easeInOut, value: networkMonitor.isConnected)
+            .opacity(showSplash ? 0.0 : 1.0)
+
+            // Toast overlay
+            VStack {
+                Spacer()
+                if let toast = toastManager.currentToast {
+                    ToastView(
+                        message: toast.message,
+                        type: toast.type,
+                        onDismiss: {
+                            toastManager.dismiss()
+                        }
+                    )
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(reduceMotion ? nil : DesignSystem.Animation.standard, value: toastManager.currentToast)
             .opacity(showSplash ? 0.0 : 1.0)
 
             // Splash Screen
