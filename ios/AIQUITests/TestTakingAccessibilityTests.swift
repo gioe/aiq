@@ -181,7 +181,7 @@ final class TestTakingAccessibilityTests: BaseUITest {
         takeScreenshot(named: "AnswerOption_AccessibilityLabel")
     }
 
-    func testAnswerOptions_HaveAccessibilityHints() throws {
+    func testAnswerOptions_AreAccessibleWithCorrectIdentifiers() throws {
         throw XCTSkip("Requires backend connection and active test session")
 
         try loginAndStartTest()
@@ -191,12 +191,22 @@ final class TestTakingAccessibilityTests: BaseUITest {
             throw XCTSkip("No multiple choice options found - may be an open-ended question")
         }
 
-        // Verify hint exists by checking the element's value or label
-        // Note: In XCUI, accessibilityHint may be reflected in the element's properties
-        // We verify the button exists and has the expected identifier
+        // Verify multiple answer options exist with correct accessibility identifiers
+        // Note: XCUITest cannot directly verify accessibilityHint - that requires
+        // VoiceOver testing or accessibility audits. We verify the elements are
+        // properly configured with identifiers that match our accessibility setup.
         XCTAssertTrue(
-            firstOption.exists,
-            "Answer option should exist with accessibility support"
+            firstOption.exists && firstOption.isEnabled,
+            "First answer option should exist and be enabled"
+        )
+
+        // Verify we can query answer options by their identifier prefix
+        let answerOptions = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "testTakingView.answerButton.")
+        )
+        XCTAssertTrue(
+            !answerOptions.isEmpty,
+            "Answer options with accessibility identifiers should be queryable"
         )
     }
 
@@ -213,14 +223,16 @@ final class TestTakingAccessibilityTests: BaseUITest {
         // Tap to select the option
         firstOption.tap()
 
-        // Wait for selection animation
-        Thread.sleep(forTimeInterval: 0.5)
+        // Wait for selection to register using proper wait condition
+        // The Next button becomes enabled when an answer is selected
+        let nextButton = app.buttons["testTakingView.nextButton"]
+        _ = nextButton.waitForExistence(timeout: quickTimeout)
 
-        // After selection, the button should indicate it's selected
-        // This is typically reflected in the button's isSelected property or traits
+        // After selection, the button should have the isSelected trait
+        // AnswerInputView uses .accessibilityAddTraits([.isSelected]) for selected options
         XCTAssertTrue(
-            firstOption.isSelected || firstOption.label.contains("selected"),
-            "Selected answer option should have selected trait or indicate selection in label"
+            firstOption.isSelected,
+            "Selected answer option should have isSelected accessibility trait"
         )
 
         takeScreenshot(named: "AnswerOption_Selected")
@@ -270,13 +282,15 @@ final class TestTakingAccessibilityTests: BaseUITest {
             nextButton.tap()
         }
 
-        // Wait for navigation
-        Thread.sleep(forTimeInterval: 1.0)
-
-        // Now check Previous button
+        // Wait for navigation by checking Previous button becomes enabled
+        // (Previous is disabled on first question, enabled on second)
         let previousButton = app.buttons["testTakingView.previousButton"]
+        let predicate = NSPredicate(format: "isEnabled == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: previousButton)
+        _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
+
         XCTAssertTrue(
-            wait(for: previousButton, timeout: standardTimeout),
+            previousButton.exists,
             "Previous button should exist"
         )
 
@@ -338,9 +352,9 @@ final class TestTakingAccessibilityTests: BaseUITest {
         }
 
         // Answer all questions up to the last one
+        // testHelper.answerCurrentQuestion handles waiting for question transitions
         for _ in 1 ..< totalQuestions {
             _ = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
-            Thread.sleep(forTimeInterval: 0.3)
         }
 
         // On last question, Submit button should appear
@@ -451,7 +465,11 @@ final class TestTakingAccessibilityTests: BaseUITest {
         let nextButton = app.buttons["testTakingView.nextButton"]
         if wait(for: nextButton, timeout: standardTimeout) && nextButton.isEnabled {
             nextButton.tap()
-            Thread.sleep(forTimeInterval: 0.5)
+            // Wait for Previous button to become enabled (indicates we're on question 2+)
+            let previousButton = app.buttons["testTakingView.previousButton"]
+            let enabledPredicate = NSPredicate(format: "isEnabled == true")
+            let enabledExpectation = XCTNSPredicateExpectation(predicate: enabledPredicate, object: previousButton)
+            _ = XCTWaiter.wait(for: [enabledExpectation], timeout: standardTimeout)
             takeScreenshot(named: "AccessibilityFlow_Step3_NextQuestion")
         }
 
@@ -459,7 +477,8 @@ final class TestTakingAccessibilityTests: BaseUITest {
         let previousButton = app.buttons["testTakingView.previousButton"]
         if wait(for: previousButton, timeout: standardTimeout) && previousButton.isEnabled {
             previousButton.tap()
-            Thread.sleep(forTimeInterval: 0.5)
+            // Wait for question card to update (navigation complete)
+            _ = questionCard.waitForExistence(timeout: standardTimeout)
             takeScreenshot(named: "AccessibilityFlow_Step4_PreviousQuestion")
         }
 
