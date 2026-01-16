@@ -48,6 +48,29 @@ class BaseUITest: XCTestCase {
     /// This provides a consistent timeout for network-dependent operations.
     let networkTimeout: TimeInterval = 10.0
 
+    // MARK: - Thread Sleep Delays
+
+    /// Short delay for brief UI synchronization (0.3 seconds)
+    /// Use this for short waits between rapid UI operations where waiting for
+    /// specific element states is not feasible.
+    let shortDelay: TimeInterval = 0.3
+
+    /// App termination delay for lifecycle operations (0.5 seconds)
+    /// Use this when waiting for app termination or launch to complete,
+    /// or for operations requiring slightly longer synchronization.
+    let appTerminationDelay: TimeInterval = 0.5
+
+    /// Deep link handling delay (1.0 seconds)
+    /// Use this when waiting for the app to process a deep link after
+    /// activation. Deep links require additional time for URL parsing,
+    /// authentication checks, and navigation.
+    let deepLinkHandlingDelay: TimeInterval = 1.0
+
+    /// Minimal delay for rapid operation testing (0.1 seconds)
+    /// Use this only when testing rapid consecutive operations where
+    /// we intentionally want minimal delay between actions.
+    let minimalDelay: TimeInterval = 0.1
+
     // MARK: - Setup & Teardown
 
     override func setUpWithError() throws {

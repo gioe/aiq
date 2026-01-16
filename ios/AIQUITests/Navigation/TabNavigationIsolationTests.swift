@@ -404,12 +404,12 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Switch to History
         historyTab.tap()
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: shortDelay)
         takeScreenshot(named: "RapidSwitch_History")
 
         // Switch to Dashboard
         dashboardTab.tap()
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: shortDelay)
         takeScreenshot(named: "RapidSwitch_Dashboard")
 
         // Switch back to Settings
@@ -457,14 +457,14 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Background and re-activate to simulate deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate app with settings deep link
         app.launchArguments = ["-deepLink", "aiq://settings"]
         app.activate()
 
         // Wait for app to handle deep link
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
 
         // Verify we're on Settings tab at root (not on Help)
         let settingsNavBar = app.navigationBars["Settings"]
@@ -516,7 +516,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         // but NOT affect Settings navigation state
 
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Re-activate with test results deep link
         // Note: Using a placeholder result ID - actual test would need valid data
@@ -524,7 +524,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         app.activate()
 
         // Wait for deep link handling
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
 
         // Verify we're on Dashboard tab
         let dashboardTab = app.buttons["tabBar.dashboardTab"]
@@ -566,7 +566,7 @@ final class TabNavigationIsolationTests: BaseUITest {
 
         // Terminate and relaunch app
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.launch()
 
         // If still authenticated, should restore to History tab

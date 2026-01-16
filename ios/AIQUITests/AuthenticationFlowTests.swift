@@ -332,7 +332,7 @@ final class AuthenticationFlowTests: BaseUITest {
         app.terminate()
 
         // Brief delay for OS to complete termination, then relaunch
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.launch()
 
         // Wait for app to fully launch
@@ -362,7 +362,7 @@ final class AuthenticationFlowTests: BaseUITest {
 
         // Terminate and relaunch
         app.terminate()
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: appTerminationDelay)
         app.launch()
 
         // Wait for app to launch
