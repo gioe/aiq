@@ -14,7 +14,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
 
         XCTAssertEqual(domainScore.correct, 3)
@@ -31,7 +31,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
 
         XCTAssertEqual(domainScore.correct, 0)
@@ -221,7 +221,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
 
         XCTAssertEqual(domainScore.correct, 3)
@@ -240,7 +240,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
 
         XCTAssertEqual(domainScore.pct, 75.0)
@@ -257,7 +257,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let domainScore = try JSONDecoder().decode(DomainScore.self, from: data)
 
         XCTAssertEqual(domainScore.pct, 75.0)
@@ -290,7 +290,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -326,7 +326,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -351,7 +351,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -519,7 +519,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let ci = try JSONDecoder().decode(ConfidenceInterval.self, from: data)
 
         XCTAssertEqual(ci.lower, 101)
@@ -588,7 +588,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -619,7 +619,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -644,7 +644,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
@@ -752,7 +752,7 @@ final class TestResultTests: XCTestCase {
             "standard_error": 3.5
         }
         """
-        let ci90 = try JSONDecoder().decode(ConfidenceInterval.self, from: json90.data(using: .utf8)!)
+        let ci90 = try JSONDecoder().decode(ConfidenceInterval.self, from: XCTUnwrap(json90.data(using: .utf8)))
         XCTAssertEqual(ci90.confidencePercentage, 90)
         XCTAssertEqual(ci90.fullDescription, "90% confidence interval: 102-114")
 
@@ -765,7 +765,7 @@ final class TestResultTests: XCTestCase {
             "standard_error": 3.5
         }
         """
-        let ci99 = try JSONDecoder().decode(ConfidenceInterval.self, from: json99.data(using: .utf8)!)
+        let ci99 = try JSONDecoder().decode(ConfidenceInterval.self, from: XCTUnwrap(json99.data(using: .utf8)))
         XCTAssertEqual(ci99.confidencePercentage, 99)
         XCTAssertEqual(ci99.fullDescription, "99% confidence interval: 99-117")
     }
@@ -796,7 +796,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -845,7 +845,7 @@ final class TestResultTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -885,7 +885,7 @@ final class TestResultTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -926,7 +926,7 @@ final class TestResultTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -950,7 +950,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -982,7 +982,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -1005,7 +1005,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
@@ -1027,7 +1027,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)
 
@@ -1084,7 +1084,7 @@ final class TestResultTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let response = try decoder.decode(PaginatedTestHistoryResponse.self, from: data)

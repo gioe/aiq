@@ -187,9 +187,9 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertEqual(newService.eventQueueCount, 2, "Should load 2 persisted events")
     }
 
-    func testLoadPersistedEvents_HandlesMalformedData() {
+    func testLoadPersistedEvents_HandlesMalformedData() throws {
         // Given - Store malformed data
-        let malformedData = "not valid json".data(using: .utf8)!
+        let malformedData = try XCTUnwrap("not valid json".data(using: .utf8))
         mockUserDefaults.set(malformedData, forKey: AnalyticsService.storageKey)
 
         // When - Create a new service that will try to load persisted events
@@ -234,9 +234,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -277,9 +277,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 50, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -304,9 +304,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -337,9 +337,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 10, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -371,9 +371,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -420,9 +420,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -510,9 +510,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -537,9 +537,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 1, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 
@@ -624,9 +624,9 @@ final class AnalyticsServiceTests: XCTestCase {
                 httpVersion: nil,
                 headerFields: nil
             )!
-            let responseData = """
+            let responseData = try XCTUnwrap("""
             {"success": true, "events_received": 10, "message": "Success"}
-            """.data(using: .utf8)!
+            """.data(using: .utf8))
             return (response, responseData)
         }
 

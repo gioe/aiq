@@ -42,7 +42,7 @@ final class UserTests: XCTestCase {
         "bachelors"
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let educationLevel = try JSONDecoder().decode(EducationLevel.self, from: data)
 
         XCTAssertEqual(educationLevel, .bachelors)
@@ -54,7 +54,7 @@ final class UserTests: XCTestCase {
         "high_school"
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let educationLevel = try JSONDecoder().decode(EducationLevel.self, from: data)
 
         XCTAssertEqual(educationLevel, .highSchool)
@@ -80,7 +80,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -110,7 +110,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -145,7 +145,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -174,7 +174,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -213,7 +213,7 @@ final class UserTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let user = try decoder.decode(User.self, from: data)
@@ -483,7 +483,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
 
         XCTAssertEqual(profile.firstName, "Profile")
@@ -500,7 +500,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
 
         // Verify snake_case to camelCase mapping
@@ -609,7 +609,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -634,7 +634,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let user = try decoder.decode(User.self, from: data)
@@ -663,7 +663,7 @@ final class UserTests: XCTestCase {
             }
             """
 
-            let data = json.data(using: .utf8)!
+            let data = try XCTUnwrap(json.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             let user = try decoder.decode(User.self, from: data)
@@ -672,7 +672,7 @@ final class UserTests: XCTestCase {
         }
     }
 
-    func testUserDecodingFailsWithMissingRequiredFields() {
+    func testUserDecodingFailsWithMissingRequiredFields() throws {
         let invalidJsons = [
             // Missing id
             """
@@ -737,7 +737,7 @@ final class UserTests: XCTestCase {
         ]
 
         for invalidJson in invalidJsons {
-            let data = invalidJson.data(using: .utf8)!
+            let data = try XCTUnwrap(invalidJson.data(using: .utf8))
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
 
@@ -747,7 +747,7 @@ final class UserTests: XCTestCase {
         }
     }
 
-    func testUserDecodingFailsWithInvalidEducationLevel() {
+    func testUserDecodingFailsWithInvalidEducationLevel() throws {
         let json = """
         {
             "id": 1,
@@ -760,7 +760,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
@@ -769,7 +769,7 @@ final class UserTests: XCTestCase {
         }
     }
 
-    func testUserDecodingFailsWithInvalidDateFormat() {
+    func testUserDecodingFailsWithInvalidDateFormat() throws {
         let json = """
         {
             "id": 1,
@@ -781,7 +781,7 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 

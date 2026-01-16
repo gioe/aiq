@@ -164,9 +164,9 @@ final class LocalAnswerStorageTests: XCTestCase {
         XCTAssertEqual(loaded?.currentQuestionIndex, progress.currentQuestionIndex)
     }
 
-    func testLoadProgress_ClearsInvalidData() {
+    func testLoadProgress_ClearsInvalidData() throws {
         // Given - Invalid/corrupted JSON data
-        let invalidData = "invalid json".data(using: .utf8)!
+        let invalidData = try XCTUnwrap("invalid json".data(using: .utf8))
         testUserDefaults.set(invalidData, forKey: "com.aiq.savedTestProgress")
 
         // When
@@ -331,9 +331,9 @@ final class LocalAnswerStorageTests: XCTestCase {
         XCTAssertFalse(hasProgress, "Should return false after clearing")
     }
 
-    func testHasProgress_ReturnsFalseForInvalidData() {
+    func testHasProgress_ReturnsFalseForInvalidData() throws {
         // Given - Invalid data
-        let invalidData = "invalid json".data(using: .utf8)!
+        let invalidData = try XCTUnwrap("invalid json".data(using: .utf8))
         testUserDefaults.set(invalidData, forKey: "com.aiq.savedTestProgress")
 
         // When
@@ -401,13 +401,13 @@ final class LocalAnswerStorageTests: XCTestCase {
         XCTAssertNoThrow(try sut.saveProgress(progress), "Should not throw for valid Codable type")
     }
 
-    func testError_DecodingInvalidData() {
+    func testError_DecodingInvalidData() throws {
         // Given - Data that looks like JSON but has wrong structure
-        let invalidJSON = """
+        let invalidJSON = try XCTUnwrap("""
         {
             "wrongField": "wrongValue"
         }
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         testUserDefaults.set(invalidJSON, forKey: "com.aiq.savedTestProgress")
 
         // When

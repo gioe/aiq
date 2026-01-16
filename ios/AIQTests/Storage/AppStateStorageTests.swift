@@ -265,10 +265,10 @@ final class AppStateStorageTests: XCTestCase {
 
     // MARK: - Data Storage Tests
 
-    func testSetValue_Data_StoresSuccessfully() {
+    func testSetValue_Data_StoresSuccessfully() throws {
         // Given
         let key = "com.aiq.testData"
-        let value = "Test Data".data(using: .utf8)!
+        let value = try XCTUnwrap("Test Data".data(using: .utf8))
 
         // When
         sut.setValue(value, forKey: key)
@@ -421,7 +421,7 @@ final class AppStateStorageTests: XCTestCase {
         XCTAssertNil(retrieved)
     }
 
-    func testGetValue_CodableType_ReturnsNilForInvalidData() {
+    func testGetValue_CodableType_ReturnsNilForInvalidData() throws {
         // Given
         struct TestStruct: Codable {
             let name: String
@@ -429,7 +429,7 @@ final class AppStateStorageTests: XCTestCase {
         }
 
         let key = "com.aiq.invalidCodable"
-        let invalidData = "invalid json".data(using: .utf8)!
+        let invalidData = try XCTUnwrap("invalid json".data(using: .utf8))
         testUserDefaults.set(invalidData, forKey: key)
 
         // When
