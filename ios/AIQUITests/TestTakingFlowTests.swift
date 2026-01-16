@@ -37,6 +37,17 @@ import XCTest
 /// - Existing test account credentials
 /// - Proper test environment configuration
 /// - Active test session with questions
+///
+/// # Error Handling Convention
+/// All helper method return values MUST be checked with assertions:
+/// - `XCTAssertTrue(loginHelper.login(...), "Descriptive message")`
+/// - `XCTAssertTrue(testHelper.startNewTest(...), "Descriptive message")`
+/// - Use `guard let` with `XCTFail` + early return for optional values
+///
+/// This ensures:
+/// 1. Tests fail immediately with clear messages on helper failures
+/// 2. Tests don't continue with invalid state after failures
+/// 3. Consistent, readable test code throughout the file
 final class TestTakingFlowTests: BaseUITest {
     // MARK: - Helper Properties
 
@@ -109,8 +120,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Verify progress indicator
         XCTAssertTrue(testHelper.progressLabel.exists, "Progress label should exist")
@@ -132,12 +146,17 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Answer the first question with option 0
-        let answerSelected = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
-        XCTAssertTrue(answerSelected, "Should successfully select an answer")
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false),
+            "Should successfully select an answer"
+        )
 
         // Verify Next button is enabled after answering
         wait(for: testHelper.nextButton, timeout: quickTimeout)
@@ -151,8 +170,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Get answer options
         let options = testHelper.answerOptions.allElementsBoundByIndex
@@ -181,11 +203,17 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Answer first question and go to next
-        testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true),
+            "Should answer first question and navigate to next"
+        )
 
         // Verify we moved to question 2
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
@@ -214,8 +242,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // On first question, Previous button should be disabled
         let previousButton = app.buttons["Previous"]
@@ -237,8 +268,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Move to a new question without answering
         // (assuming we can have an unanswered question)
@@ -262,8 +296,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Get total question count from progress indicator
         guard let totalQuestions = testHelper.totalQuestionCount else {
@@ -278,11 +315,10 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "TestFlow_Start")
 
         // Answer all questions
-        let completed = testHelper.completeTestWithAnswer(
-            optionIndex: 0,
-            questionCount: totalQuestions
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
         )
-        XCTAssertTrue(completed, "Should complete all questions")
 
         // Verify we see test completed or results screen
         XCTAssertTrue(
@@ -298,14 +334,23 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Answer first question
-        testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true),
+            "Should answer first question and navigate to next"
+        )
 
         // Answer second question
-        testHelper.answerCurrentQuestion(optionIndex: 1, tapNext: false)
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 1, tapNext: false),
+            "Should answer second question"
+        )
 
         // Navigate back to question 1
         let previousButton = app.buttons["Previous"]
@@ -332,8 +377,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Get total question count
         guard let totalQuestions = testHelper.totalQuestionCount else {
@@ -342,7 +390,10 @@ final class TestTakingFlowTests: BaseUITest {
         }
 
         // Answer all questions
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Verify results screen appears
         XCTAssertTrue(testHelper.isOnResultsScreen, "Should be on results screen")
@@ -355,8 +406,11 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Get total question count
         guard let totalQuestions = testHelper.totalQuestionCount else {
@@ -365,7 +419,10 @@ final class TestTakingFlowTests: BaseUITest {
         }
 
         // Answer all questions (submits on last question)
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Look for "Test Completed!" text
         let completionText = app.staticTexts["Test Completed!"]
@@ -389,15 +446,21 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login, complete test, and navigate to results
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         guard let totalQuestions = testHelper.totalQuestionCount else {
             XCTFail("Could not determine total question count")
             return
         }
 
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Wait for results to load
         XCTAssertTrue(testHelper.waitForResults(timeout: extendedTimeout), "Results should appear")
@@ -417,18 +480,27 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login, complete test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         guard let totalQuestions = testHelper.totalQuestionCount else {
             XCTFail("Could not determine total question count")
             return
         }
 
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Wait for results
-        testHelper.waitForResults(timeout: extendedTimeout)
+        XCTAssertTrue(
+            testHelper.waitForResults(timeout: extendedTimeout),
+            "Results should appear"
+        )
 
         // Look for "Your IQ Score" label
         let scoreLabel = app.staticTexts.matching(
@@ -454,15 +526,21 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login, complete test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         guard let totalQuestions = testHelper.totalQuestionCount else {
             XCTFail("Could not determine total question count")
             return
         }
 
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Navigate to results
         let viewResultsButton = app.buttons["View Results"]
@@ -494,7 +572,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login
-        loginHelper.login(email: validEmail, password: validPassword)
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
 
         // Navigate to History and check initial count
         navHelper.navigateToTab(.history)
@@ -507,14 +588,17 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Go back to dashboard and take a test
         navHelper.navigateToTab(.dashboard)
-        testHelper.startNewTest()
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         guard let totalQuestions = testHelper.totalQuestionCount else {
             XCTFail("Could not determine total question count")
             return
         }
 
-        testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions)
+        XCTAssertTrue(
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions),
+            "Should complete all questions"
+        )
 
         // Return to dashboard from completion screen
         let returnButton = app.buttons["Return to Dashboard"]
@@ -533,27 +617,16 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - End-to-End Tests
 
+    /// End-to-end test: login → start test → answer all → submit → view results → verify history → logout
     func testFullTestTakingFlow_EndToEnd() throws {
-        // Skip: Requires full backend integration
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // This is a comprehensive end-to-end test that:
-        // 1. Logs in
-        // 2. Starts a test
-        // 3. Answers all questions
-        // 4. Submits the test
-        // 5. Views results
-        // 6. Verifies history update
-        // 7. Logs out
-
         // Step 1: Login
-        let loginSuccess = loginHelper.login(email: validEmail, password: validPassword)
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
+        XCTAssertTrue(loginHelper.login(email: validEmail, password: validPassword), "Should log in")
         takeScreenshot(named: "E2E_Step1_Login")
 
         // Step 2: Start test
-        let testStarted = testHelper.startNewTest()
-        XCTAssertTrue(testStarted, "Test should start successfully")
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test")
         takeScreenshot(named: "E2E_Step2_TestStarted")
 
         // Step 3: Answer all questions
@@ -561,33 +634,23 @@ final class TestTakingFlowTests: BaseUITest {
             XCTFail("Could not determine total question count")
             return
         }
-
         for questionNum in 1 ... totalQuestions {
-            // Answer current question
-            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
-
-            // Assert question is displayed before screenshot
-            XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
-            XCTAssertTrue(
-                testHelper.progressLabel.label.contains("Question \(questionNum)"),
-                "Should be on question \(questionNum)"
-            )
+            let answered = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
+            XCTAssertTrue(answered, "Should answer Q\(questionNum)")
+            XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test screen")
+            let onCorrectQ = testHelper.progressLabel.label.contains("Question \(questionNum)")
+            XCTAssertTrue(onCorrectQ, "On question \(questionNum)")
             takeScreenshot(named: "E2E_Step3_Question\(questionNum)")
-
-            // Go to next question or submit on last question
             if questionNum < totalQuestions {
-                testHelper.tapNextButton()
-                // Wait for progress to update to next question
-                let nextQuestionNum = questionNum + 1
-                let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
-                let expectation = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
-                _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
+                XCTAssertTrue(testHelper.tapNextButton(), "Should navigate to next")
+                let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(questionNum + 1)'")
+                let exp = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
+                _ = XCTWaiter.wait(for: [exp], timeout: standardTimeout)
             }
         }
 
-        // Step 4: Submit test (on last question)
-        let submitted = testHelper.submitTest(shouldWaitForResults: true)
-        XCTAssertTrue(submitted, "Test should submit successfully")
+        // Step 4: Submit test
+        XCTAssertTrue(testHelper.submitTest(shouldWaitForResults: true), "Should submit test")
         takeScreenshot(named: "E2E_Step4_Submitted")
 
         // Step 5: View results
@@ -596,84 +659,56 @@ final class TestTakingFlowTests: BaseUITest {
             viewResultsButton.tap()
             wait(for: app.navigationBars["Results"], timeout: standardTimeout)
             takeScreenshot(named: "E2E_Step5_Results")
-
-            // Return to dashboard
-            let doneButton = app.buttons["Done"]
-            if doneButton.exists {
-                doneButton.tap()
-            }
+            if app.buttons["Done"].exists { app.buttons["Done"].tap() }
         }
 
         // Step 6: Verify history
         navHelper.navigateToTab(.history)
         wait(for: app.navigationBars["History"], timeout: extendedTimeout)
-
-        // Assert History screen is displayed before screenshot
-        assertExists(app.navigationBars["History"], "History navigation bar should be visible")
+        assertExists(app.navigationBars["History"], "History should be visible")
         takeScreenshot(named: "E2E_Step6_History")
 
         // Step 7: Logout
         navHelper.navigateToTab(.settings)
-        let logoutSuccess = loginHelper.logout()
-        XCTAssertTrue(logoutSuccess, "Should successfully log out")
+        XCTAssertTrue(loginHelper.logout(), "Should log out")
         takeScreenshot(named: "E2E_Step7_Logout")
     }
 
+    /// Tests navigation between questions (forward/backward) during test-taking
     func testFullTestTakingFlow_WithNavigation() throws {
-        // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Test that exercises navigation between questions during test-taking
-
-        // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(loginHelper.login(email: validEmail, password: validPassword), "Should log in")
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test")
 
         // Answer first 3 questions
         for questionNum in 1 ... 3 {
-            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
-            // Wait for progress to update to next question
-            let nextQuestionNum = questionNum + 1
-            let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(nextQuestionNum)'")
-            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
-            _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
+            let answered = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
+            XCTAssertTrue(answered, "Should answer Q\(questionNum)")
+            let predicate = NSPredicate(format: "label CONTAINS[c] 'Question \(questionNum + 1)'")
+            let exp = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
+            _ = XCTWaiter.wait(for: [exp], timeout: standardTimeout)
         }
 
-        // Assert we are on question 4 before screenshot
-        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
-        XCTAssertTrue(
-            testHelper.progressLabel.label.contains("Question 4"),
-            "Should be on question 4 after answering first 3"
-        )
+        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test screen")
+        XCTAssertTrue(testHelper.progressLabel.label.contains("Question 4"), "Should be on Q4")
         takeScreenshot(named: "AfterFirst3Questions")
 
-        // Go back to question 2
+        // Navigate backward
         let previousButton = app.buttons["Previous"]
         previousButton.tap()
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
-        XCTAssertTrue(
-            testHelper.progressLabel.label.contains("Question 3"),
-            "Should be on question 3"
-        )
+        XCTAssertTrue(testHelper.progressLabel.label.contains("Question 3"), "Should be on Q3")
 
-        // Go back again to question 1
         previousButton.tap()
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
-        XCTAssertTrue(
-            testHelper.progressLabel.label.contains("Question 2"),
-            "Should be on question 2"
-        )
-
+        XCTAssertTrue(testHelper.progressLabel.label.contains("Question 2"), "Should be on Q2")
         takeScreenshot(named: "NavigatedBackToQuestion2")
 
-        // Go forward again
-        testHelper.tapNextButton()
+        // Navigate forward
+        XCTAssertTrue(testHelper.tapNextButton(), "Should navigate forward")
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
-        XCTAssertTrue(
-            testHelper.progressLabel.label.contains("Question 3"),
-            "Should be back on question 3"
-        )
-
+        XCTAssertTrue(testHelper.progressLabel.label.contains("Question 3"), "Should be back on Q3")
         takeScreenshot(named: "NavigatedForwardToQuestion3")
     }
 
@@ -684,11 +719,17 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Answer a question
-        testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false),
+            "Should answer question"
+        )
 
         // Tap Exit button
         let exitButton = app.buttons["Exit"]
@@ -720,11 +761,17 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword)
-        testHelper.startNewTest()
+        XCTAssertTrue(
+            loginHelper.login(email: validEmail, password: validPassword),
+            "Should successfully log in"
+        )
+        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         // Answer a question
-        testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
+        XCTAssertTrue(
+            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false),
+            "Should answer question"
+        )
 
         // Tap Exit button
         let exitButton = app.buttons["Exit"]
