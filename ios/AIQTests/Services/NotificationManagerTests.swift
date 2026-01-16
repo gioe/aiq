@@ -1479,8 +1479,9 @@ final class NotificationManagerTests: XCTestCase {
         // When - Auth state changes to authenticated
         mockAuthManager.isAuthenticated = true
 
-        // Small delay to allow Combine to propagate
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Wait long enough to ensure any spurious registration would have occurred
+        // Using fixed delay since we're testing for absence of action
+        try await Task.sleep(nanoseconds: 200_000_000) // 0.2 second - margin for CI systems
 
         // Then - Should NOT call backend (no token to register)
         let callCount = await mockNotificationService.registerCallCount
