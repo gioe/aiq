@@ -36,8 +36,8 @@ class ToastManager: ObservableObject {
     /// Currently displayed toast, if any
     @Published private(set) var currentToast: ToastData?
 
-    /// Auto-dismiss timer
-    private var dismissTimer: Timer?
+    /// Auto-dismiss work item for cancellation
+    private var dismissWorkItem: DispatchWorkItem?
 
     /// Duration before auto-dismissing (seconds)
     private let autoDismissDelay: TimeInterval = 4.0
@@ -58,25 +58,25 @@ class ToastManager: ObservableObject {
         let typeDesc = String(describing: type)
         Self.logger.info("Showing toast: \(message, privacy: .public) (type: \(typeDesc, privacy: .public))")
 
-        // Cancel existing timer if any
-        dismissTimer?.invalidate()
+        // Cancel existing dismiss work item if any
+        dismissWorkItem?.cancel()
 
         // Set the new toast
         currentToast = ToastData(message: message, type: type)
 
-        // Schedule auto-dismiss
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: autoDismissDelay, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.dismiss()
-            }
+        // Schedule auto-dismiss using DispatchQueue for reliable main thread execution
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.dismiss()
         }
+        dismissWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + autoDismissDelay, execute: workItem)
     }
 
     /// Manually dismiss the current toast
     func dismiss() {
         Self.logger.info("Dismissing toast")
-        dismissTimer?.invalidate()
-        dismissTimer = nil
+        dismissWorkItem?.cancel()
+        dismissWorkItem = nil
         currentToast = nil
     }
 }
