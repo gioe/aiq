@@ -10,8 +10,8 @@ This document compares defined accessibility identifiers in `AccessibilityIdenti
 | Category | Count |
 |----------|-------|
 | Total Defined Identifiers | 87 |
-| Identifiers Applied | 57 |
-| Identifiers Not Applied (Unused) | 30 |
+| Identifiers Applied | 58 |
+| Identifiers Not Applied (Unused) | 29 |
 | Hardcoded Identifiers (Not centralized) | 4 |
 
 ## Unused Defined Identifiers
@@ -55,10 +55,9 @@ These identifiers are defined in `AccessibilityIdentifiers.swift` but are not cu
 | `chartView` | Consider applying to IQTrendChart |
 | `testRow(at:)` | Consider applying to ForEach items |
 
-### Common (3 unused)
+### Common (2 unused)
 | Identifier | Notes |
 |------------|-------|
-| `loadingView` | Consider applying to LoadingView container |
 | `primaryButton` | Generic, may need context-specific IDs instead |
 | `secondaryButton` | Generic, may need context-specific IDs instead |
 
@@ -146,9 +145,9 @@ The following identifiers are correctly defined and applied:
 ### FeedbackView (5/5 applied)
 - `nameTextField`, `emailTextField`, `categoryMenu`, `descriptionTextField`, `submitButton`
 
-### Common (2/5 applied)
-- `errorView`, `retryButton`
-- Missing: `loadingView`, `primaryButton`, `secondaryButton`
+### Common (3/5 applied)
+- `errorView`, `retryButton`, `loadingView`
+- Missing: `primaryButton`, `secondaryButton`
 
 ## Recommendations
 
