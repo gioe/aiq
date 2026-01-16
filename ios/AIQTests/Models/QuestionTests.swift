@@ -736,6 +736,8 @@ final class QuestionTests: XCTestCase {
 
     // MARK: - Edge Cases and Validation Tests
 
+    // MARK: Edge Cases - Empty and Special Characters
+
     func testQuestionDecodingWithEmptyStrings() throws {
         let json = """
         {
@@ -796,6 +798,8 @@ final class QuestionTests: XCTestCase {
         XCTAssertEqual(question.answerOptions?[0], "París")
     }
 
+    // MARK: Edge Cases - Boundary Conditions
+
     func testQuestionDecodingWithLongText() throws {
         let longText = String(repeating: "A", count: 1000)
         let json = """
@@ -834,6 +838,8 @@ final class QuestionTests: XCTestCase {
         XCTAssertEqual(question.answerOptions?[0], "Option 1")
         XCTAssertEqual(question.answerOptions?[9], "Option 10")
     }
+
+    // MARK: Edge Cases - Invalid Data Handling
 
     func testQuestionDecodingFailsWithMissingId() throws {
         let json = """
@@ -960,6 +966,8 @@ final class QuestionTests: XCTestCase {
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing user_answer")
         }
     }
+
+    // MARK: Edge Cases - QuestionResponse Boundary Values
 
     func testQuestionResponseWithEmptyUserAnswer() throws {
         let response = try QuestionResponse(
