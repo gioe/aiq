@@ -3,6 +3,18 @@ import XCTest
 
 @testable import AIQ
 
+/// Tests for NotificationService push notification API operations
+///
+/// This test suite validates the NotificationService implementation which handles
+/// device token registration, unregistration, and notification preference management
+/// via the backend API. Tests cover:
+/// - Device token registration with success and error scenarios
+/// - Device token unregistration
+/// - Notification preferences get/update operations
+/// - Input validation (empty and whitespace-only tokens)
+/// - Thread safety under concurrent operations
+/// - Sequential operation flows
+/// - Edge cases: long tokens, special characters, unicode, rapid state transitions
 final class NotificationServiceTests: XCTestCase {
     var sut: NotificationService!
     var mockAPIClient: MockAPIClient!
