@@ -3,6 +3,22 @@ import UIKit
 
 /// Main onboarding container view with page navigation
 /// Uses TabView for swipe-based page transitions
+///
+/// ## App Store Privacy Compliance
+///
+/// This view intentionally does **not** fire any analytics events. Per App Store privacy
+/// requirements, users can view the full onboarding flow before registration/login.
+/// Analytics tracking only begins after the user:
+///
+/// 1. Accepts the privacy policy (via `PrivacyConsentView`)
+/// 2. Completes authentication (registration or login)
+///
+/// The onboarding pages display educational content without tracking user interactions,
+/// ensuring compliance with Apple's privacy guidelines. All analytics events are defined
+/// in `AnalyticsService` and only fire post-authentication.
+///
+/// - SeeAlso: `RootView` for the consent-first navigation flow
+/// - SeeAlso: `AnalyticsService` for the privacy-preserving analytics implementation
 struct OnboardingContainerView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @Environment(\.accessibilityReduceMotion) var reduceMotion

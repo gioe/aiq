@@ -151,6 +151,33 @@ struct AnyCodable: Codable {
 /// - Automatic retry with exponential backoff on network errors
 /// - Offline queue for events when network is unavailable
 /// - Batch submission for efficient network usage
+///
+/// ## App Store Privacy Compliance
+///
+/// This service is designed to comply with Apple's App Store privacy requirements:
+///
+/// **Consent-First Design:**
+/// - No analytics events fire until the user has accepted the privacy policy
+/// - The app flow in `RootView` enforces that `PrivacyConsentView` is shown before
+///   any screens that could trigger analytics
+///
+/// **When Analytics Begin:**
+/// - First possible analytics events are `userRegistered` or `userLogin`
+/// - These only fire after successful authentication, which requires prior privacy consent
+/// - Onboarding screens (`OnboardingContainerView`) fire zero analytics events
+///
+/// **Privacy-Preserving Data:**
+/// - Email addresses are sanitized to domain-only (e.g., "gmail.com") via `emailDomain(from:)`
+/// - Device IDs use Apple's vendor identifier (resets on app reinstall)
+/// - No PII is collected beyond what users explicitly provide
+///
+/// **Audit Trail:**
+/// - All trackable events are enumerated in `AnalyticsEvent`
+/// - Each event type has a dedicated tracking method for clarity
+/// - Debug builds log events locally without network transmission
+///
+/// - SeeAlso: `PrivacyConsentView` for user consent collection
+/// - SeeAlso: `PrivacyConsentStorage` for consent state persistence
 class AnalyticsService {
     /// Shared singleton instance
     static let shared = AnalyticsService()
