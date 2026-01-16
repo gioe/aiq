@@ -12,6 +12,9 @@ class OnboardingViewModel: ObservableObject {
     /// Whether onboarding has been completed
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
 
+    /// Whether the user skipped onboarding (used to show info card on dashboard)
+    @AppStorage("didSkipOnboarding") var didSkipOnboarding: Bool = false
+
     // MARK: - Constants
 
     /// Total number of onboarding pages
@@ -27,6 +30,7 @@ class OnboardingViewModel: ObservableObject {
 
     /// Skip the onboarding flow and mark as completed
     func skipOnboarding() {
+        didSkipOnboarding = true
         completeOnboarding()
     }
 
