@@ -9,6 +9,19 @@ import XCTest
 
 /// Comprehensive UI tests for the test-taking flow
 ///
+/// # Test Naming Convention
+/// All test methods follow the pattern: `test<Action>_<ExpectedResult>`
+/// - Action: The operation being tested (e.g., StartNewTest, AnswerQuestion, NavigateQuestions)
+/// - ExpectedResult: The expected outcome or condition (e.g., Success, ShowsProgressIndicator)
+///
+/// Examples:
+/// - `testStartNewTest_Success` - Tests that starting a new test succeeds
+/// - `testAnswerQuestion_SelectsOption` - Tests that selecting an answer works
+/// - `testNavigateQuestions_NextAndPrevious` - Tests navigation between questions
+///
+/// Note: Use "Flow" (not "Cycle") for full workflow tests to match the class name.
+///
+/// # Test Coverage
 /// Tests cover:
 /// - Starting a new test
 /// - Answering questions (multiple choice and text input)
@@ -18,7 +31,8 @@ import XCTest
 /// - Verifying history updates
 /// - Complete end-to-end flow from login to results
 ///
-/// Note: These tests are skipped by default and require:
+/// # Requirements
+/// These tests are skipped by default and require:
 /// - Valid backend connection
 /// - Existing test account credentials
 /// - Proper test environment configuration
@@ -519,7 +533,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - End-to-End Tests
 
-    func testFullTestTakingCycle_EndToEnd() throws {
+    func testFullTestTakingFlow_EndToEnd() throws {
         // Skip: Requires full backend integration
         throw XCTSkip("Requires backend connection and valid test account")
 
@@ -605,7 +619,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "E2E_Step7_Logout")
     }
 
-    func testFullTestTakingCycle_WithNavigation() throws {
+    func testFullTestTakingFlow_WithNavigation() throws {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
