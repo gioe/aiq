@@ -2672,6 +2672,21 @@ Formatting tools run automatically via pre-commit hooks. Ensure they pass before
 >
 > When implementing accessibility features, always consult this document rather than copying patterns from existing code. Existing code may contain errors that predate these standards. This is especially important for accessibility traits like `.updatesFrequently` which are commonly misused.
 
+> **📋 Comprehensive Audit Reference**
+>
+> For detailed audit findings and screen-by-screen accessibility status, see [VOICEOVER_AUDIT.md](VOICEOVER_AUDIT.md). This audit documents all screens, their current accessibility status, and specific recommendations.
+
+### Accessibility Review Requirement
+
+**All new views must include an accessibility review before merging.** This review should verify:
+
+- All interactive elements have appropriate `accessibilityLabel` and `accessibilityHint`
+- Compound elements are properly combined for VoiceOver navigation
+- Decorative elements are hidden from VoiceOver
+- Dynamic content uses appropriate traits (e.g., `.updatesFrequently` for timers)
+- Touch targets meet the 44x44pt minimum requirement
+- Dynamic Type is properly supported
+
 ### Common Pitfalls
 
 Before implementing accessibility, review these frequent mistakes:
@@ -2774,9 +2789,16 @@ HStack {
 // urgencyPrefix returns "Critical: ", "Warning: ", or "" based on state
 ```
 
-#### Grouping Elements
+#### Grouping Elements (Compound Element Combining)
 
-Use `.accessibilityElement(children: .combine)` to group related content into a single VoiceOver element:
+Use `.accessibilityElement(children: .combine)` to group related content into a single VoiceOver element. This improves navigation by reducing the number of swipes needed and providing meaningful context.
+
+**When to Use Compound Combining:**
+
+- Card components with multiple text elements (icon + title + description)
+- Stat displays (label + value)
+- List items with multiple pieces of information
+- Any UI element where the individual parts only make sense together
 
 ```swift
 // ✅ Good - Card content read as single element
@@ -2789,7 +2811,85 @@ HStack {
     }
 }
 .accessibilityElement(children: .combine)
+
+// ✅ Good - Feature card with meaningful combined description
+VStack {
+    Image(systemName: "brain.head.profile")
+        .accessibilityHidden(true)
+    Text("Fresh AI Challenges")
+        .font(Typography.h3)
+    Text("New questions generated daily")
+        .font(Typography.bodySmall)
+}
+.accessibilityElement(children: .combine)
+.accessibilityLabel("Fresh AI Challenges: New questions generated daily")
+
+// ✅ Good - Stat card with explicit combined label
+HStack {
+    Image(systemName: "person.2.fill")
+        .accessibilityHidden(true)
+    VStack {
+        Text("10,000+")
+        Text("Users")
+    }
+}
+.accessibilityElement(children: .combine)
+.accessibilityLabel("10,000+ Users")
 ```
+
+#### Dynamic Content Updates
+
+For content that changes while visible (timers, live counters, progress indicators), use `.accessibilityAddTraits(.updatesFrequently)` to inform VoiceOver that it should poll for updates.
+
+> **🚨 REMINDER**: Only use `.updatesFrequently` for content that actually updates continuously. Do NOT use for loading states that simply appear/disappear.
+
+```swift
+// ✅ Good - Timer that counts down every second
+Text(timerManager.formattedTime)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Time remaining: \(timerManager.formattedTime)")
+    .accessibilityAddTraits(.updatesFrequently)
+
+// ✅ Good - Progress indicator that updates as questions are answered
+ProgressView(value: progress)
+    .accessibilityLabel("Test progress: \(Int(progress * 100)) percent complete")
+    .accessibilityAddTraits(.updatesFrequently)
+
+// ❌ Bad - Loading spinner (static content, just appears/disappears)
+ProgressView()
+    .accessibilityLabel("Loading")
+    .accessibilityAddTraits(.updatesFrequently)  // Wrong!
+```
+
+#### Hiding Decorative Elements
+
+Use `.accessibilityHidden(true)` for purely decorative elements that provide no additional information when read by VoiceOver. This includes:
+
+- Decorative icons that duplicate adjacent text
+- Background images or patterns
+- Animated elements that are purely visual
+- Dividers and separators
+
+```swift
+// ✅ Good - Decorative icon hidden, info conveyed in label
+HStack {
+    Image(systemName: "trophy.fill")
+        .foregroundColor(.yellow)
+        .accessibilityHidden(true)  // Decorative - label conveys meaning
+    Text("High Score")
+}
+.accessibilityLabel("High Score")
+
+// ✅ Good - Animated brain icon hidden (purely decorative)
+Image("brain_animation")
+    .accessibilityHidden(true)
+
+// ✅ Good - Divider hidden
+Divider()
+    .accessibilityHidden(true)
+```
+
+**Important:** When hiding elements that convey visual state (like colored icons indicating urgency), ensure that state is included in the accessibility label of a related element. See "Conveying Visual State" above.
 
 ### Dynamic Type
 
