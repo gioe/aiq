@@ -1,5 +1,6 @@
 @testable import AIQ
 import Foundation
+import XCTest
 
 /// Mock AuthService for testing token refresh scenarios in TokenRefreshInterceptor
 actor TokenRefreshMockAuthService: AuthServiceProtocol {
@@ -114,14 +115,17 @@ actor TokenRefreshMockAuthService: AuthServiceProtocol {
         country _: String?,
         region _: String?
     ) async throws -> AuthResponse {
-        fatalError("Not implemented - not used in TokenRefreshInterceptor tests")
+        XCTFail("register() should not be called in TokenRefreshInterceptor tests")
+        throw APIError.unauthorized(message: "Not implemented")
     }
 
     func login(email _: String, password _: String) async throws -> AuthResponse {
-        fatalError("Not implemented - not used in TokenRefreshInterceptor tests")
+        XCTFail("login() should not be called in TokenRefreshInterceptor tests")
+        throw APIError.unauthorized(message: "Not implemented")
     }
 
     func deleteAccount() async throws {
-        fatalError("Not implemented - not used in TokenRefreshInterceptor tests")
+        XCTFail("deleteAccount() should not be called in TokenRefreshInterceptor tests")
+        throw APIError.unauthorized(message: "Not implemented")
     }
 }
