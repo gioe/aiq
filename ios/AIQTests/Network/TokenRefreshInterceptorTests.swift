@@ -52,6 +52,18 @@ private actor TimeIntervalCollector {
 }
 
 final class TokenRefreshInterceptorTests: XCTestCase {
+    // MARK: - Test Constants
+
+    /// Short delay to ensure concurrent requests overlap during refresh.
+    /// Used when testing that multiple 401 responses share a single refresh task.
+    private let shortRefreshDelay: TimeInterval = 0.1
+
+    /// Medium delay to test timing-dependent behavior and concurrent request handling.
+    /// Used when testing that all requests wait for refresh to complete.
+    private let mediumRefreshDelay: TimeInterval = 0.2
+
+    // MARK: - Properties
+
     var sut: TokenRefreshInterceptor!
     var mockAuthService: TokenRefreshMockAuthService!
 
@@ -280,7 +292,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
             user: mockUser
         )
         await mockAuthService.setRefreshResponse(mockResponse)
-        await mockAuthService.setRefreshDelay(0.1) // 100ms delay to ensure overlap
+        await mockAuthService.setRefreshDelay(shortRefreshDelay)
 
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
@@ -354,7 +366,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
             user: mockUser
         )
         await mockAuthService.setRefreshResponse(mockResponse)
-        await mockAuthService.setRefreshDelay(0.2) // 200ms delay
+        await mockAuthService.setRefreshDelay(mediumRefreshDelay)
 
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
@@ -603,7 +615,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         // Given
         let refreshError = APIError.unauthorized(message: "Refresh failed")
         await mockAuthService.setRefreshError(refreshError)
-        await mockAuthService.setRefreshDelay(0.1) // Delay to ensure overlap
+        await mockAuthService.setRefreshDelay(shortRefreshDelay)
 
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
@@ -772,7 +784,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
             user: mockUser
         )
         await mockAuthService.setRefreshResponse(mockResponse)
-        await mockAuthService.setRefreshDelay(0.2) // Delay to ensure overlap
+        await mockAuthService.setRefreshDelay(mediumRefreshDelay)
 
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
