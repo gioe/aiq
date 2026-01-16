@@ -167,7 +167,8 @@ final class AccessibilityIdentifierTests: BaseUITest {
 
         try loginAndStartTest()
 
-        let progressBar = app.progressIndicators["testTakingView.progressBar"]
+        // Progress bar is a combined VStack element (otherElements), not a progressIndicator
+        let progressBar = app.otherElements["testTakingView.progressBar"]
         XCTAssertTrue(
             wait(for: progressBar, timeout: standardTimeout),
             "testTakingView.progressBar identifier should exist"

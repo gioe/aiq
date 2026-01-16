@@ -287,7 +287,12 @@ final class TestTakingAccessibilityTests: BaseUITest {
         let previousButton = app.buttons["testTakingView.previousButton"]
         let predicate = NSPredicate(format: "isEnabled == true")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: previousButton)
-        _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
+        let waitResult = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
+
+        guard waitResult == .completed else {
+            XCTFail("Previous button did not become enabled within timeout - navigation may have failed")
+            return
+        }
 
         XCTAssertTrue(
             previousButton.exists,
