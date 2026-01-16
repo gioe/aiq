@@ -71,11 +71,10 @@ final class AppLifecycleTests: BaseUITest {
         }
     }
 
-    /// Wait for a specified duration without blocking the UI event loop
+    /// Wait for a specified duration while allowing the run loop to process events
     /// - Parameter duration: Time to wait in seconds
     private func waitForDuration(_ duration: TimeInterval) {
-        let expectation = XCTestExpectation(description: "Wait for \(duration) seconds")
-        _ = XCTWaiter.wait(for: [expectation], timeout: duration)
+        RunLoop.current.run(until: Date().addingTimeInterval(duration))
     }
 
     // MARK: - App Lifecycle Tests
