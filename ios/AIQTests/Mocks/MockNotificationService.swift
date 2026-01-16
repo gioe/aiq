@@ -201,4 +201,21 @@ actor MockNotificationService: NotificationServiceProtocol {
         mockUpdatePreferencesError = nil
         mockGetPreferencesError = nil
     }
+
+    /// Reset only call counts without affecting mock responses
+    func resetCallCounts() {
+        registerDeviceTokenCalled = false
+        lastRegisteredToken = nil
+        registerCallCount = 0
+
+        unregisterDeviceTokenCalled = false
+        unregisterCallCount = 0
+
+        updateNotificationPreferencesCalled = false
+        lastPreferencesEnabled = nil
+        updatePreferencesCallCount = 0
+
+        getNotificationPreferencesCalled = false
+        getPreferencesCallCount = 0
+    }
 }

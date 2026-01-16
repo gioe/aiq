@@ -1389,6 +1389,135 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(options.contains(.badge), "Options should include .badge")
     }
 
+    // MARK: - Auth State Observation Integration Tests
+
+    func testAuthStateChange_triggersTokenRegistration() async throws {
+        // Given - User is NOT authenticated, but has a cached device token
+        mockAuthManager.isAuthenticated = false
+        UserDefaults.standard.set("auth_state_test_token", forKey: deviceTokenKey)
+
+        // Configure mock to succeed registration
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // Verify initial state - not registered
+        XCTAssertFalse(sut.isDeviceTokenRegistered, "Should start unregistered")
+
+        // When - Auth state changes to authenticated (simulating login)
+        mockAuthManager.isAuthenticated = true
+
+        // Then - Should automatically trigger token registration via auth state observation
+        try await waitForCondition(
+            timeout: 2.0,
+            message: "Auth state change should trigger token registration"
+        ) {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered, "Token should be registered after auth state change")
+
+        // Verify the backend was called
+        let callCount = await mockNotificationService.registerCallCount
+        XCTAssertGreaterThan(callCount, 0, "Backend should have been called to register token")
+    }
+
+    func testLogout_clearsRegistrationState() async throws {
+        // Given - User is authenticated and has a registered device token
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("logout_test_token", forKey: deviceTokenKey)
+
+        // Configure mock to succeed registration
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // Register the token first
+        await sut.retryDeviceTokenRegistration()
+
+        // Wait for registration to complete
+        try await waitForCondition(
+            timeout: 2.0,
+            message: "Should become registered"
+        ) {
+            self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertTrue(sut.isDeviceTokenRegistered, "Should be registered before logout")
+
+        // When - User logs out (auth state changes to false)
+        mockAuthManager.isAuthenticated = false
+
+        // Then - Registration state should be cleared via auth state observation
+        try await waitForCondition(
+            timeout: 2.0,
+            message: "Logout should clear registration state"
+        ) {
+            !self.sut.isDeviceTokenRegistered
+        }
+
+        XCTAssertFalse(sut.isDeviceTokenRegistered, "Registration state should be cleared on logout")
+    }
+
+    func testAuthStateChange_withNoToken_doesNotAttemptRegistration() async throws {
+        // Given - User is NOT authenticated and has NO cached device token
+        mockAuthManager.isAuthenticated = false
+        UserDefaults.standard.removeObject(forKey: deviceTokenKey)
+
+        // Clear any pending tokens
+        sut.didFailToRegisterForRemoteNotifications(error: NSError(domain: "Test", code: -1, userInfo: nil))
+
+        // Reset the mock call count
+        await mockNotificationService.resetCallCounts()
+
+        // When - Auth state changes to authenticated
+        mockAuthManager.isAuthenticated = true
+
+        // Small delay to allow Combine to propagate
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+
+        // Then - Should NOT call backend (no token to register)
+        let callCount = await mockNotificationService.registerCallCount
+        XCTAssertEqual(callCount, 0, "Should not attempt registration without a token")
+        XCTAssertFalse(sut.isDeviceTokenRegistered, "Should remain unregistered")
+    }
+
+    func testAuthStateChange_handlesRapidToggling() async throws {
+        // Given - Cached token with successful mock configuration
+        UserDefaults.standard.set("rapid_toggle_token", forKey: deviceTokenKey)
+        await mockNotificationService.setRegisterResponse(
+            DeviceTokenResponse(
+                success: true,
+                message: "Device token registered"
+            )
+        )
+
+        // When - Rapidly toggle auth state multiple times
+        mockAuthManager.isAuthenticated = true
+        await Task.yield()
+        mockAuthManager.isAuthenticated = false
+        await Task.yield()
+        mockAuthManager.isAuthenticated = true
+
+        // Then - Final state should be consistent with final auth state
+        try await waitForCondition(
+            timeout: 3.0,
+            message: "Should eventually reach consistent registered state"
+        ) {
+            self.sut.isDeviceTokenRegistered == self.mockAuthManager.isAuthenticated
+        }
+
+        // Since auth is true and token exists, should be registered
+        XCTAssertTrue(mockAuthManager.isAuthenticated)
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+    }
+
     // MARK: - Test Helpers
 
     /// Wait for a condition to become true within a timeout
