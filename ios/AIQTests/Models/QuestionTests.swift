@@ -250,79 +250,37 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Computed Properties Tests
 
     func testIsMultipleChoiceWithOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: ["A", "B", "C", "D"],
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: ["A", "B", "C", "D"])
 
         XCTAssertTrue(question.isMultipleChoice)
     }
 
     func testIsMultipleChoiceWithoutOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .math,
-            difficultyLevel: .easy,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: nil)
 
         XCTAssertFalse(question.isMultipleChoice)
     }
 
     func testIsMultipleChoiceWithEmptyOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .logic,
-            difficultyLevel: .hard,
-            answerOptions: [],
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: [])
 
         XCTAssertFalse(question.isMultipleChoice)
     }
 
     func testHasOptionsWithOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .verbal,
-            difficultyLevel: .easy,
-            answerOptions: ["Option 1", "Option 2"],
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: ["Option 1", "Option 2"])
 
         XCTAssertTrue(question.hasOptions)
     }
 
     func testHasOptionsWithoutOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .spatial,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: nil)
 
         XCTAssertFalse(question.hasOptions)
     }
 
     func testHasOptionsWithEmptyOptions() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .memory,
-            difficultyLevel: .hard,
-            answerOptions: [],
-            explanation: nil
-        )
+        let question = try createValidQuestion(answerOptions: [])
 
         XCTAssertFalse(question.hasOptions)
     }
@@ -330,20 +288,12 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Equatable Tests
 
     func testQuestionEquality() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
+        let question1 = try createValidQuestion(
             answerOptions: ["A", "B", "C"],
             explanation: "Test explanation"
         )
 
-        let question2 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
+        let question2 = try createValidQuestion(
             answerOptions: ["A", "B", "C"],
             explanation: "Test explanation"
         )
@@ -352,133 +302,43 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionInequalityDifferentId() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
-
-        let question2 = try Question(
-            id: 2,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question1 = try createValidQuestion(id: 1)
+        let question2 = try createValidQuestion(id: 2)
 
         XCTAssertNotEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentQuestionText() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Question 1",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
-
-        let question2 = try Question(
-            id: 1,
-            questionText: "Question 2",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question1 = try createValidQuestion(questionText: "Question 1")
+        let question2 = try createValidQuestion(questionText: "Question 2")
 
         XCTAssertNotEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentQuestionType() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
-
-        let question2 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .logic,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question1 = try createValidQuestion(questionType: .pattern)
+        let question2 = try createValidQuestion(questionType: .logic)
 
         XCTAssertNotEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentDifficultyLevel() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .easy,
-            answerOptions: nil,
-            explanation: nil
-        )
-
-        let question2 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .hard,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question1 = try createValidQuestion(difficultyLevel: .easy)
+        let question2 = try createValidQuestion(difficultyLevel: .hard)
 
         XCTAssertNotEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentAnswerOptions() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: ["A", "B"],
-            explanation: nil
-        )
-
-        let question2 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: ["C", "D"],
-            explanation: nil
-        )
+        let question1 = try createValidQuestion(answerOptions: ["A", "B"])
+        let question2 = try createValidQuestion(answerOptions: ["C", "D"])
 
         XCTAssertNotEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentExplanation() throws {
-        let question1 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: "Explanation 1"
-        )
-
-        let question2 = try Question(
-            id: 1,
-            questionText: "Test question",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: "Explanation 2"
-        )
+        let question1 = try createValidQuestion(explanation: "Explanation 1")
+        let question2 = try createValidQuestion(explanation: "Explanation 2")
 
         XCTAssertNotEqual(question1, question2)
     }
@@ -486,7 +346,7 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Encoding Tests
 
     func testQuestionEncodingRoundTrip() throws {
-        let question = try Question(
+        let question = try createValidQuestion(
             id: 123,
             questionText: "What is 2 + 2?",
             questionType: .math,
@@ -510,11 +370,8 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionEncodingUsesSnakeCase() throws {
-        let question = try Question(
-            id: 1,
+        let question = try createValidQuestion(
             questionText: "Test",
-            questionType: .pattern,
-            difficultyLevel: .medium,
             answerOptions: ["A"],
             explanation: "Explanation"
         )
@@ -540,14 +397,7 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Identifiable Tests
 
     func testQuestionIdentifiable() throws {
-        let question = try Question(
-            id: 42,
-            questionText: "Test question",
-            questionType: .logic,
-            difficultyLevel: .hard,
-            answerOptions: nil,
-            explanation: nil
-        )
+        let question = try createValidQuestion(id: 42)
 
         XCTAssertEqual(question.id, 42)
     }
@@ -555,7 +405,7 @@ final class QuestionTests: XCTestCase {
     // MARK: - QuestionResponse Tests
 
     func testQuestionResponseInitialization() throws {
-        let response = try QuestionResponse(
+        let response = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "42",
             timeSpentSeconds: 30
@@ -567,7 +417,7 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseInitializationWithoutTimeSpent() throws {
-        let response = try QuestionResponse(
+        let response = try createValidQuestionResponse(
             questionId: 2,
             userAnswer: "Answer"
         )
@@ -646,7 +496,7 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseEncodingRoundTrip() throws {
-        let response = try QuestionResponse(
+        let response = try createValidQuestionResponse(
             questionId: 15,
             userAnswer: "Round trip test",
             timeSpentSeconds: 60
@@ -664,7 +514,7 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseEncodingUsesSnakeCase() throws {
-        let response = try QuestionResponse(
+        let response = try createValidQuestionResponse(
             questionId: 20,
             userAnswer: "Test",
             timeSpentSeconds: 90
@@ -687,13 +537,13 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseEquality() throws {
-        let response1 = try QuestionResponse(
+        let response1 = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "Answer",
             timeSpentSeconds: 30
         )
 
-        let response2 = try QuestionResponse(
+        let response2 = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "Answer",
             timeSpentSeconds: 30
@@ -703,14 +553,14 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseInequality() throws {
-        let response1 = try QuestionResponse(
+        let response1 = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "Answer",
             timeSpentSeconds: 30
         )
 
         // Different question ID
-        let response2 = try QuestionResponse(
+        let response2 = try createValidQuestionResponse(
             questionId: 2,
             userAnswer: "Answer",
             timeSpentSeconds: 30
@@ -718,7 +568,7 @@ final class QuestionTests: XCTestCase {
         XCTAssertNotEqual(response1, response2)
 
         // Different user answer
-        let response3 = try QuestionResponse(
+        let response3 = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "Different",
             timeSpentSeconds: 30
@@ -726,7 +576,7 @@ final class QuestionTests: XCTestCase {
         XCTAssertNotEqual(response1, response3)
 
         // Different time spent
-        let response4 = try QuestionResponse(
+        let response4 = try createValidQuestionResponse(
             questionId: 1,
             userAnswer: "Answer",
             timeSpentSeconds: 60
@@ -970,21 +820,13 @@ final class QuestionTests: XCTestCase {
     // MARK: Edge Cases - QuestionResponse Boundary Values
 
     func testQuestionResponseWithEmptyUserAnswer() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "",
-            timeSpentSeconds: 10
-        )
+        let response = try createValidQuestionResponse(userAnswer: "", timeSpentSeconds: 10)
 
         XCTAssertEqual(response.userAnswer, "")
     }
 
     func testQuestionResponseWithZeroTimeSpent() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "Quick answer",
-            timeSpentSeconds: 0
-        )
+        let response = try createValidQuestionResponse(userAnswer: "Quick answer", timeSpentSeconds: 0)
 
         XCTAssertEqual(response.timeSpentSeconds, 0)
     }
@@ -1006,11 +848,7 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseWithLargeTimeSpent() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 3600 // 1 hour
-        )
+        let response = try createValidQuestionResponse(userAnswer: "Answer", timeSpentSeconds: 3600)
 
         XCTAssertEqual(response.timeSpentSeconds, 3600)
     }
@@ -1034,12 +872,7 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionInitializationSucceedsWithValidQuestionText() throws {
-        let question = try Question(
-            id: 1,
-            questionText: "Valid question",
-            questionType: .pattern,
-            difficultyLevel: .easy
-        )
+        let question = try createValidQuestion(questionText: "Valid question")
 
         XCTAssertEqual(question.questionText, "Valid question")
     }
@@ -1096,31 +929,19 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseInitializationSucceedsWithZeroTimeSpent() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 0
-        )
+        let response = try createValidQuestionResponse(timeSpentSeconds: 0)
 
         XCTAssertEqual(response.timeSpentSeconds, 0)
     }
 
     func testQuestionResponseInitializationSucceedsWithPositiveTimeSpent() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 100
-        )
+        let response = try createValidQuestionResponse(timeSpentSeconds: 100)
 
         XCTAssertEqual(response.timeSpentSeconds, 100)
     }
 
     func testQuestionResponseInitializationSucceedsWithNilTimeSpent() throws {
-        let response = try QuestionResponse(
-            questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: nil
-        )
+        let response = try createValidQuestionResponse(timeSpentSeconds: nil)
 
         XCTAssertNil(response.timeSpentSeconds)
     }
@@ -1167,5 +988,37 @@ final class QuestionTests: XCTestCase {
     func testQuestionResponseValidationErrorDescription() {
         let error = QuestionResponseValidationError.negativeTimeSpent
         XCTAssertEqual(error.errorDescription, "Time spent cannot be negative")
+    }
+
+    // MARK: - Helper Methods
+
+    private func createValidQuestion(
+        id: Int = 1,
+        questionText: String = "Test question",
+        questionType: QuestionType = .pattern,
+        difficultyLevel: DifficultyLevel = .medium,
+        answerOptions: [String]? = nil,
+        explanation: String? = nil
+    ) throws -> Question {
+        try Question(
+            id: id,
+            questionText: questionText,
+            questionType: questionType,
+            difficultyLevel: difficultyLevel,
+            answerOptions: answerOptions,
+            explanation: explanation
+        )
+    }
+
+    private func createValidQuestionResponse(
+        questionId: Int = 1,
+        userAnswer: String = "Test answer",
+        timeSpentSeconds: Int? = nil
+    ) throws -> QuestionResponse {
+        try QuestionResponse(
+            questionId: questionId,
+            userAnswer: userAnswer,
+            timeSpentSeconds: timeSpentSeconds
+        )
     }
 }
