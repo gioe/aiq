@@ -26,6 +26,7 @@ project = Xcodeproj::Project.open(project_path)
 # Get the targets
 main_target = project.targets.find { |t| t.name == 'AIQ' }
 test_target = project.targets.find { |t| t.name == 'AIQTests' }
+ui_test_target = project.targets.find { |t| t.name == 'AIQUITests' }
 
 # Process each file
 ARGV.each do |file_path|
@@ -67,8 +68,13 @@ ARGV.each do |file_path|
   file_ref = group.new_reference(file_name)
 
   # Determine which target to add to based on file path
-  target = file_path.start_with?('AIQTests/') ? test_target : main_target
-  target_name = file_path.start_with?('AIQTests/') ? 'AIQTests' : 'AIQ'
+  target, target_name = if file_path.start_with?('AIQUITests/')
+    [ui_test_target, 'AIQUITests']
+  elsif file_path.start_with?('AIQTests/')
+    [test_target, 'AIQTests']
+  else
+    [main_target, 'AIQ']
+  end
 
   target.add_file_references([file_ref])
   puts "✓ Added #{file_path} to #{target_name} target"
