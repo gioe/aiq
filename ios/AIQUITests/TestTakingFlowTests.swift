@@ -73,6 +73,9 @@ final class TestTakingFlowTests: BaseUITest {
             waitForDashboard: true
         )
         XCTAssertTrue(loginSuccess, "Should successfully log in")
+
+        // Assert dashboard UI is visible before screenshot
+        assertExists(loginHelper.dashboardTab, "Dashboard tab should be visible")
         takeScreenshot(named: "DashboardBeforeTest")
 
         // Start a new test
@@ -206,6 +209,12 @@ final class TestTakingFlowTests: BaseUITest {
             XCTAssertFalse(previousButton.isEnabled, "Previous button should be disabled on first question")
         }
 
+        // Assert we are on first question before screenshot
+        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 1"),
+            "Should be on question 1"
+        )
         takeScreenshot(named: "FirstQuestionPreviousDisabled")
     }
 
@@ -225,6 +234,9 @@ final class TestTakingFlowTests: BaseUITest {
         // Note: This depends on whether the test requires all questions to be answered
         // before allowing navigation
         if nextButton.exists {
+            // Assert expected UI state before screenshot
+            XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+            assertExists(testHelper.questionText, "Question text should be visible")
             takeScreenshot(named: "NextButtonStateUnanswered")
         }
     }
@@ -245,6 +257,10 @@ final class TestTakingFlowTests: BaseUITest {
             return
         }
 
+        // Assert test screen is properly displayed before screenshot
+        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        assertExists(testHelper.questionText, "Question text should be visible")
+        assertExists(testHelper.progressLabel, "Progress indicator should be visible")
         takeScreenshot(named: "TestFlow_Start")
 
         // Answer all questions
@@ -286,6 +302,12 @@ final class TestTakingFlowTests: BaseUITest {
         // (Would need to check if option 0 is selected, which requires
         // examining button states - exact implementation depends on UI)
 
+        // Assert we navigated back to question 1 before screenshot
+        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 1"),
+            "Should be back on question 1"
+        )
         takeScreenshot(named: "AnswerPersistence")
     }
 
@@ -407,6 +429,8 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Note: Accuracy may not always be shown depending on test result format
         if accuracyLabel.exists {
+            // Assert results screen is displayed before screenshot
+            XCTAssertTrue(testHelper.isOnResultsScreen, "Should be on results screen")
             takeScreenshot(named: "ResultsWithMetrics")
         }
     }
@@ -462,8 +486,9 @@ final class TestTakingFlowTests: BaseUITest {
         navHelper.navigateToTab(.history)
         wait(for: app.navigationBars["History"], timeout: standardTimeout)
 
-        // Count existing test results (implementation depends on History UI structure)
-        // For now, take a screenshot for manual verification
+        // Assert History screen is displayed before screenshot
+        let historyNavBar = app.navigationBars["History"]
+        assertExists(historyNavBar, "History navigation bar should be visible")
         takeScreenshot(named: "HistoryBeforeTest")
 
         // Go back to dashboard and take a test
@@ -487,8 +512,8 @@ final class TestTakingFlowTests: BaseUITest {
         navHelper.navigateToTab(.history)
         wait(for: app.navigationBars["History"], timeout: extendedTimeout)
 
-        // Verify new test appears in history
-        // (Exact verification depends on History UI structure)
+        // Assert History screen is displayed before screenshot
+        assertExists(app.navigationBars["History"], "History navigation bar should be visible")
         takeScreenshot(named: "HistoryAfterTest")
     }
 
@@ -527,6 +552,12 @@ final class TestTakingFlowTests: BaseUITest {
             // Answer current question
             testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
 
+            // Assert question is displayed before screenshot
+            XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+            XCTAssertTrue(
+                testHelper.progressLabel.label.contains("Question \(questionNum)"),
+                "Should be on question \(questionNum)"
+            )
             takeScreenshot(named: "E2E_Step3_Question\(questionNum)")
 
             // Go to next question or submit on last question
@@ -562,6 +593,9 @@ final class TestTakingFlowTests: BaseUITest {
         // Step 6: Verify history
         navHelper.navigateToTab(.history)
         wait(for: app.navigationBars["History"], timeout: extendedTimeout)
+
+        // Assert History screen is displayed before screenshot
+        assertExists(app.navigationBars["History"], "History navigation bar should be visible")
         takeScreenshot(named: "E2E_Step6_History")
 
         // Step 7: Logout
@@ -591,6 +625,12 @@ final class TestTakingFlowTests: BaseUITest {
             _ = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
         }
 
+        // Assert we are on question 4 before screenshot
+        XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 4"),
+            "Should be on question 4 after answering first 3"
+        )
         takeScreenshot(named: "AfterFirst3Questions")
 
         // Go back to question 2
