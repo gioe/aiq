@@ -264,6 +264,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Check if the deep link is valid
         guard deepLink != .invalid else {
             Self.logger.warning("Invalid deep link: \(url.absoluteString, privacy: .public)")
+            // Show user-friendly error toast
+            // The detailed error has already been logged and sent to Crashlytics by DeepLinkHandler
+            Task { @MainActor in
+                ToastManager.shared.show("toast.deeplink.invalid".localized, type: .error)
+            }
             return false
         }
 

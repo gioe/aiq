@@ -187,9 +187,21 @@ struct MainTabView: View {
 
                 let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
                 if !success {
-                    // Note: User error feedback tracked in ICG-122
                     let linkDesc = String(describing: deepLink)
                     Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
+
+                    // Show user-friendly error toast based on deep link type
+                    let message = switch deepLink {
+                    case .testResults:
+                        // Navigation failed due to API error (couldn't fetch test results)
+                        "toast.deeplink.navigation.failed".localized
+                    case .resumeTest:
+                        // Resume test not yet implemented
+                        "toast.deeplink.resume.unavailable".localized
+                    default:
+                        "toast.deeplink.navigation.failed".localized
+                    }
+                    ToastManager.shared.show(message, type: .error)
                 }
 
             case .invalid:

@@ -703,3 +703,9 @@
 "onboarding.skipped.card.description" = "Take a quick tour to learn how AIQ tracks your cognitive performance and helps you understand your results.";
 "onboarding.skipped.card.cta" = "Learn More";
 "onboarding.skipped.card.dismiss.accessibility" = "Dismiss info card";
+
+// MARK: - Toast Messages
+"toast.dismiss" = "Dismiss";
+"toast.deeplink.invalid" = "Unable to open this link";
+"toast.deeplink.navigation.failed" = "Unable to load content";
+"toast.deeplink.resume.unavailable" = "Test resumption is not yet available";
