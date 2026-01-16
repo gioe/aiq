@@ -554,7 +554,18 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     func testConcurrentEventTracking_ThreadSafety() async {
-        // Given
+        // Given - Use a dedicated SUT with autoSubmitWhenFull disabled to prevent
+        // auto-submission from clearing the queue during concurrent tracking
+        let testSut = AnalyticsService(
+            userDefaults: mockUserDefaults,
+            networkMonitor: mockNetworkMonitor,
+            urlSession: mockURLSession,
+            secureStorage: mockSecureStorage,
+            batchInterval: 1000.0,
+            startTimer: false,
+            autoSubmitWhenFull: false
+        )
+
         let iterations = 100
         let expectation = expectation(description: "All events tracked")
         expectation.expectedFulfillmentCount = iterations
@@ -562,14 +573,14 @@ final class AnalyticsServiceTests: XCTestCase {
         // When - Track events concurrently
         for i in 0 ..< iterations {
             DispatchQueue.global().async {
-                self.sut.track(event: .userLogin, properties: ["index": i])
+                testSut.track(event: .userLogin, properties: ["index": i])
                 expectation.fulfill()
             }
         }
 
         // Then
         await fulfillment(of: [expectation], timeout: 5.0)
-        XCTAssertEqual(sut.eventQueueCount, iterations, "All events should be tracked")
+        XCTAssertEqual(testSut.eventQueueCount, iterations, "All events should be tracked")
     }
 
     func testConcurrentPersistence_ThreadSafety() async {
