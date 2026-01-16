@@ -53,6 +53,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ///
     /// Configuration is loaded from TrustKit.plist in the app bundle.
     ///
+    /// ## App Store Privacy Compliance
+    ///
+    /// Certificate pinning events fire before privacy consent as they are:
+    /// - **Anonymous technical telemetry**: No PII, only security status (success/failure)
+    /// - **Essential security diagnostics**: Required for app integrity verification
+    /// - **Non-behavioral**: Does not track user actions or preferences
+    ///
+    /// This is compliant with App Store guidelines as anonymous technical/performance
+    /// data may be collected without explicit consent. User-behavioral analytics
+    /// (registration, login, test events) only fire post-consent via `AuthManager`.
+    ///
     /// Analytics tracking:
     /// - Initialization success/failure is tracked at startup
     /// - Runtime pinning validation failures are NOT tracked here because:

@@ -1,6 +1,43 @@
 import SwiftUI
 
 /// Root view that determines whether to show consent, auth flow, onboarding, or main app
+///
+/// ## App Store Privacy Compliance - Navigation Flow
+///
+/// This view enforces a consent-first navigation hierarchy:
+///
+/// ```
+/// App Launch
+///     │
+///     ▼
+/// ┌─────────────────────────┐
+/// │ Privacy Consent Check   │◄── First checkpoint: hasAcceptedConsent
+/// └─────────────────────────┘
+///     │
+///     ▼ (consent accepted)
+/// ┌─────────────────────────┐
+/// │ Authentication Check    │◄── User must login/register (triggers first analytics)
+/// └─────────────────────────┘
+///     │
+///     ▼ (authenticated)
+/// ┌─────────────────────────┐
+/// │ Onboarding Check        │◄── No analytics during onboarding
+/// └─────────────────────────┘
+///     │
+///     ▼ (completed)
+/// ┌─────────────────────────┐
+/// │ Main App                │
+/// └─────────────────────────┘
+/// ```
+///
+/// **Key Privacy Guarantee:**
+/// No analytics events can fire until the user has:
+/// 1. Accepted the privacy policy in `PrivacyConsentView`
+/// 2. Completed authentication (first `userRegistered` or `userLogin` event)
+///
+/// - SeeAlso: `PrivacyConsentView` - First screen for new users
+/// - SeeAlso: `OnboardingContainerView` - Zero analytics tracking
+/// - SeeAlso: `AnalyticsService` - Privacy-compliant event tracking
 struct RootView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
