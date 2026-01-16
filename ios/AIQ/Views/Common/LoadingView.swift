@@ -15,6 +15,7 @@ struct LoadingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message)
+        .accessibilityIdentifier(AccessibilityIdentifiers.Common.loadingView)
     }
 }
 
