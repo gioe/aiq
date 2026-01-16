@@ -22,7 +22,6 @@ final class AccessibilityIdentifierTests: BaseUITest {
     // MARK: - Helper Properties
 
     private var loginHelper: LoginHelper!
-    private var navHelper: NavigationHelper!
 
     // Test credentials from environment
     private var testEmail: String {
@@ -38,12 +37,10 @@ final class AccessibilityIdentifierTests: BaseUITest {
     override func setUpWithError() throws {
         try super.setUpWithError()
         loginHelper = LoginHelper(app: app, timeout: standardTimeout)
-        navHelper = NavigationHelper(app: app, timeout: standardTimeout)
     }
 
     override func tearDownWithError() throws {
         loginHelper = nil
-        navHelper = nil
         try super.tearDownWithError()
     }
 
@@ -335,8 +332,9 @@ final class AccessibilityIdentifierTests: BaseUITest {
         }
         settingsTab.tap()
 
-        let settingsNavBar = app.navigationBars["Settings"]
-        guard wait(for: settingsNavBar, timeout: standardTimeout) else {
+        // Verify navigation by checking the tab is selected
+        // Using accessibility identifier rather than localized navigation bar title
+        guard settingsTab.isSelected else {
             throw XCTSkip("Could not navigate to Settings")
         }
     }
