@@ -58,23 +58,15 @@ final class NetworkMonitorTests: XCTestCase {
 
     // MARK: - Initial State Tests
 
-    func testInitialState_IsConnectedDefaultsToTrue() {
+    func testInitialState() {
         // Given/When
         // NetworkMonitor starts monitoring immediately on init
 
         // Then
         // Initial state should default to true (optimistic assumption)
         XCTAssertTrue(sut.isConnected, "Initial state should default to connected")
-    }
 
-    func testInitialState_ConnectionTypeIsSet() {
-        // Given/When
-        // NetworkMonitor starts monitoring immediately on init
-        // and quickly determines the actual connection type
-
-        // Then
         // Connection type should be set to one of the valid types
-        // (In simulator, this is typically .wifi)
         let validTypes: [NetworkMonitor.ConnectionType] = [.wifi, .cellular, .ethernet, .unknown]
         XCTAssertTrue(
             validTypes.contains(sut.connectionType),
@@ -84,44 +76,35 @@ final class NetworkMonitorTests: XCTestCase {
 
     // MARK: - Property Publishing Tests
 
-    func testIsConnected_IsPublished() async {
+    func testPublishedProperties() async {
         // Given
-        let expectation = expectation(description: "isConnected publishes changes")
-        var receivedValues: [Bool] = []
+        let isConnectedExpectation = expectation(description: "isConnected publishes")
+        let connectionTypeExpectation = expectation(description: "connectionType publishes")
+        var isConnectedReceived = false
+        var connectionTypeReceived = false
 
         // When
         sut.$isConnected
-            .sink { value in
-                receivedValues.append(value)
-                if receivedValues.count >= 1 {
-                    expectation.fulfill()
-                }
+            .sink { _ in
+                isConnectedReceived = true
+                isConnectedExpectation.fulfill()
             }
             .store(in: &cancellables)
 
-        // Then
-        await fulfillment(of: [expectation], timeout: Timeouts.standard)
-        XCTAssertFalse(receivedValues.isEmpty, "Should receive at least one isConnected value")
-    }
-
-    func testConnectionType_IsPublished() async {
-        // Given
-        let expectation = expectation(description: "connectionType publishes changes")
-        var receivedValues: [NetworkMonitor.ConnectionType] = []
-
-        // When
         sut.$connectionType
-            .sink { value in
-                receivedValues.append(value)
-                if receivedValues.count >= 1 {
-                    expectation.fulfill()
-                }
+            .sink { _ in
+                connectionTypeReceived = true
+                connectionTypeExpectation.fulfill()
             }
             .store(in: &cancellables)
 
         // Then
-        await fulfillment(of: [expectation], timeout: Timeouts.standard)
-        XCTAssertFalse(receivedValues.isEmpty, "Should receive at least one connectionType value")
+        await fulfillment(
+            of: [isConnectedExpectation, connectionTypeExpectation],
+            timeout: Timeouts.standard
+        )
+        XCTAssertTrue(isConnectedReceived, "isConnected should publish")
+        XCTAssertTrue(connectionTypeReceived, "connectionType should publish")
     }
 
     // MARK: - Lifecycle Tests
@@ -252,46 +235,6 @@ final class NetworkMonitorTests: XCTestCase {
         )
     }
 
-    // MARK: - ConnectionType Tests
-
-    func testConnectionType_HasAllExpectedCases() {
-        // Given/When
-        let allCases: [NetworkMonitor.ConnectionType] = [
-            .wifi,
-            .cellular,
-            .ethernet,
-            .unknown
-        ]
-
-        // Then - Verify all cases can be instantiated
-        XCTAssertEqual(allCases.count, 4, "ConnectionType should have exactly 4 cases")
-
-        for connectionType in allCases {
-            switch connectionType {
-            case .wifi, .cellular, .ethernet, .unknown:
-                break // All cases are valid
-            }
-        }
-    }
-
-    // MARK: - Protocol Conformance Tests
-
-    func testConformsToNetworkMonitorProtocol() {
-        // Given/When
-        let monitor: NetworkMonitorProtocol = sut
-
-        // Then
-        XCTAssertNotNil(monitor.isConnected, "Should conform to NetworkMonitorProtocol")
-    }
-
-    func testConformsToObservableObject() {
-        // Given/When
-        let objectWillChange = sut.objectWillChange
-
-        // Then
-        XCTAssertNotNil(objectWillChange, "Should conform to ObservableObject")
-    }
-
     // MARK: - Singleton Tests
 
     func testShared_ReturnsSameInstance() {
@@ -358,31 +301,11 @@ final class NetworkMonitorTests: XCTestCase {
         XCTAssertNotNil(weakMonitor, "Singleton should remain in memory")
     }
 
-    // MARK: - Integration-Style Tests (Real Network Framework)
+    // MARK: - Main Thread Execution Tests
 
-    func testRealNetworkMonitor_InitialStateIsValid() {
-        // Given/When
-        // Using real NWPathMonitor through NetworkMonitor
-
-        // Then - Initial state should be valid
-        let isConnected = sut.isConnected
-        let connectionType = sut.connectionType
-
-        // Both properties should be in valid states
-        XCTAssertNotNil(isConnected, "isConnected should have a value")
-        XCTAssertNotNil(connectionType, "connectionType should have a value")
-
-        // connectionType should be one of the defined cases
-        let validTypes: [NetworkMonitor.ConnectionType] = [.wifi, .cellular, .ethernet, .unknown]
-        XCTAssertTrue(
-            validTypes.contains(connectionType),
-            "connectionType should be a valid case"
-        )
-    }
-
-    func testRealNetworkMonitor_UpdatesOnMainActor() async {
+    func testUpdatesOccurOnMainThread() async {
         // Given
-        let expectation = expectation(description: "Updates occur on main actor")
+        let expectation = expectation(description: "Updates occur on main thread")
         expectation.assertForOverFulfill = false
 
         // When
@@ -401,138 +324,6 @@ final class NetworkMonitorTests: XCTestCase {
 
         // Note: This may timeout if no network changes occur, which is acceptable
         _ = await XCTWaiter.fulfillment(of: [expectation], timeout: Timeouts.short)
-    }
-
-    // MARK: - Documentation Tests
-
-    func testConnectionTypeRawValues_MatchDocumentation() {
-        // Given/When
-        let types: [NetworkMonitor.ConnectionType] = [
-            .wifi,
-            .cellular,
-            .ethernet,
-            .unknown
-        ]
-
-        // Then - Verify all documented connection types exist
-        XCTAssertEqual(types.count, 4, "Should have exactly 4 connection types as documented")
-
-        // Verify each type is distinct
-        let uniqueTypes = Set(types.map { String(describing: $0) })
-        XCTAssertEqual(
-            uniqueTypes.count,
-            4,
-            "All connection types should be unique"
-        )
-    }
-
-    func testNetworkMonitorProtocol_HasRequiredProperties() {
-        // Given
-        let protocolInstance: NetworkMonitorProtocol = sut
-
-        // When/Then - Verify protocol requirements
-        _ = protocolInstance.isConnected
-        // Protocol only requires isConnected, verify it's accessible
-        XCTAssertTrue(
-            true,
-            "NetworkMonitorProtocol should provide isConnected property"
-        )
-    }
-
-    // MARK: - Callback Verification Tests
-
-    func testPathUpdateHandler_CallsMainThreadUpdate() async {
-        // Given
-        let expectation = expectation(description: "Path update triggers main thread update")
-        expectation.assertForOverFulfill = false
-
-        var updateReceivedOnMainThread = false
-
-        // When
-        sut.$isConnected
-            .dropFirst() // Skip initial value
-            .sink { _ in
-                if Thread.isMainThread {
-                    updateReceivedOnMainThread = true
-                    expectation.fulfill()
-                }
-            }
-            .store(in: &cancellables)
-
-        // Restart monitoring to potentially trigger path update
-        sut.stopMonitoring()
-        sut.startMonitoring()
-
-        // Then
-        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: Timeouts.short)
-
-        // If we received an update, verify it was on main thread
-        if updateReceivedOnMainThread {
-            XCTAssertTrue(
-                updateReceivedOnMainThread,
-                "Path updates should trigger main thread callbacks"
-            )
-        }
-    }
-
-    func testMultiplePropertyUpdates_PublishCorrectly() async {
-        // Given
-        let isConnectedExpectation = expectation(description: "isConnected publishes")
-        let connectionTypeExpectation = expectation(description: "connectionType publishes")
-
-        var isConnectedReceived = false
-        var connectionTypeReceived = false
-
-        // When
-        sut.$isConnected
-            .sink { _ in
-                isConnectedReceived = true
-                isConnectedExpectation.fulfill()
-            }
-            .store(in: &cancellables)
-
-        sut.$connectionType
-            .sink { _ in
-                connectionTypeReceived = true
-                connectionTypeExpectation.fulfill()
-            }
-            .store(in: &cancellables)
-
-        // Then
-        await fulfillment(
-            of: [isConnectedExpectation, connectionTypeExpectation],
-            timeout: Timeouts.standard
-        )
-        XCTAssertTrue(isConnectedReceived, "isConnected should publish")
-        XCTAssertTrue(connectionTypeReceived, "connectionType should publish")
-    }
-
-    // MARK: - Edge Case: Connection Type Priority
-
-    func testConnectionTypePriority_DocumentsExpectedBehavior() {
-        // Given/When
-        // The actual priority is determined by NWPath.usesInterfaceType checks:
-        // 1. WiFi (checked first)
-        // 2. Cellular (checked second)
-        // 3. Ethernet (checked third)
-        // 4. Unknown (default)
-
-        // Then - This test documents the expected behavior
-        // When multiple interface types are available, the first match wins
-        // This is implementation detail but worth documenting
-
-        let priorityOrder = [
-            "wifi",
-            "cellular",
-            "ethernet",
-            "unknown"
-        ]
-
-        XCTAssertEqual(
-            priorityOrder.count,
-            4,
-            "Connection type priority should check all 4 types in order"
-        )
     }
 
     // MARK: - Cleanup Tests
