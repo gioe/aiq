@@ -70,8 +70,10 @@ struct OnboardingContainerView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .onChange(of: viewModel.currentPage) { _ in
-                    // Haptic feedback on page change
-                    lightImpactGenerator.impactOccurred()
+                    // Haptic feedback on page change (respects Reduce Motion accessibility setting)
+                    if !reduceMotion {
+                        lightImpactGenerator.impactOccurred()
+                    }
                 }
 
                 // Custom page indicator (scoped styling, no global UIPageControl modifications)
@@ -114,8 +116,10 @@ struct OnboardingContainerView: View {
 
     /// Handle Continue button tap
     private func handleContinue() {
-        // Haptic feedback
-        mediumImpactGenerator.impactOccurred()
+        // Haptic feedback (respects Reduce Motion accessibility setting)
+        if !reduceMotion {
+            mediumImpactGenerator.impactOccurred()
+        }
 
         // Navigate to next page
         if reduceMotion {
@@ -129,8 +133,10 @@ struct OnboardingContainerView: View {
 
     /// Handle Skip button tap
     private func handleSkip() {
-        // Haptic feedback
-        mediumImpactGenerator.impactOccurred()
+        // Haptic feedback (respects Reduce Motion accessibility setting)
+        if !reduceMotion {
+            mediumImpactGenerator.impactOccurred()
+        }
 
         // Skip onboarding
         if reduceMotion {
@@ -147,8 +153,10 @@ struct OnboardingContainerView: View {
 
     /// Handle Get Started button tap
     private func handleGetStarted() {
-        // Haptic feedback
-        notificationGenerator.notificationOccurred(.success)
+        // Haptic feedback (respects Reduce Motion accessibility setting)
+        if !reduceMotion {
+            notificationGenerator.notificationOccurred(.success)
+        }
 
         // Complete onboarding
         if reduceMotion {
