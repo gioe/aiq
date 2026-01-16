@@ -23,6 +23,18 @@ import XCTest
 /// would require additional simulator/device testing.
 @MainActor
 final class NetworkMonitorTests: XCTestCase {
+    // MARK: - Constants
+
+    /// Standardized timeout values for async tests
+    private enum Timeouts {
+        /// Standard timeout for expectation fulfillment (seconds)
+        static let standard: TimeInterval = 1.0
+        /// Short timeout for operations expected to be quick or may timeout (seconds)
+        static let short: TimeInterval = 0.5
+        /// Sleep duration for brief pauses in nanoseconds (0.1 seconds)
+        static let briefSleepNanoseconds: UInt64 = 100_000_000
+    }
+
     // MARK: - Properties
 
     var sut: NetworkMonitor!
@@ -88,7 +100,7 @@ final class NetworkMonitorTests: XCTestCase {
             .store(in: &cancellables)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: Timeouts.standard)
         XCTAssertFalse(receivedValues.isEmpty, "Should receive at least one isConnected value")
     }
 
@@ -108,7 +120,7 @@ final class NetworkMonitorTests: XCTestCase {
             .store(in: &cancellables)
 
         // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: Timeouts.standard)
         XCTAssertFalse(receivedValues.isEmpty, "Should receive at least one connectionType value")
     }
 
@@ -169,7 +181,7 @@ final class NetworkMonitorTests: XCTestCase {
         // Then - Should receive updates after restarting
         // Note: This may timeout if no network changes occur, which is expected
         // We verify monitoring can be restarted without crashing
-        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: 0.5)
+        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: Timeouts.short)
         // The key is that calling startMonitoring doesn't crash
         XCTAssertNotNil(sut, "NetworkMonitor should allow restart after stop")
     }
@@ -204,7 +216,7 @@ final class NetworkMonitorTests: XCTestCase {
             .store(in: &cancellables)
 
         // Then
-        await fulfillment(of: [expectation1, expectation2], timeout: 1.0)
+        await fulfillment(of: [expectation1, expectation2], timeout: Timeouts.standard)
         XCTAssertEqual(
             observer1Values,
             observer2Values,
@@ -224,13 +236,13 @@ final class NetworkMonitorTests: XCTestCase {
             }
 
         // When - Cancel the observer immediately
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: Timeouts.standard)
         cancellable.cancel()
 
         let countAfterCancel = receivedCount
 
         // Give time for potential updates
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try? await Task.sleep(nanoseconds: Timeouts.briefSleepNanoseconds)
 
         // Then - No new updates should be received after cancellation
         XCTAssertEqual(
@@ -388,7 +400,7 @@ final class NetworkMonitorTests: XCTestCase {
         sut.startMonitoring()
 
         // Note: This may timeout if no network changes occur, which is acceptable
-        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: 0.5)
+        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: Timeouts.short)
     }
 
     // MARK: - Documentation Tests
@@ -452,7 +464,7 @@ final class NetworkMonitorTests: XCTestCase {
         sut.startMonitoring()
 
         // Then
-        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: 0.5)
+        _ = await XCTWaiter.fulfillment(of: [expectation], timeout: Timeouts.short)
 
         // If we received an update, verify it was on main thread
         if updateReceivedOnMainThread {
@@ -489,7 +501,7 @@ final class NetworkMonitorTests: XCTestCase {
         // Then
         await fulfillment(
             of: [isConnectedExpectation, connectionTypeExpectation],
-            timeout: 1.0
+            timeout: Timeouts.standard
         )
         XCTAssertTrue(isConnectedReceived, "isConnected should publish")
         XCTAssertTrue(connectionTypeReceived, "connectionType should publish")
