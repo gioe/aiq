@@ -137,11 +137,11 @@ final class NetworkErrorScenarioTests: BaseUITest {
         // Wait for error view
         wait(for: errorView, timeout: extendedTimeout)
 
-        // Verify error message mentions network/connection
-        let errorLabels = app.staticTexts.allElementsBoundByIndex
+        // Verify error message mentions network/connection (scoped to error view)
+        let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
         var foundNetworkMessage = false
 
-        for label in errorLabels {
+        for label in errorViewLabels {
             let text = label.label.lowercased()
             if text.contains("network") ||
                 text.contains("connection") ||
@@ -157,8 +157,8 @@ final class NetworkErrorScenarioTests: BaseUITest {
             "Error message should mention network/connection issue"
         )
 
-        // Verify error does NOT contain technical jargon
-        for label in errorLabels {
+        // Verify error does NOT contain technical jargon (scoped to error view)
+        for label in errorViewLabels {
             let text = label.label
             XCTAssertFalse(
                 text.contains("URLError") || text.contains("HTTP") || text.contains("-1009"),
@@ -214,19 +214,18 @@ final class NetworkErrorScenarioTests: BaseUITest {
         loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
         testHelper.startNewTest(waitForFirstQuestion: true)
 
-        // Answer all questions quickly
+        // Answer all questions except last, then answer last without submitting
         guard let totalQuestions = testHelper.totalQuestionCount else {
             XCTFail("Could not determine question count")
             return
         }
 
-        // Answer questions (not on last yet)
-        for questionNum in 1 ..< totalQuestions {
-            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
-            wait(for: testHelper.progressLabel, timeout: standardTimeout)
+        // Use helper to answer all but the last question
+        if totalQuestions > 1 {
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions - 1)
         }
 
-        // Answer last question but don't submit
+        // Answer last question but don't submit (wait for submit button to appear)
         testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
 
         takeScreenshot(named: "APITimeout_Submission_01_LastQuestion")
@@ -272,11 +271,11 @@ final class NetworkErrorScenarioTests: BaseUITest {
         // Wait for error
         wait(for: errorView, timeout: 60.0)
 
-        // Verify error message mentions timeout or slow connection
-        let errorLabels = app.staticTexts.allElementsBoundByIndex
+        // Verify error message mentions timeout or slow connection (scoped to error view)
+        let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
         var foundTimeoutMessage = false
 
-        for label in errorLabels {
+        for label in errorViewLabels {
             let text = label.label.lowercased()
             if text.contains("timeout") ||
                 text.contains("took too long") ||
@@ -308,11 +307,12 @@ final class NetworkErrorScenarioTests: BaseUITest {
             return
         }
 
-        // Complete test
-        for questionNum in 1 ..< totalQuestions {
-            testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
-            wait(for: testHelper.progressLabel, timeout: standardTimeout)
+        // Use helper to answer all but the last question
+        if totalQuestions > 1 {
+            testHelper.completeTestWithAnswer(optionIndex: 0, questionCount: totalQuestions - 1)
         }
+
+        // Answer last question but don't submit
         testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
 
         // Trigger timeout on submission
@@ -477,8 +477,8 @@ final class NetworkErrorScenarioTests: BaseUITest {
         // Wait for error
         wait(for: errorView, timeout: extendedTimeout)
 
-        // Check all visible text for technical terms
-        let allText = app.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        // Check error view text for technical terms (scoped to error view descendants)
+        let allText = errorView.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
         let lowercasedText = allText.lowercased()
 
         // Verify NO technical jargon
