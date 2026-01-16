@@ -2846,7 +2846,6 @@ For content that changes while visible (timers, live counters, progress indicato
 ```swift
 // ✅ Good - Timer that counts down every second
 Text(timerManager.formattedTime)
-    .accessibilityElement(children: .combine)
     .accessibilityLabel("Time remaining: \(timerManager.formattedTime)")
     .accessibilityAddTraits(.updatesFrequently)
 
