@@ -105,7 +105,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_200Response_PassesThrough() async throws {
         // Given
-        let testData = "success data".data(using: .utf8)!
+        let testData = try XCTUnwrap("success data".data(using: .utf8))
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
             statusCode: 200,
@@ -124,7 +124,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_404Response_PassesThrough() async throws {
         // Given
-        let testData = "not found".data(using: .utf8)!
+        let testData = try XCTUnwrap("not found".data(using: .utf8))
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
             statusCode: 404,
@@ -143,7 +143,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_500Response_PassesThrough() async throws {
         // Given
-        let testData = "server error".data(using: .utf8)!
+        let testData = try XCTUnwrap("server error".data(using: .utf8))
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
             statusCode: 500,
@@ -185,7 +185,7 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         )
         await mockAuthService.setRefreshResponse(mockResponse)
 
-        let testData = "unauthorized".data(using: .utf8)!
+        let testData = try XCTUnwrap("unauthorized".data(using: .utf8))
         let response = HTTPURLResponse(
             url: URL(string: "https://example.com")!,
             statusCode: 401,

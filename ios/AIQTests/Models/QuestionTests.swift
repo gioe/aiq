@@ -1036,7 +1036,7 @@ final class QuestionTests: XCTestCase {
         XCTAssertEqual(question.questionText, "Valid question")
     }
 
-    func testQuestionDecodingThrowsForEmptyQuestionText() {
+    func testQuestionDecodingThrowsForEmptyQuestionText() throws {
         let json = """
         {
             "id": 1,
@@ -1046,7 +1046,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(Question.self, from: data)) { error in
             XCTAssertTrue(error is QuestionValidationError, "Should throw QuestionValidationError")
@@ -1117,7 +1117,7 @@ final class QuestionTests: XCTestCase {
         XCTAssertNil(response.timeSpentSeconds)
     }
 
-    func testQuestionResponseDecodingThrowsForNegativeTimeSpent() {
+    func testQuestionResponseDecodingThrowsForNegativeTimeSpent() throws {
         let json = """
         {
             "question_id": 1,
@@ -1126,7 +1126,7 @@ final class QuestionTests: XCTestCase {
         }
         """
 
-        let data = json.data(using: .utf8)!
+        let data = try XCTUnwrap(json.data(using: .utf8))
 
         XCTAssertThrowsError(try JSONDecoder().decode(QuestionResponse.self, from: data)) { error in
             XCTAssertTrue(error is QuestionResponseValidationError, "Should throw QuestionResponseValidationError")

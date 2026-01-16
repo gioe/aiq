@@ -677,7 +677,7 @@ extension APIClientIntegrationTests {
                     throw URLError(.cannotParseResponse)
                 }
 
-                let data = "null".data(using: .utf8)!
+                let data = try XCTUnwrap("null".data(using: .utf8))
                 return (httpResponse, data)
             }
         }
