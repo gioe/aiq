@@ -219,7 +219,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
 
         // Open app with deep link from backgrounded state
         let deepLinkURL = "aiq://test/results/\(validTestResultID)"
@@ -660,7 +660,7 @@ final class DeepLinkTests: BaseUITest {
 
         // Immediately follow with test results deep link
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 0.1)
+        Thread.sleep(forTimeInterval: minimalDelay)
         app.activate()
         // Simulate test results deep link
 

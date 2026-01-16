@@ -464,7 +464,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         app.activate()
 
         // Wait for app to handle deep link
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
 
         // Verify we're on Settings tab at root (not on Help)
         let settingsNavBar = app.navigationBars["Settings"]
@@ -524,7 +524,7 @@ final class TabNavigationIsolationTests: BaseUITest {
         app.activate()
 
         // Wait for deep link handling
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: deepLinkHandlingDelay)
 
         // Verify we're on Dashboard tab
         let dashboardTab = app.buttons["tabBar.dashboardTab"]

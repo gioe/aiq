@@ -60,6 +60,17 @@ class BaseUITest: XCTestCase {
     /// or for operations requiring slightly longer synchronization.
     let appTerminationDelay: TimeInterval = 0.5
 
+    /// Deep link handling delay (1.0 seconds)
+    /// Use this when waiting for the app to process a deep link after
+    /// activation. Deep links require additional time for URL parsing,
+    /// authentication checks, and navigation.
+    let deepLinkHandlingDelay: TimeInterval = 1.0
+
+    /// Minimal delay for rapid operation testing (0.1 seconds)
+    /// Use this only when testing rapid consecutive operations where
+    /// we intentionally want minimal delay between actions.
+    let minimalDelay: TimeInterval = 0.1
+
     // MARK: - Setup & Teardown
 
     override func setUpWithError() throws {
