@@ -85,6 +85,30 @@ final class TestTakingFlowTests: BaseUITest {
         try super.tearDownWithError()
     }
 
+    // MARK: - Helper Methods
+
+    /// Performs login and starts a test session, returning the total question count.
+    ///
+    /// This helper reduces duplication of the common login → startNewTest → getQuestionCount pattern.
+    ///
+    /// - Parameters:
+    ///   - waitForFirstQuestion: Whether to wait for the first question to appear after starting the test.
+    /// - Returns: The total number of questions in the test session, or nil if login or test start failed.
+    private func startTestSession(waitForFirstQuestion: Bool = true) -> Int? {
+        // Login
+        guard loginHelper.login(email: validEmail, password: validPassword) else {
+            return nil
+        }
+
+        // Start test
+        guard testHelper.startNewTest(waitForFirstQuestion: waitForFirstQuestion) else {
+            return nil
+        }
+
+        // Return total question count
+        return testHelper.totalQuestionCount
+    }
+
     // MARK: - Test Start Tests
 
     func testStartNewTest_Success() throws {
@@ -120,11 +144,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Verify progress indicator
         XCTAssertTrue(testHelper.progressLabel.exists, "Progress label should exist")
@@ -146,11 +169,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer the first question with option 0
         XCTAssertTrue(
@@ -170,11 +192,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Get answer options
         let options = testHelper.answerOptions.allElementsBoundByIndex
@@ -203,11 +224,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer first question and go to next
         XCTAssertTrue(
@@ -242,11 +262,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // On first question, Previous button should be disabled
         let previousButton = app.buttons["Previous"]
@@ -268,11 +287,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Move to a new question without answering
         // (assuming we can have an unanswered question)
@@ -296,15 +314,8 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        // Get total question count from progress indicator
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -334,11 +345,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer first question
         XCTAssertTrue(
@@ -377,15 +387,8 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        // Get total question count
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -406,15 +409,8 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        // Get total question count
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -445,15 +441,9 @@ final class TestTakingFlowTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login, complete test, and navigate to results
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        // Login and start test
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -479,15 +469,9 @@ final class TestTakingFlowTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login, complete test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        // Login and start test
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -525,15 +509,9 @@ final class TestTakingFlowTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login, complete test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
-
-        guard let totalQuestions = testHelper.totalQuestionCount else {
-            XCTFail("Could not determine total question count")
+        // Login and start test
+        guard let totalQuestions = startTestSession() else {
+            XCTFail("Failed to start test session")
             return
         }
 
@@ -678,8 +656,10 @@ final class TestTakingFlowTests: BaseUITest {
     func testFullTestTakingFlow_WithNavigation() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
-        XCTAssertTrue(loginHelper.login(email: validEmail, password: validPassword), "Should log in")
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer first 3 questions
         for questionNum in 1 ... 3 {
@@ -719,11 +699,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer a question
         XCTAssertTrue(
@@ -761,11 +740,10 @@ final class TestTakingFlowTests: BaseUITest {
         throw XCTSkip("Requires backend connection and valid test account")
 
         // Login and start test
-        XCTAssertTrue(
-            loginHelper.login(email: validEmail, password: validPassword),
-            "Should successfully log in"
-        )
-        XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
 
         // Answer a question
         XCTAssertTrue(
