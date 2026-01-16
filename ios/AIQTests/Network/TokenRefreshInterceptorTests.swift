@@ -62,6 +62,10 @@ final class TokenRefreshInterceptorTests: XCTestCase {
     /// Used when testing that all requests wait for refresh to complete.
     private let mediumRefreshDelay: TimeInterval = 0.2
 
+    /// Brief delay to ensure refresh task has started before swapping auth service.
+    /// Used when testing setAuthService() behavior during in-flight refresh.
+    private let refreshStartupDelay: TimeInterval = 0.05
+
     // MARK: - Properties
 
     var sut: TokenRefreshInterceptor!
@@ -665,6 +669,124 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         // Actor isolation ensures exactly 1 logout call even with concurrent failures
         let logoutCallCount = await mockAuthService.logoutCallCount
         XCTAssertEqual(logoutCallCount, 1, "Should call logout once even with concurrent failures")
+    }
+
+    // MARK: - AuthService Management Tests
+
+    func testSetAuthService_DuringInFlightRefresh_UsesOldServiceForCurrentRefresh() async throws {
+        // EXPECTED BEHAVIOR:
+        // When setAuthService() is called while a token refresh is in progress:
+        // 1. The new auth service is stored immediately
+        // 2. The in-flight refresh task continues using the OLD auth service (captured in closure)
+        // 3. Subsequent refresh requests (after current one completes) use the NEW auth service
+        //
+        // This occurs because the refresh task captures authService at task creation time.
+        // The in-flight task runs to completion with its captured reference.
+
+        // Given - Configure first auth service with a delay to ensure we can swap mid-refresh
+        let firstMockUser = User(
+            id: 1,
+            email: "first@example.com",
+            firstName: "First",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let firstAuthResponse = AuthResponse(
+            accessToken: "first_token",
+            refreshToken: "first_refresh",
+            tokenType: "Bearer",
+            user: firstMockUser
+        )
+        await mockAuthService.setRefreshResponse(firstAuthResponse)
+        await mockAuthService.setRefreshDelay(mediumRefreshDelay)
+
+        let response = HTTPURLResponse(
+            url: URL(string: "https://example.com")!,
+            statusCode: 401,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+
+        // When - Start first refresh (will take mediumRefreshDelay to complete)
+        let firstRefreshTask = Task {
+            do {
+                _ = try await sut.intercept(response: response, data: Data())
+            } catch {
+                // Expected to throw shouldRetryRequest
+            }
+        }
+
+        // Wait briefly to ensure refresh has started
+        try await Task.sleep(nanoseconds: UInt64(refreshStartupDelay * 1_000_000_000))
+
+        // Set a new auth service while first refresh is in progress
+        let secondMockAuthService = TokenRefreshMockAuthService()
+        let secondMockUser = User(
+            id: 2,
+            email: "second@example.com",
+            firstName: "Second",
+            lastName: "User",
+            createdAt: Date(),
+            lastLoginAt: Date(),
+            notificationEnabled: true,
+            birthYear: nil,
+            educationLevel: nil,
+            country: nil,
+            region: nil
+        )
+        let secondAuthResponse = AuthResponse(
+            accessToken: "second_token",
+            refreshToken: "second_refresh",
+            tokenType: "Bearer",
+            user: secondMockUser
+        )
+        await secondMockAuthService.setRefreshResponse(secondAuthResponse)
+        await sut.setAuthService(secondMockAuthService)
+
+        // Wait for first refresh to complete
+        await firstRefreshTask.value
+
+        // Then - Verify first auth service was used for the in-flight refresh
+        let firstRefreshCount = await mockAuthService.refreshTokenCallCount
+        XCTAssertEqual(
+            firstRefreshCount,
+            1,
+            "First auth service should have completed the in-flight refresh"
+        )
+
+        let secondRefreshCount = await secondMockAuthService.refreshTokenCallCount
+        XCTAssertEqual(
+            secondRefreshCount,
+            0,
+            "Second auth service should not be used for the already in-flight refresh"
+        )
+
+        // Verify that a subsequent refresh uses the NEW auth service
+        do {
+            _ = try await sut.intercept(response: response, data: Data())
+        } catch {
+            // Expected to throw shouldRetryRequest
+        }
+
+        let secondRefreshCountAfter = await secondMockAuthService.refreshTokenCallCount
+        XCTAssertEqual(
+            secondRefreshCountAfter,
+            1,
+            "Second auth service should be used for subsequent refresh"
+        )
+
+        let firstRefreshCountAfter = await mockAuthService.refreshTokenCallCount
+        XCTAssertEqual(
+            firstRefreshCountAfter,
+            1,
+            "First auth service should not be called again"
+        )
     }
 
     // MARK: - Edge Cases
