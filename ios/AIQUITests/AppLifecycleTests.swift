@@ -53,37 +53,58 @@ final class AppLifecycleTests: BaseUITest {
         try super.tearDownWithError()
     }
 
+    // MARK: - Private Helpers
+
+    /// Login and start a test to reach TestTakingView
+    /// - Throws: XCTSkip if login or test start fails
+    private func loginAndStartTest() throws {
+        guard loginHelper.login(
+            email: validEmail,
+            password: validPassword,
+            waitForDashboard: true
+        ) else {
+            throw XCTSkip("Could not login to reach dashboard")
+        }
+
+        guard testHelper.startNewTest(waitForFirstQuestion: true) else {
+            throw XCTSkip("Could not start test")
+        }
+    }
+
+    /// Wait for a specified duration without blocking the UI event loop
+    /// - Parameter duration: Time to wait in seconds
+    private func waitForDuration(_ duration: TimeInterval) {
+        let expectation = XCTestExpectation(description: "Wait for \(duration) seconds")
+        _ = XCTWaiter.wait(for: [expectation], timeout: duration)
+    }
+
     // MARK: - App Lifecycle Tests
 
     func testAppBackgrounding_DuringTest() throws {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login and start test
-        let loginSuccess = loginHelper.login(
-            email: validEmail,
-            password: validPassword,
-            waitForDashboard: true
-        )
-        XCTAssertTrue(loginSuccess, "Should successfully log in")
-
-        // Start a new test
-        let testStarted = testHelper.startNewTest(waitForFirstQuestion: true)
-        XCTAssertTrue(testStarted, "Test should start successfully")
+        try loginAndStartTest()
 
         // Answer the first question
-        let answerSelected = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
-        XCTAssertTrue(answerSelected, "Should successfully select an answer")
+        guard testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false) else {
+            XCTFail("Should successfully select an answer")
+            return
+        }
 
-        // Capture state before backgrounding
-        _ = testHelper.progressLabel.label
+        // Verify state before backgrounding
+        let progressBefore = testHelper.progressLabel.label
+        XCTAssertTrue(
+            progressBefore.contains("Question 1"),
+            "Should be on first question before backgrounding"
+        )
         takeScreenshot(named: "BeforeBackgrounding")
 
         // Background the app
         XCUIDevice.shared.press(.home)
 
-        // Wait a moment in background state
-        Thread.sleep(forTimeInterval: 2.0)
+        // Allow time for background transition
+        waitForDuration(2.0)
 
         // Verify app went to background
         takeScreenshot(named: "AppBackgrounded")
@@ -93,9 +114,7 @@ final class AppLifecycleTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
-        testHelper.startNewTest(waitForFirstQuestion: true)
+        try loginAndStartTest()
 
         // Answer first question and proceed to second question
         testHelper.answerCurrentQuestion(optionIndex: 1, tapNext: true)
@@ -110,13 +129,20 @@ final class AppLifecycleTests: BaseUITest {
 
         // Answer second question (but don't proceed)
         testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
+
+        // Verify next button is enabled (answer selected)
+        wait(for: testHelper.nextButton, timeout: quickTimeout)
+        XCTAssertTrue(
+            testHelper.nextButton.isEnabled,
+            "Next button should be enabled after answering"
+        )
         takeScreenshot(named: "BeforeBackgroundOnQuestion2")
 
         // Background the app
         XCUIDevice.shared.press(.home)
 
-        // Wait in background
-        Thread.sleep(forTimeInterval: 3.0)
+        // Allow time in background state
+        waitForDuration(3.0)
 
         // Foreground the app by launching it again
         app.activate()
@@ -135,6 +161,12 @@ final class AppLifecycleTests: BaseUITest {
             "Should still be on question 2 after foregrounding"
         )
 
+        // Verify answer selection persisted
+        XCTAssertTrue(
+            testHelper.nextButton.isEnabled,
+            "Next button should still be enabled - answer selection should persist"
+        )
+
         takeScreenshot(named: "AfterForegrounding")
     }
 
@@ -142,9 +174,7 @@ final class AppLifecycleTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
-        testHelper.startNewTest(waitForFirstQuestion: true)
+        try loginAndStartTest()
 
         // Answer first 3 questions to build up state
         for questionIndex in 1 ... 3 {
@@ -166,7 +196,7 @@ final class AppLifecycleTests: BaseUITest {
 
         // Background the app
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 2.0)
+        waitForDuration(2.0)
 
         // Foreground the app
         app.activate()
@@ -182,27 +212,32 @@ final class AppLifecycleTests: BaseUITest {
 
         // Navigate back to verify previous answers are preserved
         let previousButton = app.buttons["Previous"]
-        if previousButton.exists && previousButton.isEnabled {
-            previousButton.tap()
-            wait(for: testHelper.progressLabel, timeout: standardTimeout)
-
-            // Verify we're on question 3
-            XCTAssertTrue(
-                testHelper.progressLabel.label.contains("Question 3"),
-                "Should be able to navigate back to question 3"
-            )
-
-            // Navigate back to question 1 to verify all answers are preserved
-            previousButton.tap()
-            wait(for: testHelper.progressLabel, timeout: standardTimeout)
-            previousButton.tap()
-            wait(for: testHelper.progressLabel, timeout: standardTimeout)
-
-            XCTAssertTrue(
-                testHelper.progressLabel.label.contains("Question 1"),
-                "Should be able to navigate back to question 1"
-            )
+        guard previousButton.exists && previousButton.isEnabled else {
+            XCTFail("Previous button should exist and be enabled")
+            return
         }
+
+        // Navigate back and verify each question's state
+        previousButton.tap()
+        wait(for: testHelper.progressLabel, timeout: standardTimeout)
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 3"),
+            "Should be able to navigate back to question 3"
+        )
+
+        previousButton.tap()
+        wait(for: testHelper.progressLabel, timeout: standardTimeout)
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 2"),
+            "Should be able to navigate back to question 2"
+        )
+
+        previousButton.tap()
+        wait(for: testHelper.progressLabel, timeout: standardTimeout)
+        XCTAssertTrue(
+            testHelper.progressLabel.label.contains("Question 1"),
+            "Should be able to navigate back to question 1"
+        )
 
         takeScreenshot(named: "AnswersPreservedAfterLifecycle")
     }
@@ -211,9 +246,7 @@ final class AppLifecycleTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
-        testHelper.startNewTest(waitForFirstQuestion: true)
+        try loginAndStartTest()
 
         // Perform multiple background/foreground cycles
         for cycle in 1 ... 3 {
@@ -230,7 +263,7 @@ final class AppLifecycleTests: BaseUITest {
 
             // Background the app
             XCUIDevice.shared.press(.home)
-            Thread.sleep(forTimeInterval: 1.5)
+            waitForDuration(1.5)
 
             // Foreground the app
             app.activate()
@@ -254,9 +287,7 @@ final class AppLifecycleTests: BaseUITest {
         // Skip: Requires backend connection
         throw XCTSkip("Requires backend connection and valid test account")
 
-        // Login and start test
-        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
-        testHelper.startNewTest(waitForFirstQuestion: true)
+        try loginAndStartTest()
 
         // Select an answer but don't tap next
         let answerOption = testHelper.answerButton(at: 1)
@@ -274,7 +305,7 @@ final class AppLifecycleTests: BaseUITest {
 
         // Background immediately after selection
         XCUIDevice.shared.press(.home)
-        Thread.sleep(forTimeInterval: 2.0)
+        waitForDuration(2.0)
 
         // Foreground the app
         app.activate()
@@ -289,8 +320,10 @@ final class AppLifecycleTests: BaseUITest {
         )
 
         // Verify we can continue by tapping next
-        let proceeded = testHelper.tapNextButton()
-        XCTAssertTrue(proceeded, "Should be able to proceed after foregrounding")
+        guard testHelper.tapNextButton() else {
+            XCTFail("Should be able to proceed after foregrounding")
+            return
+        }
 
         // Verify we're on question 2
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
