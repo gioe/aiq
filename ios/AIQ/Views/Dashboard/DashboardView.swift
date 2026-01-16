@@ -10,7 +10,7 @@ struct DashboardView: View {
     @AppStorage("didSkipOnboarding") private var didSkipOnboarding: Bool = false
 
     /// Whether user has dismissed the onboarding info card
-    @AppStorage("hasDissmissedOnboardingInfoCard") private var hasDismissedOnboardingInfoCard: Bool = false
+    @AppStorage("hasDismissedOnboardingInfoCard") private var hasDismissedOnboardingInfoCard: Bool = false
 
     /// Controls animation state for info card dismissal
     @State private var showOnboardingInfoCard: Bool = true
@@ -206,12 +206,10 @@ struct DashboardView: View {
 
     /// Dismisses the onboarding info card with animation
     private func dismissOnboardingInfoCard() {
+        // Persist dismissal immediately to avoid race conditions with app backgrounding
+        hasDismissedOnboardingInfoCard = true
         withAnimation(DesignSystem.Animation.quick) {
             showOnboardingInfoCard = false
-        }
-        // Persist dismissal after animation completes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            hasDismissedOnboardingInfoCard = true
         }
     }
 

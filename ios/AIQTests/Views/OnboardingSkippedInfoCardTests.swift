@@ -219,26 +219,34 @@ final class OnboardingSkippedInfoCardTests: XCTestCase {
 
 // MARK: - Test Helper: ViewInspector
 
-/// Helper class to inspect SwiftUI view properties for testing
-/// This is a simplified inspector focused on accessibility properties
+/// Helper class to inspect SwiftUI view properties for testing.
+///
+/// **Note:** This is a placeholder implementation that always returns `true`.
+/// The tests using this helper verify that the test infrastructure works and
+/// callbacks are wired correctly, but do not validate actual accessibility
+/// properties at runtime.
+///
+/// For actual accessibility verification:
+/// 1. Manual testing using Accessibility Inspector
+/// 2. UI tests with `XCUIElement.accessibilityIdentifier`
+/// 3. Consider integrating ViewInspector library for unit-level view inspection
+///
+/// - SeeAlso: `ios/AIQUITests/` for UI tests that verify accessibility identifiers
 private struct OnboardingInfoCardViewInspector {
     let view: any View
 
     func hasAccessibilityIdentifier(_: String) -> Bool {
-        // In a real implementation, we would use ViewInspector library
-        // or SwiftUI testing APIs to verify this
-        // For now, we rely on manual testing and assume the implementation is correct
-        // based on the view code review
+        // Placeholder: Always returns true. See class documentation.
         true
     }
 
     func hasAccessibilityTrait(_: AccessibilityTraits) -> Bool {
-        // Similar to above - in production we'd use proper view inspection
+        // Placeholder: Always returns true. See class documentation.
         true
     }
 
     func hasAccessibilityLabel(_: String) -> Bool {
-        // Similar to above - in production we'd use proper view inspection
+        // Placeholder: Always returns true. See class documentation.
         true
     }
 }

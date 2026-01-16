@@ -14,10 +14,6 @@ struct OnboardingSkippedInfoCard: View {
     /// Called when user dismisses the card
     let onDismiss: () -> Void
 
-    // MARK: - Private State
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     // MARK: - Body
 
     var body: some View {
