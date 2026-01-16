@@ -126,6 +126,8 @@ final class TestAbandonmentErrorScenarioTests: BaseUITest {
 
         // We should be positioned at the first unanswered question (question 2)
         // or if system resumes to answered question, navigate to verify answer exists
+        // Wait for progress label to be fully loaded before reading
+        wait(for: testHelper.progressLabel, timeout: quickTimeout)
         let progressText = testHelper.progressLabel.label
         if progressText.contains("Question 1") {
             // Already on question 1, verify it's answered (Next button should be enabled)
@@ -379,6 +381,12 @@ final class TestAbandonmentErrorScenarioTests: BaseUITest {
                 okButton.tap()
             }
 
+            // Verify alert dismissed
+            XCTAssertTrue(
+                waitForDisappearance(of: errorAlert, timeout: standardTimeout),
+                "Error alert should dismiss after button tap"
+            )
+
             // User should still be on test screen after error
             wait(for: testHelper.questionText, timeout: standardTimeout)
             XCTAssertTrue(
@@ -590,8 +598,14 @@ final class TestAbandonmentErrorScenarioTests: BaseUITest {
 
         takeScreenshot(named: "LocalSave_\(answeredCount)Answered")
 
-        // Give auto-save time to trigger (usually 1 second delay)
-        Thread.sleep(forTimeInterval: 1.5)
+        // Wait for auto-save to trigger (usually 1 second delay)
+        // Using expectation instead of Thread.sleep to avoid blocking test runner
+        let autoSaveDelay = 1.5
+        let autoSaveExpectation = XCTestExpectation(description: "Wait for auto-save")
+        DispatchQueue.main.asyncAfter(deadline: .now() + autoSaveDelay) {
+            autoSaveExpectation.fulfill()
+        }
+        wait(for: [autoSaveExpectation], timeout: autoSaveDelay + 0.5)
 
         // Force kill the app without proper abandonment
         // This simulates crash or force quit scenario
