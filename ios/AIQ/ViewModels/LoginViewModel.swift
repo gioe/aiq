@@ -43,15 +43,11 @@ class LoginViewModel: BaseViewModel {
     }
 
     var emailError: String? {
-        guard !email.isEmpty else { return nil }
-        let result = Validators.validateEmail(email)
-        return result.errorMessage
+        validationError(for: email, using: Validators.validateEmail)
     }
 
     var passwordError: String? {
-        guard !password.isEmpty else { return nil }
-        let result = Validators.validatePassword(password)
-        return result.errorMessage
+        validationError(for: password, using: Validators.validatePassword)
     }
 
     // MARK: - Actions

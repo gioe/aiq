@@ -69,39 +69,27 @@ class RegistrationViewModel: BaseViewModel {
     }
 
     var emailError: String? {
-        guard !email.isEmpty else { return nil }
-        let result = Validators.validateEmail(email)
-        return result.errorMessage
+        validationError(for: email, using: Validators.validateEmail)
     }
 
     var passwordError: String? {
-        guard !password.isEmpty else { return nil }
-        let result = Validators.validatePassword(password)
-        return result.errorMessage
+        validationError(for: password, using: Validators.validatePassword)
     }
 
     var confirmPasswordError: String? {
-        guard !confirmPassword.isEmpty else { return nil }
-        let result = Validators.validatePasswordConfirmation(password, confirmPassword)
-        return result.errorMessage
+        validationError(for: confirmPassword, matching: password, using: Validators.validatePasswordConfirmation)
     }
 
     var firstNameError: String? {
-        guard !firstName.isEmpty else { return nil }
-        let result = Validators.validateName(firstName, fieldName: "First name")
-        return result.errorMessage
+        validationError(for: firstName, using: { Validators.validateName($0, fieldName: "First name") })
     }
 
     var lastNameError: String? {
-        guard !lastName.isEmpty else { return nil }
-        let result = Validators.validateName(lastName, fieldName: "Last name")
-        return result.errorMessage
+        validationError(for: lastName, using: { Validators.validateName($0, fieldName: "Last name") })
     }
 
     var birthYearError: String? {
-        guard !birthYear.isEmpty else { return nil }
-        let result = Validators.validateBirthYear(birthYear)
-        return result.errorMessage
+        validationError(for: birthYear, using: Validators.validateBirthYear)
     }
 
     // MARK: - Actions
