@@ -34,13 +34,21 @@ class DashboardViewModel: BaseViewModel {
         clearError()
 
         // Fetch test history and active session in parallel
-        // Both functions handle their own state updates and errors
-        async let historyTask: Void = fetchTestHistory(forceRefresh: forceRefresh)
-        async let activeSessionTask: Void = fetchActiveSession(forceRefresh: forceRefresh)
+        // Both functions return any errors they encounter
+        async let historyError: Error? = fetchTestHistory(forceRefresh: forceRefresh)
+        async let activeSessionError: Error? = fetchActiveSession(forceRefresh: forceRefresh)
 
-        // Wait for both tasks to complete
-        await historyTask
-        await activeSessionTask
+        // Wait for both tasks to complete and collect errors
+        let historyResult = await historyError
+        _ = await activeSessionError // Active session errors are logged but non-blocking
+
+        // Handle errors - history is critical, without it we can't show the dashboard
+        if let historyError = historyResult {
+            handleError(historyError, context: .fetchDashboard) { [weak self] in
+                await self?.fetchDashboardData(forceRefresh: forceRefresh)
+            }
+            return
+        }
 
         setLoading(false)
     }
@@ -111,9 +119,10 @@ class DashboardViewModel: BaseViewModel {
 
     /// Fetch test history from API with caching and update dashboard state
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
-    /// - Note: Errors are logged and result in empty dashboard state.
-    ///         Dashboard only needs the first page of results for summary stats.
-    func fetchTestHistory(forceRefresh: Bool = false) async {
+    /// - Returns: The error if one occurred, nil on success
+    /// - Note: Dashboard only needs the first page of results for summary stats.
+    @discardableResult
+    func fetchTestHistory(forceRefresh: Bool = false) async -> Error? {
         do {
             // API now returns paginated response (BCQ-004)
             // Dashboard only needs the first page to show summary stats
@@ -131,19 +140,23 @@ class DashboardViewModel: BaseViewModel {
             // Note: For users with >50 tests, this only shows stats from first 50
             // but that's acceptable for dashboard summary display
             updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
+            return nil
 
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .fetchDashboard)
             // Set empty state on error
             updateDashboardState(with: [], totalCount: 0)
+            return error
         }
     }
 
     /// Fetch active test session from API with caching
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
+    /// - Returns: The error if one occurred, nil on success
     /// - Note: Errors are logged but don't block dashboard loading
-    func fetchActiveSession(forceRefresh: Bool = false) async {
+    @discardableResult
+    func fetchActiveSession(forceRefresh: Bool = false) async -> Error? {
         do {
             let response: TestSessionStatusResponse? = try await apiClient.request(
                 endpoint: .testActive,
@@ -157,12 +170,14 @@ class DashboardViewModel: BaseViewModel {
 
             // Update active session state
             updateActiveSessionState(response)
+            return nil
 
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .fetchActiveSession)
             // Clear active session state on error
             updateActiveSessionState(nil)
+            return error
         }
     }
 

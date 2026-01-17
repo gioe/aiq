@@ -122,6 +122,64 @@ final class DashboardViewModelTests: XCTestCase {
         // Error should not block dashboard - it's handled gracefully
     }
 
+    // MARK: - Test History Error Surfacing Tests
+
+    func testFetchTestHistory_ErrorSurfacedToUser() async {
+        // Given - Set up API to fail for test history
+        let mockError = NSError(
+            domain: "TestDomain",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Server error"]
+        )
+        let apiError = APIError.networkError(mockError)
+        await mockAPIClient.setMockError(apiError)
+
+        // When - Fetch dashboard data (which includes test history)
+        await sut.fetchDashboardData()
+
+        // Then - Error should be surfaced through handleError mechanism
+        XCTAssertNotNil(sut.error, "Error should be set when test history fetch fails")
+        XCTAssertTrue(sut.canRetry, "Network errors should be retryable")
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after error")
+        XCTAssertEqual(sut.testCount, 0, "testCount should be 0 on error")
+        XCTAssertNil(sut.latestTestResult, "latestTestResult should be nil on error")
+    }
+
+    func testFetchDashboardData_ActiveSessionErrorDoesNotBlockDashboard() async {
+        // Given - Set up test history to succeed
+        let mockTestResult = TestResult(
+            id: 1,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 120,
+            percentileRank: 84.0,
+            totalQuestions: 20,
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completionTimeSeconds: 300,
+            completedAt: Date()
+        )
+        await mockAPIClient.setTestHistoryResponse([mockTestResult])
+
+        // Set active session to fail using endpoint-specific error
+        let mockError = NSError(
+            domain: "TestDomain",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Server error"]
+        )
+        let apiError = APIError.networkError(mockError)
+        await mockAPIClient.setError(apiError, for: .testActive)
+
+        // When
+        await sut.fetchDashboardData()
+
+        // Then - Dashboard should still show test history despite active session error
+        XCTAssertEqual(sut.testCount, 1, "testCount should be set from successful history fetch")
+        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should be set")
+        XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil on error")
+        // Active session errors are logged but don't block the dashboard
+    }
+
     func testFetchActiveSession_CacheBehavior() async {
         // Given
         let mockSession = TestSession(
