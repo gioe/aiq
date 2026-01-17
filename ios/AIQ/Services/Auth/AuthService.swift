@@ -194,7 +194,10 @@ class AuthService: AuthServiceProtocol {
         // Call delete account endpoint - propagate errors to caller
         // This is critical: user must know if deletion failed to avoid GDPR issues
         do {
-            let _: String = try await apiClient.request(
+            // Backend returns 204 No Content on success, which causes a decoding error
+            // when trying to decode a String. We use String? to handle this gracefully.
+            // If we get a decoding error for empty response, it's still a success.
+            let _: String? = try await apiClient.request(
                 endpoint: .deleteAccount,
                 method: .delete,
                 body: String?.none,
@@ -210,6 +213,21 @@ class AuthService: AuthServiceProtocol {
 
             // Only clear local data after successful server deletion
             clearAuthData()
+        } catch let error as APIError {
+            // Decoding error from 204 No Content is expected and means success
+            if case .decodingError = error {
+                #if DEBUG
+                    print("✅ Account deletion successful (204 No Content)")
+                #endif
+                clearAuthData()
+                return
+            }
+
+            // Any other API error is a real failure
+            #if DEBUG
+                print("❌ Account deletion failed: \(error)")
+            #endif
+            throw AuthError.accountDeletionFailed(underlying: error)
         } catch {
             #if DEBUG
                 print("❌ Account deletion failed: \(error)")

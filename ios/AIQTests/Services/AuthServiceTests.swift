@@ -1348,8 +1348,8 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Mock successful delete response
-        await mockAPIClient.setResponse("success", for: .deleteAccount)
+        // Mock successful delete response (backend returns 204 No Content, so optional string)
+        await mockAPIClient.setResponse(String?.some("success"), for: .deleteAccount)
 
         // When
         try await sut.deleteAccount()
@@ -1381,6 +1381,30 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertNil(currentUser, "Current user should be cleared")
 
         // Verify isAuthenticated returns false
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertFalse(isAuthenticated, "Should not be authenticated after account deletion")
+    }
+
+    func testDeleteAccount_204NoContent_ClearsLocalData() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+        try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
+
+        // Mock 204 No Content (backend returns empty body, causing decodingError)
+        // The implementation should treat this as success
+        await mockAPIClient.setMockError(APIError.decodingError(NSError(domain: "TestDomain", code: 0)))
+
+        // When - Should succeed despite decoding error (204 No Content is success)
+        try await sut.deleteAccount()
+
+        // Then - Local data should be cleared
+        let accessToken = try mockSecureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
+        let refreshToken = try mockSecureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue)
+
+        XCTAssertNil(accessToken, "Access token should be cleared on 204 No Content")
+        XCTAssertNil(refreshToken, "Refresh token should be cleared on 204 No Content")
+
         let isAuthenticated = await sut.isAuthenticated
         XCTAssertFalse(isAuthenticated, "Should not be authenticated after account deletion")
     }
