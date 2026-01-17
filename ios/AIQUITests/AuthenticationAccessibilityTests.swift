@@ -172,10 +172,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     func testRegistrationView_EducationLevelButtonIdentifierExists() throws {
         try navigateToRegistration()
-
-        // Scroll down to make education level button visible
-        let scrollView = app.scrollViews.firstMatch
-        scrollView.swipeUp()
+        scrollDownOnRegistration()
 
         let educationLevelButton = app.buttons["registrationView.educationLevelButton"]
         XCTAssertTrue(
@@ -186,10 +183,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     func testRegistrationView_CreateAccountButtonIdentifierExists() throws {
         try navigateToRegistration()
-
-        // Scroll down to make create account button visible
-        let scrollView = app.scrollViews.firstMatch
-        scrollView.swipeUp()
+        scrollDownOnRegistration()
 
         let createAccountButton = app.buttons["registrationView.createAccountButton"]
         XCTAssertTrue(
@@ -200,10 +194,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     func testRegistrationView_SignInLinkIdentifierExists() throws {
         try navigateToRegistration()
-
-        // Scroll down to make sign in link visible
-        let scrollView = app.scrollViews.firstMatch
-        scrollView.swipeUp()
+        scrollDownOnRegistration()
 
         let signInLink = app.buttons["registrationView.signInLink"]
         XCTAssertTrue(
@@ -317,10 +308,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     func testRegistrationView_EducationLevelButton_HasMeaningfulLabel() throws {
         try navigateToRegistration()
-
-        // Scroll down to make education level button visible
-        let scrollView = app.scrollViews.firstMatch
-        scrollView.swipeUp()
+        scrollDownOnRegistration()
 
         let educationLevelButton = app.buttons["registrationView.educationLevelButton"]
         guard wait(for: educationLevelButton, timeout: standardTimeout) else {
@@ -369,10 +357,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
         // Step 4: Navigate back to welcome screen
         let signInLink = app.buttons["registrationView.signInLink"]
-
-        // Scroll to make sign in link visible
-        let scrollView = app.scrollViews.firstMatch
-        scrollView.swipeUp()
+        scrollDownOnRegistration()
 
         if wait(for: signInLink, timeout: standardTimeout) {
             signInLink.tap()
@@ -386,13 +371,15 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         } else {
             // Use back button as fallback
             let backButton = app.navigationBars.buttons.element(boundBy: 0)
-            if backButton.exists {
-                backButton.tap()
-                XCTAssertTrue(
-                    wait(for: brainIcon, timeout: standardTimeout),
-                    "Should navigate back to welcome screen via back button"
-                )
-            }
+            XCTAssertTrue(
+                backButton.exists,
+                "Either sign in link or back button should exist for navigation"
+            )
+            backButton.tap()
+            XCTAssertTrue(
+                wait(for: brainIcon, timeout: standardTimeout),
+                "Should navigate back to welcome screen via back button"
+            )
         }
     }
 
@@ -461,5 +448,13 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         guard wait(for: firstNameTextField, timeout: standardTimeout) else {
             throw XCTSkip("Could not navigate to registration screen")
         }
+    }
+
+    /// Scroll down on the registration screen to reveal elements below the fold
+    /// - Note: Asserts scroll view exists before scrolling for better failure diagnostics
+    private func scrollDownOnRegistration() {
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.exists, "Scroll view should exist on registration screen")
+        scrollView.swipeUp()
     }
 }
