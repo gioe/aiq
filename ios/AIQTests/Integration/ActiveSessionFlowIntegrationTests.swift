@@ -677,7 +677,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await testTakingViewModel.submitTest()
 
         // Then - Test marked as completed
-        XCTAssertTrue(testTakingViewModel.testCompleted, "Test should be marked as completed")
+        XCTAssertTrue(testTakingViewModel.isTestCompleted, "Test should be marked as completed")
         XCTAssertNotNil(testTakingViewModel.testResult, "Test result should be set")
 
         // Reset mock for dashboard refresh
