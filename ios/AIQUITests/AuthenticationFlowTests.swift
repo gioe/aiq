@@ -192,8 +192,9 @@ final class AuthenticationFlowTests: BaseUITest {
     }
 
     func testLoginWithInvalidEmailFormat_ShowsValidationError() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Example test - requires backend connection")
+        // This test validates client-side email format validation.
+        // No backend connection required since we're testing that invalid input is
+        // caught before any network request is made.
 
         // Verify we're on welcome screen
         XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should start on welcome screen")
@@ -211,11 +212,24 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for validation to trigger
         wait(for: app.staticTexts.firstMatch, timeout: quickTimeout)
 
-        // Verify email validation error is shown
+        // Verify email validation error is shown (client-side validation catches malformed email)
         XCTAssertTrue(loginHelper.hasEmailError, "Email validation error should be shown")
 
-        // Verify sign in button is disabled
+        // Verify sign in button remains disabled (prevents network request)
         XCTAssertFalse(loginHelper.isSignInEnabled, "Sign in button should be disabled with invalid email")
+
+        // Verify no network request occurs by checking loading overlay does NOT appear.
+        // The loading overlay ("Signing in...") only appears when a network request starts.
+        // We wait briefly to definitively prove the overlay never appears, avoiding race conditions.
+        let loadingOverlay = app.staticTexts["Signing in..."]
+        let overlayAppeared = loadingOverlay.waitForExistence(timeout: 1.0)
+        XCTAssertFalse(
+            overlayAppeared,
+            "Loading overlay should NOT appear - no network request should occur for invalid email format"
+        )
+
+        // Also verify we're still on the welcome screen (not navigating away)
+        XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should remain on welcome screen")
 
         takeScreenshot(named: "LoginError_InvalidEmailFormat")
     }
