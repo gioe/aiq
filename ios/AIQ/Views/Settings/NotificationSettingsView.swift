@@ -47,7 +47,7 @@ struct NotificationSettingsView: View {
                 Spacer()
 
                 Toggle("", isOn: Binding(
-                    get: { viewModel.notificationEnabled },
+                    get: { viewModel.areNotificationsEnabled },
                     set: { _ in
                         Task {
                             await viewModel.toggleNotifications()
