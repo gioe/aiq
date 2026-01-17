@@ -13,7 +13,7 @@ class TestTakingViewModel: BaseViewModel {
     @Published var currentQuestionIndex: Int = 0
     @Published var userAnswers: [Int: String] = [:] // questionId -> answer
     @Published var isSubmitting: Bool = false
-    @Published var testCompleted: Bool = false
+    @Published var isTestCompleted: Bool = false
     @Published var testResult: SubmittedTestResult?
     /// When true, prevents further answer modifications (used when timer expires)
     @Published private(set) var isLocked: Bool = false
@@ -190,7 +190,7 @@ class TestTakingViewModel: BaseViewModel {
         questions = response.questions
         currentQuestionIndex = 0
         userAnswers.removeAll()
-        testCompleted = false
+        isTestCompleted = false
 
         // Initialize time tracking
         resetTimeTracking()
@@ -322,7 +322,7 @@ class TestTakingViewModel: BaseViewModel {
                 userAnswers.removeAll()
             }
 
-            testCompleted = false
+            isTestCompleted = false
 
             // Initialize time tracking for resumed session
             resetTimeTracking()
@@ -557,7 +557,7 @@ class TestTakingViewModel: BaseViewModel {
         testResult = response.result
         testSession = response.session
         clearSavedProgress()
-        testCompleted = true
+        isTestCompleted = true
 
         // Track analytics
         let durationSeconds = response.result.completionTimeSeconds ?? 0
@@ -652,7 +652,7 @@ class TestTakingViewModel: BaseViewModel {
     func resetTest() {
         currentQuestionIndex = 0
         userAnswers.removeAll()
-        testCompleted = false
+        isTestCompleted = false
         testResult = nil
         error = nil
         resetTimeTracking()
@@ -765,7 +765,7 @@ class TestTakingViewModel: BaseViewModel {
         backgroundEntryTime = nil
 
         // Resume timing for current question
-        if testSession != nil, !testCompleted, currentQuestion != nil {
+        if testSession != nil, !isTestCompleted, currentQuestion != nil {
             currentQuestionStartTime = Date()
         }
 

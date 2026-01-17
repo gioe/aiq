@@ -129,7 +129,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(sut.questions.count, 2, "Should have 2 questions")
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNil(sut.error, "Error should be nil")
-        XCTAssertFalse(sut.testCompleted, "Test should not be completed")
+        XCTAssertFalse(sut.isTestCompleted, "Test should not be completed")
     }
 
     func testResumeActiveSession_MergesSavedProgressWhenAvailable() async {
@@ -820,7 +820,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         let requestCalled = await mockAPIClient.requestCalled
         XCTAssertTrue(requestCalled, "API should be called for timeout submission")
-        XCTAssertTrue(sut.testCompleted, "Test should be marked completed")
+        XCTAssertTrue(sut.isTestCompleted, "Test should be marked completed")
     }
 
     func testSubmitTestForTimeout_DoesNotRequireAllQuestionsAnswered() async {
@@ -860,7 +860,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         let requestCalled = await mockAPIClient.requestCalled
         XCTAssertTrue(requestCalled, "API should be called even with partial answers")
-        XCTAssertTrue(sut.testCompleted, "Test should complete despite partial answers")
+        XCTAssertTrue(sut.isTestCompleted, "Test should complete despite partial answers")
     }
 
     func testSubmitTestForTimeout_FailsGracefullyWithoutSession() async {
@@ -872,7 +872,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(sut.error, "Error should be set")
-        XCTAssertFalse(sut.testCompleted, "Test should not be completed")
+        XCTAssertFalse(sut.isTestCompleted, "Test should not be completed")
     }
 
     // MARK: - Time Data in Submission Tests
@@ -916,7 +916,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then - Verify submission was made (time data is included in payload)
         let requestCalled = await mockAPIClient.requestCalled
         XCTAssertTrue(requestCalled, "Submission should include time data")
-        XCTAssertTrue(sut.testCompleted, "Test should be completed")
+        XCTAssertTrue(sut.isTestCompleted, "Test should be completed")
     }
 
     // MARK: - First Test Detection Tests (BTS-238)

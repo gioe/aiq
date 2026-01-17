@@ -43,7 +43,7 @@ struct TestTakingView: View {
 
     var body: some View {
         ZStack {
-            if viewModel.testCompleted {
+            if viewModel.isTestCompleted {
                 testCompletedView
             } else {
                 testContentView
@@ -80,7 +80,7 @@ struct TestTakingView: View {
                 showTimeWarningBanner = true
             }
         }
-        .onChange(of: viewModel.testCompleted) { completed in
+        .onChange(of: viewModel.isTestCompleted) { completed in
             // Stop timer when test is completed
             if completed {
                 timerManager.stop()
@@ -180,7 +180,7 @@ struct TestTakingView: View {
         }
         .onChange(of: timerManager.hasExpired) { expired in
             // Handle timer expiration during test-taking
-            if expired && !viewModel.testCompleted && !isAutoSubmitting {
+            if expired && !viewModel.isTestCompleted && !isAutoSubmitting {
                 handleTimerExpiration()
             }
         }
@@ -230,7 +230,7 @@ struct TestTakingView: View {
     }
 
     private func handleExit() {
-        if viewModel.answeredCount > 0 && !viewModel.testCompleted {
+        if viewModel.answeredCount > 0 && !viewModel.isTestCompleted {
             showExitConfirmation = true
         } else {
             router.pop()
