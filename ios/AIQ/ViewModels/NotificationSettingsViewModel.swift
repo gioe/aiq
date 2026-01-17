@@ -9,7 +9,7 @@ class NotificationSettingsViewModel: BaseViewModel {
     // MARK: - Published Properties
 
     /// Whether notifications are enabled in the backend
-    @Published var notificationEnabled: Bool = false
+    @Published var areNotificationsEnabled: Bool = false
 
     /// Whether system permission is granted
     @Published var systemPermissionGranted: Bool = false
@@ -53,7 +53,7 @@ class NotificationSettingsViewModel: BaseViewModel {
         do {
             // Get backend preferences
             let response = try await notificationService.getNotificationPreferences()
-            notificationEnabled = response.notificationEnabled
+            areNotificationsEnabled = response.notificationEnabled
 
             // Check system permission
             await checkSystemPermission()
@@ -73,7 +73,7 @@ class NotificationSettingsViewModel: BaseViewModel {
         await checkSystemPermission()
 
         // If user wants to enable but doesn't have permission, prompt them
-        if !notificationEnabled && !systemPermissionGranted {
+        if !areNotificationsEnabled && !systemPermissionGranted {
             await requestSystemPermission()
             return
         }
@@ -83,9 +83,9 @@ class NotificationSettingsViewModel: BaseViewModel {
         clearError()
 
         do {
-            let newValue = !notificationEnabled
+            let newValue = !areNotificationsEnabled
             let response = try await notificationService.updateNotificationPreferences(enabled: newValue)
-            notificationEnabled = response.notificationEnabled
+            areNotificationsEnabled = response.notificationEnabled
 
             setLoading(false)
 
@@ -168,7 +168,7 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     /// Status message to display
     var statusMessage: String? {
-        if notificationEnabled && !systemPermissionGranted {
+        if areNotificationsEnabled && !systemPermissionGranted {
             return "viewmodel.notification.permission.warning".localized
         }
         return nil
@@ -176,7 +176,7 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     /// Whether to show a warning about system permissions
     var showPermissionWarning: Bool {
-        notificationEnabled && !systemPermissionGranted
+        areNotificationsEnabled && !systemPermissionGranted
     }
 
     /// Whether to show the permission recovery banner
@@ -234,7 +234,7 @@ class NotificationSettingsViewModel: BaseViewModel {
         case .denied:
             // User explicitly denied - show warning if backend thinks it's enabled
             print("⚠️ [NotificationSettings] Notification permission denied")
-            if notificationEnabled {
+            if areNotificationsEnabled {
                 // Sync backend to disabled state
                 await disableBackendNotifications()
             }
@@ -262,7 +262,7 @@ class NotificationSettingsViewModel: BaseViewModel {
     private func disableBackendNotifications() async {
         do {
             let response = try await notificationService.updateNotificationPreferences(enabled: false)
-            notificationEnabled = response.notificationEnabled
+            areNotificationsEnabled = response.notificationEnabled
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .notificationPreferences)

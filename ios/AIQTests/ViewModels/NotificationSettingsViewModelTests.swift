@@ -29,7 +29,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testInit_SetsDefaultValues() {
         // Then
-        XCTAssertFalse(sut.notificationEnabled)
+        XCTAssertFalse(sut.areNotificationsEnabled)
         XCTAssertFalse(sut.systemPermissionGranted)
         XCTAssertFalse(sut.isCheckingPermission)
         XCTAssertFalse(sut.isLoading)
@@ -52,7 +52,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         // Then
         let serviceCallCount = await mockNotificationService.getPreferencesCallCount
         XCTAssertEqual(serviceCallCount, 1)
-        XCTAssertTrue(sut.notificationEnabled)
+        XCTAssertTrue(sut.areNotificationsEnabled)
         XCTAssertFalse(sut.isLoading)
         XCTAssertNil(sut.error)
     }
@@ -97,7 +97,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testToggleNotifications_EnableWhenDisabled_Success() async {
         // Given
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
         let mockResponse = NotificationPreferencesResponse(
@@ -115,13 +115,13 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
         let lastEnabled = await mockNotificationService.lastPreferencesEnabled
         XCTAssertEqual(lastEnabled, true)
-        XCTAssertTrue(sut.notificationEnabled)
+        XCTAssertTrue(sut.areNotificationsEnabled)
         XCTAssertFalse(sut.isLoading)
     }
 
     func testToggleNotifications_DisableWhenEnabled_Success() async {
         // Given
-        sut.notificationEnabled = true
+        sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = true
 
         let mockResponse = NotificationPreferencesResponse(
@@ -139,12 +139,12 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
         let lastEnabled = await mockNotificationService.lastPreferencesEnabled
         XCTAssertEqual(lastEnabled, false)
-        XCTAssertFalse(sut.notificationEnabled)
+        XCTAssertFalse(sut.areNotificationsEnabled)
     }
 
     func testToggleNotifications_Failure_SetsError() async {
         // Given
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
         let expectedError = APIError.serverError(statusCode: 500)
@@ -257,7 +257,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testStatusMessage_WhenEnabledButNoPermission_ReturnsWarning() {
         // Given
-        sut.notificationEnabled = true
+        sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = false
 
         // When
@@ -270,7 +270,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testStatusMessage_WhenEnabledWithPermission_ReturnsNil() {
         // Given
-        sut.notificationEnabled = true
+        sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = true
 
         // When
@@ -282,7 +282,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testStatusMessage_WhenDisabled_ReturnsNil() {
         // Given
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = false
 
         // When
@@ -294,7 +294,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testShowPermissionWarning_WhenEnabledButNoPermission_ReturnsTrue() {
         // Given
-        sut.notificationEnabled = true
+        sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = false
 
         // When
@@ -306,7 +306,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testShowPermissionWarning_WhenEnabledWithPermission_ReturnsFalse() {
         // Given
-        sut.notificationEnabled = true
+        sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = true
 
         // When
@@ -318,7 +318,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testShowPermissionWarning_WhenDisabled_ReturnsFalse() {
         // Given
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = false
 
         // When
@@ -345,7 +345,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testToggleNotifications_Unauthorized_SetsNonRetryableError() async {
         // Given
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
         let authError = APIError.unauthorized()
@@ -372,7 +372,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         await sut.loadNotificationPreferences()
 
         // Verify initial state
-        XCTAssertFalse(sut.notificationEnabled)
+        XCTAssertFalse(sut.areNotificationsEnabled)
 
         // Given - Toggle notifications
         let toggleResponse = NotificationPreferencesResponse(
@@ -386,7 +386,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         await sut.toggleNotifications()
 
         // Then
-        XCTAssertTrue(sut.notificationEnabled)
+        XCTAssertTrue(sut.areNotificationsEnabled)
         let updateCount = await mockNotificationService.updatePreferencesCallCount
         XCTAssertEqual(updateCount, 1)
     }
@@ -412,7 +412,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNil(sut.error)
-        XCTAssertTrue(sut.notificationEnabled)
+        XCTAssertTrue(sut.areNotificationsEnabled)
     }
 
     // MARK: - Edge Cases
@@ -564,13 +564,13 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         mockNotificationManager.setAuthorizationStatus(.notDetermined)
         mockNotificationManager.mockAuthorizationGranted = true
         await mockNotificationService.setUpdatePreferencesResponse(NotificationPreferencesResponse(notificationEnabled: true, message: "Success"))
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
 
         // When
         await sut.requestSystemPermission()
 
         // Then - Should enable in backend after granting permission
-        XCTAssertTrue(sut.notificationEnabled, "Should enable in backend after permission granted")
+        XCTAssertTrue(sut.areNotificationsEnabled, "Should enable in backend after permission granted")
     }
 
     func testRequestSystemPermission_Denied_DoesNotEnableBackend() async {
@@ -578,19 +578,19 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.setAuthorizationStatus(.notDetermined)
         mockNotificationManager.mockAuthorizationGranted = false // User denies
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
 
         // When
         await sut.requestSystemPermission()
 
         // Then - Should NOT enable in backend after denial
-        XCTAssertFalse(sut.notificationEnabled, "Should not enable in backend after permission denied")
+        XCTAssertFalse(sut.areNotificationsEnabled, "Should not enable in backend after permission denied")
         XCTAssertFalse(sut.systemPermissionGranted, "systemPermissionGranted should be false")
     }
 
     func testToggleNotifications_WhenEnabled_NoPermission_RequestsPermission() async {
         // Given - Notifications disabled, no system permission
-        sut.notificationEnabled = false
+        sut.areNotificationsEnabled = false
         mockNotificationManager.setAuthorizationStatus(.notDetermined)
         mockNotificationManager.hasRequestedNotificationPermission = false
 
