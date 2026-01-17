@@ -192,8 +192,9 @@ final class AuthenticationFlowTests: BaseUITest {
     }
 
     func testLoginWithInvalidEmailFormat_ShowsValidationError() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Example test - requires backend connection")
+        // This test validates client-side email format validation.
+        // No backend connection required since we're testing that invalid input is
+        // caught before any network request is made.
 
         // Verify we're on welcome screen
         XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should start on welcome screen")
@@ -219,11 +220,11 @@ final class AuthenticationFlowTests: BaseUITest {
 
         // Verify no network request occurs by checking loading overlay does NOT appear.
         // The loading overlay ("Signing in...") only appears when a network request starts.
-        // Since the button is disabled, tapping it should have no effect - but we verify
-        // the loading indicator is absent to confirm no request was triggered.
+        // We wait briefly to definitively prove the overlay never appears, avoiding race conditions.
         let loadingOverlay = app.staticTexts["Signing in..."]
+        let overlayAppeared = loadingOverlay.waitForExistence(timeout: 1.0)
         XCTAssertFalse(
-            loadingOverlay.exists,
+            overlayAppeared,
             "Loading overlay should NOT appear - no network request should occur for invalid email format"
         )
 
