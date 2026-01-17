@@ -1,7 +1,9 @@
+import os
 import SwiftUI
 
 /// Main view for taking an IQ test
 struct TestTakingView: View {
+    private let logger = Logger(subsystem: "com.aiq.app", category: "TestTakingView")
     @StateObject private var viewModel: TestTakingViewModel
     @StateObject private var timerManager = TestTimerManager()
     @Environment(\.appRouter) var router
@@ -19,8 +21,11 @@ struct TestTakingView: View {
     /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
     ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
     init(serviceContainer: ServiceContainer = .shared) {
+        let logger = Logger(subsystem: "com.aiq.app", category: "TestTakingView")
+        logger.notice("🧪 TestTakingView init() called")
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
+        logger.notice("🧪 TestTakingView viewModel created")
     }
 
     /// Check if the current error is an active session conflict
@@ -71,7 +76,11 @@ struct TestTakingView: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.exitButton)
             }
         }
+        .onAppear {
+            logger.notice("🧪 TestTakingView onAppear called")
+        }
         .task {
+            logger.notice("🧪 TestTakingView .task modifier running")
             await checkForSavedProgress()
         }
         .onChange(of: timerManager.showWarning) { showWarning in
@@ -187,7 +196,9 @@ struct TestTakingView: View {
     }
 
     private func checkForSavedProgress() async {
+        logger.notice("🧪 checkForSavedProgress() called")
         if let progress = viewModel.loadSavedProgress() {
+            logger.notice("🧪 Found saved progress, showing resume alert")
             // Check if test time has already expired
             if progress.isTimeExpired {
                 // Time expired - restore progress and trigger auto-submit
@@ -198,7 +209,9 @@ struct TestTakingView: View {
             savedProgress = progress
             showResumeAlert = true
         } else {
+            logger.notice("🧪 No saved progress, calling startTest()")
             await viewModel.startTest()
+            logger.notice("🧪 startTest() completed, session: \(viewModel.testSession != nil)")
             // Start timer after test loads successfully using session start time
             if let session = viewModel.testSession {
                 timerManager.startWithSessionTime(session.startedAt)

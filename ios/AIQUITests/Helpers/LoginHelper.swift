@@ -59,13 +59,17 @@ class LoginHelper {
     }
 
     /// Dashboard tab in tab bar
+    /// Note: SwiftUI's TabView does not propagate accessibility identifiers
+    /// to tab bar buttons, so we use the label text instead.
     var dashboardTab: XCUIElement {
-        app.buttons["tabBar.dashboardTab"]
+        app.buttons["Dashboard"].firstMatch
     }
 
     /// Settings tab in tab bar
+    /// Note: SwiftUI's TabView does not propagate accessibility identifiers
+    /// to tab bar buttons, so we use the label text instead.
     var settingsTab: XCUIElement {
-        app.buttons["tabBar.settingsTab"]
+        app.buttons["Settings"].firstMatch
     }
 
     /// Logout button in Settings
@@ -162,9 +166,10 @@ class LoginHelper {
     func waitForDashboard(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? networkTimeout
 
-        // Wait for dashboard tab or navigation title
-        // Using tab as primary indicator since it's more reliable
-        let dashboardAppeared = dashboardTab.waitForExistence(timeout: waitTimeout)
+        // Wait for Dashboard navigation bar title as primary indicator
+        // Note: Tab bar buttons don't inherit accessibility identifiers in SwiftUI's TabView,
+        // so we use the navigation title as a more reliable indicator.
+        let dashboardAppeared = dashboardTitle.waitForExistence(timeout: waitTimeout)
 
         if !dashboardAppeared {
             XCTFail("Dashboard did not appear after login")
@@ -246,6 +251,25 @@ class LoginHelper {
             return primaryButton
         }
 
+        // Strategy 1b: The logout button may be off-screen. Scroll down to reveal it.
+        // Find the Settings list and swipe up to scroll down.
+        let settingsNavBar = app.navigationBars["Settings"]
+        if settingsNavBar.exists {
+            // Swipe up on the main content to scroll down
+            let scrollView = app.scrollViews.firstMatch
+            if scrollView.exists {
+                scrollView.swipeUp()
+            } else {
+                // Fall back to swiping on the navigation bar area
+                settingsNavBar.swipeUp()
+            }
+
+            // Check again for the primary button after scrolling
+            if primaryButton.waitForExistence(timeout: fallbackTimeout) {
+                return primaryButton
+            }
+        }
+
         // Strategy 2: Button with label containing "logout" (case-insensitive)
         // Uses shorter fallbackTimeout since element should already be rendered if it exists
         let logoutPredicate = NSPredicate(format: "label CONTAINS[c] 'logout'")
@@ -280,6 +304,29 @@ class LoginHelper {
         // Ordered by likelihood: "Log Out" is iOS standard, "Logout" is common alternative
         let possibleLabels = ["Log Out", "Logout", "Sign Out", "Yes"]
 
+        // Check for sheet dialog first (iOS 16+ confirmation dialogs use sheets)
+        let sheet = app.sheets.firstMatch
+        if sheet.exists {
+            for label in possibleLabels {
+                let button = sheet.buttons[label]
+                if button.waitForExistence(timeout: confirmationTimeout) {
+                    return button
+                }
+            }
+        }
+
+        // Fall back to checking alerts (older style confirmation dialogs)
+        let alert = app.alerts.firstMatch
+        if alert.exists {
+            for label in possibleLabels {
+                let button = alert.buttons[label]
+                if button.waitForExistence(timeout: confirmationTimeout) {
+                    return button
+                }
+            }
+        }
+
+        // Last resort: check app-wide (for non-standard dialogs)
         for label in possibleLabels {
             let button = app.buttons[label]
             if button.waitForExistence(timeout: confirmationTimeout) {

@@ -87,9 +87,16 @@ class BaseUITest: XCTestCase {
     /// Configure launch arguments and environment variables
     /// Override this method in subclasses to customize launch configuration
     func setupLaunchConfiguration() {
-        // Add any launch arguments or environment variables here
-        // Example: app.launchArguments = ["-UITest"]
-        // Example: app.launchEnvironment = ["DISABLE_ANIMATIONS": "1"]
+        // Enable mock API client for UI testing via launch argument (most reliable)
+        // Note: Launch arguments are the most reliable way to pass flags to the app in XCUITests
+        // as environment variables can be less consistent across different simulator configurations.
+        app.launchArguments = ["--uitesting"]
+
+        // Also set environment variable as a backup mechanism
+        app.launchEnvironment = ["UI_TESTING": "1"]
+
+        // Optionally disable animations for faster test execution
+        // app.launchEnvironment["DISABLE_ANIMATIONS"] = "1"
     }
 
     // MARK: - Helper Methods

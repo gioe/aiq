@@ -4,12 +4,26 @@ import Foundation
 /// Manages authentication state for the entire app
 @MainActor
 class AuthManager: ObservableObject, AuthManagerProtocol {
+    /// Internal storage for the shared instance
+    /// This is set by ServiceConfiguration when the container is initialized
+    @MainActor static var registeredInstance: AuthManager?
+
     /// Shared singleton instance
     ///
+    /// Returns the container-registered instance if available, otherwise falls back to a default instance.
+    /// This ensures views using `.shared` get the same instance that's configured with the correct
+    /// dependencies (e.g., MockAPIClient for UI testing).
+    ///
     /// - Warning: Deprecated. Use `ServiceContainer.shared.resolve(AuthManagerProtocol.self)` instead.
-    ///   ServiceContainer now owns the singleton instances directly, making this property redundant.
     @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(AuthManagerProtocol.self) instead")
-    static let shared = AuthManager()
+    nonisolated static var shared: AuthManager {
+        MainActor.assumeIsolated {
+            registeredInstance ?? _defaultInstance
+        }
+    }
+
+    /// Default instance used before container is configured
+    @MainActor private static let _defaultInstance = AuthManager()
 
     @Published private(set) var isAuthenticated: Bool = false
     @Published private(set) var currentUser: User?

@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import os
 import UIKit
 
 // swiftlint:disable type_body_length file_length
@@ -155,6 +156,8 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     // MARK: - Test Management
+
+    private let logger = Logger(subsystem: "com.aiq.app", category: "TestTakingViewModel")
 
     func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
         setLoading(true)

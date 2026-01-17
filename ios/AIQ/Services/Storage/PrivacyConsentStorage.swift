@@ -21,7 +21,11 @@ class PrivacyConsentStorage: PrivacyConsentStorageProtocol {
     }
 
     func hasAcceptedConsent() -> Bool {
-        userDefaults.bool(forKey: consentKey)
+        // Auto-accept consent in UI testing mode to allow tests to proceed
+        if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+            return true
+        }
+        return userDefaults.bool(forKey: consentKey)
     }
 
     func getConsentTimestamp() -> Date? {
