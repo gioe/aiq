@@ -211,11 +211,24 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for validation to trigger
         wait(for: app.staticTexts.firstMatch, timeout: quickTimeout)
 
-        // Verify email validation error is shown
+        // Verify email validation error is shown (client-side validation catches malformed email)
         XCTAssertTrue(loginHelper.hasEmailError, "Email validation error should be shown")
 
-        // Verify sign in button is disabled
+        // Verify sign in button remains disabled (prevents network request)
         XCTAssertFalse(loginHelper.isSignInEnabled, "Sign in button should be disabled with invalid email")
+
+        // Verify no network request occurs by checking loading overlay does NOT appear.
+        // The loading overlay ("Signing in...") only appears when a network request starts.
+        // Since the button is disabled, tapping it should have no effect - but we verify
+        // the loading indicator is absent to confirm no request was triggered.
+        let loadingOverlay = app.staticTexts["Signing in..."]
+        XCTAssertFalse(
+            loadingOverlay.exists,
+            "Loading overlay should NOT appear - no network request should occur for invalid email format"
+        )
+
+        // Also verify we're still on the welcome screen (not navigating away)
+        XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should remain on welcome screen")
 
         takeScreenshot(named: "LoginError_InvalidEmailFormat")
     }
