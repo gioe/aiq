@@ -21,7 +21,7 @@ struct TestResultsView: View {
 
                     // Percentile ranking (if available)
                     if result.percentileRank != nil {
-                        percentileCard(
+                        PercentileCard(
                             percentileRank: result.percentileRank,
                             showAnimation: showAnimation
                         )
