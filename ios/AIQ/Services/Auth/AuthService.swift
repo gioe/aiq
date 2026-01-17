@@ -191,23 +191,31 @@ class AuthService: AuthServiceProtocol {
             print("🗑️ Starting account deletion")
         #endif
 
-        // Call delete account endpoint
-        let _: String? = try? await apiClient.request(
-            endpoint: .deleteAccount,
-            method: .delete,
-            body: String?.none,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
+        // Call delete account endpoint - propagate errors to caller
+        // This is critical: user must know if deletion failed to avoid GDPR issues
+        do {
+            let _: String = try await apiClient.request(
+                endpoint: .deleteAccount,
+                method: .delete,
+                body: String?.none,
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
+            )
 
-        #if DEBUG
-            print("✅ Account deletion request completed")
-        #endif
+            #if DEBUG
+                print("✅ Account deletion successful")
+            #endif
 
-        // Clear local data regardless of response (account is deleted on server)
-        clearAuthData()
+            // Only clear local data after successful server deletion
+            clearAuthData()
+        } catch {
+            #if DEBUG
+                print("❌ Account deletion failed: \(error)")
+            #endif
+            throw AuthError.accountDeletionFailed(underlying: error)
+        }
     }
 
     func getAccessToken() -> String? {
@@ -341,6 +349,7 @@ enum AuthError: Error, LocalizedError {
     case noRefreshToken
     case invalidCredentials
     case sessionExpired
+    case accountDeletionFailed(underlying: Error)
 
     var errorDescription: String? {
         switch self {
@@ -350,6 +359,8 @@ enum AuthError: Error, LocalizedError {
             NSLocalizedString("error.auth.invalid.credentials", comment: "")
         case .sessionExpired:
             NSLocalizedString("error.auth.session.expired", comment: "")
+        case .accountDeletionFailed:
+            NSLocalizedString("error.auth.account.deletion.failed", comment: "")
         }
     }
 }

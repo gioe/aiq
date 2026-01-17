@@ -1348,8 +1348,8 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Mock successful delete response (can be nil/empty response)
-        await mockAPIClient.setResponse(String?.none, for: .deleteAccount)
+        // Mock successful delete response
+        await mockAPIClient.setResponse("success", for: .deleteAccount)
 
         // When
         try await sut.deleteAccount()
@@ -1385,31 +1385,79 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertFalse(isAuthenticated, "Should not be authenticated after account deletion")
     }
 
-    func testDeleteAccount_APIError_StillClearsLocalData() async throws {
+    func testDeleteAccount_APIError_ThrowsAndPreservesLocalData() async throws {
         // Given - Setup authenticated state
         try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+        try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
         // Mock API error
         let serverError = APIError.serverError(statusCode: 500, message: "Server error")
         await mockAPIClient.setMockError(serverError)
 
-        // When - Delete account should succeed even if API call fails
-        try await sut.deleteAccount()
+        // When/Then - Delete account should throw error when API fails
+        do {
+            try await sut.deleteAccount()
+            XCTFail("Should throw error when delete account API fails")
+        } catch {
+            // Verify it's the correct error type (wrapped in AuthError.accountDeletionFailed)
+            guard case let AuthError.accountDeletionFailed(underlyingError) = error else {
+                XCTFail("Expected AuthError.accountDeletionFailed, got \(error)")
+                return
+            }
 
-        // Then - Local data should still be cleared (account is deleted on server or will be)
+            // Verify underlying error is the API error
+            XCTAssertTrue(underlyingError is APIError, "Underlying error should be APIError")
+        }
+
+        // Local data should NOT be cleared when API call fails (GDPR compliance - don't mislead user)
         let accessToken = try mockSecureStorage.retrieve(
             forKey: SecureStorageKey.accessToken.rawValue
         )
         let refreshToken = try mockSecureStorage.retrieve(
             forKey: SecureStorageKey.refreshToken.rawValue
         )
+        let userId = try mockSecureStorage.retrieve(
+            forKey: SecureStorageKey.userId.rawValue
+        )
 
-        XCTAssertNil(accessToken, "Access token should be cleared even on API error")
-        XCTAssertNil(refreshToken, "Refresh token should be cleared even on API error")
+        XCTAssertEqual(accessToken, "access_token", "Access token should be preserved when API fails")
+        XCTAssertEqual(refreshToken, "refresh_token", "Refresh token should be preserved when API fails")
+        XCTAssertEqual(userId, "1", "User ID should be preserved when API fails")
 
         let isAuthenticated = await sut.isAuthenticated
-        XCTAssertFalse(isAuthenticated, "Should not be authenticated after delete account")
+        XCTAssertTrue(isAuthenticated, "Should still be authenticated when delete account API fails")
+    }
+
+    func testDeleteAccount_NetworkError_ThrowsAccountDeletionFailed() async throws {
+        // Given - Setup authenticated state
+        try mockSecureStorage.save("access_token", forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
+
+        // Mock network error
+        let networkError = APIError.networkError(
+            NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+        )
+        await mockAPIClient.setMockError(networkError)
+
+        // When/Then - Delete account should throw error when network fails
+        do {
+            try await sut.deleteAccount()
+            XCTFail("Should throw error when network fails")
+        } catch {
+            // Verify it's the correct error type
+            guard case let AuthError.accountDeletionFailed(underlyingError) = error else {
+                XCTFail("Expected AuthError.accountDeletionFailed, got \(error)")
+                return
+            }
+
+            // Verify underlying error is the network error
+            XCTAssertTrue(underlyingError is APIError, "Underlying error should be APIError")
+        }
+
+        // User should remain authenticated - they need to know deletion didn't happen
+        let isAuthenticated = await sut.isAuthenticated
+        XCTAssertTrue(isAuthenticated, "Should still be authenticated when network fails during delete")
     }
 
     // MARK: - Get Access Token Tests
@@ -1861,6 +1909,8 @@ extension XCTestCase {
              (.invalidCredentials, .invalidCredentials),
              (.sessionExpired, .sessionExpired):
             break // Match
+        case (.accountDeletionFailed, .accountDeletionFailed):
+            break // Match (underlying errors may differ)
         default:
             XCTFail(
                 "AuthError case mismatch: expected \(expectedCase), got \(authError)",

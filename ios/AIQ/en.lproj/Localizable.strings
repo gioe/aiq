@@ -631,6 +631,7 @@
 "error.auth.no.refresh.token" = "No refresh token available";
 "error.auth.invalid.credentials" = "Invalid email or password";
 "error.auth.session.expired" = "Your session has expired. Please log in again.";
+"error.auth.account.deletion.failed" = "Unable to delete your account. Please try again or contact support if the problem persists.";
 
 // MARK: - Service Errors - Keychain
 "error.keychain.encoding.failed" = "Failed to encode data for keychain storage";
