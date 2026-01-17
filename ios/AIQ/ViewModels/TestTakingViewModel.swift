@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import UIKit
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 /// ViewModel for managing test-taking state and logic
 @MainActor
 class TestTakingViewModel: BaseViewModel {
@@ -230,9 +230,7 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         #if DEBUG
-            print("Failed to load questions from API, falling back to mock data: \(error)")
-            loadMockQuestions(count: questionCount)
-            setLoading(false)
+            fallbackToMockData(error: error, questionCount: questionCount)
         #endif
     }
 
@@ -246,11 +244,23 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         #if DEBUG
-            print("Failed to load questions from API: \(error)")
-            loadMockQuestions(count: questionCount)
-            setLoading(false)
+            fallbackToMockData(error: error, questionCount: questionCount)
         #endif
     }
+
+    #if DEBUG
+        private func fallbackToMockData(error: Error, questionCount: Int) {
+            print("🚨 [TestTakingViewModel] API FAILURE - Falling back to mock data!")
+            print("   Error type: \(type(of: error))")
+            print("   Error details: \(error)")
+            assertionFailure(
+                "[TestTakingViewModel] API call failed, using mock data. " +
+                    "Error: \(error). Check network/backend configuration."
+            )
+            loadMockQuestions(count: questionCount)
+            setLoading(false)
+        }
+    #endif
 
     /// Fetch the current test count before starting a new test
     /// This is used to determine if the upcoming test will be the user's first test
