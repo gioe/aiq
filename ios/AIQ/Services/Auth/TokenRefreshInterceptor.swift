@@ -66,7 +66,20 @@ actor TokenRefreshInterceptor: ResponseInterceptor {
                 let response = try await authService.refreshToken()
                 return response
             } catch {
-                // Token refresh failed - clear auth state
+                // Token refresh failed - log to Crashlytics for debugging
+                CrashlyticsErrorRecorder.recordError(
+                    error,
+                    context: .tokenRefresh,
+                    additionalInfo: [
+                        "event": "silent_logout",
+                        "reason": "token_refresh_failed"
+                    ]
+                )
+                CrashlyticsErrorRecorder.logBreadcrumb(
+                    "Silent logout triggered: token refresh failed"
+                )
+
+                // Clear auth state (silent logout)
                 try? await authService.logout()
                 throw TokenRefreshError.refreshFailed(error)
             }
