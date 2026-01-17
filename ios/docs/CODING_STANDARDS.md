@@ -221,6 +221,37 @@ if viewModel.canRetry {
 }
 ```
 
+#### Validation Error Helpers
+
+`BaseViewModel` provides reusable helper methods for field validation error properties, eliminating boilerplate code. These helpers return `nil` if the field is empty (before user interaction) and the error message only if the field is non-empty and invalid.
+
+**Basic Field Validation:**
+```swift
+var emailError: String? {
+    validationError(for: email, using: Validators.validateEmail)
+}
+
+var passwordError: String? {
+    validationError(for: password, using: Validators.validatePassword)
+}
+```
+
+**For validators with extra parameters (use a closure):**
+```swift
+var firstNameError: String? {
+    validationError(for: firstName, using: { Validators.validateName($0, fieldName: "First name") })
+}
+```
+
+**For password confirmation (two-value comparison):**
+```swift
+var confirmPasswordError: String? {
+    validationError(for: confirmPassword, matching: password, using: Validators.validatePasswordConfirmation)
+}
+```
+
+This pattern reduces ~5 lines of boilerplate per field to a single line while maintaining consistent behavior across all ViewModels.
+
 ### Protocol-Oriented Design
 
 Use protocols for:

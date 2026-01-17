@@ -61,4 +61,53 @@ class BaseViewModel: ObservableObject {
         clearError()
         await operation()
     }
+
+    // MARK: - Validation Helpers
+
+    /// Returns the validation error message for a field, or nil if the field is empty or valid.
+    ///
+    /// This helper eliminates boilerplate for computed error properties. Use it when you want to:
+    /// - Show no error for empty fields (before user interaction)
+    /// - Show the validation error message only after user has entered something
+    ///
+    /// Example:
+    /// ```swift
+    /// var emailError: String? {
+    ///     validationError(for: email, using: Validators.validateEmail)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - value: The string value to validate
+    ///   - validator: A closure that validates the value and returns a ValidationResult
+    /// - Returns: The error message if the field is non-empty and invalid, nil otherwise
+    func validationError(for value: String, using validator: (String) -> ValidationResult) -> String? {
+        guard !value.isEmpty else { return nil }
+        return validator(value).errorMessage
+    }
+
+    /// Returns the validation error message for a password confirmation field.
+    ///
+    /// This variant handles the common password confirmation pattern where two values must match.
+    ///
+    /// Example:
+    /// ```swift
+    /// var confirmPasswordError: String? {
+    ///     validationError(for: confirmPassword, matching: password, using: Validators.validatePasswordConfirmation)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - value: The confirmation value to validate (shown to user)
+    ///   - original: The original value that must be matched
+    ///   - validator: A closure that takes (original, confirmation) and returns a ValidationResult
+    /// - Returns: The error message if the confirmation field is non-empty and invalid, nil otherwise
+    func validationError(
+        for value: String,
+        matching original: String,
+        using validator: (String, String) -> ValidationResult
+    ) -> String? {
+        guard !value.isEmpty else { return nil }
+        return validator(original, value).errorMessage
+    }
 }
