@@ -191,22 +191,50 @@ class AuthService: AuthServiceProtocol {
             print("🗑️ Starting account deletion")
         #endif
 
-        // Call delete account endpoint
-        let _: String? = try? await apiClient.request(
-            endpoint: .deleteAccount,
-            method: .delete,
-            body: String?.none,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
+        // Call delete account endpoint - propagate errors to caller
+        // This is critical: user must know if deletion failed to avoid GDPR issues
+        //
+        // Backend behavior: Returns 204 No Content on success (empty body)
+        // This causes a decodingError when the APIClient tries to decode the response.
+        // We treat decodingError as success since it indicates 2xx with empty body.
+        // Any other error (network, 4xx, 5xx) is a real failure.
+        do {
+            let _: String? = try await apiClient.request(
+                endpoint: .deleteAccount,
+                method: .delete,
+                body: String?.none,
+                requiresAuth: true,
+                cacheKey: nil,
+                cacheDuration: nil,
+                forceRefresh: false
+            )
+            // If we somehow got a response body, that's also success
+            onDeleteSuccess()
+        } catch let error as APIError {
+            switch error {
+            case .decodingError:
+                // Expected path: 204 No Content causes decoding error with empty body
+                onDeleteSuccess()
+            default:
+                // Real API failures (network, server errors, etc.)
+                #if DEBUG
+                    print("❌ Account deletion failed: \(error)")
+                #endif
+                throw AuthError.accountDeletionFailed(underlying: error)
+            }
+        } catch {
+            // Non-API errors (shouldn't happen, but handle defensively)
+            #if DEBUG
+                print("❌ Account deletion failed: \(error)")
+            #endif
+            throw AuthError.accountDeletionFailed(underlying: error)
+        }
+    }
 
+    private func onDeleteSuccess() {
         #if DEBUG
-            print("✅ Account deletion request completed")
+            print("✅ Account deletion successful")
         #endif
-
-        // Clear local data regardless of response (account is deleted on server)
         clearAuthData()
     }
 
@@ -341,6 +369,7 @@ enum AuthError: Error, LocalizedError {
     case noRefreshToken
     case invalidCredentials
     case sessionExpired
+    case accountDeletionFailed(underlying: Error)
 
     var errorDescription: String? {
         switch self {
@@ -350,6 +379,8 @@ enum AuthError: Error, LocalizedError {
             NSLocalizedString("error.auth.invalid.credentials", comment: "")
         case .sessionExpired:
             NSLocalizedString("error.auth.session.expired", comment: "")
+        case .accountDeletionFailed:
+            NSLocalizedString("error.auth.account.deletion.failed", comment: "")
         }
     }
 }
