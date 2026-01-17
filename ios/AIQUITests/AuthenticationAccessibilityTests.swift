@@ -23,22 +23,6 @@ import XCTest
 /// require backend connectivity. Tests that verify VoiceOver labels on dynamic
 /// content are skipped when backend is unavailable.
 final class AuthenticationAccessibilityTests: BaseUITest {
-    // MARK: - Helper Properties
-
-    private var loginHelper: LoginHelper!
-
-    // MARK: - Setup & Teardown
-
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        loginHelper = LoginHelper(app: app, timeout: standardTimeout)
-    }
-
-    override func tearDownWithError() throws {
-        loginHelper = nil
-        try super.tearDownWithError()
-    }
-
     // MARK: - WelcomeView Accessibility Identifier Tests
 
     func testWelcomeView_BrainIconIdentifierExists() throws {
