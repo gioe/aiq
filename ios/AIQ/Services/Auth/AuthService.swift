@@ -193,10 +193,12 @@ class AuthService: AuthServiceProtocol {
 
         // Call delete account endpoint - propagate errors to caller
         // This is critical: user must know if deletion failed to avoid GDPR issues
+        //
+        // Backend behavior: Returns 204 No Content on success (empty body)
+        // This causes a decodingError when the APIClient tries to decode the response.
+        // We treat decodingError as success since it indicates 2xx with empty body.
+        // Any other error (network, 4xx, 5xx) is a real failure.
         do {
-            // Backend returns 204 No Content on success, which causes a decoding error
-            // when trying to decode a String. We use String? to handle this gracefully.
-            // If we get a decoding error for empty response, it's still a success.
             let _: String? = try await apiClient.request(
                 endpoint: .deleteAccount,
                 method: .delete,
@@ -206,34 +208,34 @@ class AuthService: AuthServiceProtocol {
                 cacheDuration: nil,
                 forceRefresh: false
             )
-
-            #if DEBUG
-                print("✅ Account deletion successful")
-            #endif
-
-            // Only clear local data after successful server deletion
-            clearAuthData()
+            // If we somehow got a response body, that's also success
+            onDeleteSuccess()
         } catch let error as APIError {
-            // Decoding error from 204 No Content is expected and means success
-            if case .decodingError = error {
+            switch error {
+            case .decodingError:
+                // Expected path: 204 No Content causes decoding error with empty body
+                onDeleteSuccess()
+            default:
+                // Real API failures (network, server errors, etc.)
                 #if DEBUG
-                    print("✅ Account deletion successful (204 No Content)")
+                    print("❌ Account deletion failed: \(error)")
                 #endif
-                clearAuthData()
-                return
+                throw AuthError.accountDeletionFailed(underlying: error)
             }
-
-            // Any other API error is a real failure
-            #if DEBUG
-                print("❌ Account deletion failed: \(error)")
-            #endif
-            throw AuthError.accountDeletionFailed(underlying: error)
         } catch {
+            // Non-API errors (shouldn't happen, but handle defensively)
             #if DEBUG
                 print("❌ Account deletion failed: \(error)")
             #endif
             throw AuthError.accountDeletionFailed(underlying: error)
         }
+    }
+
+    private func onDeleteSuccess() {
+        #if DEBUG
+            print("✅ Account deletion successful")
+        #endif
+        clearAuthData()
     }
 
     func getAccessToken() -> String? {
