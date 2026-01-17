@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Error type for token refresh operations
 enum TokenRefreshError: Error {
@@ -18,7 +17,6 @@ actor TokenRefreshInterceptor: ResponseInterceptor {
     var authService: AuthServiceProtocol?
     var isRefreshing = false
     var refreshTask: Task<AuthResponse, Error>?
-    private let logger = Logger(subsystem: "com.aiq.app", category: "TokenRefreshInterceptor")
 
     init(authService: AuthServiceProtocol? = nil) {
         self.authService = authService
