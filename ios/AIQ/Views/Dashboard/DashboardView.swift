@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 
 /// Dashboard/Home view showing user stats and test availability
@@ -392,6 +393,7 @@ struct DashboardView: View {
                     .inProgressCardTransition(sessionId: viewModel.activeTestSession?.id)
                 }
 
+                // Empty state content (without action button - button is added separately for reliability)
                 EmptyStateView(
                     icon: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile",
                     title: viewModel.hasActiveTest ? "Test in Progress" : "Ready to Begin?",
@@ -400,14 +402,22 @@ struct DashboardView: View {
                         """
                         Take your first cognitive performance assessment to establish your baseline score. \
                         Track your progress over time and discover insights about your performance.
-                        """,
-                    actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
-                    action: {
-                        router.push(.testTaking)
-                    }
+                        """
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
-                .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateView)
+
+                // Start test button
+                NavigationLink(value: Route.testTaking) {
+                    Text(viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test")
+                        .font(Typography.button)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(DesignSystem.Spacing.lg)
+                        .background(ColorPalette.primary)
+                        .cornerRadius(DesignSystem.CornerRadius.md)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.huge)
+                .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateActionButton)
 
                 Spacer()
             }

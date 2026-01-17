@@ -41,13 +41,24 @@ struct TestProgressView: View {
 
             // Stats
             HStack(spacing: 20) {
-                // Question position
-                statItem(
-                    icon: "doc.text.fill",
-                    value: "\(currentQuestion)/\(totalQuestions)",
-                    label: "test.progress.current".localized
-                )
-                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
+                // Question position - with accessibility identifier on the text for UI testing
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text.fill")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(currentQuestion)/\(totalQuestions)")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
+
+                        Text("test.progress.current".localized)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
 
                 Divider()
                     .frame(height: 20)
@@ -76,13 +87,6 @@ struct TestProgressView: View {
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressBar)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Test progress: Question \(currentQuestion) of \(totalQuestions), " +
-                "\(answeredCount) answered, \(totalQuestions - answeredCount) remaining, " +
-                "\(completionPercentage) percent complete"
-        )
     }
 
     private var progressBar: some View {

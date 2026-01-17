@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 
 /// A reusable empty state view for displaying when no data is available
@@ -7,19 +8,22 @@ struct EmptyStateView: View {
     let message: String
     let actionTitle: String?
     let action: (() -> Void)?
+    let actionButtonIdentifier: String?
 
     init(
         icon: String = "tray",
         title: String,
         message: String,
         actionTitle: String? = nil,
-        action: (() -> Void)? = nil
+        action: (() -> Void)? = nil,
+        actionButtonIdentifier: String? = nil
     ) {
         self.icon = icon
         self.title = title
         self.message = message
         self.actionTitle = actionTitle
         self.action = action
+        self.actionButtonIdentifier = actionButtonIdentifier
     }
 
     var body: some View {
@@ -46,7 +50,11 @@ struct EmptyStateView: View {
             .accessibilityLabel("\(title). \(message)")
 
             if let actionTitle, let action {
-                Button(action: action) {
+                Button {
+                    let logger = Logger(subsystem: "com.aiq.app", category: "EmptyStateView")
+                    logger.notice("🧪 EmptyStateView internal button action firing!")
+                    action()
+                } label: {
                     Text(actionTitle)
                         .font(Typography.button)
                         .foregroundColor(.white)
@@ -59,6 +67,7 @@ struct EmptyStateView: View {
                 .padding(.top, DesignSystem.Spacing.sm)
                 .accessibilityLabel(actionTitle)
                 .accessibilityHint("Activate to \(actionTitle.lowercased())")
+                .accessibilityIdentifier(actionButtonIdentifier ?? actionTitle)
             }
 
             Spacer()

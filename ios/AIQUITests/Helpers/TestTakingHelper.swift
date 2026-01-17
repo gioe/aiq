@@ -29,8 +29,26 @@ class TestTakingHelper {
     // MARK: - UI Element Queries
 
     /// Start Test button (from dashboard)
+    /// Note: When user has previous tests, uses the main action button.
+    /// For first-time users (empty history), uses the empty state action button.
     var startTestButton: XCUIElement {
-        app.buttons["dashboardView.actionButton"]
+        // Try primary action button first (for users with test history)
+        let actionButton = app.buttons["dashboardView.actionButton"]
+        if actionButton.exists {
+            return actionButton
+        }
+        // Try empty state action button by identifier
+        let emptyStateButton = app.buttons["dashboardView.emptyStateActionButton"]
+        if emptyStateButton.exists {
+            return emptyStateButton
+        }
+        // Fall back to searching by label (for first-time users)
+        // Match either "Start Your First Test" or "Resume Test in Progress"
+        let startButton = app.buttons["Start Your First Test"]
+        if startButton.exists {
+            return startButton
+        }
+        return app.buttons["Resume Test in Progress"]
     }
 
     /// Resume Test button (when test is in progress)
@@ -63,7 +81,7 @@ class TestTakingHelper {
         app.otherElements["testTakingView.questionCard"]
     }
 
-    /// Current question text
+    /// Current question text - direct Text element
     var questionText: XCUIElement {
         app.staticTexts["testTakingView.questionText"]
     }
@@ -93,19 +111,33 @@ class TestTakingHelper {
         app.buttons["testTakingView.answerButton.\(index)"]
     }
 
-    /// Test results view elements
-    var resultsTitle: XCUIElement {
-        app.navigationBars["Results"].staticTexts["Results"]
+    // MARK: - Test Completion Screen Elements (shown after submit, before results)
+
+    /// "Test Completed!" text shown after submission
+    var testCompletedText: XCUIElement {
+        app.staticTexts["Test Completed!"]
     }
 
-    /// Score display on results screen
+    /// "View Results" button on completion screen
+    var viewResultsButton: XCUIElement {
+        app.buttons["View Results"]
+    }
+
+    /// "Return to Dashboard" button on completion screen
+    var returnToDashboardButton: XCUIElement {
+        app.buttons["Return to Dashboard"]
+    }
+
+    // MARK: - Test Results View Elements
+
+    /// Test results view navigation bar title
+    var resultsTitle: XCUIElement {
+        app.navigationBars["Test Results"].staticTexts["Test Results"]
+    }
+
+    /// Score display on results screen (using accessibility identifier)
     var scoreLabel: XCUIElement {
-        // Look for labels containing "IQ" or "Score"
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'iq' OR label CONTAINS[c] 'score'"
-        )
-        let labels = app.staticTexts.matching(predicate)
-        return labels.firstMatch
+        app.staticTexts["testResultsView.scoreLabel"]
     }
 
     // MARK: - Initialization
@@ -320,9 +352,8 @@ class TestTakingHelper {
     func waitForQuestion(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? timeout
 
-        // Wait for question card to appear
-        let questionAppeared = questionCard.waitForExistence(timeout: waitTimeout) ||
-            questionText.waitForExistence(timeout: waitTimeout)
+        // Wait for question text to appear (questionCard identifier removed to fix accessibility inheritance)
+        let questionAppeared = questionText.waitForExistence(timeout: waitTimeout)
 
         if !questionAppeared {
             XCTFail("Question did not appear")
@@ -331,20 +362,50 @@ class TestTakingHelper {
         return questionAppeared
     }
 
-    /// Wait for test results screen to appear
+    /// Wait for test completion screen to appear after submission
+    ///
+    /// After test submission, the app shows a "Test Completed!" screen.
+    /// This method waits for that screen to appear.
+    ///
     /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
-    /// - Returns: true if results appear, false otherwise
+    /// - Returns: true if completion screen appears, false otherwise
     @discardableResult
     func waitForResults(timeout customTimeout: TimeInterval? = nil) -> Bool {
         // Results may take longer to calculate and display (network operation)
         let waitTimeout = customTimeout ?? networkTimeout
 
-        // Wait for results navigation bar or score label
-        let resultsAppeared = resultsTitle.waitForExistence(timeout: waitTimeout) ||
-            scoreLabel.waitForExistence(timeout: waitTimeout)
+        // Wait for the completion screen (shown after submit)
+        let completionAppeared = testCompletedText.waitForExistence(timeout: waitTimeout)
+
+        if !completionAppeared {
+            XCTFail("Test completion screen did not appear")
+        }
+
+        return completionAppeared
+    }
+
+    /// Navigate from completion screen to results screen
+    ///
+    /// Taps the "View Results" button and waits for the results screen.
+    ///
+    /// - Parameter customTimeout: Optional custom timeout
+    /// - Returns: true if results screen appears, false otherwise
+    @discardableResult
+    func navigateToResults(timeout customTimeout: TimeInterval? = nil) -> Bool {
+        let waitTimeout = customTimeout ?? networkTimeout
+
+        // Tap "View Results" to navigate to results screen
+        guard viewResultsButton.waitForExistence(timeout: timeout) else {
+            XCTFail("View Results button not found on completion screen")
+            return false
+        }
+        viewResultsButton.tap()
+
+        // Wait for results screen content (score label with accessibility identifier)
+        let resultsAppeared = scoreLabel.waitForExistence(timeout: waitTimeout)
 
         if !resultsAppeared {
-            XCTFail("Test results did not appear")
+            XCTFail("Test results screen did not appear after tapping View Results")
         }
 
         return resultsAppeared
@@ -359,21 +420,20 @@ class TestTakingHelper {
 
     /// Check if currently on results screen
     var isOnResultsScreen: Bool {
-        resultsTitle.exists || scoreLabel.exists
+        scoreLabel.exists
     }
 
     /// Get total question count from progress label (e.g., "Question 1 of 30" -> 30)
     var totalQuestionCount: Int? {
         guard progressLabel.exists else { return nil }
         let text = progressLabel.label
-        // Parse "Question X of Y" format
-        let pattern = #"of\s+(\d+)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-              let match = regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
-              let range = Range(match.range(at: 1), in: text) else {
+        // Parse "X/Y" format (e.g., "1/5")
+        let components = text.components(separatedBy: "/")
+        guard components.count == 2,
+              let total = Int(components[1].trimmingCharacters(in: .whitespaces)) else {
             return nil
         }
-        return Int(text[range])
+        return total
     }
 
     // MARK: - Abandon Test

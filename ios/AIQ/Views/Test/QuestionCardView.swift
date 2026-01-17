@@ -17,6 +17,7 @@ struct QuestionCardView: View {
                 .fontWeight(.medium)
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundColor(.primary)
+                .accessibilityLabel(question.questionText)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionText)
 
             // Difficulty indicator
@@ -27,9 +28,6 @@ struct QuestionCardView: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityQuestionLabel)
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
     }
 
     // MARK: - Accessibility

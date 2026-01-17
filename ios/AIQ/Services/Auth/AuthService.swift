@@ -126,21 +126,21 @@ class AuthService: AuthServiceProtocol {
                 forceRefresh: false
             )
 
-            #if DEBUG
-                print("✅ Login successful")
-                print("   - Access token length: \(response.accessToken.count)")
-                print("   - User ID: \(response.user.id)")
-                print("   - User email: \(response.user.email)")
-            #endif
+            let tokenPrefix = response.accessToken.prefix(10)
+            logger.notice("✅ Login API successful - token: \(tokenPrefix)..., user: \(response.user.email)")
 
             // Save tokens and user
-            try saveAuthData(response)
+            do {
+                try saveAuthData(response)
+                logger.notice("✅ Auth data saved to keychain")
+            } catch {
+                logger.error("❌ Failed to save auth data: \(error.localizedDescription, privacy: .public)")
+                throw error
+            }
 
             return response
         } catch {
-            #if DEBUG
-                print("❌ Login failed with error: \(error)")
-            #endif
+            logger.error("❌ Login failed: \(error.localizedDescription, privacy: .public)")
             throw error
         }
     }

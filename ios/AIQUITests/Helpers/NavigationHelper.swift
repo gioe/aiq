@@ -108,20 +108,22 @@ class NavigationHelper {
                 emailField.exists
 
         case .dashboard, .history, .settings:
-            // Check for tab bar button using identifier and navigation title
-            let identifier: String
+            // Check for tab bar button using label text and navigation title
+            // Note: SwiftUI's TabView does not propagate accessibility identifiers
+            // to tab bar buttons, so we use the label text instead.
+            let tabLabel: String
             switch screen {
             case .dashboard:
-                identifier = "tabBar.dashboardTab"
+                tabLabel = "Dashboard"
             case .history:
-                identifier = "tabBar.historyTab"
+                tabLabel = "History"
             case .settings:
-                identifier = "tabBar.settingsTab"
+                tabLabel = "Settings"
             default:
                 return false
             }
 
-            let tab = app.buttons[identifier]
+            let tab = app.buttons[tabLabel].firstMatch
             let navBar = app.navigationBars[screen.navigationTitle]
             return tab.waitForExistence(timeout: waitTimeout) && navBar.exists
 
@@ -185,17 +187,20 @@ class NavigationHelper {
     /// - Returns: true if navigation succeeded, false otherwise
     @discardableResult
     func navigateToTab(_ tab: Tab, waitForScreen: Bool = true) -> Bool {
-        // Use accessibility identifiers for tabs
-        let identifier = switch tab {
+        // Note: SwiftUI's TabView does not propagate accessibility identifiers
+        // to tab bar buttons, so we use the label text instead.
+        // The tab label comes from the Label view in MainTabView's tabItem modifiers.
+        let tabLabel = switch tab {
         case .dashboard:
-            "tabBar.dashboardTab"
+            "Dashboard"
         case .history:
-            "tabBar.historyTab"
+            "History"
         case .settings:
-            "tabBar.settingsTab"
+            "Settings"
         }
 
-        let tabButton = app.buttons[identifier]
+        // Use firstMatch to avoid ambiguity when "Dashboard" appears in other contexts
+        let tabButton = app.buttons[tabLabel].firstMatch
 
         guard tabButton.waitForExistence(timeout: timeout) else {
             XCTFail("Tab '\(tab.rawValue)' not found")
@@ -215,16 +220,18 @@ class NavigationHelper {
     /// - Parameter tab: The tab to check
     /// - Returns: true if the tab is selected, false otherwise
     func isTabSelected(_ tab: Tab) -> Bool {
-        let identifier = switch tab {
+        // Note: SwiftUI's TabView does not propagate accessibility identifiers
+        // to tab bar buttons, so we use the label text instead.
+        let tabLabel = switch tab {
         case .dashboard:
-            "tabBar.dashboardTab"
+            "Dashboard"
         case .history:
-            "tabBar.historyTab"
+            "History"
         case .settings:
-            "tabBar.settingsTab"
+            "Settings"
         }
 
-        let tabButton = app.buttons[identifier]
+        let tabButton = app.buttons[tabLabel].firstMatch
         return tabButton.exists && tabButton.isSelected
     }
 
@@ -294,15 +301,17 @@ class NavigationHelper {
     /// - Parameter tab: The tab
     /// - Returns: The tab bar button element
     func tabButton(for tab: Tab) -> XCUIElement {
-        let identifier = switch tab {
+        // Note: SwiftUI's TabView does not propagate accessibility identifiers
+        // to tab bar buttons, so we use the label text instead.
+        let tabLabel = switch tab {
         case .dashboard:
-            "tabBar.dashboardTab"
+            "Dashboard"
         case .history:
-            "tabBar.historyTab"
+            "History"
         case .settings:
-            "tabBar.settingsTab"
+            "Settings"
         }
-        return app.buttons[identifier]
+        return app.buttons[tabLabel].firstMatch
     }
 
     // MARK: - Wait Helpers

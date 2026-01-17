@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 
 /// Root view that determines whether to show consent, auth flow, onboarding, or main app
@@ -47,12 +48,28 @@ struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    /// Whether UI testing mode is active (skips consent and onboarding)
+    private let isUITesting: Bool
+
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
 
     init(privacyConsentStorage: PrivacyConsentStorageProtocol = PrivacyConsentStorage.shared) {
         self.privacyConsentStorage = privacyConsentStorage
-        // Initialize consent state from storage
+        // Check for UI testing mode
+        isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
+        // Initialize consent state from storage (auto-accepted in UI test mode)
         _hasAcceptedConsent = State(initialValue: privacyConsentStorage.hasAcceptedConsent())
+
+        #if DEBUG
+            if isUITesting {
+                let logger = Logger(subsystem: "com.aiq.app", category: "RootView")
+                logger.notice("UI Testing mode detected")
+                let isAuthAtInit = AuthManager.shared.isAuthenticated
+                logger.notice("AuthManager.shared isAuthenticated at init: \(isAuthAtInit)")
+                let hasRegistered = AuthManager.registeredInstance != nil
+                logger.notice("registeredInstance is set: \(hasRegistered)")
+            }
+        #endif
     }
 
     var body: some View {
@@ -63,7 +80,8 @@ struct RootView: View {
                     PrivacyConsentView(hasAcceptedConsent: $hasAcceptedConsent)
                 } else if authManager.isAuthenticated {
                     // Show onboarding for authenticated users who haven't completed it
-                    if !hasCompletedOnboarding {
+                    // Skip onboarding in UI test mode to go directly to main app
+                    if !hasCompletedOnboarding && !isUITesting {
                         OnboardingContainerView()
                     } else {
                         MainTabView()
