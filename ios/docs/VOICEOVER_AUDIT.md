@@ -23,6 +23,55 @@ This document contains the results of a comprehensive VoiceOver accessibility au
 
 ---
 
+## Authentication Flow Accessibility Requirements
+
+This section documents the accessibility requirements for the authentication flow, ensuring VoiceOver users can effectively navigate and interact with login and registration screens.
+
+### Required Accessibility Identifiers
+
+All authentication UI elements must have accessibility identifiers defined in `AccessibilityIdentifiers.swift`:
+
+| View | Element | Identifier | Status |
+|------|---------|------------|--------|
+| WelcomeView | Email field | `welcomeView.emailTextField` | ✅ Applied |
+| WelcomeView | Password field | `welcomeView.passwordTextField` | ✅ Applied |
+| WelcomeView | Sign In button | `welcomeView.signInButton` | ✅ Applied |
+| WelcomeView | Create Account button | `welcomeView.createAccountButton` | ✅ Applied |
+| WelcomeView | Brain icon | `welcomeView.brainIcon` | ✅ Applied |
+| WelcomeView | Error banner | `welcomeView.errorBanner` | ✅ Applied |
+| RegistrationView | First name field | `registrationView.firstNameTextField` | ✅ Applied |
+| RegistrationView | Last name field | `registrationView.lastNameTextField` | ✅ Applied |
+| RegistrationView | Email field | `registrationView.emailTextField` | ✅ Applied |
+| RegistrationView | Password field | `registrationView.passwordTextField` | ✅ Applied |
+| RegistrationView | Confirm password field | `registrationView.confirmPasswordTextField` | ✅ Applied |
+| RegistrationView | Education level picker | `registrationView.educationLevelButton` | ✅ Applied |
+| RegistrationView | Create Account button | `registrationView.createAccountButton` | ✅ Applied |
+| RegistrationView | Sign In link | `registrationView.signInLink` | ✅ Applied |
+
+### VoiceOver Label Requirements
+
+Each authentication element must have a meaningful VoiceOver label:
+
+1. **Text Fields**: Labels should include the field purpose (e.g., "Email", "Password", "First Name")
+2. **Buttons**: Labels should describe the action (e.g., "Sign In", "Create Account")
+3. **Pickers**: Labels should include current selection state (e.g., "Education Level, optional, not selected")
+
+### Test Coverage
+
+The `AuthenticationAccessibilityTests.swift` file verifies:
+- [x] All accessibility identifiers are properly applied
+- [x] VoiceOver labels contain meaningful content
+- [x] Form fields are in logical navigation order
+- [x] Navigation between welcome and registration screens works with accessibility identifiers
+
+### Related Test Files
+
+- `AuthenticationAccessibilityTests.swift` - Accessibility identifier and VoiceOver label tests
+- `AuthenticationFlowTests.swift` - Functional authentication flow tests
+- `AccessibilityIdentifierTests.swift` - General accessibility identifier verification
+
+---
+
 ## Audit Results by Screen
 
 ### 1. Authentication Flow
