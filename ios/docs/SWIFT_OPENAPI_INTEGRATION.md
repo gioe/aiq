@@ -62,19 +62,27 @@ cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ \
 
 ## Next Steps
 
-To use the generator:
+To complete the integration:
 
-1. Create an `openapi.yaml` or `openapi.json` file in your project
-2. Create an `openapi-generator-config.yaml` configuration file
-3. Add the generator build plugin to your target
-4. Import `OpenAPIRuntime` in files that use generated code
+1. **Create generator configuration**: Add `openapi-generator-config.yaml` to specify:
+   - Access modifier for generated types (internal/public)
+   - Feature flags (filters, additional imports, etc.)
+   - Output mode (types, client, server)
+
+2. **Add build plugin**: Configure the generator as a build tool plugin in AIQ target
+
+3. **Generate Swift types**: Point generator to the backend OpenAPI spec at `docs/api/openapi.json`
+
+4. **Integrate with APIService**: Update `Services/API/` to use generated models instead of manually-written types
 
 See the [Swift OpenAPI Generator documentation](https://swiftpackageindex.com/apple/swift-openapi-generator/documentation) for detailed usage instructions.
+
+**Related**: TASK-360 (OpenAPI spec export to `docs/api/openapi.json`)
 
 ## Package Resolution
 
 The complete dependency graph is tracked in:
-- `/Users/mattgioe/aiq/ios/AIQ.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+- `ios/AIQ.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
 
 ## References
 
