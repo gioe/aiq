@@ -46,6 +46,7 @@ jobs:
             -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -59,6 +60,7 @@ jobs:
             -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY=""
 
@@ -115,6 +117,7 @@ jobs:
             -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -skipPackagePluginValidation \
             -only-testing:AIQUITests \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
