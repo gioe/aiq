@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQAPIClient
 import XCTest
 
 /// Unit tests for TokenRefreshInterceptor
@@ -180,18 +181,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_401Response_TriggersRefresh() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -228,18 +224,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_401Response_ThrowsShouldRetryRequest() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -276,18 +267,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_MultipleConcurrent401s_SharesSingleRefresh() async throws {
         // Given - Configure refresh with a small delay to ensure requests overlap
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -350,18 +336,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_MultipleConcurrent401s_AllWaitForRefresh() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -418,18 +399,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_SequentialRefreshes_AllowsMultipleRefreshes() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -470,18 +446,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_RefreshTaskCleanup_AllowsSubsequentRefresh() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "token1",
@@ -684,18 +655,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         // The in-flight task runs to completion with its captured reference.
 
         // Given - Configure first auth service with a delay to ensure we can swap mid-refresh
-        let firstMockUser = User(
-            id: 1,
+        let firstMockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "first@example.com",
             firstName: "First",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let firstAuthResponse = AuthResponse(
             accessToken: "first_token",
@@ -727,18 +693,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
         // Set a new auth service while first refresh is in progress
         let secondMockAuthService = TokenRefreshMockAuthService()
-        let secondMockUser = User(
-            id: 2,
+        let secondMockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "second@example.com",
             firstName: "Second",
+            id: 2,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let secondAuthResponse = AuthResponse(
             accessToken: "second_token",
@@ -793,18 +754,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_EmptyResponseData_HandlesGracefully() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -839,18 +795,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_LargeResponseData_HandlesGracefully() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",
@@ -886,18 +837,13 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
     func testIntercept_VeryHighConcurrency_HandlesGracefully() async throws {
         // Given
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         let mockResponse = AuthResponse(
             accessToken: "new_token",

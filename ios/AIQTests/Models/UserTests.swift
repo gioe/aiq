@@ -1,6 +1,7 @@
 import XCTest
 
 @testable import AIQ
+import AIQAPIClient
 
 final class UserTests: XCTestCase {
     // MARK: - EducationLevel Tests
@@ -63,7 +64,11 @@ final class UserTests: XCTestCase {
 
     // MARK: - User Decoding Tests
 
-    func testUserDecodingWithAllFields() throws {
+    // Note: User is now a typealias for Components.Schemas.UserResponse from the OpenAPI generated types.
+    // The generated type only includes required fields: id, email, firstName, lastName, createdAt, notificationEnabled.
+    // Optional demographic fields (birthYear, educationLevel, country, region, lastLoginAt) are NOT in the generated type.
+
+    func testUserDecodingWithRequiredFields() throws {
         let json = """
         {
             "id": 123,
@@ -71,12 +76,7 @@ final class UserTests: XCTestCase {
             "first_name": "John",
             "last_name": "Doe",
             "created_at": "2025-01-01T10:00:00Z",
-            "last_login_at": "2025-01-02T15:30:00Z",
-            "notification_enabled": true,
-            "birth_year": 1990,
-            "education_level": "bachelors",
-            "country": "United States",
-            "region": "California"
+            "notification_enabled": true
         }
         """
 
@@ -90,72 +90,7 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.firstName, "John")
         XCTAssertEqual(user.lastName, "Doe")
         XCTAssertTrue(user.notificationEnabled)
-        XCTAssertEqual(user.birthYear, 1990)
-        XCTAssertEqual(user.educationLevel, .bachelors)
-        XCTAssertEqual(user.country, "United States")
-        XCTAssertEqual(user.region, "California")
         XCTAssertNotNil(user.createdAt)
-        XCTAssertNotNil(user.lastLoginAt)
-    }
-
-    func testUserDecodingWithRequiredFieldsOnly() throws {
-        let json = """
-        {
-            "id": 456,
-            "email": "minimal@example.com",
-            "first_name": "Jane",
-            "last_name": "Smith",
-            "created_at": "2025-01-01T10:00:00Z",
-            "notification_enabled": false
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let user = try decoder.decode(User.self, from: data)
-
-        XCTAssertEqual(user.id, 456)
-        XCTAssertEqual(user.email, "minimal@example.com")
-        XCTAssertEqual(user.firstName, "Jane")
-        XCTAssertEqual(user.lastName, "Smith")
-        XCTAssertFalse(user.notificationEnabled)
-        XCTAssertNil(user.lastLoginAt)
-        XCTAssertNil(user.birthYear)
-        XCTAssertNil(user.educationLevel)
-        XCTAssertNil(user.country)
-        XCTAssertNil(user.region)
-        XCTAssertNotNil(user.createdAt)
-    }
-
-    func testUserDecodingWithNullOptionalFields() throws {
-        let json = """
-        {
-            "id": 789,
-            "email": "nulls@example.com",
-            "first_name": "Test",
-            "last_name": "User",
-            "created_at": "2025-01-01T10:00:00Z",
-            "last_login_at": null,
-            "notification_enabled": true,
-            "birth_year": null,
-            "education_level": null,
-            "country": null,
-            "region": null
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let user = try decoder.decode(User.self, from: data)
-
-        XCTAssertEqual(user.id, 789)
-        XCTAssertNil(user.lastLoginAt)
-        XCTAssertNil(user.birthYear)
-        XCTAssertNil(user.educationLevel)
-        XCTAssertNil(user.country)
-        XCTAssertNil(user.region)
     }
 
     func testUserDecodingCodingKeysMapping() throws {
@@ -167,10 +102,7 @@ final class UserTests: XCTestCase {
             "first_name": "Coding",
             "last_name": "Keys",
             "created_at": "2025-01-01T10:00:00Z",
-            "last_login_at": "2025-01-02T10:00:00Z",
-            "notification_enabled": false,
-            "birth_year": 1995,
-            "education_level": "masters"
+            "notification_enabled": false
         }
         """
 
@@ -183,64 +115,19 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.firstName, "Coding")
         XCTAssertEqual(user.lastName, "Keys")
         XCTAssertFalse(user.notificationEnabled)
-        XCTAssertEqual(user.birthYear, 1995)
-        XCTAssertEqual(user.educationLevel, .masters)
         XCTAssertNotNil(user.createdAt)
-        XCTAssertNotNil(user.lastLoginAt)
-    }
-
-    func testUserDecodingWithAllEducationLevels() throws {
-        let educationLevels: [(String, EducationLevel)] = [
-            ("high_school", .highSchool),
-            ("some_college", .someCollege),
-            ("associates", .associates),
-            ("bachelors", .bachelors),
-            ("masters", .masters),
-            ("doctorate", .doctorate),
-            ("prefer_not_to_say", .preferNotToSay)
-        ]
-
-        for (rawValue, expectedLevel) in educationLevels {
-            let json = """
-            {
-                "id": 1,
-                "email": "test@example.com",
-                "first_name": "Test",
-                "last_name": "User",
-                "created_at": "2025-01-01T10:00:00Z",
-                "notification_enabled": true,
-                "education_level": "\(rawValue)"
-            }
-            """
-
-            let data = try XCTUnwrap(json.data(using: .utf8))
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let user = try decoder.decode(User.self, from: data)
-
-            XCTAssertEqual(
-                user.educationLevel,
-                expectedLevel,
-                "Failed to decode education level: \(rawValue)"
-            )
-        }
     }
 
     // MARK: - User Computed Properties Tests
 
     func testUserFullName() {
-        let user = User(
-            id: 1,
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "John",
+            id: 1,
             lastName: "Doe",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
 
         XCTAssertEqual(user.fullName, "John Doe")
@@ -255,18 +142,13 @@ final class UserTests: XCTestCase {
         ]
 
         for (firstName, lastName, expectedFullName) in testCases {
-            let user = User(
-                id: 1,
+            let user = Components.Schemas.UserResponse(
+                createdAt: Date(),
                 email: "test@example.com",
                 firstName: firstName,
+                id: 1,
                 lastName: lastName,
-                createdAt: Date(),
-                lastLoginAt: nil,
-                notificationEnabled: true,
-                birthYear: nil,
-                educationLevel: nil,
-                country: nil,
-                region: nil
+                notificationEnabled: true
             )
 
             XCTAssertEqual(
@@ -281,32 +163,22 @@ final class UserTests: XCTestCase {
 
     func testUserEquality() {
         let date = Date()
-        let user1 = User(
-            id: 1,
+        let user1 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "test@example.com",
             firstName: "John",
+            id: 1,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: date,
-            notificationEnabled: true,
-            birthYear: 1990,
-            educationLevel: .bachelors,
-            country: "US",
-            region: "CA"
+            notificationEnabled: true
         )
 
-        let user2 = User(
-            id: 1,
+        let user2 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "test@example.com",
             firstName: "John",
+            id: 1,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: date,
-            notificationEnabled: true,
-            birthYear: 1990,
-            educationLevel: .bachelors,
-            country: "US",
-            region: "CA"
+            notificationEnabled: true
         )
 
         XCTAssertEqual(user1, user2)
@@ -314,65 +186,45 @@ final class UserTests: XCTestCase {
 
     func testUserInequality() {
         let date = Date()
-        let user1 = User(
-            id: 1,
+        let user1 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "test@example.com",
             firstName: "John",
+            id: 1,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
 
         // Different ID
-        let user2 = User(
-            id: 2,
+        let user2 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "test@example.com",
             firstName: "John",
+            id: 2,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         XCTAssertNotEqual(user1, user2)
 
         // Different email
-        let user3 = User(
-            id: 1,
+        let user3 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "different@example.com",
             firstName: "John",
+            id: 1,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         XCTAssertNotEqual(user1, user3)
 
         // Different firstName
-        let user4 = User(
-            id: 1,
+        let user4 = Components.Schemas.UserResponse(
+            createdAt: date,
             email: "test@example.com",
             firstName: "Jane",
+            id: 1,
             lastName: "Doe",
-            createdAt: date,
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         XCTAssertNotEqual(user1, user4)
     }
@@ -381,18 +233,13 @@ final class UserTests: XCTestCase {
 
     func testUserEncodingRoundTrip() throws {
         let originalDate = Date()
-        let user = User(
-            id: 123,
+        let user = Components.Schemas.UserResponse(
+            createdAt: originalDate,
             email: "roundtrip@example.com",
             firstName: "Round",
+            id: 123,
             lastName: "Trip",
-            createdAt: originalDate,
-            lastLoginAt: originalDate,
-            notificationEnabled: true,
-            birthYear: 1985,
-            educationLevel: .doctorate,
-            country: "Canada",
-            region: "Ontario"
+            notificationEnabled: true
         )
 
         let encoder = JSONEncoder()
@@ -408,25 +255,16 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.firstName, decodedUser.firstName)
         XCTAssertEqual(user.lastName, decodedUser.lastName)
         XCTAssertEqual(user.notificationEnabled, decodedUser.notificationEnabled)
-        XCTAssertEqual(user.birthYear, decodedUser.birthYear)
-        XCTAssertEqual(user.educationLevel, decodedUser.educationLevel)
-        XCTAssertEqual(user.country, decodedUser.country)
-        XCTAssertEqual(user.region, decodedUser.region)
     }
 
     func testUserEncodingUsesSnakeCase() throws {
-        let user = User(
-            id: 1,
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "snake@example.com",
             firstName: "Snake",
+            id: 1,
             lastName: "Case",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: 2000,
-            educationLevel: .associates,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
 
         let encoder = JSONEncoder()
@@ -440,33 +278,24 @@ final class UserTests: XCTestCase {
         XCTAssertTrue(jsonString.contains("last_name"))
         XCTAssertTrue(jsonString.contains("created_at"))
         XCTAssertTrue(jsonString.contains("notification_enabled"))
-        XCTAssertTrue(jsonString.contains("birth_year"))
-        XCTAssertTrue(jsonString.contains("education_level"))
 
         // Verify camelCase keys are NOT in JSON
         XCTAssertFalse(jsonString.contains("firstName"))
         XCTAssertFalse(jsonString.contains("lastName"))
         XCTAssertFalse(jsonString.contains("createdAt"))
         XCTAssertFalse(jsonString.contains("notificationEnabled"))
-        XCTAssertFalse(jsonString.contains("birthYear"))
-        XCTAssertFalse(jsonString.contains("educationLevel"))
     }
 
     // MARK: - User Identifiable Tests
 
     func testUserIdentifiable() {
-        let user = User(
-            id: 42,
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "identifiable@example.com",
             firstName: "Test",
+            id: 42,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
 
         XCTAssertEqual(user.id, 42)
@@ -628,9 +457,7 @@ final class UserTests: XCTestCase {
             "first_name": "José",
             "last_name": "O'Brien-Smith",
             "created_at": "2025-01-01T10:00:00Z",
-            "notification_enabled": true,
-            "country": "São Paulo",
-            "region": "Île-de-France"
+            "notification_enabled": true
         }
         """
 
@@ -642,34 +469,7 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.email, "test+tag@example.com")
         XCTAssertEqual(user.firstName, "José")
         XCTAssertEqual(user.lastName, "O'Brien-Smith")
-        XCTAssertEqual(user.country, "São Paulo")
-        XCTAssertEqual(user.region, "Île-de-France")
         XCTAssertEqual(user.fullName, "José O'Brien-Smith")
-    }
-
-    func testUserDecodingWithBirthYearEdgeCases() throws {
-        let testCases = [1900, 1950, 2000, 2024, 2025]
-
-        for year in testCases {
-            let json = """
-            {
-                "id": 1,
-                "email": "test@example.com",
-                "first_name": "Test",
-                "last_name": "User",
-                "created_at": "2025-01-01T10:00:00Z",
-                "notification_enabled": true,
-                "birth_year": \(year)
-            }
-            """
-
-            let data = try XCTUnwrap(json.data(using: .utf8))
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let user = try decoder.decode(User.self, from: data)
-
-            XCTAssertEqual(user.birthYear, year, "Failed to decode birth year: \(year)")
-        }
     }
 
     func testUserDecodingFailsWithMissingRequiredFields() throws {
@@ -747,28 +547,6 @@ final class UserTests: XCTestCase {
         }
     }
 
-    func testUserDecodingFailsWithInvalidEducationLevel() throws {
-        let json = """
-        {
-            "id": 1,
-            "email": "test@example.com",
-            "first_name": "Test",
-            "last_name": "User",
-            "created_at": "2025-01-01T10:00:00Z",
-            "notification_enabled": true,
-            "education_level": "invalid_level"
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        XCTAssertThrowsError(try decoder.decode(User.self, from: data)) { error in
-            XCTAssertTrue(error is DecodingError, "Should throw DecodingError for invalid education level")
-        }
-    }
-
     func testUserDecodingFailsWithInvalidDateFormat() throws {
         let json = """
         {
@@ -788,5 +566,69 @@ final class UserTests: XCTestCase {
         XCTAssertThrowsError(try decoder.decode(User.self, from: data)) { error in
             XCTAssertTrue(error is DecodingError, "Should throw DecodingError for invalid date format")
         }
+    }
+
+    // MARK: - User UI Extension Tests
+
+    func testUserInitials() {
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
+            email: "test@example.com",
+            firstName: "John",
+            id: 1,
+            lastName: "Smith",
+            notificationEnabled: true
+        )
+
+        XCTAssertEqual(user.initials, "JS")
+    }
+
+    func testUserInitialsWithEmptyNames() {
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
+            email: "test@example.com",
+            firstName: "",
+            id: 1,
+            lastName: "",
+            notificationEnabled: true
+        )
+
+        XCTAssertEqual(user.initials, "??")
+    }
+
+    func testUserNotificationStatus() {
+        let enabledUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
+            email: "test@example.com",
+            firstName: "Test",
+            id: 1,
+            lastName: "User",
+            notificationEnabled: true
+        )
+
+        let disabledUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
+            email: "test@example.com",
+            firstName: "Test",
+            id: 1,
+            lastName: "User",
+            notificationEnabled: false
+        )
+
+        XCTAssertEqual(enabledUser.notificationStatus, "Notifications enabled")
+        XCTAssertEqual(disabledUser.notificationStatus, "Notifications disabled")
+    }
+
+    func testUserAccessibilityDescription() {
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
+            email: "test@example.com",
+            firstName: "John",
+            id: 1,
+            lastName: "Smith",
+            notificationEnabled: true
+        )
+
+        XCTAssertEqual(user.accessibilityDescription, "John Smith, email test@example.com, Notifications enabled")
     }
 }

@@ -2,6 +2,7 @@ import Combine
 import XCTest
 
 @testable import AIQ
+import AIQAPIClient
 
 /// Integration tests for APIClient networking layer.
 /// These tests verify the APIClient works correctly with URLSession and handles real HTTP scenarios.
@@ -773,18 +774,13 @@ private class MockAuthService: AuthServiceProtocol {
     func refreshToken() async throws -> AIQ.AuthResponse {
         refreshTokenCallCount += 1
         // Return a mock successful refresh response
-        let user = AIQ.User(
-            id: 1,
+        let user = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         currentUser = user
         return AIQ.AuthResponse(

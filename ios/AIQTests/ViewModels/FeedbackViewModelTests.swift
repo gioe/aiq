@@ -2,6 +2,7 @@ import Combine
 import XCTest
 
 @testable import AIQ
+import AIQAPIClient
 
 @MainActor
 final class FeedbackViewModelTests: XCTestCase {
@@ -36,18 +37,13 @@ final class FeedbackViewModelTests: XCTestCase {
         // Given
         let mockAuthManager = MockAuthManager()
         let expectedEmail = "authenticated@example.com"
-        mockAuthManager.currentUser = User(
-            id: 1,
+        mockAuthManager.currentUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: expectedEmail,
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
 
         // When
@@ -500,18 +496,13 @@ final class FeedbackViewModelTests: XCTestCase {
         // Given - Authenticated user with pre-populated email
         let mockAuthManager = MockAuthManager()
         let expectedEmail = "authenticated@example.com"
-        mockAuthManager.currentUser = User(
-            id: 1,
+        mockAuthManager.currentUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: expectedEmail,
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
         let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
 

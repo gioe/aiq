@@ -1,6 +1,24 @@
+import AIQAPIClient
 import Foundation
 
+// MARK: - User Type Alias
+
+/// User model re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.UserResponse` type.
+/// UI-specific computed properties are provided via the `User+Extensions.swift` file.
+///
+/// - Note: The generated type includes required fields only: id, email, firstName, lastName,
+///   createdAt, notificationEnabled. Optional demographic fields (birthYear, educationLevel,
+///   country, region, lastLoginAt) are added via custom decoding in extensions.
+typealias User = Components.Schemas.UserResponse
+
+// MARK: - Education Level
+
 /// Education level enumeration for demographic data (P13-001)
+///
+/// This enum is not generated from the OpenAPI spec, so we maintain it manually.
+/// It's used for optional demographic data collection in the user registration flow.
 enum EducationLevel: String, Codable, CaseIterable {
     case highSchool = "high_school"
     case someCollege = "some_college"
@@ -23,40 +41,12 @@ enum EducationLevel: String, Codable, CaseIterable {
     }
 }
 
-struct User: Codable, Identifiable, Equatable {
-    let id: Int
-    let email: String
-    let firstName: String
-    let lastName: String
-    let createdAt: Date
-    let lastLoginAt: Date?
-    let notificationEnabled: Bool
+// MARK: - User Profile
 
-    // Optional demographic data for norming study (P13-001)
-    let birthYear: Int?
-    let educationLevel: EducationLevel?
-    let country: String?
-    let region: String?
-
-    var fullName: String {
-        "\(firstName) \(lastName)"
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case email
-        case firstName = "first_name"
-        case lastName = "last_name"
-        case createdAt = "created_at"
-        case lastLoginAt = "last_login_at"
-        case notificationEnabled = "notification_enabled"
-        case birthYear = "birth_year"
-        case educationLevel = "education_level"
-        case country
-        case region
-    }
-}
-
+/// User profile update model
+///
+/// Used for updating user profile information (name and notification settings).
+/// This remains a manual model as it's a request DTO, not part of the OpenAPI response types.
 struct UserProfile: Codable, Equatable {
     let firstName: String
     let lastName: String
