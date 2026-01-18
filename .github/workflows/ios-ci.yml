@@ -14,7 +14,7 @@ on:
 
 jobs:
   lint-and-build:
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
       - name: Checkout code
@@ -79,7 +79,7 @@ jobs:
           retention-days: 7
 
   ui-tests:
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: lint-and-build
     timeout-minutes: 30
 
