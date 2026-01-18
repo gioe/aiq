@@ -23,6 +23,11 @@ In Xcode:
 
 The iOS app uses Apple's [swift-openapi-generator](https://github.com/apple/swift-openapi-generator) to generate type-safe Swift code from the backend's OpenAPI specification. The generated code is located in the `Packages/AIQAPIClient` local Swift Package.
 
+**The OpenAPI spec (`docs/api/openapi.json`) is the single source of truth** for the API contract between iOS and backend. This ensures:
+- Type-safe API calls with compile-time verification
+- No manual `CodingKeys` mappings (snake_case → camelCase handled by generator)
+- Contract drift caught at build time, not runtime
+
 **Important**: The OpenAPI spec file (`openapi.json`) is not committed to the repository. You must run the sync script before building:
 
 ```bash
@@ -33,6 +38,13 @@ The iOS app uses Apple's [swift-openapi-generator](https://github.com/apple/swif
 The spec is exported by the backend CI and stored in `docs/api/openapi.json`. If this file doesn't exist, you need to either:
 1. Pull latest from main (includes the exported spec)
 2. Run the backend locally and export the spec manually
+
+**Working with API Changes:**
+1. Backend changes Pydantic schemas → CI exports updated OpenAPI spec
+2. Pull latest to get the new spec
+3. Run `./scripts/sync_openapi_spec.sh` to update the local package
+4. Build the project - compilation errors indicate breaking changes
+5. Update call sites to match the new contract
 
 For more details, see [docs/SWIFT_OPENAPI_INTEGRATION.md](docs/SWIFT_OPENAPI_INTEGRATION.md).
 
