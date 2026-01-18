@@ -84,8 +84,12 @@ enum HTTPMethod: String {
 /// // Old approach (deprecated)
 /// let response: AuthResponse = try await apiClient.request(endpoint: .login, method: .post, body: request)
 ///
-/// // New approach
-/// let response = try await OpenAPIClientAdapter.shared.login(email: email, password: password)
+/// // New approach - use generated OpenAPI client directly
+/// let factory = AIQAPIClientFactory(serverURL: URL(string: AppConfig.apiBaseURL)!)
+/// let client = factory.makeClient()
+/// let response = try await client.loginUserV1AuthLoginPost(
+///     body: .json(.init(email: email, password: password))
+/// )
 /// ```
 ///
 /// This enum will be removed in a future version once all services have been migrated.

@@ -17,7 +17,7 @@ import OpenAPIRuntime
 ///     middlewares: [loggingMiddleware]
 /// )
 /// ```
-public struct LoggingMiddleware: ClientMiddleware {
+public struct LoggingMiddleware: ClientMiddleware, Sendable {
     /// Log levels for API requests
     public enum LogLevel: Int, Comparable, Sendable {
         /// No logging

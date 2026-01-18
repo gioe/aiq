@@ -46,16 +46,17 @@ import Foundation
 ///
 /// ## Type Mappings
 ///
-/// Key type correspondences between legacy models and generated schemas:
+/// Key type correspondences between legacy models and generated schemas
+/// (verified against `Types.swift` generated from `openapi.json`):
 ///
 /// | Legacy Type | Generated Schema |
 /// |-------------|------------------|
 /// | `AuthResponse` | `Components.Schemas.Token` |
 /// | `User` | `Components.Schemas.UserResponse` |
 /// | `LoginRequest` | `Components.Schemas.UserLogin` |
-/// | `RegisterRequest` | `Components.Schemas.UserCreate` |
-/// | `TestSession` | `Components.Schemas.TestSessionResponse` |
-/// | `TestResult` | `Components.Schemas.TestResultResponse` |
+/// | `RegisterRequest` | `Components.Schemas.UserRegister` |
+/// | `TestSessionResponse` | `Components.Schemas.TestSessionResponse` |
+/// | `SubmittedTestResult` | `Components.Schemas.TestResultResponse` |
 /// | `Question` | `Components.Schemas.QuestionResponse` |
 enum OpenAPIClientAdapter {
     // This enum serves as a namespace for migration documentation.
