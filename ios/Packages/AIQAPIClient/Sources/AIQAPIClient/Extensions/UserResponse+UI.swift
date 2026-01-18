@@ -5,6 +5,9 @@
 // These extensions add display helpers for user profile information.
 //
 // Pattern: Each extension file follows the naming convention `<TypeName>+UI.swift`.
+//
+// NOTE: Date formatting should be done in the UI layer using the main app's Date+Extensions
+// which provides cached, locale-aware formatters. This package provides raw computed values.
 
 import Foundation
 
@@ -19,16 +22,6 @@ public extension Components.Schemas.UserResponse {
         let firstInitial = firstName.prefix(1).uppercased()
         let lastInitial = lastName.prefix(1).uppercased()
         return "\(firstInitial)\(lastInitial)"
-    }
-
-    /// Formatted account creation date (e.g., "Jan 15, 2024")
-    var createdAtFormatted: String {
-        createdAt.toShortString()
-    }
-
-    /// Relative account creation date (e.g., "Member for 2 months")
-    var memberSince: String {
-        "Member since \(createdAt.toShortString())"
     }
 
     /// Notification status as human-readable text

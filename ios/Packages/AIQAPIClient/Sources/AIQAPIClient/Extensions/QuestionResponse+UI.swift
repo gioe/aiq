@@ -71,6 +71,6 @@ public extension Components.Schemas.QuestionResponse {
 
     /// Accessibility hint for the question
     var accessibilityHint: String {
-        "This is a \(difficultyLevel) \(questionType) question"
+        "This is a \(difficultyDisplay) \(questionTypeDisplay) question"
     }
 }

@@ -29,15 +29,10 @@ public extension Components.Schemas.ConfidenceIntervalSchema {
         "Score range from \(lower) to \(upper) with \(confidencePercentage) percent confidence"
     }
 
-    /// Width of the interval (useful for determining precision)
+    /// Width of the interval in IQ points (e.g., 14 for range 101-115)
+    /// Useful for UI decisions about precision display
     var intervalWidth: Int {
         upper - lower
-    }
-
-    /// Indicates if the interval is narrow (precise) vs wide (less precise)
-    /// Intervals of 10 or less are considered precise
-    var isPrecise: Bool {
-        intervalWidth <= 10
     }
 
     /// Standard error formatted to 2 decimal places

@@ -15,9 +15,11 @@
 // that use the `anyOf: [type, null]` pattern in OpenAPI specs. Only required properties
 // are present in the generated types. When the generator adds support for nullable types,
 // additional computed properties can be added here.
+//
+// NOTE: Date formatting should be done in the UI layer using the main app's Date+Extensions
+// which provides cached, locale-aware formatters. This package provides raw computed values.
 
 import Foundation
-import SwiftUI
 
 // MARK: - Formatting Extensions
 
@@ -37,16 +39,6 @@ public extension Components.Schemas.TestResultResponse {
         "\(iqScore)"
     }
 
-    /// Formatted date string for completedAt (e.g., "Jan 15, 2024")
-    var completedAtFormatted: String {
-        completedAt.toShortString()
-    }
-
-    /// Relative date string for completedAt (e.g., "2 days ago")
-    var completedAtRelative: String {
-        completedAt.toRelativeString()
-    }
-
     /// Score ratio formatted as "X/Y" (e.g., "18/20")
     var scoreRatio: String {
         "\(correctAnswers)/\(totalQuestions)"
@@ -54,52 +46,7 @@ public extension Components.Schemas.TestResultResponse {
 
     /// Accessibility description for the test result
     var accessibilityDescription: String {
-        let answeredText = "You answered \(correctAnswers) out of \(totalQuestions) questions correctly"
-        return "IQ score \(iqScore). \(answeredText), achieving \(accuracyFormatted) accuracy."
-    }
-}
-
-// MARK: - Int Ordinal Extension
-
-extension Int {
-    /// Returns the ordinal suffix for a number (e.g., "st", "nd", "rd", "th")
-    private var ordinalSuffix: String {
-        let ones = self % 10
-        let tens = (self / 10) % 10
-
-        if tens == 1 {
-            return "th"
-        }
-
-        switch ones {
-        case 1: return "st"
-        case 2: return "nd"
-        case 3: return "rd"
-        default: return "th"
-        }
-    }
-
-    /// Returns the number with its ordinal suffix (e.g., "1st", "2nd", "23rd")
-    var ordinalString: String {
-        "\(self)\(ordinalSuffix)"
-    }
-}
-
-// MARK: - Date Formatting Extension
-
-extension Date {
-    /// Format: "Jan 15, 2024"
-    func toShortString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: self)
-    }
-
-    /// Format: "2 days ago", "Just now", etc.
-    func toRelativeString() -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: self, relativeTo: Date())
+        let answeredText = "You answered \(correctAnswers) of \(totalQuestions) correctly"
+        return "IQ score \(iqScore). \(answeredText), with \(accuracyFormatted) accuracy."
     }
 }

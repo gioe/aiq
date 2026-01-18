@@ -68,9 +68,9 @@ Extensions/
 ```
 
 **Why extensions are in the package (not the main app):**
-- Generated types have `internal` access (not `public`)
-- Extensions must be in the same module to access internal types
-- This is intentional to keep the API client encapsulated
+- Generated types and extensions are `public` for access from the main app
+- Extensions must be in the same module as the types they extend
+- All generated code and extensions are centralized in the API client package
 
 **Adding a new extension:**
 
@@ -94,6 +94,8 @@ extension Components.Schemas.UserResponse {
 ```
 
 **IDE Note:** SourceKit may show "Cannot find type 'Components' in scope" errors. This is expected—the generated types only exist after the build plugin runs. The project will compile successfully.
+
+**Date formatting:** Don't add date formatting to package extensions. The main app's `Date+Extensions.swift` provides cached, locale-aware formatters. Package extensions expose raw `Date` properties; format them in the UI layer.
 
 **Current Limitation:** The Swift OpenAPI Generator does not yet generate optional properties that use `anyOf: [type, null]` patterns. Only required properties appear in generated structs. Track [apple/swift-openapi-generator](https://github.com/apple/swift-openapi-generator) for updates.
 
