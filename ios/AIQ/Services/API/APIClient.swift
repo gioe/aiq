@@ -1,5 +1,35 @@
 import Foundation
 
+// MARK: - OpenAPI Migration Status
+
+//
+// The AIQAPIClient package contains OpenAPI-generated types (Components.Schemas.*)
+// that will eventually replace the manual types in ios/AIQ/Models/.
+//
+// Current Limitation:
+// The Swift OpenAPI Generator (v1.10.4) does not support nullable types using
+// `anyOf: [type, null]` format. This causes optional fields like `confidenceInterval`,
+// `domainScores`, `answerOptions`, `timeSpentSeconds`, etc. to be omitted from
+// generated types.
+//
+// Planned Migration Path:
+// 1. Wait for Swift OpenAPI Generator to support nullable types, OR
+// 2. Update backend OpenAPI spec to use a different nullable format
+// 3. Once generated types are complete, replace manual types with typealiases
+//
+// Type Mappings (for future migration):
+// - LoginRequest → Components.Schemas.UserLogin
+// - RegisterRequest → Components.Schemas.UserRegister
+// - AuthResponse → Components.Schemas.Token
+// - User → Components.Schemas.UserResponse
+// - Question → Components.Schemas.QuestionResponse
+// - QuestionResponse → Components.Schemas.ResponseItem
+// - TestSession → Components.Schemas.TestSessionResponse
+// - TestResult → Components.Schemas.TestResultResponse
+// - Feedback → Components.Schemas.FeedbackSubmitRequest
+//
+// See OpenAPIClientAdapter.swift for using the generated OpenAPI client directly.
+
 /// Protocol defining the API client interface
 ///
 /// - Warning: This protocol and its endpoint-based request method are deprecated.
