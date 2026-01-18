@@ -31,6 +31,11 @@ let package = Package(
         .package(
             url: "https://github.com/apple/swift-openapi-urlsession",
             from: "1.0.0"
+        ),
+        // HTTPTypes for middleware implementations
+        .package(
+            url: "https://github.com/apple/swift-http-types",
+            from: "1.0.0"
         )
     ],
     targets: [
@@ -38,7 +43,8 @@ let package = Package(
             name: "AIQAPIClient",
             dependencies: [
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
-                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession")
+                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
+                .product(name: "HTTPTypes", package: "swift-http-types")
             ],
             plugins: [
                 // This plugin generates Swift code from the OpenAPI spec at build time

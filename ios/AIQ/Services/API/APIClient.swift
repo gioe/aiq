@@ -1,6 +1,10 @@
 import Foundation
 
 /// Protocol defining the API client interface
+///
+/// - Warning: This protocol and its endpoint-based request method are deprecated.
+///   Use `OpenAPIClientAdapter` instead, which provides type-safe operation methods
+///   generated from the OpenAPI specification.
 protocol APIClientProtocol {
     /// Perform an API request
     /// - Parameters:
@@ -13,6 +17,9 @@ protocol APIClientProtocol {
     ///   - cacheDuration: Optional cache duration in seconds (only used if cacheKey is provided)
     ///   - forceRefresh: If true, bypass cache and fetch from API
     /// - Returns: Decoded response of type T
+    ///
+    /// - Warning: Deprecated. Use `OpenAPIClientAdapter` typed methods instead.
+    @available(*, deprecated, message: "Use OpenAPIClientAdapter typed operation methods instead")
     func request<T: Decodable>( // swiftlint:disable:this function_parameter_count
         endpoint: APIEndpoint,
         method: HTTPMethod,
@@ -67,6 +74,22 @@ enum HTTPMethod: String {
 }
 
 /// API endpoint definitions
+///
+/// - Warning: Deprecated. Use `OpenAPIClientAdapter` with its typed operation methods instead.
+///   The generated OpenAPI client provides type-safe methods for each endpoint (e.g., `login()`,
+///   `startTest()`) rather than requiring manual endpoint enum matching.
+///
+/// Migration example:
+/// ```swift
+/// // Old approach (deprecated)
+/// let response: AuthResponse = try await apiClient.request(endpoint: .login, method: .post, body: request)
+///
+/// // New approach
+/// let response = try await OpenAPIClientAdapter.shared.login(email: email, password: password)
+/// ```
+///
+/// This enum will be removed in a future version once all services have been migrated.
+@available(*, deprecated, message: "Use OpenAPIClientAdapter with typed operation methods instead")
 enum APIEndpoint: Equatable {
     /// User registration endpoint
     case register
