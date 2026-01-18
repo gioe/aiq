@@ -404,6 +404,8 @@
 		8BC4FF0AE985922793BCA32C /* NetworkLoggerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NetworkLoggerTests.swift; path = Network/NetworkLoggerTests.swift; sourceTree = "<group>"; };
 		8D5AC4F47FAFDCEE18F69897 /* ToastManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ToastManagerTests.swift; sourceTree = "<group>"; };
 		9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandler.swift; sourceTree = "<group>"; };
+		92E4ECF9021A11D4E7D45E6C /* openapi.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = openapi.json; sourceTree = "<group>"; };
+		931D376ABF3989EDA37C9B6D /* openapi-generator-config.yaml */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.yaml; path = "openapi-generator-config.yaml"; sourceTree = "<group>"; };
 		945134461CB72E20E086213F /* MockNotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockNotificationManager.swift; sourceTree = "<group>"; };
 		9563ED6ADBE5552EC7141463 /* InsightsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsCardView.swift; sourceTree = "<group>"; };
 		9637C248817F379ABA042225 /* TestResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultsView.swift; sourceTree = "<group>"; };
@@ -539,6 +541,8 @@
 				73BB07B1DB177A352AF3D0BB /* ViewModels */,
 				7B929D66B8C7D433BD364543 /* Views */,
 				07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */,
+				931D376ABF3989EDA37C9B6D /* openapi-generator-config.yaml */,
+				92E4ECF9021A11D4E7D45E6C /* openapi.json */,
 			);
 			path = AIQ;
 			sourceTree = "<group>";
@@ -1834,15 +1838,15 @@
 			package = 9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */;
 			productName = TrustKit;
 		};
-		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
-		};
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
 			productName = OpenAPIRuntime;
+		};
+		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
