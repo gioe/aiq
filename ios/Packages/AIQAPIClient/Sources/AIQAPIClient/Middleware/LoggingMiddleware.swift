@@ -42,17 +42,18 @@ public struct LoggingMiddleware: ClientMiddleware, Sendable {
     /// Creates a new logging middleware
     /// - Parameters:
     ///   - logLevel: The level of detail to log. Defaults to `.debug` in DEBUG builds, `.error` otherwise.
-    ///   - sensitiveHeaders: Header names to redact from logs. Defaults to ["Authorization"].
+    ///   - sensitiveHeaders: Header names to redact from logs (case-insensitive). Defaults to ["Authorization"].
     public init(
         logLevel: LogLevel? = nil,
-        sensitiveHeaders: Set<String> = ["Authorization", "authorization"]
+        sensitiveHeaders: Set<String> = ["authorization"]
     ) {
         #if DEBUG
             self.logLevel = logLevel ?? .debug
         #else
             self.logLevel = logLevel ?? .error
         #endif
-        self.sensitiveHeaders = sensitiveHeaders
+        // Store all headers lowercase for case-insensitive comparison
+        self.sensitiveHeaders = Set(sensitiveHeaders.map { $0.lowercased() })
     }
 
     public func intercept(
@@ -107,7 +108,7 @@ public struct LoggingMiddleware: ClientMiddleware, Sendable {
     private func logHeaders(_ headers: HTTPFields, prefix: String) {
         var headerDict: [String: String] = [:]
         for header in headers {
-            let value = sensitiveHeaders.contains(header.name.rawName)
+            let value = sensitiveHeaders.contains(header.name.rawName.lowercased())
                 ? "[REDACTED]"
                 : header.value
             headerDict[header.name.rawName] = value
