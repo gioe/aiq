@@ -12,6 +12,8 @@
 
 import Foundation
 
+@_exported import HTTPTypes
+
 // Re-export OpenAPI types for convenience when importing AIQAPIClient
 @_exported import OpenAPIRuntime
 @_exported import OpenAPIURLSession
