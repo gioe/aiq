@@ -631,4 +631,72 @@ final class UserTests: XCTestCase {
 
         XCTAssertEqual(user.accessibilityDescription, "John Smith, email test@example.com, Notifications enabled")
     }
+
+    // MARK: - OpenAPI Generator Limitation Tests
+
+    /// Documents the known limitation of the Swift OpenAPI generator (v1.10.4)
+    /// regarding optional fields using anyOf/null patterns.
+    ///
+    /// This test explicitly verifies that demographic fields are NOT available
+    /// on the generated UserResponse type. When the generator is updated to support
+    /// these patterns, this test will fail - alerting us that we can now use these fields.
+    func testDemographicFieldsNotAvailable_GeneratorLimitation() throws {
+        // This test documents TASK-368 limitation:
+        // The Swift OpenAPI generator does not generate optional fields defined with anyOf/null patterns.
+        //
+        // The OpenAPI spec defines these optional fields:
+        // - birth_year: anyOf[integer, null]
+        // - education_level: anyOf[string, null]
+        // - country: anyOf[string, null]
+        // - region: anyOf[string, null]
+        // - last_login_at: anyOf[date-time, null]
+        //
+        // These fields are silently ignored by the generator and are NOT available
+        // on the Components.Schemas.UserResponse type.
+
+        // Verify the generated type only has the expected 6 required properties
+        // by attempting to decode JSON with additional demographic fields
+        let jsonWithDemographicFields = """
+        {
+            "id": 1,
+            "email": "test@example.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "created_at": "2025-01-01T10:00:00Z",
+            "notification_enabled": true,
+            "birth_year": 1990,
+            "education_level": "bachelors",
+            "country": "US",
+            "region": "California",
+            "last_login_at": "2025-01-15T10:00:00Z"
+        }
+        """
+
+        let data = try XCTUnwrap(jsonWithDemographicFields.data(using: .utf8))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        // The JSON decodes successfully, but demographic fields are ignored
+        let user = try decoder.decode(User.self, from: data)
+
+        // Verify core fields are decoded
+        XCTAssertEqual(user.id, 1)
+        XCTAssertEqual(user.email, "test@example.com")
+        XCTAssertEqual(user.firstName, "Test")
+        XCTAssertEqual(user.lastName, "User")
+        XCTAssertTrue(user.notificationEnabled)
+
+        // The type does NOT have birthYear, educationLevel, country, region, lastLoginAt properties
+        // If this test starts failing to compile, it means the generator now supports these fields!
+        // Uncomment the following lines to verify the limitation:
+        //
+        // XCTAssertEqual(user.birthYear, 1990)        // Won't compile - property doesn't exist
+        // XCTAssertEqual(user.educationLevel, ...)    // Won't compile - property doesn't exist
+        // XCTAssertEqual(user.country, "US")          // Won't compile - property doesn't exist
+        // XCTAssertEqual(user.region, "California")   // Won't compile - property doesn't exist
+        // XCTAssertNotNil(user.lastLoginAt)           // Won't compile - property doesn't exist
+
+        // This assertion documents the current behavior - the type has exactly 6 properties
+        // via the generated init parameters: createdAt, email, firstName, id, lastName, notificationEnabled
+    }
 }

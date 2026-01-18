@@ -10,7 +10,8 @@ import Foundation
 ///
 /// - Note: The generated type includes required fields only: id, email, firstName, lastName,
 ///   createdAt, notificationEnabled. Optional demographic fields (birthYear, educationLevel,
-///   country, region, lastLoginAt) are added via custom decoding in extensions.
+///   country, region, lastLoginAt) are NOT available due to a Swift OpenAPI generator limitation.
+///   See User+Extensions.swift for details on this limitation.
 typealias User = Components.Schemas.UserResponse
 
 // MARK: - Education Level
