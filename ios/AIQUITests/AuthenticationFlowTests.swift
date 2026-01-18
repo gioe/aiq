@@ -135,8 +135,15 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for error to appear
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
 
-        // Verify error message is displayed
+        // Verify error message is displayed - generic check first
         XCTAssertTrue(loginHelper.hasError, "Error should be displayed for invalid password")
+
+        // Verify the specific error type - authentication error, not validation error
+        // This prevents false positives if the wrong error type appears
+        XCTAssertTrue(
+            loginHelper.hasAuthenticationError,
+            "Should show authentication error (Invalid email or password), not a validation error"
+        )
 
         // Verify still on welcome screen
         XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should remain on welcome screen after failed login")
@@ -165,8 +172,15 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for error to appear
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
 
-        // Verify error message is displayed
+        // Verify error message is displayed - generic check first
         XCTAssertTrue(loginHelper.hasError, "Error should be displayed for invalid email")
+
+        // Verify the specific error type - authentication error, not validation error
+        // This prevents false positives if the wrong error type appears (e.g., network error)
+        XCTAssertTrue(
+            loginHelper.hasAuthenticationError,
+            "Should show authentication error (Invalid email or password), not a validation error"
+        )
 
         // Verify still on welcome screen
         XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should remain on welcome screen after failed login")
@@ -450,8 +464,12 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for error to appear
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
 
-        // Verify error is shown
+        // Verify error is shown with correct type
         XCTAssertTrue(loginHelper.hasError, "Error should be displayed")
+        XCTAssertTrue(
+            loginHelper.hasAuthenticationError,
+            "Should show authentication error for invalid credentials"
+        )
 
         takeScreenshot(named: "ErrorBannerShown")
 
@@ -484,6 +502,10 @@ final class AuthenticationFlowTests: BaseUITest {
         // Wait for error
         wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
         XCTAssertTrue(loginHelper.hasError, "Error should be displayed after failed login")
+        XCTAssertTrue(
+            loginHelper.hasAuthenticationError,
+            "Should show authentication error for invalid password"
+        )
 
         // Wait for form to be ready for new input
         let passwordField = loginHelper.passwordTextField

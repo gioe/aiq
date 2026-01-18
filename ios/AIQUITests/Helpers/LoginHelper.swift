@@ -320,6 +320,25 @@ class LoginHelper {
         return bannerText.exists ? bannerText.label : errorBanner.label
     }
 
+    /// Check if an authentication error is displayed (invalid email or password)
+    /// This validates that the error message matches the expected authentication failure message,
+    /// distinguishing it from validation errors or other error types.
+    var hasAuthenticationError: Bool {
+        guard let message = errorMessage else { return false }
+        // Matches "Invalid email or password" from error.auth.invalid.credentials
+        return message.localizedCaseInsensitiveContains("invalid") &&
+            (message.localizedCaseInsensitiveContains("email") ||
+                message.localizedCaseInsensitiveContains("password"))
+    }
+
+    /// Check if the error message contains specific text
+    /// - Parameter text: The text to search for in the error message (case-insensitive)
+    /// - Returns: true if the error message contains the specified text
+    func errorContains(_ text: String) -> Bool {
+        guard let message = errorMessage else { return false }
+        return message.localizedCaseInsensitiveContains(text)
+    }
+
     // MARK: - Form Validation
 
     /// Check if the sign in button is enabled
