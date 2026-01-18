@@ -10,9 +10,10 @@ generate:
   - types
   - client
 
-# Keep generated code internal to the AIQ module
-# This prevents exposing generated types as part of the public API
-accessModifier: internal
+# Make generated types public so they can be used from the main app
+# This allows extensions in this package to add UI computed properties
+# that are accessible from the main AIQ app module
+accessModifier: public
 
 # Use idiomatic Swift naming conventions
 # This converts OpenAPI identifiers (snake_case, etc.) to Swift-idiomatic names (camelCase)

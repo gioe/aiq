@@ -51,6 +51,54 @@ The spec is exported by the backend CI and stored in `docs/api/openapi.json`. If
 
 For more details, see [docs/SWIFT_OPENAPI_INTEGRATION.md](docs/SWIFT_OPENAPI_INTEGRATION.md).
 
+### Extending Generated Models
+
+The OpenAPI generator creates type-safe Swift structs but doesn't include UI-specific computed properties. Extensions add formatting, display text, and accessibility helpers to generated models.
+
+**Extension Location:** `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/`
+
+**Pattern:** Each extension file follows `<TypeName>+UI.swift` naming:
+
+```
+Extensions/
+├── TestResultResponse+UI.swift      # Score formatting, accessibility
+├── ConfidenceIntervalSchema+UI.swift # Range formatting, percentages
+├── UserResponse+UI.swift            # Full name, initials
+└── QuestionResponse+UI.swift        # Type display, difficulty colors
+```
+
+**Why extensions are in the package (not the main app):**
+- Generated types and extensions are `public` for access from the main app
+- Extensions must be in the same module as the types they extend
+- All generated code and extensions are centralized in the API client package
+
+**Adding a new extension:**
+
+1. Check what properties exist in the generated type (run a build first to generate `Types.swift`)
+2. Create `<TypeName>+UI.swift` in the Extensions directory
+3. Add computed properties for formatting, display, colors, or accessibility
+4. Mark properties as `public` for use outside the package
+
+**Example extension pattern:**
+
+```swift
+// UserResponse+UI.swift
+import Foundation
+
+extension Components.Schemas.UserResponse {
+    /// Full name combining first and last name
+    public var fullName: String {
+        "\(firstName) \(lastName)"
+    }
+}
+```
+
+**IDE Note:** SourceKit may show "Cannot find type 'Components' in scope" errors. This is expected—the generated types only exist after the build plugin runs. The project will compile successfully.
+
+**Date formatting:** Don't add date formatting to package extensions. The main app's `Date+Extensions.swift` provides cached, locale-aware formatters. Package extensions expose raw `Date` properties; format them in the UI layer.
+
+**Current Limitation:** The Swift OpenAPI Generator does not yet generate optional properties that use `anyOf: [type, null]` patterns. Only required properties appear in generated structs. Track [apple/swift-openapi-generator](https://github.com/apple/swift-openapi-generator) for updates.
+
 ## Features
 
 - **MVVM Architecture**: Clean separation of concerns with BaseViewModel foundation
@@ -155,6 +203,7 @@ ios/
 │       └── Helpers/        # Helper utilities (AppConfig, Validators)
 ├── Packages/            # Local Swift Packages
 │   └── AIQAPIClient/       # OpenAPI-generated type-safe API client
+│       └── Extensions/     # UI computed properties for generated types
 ├── docs/                # Documentation
 │   ├── CODING_STANDARDS.md       # Development standards and guidelines
 │   ├── ARCHITECTURE.md           # Architecture documentation
