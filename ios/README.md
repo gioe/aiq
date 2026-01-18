@@ -6,13 +6,35 @@ Native iOS application for tracking IQ scores over time.
 
 ```bash
 cd ios
+
+# Sync OpenAPI spec for API client code generation (required before first build)
+./scripts/sync_openapi_spec.sh
+
 open AIQ.xcodeproj
 ```
 
 In Xcode:
 1. Select your development team in project settings (Signing & Capabilities)
 2. Choose a simulator or connected device
-3. Build and run (⌘+R)
+3. On first build, approve the OpenAPIGenerator plugin when prompted (click "Trust & Enable")
+4. Build and run (⌘+R)
+
+### OpenAPI Client Generation
+
+The iOS app uses Apple's [swift-openapi-generator](https://github.com/apple/swift-openapi-generator) to generate type-safe Swift code from the backend's OpenAPI specification. The generated code is located in the `Packages/AIQAPIClient` local Swift Package.
+
+**Important**: The OpenAPI spec file (`openapi.json`) is not committed to the repository. You must run the sync script before building:
+
+```bash
+# Sync OpenAPI spec from docs/api/openapi.json to the local package
+./scripts/sync_openapi_spec.sh
+```
+
+The spec is exported by the backend CI and stored in `docs/api/openapi.json`. If this file doesn't exist, you need to either:
+1. Pull latest from main (includes the exported spec)
+2. Run the backend locally and export the spec manually
+
+For more details, see [docs/SWIFT_OPENAPI_INTEGRATION.md](docs/SWIFT_OPENAPI_INTEGRATION.md).
 
 ## Features
 
@@ -96,31 +118,34 @@ swiftformat --config .swiftformat --lint AIQ/
 ## Project Structure
 
 ```
-AIQ/
-├── Models/              # Data models
-├── ViewModels/          # MVVM ViewModels (inherit from BaseViewModel)
-├── Views/               # SwiftUI views by feature
-│   ├── Auth/           # Authentication screens
-│   ├── Test/           # Test-taking UI
-│   ├── Dashboard/      # Home view
-│   ├── History/        # Test history and charts
-│   ├── Settings/       # Settings and notifications
-│   └── Common/         # Reusable components
-├── Services/            # Business logic layer
-│   ├── Analytics/      # User behavior tracking
-│   ├── API/            # Network client with retry and token refresh
-│   ├── Auth/           # AuthManager, token management, and push notifications
-│   └── Storage/        # Keychain and local storage
-├── Utilities/           # Extensions, helpers, and design system
-│   ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
-│   ├── Extensions/     # Swift extensions (Date, String, View)
-│   └── Helpers/        # Helper utilities (AppConfig, Validators)
+ios/
+├── AIQ/                 # Main app target
+│   ├── Models/              # Data models
+│   ├── ViewModels/          # MVVM ViewModels (inherit from BaseViewModel)
+│   ├── Views/               # SwiftUI views by feature
+│   │   ├── Auth/           # Authentication screens
+│   │   ├── Test/           # Test-taking UI
+│   │   ├── Dashboard/      # Home view
+│   │   ├── History/        # Test history and charts
+│   │   ├── Settings/       # Settings and notifications
+│   │   └── Common/         # Reusable components
+│   ├── Services/            # Business logic layer
+│   │   ├── Analytics/      # User behavior tracking
+│   │   ├── API/            # Network client with retry and token refresh
+│   │   ├── Auth/           # AuthManager, token management, and push notifications
+│   │   └── Storage/        # Keychain and local storage
+│   └── Utilities/           # Extensions, helpers, and design system
+│       ├── Design/         # Design system (ColorPalette, Typography, DesignSystem)
+│       ├── Extensions/     # Swift extensions (Date, String, View)
+│       └── Helpers/        # Helper utilities (AppConfig, Validators)
+├── Packages/            # Local Swift Packages
+│   └── AIQAPIClient/       # OpenAPI-generated type-safe API client
 ├── docs/                # Documentation
 │   ├── CODING_STANDARDS.md       # Development standards and guidelines
 │   ├── ARCHITECTURE.md           # Architecture documentation
-│   ├── RTL_TESTING_GUIDE.md      # RTL layout testing instructions
-│   └── RTL_IMPLEMENTATION_SUMMARY.md  # RTL implementation details
+│   └── SWIFT_OPENAPI_INTEGRATION.md  # OpenAPI generator setup
 └── scripts/             # Utility scripts
     ├── add_files_to_xcode.rb    # Add files to Xcode project
+    ├── sync_openapi_spec.sh     # Sync OpenAPI spec for code generation
     └── test_rtl.sh              # RTL testing helper
 ```
