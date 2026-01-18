@@ -11,9 +11,10 @@ SOURCE="$PROJECT_ROOT/docs/api/openapi.json"
 DEST="$PROJECT_ROOT/ios/AIQ/openapi.json"
 
 if [ ! -f "$SOURCE" ]; then
-    echo "error: OpenAPI spec not found at $SOURCE"
+    echo "warning: OpenAPI spec not found at $SOURCE"
     echo "note: Run 'cd backend && poetry run python -m app.main --export-openapi' to generate it"
-    exit 1
+    echo "note: Skipping OpenAPI code generation for this build"
+    exit 0  # Exit successfully to not break fresh checkouts
 fi
 
 # Only copy if source is newer or dest doesn't exist
