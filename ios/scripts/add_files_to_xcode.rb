@@ -72,8 +72,25 @@ ARGV.each do |file_path|
     end
   end
 
-  # Add the file to the group (use just the filename, not the full path)
+  # Determine the file type based on extension
+  file_type = case File.extname(file_name).downcase
+  when '.swift' then 'sourcecode.swift'
+  when '.json' then 'text.json'
+  when '.yaml', '.yml' then 'text.yaml'
+  when '.plist' then 'text.plist.xml'
+  when '.md' then 'net.daringfireball.markdown'
+  when '.h' then 'sourcecode.c.h'
+  when '.m' then 'sourcecode.c.objc'
+  when '.strings' then 'text.plist.strings'
+  when '.storyboard' then 'file.storyboard'
+  when '.xib' then 'file.xib'
+  when '.xcassets' then 'folder.assetcatalog'
+  else nil
+  end
+
+  # Add the file to the group with proper file type
   file_ref = group.new_reference(file_name)
+  file_ref.last_known_file_type = file_type if file_type
 
   if no_target
     # Don't add to any target - just add to project for reference

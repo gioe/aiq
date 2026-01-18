@@ -42,6 +42,9 @@ ios/fastlane/test_output
 ios/.swiftpm/
 ios/Package.resolved
 
+# Swift OpenAPI Generator - spec is copied from docs/api/ at build time
+ios/AIQ/openapi.json
+
 # Node.js (if used for backend)
 node_modules/
 npm-debug.log*

@@ -100,16 +100,23 @@ The OpenAPI specification is located at:
 
 The Swift OpenAPI Generator runs as a build plugin during Xcode builds. To complete the setup:
 
-1. **Add both files to the AIQ target**:
-   - Add `openapi-generator-config.yaml` to "Compile Sources" in Build Phases
-   - Add `openapi.json` to "Compile Sources" in Build Phases
+1. **Files are already added to the project** (NOT to Compile Sources):
+   - `openapi-generator-config.yaml` - visible in Xcode project navigator
+   - `openapi.json` - visible in Xcode project navigator
+   - The build plugin discovers these files automatically from the project directory
 
 2. **Configure the build plugin**:
    - In Target → Build Phases → Run Build Tool Plug-ins
    - Add the "OpenAPIGenerator Plugin"
    - Xcode will display a security dialog on first build (approve it)
 
-3. **Generated code location**:
+3. **Sync the OpenAPI spec** before building:
+   ```bash
+   ./ios/scripts/sync_openapi_spec.sh
+   ```
+   Note: `openapi.json` is gitignored and copied from `docs/api/openapi.json` at build time.
+
+4. **Generated code location**:
    - The plugin generates Swift code automatically in the derived data directory
    - Generated code is NOT committed to source control
    - Code regenerates on each build when the OpenAPI spec changes

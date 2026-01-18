@@ -201,7 +201,7 @@ let mockClient = Client(
 ### Troubleshooting
 
 **Problem**: "No config file found in the target"
-- **Solution**: Add both `openapi.json` and `openapi-generator-config.yaml` to Build Phases → Compile Sources
+- **Solution**: Ensure both `openapi.json` and `openapi-generator-config.yaml` are visible in the Xcode project navigator (added to the project, NOT to Compile Sources)
 
 **Problem**: "Build plugin not executing"
 - **Solution**: Add "OpenAPIGenerator Plugin" to Build Phases → Run Build Tool Plug-ins
@@ -209,15 +209,29 @@ let mockClient = Client(
 **Problem**: Security dialog on build
 - **Solution**: This is expected on first build - approve the plugin execution
 
+**Note**: The config files should NOT be added to "Compile Sources" - they are discovered by the build plugin automatically from the project directory.
+
 ## Keeping Spec in Sync
 
-The OpenAPI spec is automatically exported by backend CI (TASK-360):
+The OpenAPI spec is automatically exported by backend CI (TASK-360) to `docs/api/openapi.json`.
+
+### Automatic Sync (Recommended)
+
+Run the sync script before building:
+```bash
+./ios/scripts/sync_openapi_spec.sh
+```
+
+Or add it as a pre-build script phase in Xcode.
+
+### Manual Sync
 
 1. **Backend CI updates** `docs/api/openapi.json` after schema changes
-2. **Manually copy** to `ios/AIQ/openapi.json` when updating iOS
+2. **Copy** to `ios/AIQ/openapi.json`:
+   ```bash
+   cp docs/api/openapi.json ios/AIQ/openapi.json
+   ```
 3. **Build** triggers automatic regeneration of Swift code
-
-**Future improvement**: Automate the copy step in iOS CI or pre-build script.
 
 ## References
 
