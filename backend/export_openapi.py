@@ -25,7 +25,7 @@ def export_openapi(output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w") as f:
-        json.dump(openapi_spec, f, indent=2)
+        json.dump(openapi_spec, f, indent=2, sort_keys=True)
 
     print(f"OpenAPI spec exported to {output_path}")
 
