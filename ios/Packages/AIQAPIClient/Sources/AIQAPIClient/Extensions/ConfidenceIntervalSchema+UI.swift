@@ -30,7 +30,9 @@ public extension Components.Schemas.ConfidenceIntervalSchema {
     }
 
     /// Width of the interval in IQ points (e.g., 14 for range 101-115)
-    /// Useful for UI decisions about precision display
+    /// Callers can use this to make precision decisions based on their own thresholds.
+    /// Note: isPrecise was intentionally not included as "precision" thresholds vary by context
+    /// and should be defined in the UI layer where the domain-specific cutoffs are known.
     var intervalWidth: Int {
         upper - lower
     }

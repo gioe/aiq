@@ -18,9 +18,12 @@ public extension Components.Schemas.UserResponse {
     }
 
     /// User's initials (e.g., "JS" for John Smith)
+    /// Returns "?" for empty or whitespace-only names
     var initials: String {
-        let firstInitial = firstName.prefix(1).uppercased()
-        let lastInitial = lastName.prefix(1).uppercased()
+        let first = firstName.trimmingCharacters(in: .whitespaces)
+        let last = lastName.trimmingCharacters(in: .whitespaces)
+        let firstInitial = first.isEmpty ? "?" : first.prefix(1).uppercased()
+        let lastInitial = last.isEmpty ? "?" : last.prefix(1).uppercased()
         return "\(firstInitial)\(lastInitial)"
     }
 

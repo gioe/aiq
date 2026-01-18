@@ -131,6 +131,7 @@
 		7B73085F4CA89C234D24F553 /* AppStateStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06B09FEC0703158590FE3520 /* AppStateStorageTests.swift */; };
 		7BFCFF25E2A7EEA7A135D7CF /* MockNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945134461CB72E20E086213F /* MockNotificationManager.swift */; };
 		7DE3876139C04A28745F84E6 /* BaseViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E969F66598A35EF50CE54E /* BaseViewModelTests.swift */; };
+		7E2F0F5891CB9D895123CDB3 /* AIQAPIClientExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60195BDAE48679057583973 /* AIQAPIClientExtensionsTests.swift */; };
 		7E3CEE3C88879F65A6974763 /* AccessibilityIdentifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63EA23F0234680209D47E0F1 /* AccessibilityIdentifierTests.swift */; };
 		80AEC4E022D96E849723DF5E /* TestTakingAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247C2966272215BF7BB8FC46 /* TestTakingAccessibilityTests.swift */; };
 		80B9EEE8FA91E852707EFD68 /* TestSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89105259A915501A4E00260B /* TestSessionTests.swift */; };
@@ -449,6 +450,7 @@
 		C1B04B7E511EF2D9E069AA2F /* DomainScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainScoresView.swift; sourceTree = "<group>"; };
 		C3C7E70A15D25C7D186F8235 /* OnboardingContainerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingContainerView.swift; sourceTree = "<group>"; };
 		C43F5C5CECD9BF9BD4CDF913 /* ChartDomainCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartDomainCalculator.swift; sourceTree = "<group>"; };
+		C60195BDAE48679057583973 /* AIQAPIClientExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIQAPIClientExtensionsTests.swift; sourceTree = "<group>"; };
 		C7585F7DE65C589585935EB9 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
 		C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationEngagementTests.swift; sourceTree = "<group>"; };
 		CB7CB297B401BB40A27456F0 /* Constants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -1123,6 +1125,7 @@
 				C02F8C9F55B117C21CD8CDF7 /* StringLocalizationTests.swift */,
 				BCA19A5C88EDBB917FA54F8D /* DateExtensionsTests.swift */,
 				E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */,
+				C60195BDAE48679057583973 /* AIQAPIClientExtensionsTests.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -1210,7 +1213,7 @@
 				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "swift-openapi-generator" */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
-				821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */,
+				821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "AIQAPIClient" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -1349,6 +1352,7 @@
 				755819833C8FCA8D8B23ECF9 /* PageIndicatorTests.swift in Sources */,
 				DAECF970E635A57C1E52AC3D /* OnboardingSkippedInfoCardTests.swift in Sources */,
 				F5EE7639E0CF8C80E0991EF8 /* ToastManagerTests.swift in Sources */,
+				7E2F0F5891CB9D895123CDB3 /* AIQAPIClientExtensionsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1794,6 +1798,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "AIQAPIClient" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/AIQAPIClient;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1829,13 +1840,6 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/AIQAPIClient;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
 		5F67568DF35617BE6981320E /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1854,7 +1858,7 @@
 		};
 		DA4FCB7C2F404E6197A1C048 /* AIQAPIClient */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */;
+			package = 821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "AIQAPIClient" */;
 			productName = AIQAPIClient;
 		};
 		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
