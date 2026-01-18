@@ -8,13 +8,16 @@ import Foundation
 //
 // Current Limitation:
 // The Swift OpenAPI Generator (v1.10.4) does not support nullable types using
-// `anyOf: [type, null]` format. This causes optional fields like `confidenceInterval`,
-// `domainScores`, `answerOptions`, `timeSpentSeconds`, etc. to be omitted from
-// generated types.
+// `anyOf: [type, null]` format (see docs/api/openapi.json for examples). This
+// causes optional fields like `confidenceInterval`, `domainScores`, `answerOptions`,
+// `timeSpentSeconds`, etc. to be omitted from generated types.
 //
-// Planned Migration Path:
-// 1. Wait for Swift OpenAPI Generator to support nullable types, OR
-// 2. Update backend OpenAPI spec to use a different nullable format
+// Tracking: https://github.com/apple/swift-openapi-generator/issues
+// When nullable types are supported, execute migration plan below.
+//
+// Planned Migration Path (preferred: Option 1):
+// 1. Wait for Swift OpenAPI Generator to support nullable types (recommended)
+// 2. Alternative: Update backend OpenAPI spec to use a different nullable format
 // 3. Once generated types are complete, replace manual types with typealiases
 //
 // Type Mappings (for future migration):
