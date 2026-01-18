@@ -1177,6 +1177,7 @@
 			name = AIQ;
 			packageProductDependencies = (
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */,
+				DA4FCB7C2F404E6197A1C048 /* AIQAPIClient */,
 				611BDFC8D2A24A669AF6D722 /* TrustKit */,
 				5F67568DF35617BE6981320E /* FirebaseAnalytics */,
 				F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */,
@@ -1209,6 +1210,7 @@
 				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "swift-openapi-generator" */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
+				821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -1827,6 +1829,13 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/AIQAPIClient;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		5F67568DF35617BE6981320E /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1842,6 +1851,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
 			productName = OpenAPIRuntime;
+		};
+		DA4FCB7C2F404E6197A1C048 /* AIQAPIClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "Packages/AIQAPIClient" */;
+			productName = AIQAPIClient;
 		};
 		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
 			isa = XCSwiftPackageProductDependency;

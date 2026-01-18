@@ -44,6 +44,8 @@ ios/Package.resolved
 
 # Swift OpenAPI Generator - spec is copied from docs/api/ at build time
 ios/AIQ/openapi.json
+ios/Packages/**/openapi.json
+ios/Packages/**/.build/
 
 # Node.js (if used for backend)
 node_modules/
