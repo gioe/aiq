@@ -39,6 +39,12 @@ jobs:
       - name: List available simulators
         run: xcrun simctl list devices available
 
+      - name: Sync OpenAPI spec to iOS package
+        run: |
+          cd ios
+          chmod +x scripts/sync_openapi_spec.sh
+          scripts/sync_openapi_spec.sh
+
       - name: Build iOS project
         run: |
           cd ios
