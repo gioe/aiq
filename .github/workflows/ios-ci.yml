@@ -51,7 +51,7 @@ jobs:
           xcodebuild -project AIQ.xcodeproj \
             -scheme AIQ \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
             -skipPackagePluginValidation \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
