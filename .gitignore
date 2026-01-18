@@ -46,6 +46,7 @@ ios/Package.resolved
 ios/AIQ/openapi.json
 ios/Packages/**/openapi.json
 ios/Packages/**/.build/
+ios/Packages/**/Package.resolved
 
 # Node.js (if used for backend)
 node_modules/
