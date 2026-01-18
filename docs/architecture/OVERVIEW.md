@@ -56,7 +56,7 @@ The **OpenAPI specification is the single source of truth** for all API contract
 ```
 
 **Benefits:**
-- Type-safe API calls with compile-time verification
+- Type-safe API calls with build-time verification
 - Contract drift caught at build time, not runtime
 - Single authoritative spec eliminates manual synchronization
 - Generated code handles snake_case ↔ camelCase conversion

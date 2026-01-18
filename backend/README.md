@@ -39,7 +39,7 @@ The **OpenAPI spec is the single source of truth** for all API contracts between
 1. Backend Pydantic schemas define the contract (FastAPI auto-generates OpenAPI)
 2. CI exports the spec to `docs/api/openapi.json` on every backend change
 3. iOS uses Swift OpenAPI Generator to create type-safe client code from the spec
-4. Build-time code generation catches contract drift at compile time
+4. Build-time code generation catches contract drift before runtime
 
 **When making API changes:**
 - Modify Pydantic schemas in `app/schemas/`
