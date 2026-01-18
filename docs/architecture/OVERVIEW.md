@@ -37,6 +37,35 @@ This document describes the technical architecture, component design, data model
 └─────────────────────┘
 ```
 
+### API Contract Strategy
+
+The **OpenAPI specification is the single source of truth** for all API contracts between iOS and backend.
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Backend        │     │  OpenAPI Spec   │     │  iOS App        │
+│  Pydantic       │────▶│  docs/api/      │────▶│  Swift OpenAPI  │
+│  Schemas        │     │  openapi.json   │     │  Generator      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+       │                        │                        │
+       │ Defines                │ Exported by            │ Generates
+       │ contract               │ backend CI             │ type-safe code
+       ▼                        ▼                        ▼
+   FastAPI auto-            Committed to            Compile-time
+   generates spec           repository              verification
+```
+
+**Benefits:**
+- Type-safe API calls with build-time verification
+- Contract drift caught at build time, not runtime
+- Single authoritative spec eliminates manual synchronization
+- Generated code handles snake_case ↔ camelCase conversion
+
+**Workflow:**
+1. Backend modifies Pydantic schemas in `app/schemas/`
+2. CI exports updated OpenAPI spec to `docs/api/openapi.json`
+3. iOS syncs spec and rebuilds - compilation errors indicate breaking changes
+
 ### Component Interactions
 
 1. **iOS ↔ Backend**: REST API over HTTPS

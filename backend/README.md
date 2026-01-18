@@ -26,6 +26,27 @@ When the server is running, visit:
 - **Swagger UI**: http://localhost:8000/v1/docs
 - **ReDoc**: http://localhost:8000/v1/redoc
 
+### OpenAPI Specification
+
+The **OpenAPI spec is the single source of truth** for all API contracts between the backend and iOS app.
+
+| Resource | Location |
+|----------|----------|
+| **Spec File** | `docs/api/openapi.json` |
+| **Live Endpoint** | `/v1/openapi.json` |
+
+**Contract-First Development:**
+1. Backend Pydantic schemas define the contract (FastAPI auto-generates OpenAPI)
+2. CI exports the spec to `docs/api/openapi.json` on every backend change
+3. iOS uses Swift OpenAPI Generator to create type-safe client code from the spec
+4. Build-time code generation catches contract drift before runtime
+
+**When making API changes:**
+- Modify Pydantic schemas in `app/schemas/`
+- The OpenAPI spec updates automatically when the server runs
+- CI exports the updated spec; iOS regenerates client code
+- Breaking changes are caught at iOS build time (not runtime)
+
 ## Project Structure
 
 ```
