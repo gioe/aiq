@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQAPIClient
 import XCTest
 
 /// Concurrency stress tests for TokenRefreshInterceptor
@@ -510,18 +511,13 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     // MARK: - Helper Methods
 
     private func createMockUser() -> User {
-        User(
-            id: 1,
+        Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
     }
 

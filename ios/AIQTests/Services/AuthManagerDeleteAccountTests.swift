@@ -2,6 +2,7 @@ import Combine
 import XCTest
 
 @testable import AIQ
+import AIQAPIClient
 
 @MainActor
 final class AuthManagerDeleteAccountTests: XCTestCase {
@@ -26,18 +27,13 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
 
     func testDeleteAccount_Success() async throws {
         // Given - user is authenticated (set mock state before creating AuthManager)
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
@@ -58,18 +54,13 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
 
     func testDeleteAccount_Failure() async throws {
         // Given - set mock state before creating AuthManager
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: Date(),
-            notificationEnabled: true,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: true
         )
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser

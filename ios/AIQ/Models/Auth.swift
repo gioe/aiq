@@ -29,6 +29,11 @@ struct RegisterRequest: Codable {
     }
 }
 
+/// Authentication response from login/register endpoints
+///
+/// Contains authentication tokens and the authenticated user's information.
+/// The `user` field uses the generated `Components.Schemas.UserResponse` type
+/// via the `User` typealias defined in User.swift.
 struct AuthResponse: Codable {
     let accessToken: String
     let refreshToken: String

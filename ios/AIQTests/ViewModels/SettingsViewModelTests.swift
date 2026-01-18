@@ -2,6 +2,7 @@ import Combine
 import XCTest
 
 @testable import AIQ
+import AIQAPIClient
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
@@ -34,18 +35,13 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testInitialState_WithAuthenticatedUser() {
         // Given - Set up authenticated user on mock
-        let mockUser = User(
-            id: 1,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
         mockAuthManager.currentUser = mockUser
         mockAuthManager.isAuthenticated = true
@@ -127,18 +123,13 @@ final class SettingsViewModelTests: XCTestCase {
     func testLogout_Success() async {
         // Given
         mockAuthManager.isAuthenticated = true
-        mockAuthManager.currentUser = User(
-            id: 1,
+        mockAuthManager.currentUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
 
         // When
@@ -340,18 +331,13 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(sut.currentUser)
 
         // When - AuthManager authenticates
-        let mockUser = User(
-            id: 2,
+        let mockUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "updated@example.com",
             firstName: "Updated",
+            id: 2,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
         mockAuthManager.currentUser = mockUser
         mockAuthManager.isAuthenticated = true
@@ -369,18 +355,13 @@ final class SettingsViewModelTests: XCTestCase {
     func testCompleteLogoutFlow() async {
         // Given - Authenticated user
         mockAuthManager.isAuthenticated = true
-        mockAuthManager.currentUser = User(
-            id: 1,
+        mockAuthManager.currentUser = Components.Schemas.UserResponse(
+            createdAt: Date(),
             email: "test@example.com",
             firstName: "Test",
+            id: 1,
             lastName: "User",
-            createdAt: Date(),
-            lastLoginAt: nil,
-            notificationEnabled: false,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
-            region: nil
+            notificationEnabled: false
         )
         sut = SettingsViewModel(authManager: mockAuthManager)
 
