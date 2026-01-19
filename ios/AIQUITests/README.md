@@ -29,12 +29,6 @@ The UI tests read credentials from environment variables to avoid hardcoding sen
 | `AIQ_TEST_EMAIL` | Primary test account email | `uitest@example.com` |
 | `AIQ_TEST_PASSWORD` | Primary test account password | `SecurePassword123!` |
 
-#### Optional Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AIQ_TEST_TIMEOUT` | Custom timeout for network operations | `10` (seconds) |
-
 ### Configuring Environment Variables
 
 #### Option 1: Xcode Scheme (Recommended for local development)
@@ -62,19 +56,6 @@ xcodebuild test \
   -scheme AIQ \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
   -only-testing:AIQUITests
-```
-
-#### Option 3: xcodebuild Arguments
-
-Pass environment variables directly to xcodebuild:
-
-```bash
-xcodebuild test \
-  -scheme AIQ \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
-  -only-testing:AIQUITests \
-  AIQ_TEST_EMAIL="uitest@example.com" \
-  AIQ_TEST_PASSWORD="SecureTestPassword123!"
 ```
 
 ### Environment-Specific Configuration
