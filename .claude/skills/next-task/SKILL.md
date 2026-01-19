@@ -16,7 +16,7 @@ Finds the highest-priority task that is ready to work on (no incomplete dependen
 
 ```bash
 sqlite3 -header -column tasks.db "
-SELECT t.id, t.summary, t.priority, t.domain, t.assignee, t.description
+SELECT t.id, t.summary, t.priority, t.priority_score, t.domain, t.assignee, t.description
 FROM tasks t
 WHERE t.status = 'To Do'
   AND NOT EXISTS (
@@ -24,18 +24,12 @@ WHERE t.status = 'To Do'
     JOIN tasks blocker ON d.depends_on_id = blocker.id
     WHERE d.task_id = t.id AND blocker.status != 'Done'
   )
-ORDER BY
-  CASE t.priority
-    WHEN 'Highest' THEN 1
-    WHEN 'High' THEN 2
-    WHEN 'Medium' THEN 3
-    WHEN 'Low' THEN 4
-    ELSE 5
-  END,
-  t.id
+ORDER BY t.priority_score DESC, t.id
 LIMIT 1;
 "
 ```
+
+**Note**: The `priority_score` is pre-computed by `/groom-backlog` and factors in priority level, how many tasks this unblocks, and task age. This enables fast, intelligent task selection without LLM inference.
 
 After finding the next ready task, **immediately proceed to the "Begin Work on a Task" workflow** using the retrieved task ID. Do not wait for user confirmation.
 
@@ -272,15 +266,7 @@ WHERE t.status = 'To Do'
     JOIN tasks blocker ON d.depends_on_id = blocker.id
     WHERE d.task_id = t.id AND blocker.status != 'Done'
   )
-ORDER BY
-  CASE t.priority
-    WHEN 'Highest' THEN 1
-    WHEN 'High' THEN 2
-    WHEN 'Medium' THEN 3
-    WHEN 'Low' THEN 4
-    ELSE 5
-  END,
-  t.id
+ORDER BY t.priority_score DESC, t.id
 LIMIT <n>;
 "
 ```
@@ -348,15 +334,7 @@ WHERE t.status = 'To Do'
     JOIN tasks blocker ON d.depends_on_id = blocker.id
     WHERE d.task_id = t.id AND blocker.status != 'Done'
   )
-ORDER BY
-  CASE t.priority
-    WHEN 'Highest' THEN 1
-    WHEN 'High' THEN 2
-    WHEN 'Medium' THEN 3
-    WHEN 'Low' THEN 4
-    ELSE 5
-  END,
-  t.id
+ORDER BY t.priority_score DESC, t.id
 LIMIT 1;
 "
 ```

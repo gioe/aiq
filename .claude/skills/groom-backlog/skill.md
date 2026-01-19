@@ -202,7 +202,58 @@ Confirm the change was applied:
 sqlite3 -header -column tasks.db "SELECT id, summary, status, priority FROM tasks WHERE id = <id>"
 ```
 
-## Step 7: Generate Summary Report
+## Step 7: Compute Priority Scores
+
+After all grooming changes are complete, compute `priority_score` for all open tasks. This enables `/next-task` to select the most important task without LLM inference.
+
+### Scoring Formula
+
+```
+priority_score = base_priority + unblocks_bonus + age_bonus
+```
+
+Where:
+- **base_priority**: Highest=40, High=30, Medium=20, Low=10
+- **unblocks_bonus**: +15 if task has any dependents, +5 per dependent task
+- **age_bonus**: +10 if created more than 14 days ago
+
+### Compute and Update Scores
+
+```bash
+# Update priority_score for all open tasks
+sqlite3 tasks.db "
+UPDATE tasks SET priority_score = (
+  -- Base priority
+  CASE priority
+    WHEN 'Highest' THEN 40
+    WHEN 'High' THEN 30
+    WHEN 'Medium' THEN 20
+    WHEN 'Low' THEN 10
+    ELSE 15
+  END
+  -- Unblocks bonus: +15 if has dependents, +5 per dependent
+  + COALESCE((
+    SELECT CASE WHEN COUNT(*) > 0 THEN 15 + (COUNT(*) * 5) ELSE 0 END
+    FROM task_dependencies d
+    WHERE d.depends_on_id = tasks.id
+  ), 0)
+  -- Age bonus: +10 if older than 14 days
+  + CASE WHEN julianday('now') - julianday(created_at) > 14 THEN 10 ELSE 0 END
+)
+WHERE status != 'Done';
+"
+
+# Verify the scores
+sqlite3 -header -column tasks.db "
+SELECT id, summary, priority, priority_score
+FROM tasks
+WHERE status = 'To Do'
+ORDER BY priority_score DESC
+LIMIT 10;
+"
+```
+
+## Step 8: Generate Summary Report
 
 After all changes are complete, provide a summary:
 
