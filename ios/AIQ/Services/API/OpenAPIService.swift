@@ -67,7 +67,16 @@ protocol OpenAPIServiceProtocol: Sendable {
 
 // MARK: - Implementation
 
-/// OpenAPI service implementation that wraps the generated client
+/// OpenAPI service implementation that wraps the generated client.
+///
+/// This class is marked `@unchecked Sendable` because:
+/// - `AIQAPIClientFactory` is thread-safe: it only holds the server URL and middleware actors
+/// - `Client` (from swift-openapi-runtime) is designed to be thread-safe for concurrent requests
+/// - `AuthenticationMiddleware` uses an actor for token storage, ensuring thread-safe access
+/// - All properties are `let` constants, initialized once in `init`
+///
+/// The generated Client from swift-openapi-generator uses URLSession internally,
+/// which is thread-safe for concurrent requests.
 final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private let factory: AIQAPIClientFactory
     private let client: Client
@@ -173,19 +182,21 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             guard case let .json(tokenRefresh) = okResponse.body else {
                 throw APIError.invalidResponse
             }
-            // TokenRefresh has access_token, refresh_token, and token_type
-            // For refresh, we don't get user data back, so we need to fetch it separately
-            // For now, throw an error - callers should handle refresh differently
-            // or fetch user profile after refresh
-            throw APIError.invalidResponse
+            // TokenRefresh includes user data, so we can build a complete AuthResponse
+            return AuthResponse(
+                accessToken: tokenRefresh.accessToken,
+                refreshToken: tokenRefresh.refreshToken,
+                tokenType: tokenRefresh.tokenType ?? "Bearer",
+                user: tokenRefresh.user
+            )
 
         case let .undocumented(statusCode, _):
             throw mapUndocumentedError(statusCode: statusCode)
         }
     }
 
-    /// Refresh access token - returns a partial response without user data
-    /// Use this when you only need the new tokens
+    /// Refresh access token - returns only the new tokens without user data.
+    /// Use this when you only need to refresh tokens and don't need user profile.
     func refreshAccessToken() async throws -> (accessToken: String, refreshToken: String, tokenType: String) {
         let response = try await client.refreshAccessTokenV1AuthRefreshPost()
 
@@ -196,7 +207,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             }
             return (
                 accessToken: tokenRefresh.accessToken,
-                refreshToken: tokenRefresh.refreshToken ?? "",
+                refreshToken: tokenRefresh.refreshToken,
                 tokenType: tokenRefresh.tokenType ?? "Bearer"
             )
 
@@ -267,7 +278,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     // swiftlint:disable:next line_length
-    func submitTest(sessionId: Int, responses: [QuestionResponse], timeLimitExceeded: Bool = false) async throws -> Components.Schemas.SubmitTestResponse {
+    func submitTest(sessionId: Int, responses: [QuestionResponse], timeLimitExceeded: Bool) async throws -> Components.Schemas.SubmitTestResponse {
         let items = responses.map { response in
             Components.Schemas.ResponseItem(
                 questionId: response.questionId,
