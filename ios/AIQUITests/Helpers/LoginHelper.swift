@@ -59,13 +59,21 @@ class LoginHelper {
     }
 
     /// Dashboard tab in tab bar
+    /// Note: SwiftUI TabView buttons don't support custom accessibility identifiers.
+    /// The button is identified by its label text "Dashboard".
     var dashboardTab: XCUIElement {
-        app.buttons["tabBar.dashboardTab"]
+        // Try accessibility identifier first, fall back to label text
+        let byId = app.buttons["tabBar.dashboardTab"]
+        if byId.exists { return byId }
+        return app.buttons["Dashboard"]
     }
 
     /// Settings tab in tab bar
+    /// Note: SwiftUI TabView buttons don't support custom accessibility identifiers.
     var settingsTab: XCUIElement {
-        app.buttons["tabBar.settingsTab"]
+        let byId = app.buttons["tabBar.settingsTab"]
+        if byId.exists { return byId }
+        return app.buttons["Settings"]
     }
 
     /// Logout button in Settings
@@ -167,7 +175,17 @@ class LoginHelper {
         let dashboardAppeared = dashboardTab.waitForExistence(timeout: waitTimeout)
 
         if !dashboardAppeared {
-            XCTFail("Dashboard did not appear after login")
+            // Capture debugging information
+            let allButtons = app.buttons.allElementsBoundByIndex.map { "\($0.identifier): \($0.label)" }
+            let allNavBars = app.navigationBars.allElementsBoundByIndex.map(\.identifier)
+            let allStaticTexts = app.staticTexts.allElementsBoundByIndex.prefix(10).map(\.label)
+
+            XCTFail("""
+            Dashboard did not appear after login.
+            Available buttons: \(allButtons.joined(separator: ", "))
+            Navigation bars: \(allNavBars.joined(separator: ", "))
+            Static texts (first 10): \(allStaticTexts.joined(separator: ", "))
+            """)
         }
 
         return dashboardAppeared

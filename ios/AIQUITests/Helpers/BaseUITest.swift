@@ -82,14 +82,65 @@ class BaseUITest: XCTestCase {
         try super.tearDownWithError()
     }
 
+    // MARK: - Mock Mode Configuration
+
+    /// The mock scenario to use for this test
+    /// Override in subclasses or set in test methods before launching
+    var mockScenario: String = "default"
+
     // MARK: - Launch Configuration
 
     /// Configure launch arguments and environment variables
     /// Override this method in subclasses to customize launch configuration
     func setupLaunchConfiguration() {
-        // Add any launch arguments or environment variables here
-        // Example: app.launchArguments = ["-UITest"]
-        // Example: app.launchEnvironment = ["DISABLE_ANIMATIONS": "1"]
+        // Enable mock mode for UI tests
+        app.launchArguments.append("-UITestMockMode")
+
+        // Set the mock scenario via environment variable
+        // Key must match MockModeDetector.scenarioEnvironmentKey
+        app.launchEnvironment["MOCK_SCENARIO"] = mockScenario
+
+        // Skip onboarding for tests (UserDefaults key via launch arguments)
+        app.launchArguments.append("-hasCompletedOnboarding")
+        app.launchArguments.append("1")
+
+        // Skip privacy consent for tests (UserDefaults key)
+        app.launchArguments.append("-com.aiq.privacyConsentAccepted")
+        app.launchArguments.append("1")
+    }
+
+    /// Relaunch the app with a specific mock scenario
+    /// - Parameter scenario: The scenario name (e.g., "loggedIn", "loggedOut", "testInProgress")
+    func relaunchWithScenario(_ scenario: String) {
+        app.terminate()
+
+        // Brief delay for app termination
+        Thread.sleep(forTimeInterval: appTerminationDelay)
+
+        mockScenario = scenario
+        app = XCUIApplication()
+        setupLaunchConfiguration()
+        app.launch()
+    }
+
+    /// Relaunch the app in logged-in state with test history
+    func relaunchAsLoggedInWithHistory() {
+        relaunchWithScenario("loggedInWithHistory")
+    }
+
+    /// Relaunch the app in logged-in state without test history
+    func relaunchAsLoggedInNoHistory() {
+        relaunchWithScenario("loggedInNoHistory")
+    }
+
+    /// Relaunch the app in logged-out state
+    func relaunchAsLoggedOut() {
+        relaunchWithScenario("loggedOut")
+    }
+
+    /// Relaunch the app with a test in progress
+    func relaunchWithTestInProgress() {
+        relaunchWithScenario("testInProgress")
     }
 
     // MARK: - Helper Methods

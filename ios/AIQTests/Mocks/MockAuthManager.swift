@@ -176,6 +176,10 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         authError = nil
     }
 
+    func restoreSession() async {
+        // No-op for unit tests - state is configured directly
+    }
+
     // Test helper methods
     func reset() {
         isAuthenticated = false

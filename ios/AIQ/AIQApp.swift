@@ -8,7 +8,21 @@ struct AIQApp: App {
 
     init() {
         // Configure dependency injection container during app initialization
-        ServiceConfiguration.configureServices(container: ServiceContainer.shared)
+        // In DEBUG builds, check for UI test mock mode and use mock services if enabled
+        #if DEBUG
+            if MockModeDetector.isMockMode {
+                // App.init() runs on the main thread, so we can assume main actor isolation
+                // for calling the @MainActor mock configuration method
+                MainActor.assumeIsolated {
+                    MockServiceConfiguration.configureServices(container: ServiceContainer.shared)
+                }
+            } else {
+                ServiceConfiguration.configureServices(container: ServiceContainer.shared)
+            }
+        #else
+            ServiceConfiguration.configureServices(container: ServiceContainer.shared)
+        #endif
+
         // Mark configuration complete to enable DEBUG assertions for late registrations
         ServiceContainer.shared.markConfigurationComplete()
     }

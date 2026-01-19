@@ -31,12 +31,14 @@ import XCTest
 /// - Verifying history updates
 /// - Complete end-to-end flow from login to results
 ///
-/// # Requirements
-/// These tests are skipped by default and require:
-/// - Valid backend connection
-/// - Existing test account credentials
-/// - Proper test environment configuration
-/// - Active test session with questions
+/// # Mock Backend Mode
+/// These tests run against a mock backend automatically. The BaseUITest class
+/// passes the `-UITestMockMode` launch argument, which causes the app to use
+/// mock implementations of all services. No real backend connection is required.
+///
+/// Mock scenarios can be configured using:
+/// - `mockScenario` property before launch
+/// - `relaunchWithScenario(_:)` to change scenario mid-test
 ///
 /// # Error Handling Convention
 /// All helper method return values MUST be checked with assertions:
@@ -112,9 +114,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Test Start Tests
 
     func testStartNewTest_Success() throws {
-        // Skip: Requires backend connection and valid test account
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login first
         let loginSuccess = loginHelper.login(
             email: validEmail,
@@ -140,9 +139,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testStartNewTest_ShowsProgressIndicator() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -165,9 +161,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Answer Question Tests
 
     func testAnswerQuestion_SelectsOption() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -188,9 +181,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testAnswerQuestion_MultipleChoiceSelection() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -220,9 +210,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Navigation Tests
 
     func testNavigateQuestions_NextAndPrevious() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -258,9 +245,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testNavigateQuestions_PreviousButtonDisabledOnFirstQuestion() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -283,9 +267,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testNavigateQuestions_NextButtonDisabledWhenUnanswered() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -310,9 +291,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Complete Test Flow
 
     func testCompleteTestFlow_AllQuestionsAnswered() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -341,9 +319,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testCompleteTestFlow_AnswersAreSaved() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -383,9 +358,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Submit Test
 
     func testSubmitTest_ShowsResults() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -405,9 +377,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testSubmitTest_ShowsCompletionScreen() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -438,9 +407,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Results Screen Tests
 
     func testResultsScreen_DisplaysScore() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -466,9 +432,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testResultsScreen_DisplaysMetrics() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -506,9 +469,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testResultsScreen_DoneButton() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -546,9 +506,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - History Update Tests
 
     func testHistoryUpdate_AfterTestCompletion() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login
         XCTAssertTrue(
             loginHelper.login(email: validEmail, password: validPassword),
@@ -597,8 +554,6 @@ final class TestTakingFlowTests: BaseUITest {
 
     /// End-to-end test: login → start test → answer all → submit → view results → verify history → logout
     func testFullTestTakingFlow_EndToEnd() throws {
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Step 1: Login
         XCTAssertTrue(loginHelper.login(email: validEmail, password: validPassword), "Should log in")
         takeScreenshot(named: "E2E_Step1_Login")
@@ -654,8 +609,6 @@ final class TestTakingFlowTests: BaseUITest {
 
     /// Tests navigation between questions (forward/backward) during test-taking
     func testFullTestTakingFlow_WithNavigation() throws {
-        throw XCTSkip("Requires backend connection and valid test account")
-
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
             return
@@ -695,9 +648,6 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - Error Handling Tests
 
     func testAbandonTest_ShowsConfirmation() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -736,9 +686,6 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     func testAbandonTest_ExitsToBackDashboard() throws {
-        // Skip: Requires backend connection
-        throw XCTSkip("Requires backend connection and valid test account")
-
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")

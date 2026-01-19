@@ -1,0 +1,358 @@
+import Foundation
+
+#if DEBUG
+
+    /// Mock API client for UI tests
+    ///
+    /// This mock provides pre-configured responses for all API endpoints needed
+    /// by UI tests. Responses are configured based on the current MockScenario.
+    ///
+    /// Unlike the unit test MockAPIClient (which is an actor), this mock is
+    /// a simple class designed for synchronous UI test configuration.
+    final class UITestMockAPIClient: APIClientProtocol {
+        /// Current scenario determining response behavior
+        private var scenario: MockScenario = .default
+
+        /// Whether to simulate network errors
+        private var shouldSimulateNetworkError: Bool = false
+
+        init() {}
+
+        /// Configure the mock for a specific test scenario
+        func configureForScenario(_ scenario: MockScenario) {
+            self.scenario = scenario
+            shouldSimulateNetworkError = (scenario == .networkError)
+        }
+
+        // MARK: - APIClientProtocol
+
+        nonisolated func setAuthToken(_: String?) {
+            // No-op for UI tests - auth is handled by MockAuthManager
+        }
+
+        // swiftlint:disable:next function_parameter_count
+        func request<T: Decodable>(
+            endpoint: APIEndpoint,
+            method _: HTTPMethod,
+            body _: Encodable?,
+            requiresAuth _: Bool,
+            customHeaders _: [String: String]?,
+            cacheKey _: String?,
+            cacheDuration _: TimeInterval?,
+            forceRefresh _: Bool
+        ) async throws -> T {
+            // Simulate network delay
+            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+            if shouldSimulateNetworkError {
+                throw APIError.networkError(
+                    NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
+                )
+            }
+
+            // Route to appropriate mock response based on endpoint
+            return try mockResponse(for: endpoint)
+        }
+
+        // MARK: - Mock Response Routing
+
+        private func mockResponse<T: Decodable>(for endpoint: APIEndpoint) throws -> T {
+            let path = endpoint.path
+
+            // Test History endpoint
+            if path.contains("/test/history") {
+                return try castResponse(mockTestHistoryResponse())
+            }
+
+            // Test Active Session endpoint
+            if path.contains("/test/active") {
+                return try castResponse(mockActiveSessionResponse())
+            }
+
+            // Start Test endpoint
+            if path.contains("/test/start") {
+                return try castResponse(mockStartTestResponse())
+            }
+
+            // Get Questions endpoint
+            if path.contains("/test/questions") || path.contains("/questions") {
+                return try castResponse(mockQuestionsResponse())
+            }
+
+            // Submit Test endpoint
+            if path.contains("/test/submit") || path.contains("/submit") {
+                return try castResponse(mockSubmitTestResponse())
+            }
+
+            // Abandon Test endpoint
+            if path.contains("/test/abandon") || path.contains("/abandon") {
+                return try castResponse(mockAbandonTestResponse())
+            }
+
+            // User Profile endpoint
+            if path.contains("/user/me") || path.contains("/user/profile") {
+                return try castResponse(UITestMockAuthManager.mockUser)
+            }
+
+            // Default: throw error for unhandled endpoints
+            throw APIError.decodingError(
+                NSError(domain: "UITestMockAPIClient", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "No mock configured for endpoint: \(path)"
+                ])
+            )
+        }
+
+        // MARK: - Mock Response Builders
+
+        private func mockTestHistoryResponse() -> PaginatedTestHistoryResponse {
+            switch scenario {
+            case .loggedInNoHistory, .loggedOut, .default:
+                PaginatedTestHistoryResponse(
+                    results: [],
+                    totalCount: 0,
+                    limit: 50,
+                    offset: 0,
+                    hasMore: false
+                )
+            case .loggedInWithHistory, .testInProgress, .loginFailure, .networkError:
+                PaginatedTestHistoryResponse(
+                    results: UITestMockData.sampleTestHistory,
+                    totalCount: UITestMockData.sampleTestHistory.count,
+                    limit: 50,
+                    offset: 0,
+                    hasMore: false
+                )
+            }
+        }
+
+        private func mockActiveSessionResponse() -> TestSession? {
+            switch scenario {
+            case .testInProgress:
+                UITestMockData.inProgressSession
+            default:
+                nil
+            }
+        }
+
+        private func mockStartTestResponse() -> StartTestResponse {
+            StartTestResponse(
+                session: UITestMockData.newSession,
+                questions: UITestMockData.sampleQuestions,
+                totalQuestions: UITestMockData.sampleQuestions.count
+            )
+        }
+
+        private func mockQuestionsResponse() -> [Question] {
+            UITestMockData.sampleQuestions
+        }
+
+        private func mockSubmitTestResponse() -> TestSubmitResponse {
+            TestSubmitResponse(
+                session: UITestMockData.completedSession,
+                result: UITestMockData.highScoreResult,
+                responsesCount: UITestMockData.sampleQuestions.count,
+                message: "Test completed successfully"
+            )
+        }
+
+        private func mockAbandonTestResponse() -> TestAbandonResponse {
+            TestAbandonResponse(
+                session: UITestMockData.abandonedSession,
+                message: "Test abandoned",
+                responsesSaved: 5
+            )
+        }
+
+        // MARK: - Helpers
+
+        private func castResponse<T: Decodable>(_ response: some Any) throws -> T {
+            guard let typed = response as? T else {
+                throw APIError.decodingError(
+                    NSError(domain: "UITestMockAPIClient", code: -1, userInfo: [
+                        NSLocalizedDescriptionKey: "Response type mismatch"
+                    ])
+                )
+            }
+            return typed
+        }
+    }
+
+    // MARK: - Mock Data
+
+    /// Factory for creating mock data for UI tests
+    enum UITestMockData {
+        // MARK: - Sample Questions
+
+        static let sampleQuestions: [Question] = // swiftlint:disable force_try
+            [
+                try! Question(
+                    id: 1,
+                    questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange?",
+                    questionType: .logic,
+                    difficultyLevel: .easy,
+                    answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
+                ),
+                try! Question(
+                    id: 2,
+                    questionText: "What is 15% of 200?",
+                    questionType: .math,
+                    difficultyLevel: .easy,
+                    answerOptions: ["15", "20", "30", "35"]
+                ),
+                try! Question(
+                    id: 3,
+                    questionText: "What number comes next: 2, 4, 8, 16, ?",
+                    questionType: .pattern,
+                    difficultyLevel: .medium,
+                    answerOptions: ["24", "28", "32", "36"]
+                ),
+                try! Question(
+                    id: 4,
+                    questionText: "If all cats have whiskers, and Fluffy is a cat, what can we conclude?",
+                    questionType: .logic,
+                    difficultyLevel: .easy,
+                    answerOptions: [
+                        "Fluffy has whiskers",
+                        "Fluffy is white",
+                        "All whiskers belong to cats",
+                        "Cannot determine"
+                    ]
+                ),
+                try! Question(
+                    id: 5,
+                    questionText: "Which shape completes the pattern?",
+                    questionType: .spatial,
+                    difficultyLevel: .medium,
+                    answerOptions: ["Circle", "Square", "Triangle", "Pentagon"]
+                )
+            ]
+        // swiftlint:enable force_try
+
+        // MARK: - Sample Test Results
+
+        static let sampleTestHistory: [TestResult] = [
+            TestResult(
+                id: 1,
+                testSessionId: 1,
+                userId: 1,
+                iqScore: 105,
+                percentileRank: 63,
+                totalQuestions: 20,
+                correctAnswers: 13,
+                accuracyPercentage: 65.0,
+                completionTimeSeconds: 1200,
+                completedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60)
+            ),
+            TestResult(
+                id: 2,
+                testSessionId: 2,
+                userId: 1,
+                iqScore: 112,
+                percentileRank: 79,
+                totalQuestions: 20,
+                correctAnswers: 15,
+                accuracyPercentage: 75.0,
+                completionTimeSeconds: 1100,
+                completedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60)
+            ),
+            TestResult(
+                id: 3,
+                testSessionId: 3,
+                userId: 1,
+                iqScore: 118,
+                percentileRank: 88,
+                totalQuestions: 20,
+                correctAnswers: 17,
+                accuracyPercentage: 85.0,
+                completionTimeSeconds: 1000,
+                completedAt: Date().addingTimeInterval(-10 * 24 * 60 * 60)
+            ),
+            TestResult(
+                id: 4,
+                testSessionId: 4,
+                userId: 1,
+                iqScore: 125,
+                percentileRank: 95,
+                totalQuestions: 20,
+                correctAnswers: 18,
+                accuracyPercentage: 90.0,
+                completionTimeSeconds: 950,
+                completedAt: Date()
+            )
+        ]
+
+        // MARK: - Sample Test Sessions
+
+        static let newSession = TestSession(
+            id: 100,
+            userId: 1,
+            startedAt: Date(),
+            completedAt: nil,
+            status: .inProgress,
+            questions: sampleQuestions,
+            timeLimitExceeded: false
+        )
+
+        static let inProgressSession = TestSession(
+            id: 99,
+            userId: 1,
+            startedAt: Date().addingTimeInterval(-3600),
+            completedAt: nil,
+            status: .inProgress,
+            questions: nil,
+            timeLimitExceeded: false
+        )
+
+        static let completedSession = TestSession(
+            id: 100,
+            userId: 1,
+            startedAt: Date().addingTimeInterval(-1800),
+            completedAt: Date(),
+            status: .completed,
+            questions: nil,
+            timeLimitExceeded: false
+        )
+
+        static let abandonedSession = TestSession(
+            id: 100,
+            userId: 1,
+            startedAt: Date().addingTimeInterval(-900),
+            completedAt: Date(),
+            status: .abandoned,
+            questions: nil,
+            timeLimitExceeded: false
+        )
+
+        // MARK: - Sample Submitted Result
+
+        static let highScoreResult = SubmittedTestResult(
+            id: 5,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 128,
+            percentileRank: 97,
+            totalQuestions: 20,
+            correctAnswers: 18,
+            accuracyPercentage: 90.0,
+            completionTimeSeconds: 950,
+            completedAt: Date(),
+            responseTimeFlags: nil,
+            domainScores: [
+                "logic": DomainScore(correct: 4, total: 5, pct: 80.0, percentile: 85),
+                "math": DomainScore(correct: 5, total: 5, pct: 100.0, percentile: 99),
+                "pattern": DomainScore(correct: 4, total: 5, pct: 80.0, percentile: 82),
+                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 95),
+                "verbal": DomainScore(correct: 2, total: 2, pct: 100.0, percentile: 90)
+            ],
+            strongestDomain: "math",
+            weakestDomain: "pattern",
+            confidenceInterval: ConfidenceInterval(
+                lower: 121,
+                upper: 135,
+                confidenceLevel: 0.95,
+                standardError: 3.5
+            )
+        )
+    }
+
+#endif

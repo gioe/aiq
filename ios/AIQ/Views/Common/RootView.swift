@@ -39,7 +39,8 @@ import SwiftUI
 /// - SeeAlso: `OnboardingContainerView` - Zero analytics tracking
 /// - SeeAlso: `AnalyticsService` - Privacy-compliant event tracking
 struct RootView: View {
-    @ObservedObject private var authManager = AuthManager.shared
+    /// Auth state observer that works with any AuthManagerProtocol from the DI container
+    @StateObject private var authState: AuthStateObserver
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
     @ObservedObject private var toastManager = ToastManager.shared
     @State private var showSplash = true
@@ -49,10 +50,15 @@ struct RootView: View {
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
 
-    init(privacyConsentStorage: PrivacyConsentStorageProtocol = PrivacyConsentStorage.shared) {
+    init(
+        privacyConsentStorage: PrivacyConsentStorageProtocol = PrivacyConsentStorage.shared,
+        serviceContainer: ServiceContainer = .shared
+    ) {
         self.privacyConsentStorage = privacyConsentStorage
         // Initialize consent state from storage
         _hasAcceptedConsent = State(initialValue: privacyConsentStorage.hasAcceptedConsent())
+        // Initialize auth state observer from the container
+        _authState = StateObject(wrappedValue: AuthStateObserver(container: serviceContainer))
     }
 
     var body: some View {
@@ -61,7 +67,7 @@ struct RootView: View {
                 if !hasAcceptedConsent {
                     // Show privacy consent on first launch
                     PrivacyConsentView(hasAcceptedConsent: $hasAcceptedConsent)
-                } else if authManager.isAuthenticated {
+                } else if authState.isAuthenticated {
                     // Show onboarding for authenticated users who haven't completed it
                     if !hasCompletedOnboarding {
                         OnboardingContainerView()
@@ -74,7 +80,7 @@ struct RootView: View {
             }
             .task {
                 // Restore session on app launch
-                await authManager.restoreSession()
+                await authState.restoreSession()
 
                 // Keep splash screen visible for minimum duration for smooth transition
                 try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds

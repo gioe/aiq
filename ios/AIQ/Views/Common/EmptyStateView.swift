@@ -57,6 +57,7 @@ struct EmptyStateView: View {
                 }
                 .padding(.horizontal, DesignSystem.Spacing.huge)
                 .padding(.top, DesignSystem.Spacing.sm)
+                .accessibilityIdentifier("emptyStateView.actionButton")
                 .accessibilityLabel(actionTitle)
                 .accessibilityHint("Activate to \(actionTitle.lowercased())")
             }

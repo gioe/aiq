@@ -28,4 +28,10 @@ protocol AuthManagerProtocol: AnyObject {
     func logout() async
     func deleteAccount() async throws
     func clearError()
+
+    /// Restore session from stored credentials
+    ///
+    /// Called on app launch to restore authentication state from secure storage.
+    /// For mock implementations, this may be a no-op if state is pre-configured.
+    func restoreSession() async
 }

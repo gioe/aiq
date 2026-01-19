@@ -29,8 +29,25 @@ class TestTakingHelper {
     // MARK: - UI Element Queries
 
     /// Start Test button (from dashboard)
+    /// For users with history: dashboardView.actionButton
+    /// For new users (empty state): emptyStateView.actionButton
     var startTestButton: XCUIElement {
-        app.buttons["dashboardView.actionButton"]
+        // Try action button first (for users with existing history)
+        let actionButton = app.buttons["dashboardView.actionButton"]
+        if actionButton.exists {
+            return actionButton
+        }
+
+        // For new users, try the empty state action button
+        let emptyStateActionButton = app.buttons["emptyStateView.actionButton"]
+        if emptyStateActionButton.exists {
+            return emptyStateActionButton
+        }
+
+        // Fallback: predicate match for buttons with "Start" and "Test" in label
+        return app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Start' AND label CONTAINS[c] 'Test'")
+        ).firstMatch
     }
 
     /// Resume Test button (when test is in progress)
@@ -325,7 +342,17 @@ class TestTakingHelper {
             questionText.waitForExistence(timeout: waitTimeout)
 
         if !questionAppeared {
-            XCTFail("Question did not appear")
+            // Capture debugging information
+            let allButtons = app.buttons.allElementsBoundByIndex.map { "\($0.identifier): \($0.label)" }
+            let allNavBars = app.navigationBars.allElementsBoundByIndex.map(\.identifier)
+            let allStaticTexts = app.staticTexts.allElementsBoundByIndex.prefix(10).map(\.label)
+
+            XCTFail("""
+            Question did not appear.
+            Available buttons: \(allButtons.joined(separator: ", "))
+            Navigation bars: \(allNavBars.joined(separator: ", "))
+            Static texts (first 10): \(allStaticTexts.joined(separator: ", "))
+            """)
         }
 
         return questionAppeared
