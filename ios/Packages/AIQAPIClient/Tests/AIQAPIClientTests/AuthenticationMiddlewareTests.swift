@@ -172,7 +172,7 @@ struct AuthenticationMiddlewareTests {
     }
 
     @Test("setTokens sets both tokens")
-    func setTokensSetsBoths() async throws {
+    func setTokensSetsBoth() async throws {
         let middleware = AuthenticationMiddleware()
 
         await middleware.setTokens(accessToken: "access", refreshToken: "refresh")
@@ -184,7 +184,35 @@ struct AuthenticationMiddlewareTests {
         #expect(token == "access")
     }
 
-    @Test("clearTokens removes both tokens")
+    @Test("setRefreshToken updates the refresh token independently")
+    func setRefreshTokenUpdatesRefreshToken() async throws {
+        let middleware = AuthenticationMiddleware(accessToken: "access")
+
+        await middleware.setRefreshToken("refresh")
+
+        // Verify refresh token is used for refresh endpoint
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "https",
+            authority: "api.example.com",
+            path: "/v1/auth/refresh"
+        )
+        var capturedRequest: HTTPRequest?
+
+        _ = try await middleware.intercept(
+            request,
+            body: nil,
+            baseURL: URL(string: "https://api.example.com")!,
+            operationID: "refresh_access_token_v1_auth_refresh_post"
+        ) { req, _, _ in
+            capturedRequest = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        #expect(capturedRequest?.headerFields[.authorization] == "Bearer refresh")
+    }
+
+    @Test("clearTokens removes both tokens and prevents header injection")
     func clearTokensRemovesBoth() async throws {
         let middleware = AuthenticationMiddleware(
             accessToken: "access",
@@ -198,6 +226,26 @@ struct AuthenticationMiddlewareTests {
 
         let token = await middleware.getAccessToken()
         #expect(token == nil)
+
+        // Verify no token is injected after clearing
+        var capturedRequest: HTTPRequest?
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "https",
+            authority: "api.example.com",
+            path: "/v1/test"
+        )
+        _ = try await middleware.intercept(
+            request,
+            body: nil,
+            baseURL: URL(string: "https://api.example.com")!,
+            operationID: "test"
+        ) { req, _, _ in
+            capturedRequest = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        #expect(capturedRequest?.headerFields[.authorization] == nil)
     }
 
     @Test("hasAccessToken returns correct value")
