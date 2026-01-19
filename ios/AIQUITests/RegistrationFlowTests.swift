@@ -466,10 +466,25 @@ final class RegistrationFlowTests: BaseUITest {
 
     //
     // Note: These tests document the expected keyboard navigation behavior for the registration form.
-    // They are currently skipped because the keyboard navigation functionality (submitLabel,
-    // @FocusState, onSubmit handlers) is not yet implemented in CustomTextField.swift.
-    // Once the functionality is implemented, remove the skip statements and enable these tests.
-    // See: Apple's TextField submitLabel and FocusState documentation for implementation guidance.
+    //
+    // Tests are skipped for the following reasons:
+    // - testReturnKeyAdvancesToNextField, testFinalFieldReturnKeyBehavior, testFocusMovesCorrectlyThroughForm:
+    //   These require keyboard navigation functionality (submitLabel, @FocusState, onSubmit handlers)
+    //   that is not yet implemented in CustomTextField.swift.
+    // - testKeyboardAppearsWhenFieldTapped, testTappingOutsideFieldDismissesKeyboard:
+    //   These test basic keyboard behavior that should work, but are skipped to keep the test suite
+    //   focused on core functionality until full UI test coverage is enabled.
+    //
+    // Implementation checklist for keyboard navigation:
+    // 1. Add @FocusState enum in RegistrationView to track which field is focused
+    // 2. Add .focused() modifier to each text field binding to the FocusState
+    // 3. Add .submitLabel(.next) to fields that should advance, .submitLabel(.done) to final field
+    // 4. Add .onSubmit { focusedField = .nextField } to advance focus between fields
+    // 5. Final field's onSubmit should either dismiss keyboard or trigger form submission
+    //
+    // References:
+    // - https://developer.apple.com/documentation/swiftui/focusstate
+    // - https://developer.apple.com/documentation/swiftui/textfield/submitlabel(_:)
 
     func testReturnKeyAdvancesToNextField() throws {
         // Skip: Keyboard navigation not yet implemented in CustomTextField
@@ -637,8 +652,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testKeyboardAppearsWhenFieldTapped() throws {
-        // Skip: Test documents expected behavior, skipped until mock mode supports full UI testing
-        throw XCTSkip("UI test skipped - mock mode does not fully support keyboard testing")
+        // Skip: Basic keyboard behavior test - skipped until full UI test suite is enabled
+        throw XCTSkip("Keyboard visibility test - enable when full UI test coverage is active")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -659,8 +674,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testTappingOutsideFieldDismissesKeyboard() throws {
-        // Skip: Test documents expected behavior, skipped until mock mode supports full UI testing
-        throw XCTSkip("UI test skipped - mock mode does not fully support keyboard testing")
+        // Skip: Basic keyboard behavior test - skipped until full UI test suite is enabled
+        throw XCTSkip("Keyboard dismissal test - enable when full UI test coverage is active")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
