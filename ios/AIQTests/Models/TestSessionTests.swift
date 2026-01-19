@@ -231,23 +231,19 @@ final class TestSessionTests: XCTestCase {
         let date1 = Date()
         let date2 = Date(timeIntervalSince1970: 1_705_315_800) // 2024-01-15T10:30:00Z
 
-        let session1 = TestSession(
+        let session1 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: date1,
-            completedAt: date2,
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
-        let session2 = TestSession(
+        let session2 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: date1,
-            completedAt: date2,
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
@@ -257,24 +253,18 @@ final class TestSessionTests: XCTestCase {
     func testTestSessionInequalityDifferentId() throws {
         let date = Date()
 
-        let session1 = TestSession(
+        let session1 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: date,
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: date
         )
 
-        let session2 = TestSession(
+        let session2 = MockDataFactory.makeTestSession(
             id: 2,
             userId: 42,
-            startedAt: date,
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: date
         )
 
         XCTAssertNotEqual(session1, session2)
@@ -283,24 +273,18 @@ final class TestSessionTests: XCTestCase {
     func testTestSessionInequalityDifferentStatus() throws {
         let date = Date()
 
-        let session1 = TestSession(
+        let session1 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: date,
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: date
         )
 
-        let session2 = TestSession(
+        let session2 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: date,
-            completedAt: nil,
-            status: .completed,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "completed",
+            startedAt: date
         )
 
         XCTAssertNotEqual(session1, session2)
@@ -312,13 +296,11 @@ final class TestSessionTests: XCTestCase {
         let startedAt = Date(timeIntervalSince1970: 1_705_315_800) // 2024-01-15T10:30:00Z
         let completedAt = Date(timeIntervalSince1970: 1_705_317_600) // 2024-01-15T11:00:00Z
 
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 123,
             userId: 456,
+            status: "completed",
             startedAt: startedAt,
-            completedAt: completedAt,
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
@@ -332,13 +314,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSessionEncodingUsesSnakeCase() throws {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: Date(timeIntervalSince1970: 1_705_315_800),
-            completedAt: Date(timeIntervalSince1970: 1_705_317_600),
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: true
         )
 
@@ -364,14 +344,11 @@ final class TestSessionTests: XCTestCase {
     // MARK: - TestSession Identifiable Tests
 
     func testTestSessionIdentifiable() {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 789,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date()
         )
 
         XCTAssertEqual(session.id, 789)
@@ -430,14 +407,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testStartTestResponseEquality() throws {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date()
         )
 
         let question = try! Question(
@@ -465,14 +439,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testStartTestResponseEncodingRoundTrip() throws {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(timeIntervalSince1970: 1_705_315_800),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date(timeIntervalSince1970: 1_705_315_800)
         )
 
         let response = StartTestResponse(
@@ -689,13 +660,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmitResponseEquality() throws {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: Date(),
-            completedAt: Date(),
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
@@ -781,14 +750,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestAbandonResponseEquality() throws {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "abandoned",
+            startedAt: Date()
         )
 
         let response1 = TestAbandonResponse(
@@ -1907,23 +1873,18 @@ final class TestSessionTests: XCTestCase {
     // MARK: - Test Status Transition Logic Tests
 
     func testStatusTransitionFromInProgressToCompleted() {
-        let session1 = TestSession(
+        let session1 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date()
         )
 
-        let session2 = TestSession(
+        let session2 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: session1.startedAt,
-            completedAt: Date(),
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
@@ -1935,24 +1896,18 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testStatusTransitionFromInProgressToAbandoned() {
-        let session1 = TestSession(
+        let session1 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date()
         )
 
-        let session2 = TestSession(
+        let session2 = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: session1.startedAt,
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "abandoned",
+            startedAt: session1.startedAt
         )
 
         XCTAssertEqual(session1.status, .inProgress)
@@ -1960,13 +1915,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testCompletedSessionHasCompletedAt() {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
+            status: "completed",
             startedAt: Date(),
-            completedAt: Date(),
-            status: .completed,
-            questions: nil,
             timeLimitExceeded: false
         )
 
@@ -1975,14 +1928,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testInProgressSessionNoCompletedAt() {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "in_progress",
+            startedAt: Date()
         )
 
         XCTAssertEqual(session.status, .inProgress)
@@ -1990,14 +1940,11 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testAbandonedSessionMayNotHaveCompletedAt() {
-        let session = TestSession(
+        let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: nil
+            status: "abandoned",
+            startedAt: Date()
         )
 
         XCTAssertEqual(session.status, .abandoned)

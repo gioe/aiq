@@ -1,3 +1,4 @@
+import AIQAPIClient
 import Foundation
 import os
 
@@ -67,14 +68,25 @@ class AuthService: AuthServiceProtocol {
             print("   - Education level: \(educationLevel?.rawValue ?? "nil")")
         #endif
 
+        // Convert local EducationLevel to OpenAPI EducationLevelPayload
+        let educationPayload: Components.Schemas.UserRegister.EducationLevelPayload? = if let educationLevel {
+            if let schemaValue = Components.Schemas.EducationLevelSchema(rawValue: educationLevel.rawValue) {
+                .init(value1: schemaValue)
+            } else {
+                nil
+            }
+        } else {
+            nil
+        }
+
         let request = RegisterRequest(
+            birthYear: birthYear,
+            country: country,
+            educationLevel: educationPayload,
             email: email,
-            password: password,
             firstName: firstName,
             lastName: lastName,
-            birthYear: birthYear,
-            educationLevel: educationLevel,
-            country: country,
+            password: password,
             region: region
         )
 

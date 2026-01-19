@@ -43,7 +43,7 @@ struct IQTrendChart: View {
                     // measurement uncertainty at discrete test points - we have no data about
                     // uncertainty between tests, so smooth interpolation would be misleading.
                     ForEach(sampledDataWithCI) { result in
-                        if let ci = result.confidenceInterval {
+                        if let ci = result.confidenceIntervalConverted {
                             AreaMark(
                                 x: .value("Date", result.completedAt),
                                 yStart: .value("CI Lower", ci.lower),
@@ -194,80 +194,7 @@ struct IQTrendChart: View {
 }
 
 #Preview("With Confidence Intervals") {
-    let sampleHistory = [
-        TestResult(
-            id: 1,
-            testSessionId: 1,
-            userId: 1,
-            iqScore: 105,
-            percentileRank: 63.0,
-            totalQuestions: 20,
-            correctAnswers: 13,
-            accuracyPercentage: 65.0,
-            completionTimeSeconds: 1200,
-            completedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
-            confidenceInterval: ConfidenceInterval(
-                lower: 98,
-                upper: 112,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
-        ),
-        TestResult(
-            id: 2,
-            testSessionId: 2,
-            userId: 1,
-            iqScore: 112,
-            percentileRank: 75.0,
-            totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completionTimeSeconds: 1100,
-            completedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60),
-            confidenceInterval: ConfidenceInterval(
-                lower: 105,
-                upper: 119,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
-        ),
-        TestResult(
-            id: 3,
-            testSessionId: 3,
-            userId: 1,
-            iqScore: 118,
-            percentileRank: 88.0,
-            totalQuestions: 20,
-            correctAnswers: 17,
-            accuracyPercentage: 85.0,
-            completionTimeSeconds: 1050,
-            completedAt: Date().addingTimeInterval(-10 * 24 * 60 * 60),
-            confidenceInterval: ConfidenceInterval(
-                lower: 111,
-                upper: 125,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
-        ),
-        TestResult(
-            id: 4,
-            testSessionId: 4,
-            userId: 1,
-            iqScore: 125,
-            percentileRank: 95.0,
-            totalQuestions: 20,
-            correctAnswers: 18,
-            accuracyPercentage: 90.0,
-            completionTimeSeconds: 1000,
-            completedAt: Date(),
-            confidenceInterval: ConfidenceInterval(
-                lower: 118,
-                upper: 132,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
-        )
-    ]
+    let sampleHistory = MockDataFactory.sampleTestHistory
 
     ScrollView {
         IQTrendChart(testHistory: sampleHistory)
@@ -276,56 +203,7 @@ struct IQTrendChart: View {
 }
 
 #Preview("Without Confidence Intervals") {
-    let sampleHistory = [
-        TestResult(
-            id: 1,
-            testSessionId: 1,
-            userId: 1,
-            iqScore: 105,
-            percentileRank: 63.0,
-            totalQuestions: 20,
-            correctAnswers: 13,
-            accuracyPercentage: 65.0,
-            completionTimeSeconds: 1200,
-            completedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60)
-        ),
-        TestResult(
-            id: 2,
-            testSessionId: 2,
-            userId: 1,
-            iqScore: 112,
-            percentileRank: 75.0,
-            totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completionTimeSeconds: 1100,
-            completedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60)
-        ),
-        TestResult(
-            id: 3,
-            testSessionId: 3,
-            userId: 1,
-            iqScore: 118,
-            percentileRank: 88.0,
-            totalQuestions: 20,
-            correctAnswers: 17,
-            accuracyPercentage: 85.0,
-            completionTimeSeconds: 1050,
-            completedAt: Date().addingTimeInterval(-10 * 24 * 60 * 60)
-        ),
-        TestResult(
-            id: 4,
-            testSessionId: 4,
-            userId: 1,
-            iqScore: 125,
-            percentileRank: 95.0,
-            totalQuestions: 20,
-            correctAnswers: 18,
-            accuracyPercentage: 90.0,
-            completionTimeSeconds: 1000,
-            completedAt: Date()
-        )
-    ]
+    let sampleHistory = MockDataFactory.sampleTestHistory
 
     ScrollView {
         IQTrendChart(testHistory: sampleHistory)
@@ -334,17 +212,15 @@ struct IQTrendChart: View {
 }
 
 #Preview("Not Enough Data") {
-    let sampleHistory = [
-        TestResult(
+    let sampleHistory: [TestResult] = [
+        MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 1,
             userId: 1,
             iqScore: 105,
-            percentileRank: 63.0,
             totalQuestions: 20,
             correctAnswers: 13,
             accuracyPercentage: 65.0,
-            completionTimeSeconds: 1200,
             completedAt: Date()
         )
     ]

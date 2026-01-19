@@ -1,5 +1,31 @@
+import AIQAPIClient
 import Foundation
 
+// MARK: - Question Type Alias
+
+/// Question model re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.QuestionResponse` type.
+/// UI-specific computed properties are provided via the `Question+Extensions.swift` file.
+///
+/// **Generated Properties:**
+/// - id: Int
+/// - questionText: String (mapped from question_text)
+/// - questionType: String (raw string like "pattern", "logic")
+/// - difficultyLevel: String (raw string like "easy", "medium", "hard")
+/// - answerOptions: May have limited availability depending on OpenAPI generator version
+/// - explanation: May have limited availability depending on OpenAPI generator version
+///
+/// **Note:** The generated type uses String for questionType and difficultyLevel instead of enums.
+/// Extensions handle string comparisons for these properties.
+public typealias Question = Components.Schemas.QuestionResponse
+
+// MARK: - Question Type Enum
+
+/// Cognitive domain types for questions
+///
+/// This enum provides type-safe values for question types. The backend returns
+/// these as strings in the `questionType` property.
 enum QuestionType: String, Codable, Equatable {
     case pattern
     case logic
@@ -9,107 +35,24 @@ enum QuestionType: String, Codable, Equatable {
     case memory
 }
 
+// MARK: - Difficulty Level Enum
+
+/// Difficulty levels for questions
+///
+/// This enum provides type-safe values for difficulty levels. The backend returns
+/// these as strings in the `difficultyLevel` property.
 enum DifficultyLevel: String, Codable, Equatable {
     case easy
     case medium
     case hard
 }
 
-enum QuestionValidationError: Error, LocalizedError {
-    case emptyQuestionText
+// MARK: - Question Response
 
-    var errorDescription: String? {
-        switch self {
-        case .emptyQuestionText:
-            "Question text cannot be empty"
-        }
-    }
-}
-
-struct Question: Codable, Identifiable, Equatable {
-    let id: Int
-    let questionText: String
-    let questionType: QuestionType
-    let difficultyLevel: DifficultyLevel
-    let answerOptions: [String]?
-    let explanation: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case questionText = "question_text"
-        case questionType = "question_type"
-        case difficultyLevel = "difficulty_level"
-        case answerOptions = "answer_options"
-        case explanation
-    }
-
-    /// Creates a Question with validation
-    /// - Throws: `QuestionValidationError.emptyQuestionText` if questionText is empty
-    init(
-        id: Int,
-        questionText: String,
-        questionType: QuestionType,
-        difficultyLevel: DifficultyLevel,
-        answerOptions: [String]? = nil,
-        explanation: String? = nil
-    ) throws {
-        guard !questionText.isEmpty else {
-            throw QuestionValidationError.emptyQuestionText
-        }
-
-        self.id = id
-        self.questionText = questionText
-        self.questionType = questionType
-        self.difficultyLevel = difficultyLevel
-        self.answerOptions = answerOptions
-        self.explanation = explanation
-    }
-
-    /// Custom decoder with validation
-    /// - Throws: `QuestionValidationError.emptyQuestionText` if questionText is empty
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let id = try container.decode(Int.self, forKey: .id)
-        let questionText = try container.decode(String.self, forKey: .questionText)
-        let questionType = try container.decode(QuestionType.self, forKey: .questionType)
-        let difficultyLevel = try container.decode(DifficultyLevel.self, forKey: .difficultyLevel)
-        let answerOptions = try container.decodeIfPresent([String].self, forKey: .answerOptions)
-        let explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
-
-        // Validate questionText is not empty
-        guard !questionText.isEmpty else {
-            throw QuestionValidationError.emptyQuestionText
-        }
-
-        self.id = id
-        self.questionText = questionText
-        self.questionType = questionType
-        self.difficultyLevel = difficultyLevel
-        self.answerOptions = answerOptions
-        self.explanation = explanation
-    }
-
-    // Helper computed properties
-    var isMultipleChoice: Bool {
-        answerOptions != nil && !(answerOptions?.isEmpty ?? true)
-    }
-
-    var hasOptions: Bool {
-        isMultipleChoice
-    }
-}
-
-enum QuestionResponseValidationError: Error, LocalizedError {
-    case negativeTimeSpent
-
-    var errorDescription: String? {
-        switch self {
-        case .negativeTimeSpent:
-            "Time spent cannot be negative"
-        }
-    }
-}
-
+/// User's response to a question
+///
+/// This is a request DTO sent to the backend when submitting test answers.
+/// It remains a manual model as it's not part of the OpenAPI response types.
 struct QuestionResponse: Codable, Equatable {
     let questionId: Int
     let userAnswer: String
@@ -149,5 +92,29 @@ struct QuestionResponse: Codable, Equatable {
         self.questionId = questionId
         self.userAnswer = userAnswer
         self.timeSpentSeconds = timeSpentSeconds
+    }
+}
+
+// MARK: - Validation Errors
+
+enum QuestionValidationError: Error, LocalizedError {
+    case emptyQuestionText
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyQuestionText:
+            "Question text cannot be empty"
+        }
+    }
+}
+
+enum QuestionResponseValidationError: Error, LocalizedError {
+    case negativeTimeSpent
+
+    var errorDescription: String? {
+        switch self {
+        case .negativeTimeSpent:
+            "Time spent cannot be negative"
+        }
     }
 }

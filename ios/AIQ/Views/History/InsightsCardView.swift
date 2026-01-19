@@ -316,96 +316,14 @@ struct InsightsCardView: View {
 
 #Preview("Improving Trend") {
     ScrollView {
-        InsightsCardView(
-            insights: PerformanceInsights(
-                from: [
-                    TestResult(
-                        id: 1,
-                        testSessionId: 1,
-                        userId: 1,
-                        iqScore: 105,
-                        percentileRank: 60.0,
-                        totalQuestions: 20,
-                        correctAnswers: 14,
-                        accuracyPercentage: 70.0,
-                        completionTimeSeconds: 1500,
-                        completedAt: Date().addingTimeInterval(-86400 * 180)
-                    ),
-                    TestResult(
-                        id: 2,
-                        testSessionId: 2,
-                        userId: 1,
-                        iqScore: 110,
-                        percentileRank: 70.0,
-                        totalQuestions: 20,
-                        correctAnswers: 15,
-                        accuracyPercentage: 75.0,
-                        completionTimeSeconds: 1450,
-                        completedAt: Date().addingTimeInterval(-86400 * 90)
-                    ),
-                    TestResult(
-                        id: 3,
-                        testSessionId: 3,
-                        userId: 1,
-                        iqScore: 118,
-                        percentileRank: 85.0,
-                        totalQuestions: 20,
-                        correctAnswers: 17,
-                        accuracyPercentage: 85.0,
-                        completionTimeSeconds: 1400,
-                        completedAt: Date()
-                    )
-                ]
-            )
-        )
-        .padding()
+        InsightsCardView(insights: MockDataFactory.improvingPerformanceInsights)
+            .padding()
     }
 }
 
 #Preview("Stable Performance") {
     ScrollView {
-        InsightsCardView(
-            insights: PerformanceInsights(
-                from: [
-                    TestResult(
-                        id: 1,
-                        testSessionId: 1,
-                        userId: 1,
-                        iqScore: 115,
-                        percentileRank: 80.0,
-                        totalQuestions: 20,
-                        correctAnswers: 16,
-                        accuracyPercentage: 80.0,
-                        completionTimeSeconds: 1350,
-                        completedAt: Date().addingTimeInterval(-86400 * 180)
-                    ),
-                    TestResult(
-                        id: 2,
-                        testSessionId: 2,
-                        userId: 1,
-                        iqScore: 113,
-                        percentileRank: 78.0,
-                        totalQuestions: 20,
-                        correctAnswers: 16,
-                        accuracyPercentage: 80.0,
-                        completionTimeSeconds: 1380,
-                        completedAt: Date().addingTimeInterval(-86400 * 90)
-                    ),
-                    TestResult(
-                        id: 3,
-                        testSessionId: 3,
-                        userId: 1,
-                        iqScore: 117,
-                        percentileRank: 82.0,
-                        totalQuestions: 20,
-                        correctAnswers: 17,
-                        accuracyPercentage: 85.0,
-                        completionTimeSeconds: 1320,
-                        completedAt: Date()
-                    )
-                ]
-            )
-        )
-        .padding()
+        InsightsCardView(insights: MockDataFactory.stablePerformanceInsights)
+            .padding()
     }
 }

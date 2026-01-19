@@ -28,9 +28,9 @@ struct TestResultsView: View {
                     }
 
                     // Domain scores breakdown
-                    if result.domainScores != nil {
+                    if result.domainScoresConverted != nil {
                         DomainScoresBreakdownView(
-                            domainScores: result.domainScores,
+                            domainScores: result.domainScoresConverted,
                             showAnimation: showAnimation,
                             strongestDomain: result.strongestDomain,
                             weakestDomain: result.weakestDomain
@@ -153,7 +153,7 @@ struct TestResultsView: View {
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.scoreLabel)
 
                 // Confidence Interval display (when available)
-                if let ci = result.confidenceInterval {
+                if let ci = result.confidenceIntervalConverted {
                     confidenceIntervalDisplay(ci)
                 }
             }
@@ -219,7 +219,7 @@ struct TestResultsView: View {
 
     /// Explanation text for the confidence interval info alert
     private var confidenceIntervalExplanation: String {
-        guard let ci = result.confidenceInterval else {
+        guard let ci = result.confidenceIntervalConverted else {
             return "No confidence interval available."
         }
         let confidenceText = "\(ci.confidencePercentage)% confidence"
@@ -425,170 +425,87 @@ struct TestResultsView: View {
 
 // MARK: - Preview
 
-#Preview("Excellent Score - With CI") {
+#Preview("Excellent Score") {
     TestResultsView(
-        result: SubmittedTestResult(
+        result: MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 123,
             userId: 1,
             iqScore: 142,
-            percentileRank: 98.5,
             totalQuestions: 20,
             correctAnswers: 19,
             accuracyPercentage: 95.0,
-            completionTimeSeconds: 842,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: [
-                "pattern": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 97.5),
-                "logic": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 95.0),
-                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 93.5),
-                "math": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 96.0),
-                "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 94.5),
-                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 55.0)
-            ],
-            strongestDomain: "pattern",
-            weakestDomain: "memory",
-            confidenceInterval: ConfidenceInterval(
-                lower: 135,
-                upper: 149,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
+            completedAt: Date()
         ),
         onDismiss: {},
         isFirstTest: false
     )
 }
 
-#Preview("Average Score - With CI") {
+#Preview("Average Score") {
     TestResultsView(
-        result: SubmittedTestResult(
+        result: MockDataFactory.makeTestResult(
             id: 2,
             testSessionId: 124,
             userId: 1,
             iqScore: 105,
-            percentileRank: 63.2,
             totalQuestions: 20,
             correctAnswers: 14,
             accuracyPercentage: 70.0,
-            completionTimeSeconds: 1023,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: [
-                "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 71.0),
-                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 55.0),
-                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 52.0),
-                "math": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 68.0),
-                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 48.0),
-                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 50.0)
-            ],
-            strongestDomain: "pattern",
-            weakestDomain: "verbal",
-            confidenceInterval: ConfidenceInterval(
-                lower: 98,
-                upper: 112,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
+            completedAt: Date()
         ),
         onDismiss: {},
         isFirstTest: false
     )
 }
 
-#Preview("Low Score - With Wide CI") {
+#Preview("Low Score") {
     TestResultsView(
-        result: SubmittedTestResult(
+        result: MockDataFactory.makeTestResult(
             id: 3,
             testSessionId: 125,
             userId: 1,
             iqScore: 88,
-            percentileRank: 21.8,
             totalQuestions: 20,
             correctAnswers: 9,
             accuracyPercentage: 45.0,
-            completionTimeSeconds: 1523,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: [
-                "pattern": DomainScore(correct: 1, total: 4, pct: 25.0, percentile: 12.0),
-                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 45.0),
-                "spatial": DomainScore(correct: 1, total: 3, pct: 33.3, percentile: 18.0),
-                "math": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 32.0),
-                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: 42.0),
-                "memory": DomainScore(correct: 1, total: 3, pct: 33.3, percentile: 22.0)
-            ],
-            strongestDomain: "logic",
-            weakestDomain: "pattern",
-            confidenceInterval: ConfidenceInterval(
-                lower: 75,
-                upper: 101,
-                confidenceLevel: 0.95,
-                standardError: 6.7
-            )
+            completedAt: Date()
         ),
         onDismiss: {},
         isFirstTest: false
     )
 }
 
-#Preview("No CI - Legacy Data") {
+#Preview("Average IQ") {
     TestResultsView(
-        result: SubmittedTestResult(
+        result: MockDataFactory.makeTestResult(
             id: 4,
             testSessionId: 126,
             userId: 1,
             iqScore: 100,
-            percentileRank: 50.0,
             totalQuestions: 20,
             correctAnswers: 12,
             accuracyPercentage: 60.0,
-            completionTimeSeconds: 900,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: [
-                "pattern": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
-                "logic": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
-                "spatial": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
-                "math": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
-                "verbal": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil),
-                "memory": DomainScore(correct: 2, total: 3, pct: 66.7, percentile: nil)
-            ],
-            strongestDomain: nil,
-            weakestDomain: nil,
-            confidenceInterval: nil
+            completedAt: Date()
         ),
         onDismiss: {},
         isFirstTest: false
     )
 }
 
-#Preview("No Domain Scores - With CI") {
+#Preview("First Test") {
     TestResultsView(
-        result: SubmittedTestResult(
+        result: MockDataFactory.makeTestResult(
             id: 5,
             testSessionId: 127,
             userId: 1,
-            iqScore: 100,
-            percentileRank: 50.0,
+            iqScore: 115,
             totalQuestions: 20,
-            correctAnswers: 12,
-            accuracyPercentage: 60.0,
-            completionTimeSeconds: 900,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: nil,
-            strongestDomain: nil,
-            weakestDomain: nil,
-            confidenceInterval: ConfidenceInterval(
-                lower: 93,
-                upper: 107,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
+            correctAnswers: 16,
+            accuracyPercentage: 80.0,
+            completedAt: Date()
         ),
         onDismiss: {},
-        isFirstTest: false
+        isFirstTest: true
     )
 }

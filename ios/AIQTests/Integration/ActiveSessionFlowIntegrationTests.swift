@@ -101,14 +101,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.reset()
 
         // When - Dashboard refreshes and detects active session
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: 200,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -132,14 +129,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testResumeTest_FromDashboard_LoadsSessionSuccessfully() async {
         // Given - Dashboard shows active session
         let sessionId = 300
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-3600), // Started 1 hour ago
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-3600) // Started 1 hour ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -189,14 +183,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testResumeTest_WithSavedProgress_RestoresState() async {
         // Given - Active session exists with saved progress
         let sessionId = 400
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-1800), // Started 30 mins ago
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-1800) // Started 30 mins ago
         )
 
         // Dashboard shows active session
@@ -255,14 +246,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testAbandonTest_FromDashboard_ClearsStateAndRefreshes() async {
         // Given - Dashboard shows active session
         let sessionId = 500
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-7200), // Started 2 hours ago
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-7200) // Started 2 hours ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -286,19 +274,16 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.reset()
 
         // When - User abandons test from dashboard
-        let abandonedSession = TestSession(
+        let abandonedSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: activeSession.startedAt,
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "abandoned",
+            startedAt: activeSession.startedAt
         )
         let abandonResponse = TestAbandonResponse(
-            session: abandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 10
+            responsesSaved: 10,
+            session: abandonedSession
         )
 
         // Set endpoint-specific responses for abandon operation
@@ -329,14 +314,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testAbandonTest_ClearsLocalSavedProgress() async {
         // Given - Active session with local saved progress
         let sessionId = 600
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
 
         // Set up saved progress
@@ -357,17 +339,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // When - Abandon test
         let abandonResponse = TestAbandonResponse(
-            session: TestSession(
+            message: "Test abandoned successfully",
+            responsesSaved: 2,
+            session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
-                startedAt: activeSession.startedAt,
-                completedAt: nil,
-                status: .abandoned,
-                questions: nil,
-                timeLimitExceeded: false
-            ),
-            message: "Test abandoned successfully",
-            responsesSaved: 2
+                status: "abandoned",
+                startedAt: activeSession.startedAt
+            )
         )
 
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
@@ -441,17 +420,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User chooses to resume the conflicted session
         let mockQuestions = makeQuestions(count: 4)
         let resumeResponse = TestSessionStatusResponse(
-            session: TestSession(
+            questionsCount: 4,
+            questions: mockQuestions,
+            session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil,
-                timeLimitExceeded: false
-            ),
-            questionsCount: 4,
-            questions: mockQuestions
+                status: "in_progress",
+                startedAt: Date()
+            )
         )
 
         await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
@@ -489,17 +465,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // When - User chooses to abandon and start new
         let abandonResponse = TestAbandonResponse(
-            session: TestSession(
+            message: "Test abandoned successfully",
+            responsesSaved: 0,
+            session: MockDataFactory.makeTestSession(
                 id: oldSessionId,
                 userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .abandoned,
-                questions: nil,
-                timeLimitExceeded: false
-            ),
-            message: "Test abandoned successfully",
-            responsesSaved: 0
+                status: "abandoned",
+                startedAt: Date()
+            )
         )
         let startResponse = makeStartTestResponse(
             sessionId: newSessionId,
@@ -550,14 +523,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testStateSynchronization_DashboardRefresh_UpdatesActiveSession() async {
         // Given - Dashboard with active session
         let sessionId = 1100
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -599,14 +569,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testStateSynchronization_TestCompletion_DashboardUpdates() async {
         // Given - Active test in progress
         let sessionId = 1200
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
 
         // Dashboard shows active session
@@ -642,36 +609,33 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Reset and set up submit response
         await mockAPIClient.reset()
         let testResult = SubmittedTestResult(
+            accuracyPercentage: 100.0,
+            completedAt: Date(),
+            completionTimeSeconds: 120,
+            confidenceInterval: nil,
+            correctAnswers: 2,
+            domainScores: nil,
             id: 1,
-            testSessionId: sessionId,
-            userId: 1,
             iqScore: 125,
             percentileRank: 90.0,
-            totalQuestions: 2,
-            correctAnswers: 2,
-            accuracyPercentage: 100.0,
-            completionTimeSeconds: 120,
-            completedAt: Date(),
             responseTimeFlags: nil,
-            domainScores: nil,
             strongestDomain: nil,
-            weakestDomain: nil,
-            confidenceInterval: nil
+            testSessionId: sessionId,
+            totalQuestions: 2,
+            userId: 1,
+            weakestDomain: nil
         )
-        let completedSession = TestSession(
+        let completedSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: Date(),
-            status: .completed,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "completed",
+            startedAt: Date()
         )
         let submitResponse = TestSubmitResponse(
-            session: completedSession,
-            result: testResult,
+            message: "Test completed successfully",
             responsesCount: 2,
-            message: "Test completed successfully"
+            result: testResult,
+            session: completedSession
         )
         await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
         await testTakingViewModel.submitTest()
@@ -713,14 +677,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testStateSynchronization_CacheBehavior_PreventsStaleness() async {
         // Given - Active session fetched and cached
         let sessionId = 1300
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
             session: activeSession,
@@ -771,14 +732,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.reset()
 
         let sessionId = 1400
-        let activeSession = TestSession(
+        let activeSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
 
         // First refresh - session appears
@@ -866,16 +824,13 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         totalQuestions: Int? = nil
     ) -> StartTestResponse {
         StartTestResponse(
-            session: TestSession(
+            questions: questions,
+            session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
-                startedAt: Date(),
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil,
-                timeLimitExceeded: false
+                status: "in_progress",
+                startedAt: Date()
             ),
-            questions: questions,
             totalQuestions: totalQuestions ?? questions.count
         )
     }

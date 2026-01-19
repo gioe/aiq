@@ -136,8 +136,8 @@ import Foundation
 
         private func mockStartTestResponse() -> StartTestResponse {
             StartTestResponse(
-                session: UITestMockData.newSession,
                 questions: UITestMockData.sampleQuestions,
+                session: UITestMockData.newSession,
                 totalQuestions: UITestMockData.sampleQuestions.count
             )
         }
@@ -148,18 +148,18 @@ import Foundation
 
         private func mockSubmitTestResponse() -> TestSubmitResponse {
             TestSubmitResponse(
-                session: UITestMockData.completedSession,
-                result: UITestMockData.highScoreResult,
+                message: "Test completed successfully",
                 responsesCount: UITestMockData.sampleQuestions.count,
-                message: "Test completed successfully"
+                result: UITestMockData.highScoreResult,
+                session: UITestMockData.completedSession
             )
         }
 
         private func mockAbandonTestResponse() -> TestAbandonResponse {
             TestAbandonResponse(
-                session: UITestMockData.abandonedSession,
                 message: "Test abandoned",
-                responsesSaved: 5
+                responsesSaved: 5,
+                session: UITestMockData.abandonedSession
             )
         }
 
@@ -183,175 +183,125 @@ import Foundation
     enum UITestMockData {
         // MARK: - Sample Questions
 
-        static let sampleQuestions: [Question] = // swiftlint:disable force_try
-            [
-                try! Question(
-                    id: 1,
-                    questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange?",
-                    questionType: .logic,
-                    difficultyLevel: .easy,
-                    answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
-                ),
-                try! Question(
-                    id: 2,
-                    questionText: "What is 15% of 200?",
-                    questionType: .math,
-                    difficultyLevel: .easy,
-                    answerOptions: ["15", "20", "30", "35"]
-                ),
-                try! Question(
-                    id: 3,
-                    questionText: "What number comes next: 2, 4, 8, 16, ?",
-                    questionType: .pattern,
-                    difficultyLevel: .medium,
-                    answerOptions: ["24", "28", "32", "36"]
-                ),
-                try! Question(
-                    id: 4,
-                    questionText: "If all cats have whiskers, and Fluffy is a cat, what can we conclude?",
-                    questionType: .logic,
-                    difficultyLevel: .easy,
-                    answerOptions: [
-                        "Fluffy has whiskers",
-                        "Fluffy is white",
-                        "All whiskers belong to cats",
-                        "Cannot determine"
-                    ]
-                ),
-                try! Question(
-                    id: 5,
-                    questionText: "Which shape completes the pattern?",
-                    questionType: .spatial,
-                    difficultyLevel: .medium,
-                    answerOptions: ["Circle", "Square", "Triangle", "Pentagon"]
-                )
-            ]
-        // swiftlint:enable force_try
+        static let sampleQuestions: [Question] = [
+            MockDataFactory.makeQuestion(
+                id: 1,
+                questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange?",
+                questionType: "logic",
+                difficultyLevel: "easy"
+            ),
+            MockDataFactory.makeQuestion(
+                id: 2,
+                questionText: "What is 15% of 200?",
+                questionType: "math",
+                difficultyLevel: "easy"
+            ),
+            MockDataFactory.makeQuestion(
+                id: 3,
+                questionText: "What number comes next: 2, 4, 8, 16, ?",
+                questionType: "pattern",
+                difficultyLevel: "medium"
+            ),
+            MockDataFactory.makeQuestion(
+                id: 4,
+                questionText: "If all cats have whiskers, and Fluffy is a cat, what can we conclude?",
+                questionType: "logic",
+                difficultyLevel: "easy"
+            ),
+            MockDataFactory.makeQuestion(
+                id: 5,
+                questionText: "Which shape completes the pattern?",
+                questionType: "spatial",
+                difficultyLevel: "medium"
+            )
+        ]
 
         // MARK: - Sample Test Results
 
         static let sampleTestHistory: [TestResult] = [
-            TestResult(
+            MockDataFactory.makeTestResult(
                 id: 1,
                 testSessionId: 1,
                 userId: 1,
                 iqScore: 105,
-                percentileRank: 63,
                 totalQuestions: 20,
                 correctAnswers: 13,
                 accuracyPercentage: 65.0,
-                completionTimeSeconds: 1200,
                 completedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60)
             ),
-            TestResult(
+            MockDataFactory.makeTestResult(
                 id: 2,
                 testSessionId: 2,
                 userId: 1,
                 iqScore: 112,
-                percentileRank: 79,
                 totalQuestions: 20,
                 correctAnswers: 15,
                 accuracyPercentage: 75.0,
-                completionTimeSeconds: 1100,
                 completedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60)
             ),
-            TestResult(
+            MockDataFactory.makeTestResult(
                 id: 3,
                 testSessionId: 3,
                 userId: 1,
                 iqScore: 118,
-                percentileRank: 88,
                 totalQuestions: 20,
                 correctAnswers: 17,
                 accuracyPercentage: 85.0,
-                completionTimeSeconds: 1000,
                 completedAt: Date().addingTimeInterval(-10 * 24 * 60 * 60)
             ),
-            TestResult(
+            MockDataFactory.makeTestResult(
                 id: 4,
                 testSessionId: 4,
                 userId: 1,
                 iqScore: 125,
-                percentileRank: 95,
                 totalQuestions: 20,
                 correctAnswers: 18,
                 accuracyPercentage: 90.0,
-                completionTimeSeconds: 950,
                 completedAt: Date()
             )
         ]
 
         // MARK: - Sample Test Sessions
 
-        static let newSession = TestSession(
+        static let newSession = MockDataFactory.makeTestSession(
             id: 100,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: sampleQuestions,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
 
-        static let inProgressSession = TestSession(
+        static let inProgressSession = MockDataFactory.makeTestSession(
             id: 99,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-3600),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-3600)
         )
 
-        static let completedSession = TestSession(
+        static let completedSession = MockDataFactory.makeTestSession(
             id: 100,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-1800),
-            completedAt: Date(),
-            status: .completed,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "completed",
+            startedAt: Date().addingTimeInterval(-1800)
         )
 
-        static let abandonedSession = TestSession(
+        static let abandonedSession = MockDataFactory.makeTestSession(
             id: 100,
             userId: 1,
-            startedAt: Date().addingTimeInterval(-900),
-            completedAt: Date(),
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "abandoned",
+            startedAt: Date().addingTimeInterval(-900)
         )
 
         // MARK: - Sample Submitted Result
 
-        static let highScoreResult = SubmittedTestResult(
+        static let highScoreResult = MockDataFactory.makeTestResult(
             id: 5,
             testSessionId: 100,
             userId: 1,
             iqScore: 128,
-            percentileRank: 97,
             totalQuestions: 20,
             correctAnswers: 18,
             accuracyPercentage: 90.0,
-            completionTimeSeconds: 950,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: [
-                "logic": DomainScore(correct: 4, total: 5, pct: 80.0, percentile: 85),
-                "math": DomainScore(correct: 5, total: 5, pct: 100.0, percentile: 99),
-                "pattern": DomainScore(correct: 4, total: 5, pct: 80.0, percentile: 82),
-                "spatial": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 95),
-                "verbal": DomainScore(correct: 2, total: 2, pct: 100.0, percentile: 90)
-            ],
-            strongestDomain: "math",
-            weakestDomain: "pattern",
-            confidenceInterval: ConfidenceInterval(
-                lower: 121,
-                upper: 135,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
+            completedAt: Date()
         )
     }
 

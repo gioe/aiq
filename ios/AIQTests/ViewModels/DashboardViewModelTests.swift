@@ -62,14 +62,11 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testFetchActiveSession_WithActiveSession() async {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 123,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -182,14 +179,11 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testFetchActiveSession_CacheBehavior() async {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 456,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -219,14 +213,11 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testFetchActiveSession_ForceRefreshBypassesCache() async {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 789,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
             session: mockSession,
@@ -258,14 +249,11 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testHasActiveTest_ReturnsTrueWhenSessionExists() {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 1,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
 
         // Use reflection to set the property for testing
@@ -287,31 +275,25 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testAbandonActiveTest_Success() async {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 456,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         sut.activeTestSession = mockSession
         sut.activeSessionQuestionsAnswered = 5
 
-        let mockAbandonedSession = TestSession(
+        let mockAbandonedSession = MockDataFactory.makeTestSession(
             id: 456,
             userId: 1,
-            startedAt: mockSession.startedAt,
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "abandoned",
+            startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
-            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 5
+            responsesSaved: 5,
+            session: mockAbandonedSession
         )
 
         await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(456))
@@ -358,14 +340,11 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testAbandonActiveTest_ErrorHandling() async {
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: 789,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         sut.activeTestSession = mockSession
         sut.activeSessionQuestionsAnswered = 3
@@ -394,14 +373,11 @@ final class DashboardViewModelTests: XCTestCase {
     func testAbandonActiveTest_InvalidatesCache() async {
         let sessionId = 999
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         sut.setActiveTestSession(mockSession)
 
@@ -416,19 +392,16 @@ final class DashboardViewModelTests: XCTestCase {
             forKey: DataCache.Key.activeTestSession
         )
 
-        let mockAbandonedSession = TestSession(
+        let mockAbandonedSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: mockSession.startedAt,
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "abandoned",
+            startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
-            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 10
+            responsesSaved: 10,
+            session: mockAbandonedSession
         )
 
         // Queue all responses in order: abandon, test history, active session
@@ -449,30 +422,24 @@ final class DashboardViewModelTests: XCTestCase {
     func testAbandonActiveTest_RefreshesDashboardData() async {
         let sessionId = 111
         // Given
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         sut.setActiveTestSession(mockSession)
 
-        let mockAbandonedSession = TestSession(
+        let mockAbandonedSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: mockSession.startedAt,
-            completedAt: nil,
-            status: .abandoned,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "abandoned",
+            startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
-            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 2
+            responsesSaved: 2,
+            session: mockAbandonedSession
         )
 
         // Mock dashboard data - should be called during refresh
