@@ -69,6 +69,9 @@ public protocol HapticManagerProtocol {
 @MainActor
 public class HapticManager: HapticManagerProtocol {
     /// Shared singleton instance
+    ///
+    /// - Note: Prefer resolving `HapticManagerProtocol` from ServiceContainer for new code.
+    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(HapticManagerProtocol.self)")
     public static let shared = HapticManager()
 
     /// Logger for haptic events
@@ -101,12 +104,18 @@ public class HapticManager: HapticManagerProtocol {
 
     /// Trigger haptic feedback
     ///
-    /// Automatically respects system haptic settings via the underlying UIKit
-    /// generators. If the user has disabled haptics at the system level,
-    /// this method has no effect.
+    /// Automatically respects system haptic and accessibility settings.
+    /// If the user has disabled haptics at the system level or enabled
+    /// Reduce Motion in accessibility settings, this method does nothing.
     ///
     /// - Parameter type: The type of haptic feedback to trigger
     public func trigger(_ type: HapticType) {
+        // Respect accessibility settings - users with motion sensitivity
+        guard !UIAccessibility.isReduceMotionEnabled else {
+            Self.logger.debug("Haptic skipped (Reduce Motion enabled)")
+            return
+        }
+
         let typeDesc = String(describing: type)
         Self.logger.debug("Triggering haptic: \(typeDesc, privacy: .public)")
 

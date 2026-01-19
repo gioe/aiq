@@ -141,4 +141,93 @@ final class HapticManagerTests: XCTestCase {
         // Then
         XCTAssertEqual(String(describing: type), "selection")
     }
+
+    // MARK: - All Haptic Types Handled Tests
+
+    func testTrigger_AllHapticTypes_DoesNotCrash() {
+        // Given - all haptic types
+        let allTypes: [HapticType] = [
+            .success,
+            .error,
+            .warning,
+            .selection,
+            .light,
+            .medium,
+            .heavy
+        ]
+
+        // When/Then - triggering each type should not crash
+        for type in allTypes {
+            sut.trigger(type)
+        }
+    }
+
+    // MARK: - Concurrent Trigger Tests
+
+    func testTrigger_ConcurrentCalls_DoesNotCrash() async {
+        // Given - multiple concurrent trigger tasks
+        let types: [HapticType] = [.success, .error, .warning, .selection, .light, .medium, .heavy]
+
+        // When/Then - concurrent triggers should not crash
+        await withTaskGroup(of: Void.self) { group in
+            for type in types {
+                group.addTask { @MainActor in
+                    self.sut.trigger(type)
+                }
+            }
+        }
+    }
+
+    // MARK: - Prepare Then Trigger Tests
+
+    func testTrigger_AfterPrepare_DoesNotCrash() {
+        // Given
+        sut.prepare()
+
+        // When/Then - triggering after prepare should not crash
+        sut.trigger(.success)
+        sut.trigger(.selection)
+        sut.trigger(.medium)
+    }
+
+    // MARK: - Mock Tests
+
+    func testMock_TracksTriggeredType() {
+        // Given
+        let mock = UITestMockHapticManager()
+
+        // When
+        mock.trigger(.success)
+
+        // Then
+        XCTAssertEqual(mock.lastTriggeredType, .success)
+        XCTAssertEqual(mock.triggerCallCount, 1)
+    }
+
+    func testMock_TracksPrepareCount() {
+        // Given
+        let mock = UITestMockHapticManager()
+
+        // When
+        mock.prepare()
+        mock.prepare()
+
+        // Then
+        XCTAssertEqual(mock.prepareCallCount, 2)
+    }
+
+    func testMock_Reset_ClearsState() {
+        // Given
+        let mock = UITestMockHapticManager()
+        mock.trigger(.error)
+        mock.prepare()
+
+        // When
+        mock.reset()
+
+        // Then
+        XCTAssertNil(mock.lastTriggeredType)
+        XCTAssertEqual(mock.triggerCallCount, 0)
+        XCTAssertEqual(mock.prepareCallCount, 0)
+    }
 }
