@@ -24,7 +24,12 @@ class NetworkMonitor: ObservableObject, NetworkMonitorProtocol {
         case unknown
     }
 
-    private init() {
+    /// Internal initializer for dependency injection
+    ///
+    /// Used by ServiceConfiguration to create the instance owned by the container.
+    /// The `shared` singleton is retained for backward compatibility but new code
+    /// should resolve NetworkMonitorProtocol from the ServiceContainer.
+    init() {
         monitor = NWPathMonitor()
         startMonitoring()
     }

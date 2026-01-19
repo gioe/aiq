@@ -41,6 +41,8 @@ enum ServiceConfiguration {
     /// - `NotificationServiceProtocol`: Container-owned instance for notification operations
     /// - `NotificationManagerProtocol`: Container-owned instance for notification coordination
     /// - `LocalAnswerStorageProtocol`: Container-owned instance for local test progress storage
+    /// - `NetworkMonitorProtocol`: Container-owned instance for network connectivity monitoring
+    /// - `ToastManagerProtocol`: Container-owned instance for toast notifications
     ///
     /// - Parameter container: The ServiceContainer to register services with
     ///
@@ -51,6 +53,12 @@ enum ServiceConfiguration {
     /// ```
     static func configureServices(container: ServiceContainer) {
         // MARK: - Layer 1: Services with no dependencies
+
+        let networkMonitor = NetworkMonitor()
+        container.register(NetworkMonitorProtocol.self, instance: networkMonitor)
+
+        let toastManager = ToastManager()
+        container.register(ToastManagerProtocol.self, instance: toastManager)
 
         let apiClient = APIClient(
             baseURL: AppConfig.apiBaseURL,

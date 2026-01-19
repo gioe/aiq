@@ -9,6 +9,25 @@ struct ToastData: Identifiable, Equatable {
     let type: ToastType
 }
 
+/// Protocol for toast notification management
+///
+/// Allows the toast manager to be mocked in tests and injected via the DI container.
+@MainActor
+protocol ToastManagerProtocol: ObservableObject {
+    /// Currently displayed toast, if any
+    var currentToast: ToastData? { get }
+
+    /// Show a toast message
+    ///
+    /// - Parameters:
+    ///   - message: The message to display
+    ///   - type: The type of toast (error, warning, or info)
+    func show(_ message: String, type: ToastType)
+
+    /// Manually dismiss the current toast
+    func dismiss()
+}
+
 /// Singleton manager for displaying toast notifications globally
 ///
 /// ToastManager provides a centralized way to show brief, non-intrusive messages
@@ -29,7 +48,7 @@ struct ToastData: Identifiable, Equatable {
 /// Integration:
 /// RootView observes `currentToast` and displays a ToastView overlay when non-nil.
 @MainActor
-class ToastManager: ObservableObject {
+class ToastManager: ObservableObject, ToastManagerProtocol {
     /// Shared singleton instance
     static let shared = ToastManager()
 
@@ -45,7 +64,12 @@ class ToastManager: ObservableObject {
     /// Logger for toast events
     private static let logger = Logger(subsystem: "com.aiq.app", category: "ToastManager")
 
-    private init() {}
+    /// Internal initializer for dependency injection
+    ///
+    /// Used by ServiceConfiguration to create the instance owned by the container.
+    /// The `shared` singleton is retained for backward compatibility but new code
+    /// should resolve ToastManagerProtocol from the ServiceContainer.
+    init() {}
 
     /// Show a toast message
     ///

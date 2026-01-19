@@ -41,8 +41,10 @@ import SwiftUI
 struct RootView: View {
     /// Auth state observer that works with any AuthManagerProtocol from the DI container
     @StateObject private var authState: AuthStateObserver
-    @ObservedObject private var networkMonitor = NetworkMonitor.shared
-    @ObservedObject private var toastManager = ToastManager.shared
+    /// Network monitor resolved from DI container, wrapped in StateObject to observe connectivity changes
+    @StateObject private var networkMonitor: NetworkMonitorObserver
+    /// Toast manager resolved from DI container, wrapped in StateObject to observe toast changes
+    @StateObject private var toastObserver: ToastManagerObserver
     @State private var showSplash = true
     @State private var hasAcceptedConsent: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
@@ -59,6 +61,10 @@ struct RootView: View {
         _hasAcceptedConsent = State(initialValue: privacyConsentStorage.hasAcceptedConsent())
         // Initialize auth state observer from the container
         _authState = StateObject(wrappedValue: AuthStateObserver(container: serviceContainer))
+        // Initialize network monitor observer from the container
+        _networkMonitor = StateObject(wrappedValue: NetworkMonitorObserver(container: serviceContainer))
+        // Initialize toast manager observer from the container
+        _toastObserver = StateObject(wrappedValue: ToastManagerObserver(container: serviceContainer))
     }
 
     var body: some View {
@@ -107,18 +113,18 @@ struct RootView: View {
             // Toast overlay
             VStack {
                 Spacer()
-                if let toast = toastManager.currentToast {
+                if let toast = toastObserver.currentToast {
                     ToastView(
                         message: toast.message,
                         type: toast.type,
                         onDismiss: {
-                            toastManager.dismiss()
+                            toastObserver.dismiss()
                         }
                     )
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(reduceMotion ? nil : DesignSystem.Animation.standard, value: toastManager.currentToast)
+            .animation(reduceMotion ? nil : DesignSystem.Animation.standard, value: toastObserver.currentToast)
             .opacity(showSplash ? 0.0 : 1.0)
 
             // Splash Screen
