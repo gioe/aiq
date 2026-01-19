@@ -52,6 +52,7 @@
 		1AD58B122F0321D900ED0517 /* TestTakingHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD58AFC2F03120D00ED0517 /* TestTakingHelper.swift */; };
 		1AD58B132F0321DE00ED0517 /* XCUIElement+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD58AFD2F03120D00ED0517 /* XCUIElement+Extensions.swift */; };
 		1BC8B7F56F1AD693C15C3710 /* PercentileCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC101AF3E03879371799700 /* PercentileCard.swift */; };
+		1DD228A9A4EE4D0530AEB097 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB518924DD41222B8C46CAB /* HapticManager.swift */; };
 		1E697F0524AD74658E6289B3 /* TestResultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D11D893F3EC79F32CAEE284 /* TestResultTests.swift */; };
 		1EC104F286BB4AE589D44A06 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5693C8FD3082F1F9585F0D0C /* MockURLProtocol.swift */; };
 		1EC7992AF7434E4DF7E0645A /* NetworkStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 307696DC927CB42BD2DCD191 /* NetworkStatusBanner.swift */; };
@@ -189,6 +190,7 @@
 		B09395FEAC024C71C6C0F049 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 61414EF7BFDDBDE88634E357 /* GoogleService-Info.plist */; };
 		B0C490104F181E540407187C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4F23DD832678C6F11E29DF /* ContentView.swift */; };
 		B19626706E80E38BF932DF82 /* QuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55717DC429158E6565640B4 /* QuestionCardView.swift */; };
+		B21D1F7A081A289DB4987B29 /* HapticManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */; };
 		B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 86A53269857A08973A0D5568 /* SwiftUI.framework */; };
 		B49B611951512301F45C3352 /* Number+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F2255B6B96DB4C8037F564 /* Number+Extensions.swift */; };
 		B66D0F9F3256F38A6FE512A8 /* UITestMockNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDBE2C07CB038DC1DA1E453 /* UITestMockNotificationService.swift */; };
@@ -225,6 +227,7 @@
 		D7916605173636CE054D1FB8 /* AuthenticationAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBCD417A2BCC204345182335 /* AuthenticationAccessibilityTests.swift */; };
 		D80409A0E0368D8A5FF835CB /* UserNotificationCenterProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */; };
 		D80C1EFE0746B3D87A147AE4 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E8277755F2D4F6BFCF15BD /* DesignSystem.swift */; };
+		D870D771D0E2FD17231E9EFF /* UITestMockHapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BB6C6E11CC2796D59F918C1 /* UITestMockHapticManager.swift */; };
 		DAECF970E635A57C1E52AC3D /* OnboardingSkippedInfoCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6383FA2E98A892E5A45E2EB3 /* OnboardingSkippedInfoCardTests.swift */; };
 		DATACACHE002BBBB /* DataCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATACACHE001AAAA /* DataCacheTests.swift */; };
 		DB1D7E114176275F1B03152A /* PrivacyConsentStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451DCC1088B05DD66CC0F5B3 /* PrivacyConsentStorageTests.swift */; };
@@ -326,6 +329,7 @@
 		1AD58B052F03123B00ED0517 /* RegistrationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationFlowTests.swift; sourceTree = "<group>"; };
 		1AD58B062F03123B00ED0517 /* TestTakingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingFlowTests.swift; sourceTree = "<group>"; };
 		1B177163E2A9A5F2FA27742F /* MainTabViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabViewTests.swift; sourceTree = "<group>"; };
+		1BB6C6E11CC2796D59F918C1 /* UITestMockHapticManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockHapticManager.swift; sourceTree = "<group>"; };
 		1C4F7E3B53001FD9067CC61A /* NotificationManagerProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManagerProtocol.swift; sourceTree = "<group>"; };
 		1DC6331EE8CFC24F90201D94 /* AIQ.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AIQ.entitlements; sourceTree = "<group>"; };
 		1FC101AF3E03879371799700 /* PercentileCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PercentileCard.swift; sourceTree = "<group>"; };
@@ -401,6 +405,7 @@
 		667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionFlowIntegrationTests.swift; sourceTree = "<group>"; };
 		6692209AC679B3F2DE179326 /* PrivacyFeatureRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PrivacyFeatureRow.swift; sourceTree = "<group>"; };
 		67917E637F178829655DE396 /* TestProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestProgressView.swift; sourceTree = "<group>"; };
+		6CB518924DD41222B8C46CAB /* HapticManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UserNotificationCenterProtocol.swift; sourceTree = "<group>"; };
 		6E670DCBD950D08051713258 /* RegistrationViewModelValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelValidationTests.swift; sourceTree = "<group>"; };
 		6F65A561E55D0962F63D8A98 /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
@@ -500,6 +505,7 @@
 		CF13982EAFF144B851628A49 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		CF3DD9397AACDA7CDAC43ECE /* TestSessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStatus.swift; sourceTree = "<group>"; };
 		CF89F4647B4C4FC9854DDA7B /* TokenRefreshInterceptorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Network/TokenRefreshInterceptorTests.swift; sourceTree = "<group>"; };
+		D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticManagerTests.swift; sourceTree = "<group>"; };
 		D03A45FDDE6CC8040BF6879D /* AuthStateObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthStateObserver.swift; sourceTree = "<group>"; };
 		D0F338D7B19C9AB39FCD2931 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D2D93BDF3F42258903E80CB3 /* RegistrationViewModelBirthYearTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelBirthYearTests.swift; sourceTree = "<group>"; };
@@ -791,6 +797,7 @@
 				8A6615D675A2B7E22F3F96CF /* UITestMockNotificationManager.swift */,
 				2DDBE2C07CB038DC1DA1E453 /* UITestMockNotificationService.swift */,
 				A85927AD9092DE898E5DE90E /* UITestMockLocalAnswerStorage.swift */,
+				1BB6C6E11CC2796D59F918C1 /* UITestMockHapticManager.swift */,
 			);
 			name = Mocks;
 			path = Mocks;
@@ -962,6 +969,7 @@
 				94A6BBE329BBBA3C9A98A3F0 /* Storage */,
 				AAF004CDC6B0F5AE7E5EA0CB /* Background */,
 				98777FA7862D94D50C10DD4C /* ToastManager.swift */,
+				6CB518924DD41222B8C46CAB /* HapticManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1179,6 +1187,7 @@
 				5E271D9299641787F0F895AD /* NotificationManagerIntegrationTests.swift */,
 				4C5115CB67E059810DB88970 /* BackgroundRefreshManagerTests.swift */,
 				8D5AC4F47FAFDCEE18F69897 /* ToastManagerTests.swift */,
+				D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1431,6 +1440,7 @@
 				FC3162E0ADD5408CE98F4060 /* MockModeDetectorTests.swift in Sources */,
 				4625596F0C0A9FF356E75176 /* NetworkMonitorObserverTests.swift in Sources */,
 				348743FFE1A458DEE4D1CD3C /* ToastManagerObserverTests.swift in Sources */,
+				B21D1F7A081A289DB4987B29 /* HapticManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1585,6 +1595,8 @@
 				5FA2D656FA69D2D5A3872CB0 /* Question+Extensions.swift in Sources */,
 				05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */,
 				618CFE3571F977F1759CFBCD /* TestSession+Extensions.swift in Sources */,
+				1DD228A9A4EE4D0530AEB097 /* HapticManager.swift in Sources */,
+				D870D771D0E2FD17231E9EFF /* UITestMockHapticManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

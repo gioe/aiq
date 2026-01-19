@@ -43,6 +43,7 @@ enum ServiceConfiguration {
     /// - `LocalAnswerStorageProtocol`: Container-owned instance for local test progress storage
     /// - `NetworkMonitorProtocol`: Container-owned instance for network connectivity monitoring
     /// - `ToastManagerProtocol`: Container-owned instance for toast notifications
+    /// - `HapticManagerProtocol`: Container-owned instance for haptic feedback
     ///
     /// - Parameter container: The ServiceContainer to register services with
     ///
@@ -59,6 +60,9 @@ enum ServiceConfiguration {
 
         let toastManager = ToastManager()
         container.register(ToastManagerProtocol.self, instance: toastManager)
+
+        let hapticManager = HapticManager()
+        container.register(HapticManagerProtocol.self, instance: hapticManager)
 
         let apiClient = APIClient(
             baseURL: AppConfig.apiBaseURL,
