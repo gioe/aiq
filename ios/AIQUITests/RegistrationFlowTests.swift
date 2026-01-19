@@ -461,4 +461,245 @@ final class RegistrationFlowTests: BaseUITest {
 
         // For now, this is a placeholder for future comprehensive testing
     }
+
+    // MARK: - Keyboard Navigation Tests
+
+    //
+    // Note: These tests document the expected keyboard navigation behavior for the registration form.
+    //
+    // Tests are skipped for the following reasons:
+    // - testReturnKeyAdvancesToNextField, testFinalFieldReturnKeyBehavior, testFocusMovesCorrectlyThroughForm:
+    //   These require keyboard navigation functionality (submitLabel, @FocusState, onSubmit handlers)
+    //   that is not yet implemented in CustomTextField.swift.
+    // - testKeyboardAppearsWhenFieldTapped, testTappingOutsideFieldDismissesKeyboard:
+    //   These test basic keyboard behavior that should work, but are skipped to keep the test suite
+    //   focused on core functionality until full UI test coverage is enabled.
+    //
+    // Implementation checklist for keyboard navigation:
+    // 1. Add @FocusState enum in RegistrationView to track which field is focused
+    // 2. Add .focused() modifier to each text field binding to the FocusState
+    // 3. Add .submitLabel(.next) to fields that should advance, .submitLabel(.done) to final field
+    // 4. Add .onSubmit { focusedField = .nextField } to advance focus between fields
+    // 5. Final field's onSubmit should either dismiss keyboard or trigger form submission
+    //
+    // References:
+    // - https://developer.apple.com/documentation/swiftui/focusstate
+    // - https://developer.apple.com/documentation/swiftui/textfield/submitlabel(_:)
+
+    func testReturnKeyAdvancesToNextField() throws {
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Tap first name field and verify keyboard appears
+        let firstNameField = registrationHelper.firstNameTextField
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: standardTimeout))
+        firstNameField.tap()
+        firstNameField.typeText("John")
+
+        // Press return key - should advance to last name field
+        app.keyboards.buttons["Return"].tap()
+
+        // Type in last name field to verify it has focus
+        registrationHelper.lastNameTextField.typeText("Doe")
+
+        // Verify last name was entered (confirms focus moved)
+        XCTAssertEqual(
+            registrationHelper.lastNameTextField.value as? String,
+            "Doe",
+            "Last name field should have received input after return key"
+        )
+
+        // Press return key - should advance to email field
+        app.keyboards.buttons["Return"].tap()
+
+        // Type in email field to verify it has focus
+        registrationHelper.emailTextField.typeText("john@example.com")
+
+        // Verify email was entered
+        XCTAssertEqual(
+            registrationHelper.emailTextField.value as? String,
+            "john@example.com",
+            "Email field should have received input after return key"
+        )
+
+        takeScreenshot(named: "KeyboardNavigation-AfterEmail")
+    }
+
+    func testFinalFieldReturnKeyBehavior() throws {
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Fill all required fields using return key navigation
+        let firstNameField = registrationHelper.firstNameTextField
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: standardTimeout))
+
+        // First name -> tap and type
+        firstNameField.tap()
+        firstNameField.typeText("John")
+        app.keyboards.buttons["Return"].tap()
+
+        // Last name -> type (should have focus)
+        registrationHelper.lastNameTextField.typeText("Doe")
+        app.keyboards.buttons["Return"].tap()
+
+        // Email -> type (should have focus)
+        registrationHelper.emailTextField.typeText("john@example.com")
+        app.keyboards.buttons["Return"].tap()
+
+        // Password -> type (should have focus)
+        registrationHelper.passwordTextField.typeText("password123")
+        app.keyboards.buttons["Return"].tap()
+
+        // Confirm password -> type (should have focus)
+        registrationHelper.confirmPasswordTextField.typeText("password123")
+
+        // Get keyboard state before pressing return on final required field
+        let keyboard = app.keyboards.firstMatch
+
+        // Press return on final required field
+        // This should either dismiss the keyboard or submit the form
+        if keyboard.buttons["Return"].exists {
+            keyboard.buttons["Return"].tap()
+        } else if keyboard.buttons["Go"].exists {
+            keyboard.buttons["Go"].tap()
+        } else if keyboard.buttons["Done"].exists {
+            keyboard.buttons["Done"].tap()
+        }
+
+        // Wait briefly for keyboard animation
+        wait(for: app.staticTexts.firstMatch, timeout: quickTimeout)
+
+        // Verify keyboard is dismissed OR form is submitted (navigated to dashboard)
+        let keyboardDismissed = waitForDisappearance(of: keyboard, timeout: standardTimeout)
+        let onDashboard = registrationHelper.waitForDashboard(timeout: standardTimeout)
+
+        XCTAssertTrue(
+            keyboardDismissed || onDashboard,
+            "Final field return key should either dismiss keyboard or submit the form"
+        )
+
+        takeScreenshot(named: "KeyboardNavigation-FinalFieldResult")
+    }
+
+    func testFocusMovesCorrectlyThroughForm() throws {
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Define the expected field navigation order
+        let fieldOrder: [(field: XCUIElement, name: String, testValue: String)] = [
+            (registrationHelper.firstNameTextField, "First Name", "Test"),
+            (registrationHelper.lastNameTextField, "Last Name", "User"),
+            (registrationHelper.emailTextField, "Email", "test@example.com"),
+            (registrationHelper.passwordTextField, "Password", "password123"),
+            (registrationHelper.confirmPasswordTextField, "Confirm Password", "password123")
+        ]
+
+        // Start with first field
+        let firstField = fieldOrder[0].field
+        XCTAssertTrue(firstField.waitForExistence(timeout: standardTimeout))
+        firstField.tap()
+
+        // Navigate through each field using return key
+        for (index, fieldInfo) in fieldOrder.enumerated() {
+            // Type test value
+            fieldInfo.field.typeText(fieldInfo.testValue)
+
+            // Verify the value was entered
+            if fieldInfo.field.elementType == .secureTextField {
+                // Secure fields don't expose their value, just verify field exists
+                XCTAssertTrue(
+                    fieldInfo.field.exists,
+                    "\(fieldInfo.name) field should exist after input"
+                )
+            } else {
+                XCTAssertEqual(
+                    fieldInfo.field.value as? String,
+                    fieldInfo.testValue,
+                    "\(fieldInfo.name) should have received input"
+                )
+            }
+
+            // If not the last field, press return to advance
+            if index < fieldOrder.count - 1 {
+                let keyboard = app.keyboards.firstMatch
+                if keyboard.buttons["Return"].exists {
+                    keyboard.buttons["Return"].tap()
+                } else if keyboard.buttons["Next"].exists {
+                    keyboard.buttons["Next"].tap()
+                }
+
+                // Brief wait for focus transition
+                wait(for: fieldOrder[index + 1].field, timeout: quickTimeout)
+            }
+
+            takeScreenshot(named: "FocusNavigation-\(fieldInfo.name.replacingOccurrences(of: " ", with: ""))")
+        }
+
+        // After filling all required fields, verify form is valid
+        XCTAssertTrue(
+            registrationHelper.isSubmitEnabled,
+            "Submit button should be enabled after navigating through all fields"
+        )
+    }
+
+    func testKeyboardAppearsWhenFieldTapped() throws {
+        // Skip: Basic keyboard behavior test - skipped until full UI test suite is enabled
+        throw XCTSkip("Keyboard visibility test - enable when full UI test coverage is active")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Tap first name field
+        let firstNameField = registrationHelper.firstNameTextField
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: standardTimeout))
+        firstNameField.tap()
+
+        // Verify keyboard appears
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(
+            keyboard.waitForExistence(timeout: standardTimeout),
+            "Keyboard should appear when text field is tapped"
+        )
+
+        takeScreenshot(named: "KeyboardVisible")
+    }
+
+    func testTappingOutsideFieldDismissesKeyboard() throws {
+        // Skip: Basic keyboard behavior test - skipped until full UI test suite is enabled
+        throw XCTSkip("Keyboard dismissal test - enable when full UI test coverage is active")
+
+        // Navigate to registration
+        registrationHelper.navigateToRegistration()
+
+        // Tap first name field to show keyboard
+        let firstNameField = registrationHelper.firstNameTextField
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: standardTimeout))
+        firstNameField.tap()
+
+        // Verify keyboard is visible
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: standardTimeout))
+
+        // Tap outside the text field (on the scroll view background)
+        let scrollView = app.scrollViews.firstMatch
+        scrollView.tap()
+
+        // Verify keyboard is dismissed
+        let keyboardDismissed = waitForDisappearance(of: keyboard, timeout: standardTimeout)
+        XCTAssertTrue(
+            keyboardDismissed,
+            "Keyboard should be dismissed when tapping outside text field"
+        )
+
+        takeScreenshot(named: "KeyboardDismissed")
+    }
 }
