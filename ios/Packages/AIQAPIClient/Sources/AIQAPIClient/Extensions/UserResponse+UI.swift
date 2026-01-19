@@ -37,3 +37,53 @@ public extension Components.Schemas.UserResponse {
         "\(fullName), email \(email), \(notificationStatus)"
     }
 }
+
+// MARK: - Optional Property Extensions
+
+public extension Components.Schemas.UserResponse {
+    /// Approximate age calculated from birth year
+    /// Returns nil if birthYear is not available
+    var approximateAge: Int? {
+        guard let year = birthYear else { return nil }
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return currentYear - year
+    }
+
+    /// Display text for user's location combining country and region
+    /// Returns nil if neither country nor region is available
+    /// Examples: "California, United States", "United States", "California"
+    var locationDisplay: String? {
+        switch (region, country) {
+        case let (region?, country?):
+            "\(region), \(country)"
+        case let (nil, country?):
+            country
+        case let (region?, nil):
+            region
+        case (nil, nil):
+            nil
+        }
+    }
+
+    /// Display text for user's education level
+    /// Returns nil if educationLevel is not available
+    var educationLevelDisplay: String? {
+        guard let education = educationLevel else { return nil }
+        switch education.value1 {
+        case .highSchool:
+            return "High School"
+        case .someCollege:
+            return "Some College"
+        case .associates:
+            return "Associate's Degree"
+        case .bachelors:
+            return "Bachelor's Degree"
+        case .masters:
+            return "Master's Degree"
+        case .doctorate:
+            return "Doctorate"
+        case .preferNotToSay:
+            return "Prefer Not to Say"
+        }
+    }
+}
