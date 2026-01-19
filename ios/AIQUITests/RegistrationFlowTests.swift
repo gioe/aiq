@@ -464,9 +464,16 @@ final class RegistrationFlowTests: BaseUITest {
 
     // MARK: - Keyboard Navigation Tests
 
+    //
+    // Note: These tests document the expected keyboard navigation behavior for the registration form.
+    // They are currently skipped because the keyboard navigation functionality (submitLabel,
+    // @FocusState, onSubmit handlers) is not yet implemented in CustomTextField.swift.
+    // Once the functionality is implemented, remove the skip statements and enable these tests.
+    // See: Apple's TextField submitLabel and FocusState documentation for implementation guidance.
+
     func testReturnKeyAdvancesToNextField() throws {
-        // Skip: Example test showing keyboard navigation pattern
-        throw XCTSkip("Example test - requires backend connection")
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -507,8 +514,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testFinalFieldReturnKeyBehavior() throws {
-        // Skip: Example test showing final field return key behavior
-        throw XCTSkip("Example test - requires backend connection")
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -566,8 +573,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testFocusMovesCorrectlyThroughForm() throws {
-        // Skip: Example test showing focus movement through entire form
-        throw XCTSkip("Example test - requires backend connection")
+        // Skip: Keyboard navigation not yet implemented in CustomTextField
+        throw XCTSkip("Keyboard navigation not yet implemented - see CustomTextField.swift")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -630,8 +637,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testKeyboardAppearsWhenFieldTapped() throws {
-        // Skip: Example test verifying keyboard appears
-        throw XCTSkip("Example test - requires backend connection")
+        // Skip: Test documents expected behavior, skipped until mock mode supports full UI testing
+        throw XCTSkip("UI test skipped - mock mode does not fully support keyboard testing")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -652,8 +659,8 @@ final class RegistrationFlowTests: BaseUITest {
     }
 
     func testTappingOutsideFieldDismissesKeyboard() throws {
-        // Skip: Example test showing keyboard dismissal on tap outside
-        throw XCTSkip("Example test - requires backend connection")
+        // Skip: Test documents expected behavior, skipped until mock mode supports full UI testing
+        throw XCTSkip("UI test skipped - mock mode does not fully support keyboard testing")
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
