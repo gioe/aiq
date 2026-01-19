@@ -115,8 +115,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -169,8 +169,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -190,8 +190,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 user: tokenRefresh.user
             )
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -211,8 +211,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 tokenType: tokenRefresh.tokenType ?? "Bearer"
             )
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -223,8 +223,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .noContent:
             await clearTokens()
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -240,8 +240,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             }
             return userResponse
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -252,8 +252,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .noContent:
             await clearTokens()
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -272,8 +272,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -307,8 +307,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -327,8 +327,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -347,8 +347,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -367,8 +367,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -390,8 +390,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -410,8 +410,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             }
             return payload.value1
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -433,8 +433,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -454,8 +454,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -493,8 +493,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, _):
-            throw mapUndocumentedError(statusCode: statusCode)
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
     }
 
@@ -522,26 +522,48 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         )
     }
 
-    private func mapUndocumentedError(statusCode: Int) -> APIError {
+    private func mapUndocumentedError(
+        statusCode: Int,
+        payload: OpenAPIRuntime.UndocumentedPayload
+    ) async -> APIError {
+        // Try to extract error message from response body
+        let message = await extractErrorMessage(from: payload.body)
+
         switch statusCode {
         case 400:
-            .badRequest(message: nil)
+            return APIError.parseBadRequest(message: message)
         case 401:
-            .unauthorized(message: nil)
+            return APIError.unauthorized(message: message)
         case 403:
-            .forbidden(message: nil)
+            return APIError.forbidden(message: message)
         case 404:
-            .notFound(message: nil)
+            return APIError.notFound(message: message)
         case 408:
-            .timeout
+            return APIError.timeout
         case 422:
-            .unprocessableEntity(message: nil)
+            return APIError.unprocessableEntity(message: message)
         case 429:
-            .rateLimitExceeded(message: nil)
+            return APIError.rateLimitExceeded(message: message)
         case 500 ... 599:
-            .serverError(statusCode: statusCode, message: nil)
+            return APIError.serverError(statusCode: statusCode, message: message)
         default:
-            .unknown(message: "Unexpected status code: \(statusCode)")
+            return APIError.unknown(message: message ?? "Unexpected status code: \(statusCode)")
+        }
+    }
+
+    /// Extracts error message from HTTP response body.
+    /// Returns nil if body is nil, empty, or cannot be decoded.
+    private func extractErrorMessage(from body: HTTPBody?) async -> String? {
+        guard let body else { return nil }
+
+        do {
+            // Collect body data (limit to 1MB to prevent memory issues)
+            let data = try await Data(collecting: body, upTo: 1024 * 1024)
+            let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
+            return errorResponse.detail
+        } catch {
+            // If decoding fails, try to get raw string
+            return nil
         }
     }
 }
