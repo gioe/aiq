@@ -50,6 +50,14 @@ let package = Package(
                 // This plugin generates Swift code from the OpenAPI spec at build time
                 .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
             ]
+        ),
+        .testTarget(
+            name: "AIQAPIClientTests",
+            dependencies: [
+                "AIQAPIClient",
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "HTTPTypes", package: "swift-http-types")
+            ]
         )
     ]
 )
