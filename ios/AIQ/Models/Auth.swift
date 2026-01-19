@@ -1,49 +1,32 @@
+import AIQAPIClient
 import Foundation
 
-struct LoginRequest: Codable {
-    let email: String
-    let password: String
-}
+// MARK: - Auth Request Types
 
-struct RegisterRequest: Codable {
-    let email: String
-    let password: String
-    let firstName: String
-    let lastName: String
-
-    // Optional demographic data for norming study (P13-001)
-    let birthYear: Int?
-    let educationLevel: EducationLevel?
-    let country: String?
-    let region: String?
-
-    enum CodingKeys: String, CodingKey {
-        case email
-        case password
-        case firstName = "first_name"
-        case lastName = "last_name"
-        case birthYear = "birth_year"
-        case educationLevel = "education_level"
-        case country
-        case region
-    }
-}
-
-/// Authentication response from login/register endpoints
+/// Login request type alias
 ///
-/// Contains authentication tokens and the authenticated user's information.
-/// The `user` field uses the generated `Components.Schemas.UserResponse` type
-/// via the `User` typealias defined in User.swift.
-struct AuthResponse: Codable {
-    let accessToken: String
-    let refreshToken: String
-    let tokenType: String
-    let user: User
+/// Maps to `Components.Schemas.UserLogin` in the OpenAPI spec.
+/// This is a request DTO containing email and password for user authentication.
+public typealias LoginRequest = Components.Schemas.UserLogin
 
-    enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case refreshToken = "refresh_token"
-        case tokenType = "token_type"
-        case user
-    }
-}
+/// Register request type alias
+///
+/// Maps to `Components.Schemas.UserRegister` in the OpenAPI spec.
+/// This is a request DTO containing user registration data including required fields
+/// (email, password, firstName, lastName) and optional demographic data.
+public typealias RegisterRequest = Components.Schemas.UserRegister
+
+// MARK: - Auth Response Type
+
+/// Authentication response type alias
+///
+/// Maps to `Components.Schemas.Token` in the OpenAPI spec.
+/// Contains authentication tokens (access_token, refresh_token, token_type) and
+/// the authenticated user's information.
+///
+/// **Generated Properties:**
+/// - accessToken: String (mapped from access_token)
+/// - refreshToken: String (mapped from refresh_token)
+/// - tokenType: String (mapped from token_type)
+/// - user: UserResponse (the authenticated user's data)
+public typealias AuthResponse = Components.Schemas.Token

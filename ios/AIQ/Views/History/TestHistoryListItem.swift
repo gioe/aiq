@@ -19,7 +19,7 @@ struct TestHistoryListItem: View {
                         .accessibilityLabel(testResult.scoreAccessibilityDescription)
 
                     // Confidence interval range (if available)
-                    if let ci = testResult.confidenceInterval {
+                    if let ci = testResult.confidenceIntervalConverted {
                         Text("Range: \(ci.rangeFormatted)")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -124,44 +124,34 @@ private struct MetricView: View {
     }
 }
 
-#Preview("With Confidence Interval") {
-    let sampleResult = TestResult(
-        id: 1,
-        testSessionId: 1,
-        userId: 1,
-        iqScore: 125,
-        percentileRank: 84.0,
-        totalQuestions: 20,
-        correctAnswers: 17,
-        accuracyPercentage: 85.0,
-        completionTimeSeconds: 1200,
-        completedAt: Date(),
-        confidenceInterval: ConfidenceInterval(
-            lower: 118,
-            upper: 132,
-            confidenceLevel: 0.95,
-            standardError: 3.5
+#Preview("High Score") {
+    TestHistoryListItem(
+        testResult: MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 1,
+            userId: 1,
+            iqScore: 125,
+            totalQuestions: 20,
+            correctAnswers: 17,
+            accuracyPercentage: 85.0,
+            completedAt: Date()
         )
     )
-
-    return TestHistoryListItem(testResult: sampleResult)
-        .padding()
+    .padding()
 }
 
-#Preview("Without Confidence Interval") {
-    let sampleResult = TestResult(
-        id: 2,
-        testSessionId: 2,
-        userId: 1,
-        iqScore: 105,
-        percentileRank: 63.0,
-        totalQuestions: 20,
-        correctAnswers: 14,
-        accuracyPercentage: 70.0,
-        completionTimeSeconds: 1100,
-        completedAt: Date()
+#Preview("Average Score") {
+    TestHistoryListItem(
+        testResult: MockDataFactory.makeTestResult(
+            id: 2,
+            testSessionId: 2,
+            userId: 1,
+            iqScore: 105,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date()
+        )
     )
-
-    return TestHistoryListItem(testResult: sampleResult)
-        .padding()
+    .padding()
 }

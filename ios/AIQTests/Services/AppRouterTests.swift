@@ -649,45 +649,29 @@ final class AppRouterTests: XCTestCase {
 
     /// Create a mock SubmittedTestResult for testing
     private func createMockSubmittedTestResult(sessionId: Int = 1) -> SubmittedTestResult {
-        SubmittedTestResult(
+        MockDataFactory.makeTestResult(
             id: sessionId,
             testSessionId: sessionId,
             userId: 1,
             iqScore: 120,
-            percentileRank: 91,
             totalQuestions: 30,
             correctAnswers: 26,
             accuracyPercentage: 85.0,
-            completionTimeSeconds: 1800,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: nil,
-            strongestDomain: nil,
-            weakestDomain: nil,
-            confidenceInterval: ConfidenceInterval(
-                lower: 115,
-                upper: 125,
-                confidenceLevel: 0.95,
-                standardError: 3.5
-            )
+            completedAt: Date()
         )
     }
 
     /// Create a mock TestResult for testing
     private func createMockTestResult(id: Int = 1) -> TestResult {
-        TestResult(
+        MockDataFactory.makeTestResult(
             id: id,
             testSessionId: 100,
             userId: 1,
             iqScore: 115,
-            percentileRank: 80.0,
             totalQuestions: 30,
             correctAnswers: 24,
             accuracyPercentage: 80.0,
-            completionTimeSeconds: 1500,
-            completedAt: Date(),
-            domainScores: nil,
-            confidenceInterval: nil
+            completedAt: Date()
         )
     }
 }

@@ -73,7 +73,7 @@ struct TestDetailView: View {
                     .accessibilityLabel(testResult.scoreAccessibilityDescription)
 
                 // Confidence interval display (when available)
-                if let ci = testResult.confidenceInterval {
+                if let ci = testResult.confidenceIntervalConverted {
                     confidenceIntervalDisplay(ci)
                 }
 
@@ -135,7 +135,7 @@ struct TestDetailView: View {
 
     /// Explanation text for the confidence interval info alert
     private var confidenceIntervalExplanation: String {
-        guard let ci = testResult.confidenceInterval else {
+        guard let ci = testResult.confidenceIntervalConverted else {
             return "No confidence interval available."
         }
         let confidenceText = "\(ci.confidencePercentage)% confidence"
@@ -337,71 +337,53 @@ struct TestDetailView: View {
 
 // MARK: - Preview
 
-#Preview("High Score - With CI") {
+#Preview("High Score") {
     NavigationStack {
         TestDetailView(
-            testResult: TestResult(
+            testResult: MockDataFactory.makeTestResult(
                 id: 1,
                 testSessionId: 123,
                 userId: 1,
                 iqScore: 135,
-                percentileRank: 98.0,
                 totalQuestions: 20,
                 correctAnswers: 18,
                 accuracyPercentage: 90.0,
-                completionTimeSeconds: 1200,
-                completedAt: Date(),
-                confidenceInterval: ConfidenceInterval(
-                    lower: 128,
-                    upper: 142,
-                    confidenceLevel: 0.95,
-                    standardError: 3.5
-                )
+                completedAt: Date()
             ),
             userAverage: 120
         )
     }
 }
 
-#Preview("Average Score - With CI") {
+#Preview("Average Score") {
     NavigationStack {
         TestDetailView(
-            testResult: TestResult(
+            testResult: MockDataFactory.makeTestResult(
                 id: 2,
                 testSessionId: 124,
                 userId: 1,
                 iqScore: 105,
-                percentileRank: 65.0,
                 totalQuestions: 20,
                 correctAnswers: 14,
                 accuracyPercentage: 70.0,
-                completionTimeSeconds: 1500,
-                completedAt: Date().addingTimeInterval(-86400 * 7),
-                confidenceInterval: ConfidenceInterval(
-                    lower: 98,
-                    upper: 112,
-                    confidenceLevel: 0.95,
-                    standardError: 3.5
-                )
+                completedAt: Date().addingTimeInterval(-86400 * 7)
             ),
             userAverage: 110
         )
     }
 }
 
-#Preview("First Test - No CI") {
+#Preview("First Test") {
     NavigationStack {
         TestDetailView(
-            testResult: TestResult(
+            testResult: MockDataFactory.makeTestResult(
                 id: 3,
                 testSessionId: 125,
                 userId: 1,
                 iqScore: 115,
-                percentileRank: 80.0,
                 totalQuestions: 20,
                 correctAnswers: 16,
                 accuracyPercentage: 80.0,
-                completionTimeSeconds: 1350,
                 completedAt: Date().addingTimeInterval(-86400 * 30)
             ),
             userAverage: nil

@@ -251,14 +251,10 @@ struct InProgressTestCard: View {
 #Preview("With Progress") {
     ScrollView {
         InProgressTestCard(
-            session: TestSession(
+            session: MockDataFactory.makeInProgressSession(
                 id: 123,
                 userId: 1,
-                startedAt: Date().addingTimeInterval(-3600 * 2), // 2 hours ago
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil,
-                timeLimitExceeded: false
+                startedAt: Date().addingTimeInterval(-3600 * 2) // 2 hours ago
             ),
             questionsAnswered: 12,
             onResume: {
@@ -276,14 +272,10 @@ struct InProgressTestCard: View {
 #Preview("Just Started") {
     ScrollView {
         InProgressTestCard(
-            session: TestSession(
+            session: MockDataFactory.makeInProgressSession(
                 id: 456,
                 userId: 1,
-                startedAt: Date().addingTimeInterval(-30), // 30 seconds ago
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil,
-                timeLimitExceeded: false
+                startedAt: Date().addingTimeInterval(-30) // 30 seconds ago
             ),
             questionsAnswered: 0,
             onResume: {
@@ -301,14 +293,10 @@ struct InProgressTestCard: View {
 #Preview("Days Ago") {
     ScrollView {
         InProgressTestCard(
-            session: TestSession(
+            session: MockDataFactory.makeInProgressSession(
                 id: 789,
                 userId: 1,
-                startedAt: Date().addingTimeInterval(-86400 * 3), // 3 days ago
-                completedAt: nil,
-                status: .inProgress,
-                questions: nil,
-                timeLimitExceeded: false
+                startedAt: Date().addingTimeInterval(-86400 * 3) // 3 days ago
             ),
             questionsAnswered: 5,
             onResume: {

@@ -85,7 +85,7 @@ struct AnswerInputView: View {
     // MARK: - Input Configuration
 
     private var keyboardType: UIKeyboardType {
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .math:
             // Use decimal pad for math questions to allow numbers and decimals
             .decimalPad
@@ -100,7 +100,7 @@ struct AnswerInputView: View {
 
     private var shouldDisableAutocorrection: Bool {
         // Disable autocorrection for math, pattern, and spatial questions
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .math, .pattern, .spatial:
             true
         default:
@@ -110,7 +110,7 @@ struct AnswerInputView: View {
 
     private var capitalizationType: TextInputAutocapitalization {
         // Use sentence capitalization for verbal questions, none for others
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .verbal:
             .sentences
         default:
@@ -119,7 +119,7 @@ struct AnswerInputView: View {
     }
 
     private var placeholderText: String {
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .math:
             "answer.input.placeholder.math".localized
         case .pattern:
@@ -138,11 +138,13 @@ struct AnswerInputView: View {
             "answer.input.placeholder.default".localized
         case .memory:
             "answer.input.placeholder.default".localized
+        case nil:
+            "answer.input.placeholder.default".localized
         }
     }
 
     private var inputHint: String {
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .math:
             "answer.input.hint.math".localized
         case .pattern where question.questionText.lowercased().contains("letter"):
@@ -223,16 +225,13 @@ private struct OptionButton: View {
 
 // MARK: - Preview
 
-// swiftlint:disable force_try
 #Preview("Multiple Choice") {
     AnswerInputView(
-        question: try! Question(
+        question: MockDataFactory.makeQuestion(
             id: 1,
             questionText: "Which word doesn't belong?",
-            questionType: .logic,
-            difficultyLevel: .easy,
-            answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
-            explanation: nil
+            questionType: "logic",
+            difficultyLevel: "easy"
         ),
         userAnswer: .constant("Carrot")
     )
@@ -241,13 +240,11 @@ private struct OptionButton: View {
 
 #Preview("Math Question") {
     AnswerInputView(
-        question: try! Question(
+        question: MockDataFactory.makeQuestion(
             id: 2,
             questionText: "What is 15% of 200?",
-            questionType: .math,
-            difficultyLevel: .easy,
-            answerOptions: nil,
-            explanation: nil
+            questionType: "math",
+            difficultyLevel: "easy"
         ),
         userAnswer: .constant("")
     )
@@ -256,13 +253,11 @@ private struct OptionButton: View {
 
 #Preview("Pattern Question - Number") {
     AnswerInputView(
-        question: try! Question(
+        question: MockDataFactory.makeQuestion(
             id: 3,
             questionText: "What number comes next in the sequence: 2, 4, 8, 16, ?",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
+            questionType: "pattern",
+            difficultyLevel: "medium"
         ),
         userAnswer: .constant("")
     )
@@ -271,13 +266,11 @@ private struct OptionButton: View {
 
 #Preview("Pattern Question - Letter") {
     AnswerInputView(
-        question: try! Question(
+        question: MockDataFactory.makeQuestion(
             id: 4,
             questionText: "What letter comes next: A, C, F, J, ?",
-            questionType: .pattern,
-            difficultyLevel: .medium,
-            answerOptions: nil,
-            explanation: nil
+            questionType: "pattern",
+            difficultyLevel: "medium"
         ),
         userAnswer: .constant("")
     )
@@ -286,17 +279,13 @@ private struct OptionButton: View {
 
 #Preview("Verbal Question") {
     AnswerInputView(
-        question: try! Question(
+        question: MockDataFactory.makeQuestion(
             id: 5,
             questionText: "Complete the analogy: Dog is to puppy as cat is to ___",
-            questionType: .verbal,
-            difficultyLevel: .easy,
-            answerOptions: nil,
-            explanation: nil
+            questionType: "verbal",
+            difficultyLevel: "easy"
         ),
         userAnswer: .constant("")
     )
     .padding()
 }
-
-// swiftlint:enable force_try

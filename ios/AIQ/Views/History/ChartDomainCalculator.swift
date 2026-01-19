@@ -1,3 +1,4 @@
+import AIQAPIClient
 import Foundation
 
 /// Utility struct for calculating chart domain and filtering chart data.
@@ -38,9 +39,9 @@ enum ChartDomainCalculator {
 
         for result in history {
             allValues.append(result.iqScore)
-            if let ci = result.confidenceInterval {
-                allValues.append(ci.lower)
-                allValues.append(ci.upper)
+            if let ciPayload = result.confidenceInterval {
+                allValues.append(ciPayload.value1.lower)
+                allValues.append(ciPayload.value1.upper)
             }
         }
 

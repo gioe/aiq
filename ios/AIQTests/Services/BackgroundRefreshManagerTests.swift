@@ -340,19 +340,15 @@ final class BackgroundRefreshManagerTests: XCTestCase {
 
     /// Create a test result with the given days ago for completedAt
     private func createTestResult(daysAgo: Int) -> TestResult {
-        TestResult(
+        MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 1,
             userId: 1,
             iqScore: 120,
-            percentileRank: 90,
             totalQuestions: 20,
             correctAnswers: 17,
             accuracyPercentage: 85.0,
-            completionTimeSeconds: 1500,
-            completedAt: Date(timeIntervalSinceNow: -Double(daysAgo) * 24 * 60 * 60),
-            domainScores: nil,
-            confidenceInterval: nil
+            completedAt: Date(timeIntervalSinceNow: -Double(daysAgo) * 24 * 60 * 60)
         )
     }
 }

@@ -136,8 +136,8 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 999
         let mockQuestions = [
-            makeQuestion(id: 10, text: "Question 1?", type: .spatial),
-            makeQuestion(id: 20, text: "Question 2?", type: .math)
+            makeQuestion(id: 10, text: "Question 1?", type: "spatial"),
+            makeQuestion(id: 20, text: "Question 2?", type: "math")
         ]
         let mockResponse = makeSessionStatusResponse(
             sessionId: sessionId,
@@ -191,14 +191,11 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_HandlesNoQuestionsError() async {
         // Given
         let sessionId = 222
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         // Response with no questions
         let mockResponse = TestSessionStatusResponse(
@@ -396,32 +393,25 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_FiltersSavedAnswersForValidQuestions() async {
         // Given
         let sessionId = 1111
-        let mockSession = TestSession(
+        let mockSession = MockDataFactory.makeTestSession(
             id: sessionId,
             userId: 1,
-            startedAt: Date(),
-            completedAt: nil,
-            status: .inProgress,
-            questions: nil,
-            timeLimitExceeded: false
+            status: "in_progress",
+            startedAt: Date()
         )
         // Only include questions 1 and 2 in the session
         let mockQuestions = [
-            try! Question(
+            MockDataFactory.makeQuestion(
                 id: 1,
                 questionText: "Question 1?",
-                questionType: .memory,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
+                questionType: "memory",
+                difficultyLevel: "medium"
             ),
-            try! Question(
+            MockDataFactory.makeQuestion(
                 id: 2,
                 questionText: "Question 2?",
-                questionType: .pattern,
-                difficultyLevel: .medium,
-                answerOptions: ["A", "B", "C", "D"],
-                explanation: nil
+                questionType: "pattern",
+                difficultyLevel: "medium"
             )
         ]
         let mockResponse = TestSessionStatusResponse(
@@ -456,18 +446,16 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeTestSession(
         id: Int,
         userId: Int = 1,
-        status: TestStatus = .inProgress,
+        status: String = "in_progress",
         startedAt: Date = Date(),
-        completedAt: Date? = nil,
-        timeLimitExceeded: Bool? = false
+        completedAt _: Date? = nil,
+        timeLimitExceeded: Bool = false
     ) -> TestSession {
-        TestSession(
+        MockDataFactory.makeTestSession(
             id: id,
             userId: userId,
-            startedAt: startedAt,
-            completedAt: completedAt,
             status: status,
-            questions: nil,
+            startedAt: startedAt,
             timeLimitExceeded: timeLimitExceeded
         )
     }
@@ -475,17 +463,14 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeQuestion(
         id: Int,
         text: String = "Test question?",
-        type: QuestionType = .logic,
-        difficulty: DifficultyLevel = .medium,
-        options: [String]? = ["A", "B", "C", "D"]
+        type: String = "logic",
+        difficulty: String = "medium"
     ) -> Question {
-        try! Question(
+        MockDataFactory.makeQuestion(
             id: id,
             questionText: text,
             questionType: type,
-            difficultyLevel: difficulty,
-            answerOptions: options,
-            explanation: nil
+            difficultyLevel: difficulty
         )
     }
 
@@ -516,8 +501,8 @@ final class TestTakingViewModelTests: XCTestCase {
         totalQuestions: Int? = nil
     ) -> StartTestResponse {
         StartTestResponse(
-            session: makeTestSession(id: sessionId),
             questions: questions,
+            session: makeTestSession(id: sessionId),
             totalQuestions: totalQuestions ?? questions.count
         )
     }
@@ -528,9 +513,9 @@ final class TestTakingViewModelTests: XCTestCase {
         message: String = "Test abandoned successfully"
     ) -> TestAbandonResponse {
         TestAbandonResponse(
-            session: makeTestSession(id: sessionId, status: TestStatus.abandoned),
             message: message,
-            responsesSaved: responsesSaved
+            responsesSaved: responsesSaved,
+            session: makeTestSession(id: sessionId, status: "abandoned")
         )
     }
 
@@ -539,34 +524,20 @@ final class TestTakingViewModelTests: XCTestCase {
         sessionId: Int,
         userId: Int = 1,
         iqScore: Int = 100,
-        percentileRank: Double? = 50.0,
         totalQuestions: Int = 20,
         correctAnswers: Int = 10,
         accuracyPercentage: Double = 50.0,
-        completionTimeSeconds: Int? = 600,
-        completedAt: Date = Date(),
-        responseTimeFlags: ResponseTimeFlags? = nil,
-        domainScores: [String: DomainScore]? = nil,
-        strongestDomain: String? = nil,
-        weakestDomain: String? = nil,
-        confidenceInterval: ConfidenceInterval? = nil
+        completedAt: Date = Date()
     ) -> SubmittedTestResult {
-        SubmittedTestResult(
+        MockDataFactory.makeTestResult(
             id: id,
             testSessionId: sessionId,
             userId: userId,
             iqScore: iqScore,
-            percentileRank: percentileRank,
             totalQuestions: totalQuestions,
             correctAnswers: correctAnswers,
             accuracyPercentage: accuracyPercentage,
-            completionTimeSeconds: completionTimeSeconds,
-            completedAt: completedAt,
-            responseTimeFlags: responseTimeFlags,
-            domainScores: domainScores,
-            strongestDomain: strongestDomain,
-            weakestDomain: weakestDomain,
-            confidenceInterval: confidenceInterval
+            completedAt: completedAt
         )
     }
 
@@ -801,7 +772,8 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            session: makeTestSession(id: sessionId, status: .completed),
+            message: "Test submitted",
+            responsesCount: 2,
             result: makeSubmittedTestResult(
                 id: 1,
                 sessionId: sessionId,
@@ -809,8 +781,7 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 2,
                 correctAnswers: 1
             ),
-            responsesCount: 2,
-            message: "Test submitted"
+            session: makeTestSession(id: sessionId, status: "completed")
         )
         await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
 
@@ -841,7 +812,8 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            session: makeTestSession(id: sessionId, status: .completed),
+            message: "Test submitted",
+            responsesCount: 1,
             result: makeSubmittedTestResult(
                 id: 2,
                 sessionId: sessionId,
@@ -849,8 +821,7 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 3,
                 correctAnswers: 1
             ),
-            responsesCount: 1,
-            message: "Test submitted"
+            session: makeTestSession(id: sessionId, status: "completed")
         )
         await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
 
@@ -897,7 +868,8 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            session: makeTestSession(id: sessionId, status: .completed),
+            message: "Test submitted",
+            responsesCount: 2,
             result: makeSubmittedTestResult(
                 id: 3,
                 sessionId: sessionId,
@@ -905,8 +877,7 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 2,
                 correctAnswers: 2
             ),
-            responsesCount: 2,
-            message: "Test submitted"
+            session: makeTestSession(id: sessionId, status: "completed")
         )
         await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
 
@@ -948,16 +919,14 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testIsFirstTest_ReturnsFalseWhenTestCountAtStartIsOne() async {
         // Given - Set up API to return one test
-        let mockTestResult = TestResult(
+        let mockTestResult = MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 100,
             userId: 1,
             iqScore: 105,
-            percentileRank: 60.0,
             totalQuestions: 20,
             correctAnswers: 12,
             accuracyPercentage: 60.0,
-            completionTimeSeconds: 900,
             completedAt: Date()
         )
         await mockAPIClient.setPaginatedTestHistoryResponse(
@@ -985,16 +954,14 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testIsFirstTest_ReturnsFalseWhenTestCountAtStartIsGreaterThanZero() async {
         // Given - Set up API to return multiple tests
-        let mockTestResult = TestResult(
+        let mockTestResult = MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 100,
             userId: 1,
             iqScore: 105,
-            percentileRank: 60.0,
             totalQuestions: 20,
             correctAnswers: 12,
             accuracyPercentage: 60.0,
-            completionTimeSeconds: 900,
             completedAt: Date()
         )
         await mockAPIClient.setPaginatedTestHistoryResponse(

@@ -38,8 +38,8 @@ struct QuestionCardView: View {
         "question.card.question.accessibility".localized(
             with: questionNumber,
             totalQuestions,
-            question.questionType.rawValue.capitalized,
-            question.difficultyLevel.rawValue.capitalized,
+            question.questionType.capitalized,
+            question.difficultyLevel.capitalized,
             question.questionText
         )
     }
@@ -58,7 +58,7 @@ struct QuestionCardView: View {
             HStack(spacing: 4) {
                 Image(systemName: iconForQuestionType)
                     .font(.caption)
-                Text(question.questionType.rawValue.capitalized)
+                Text(question.questionType.capitalized)
                     .font(.caption)
                     .fontWeight(.medium)
             }
@@ -78,7 +78,7 @@ struct QuestionCardView: View {
                     .frame(width: 8, height: 8)
             }
 
-            Text(question.difficultyLevel.rawValue.capitalized)
+            Text(question.difficultyLevel.capitalized)
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
@@ -88,57 +88,58 @@ struct QuestionCardView: View {
     // MARK: - Helpers
 
     private var iconForQuestionType: String {
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .pattern: "grid.circle"
         case .logic: "brain.head.profile"
         case .spatial: "cube"
         case .math: "number.circle"
         case .verbal: "text.quote"
         case .memory: "lightbulb.circle"
+        case nil: "questionmark.circle"
         }
     }
 
     private var colorForQuestionType: Color {
-        switch question.questionType {
+        switch question.questionTypeEnum {
         case .pattern: .blue
         case .logic: .purple
         case .spatial: .orange
         case .math: .green
         case .verbal: .pink
         case .memory: .indigo
+        case nil: .gray
         }
     }
 
     private var difficultyCircles: Int {
         switch question.difficultyLevel {
-        case .easy: 1
-        case .medium: 2
-        case .hard: 3
+        case "easy": 1
+        case "medium": 2
+        case "hard": 3
+        default: 2
         }
     }
 
     private var colorForDifficulty: Color {
         switch question.difficultyLevel {
-        case .easy: .green
-        case .medium: .orange
-        case .hard: .red
+        case "easy": .green
+        case "medium": .orange
+        case "hard": .red
+        default: .orange
         }
     }
 }
 
 // MARK: - Preview
 
-// swiftlint:disable force_try
 #Preview {
     VStack {
         QuestionCardView(
-            question: try! Question(
+            question: MockDataFactory.makeQuestion(
                 id: 1,
                 questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
-                questionType: .pattern,
-                difficultyLevel: .medium,
-                answerOptions: nil,
-                explanation: nil
+                questionType: "pattern",
+                difficultyLevel: "medium"
             ),
             questionNumber: 1,
             totalQuestions: 20
@@ -146,13 +147,11 @@ struct QuestionCardView: View {
         .padding()
 
         QuestionCardView(
-            question: try! Question(
+            question: MockDataFactory.makeQuestion(
                 id: 2,
                 questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
-                questionType: .logic,
-                difficultyLevel: .easy,
-                answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
-                explanation: nil
+                questionType: "logic",
+                difficultyLevel: "easy"
             ),
             questionNumber: 2,
             totalQuestions: 20
@@ -160,5 +159,3 @@ struct QuestionCardView: View {
         .padding()
     }
 }
-
-// swiftlint:enable force_try

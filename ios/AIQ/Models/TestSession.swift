@@ -1,43 +1,74 @@
+import AIQAPIClient
 import Foundation
 
+// MARK: - Test Session Type Aliases
+
+/// Test session model re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.TestSessionResponse` type.
+/// UI-specific computed properties are provided via the `TestSession+Extensions.swift` file.
+///
+/// **Generated Properties:**
+/// - id: Int
+/// - userId: Int (mapped from user_id)
+/// - status: String (raw string like "in_progress", "completed", "abandoned")
+/// - startedAt: Date (mapped from started_at)
+/// - completedAt: May have limited availability depending on OpenAPI generator version
+/// - timeLimitExceeded: Bool (has default value of false)
+///
+/// **Note:** The generated type uses String for status instead of an enum.
+/// Extensions provide a statusEnum property for type-safe status checks.
+public typealias TestSession = Components.Schemas.TestSessionResponse
+
+/// Response when starting a new test
+///
+/// Maps to `Components.Schemas.StartTestResponse` in the OpenAPI spec.
+///
+/// **Generated Properties:**
+/// - session: TestSessionResponse
+/// - questions: [QuestionResponse]
+/// - totalQuestions: Int (mapped from total_questions)
+public typealias StartTestResponse = Components.Schemas.StartTestResponse
+
+/// Response when submitting a test
+///
+/// Maps to `Components.Schemas.SubmitTestResponse` in the OpenAPI spec.
+///
+/// **Generated Properties:**
+/// - session: TestSessionResponse
+/// - result: TestResultResponse
+/// - responsesCount: Int (mapped from responses_count)
+/// - message: String
+public typealias TestSubmitResponse = Components.Schemas.SubmitTestResponse
+
+/// Response when abandoning a test
+///
+/// Maps to `Components.Schemas.TestSessionAbandonResponse` in the OpenAPI spec.
+///
+/// **Generated Properties:**
+/// - session: TestSessionResponse
+/// - message: String
+/// - responsesSaved: Int (mapped from responses_saved)
+public typealias TestAbandonResponse = Components.Schemas.TestSessionAbandonResponse
+
+// MARK: - Test Status Enum
+
+/// Test status enumeration for type-safe status checks
+///
+/// This enum mirrors the backend's test status values and provides
+/// type-safe helpers for working with the status string property.
 enum TestStatus: String, Codable, Equatable {
     case inProgress = "in_progress"
     case completed
     case abandoned
 }
 
-struct TestSession: Codable, Identifiable, Equatable {
-    let id: Int
-    let userId: Int
-    let startedAt: Date
-    let completedAt: Date?
-    let status: TestStatus
-    let questions: [Question]?
-    let timeLimitExceeded: Bool?
+// MARK: - Test Submission
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case startedAt = "started_at"
-        case completedAt = "completed_at"
-        case status
-        case questions
-        case timeLimitExceeded = "time_limit_exceeded"
-    }
-}
-
-struct StartTestResponse: Codable, Equatable {
-    let session: TestSession
-    let questions: [Question]
-    let totalQuestions: Int
-
-    enum CodingKeys: String, CodingKey {
-        case session
-        case questions
-        case totalQuestions = "total_questions"
-    }
-}
-
+/// Test submission request
+///
+/// This is a request DTO sent to the backend when submitting test answers.
+/// It remains a manual model as it's not part of the OpenAPI response types.
 struct TestSubmission: Codable, Equatable {
     let sessionId: Int
     let responses: [QuestionResponse]
@@ -56,114 +87,11 @@ struct TestSubmission: Codable, Equatable {
     }
 }
 
-struct TestSubmitResponse: Codable, Equatable {
-    let session: TestSession
-    let result: SubmittedTestResult
-    let responsesCount: Int
-    let message: String
-
-    enum CodingKeys: String, CodingKey {
-        case session
-        case result
-        case responsesCount = "responses_count"
-        case message
-    }
-}
-
-struct TestAbandonResponse: Codable, Equatable {
-    let session: TestSession
-    let message: String
-    let responsesSaved: Int
-
-    enum CodingKeys: String, CodingKey {
-        case session
-        case message
-        case responsesSaved = "responses_saved"
-    }
-}
-
-struct SubmittedTestResult: Codable, Equatable {
-    let id: Int
-    let testSessionId: Int
-    let userId: Int
-    let iqScore: Int
-    let percentileRank: Double?
-    let totalQuestions: Int
-    let correctAnswers: Int
-    let accuracyPercentage: Double
-    let completionTimeSeconds: Int?
-    let completedAt: Date
-    let responseTimeFlags: ResponseTimeFlags?
-    let domainScores: [String: DomainScore]?
-    /// The cognitive domain with the highest percentile score
-    let strongestDomain: String?
-    /// The cognitive domain with the lowest percentile score
-    let weakestDomain: String?
-    /// Confidence interval for the IQ score. Nil when reliability data is insufficient.
-    let confidenceInterval: ConfidenceInterval?
-
-    var accuracy: Double {
-        accuracyPercentage / 100.0
-    }
-
-    var completionTimeFormatted: String {
-        guard let seconds = completionTimeSeconds else { return "N/A" }
-        let minutes = seconds / 60
-        let secs = seconds % 60
-        return String(format: "%d:%02d", minutes, secs)
-    }
-
-    /// Formatted percentile string (e.g., "Top 16%", "Top 50%")
-    var percentileFormatted: String? {
-        guard let percentile = percentileRank else { return nil }
-        // percentileRank is 0-100, representing what % scored below you
-        // So if you're at 84th percentile, you're in the top 16%
-        let topPercent = Int(round(100 - percentile))
-        return "Top \(topPercent)%"
-    }
-
-    /// Detailed percentile description (e.g., "84th percentile")
-    var percentileDescription: String? {
-        guard let percentile = percentileRank else { return nil }
-        return "\(Int(round(percentile)).ordinalString) percentile"
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case testSessionId = "test_session_id"
-        case userId = "user_id"
-        case iqScore = "iq_score"
-        case percentileRank = "percentile_rank"
-        case totalQuestions = "total_questions"
-        case correctAnswers = "correct_answers"
-        case accuracyPercentage = "accuracy_percentage"
-        case completionTimeSeconds = "completion_time_seconds"
-        case completedAt = "completed_at"
-        case responseTimeFlags = "response_time_flags"
-        case domainScores = "domain_scores"
-        case strongestDomain = "strongest_domain"
-        case weakestDomain = "weakest_domain"
-        case confidenceInterval = "confidence_interval"
-    }
-
-    /// Score displayed with confidence interval range when available (e.g., "108 (101-115)")
-    var scoreWithConfidenceInterval: String {
-        if let ci = confidenceInterval {
-            return "\(iqScore) (\(ci.rangeFormatted))"
-        }
-        return "\(iqScore)"
-    }
-
-    /// Accessibility description for the score with confidence interval
-    var scoreAccessibilityDescription: String {
-        if let ci = confidenceInterval {
-            return "IQ score \(iqScore). \(ci.accessibilityDescription)"
-        }
-        return "IQ score \(iqScore)"
-    }
-}
+// MARK: - Response Time Analysis
 
 /// Response time analysis flags returned from the backend
+///
+/// These types remain manual as they may not be fully covered by the OpenAPI spec.
 struct ResponseTimeFlags: Codable, Equatable {
     let totalTimeSeconds: Int?
     let meanTimePerQuestion: Double?

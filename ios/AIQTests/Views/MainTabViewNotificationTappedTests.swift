@@ -1096,19 +1096,15 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Helper Methods
 
     private func createMockTestResult(id: Int = 1) -> TestResult {
-        TestResult(
+        MockDataFactory.makeTestResult(
             id: id,
             testSessionId: 100,
             userId: 1,
             iqScore: 115,
-            percentileRank: 80.0,
             totalQuestions: 30,
             correctAnswers: 24,
             accuracyPercentage: 80.0,
-            completionTimeSeconds: 1500,
-            completedAt: Date(),
-            domainScores: nil,
-            confidenceInterval: nil
+            completedAt: Date()
         )
     }
 }

@@ -376,27 +376,19 @@ final class TestResultsViewTests: XCTestCase {
         id: Int = 1,
         sessionId: Int = 100,
         iqScore: Int = 100,
-        percentileRank: Double = 50.0,
         totalQuestions: Int = 20,
         correctAnswers: Int = 10,
         accuracyPercentage: Double = 50.0
     ) -> SubmittedTestResult {
-        SubmittedTestResult(
+        MockDataFactory.makeTestResult(
             id: id,
             testSessionId: sessionId,
             userId: 1,
             iqScore: iqScore,
-            percentileRank: percentileRank,
             totalQuestions: totalQuestions,
             correctAnswers: correctAnswers,
             accuracyPercentage: accuracyPercentage,
-            completionTimeSeconds: 600,
-            completedAt: Date(),
-            responseTimeFlags: nil,
-            domainScores: nil,
-            strongestDomain: nil,
-            weakestDomain: nil,
-            confidenceInterval: nil
+            completedAt: Date()
         )
     }
 }
