@@ -17,16 +17,10 @@
             "description": "Score using equal weights across all domains"
           },
           "score_difference": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Difference between weighted and equal scores (weighted - equal)",
-            "title": "Score Difference"
+            "nullable": true,
+            "title": "Score Difference",
+            "type": "integer"
           },
           "session_id": {
             "description": "Test session ID for which comparison was calculated",
@@ -34,30 +28,22 @@
             "type": "integer"
           },
           "weighted_score": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/ABComparisonScore"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Score using configured domain weights (None if no weights configured)"
+            "description": "Score using configured domain weights (None if no weights configured)",
+            "nullable": true
           },
           "weights_used": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "number"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "number"
+            },
             "description": "Domain weights used for weighted calculation",
-            "title": "Weights Used"
+            "nullable": true,
+            "title": "Weights Used",
+            "type": "object"
           }
         },
         "required": [
@@ -146,16 +132,10 @@
             "type": "string"
           },
           "properties": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Optional event properties/metadata",
-            "title": "Properties"
+            "nullable": true,
+            "title": "Properties",
+            "type": "object"
           },
           "timestamp": {
             "description": "ISO 8601 timestamp when the event occurred on the client",
@@ -188,17 +168,11 @@
             "type": "string"
           },
           "device_id": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Optional device identifier for event correlation",
-            "title": "Device Id"
+            "maxLength": 100,
+            "nullable": true,
+            "title": "Device Id",
+            "type": "string"
           },
           "events": {
             "description": "List of analytics events (1-100 events per batch)",
@@ -323,26 +297,14 @@
             "type": "array"
           },
           "exit_code": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exit Code"
+            "nullable": true,
+            "title": "Exit Code",
+            "type": "integer"
           },
           "finished_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
+            "nullable": true,
+            "title": "Finished At",
+            "type": "string"
           },
           "job_id": {
             "title": "Job Id",
@@ -370,15 +332,9 @@
             "type": "string"
           },
           "working_directory": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Working Directory"
+            "nullable": true,
+            "title": "Working Directory",
+            "type": "string"
           }
         },
         "required": [
@@ -809,28 +765,16 @@
         "description": "Response time statistics for a specific difficulty level.",
         "properties": {
           "mean_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean response time in seconds",
-            "title": "Mean Seconds"
+            "nullable": true,
+            "title": "Mean Seconds",
+            "type": "number"
           },
           "median_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Median response time in seconds",
-            "title": "Median Seconds"
+            "nullable": true,
+            "title": "Median Seconds",
+            "type": "number"
           }
         },
         "title": "DifficultyTimeStats",
@@ -895,40 +839,22 @@
         },
         "properties": {
           "compared_to_difficulty_avg": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "How this question compares to the average for its difficulty (above, below, at)",
-            "title": "Compared To Difficulty Avg"
+            "nullable": true,
+            "title": "Compared To Difficulty Avg",
+            "type": "string"
           },
           "compared_to_type_avg": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "How this question compares to the average for its type (above, below, at)",
-            "title": "Compared To Type Avg"
+            "nullable": true,
+            "title": "Compared To Type Avg",
+            "type": "string"
           },
           "discrimination": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Current discrimination value (point-biserial correlation)",
-            "title": "Discrimination"
+            "nullable": true,
+            "title": "Discrimination",
+            "type": "number"
           },
           "history": {
             "description": "Historical discrimination values over time",
@@ -939,18 +865,12 @@
             "type": "array"
           },
           "percentile_rank": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Percentile rank of this question's discrimination among all questions",
-            "title": "Percentile Rank"
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Percentile Rank",
+            "type": "integer"
           },
           "quality_flag": {
             "description": "Current quality flag status (normal, under_review, deactivated)",
@@ -958,15 +878,13 @@
             "type": "string"
           },
           "quality_tier": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/QualityTier"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Quality tier classification based on discrimination value"
+            "description": "Quality tier classification based on discrimination value",
+            "nullable": true
           },
           "question_id": {
             "description": "Unique identifier of the question",
@@ -1181,16 +1099,10 @@
         "description": "Trend information for discrimination analysis.",
         "properties": {
           "mean_discrimination_30d": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean discrimination across questions recalculated in last 30 days",
-            "title": "Mean Discrimination 30D"
+            "nullable": true,
+            "title": "Mean Discrimination 30D",
+            "type": "number"
           },
           "new_negative_this_week": {
             "description": "Number of questions newly flagged for negative discrimination this week",
@@ -1268,16 +1180,10 @@
         },
         "properties": {
           "correct_answer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "The correct answer for this question",
-            "title": "Correct Answer"
+            "nullable": true,
+            "title": "Correct Answer",
+            "type": "string"
           },
           "options": {
             "description": "Analysis for each answer option",
@@ -1504,16 +1410,10 @@
         },
         "properties": {
           "avg_effective_option_count": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average effective option count across all analyzed questions",
-            "title": "Avg Effective Option Count"
+            "nullable": true,
+            "title": "Avg Effective Option Count",
+            "type": "number"
           },
           "by_non_functioning_count": {
             "$ref": "#/components/schemas/NonFunctioningCountBreakdown",
@@ -2072,57 +1972,37 @@
         "description": "Metrics for internal consistency (Cronbach's alpha).\n\nCronbach's alpha measures how well test items measure the same construct.\nValues range from 0 to 1, with higher values indicating better consistency.",
         "properties": {
           "cronbachs_alpha": {
-            "anyOf": [
-              {
-                "maximum": 1.0,
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Cronbach's alpha coefficient (0.0-1.0). None if insufficient data.",
-            "title": "Cronbachs Alpha"
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Cronbachs Alpha",
+            "type": "number"
           },
           "interpretation": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/ReliabilityInterpretation"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Interpretation of alpha value: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)"
+            "description": "Interpretation of alpha value: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)",
+            "nullable": true
           },
           "item_total_correlations": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "number"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "number"
+            },
             "description": "Item-total correlations by question_id. Shows each item's contribution to overall reliability.",
-            "title": "Item Total Correlations"
+            "nullable": true,
+            "title": "Item Total Correlations",
+            "type": "object"
           },
           "last_calculated": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Timestamp when this metric was last calculated",
-            "title": "Last Calculated"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Last Calculated",
+            "type": "string"
           },
           "meets_threshold": {
             "description": "Whether alpha meets the minimum acceptable threshold (>= 0.70)",
@@ -2130,17 +2010,11 @@
             "type": "boolean"
           },
           "num_items": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Number of test items (questions) included in the analysis",
-            "title": "Num Items"
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Num Items",
+            "type": "integer"
           },
           "num_sessions": {
             "description": "Number of test sessions used in the calculation",
@@ -2312,40 +2186,22 @@
         "description": "Overall response time statistics across all sessions.",
         "properties": {
           "mean_per_question_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean time per question across all responses",
-            "title": "Mean Per Question Seconds"
+            "nullable": true,
+            "title": "Mean Per Question Seconds",
+            "type": "number"
           },
           "mean_test_duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean total test duration in seconds",
-            "title": "Mean Test Duration Seconds"
+            "nullable": true,
+            "title": "Mean Test Duration Seconds",
+            "type": "number"
           },
           "median_test_duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Median total test duration in seconds",
-            "title": "Median Test Duration Seconds"
+            "nullable": true,
+            "title": "Median Test Duration Seconds",
+            "type": "number"
           }
         },
         "title": "OverallTimeStats",
@@ -2462,16 +2318,10 @@
             "type": "integer"
           },
           "deduplication_loss_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Deduplication loss as percentage of approved",
-            "title": "Deduplication Loss Pct"
+            "nullable": true,
+            "title": "Deduplication Loss Pct",
+            "type": "number"
           },
           "evaluation_loss": {
             "description": "Questions lost due to not being evaluated (generated - evaluated)",
@@ -2479,16 +2329,10 @@
             "type": "integer"
           },
           "evaluation_loss_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Evaluation loss as percentage of generated",
-            "title": "Evaluation Loss Pct"
+            "nullable": true,
+            "title": "Evaluation Loss Pct",
+            "type": "number"
           },
           "generation_loss": {
             "description": "Questions lost during generation (requested - generated)",
@@ -2496,16 +2340,10 @@
             "type": "integer"
           },
           "generation_loss_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Generation loss as percentage of requested",
-            "title": "Generation Loss Pct"
+            "nullable": true,
+            "title": "Generation Loss Pct",
+            "type": "number"
           },
           "insertion_loss": {
             "description": "Questions lost during database insertion (approved - duplicates - inserted)",
@@ -2513,16 +2351,10 @@
             "type": "integer"
           },
           "insertion_loss_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Insertion loss as percentage of (approved - duplicates)",
-            "title": "Insertion Loss Pct"
+            "nullable": true,
+            "title": "Insertion Loss Pct",
+            "type": "number"
           },
           "rejection_loss": {
             "description": "Questions rejected by arbiter (evaluated - approved)",
@@ -2530,16 +2362,10 @@
             "type": "integer"
           },
           "rejection_loss_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Rejection loss as percentage of evaluated",
-            "title": "Rejection Loss Pct"
+            "nullable": true,
+            "title": "Rejection Loss Pct",
+            "type": "number"
           },
           "total_loss": {
             "description": "Total questions lost across all stages (requested - inserted)",
@@ -2612,15 +2438,9 @@
             "type": "string"
           },
           "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
+            "nullable": true,
+            "title": "Reason",
+            "type": "string"
           }
         },
         "required": [
@@ -2645,15 +2465,9 @@
             "type": "integer"
           },
           "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
+            "nullable": true,
+            "title": "Reason",
+            "type": "string"
           },
           "updated_at": {
             "title": "Updated At",
@@ -2687,81 +2501,45 @@
         "description": "Schema for creating a question generation run record.\n\nUsed by the question-service to report execution metrics to the backend.\nSupports both initial \"running\" status reports and final completion reports.",
         "properties": {
           "approval_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Approval rate (0.0-1.0)",
-            "title": "Approval Rate"
+            "nullable": true,
+            "title": "Approval Rate",
+            "type": "number"
           },
           "arbiter_config_version": {
-            "anyOf": [
-              {
-                "maxLength": 50,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Arbiter config version used",
-            "title": "Arbiter Config Version"
+            "maxLength": 50,
+            "nullable": true,
+            "title": "Arbiter Config Version",
+            "type": "string"
           },
           "avg_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average arbiter score",
-            "title": "Avg Arbiter Score"
+            "nullable": true,
+            "title": "Avg Arbiter Score",
+            "type": "number"
           },
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the generation run completed (null if still running)",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "difficulty_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "integer"
+            },
             "description": "Questions generated per difficulty. Example: {\"easy\": 15, \"medium\": 22, \"hard\": 13}",
-            "title": "Difficulty Metrics"
+            "nullable": true,
+            "title": "Difficulty Metrics",
+            "type": "object"
           },
           "duplicate_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Duplicate rate (0.0-1.0)",
-            "title": "Duplicate Rate"
+            "nullable": true,
+            "title": "Duplicate Rate",
+            "type": "number"
           },
           "duplicates_found": {
             "default": 0,
@@ -2770,41 +2548,23 @@
             "type": "integer"
           },
           "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Total duration in seconds (null if still running)",
-            "title": "Duration Seconds"
+            "nullable": true,
+            "title": "Duration Seconds",
+            "type": "number"
           },
           "environment": {
-            "anyOf": [
-              {
-                "maxLength": 20,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Environment: production, staging, or development",
-            "title": "Environment"
+            "maxLength": 20,
+            "nullable": true,
+            "title": "Environment",
+            "type": "string"
           },
           "error_summary": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Error breakdown. Example: {\"by_category\": {\"rate_limit\": 2}, \"critical_count\": 0}",
-            "title": "Error Summary"
+            "nullable": true,
+            "title": "Error Summary",
+            "type": "object"
           },
           "exact_duplicates": {
             "default": 0,
@@ -2813,16 +2573,10 @@
             "type": "integer"
           },
           "exit_code": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Exit code (0-6 matching run_generation.py codes)",
-            "title": "Exit Code"
+            "nullable": true,
+            "title": "Exit Code",
+            "type": "integer"
           },
           "generation_failures": {
             "default": 0,
@@ -2831,16 +2585,10 @@
             "type": "integer"
           },
           "generation_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Generation success rate (0.0-1.0)",
-            "title": "Generation Success Rate"
+            "nullable": true,
+            "title": "Generation Success Rate",
+            "type": "number"
           },
           "insertion_failures": {
             "default": 0,
@@ -2849,80 +2597,44 @@
             "type": "integer"
           },
           "max_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Maximum arbiter score",
-            "title": "Max Arbiter Score"
+            "nullable": true,
+            "title": "Max Arbiter Score",
+            "type": "number"
           },
           "min_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Minimum arbiter score",
-            "title": "Min Arbiter Score"
+            "nullable": true,
+            "title": "Min Arbiter Score",
+            "type": "number"
           },
           "min_arbiter_score_threshold": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Minimum arbiter score threshold for approval",
-            "title": "Min Arbiter Score Threshold"
+            "nullable": true,
+            "title": "Min Arbiter Score Threshold",
+            "type": "number"
           },
           "overall_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Overall success rate (questions_inserted / questions_requested)",
-            "title": "Overall Success Rate"
+            "nullable": true,
+            "title": "Overall Success Rate",
+            "type": "number"
           },
           "prompt_version": {
-            "anyOf": [
-              {
-                "maxLength": 50,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Prompt version used",
-            "title": "Prompt Version"
+            "maxLength": 50,
+            "nullable": true,
+            "title": "Prompt Version",
+            "type": "string"
           },
           "provider_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "object"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "object"
+            },
             "description": "Per-provider metrics breakdown. Example: {\"openai\": {\"generated\": 10, \"api_calls\": 15}}",
-            "title": "Provider Metrics"
+            "nullable": true,
+            "title": "Provider Metrics",
+            "type": "object"
           },
           "questions_approved": {
             "default": 0,
@@ -2988,32 +2700,20 @@
             "type": "integer"
           },
           "triggered_by": {
-            "anyOf": [
-              {
-                "maxLength": 50,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Trigger source: scheduler, manual, or webhook",
-            "title": "Triggered By"
+            "maxLength": 50,
+            "nullable": true,
+            "title": "Triggered By",
+            "type": "string"
           },
           "type_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "integer"
+            },
             "description": "Questions generated per type. Example: {\"pattern_recognition\": 8, \"logical_reasoning\": 12}",
-            "title": "Type Metrics"
+            "nullable": true,
+            "title": "Type Metrics",
+            "type": "object"
           }
         },
         "required": [
@@ -3054,53 +2754,29 @@
         "description": "Detailed schema for a single generation run with computed fields.\n\nExtends QuestionGenerationRunRead with computed pipeline loss metrics\nto help analyze where questions are being lost in the generation process.",
         "properties": {
           "approval_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Approval rate",
-            "title": "Approval Rate"
+            "nullable": true,
+            "title": "Approval Rate",
+            "type": "number"
           },
           "arbiter_config_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Arbiter config version used",
-            "title": "Arbiter Config Version"
+            "nullable": true,
+            "title": "Arbiter Config Version",
+            "type": "string"
           },
           "avg_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average arbiter score",
-            "title": "Avg Arbiter Score"
+            "nullable": true,
+            "title": "Avg Arbiter Score",
+            "type": "number"
           },
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the generation run completed",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "created_at": {
             "description": "Record creation timestamp",
@@ -3109,31 +2785,19 @@
             "type": "string"
           },
           "difficulty_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "integer"
+            },
             "description": "Questions generated per difficulty",
-            "title": "Difficulty Metrics"
+            "nullable": true,
+            "title": "Difficulty Metrics",
+            "type": "object"
           },
           "duplicate_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Duplicate rate",
-            "title": "Duplicate Rate"
+            "nullable": true,
+            "title": "Duplicate Rate",
+            "type": "number"
           },
           "duplicates_found": {
             "description": "Total duplicates found",
@@ -3141,40 +2805,22 @@
             "type": "integer"
           },
           "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Total duration in seconds",
-            "title": "Duration Seconds"
+            "nullable": true,
+            "title": "Duration Seconds",
+            "type": "number"
           },
           "environment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Environment",
-            "title": "Environment"
+            "nullable": true,
+            "title": "Environment",
+            "type": "string"
           },
           "error_summary": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Error breakdown",
-            "title": "Error Summary"
+            "nullable": true,
+            "title": "Error Summary",
+            "type": "object"
           },
           "exact_duplicates": {
             "description": "Exact text duplicates found",
@@ -3182,16 +2828,10 @@
             "type": "integer"
           },
           "exit_code": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Exit code",
-            "title": "Exit Code"
+            "nullable": true,
+            "title": "Exit Code",
+            "type": "integer"
           },
           "generation_failures": {
             "description": "Number of generation failures",
@@ -3199,16 +2839,10 @@
             "type": "integer"
           },
           "generation_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Generation success rate",
-            "title": "Generation Success Rate"
+            "nullable": true,
+            "title": "Generation Success Rate",
+            "type": "number"
           },
           "id": {
             "description": "Run ID",
@@ -3221,83 +2855,47 @@
             "type": "integer"
           },
           "max_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Maximum arbiter score",
-            "title": "Max Arbiter Score"
+            "nullable": true,
+            "title": "Max Arbiter Score",
+            "type": "number"
           },
           "min_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Minimum arbiter score",
-            "title": "Min Arbiter Score"
+            "nullable": true,
+            "title": "Min Arbiter Score",
+            "type": "number"
           },
           "min_arbiter_score_threshold": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Minimum arbiter score threshold",
-            "title": "Min Arbiter Score Threshold"
+            "nullable": true,
+            "title": "Min Arbiter Score Threshold",
+            "type": "number"
           },
           "overall_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Overall success rate",
-            "title": "Overall Success Rate"
+            "nullable": true,
+            "title": "Overall Success Rate",
+            "type": "number"
           },
           "pipeline_losses": {
             "$ref": "#/components/schemas/PipelineLosses",
             "description": "Computed metrics showing questions lost at each pipeline stage"
           },
           "prompt_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Prompt version used",
-            "title": "Prompt Version"
+            "nullable": true,
+            "title": "Prompt Version",
+            "type": "string"
           },
           "provider_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "object"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "object"
+            },
             "description": "Per-provider metrics breakdown",
-            "title": "Provider Metrics"
+            "nullable": true,
+            "title": "Provider Metrics",
+            "type": "object"
           },
           "questions_approved": {
             "description": "Questions approved by arbiter",
@@ -3355,31 +2953,19 @@
             "type": "integer"
           },
           "triggered_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Trigger source",
-            "title": "Triggered By"
+            "nullable": true,
+            "title": "Triggered By",
+            "type": "string"
           },
           "type_metrics": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "integer"
+            },
             "description": "Questions generated per type",
-            "title": "Type Metrics"
+            "nullable": true,
+            "title": "Type Metrics",
+            "type": "object"
           }
         },
         "required": [
@@ -3451,88 +3037,46 @@
         "description": "Schema for aggregated statistics over a time period.\n\nProvides summary metrics for trend analysis, provider comparison,\nand quality monitoring dashboards.",
         "properties": {
           "approval_rate_trend": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Trend direction: improving, declining, or stable",
-            "title": "Approval Rate Trend"
+            "nullable": true,
+            "title": "Approval Rate Trend",
+            "type": "string"
           },
           "avg_api_calls_per_question": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average API calls per successfully inserted question",
-            "title": "Avg Api Calls Per Question"
+            "nullable": true,
+            "title": "Avg Api Calls Per Question",
+            "type": "number"
           },
           "avg_approval_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average approval rate",
-            "title": "Avg Approval Rate"
+            "nullable": true,
+            "title": "Avg Approval Rate",
+            "type": "number"
           },
           "avg_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average arbiter score",
-            "title": "Avg Arbiter Score"
+            "nullable": true,
+            "title": "Avg Arbiter Score",
+            "type": "number"
           },
           "avg_duplicate_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average duplicate rate",
-            "title": "Avg Duplicate Rate"
+            "nullable": true,
+            "title": "Avg Duplicate Rate",
+            "type": "number"
           },
           "avg_duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average run duration",
-            "title": "Avg Duration Seconds"
+            "nullable": true,
+            "title": "Avg Duration Seconds",
+            "type": "number"
           },
           "avg_overall_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average overall success rate",
-            "title": "Avg Overall Success Rate"
+            "nullable": true,
+            "title": "Avg Overall Success Rate",
+            "type": "number"
           },
           "failed_runs": {
             "description": "Runs with status 'failed'",
@@ -3540,28 +3084,16 @@
             "type": "integer"
           },
           "max_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Maximum arbiter score across all runs",
-            "title": "Max Arbiter Score"
+            "nullable": true,
+            "title": "Max Arbiter Score",
+            "type": "number"
           },
           "min_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Minimum arbiter score across all runs",
-            "title": "Min Arbiter Score"
+            "nullable": true,
+            "title": "Min Arbiter Score",
+            "type": "number"
           },
           "partial_failure_runs": {
             "description": "Runs with status 'partial_failure'",
@@ -3581,31 +3113,19 @@
             "type": "string"
           },
           "provider_summary": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "object"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "object"
+            },
             "description": "Aggregated metrics per provider. Example: {'openai': {'total_generated': 100, 'avg_success_rate': 0.85}}",
-            "title": "Provider Summary"
+            "nullable": true,
+            "title": "Provider Summary",
+            "type": "object"
           },
           "success_rate_trend": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Trend direction: improving, declining, or stable",
-            "title": "Success Rate Trend"
+            "nullable": true,
+            "title": "Success Rate Trend",
+            "type": "string"
           },
           "successful_runs": {
             "description": "Runs with status 'success'",
@@ -3669,65 +3189,35 @@
         "description": "Summary schema for listing generation runs.\n\nReturns essential fields without the full JSONB breakdowns\nto optimize list queries.",
         "properties": {
           "approval_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Approval rate",
-            "title": "Approval Rate"
+            "nullable": true,
+            "title": "Approval Rate",
+            "type": "number"
           },
           "avg_arbiter_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Average arbiter score",
-            "title": "Avg Arbiter Score"
+            "nullable": true,
+            "title": "Avg Arbiter Score",
+            "type": "number"
           },
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the run completed",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Duration in seconds",
-            "title": "Duration Seconds"
+            "nullable": true,
+            "title": "Duration Seconds",
+            "type": "number"
           },
           "environment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Environment",
-            "title": "Environment"
+            "nullable": true,
+            "title": "Environment",
+            "type": "string"
           },
           "id": {
             "description": "Run ID",
@@ -3735,16 +3225,10 @@
             "type": "integer"
           },
           "overall_success_rate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Overall success rate",
-            "title": "Overall Success Rate"
+            "nullable": true,
+            "title": "Overall Success Rate",
+            "type": "number"
           },
           "questions_inserted": {
             "description": "Questions inserted",
@@ -3772,16 +3256,10 @@
             "type": "integer"
           },
           "triggered_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Trigger source",
-            "title": "Triggered By"
+            "nullable": true,
+            "title": "Triggered By",
+            "type": "string"
           }
         },
         "required": [
@@ -3799,19 +3277,13 @@
         "description": "Schema for individual question response.",
         "properties": {
           "answer_options": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Answer options for multiple choice as list (e.g., ['A', 'B', 'C', 'D'])",
-            "title": "Answer Options"
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "title": "Answer Options",
+            "type": "array"
           },
           "difficulty_level": {
             "description": "Difficulty level (easy, medium, hard)",
@@ -3819,16 +3291,10 @@
             "type": "string"
           },
           "explanation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Explanation for the correct answer (if available)",
-            "title": "Explanation"
+            "nullable": true,
+            "title": "Explanation",
+            "type": "string"
           },
           "id": {
             "description": "Question ID",
@@ -3859,16 +3325,10 @@
         "description": "Response time statistics for a specific question type.",
         "properties": {
           "mean_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean response time in seconds",
-            "title": "Mean Seconds"
+            "nullable": true,
+            "title": "Mean Seconds",
+            "type": "number"
           }
         },
         "title": "QuestionTypeTimeStats",
@@ -3944,19 +3404,13 @@
             "type": "integer"
           },
           "question_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Specific question IDs to recalibrate. If null, all eligible questions are considered.",
-            "title": "Question Ids"
+            "items": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "title": "Question Ids",
+            "type": "array"
           },
           "severity_threshold": {
             "$ref": "#/components/schemas/SeverityLevel-Input",
@@ -4059,16 +3513,10 @@
             "type": "string"
           },
           "details": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Additional context such as interpretation, thresholds, etc.",
-            "title": "Details"
+            "nullable": true,
+            "title": "Details",
+            "type": "object"
           },
           "id": {
             "description": "Unique identifier of the reliability metric record",
@@ -4297,16 +3745,10 @@
             "type": "integer"
           },
           "time_spent_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Time spent on this question in seconds",
-            "title": "Time Spent Seconds"
+            "nullable": true,
+            "title": "Time Spent Seconds",
+            "type": "integer"
           },
           "user_answer": {
             "description": "User's answer to the question",
@@ -4446,17 +3888,11 @@
         "description": "Summary of a session that needs admin review.",
         "properties": {
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the test was completed",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "flags": {
             "description": "List of flag types detected",
@@ -4565,17 +4001,11 @@
         },
         "properties": {
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the test session was completed",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "confidence": {
             "description": "Confidence in validity assessment (1.0 = fully confident, 0.0 = no confidence)",
@@ -4585,15 +4015,13 @@
             "type": "number"
           },
           "details": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/ValidityDetails"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Full breakdown of each validity check (if available)"
+            "description": "Full breakdown of each validity check (if available)",
+            "nullable": true
           },
           "flag_details": {
             "description": "Detailed information for each flag",
@@ -4628,17 +4056,11 @@
             "type": "integer"
           },
           "validity_checked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When validity analysis was performed",
-            "title": "Validity Checked At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Validity Checked At",
+            "type": "string"
           },
           "validity_status": {
             "$ref": "#/components/schemas/ValidityStatus",
@@ -4716,15 +4138,13 @@
             "type": "string"
           },
           "severity": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/app__schemas__calibration__SeverityLevel"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Severity of miscalibration (null for correctly calibrated or insufficient data)"
+            "description": "Severity of miscalibration (null for correctly calibrated or insufficient data)",
+            "nullable": true
           }
         },
         "required": [
@@ -4739,17 +4159,11 @@
         "description": "Metrics for split-half reliability.\n\nSplit-half reliability splits each test into odd/even halves, correlates\nthe scores, and applies Spearman-Brown correction for full-test estimate.",
         "properties": {
           "last_calculated": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Timestamp when this metric was last calculated",
-            "title": "Last Calculated"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Last Calculated",
+            "type": "string"
           },
           "meets_threshold": {
             "description": "Whether Spearman-Brown corrected reliability meets threshold (>= 0.70)",
@@ -4763,32 +4177,20 @@
             "type": "integer"
           },
           "raw_correlation": {
-            "anyOf": [
-              {
-                "maximum": 1.0,
-                "minimum": -1.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Raw correlation between odd and even halves. None if insufficient data.",
-            "title": "Raw Correlation"
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "nullable": true,
+            "title": "Raw Correlation",
+            "type": "number"
           },
           "spearman_brown": {
-            "anyOf": [
-              {
-                "maximum": 1.0,
-                "minimum": -1.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Spearman-Brown corrected reliability for full test length",
-            "title": "Spearman Brown"
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "nullable": true,
+            "title": "Spearman Brown",
+            "type": "number"
           }
         },
         "required": [
@@ -4873,27 +4275,19 @@
             "type": "string"
           },
           "completion_time_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Time taken to complete test in seconds",
-            "title": "Completion Time Seconds"
+            "nullable": true,
+            "title": "Completion Time Seconds",
+            "type": "integer"
           },
           "confidence_interval": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/ConfidenceIntervalSchema"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Confidence interval for the IQ score. Null when reliability data is insufficient (< 0.60)."
+            "description": "Confidence interval for the IQ score. Null when reliability data is insufficient (< 0.60).",
+            "nullable": true
           },
           "correct_answers": {
             "description": "Number of correct answers",
@@ -4901,19 +4295,13 @@
             "type": "integer"
           },
           "domain_scores": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "object"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "object"
+            },
             "description": "Per-domain performance breakdown with correct, total, pct, and percentile for each cognitive domain",
-            "title": "Domain Scores"
+            "nullable": true,
+            "title": "Domain Scores",
+            "type": "object"
           },
           "id": {
             "description": "Test result ID",
@@ -4926,40 +4314,22 @@
             "type": "integer"
           },
           "percentile_rank": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Percentile rank (0-100, what % of population scores below)",
-            "title": "Percentile Rank"
+            "nullable": true,
+            "title": "Percentile Rank",
+            "type": "number"
           },
           "response_time_flags": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Summary of response time anomalies (rapid responses, extended times, validity concerns)",
-            "title": "Response Time Flags"
+            "nullable": true,
+            "title": "Response Time Flags",
+            "type": "object"
           },
           "strongest_domain": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Name of the highest-scoring cognitive domain",
-            "title": "Strongest Domain"
+            "nullable": true,
+            "title": "Strongest Domain",
+            "type": "string"
           },
           "test_session_id": {
             "description": "Associated test session ID",
@@ -4977,16 +4347,10 @@
             "type": "integer"
           },
           "weakest_domain": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Name of the lowest-scoring cognitive domain",
-            "title": "Weakest Domain"
+            "nullable": true,
+            "title": "Weakest Domain",
+            "type": "string"
           }
         },
         "required": [
@@ -5006,55 +4370,35 @@
         "description": "Metrics for test-retest reliability.\n\nTest-retest reliability measures consistency of scores across repeated\nadministrations. Uses Pearson correlation between consecutive test scores.",
         "properties": {
           "correlation": {
-            "anyOf": [
-              {
-                "maximum": 1.0,
-                "minimum": -1.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Pearson correlation coefficient between test and retest scores. None if insufficient data.",
-            "title": "Correlation"
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "nullable": true,
+            "title": "Correlation",
+            "type": "number"
           },
           "interpretation": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/ReliabilityInterpretation"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Interpretation of correlation: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)"
+            "description": "Interpretation of correlation: excellent (>=0.90), good (>=0.80), acceptable (>=0.70), questionable (>=0.60), poor (>=0.50), unacceptable (<0.50)",
+            "nullable": true
           },
           "last_calculated": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Timestamp when this metric was last calculated",
-            "title": "Last Calculated"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Last Calculated",
+            "type": "string"
           },
           "mean_interval_days": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean number of days between test and retest",
-            "title": "Mean Interval Days"
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Mean Interval Days",
+            "type": "number"
           },
           "meets_threshold": {
             "description": "Whether correlation meets the minimum acceptable threshold (> 0.50)",
@@ -5068,16 +4412,10 @@
             "type": "integer"
           },
           "practice_effect": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Mean score gain on retest (positive indicates improvement)",
-            "title": "Practice Effect"
+            "nullable": true,
+            "title": "Practice Effect",
+            "type": "number"
           }
         },
         "required": [
@@ -5117,17 +4455,11 @@
         "description": "Schema for test session response.",
         "properties": {
           "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Session completion timestamp",
-            "title": "Completed At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
           },
           "id": {
             "description": "Test session ID",
@@ -5170,19 +4502,13 @@
         "description": "Schema for checking test session status.",
         "properties": {
           "questions": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/QuestionResponse"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Questions for this session (if session is in_progress)",
-            "title": "Questions"
+            "items": {
+              "$ref": "#/components/schemas/QuestionResponse"
+            },
+            "nullable": true,
+            "title": "Questions",
+            "type": "array"
           },
           "questions_count": {
             "description": "Number of questions in this session",
@@ -5360,16 +4686,10 @@
         "description": "Request model for triggering question generation.",
         "properties": {
           "count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "default": 50,
-            "title": "Count"
+            "nullable": true,
+            "title": "Count",
+            "type": "integer"
           },
           "dry_run": {
             "default": false,
@@ -5487,44 +4807,26 @@
         "description": "Schema for updating user profile.",
         "properties": {
           "first_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "User first name",
-            "title": "First Name"
+            "maxLength": 100,
+            "minLength": 1,
+            "nullable": true,
+            "title": "First Name",
+            "type": "string"
           },
           "last_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "User last name",
-            "title": "Last Name"
+            "maxLength": 100,
+            "minLength": 1,
+            "nullable": true,
+            "title": "Last Name",
+            "type": "string"
           },
           "notification_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Push notification preference",
-            "title": "Notification Enabled"
+            "nullable": true,
+            "title": "Notification Enabled",
+            "type": "boolean"
           }
         },
         "title": "UserProfileUpdate",
@@ -5534,42 +4836,28 @@
         "description": "Schema for user registration request.",
         "properties": {
           "birth_year": {
-            "anyOf": [
-              {
-                "minimum": 1900.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Year of birth (optional, for norming study)",
-            "title": "Birth Year"
+            "minimum": 1900.0,
+            "nullable": true,
+            "title": "Birth Year",
+            "type": "integer"
           },
           "country": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Country of residence (optional)",
-            "title": "Country"
+            "maxLength": 100,
+            "minLength": 1,
+            "nullable": true,
+            "title": "Country",
+            "type": "string"
           },
           "education_level": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/EducationLevelSchema"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Highest education level attained (optional)"
+            "description": "Highest education level attained (optional)",
+            "nullable": true
           },
           "email": {
             "description": "User email address",
@@ -5599,18 +4887,12 @@
             "type": "string"
           },
           "region": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "State/Province/Region (optional)",
-            "title": "Region"
+            "maxLength": 100,
+            "minLength": 1,
+            "nullable": true,
+            "title": "Region",
+            "type": "string"
           }
         },
         "required": [
@@ -5626,28 +4908,16 @@
         "description": "Schema for user response.",
         "properties": {
           "birth_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Year of birth",
-            "title": "Birth Year"
+            "nullable": true,
+            "title": "Birth Year",
+            "type": "integer"
           },
           "country": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Country of residence",
-            "title": "Country"
+            "nullable": true,
+            "title": "Country",
+            "type": "string"
           },
           "created_at": {
             "description": "Account creation timestamp",
@@ -5656,15 +4926,13 @@
             "type": "string"
           },
           "education_level": {
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/components/schemas/EducationLevelSchema"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Highest education level attained"
+            "description": "Highest education level attained",
+            "nullable": true
           },
           "email": {
             "description": "User email address",
@@ -5682,17 +4950,11 @@
             "type": "integer"
           },
           "last_login_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Last login timestamp",
-            "title": "Last Login At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Last Login At",
+            "type": "string"
           },
           "last_name": {
             "description": "User last name",
@@ -5705,16 +4967,10 @@
             "type": "boolean"
           },
           "region": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "State/Province/Region",
-            "title": "Region"
+            "nullable": true,
+            "title": "Region",
+            "type": "string"
           }
         },
         "required": [
@@ -5796,16 +5052,10 @@
         },
         "properties": {
           "count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Number of occurrences (for countable flags like rapid responses)",
-            "title": "Count"
+            "nullable": true,
+            "title": "Count",
+            "type": "integer"
           },
           "details": {
             "description": "Human-readable explanation of the flag",
@@ -5813,18 +5063,12 @@
             "type": "string"
           },
           "error_rate": {
-            "anyOf": [
-              {
-                "maximum": 1.0,
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "Error rate (for Guttman flags)",
-            "title": "Error Rate"
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Error Rate",
+            "type": "number"
           },
           "severity": {
             "$ref": "#/components/schemas/app__schemas__validity__SeverityLevel",
@@ -6124,19 +5368,13 @@
         "description": "Response model for weighted scoring status.",
         "properties": {
           "domain_weights": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "number"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "additionalProperties": {
+              "type": "number"
+            },
             "description": "Current domain weights if configured",
-            "title": "Domain Weights"
+            "nullable": true,
+            "title": "Domain Weights",
+            "type": "object"
           },
           "enabled": {
             "description": "Whether weighted scoring is currently enabled",
@@ -6144,17 +5382,11 @@
             "type": "boolean"
           },
           "updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "description": "When the setting was last updated",
-            "title": "Updated At"
+            "format": "date-time",
+            "nullable": true,
+            "title": "Updated At",
+            "type": "string"
           }
         },
         "required": [
@@ -6460,16 +5692,10 @@
             "name": "job_type",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by job type (e.g., 'question_generation')",
-              "title": "Job Type"
+              "nullable": true,
+              "title": "Job Type",
+              "type": "string"
             }
           },
           {
@@ -6478,16 +5704,10 @@
             "name": "status",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by status (running, completed, failed, terminated)",
-              "title": "Status"
+              "nullable": true,
+              "title": "Status",
+              "type": "string"
             }
           },
           {
@@ -6761,14 +5981,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
+                  "allOf": [
                     {
                       "$ref": "#/components/schemas/DomainWeightsResponse"
-                    },
-                    {
-                      "type": "null"
                     }
                   ],
+                  "nullable": true,
                   "title": "Response Get Domain Weights Config V1 Admin Config Domain Weights Get"
                 }
               }
@@ -7081,15 +6299,13 @@
             "name": "status",
             "required": false,
             "schema": {
-              "anyOf": [
+              "allOf": [
                 {
                   "$ref": "#/components/schemas/GenerationRunStatusSchema"
-                },
-                {
-                  "type": "null"
                 }
               ],
               "description": "Filter by run status",
+              "nullable": true,
               "title": "Status"
             }
           },
@@ -7099,17 +6315,11 @@
             "name": "environment",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 20,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by environment",
-              "title": "Environment"
+              "maxLength": 20,
+              "nullable": true,
+              "title": "Environment",
+              "type": "string"
             }
           },
           {
@@ -7118,17 +6328,11 @@
             "name": "start_date",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "format": "date-time",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter runs started on or after this date (ISO format)",
-              "title": "Start Date"
+              "format": "date-time",
+              "nullable": true,
+              "title": "Start Date",
+              "type": "string"
             }
           },
           {
@@ -7137,17 +6341,11 @@
             "name": "end_date",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "format": "date-time",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter runs started on or before this date (ISO format)",
-              "title": "End Date"
+              "format": "date-time",
+              "nullable": true,
+              "title": "End Date",
+              "type": "string"
             }
           },
           {
@@ -7156,18 +6354,12 @@
             "name": "min_success_rate",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1.0,
-                  "minimum": 0.0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by minimum overall success rate",
-              "title": "Min Success Rate"
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "nullable": true,
+              "title": "Min Success Rate",
+              "type": "number"
             }
           },
           {
@@ -7176,18 +6368,12 @@
             "name": "max_success_rate",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maximum": 1.0,
-                  "minimum": 0.0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by maximum overall success rate",
-              "title": "Max Success Rate"
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "nullable": true,
+              "title": "Max Success Rate",
+              "type": "number"
             }
           },
           {
@@ -7349,17 +6535,11 @@
             "name": "environment",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 20,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by environment",
-              "title": "Environment"
+              "maxLength": 20,
+              "nullable": true,
+              "title": "Environment",
+              "type": "string"
             }
           },
           {
@@ -7660,16 +6840,10 @@
             "name": "question_type",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by question type (pattern, logic, spatial, math, verbal, memory)",
-              "title": "Question Type"
+              "nullable": true,
+              "title": "Question Type",
+              "type": "string"
             }
           },
           {
@@ -8049,21 +7223,15 @@
             "name": "metric_type",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "enum": [
-                    "cronbachs_alpha",
-                    "test_retest",
-                    "split_half"
-                  ],
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
               "description": "Filter by metric type: cronbachs_alpha, test_retest, split_half",
-              "title": "Metric Type"
+              "enum": [
+                "cronbachs_alpha",
+                "test_retest",
+                "split_half"
+              ],
+              "nullable": true,
+              "title": "Metric Type",
+              "type": "string"
             }
           },
           {
@@ -8374,15 +7542,13 @@
             "name": "status",
             "required": false,
             "schema": {
-              "anyOf": [
+              "allOf": [
                 {
                   "$ref": "#/components/schemas/ValidityStatus"
-                },
-                {
-                  "type": "null"
                 }
               ],
               "description": "Filter by validity status (valid, suspect, invalid)",
+              "nullable": true,
               "title": "Status"
             }
           },
@@ -9047,14 +8213,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
+                  "allOf": [
                     {
                       "$ref": "#/components/schemas/TestSessionStatusResponse"
-                    },
-                    {
-                      "type": "null"
                     }
                   ],
+                  "nullable": true,
                   "title": "Response Get Active Test Session V1 Test Active Get"
                 }
               }
