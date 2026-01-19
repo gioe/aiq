@@ -43,6 +43,7 @@ public extension Components.Schemas.UserResponse {
 public extension Components.Schemas.UserResponse {
     /// Approximate age calculated from birth year
     /// Returns nil if birthYear is not available
+    /// Note: May be off by ±1 year since birth month/day is not available
     var approximateAge: Int? {
         guard let year = birthYear else { return nil }
         let currentYear = Calendar.current.component(.year, from: Date())
