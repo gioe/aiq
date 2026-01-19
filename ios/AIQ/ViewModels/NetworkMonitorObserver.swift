@@ -28,6 +28,14 @@ import SwiftUI
 ///
 /// This class uses `@MainActor` to ensure all property updates occur on the main thread,
 /// which is required for SwiftUI view updates.
+///
+/// ## Concrete Type Casting Limitation
+///
+/// Due to Swift protocol limitations, subscribing to `@Published` properties requires casting
+/// to the concrete `NetworkMonitor` type. If a mock implementation is registered that doesn't
+/// inherit from `NetworkMonitor`, state updates won't propagate via Combine subscriptions.
+/// The observer will still capture the initial state correctly, but dynamic updates require
+/// the concrete type. This is the same pattern used by `AuthStateObserver`.
 @MainActor
 final class NetworkMonitorObserver: ObservableObject {
     // MARK: - Published State
