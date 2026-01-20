@@ -234,11 +234,13 @@ struct RegistrationView: View {
                         }
 
                         // Birth Year field
+                        // Note: .numbersAndPunctuation used instead of .numberPad
+                        // because numberPad lacks a toolbar with Next/Done buttons
                         CustomTextField(
                             title: "Birth Year (Optional)",
                             placeholder: "e.g., 1990",
                             text: $viewModel.birthYear,
-                            keyboardType: .numberPad,
+                            keyboardType: .numbersAndPunctuation,
                             submitLabel: .next,
                             onSubmit: { focusedField = .country }
                         )
