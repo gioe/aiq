@@ -13,7 +13,7 @@ DEST_PACKAGE="$PROJECT_ROOT/ios/Packages/AIQAPIClient/Sources/AIQAPIClient/opena
 
 if [ ! -f "$SOURCE" ]; then
     echo "warning: OpenAPI spec not found at $SOURCE"
-    echo "note: Run 'cd backend && poetry run python -m app.main --export-openapi' to generate it"
+    echo "note: Run 'cd backend && python export_openapi.py' to generate it"
     echo "note: Skipping OpenAPI code generation for this build"
     exit 0  # Exit successfully to not break fresh checkouts
 fi

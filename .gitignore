@@ -42,9 +42,7 @@ ios/fastlane/test_output
 ios/.swiftpm/
 ios/Package.resolved
 
-# Swift OpenAPI Generator - spec is copied from docs/api/ at build time
-ios/AIQ/openapi.json
-ios/Packages/**/openapi.json
+# Swift OpenAPI Generator - build artifacts (spec files are now tracked for CI verification)
 ios/Packages/**/.build/
 ios/Packages/**/Package.resolved
 
