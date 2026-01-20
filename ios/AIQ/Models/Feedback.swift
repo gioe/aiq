@@ -1,28 +1,47 @@
+import AIQAPIClient
 import Foundation
 
-/// Feedback submission model
-struct Feedback: Codable, Equatable {
-    let name: String
-    let email: String
-    let category: FeedbackCategory
-    let description: String
+// MARK: - Feedback Type Aliases
 
-    enum CodingKeys: String, CodingKey {
-        case name
-        case email
-        case category
-        case description
-    }
-}
+/// Feedback submission model re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.FeedbackSubmitRequest` type.
+///
+/// **Generated Properties:**
+/// - name: String
+/// - email: String
+/// - category: FeedbackCategorySchema
+/// - description: String
+public typealias Feedback = Components.Schemas.FeedbackSubmitRequest
 
-/// Categories for feedback submissions
-enum FeedbackCategory: String, Codable, CaseIterable {
-    case bugReport = "bug_report"
-    case featureRequest = "feature_request"
-    case generalFeedback = "general_feedback"
-    case questionHelp = "question_help"
-    case other
+/// Feedback category enumeration re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.FeedbackCategorySchema` type.
+/// UI-specific computed properties are provided via an extension below.
+///
+/// **Available Cases:**
+/// - bug_report
+/// - feature_request
+/// - general_feedback
+/// - question_help
+/// - other
+public typealias FeedbackCategory = Components.Schemas.FeedbackCategorySchema
 
+/// Response from feedback submission endpoint re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.FeedbackSubmitResponse` type.
+///
+/// **Generated Properties:**
+/// - success: Bool
+/// - submissionId: Int (mapped from submission_id)
+/// - message: String
+public typealias FeedbackSubmitResponse = Components.Schemas.FeedbackSubmitResponse
+
+// MARK: - FeedbackCategory Extension
+
+/// UI-specific extension for FeedbackCategory
+public extension Components.Schemas.FeedbackCategorySchema {
+    /// User-friendly display name for the feedback category
     var displayName: String {
         switch self {
         case .bugReport:
@@ -36,18 +55,5 @@ enum FeedbackCategory: String, Codable, CaseIterable {
         case .other:
             "Other"
         }
-    }
-}
-
-/// Response from feedback submission endpoint
-struct FeedbackSubmitResponse: Decodable {
-    let success: Bool
-    let submissionId: Int
-    let message: String
-
-    enum CodingKeys: String, CodingKey {
-        case success
-        case submissionId = "submission_id"
-        case message
     }
 }

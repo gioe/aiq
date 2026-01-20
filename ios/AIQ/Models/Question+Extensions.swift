@@ -18,12 +18,19 @@ extension Components.Schemas.QuestionResponse: Identifiable {
 }
 
 extension Components.Schemas.QuestionResponse: Equatable {
+    /// Equality comparison for Question
+    ///
+    /// - Warning: This comparison is incomplete because `answerOptions` and `explanation` are not
+    ///   generated due to Swift OpenAPI Generator limitations with `anyOf: [type, null]` patterns.
+    ///   Questions with different answer options may compare as equal if other fields match.
+    ///   This is acceptable for preview/test purposes but should not be relied upon for
+    ///   production equality checks where answer options matter.
     public static func == (lhs: Components.Schemas.QuestionResponse, rhs: Components.Schemas.QuestionResponse) -> Bool {
         lhs.id == rhs.id &&
             lhs.questionText == rhs.questionText &&
             lhs.questionType == rhs.questionType &&
             lhs.difficultyLevel == rhs.difficultyLevel
-        // Note: answerOptions and explanation are not generated due to anyOf nullable limitation
+        // Note: answerOptions and explanation not compared due to generator limitation (anyOf nullable)
     }
 }
 
@@ -42,18 +49,27 @@ extension Components.Schemas.QuestionResponse {
 
     /// Indicates if this is a multiple choice question
     ///
-    /// **Note:** Returns `false` as a conservative default because the generated type does not
-    /// include the `answerOptions` property. This should be updated when the generator limitation
-    /// is resolved or the API provides this information differently.
+    /// - Warning: This property always returns `false` because the generated type does not include
+    ///   the `answerOptions` property due to Swift OpenAPI Generator limitations with nullable types.
+    ///   **Do not rely on this property for production logic.** If multiple-choice detection is needed,
+    ///   either:
+    ///   1. Update the API to provide a dedicated `isMultipleChoice` field
+    ///   2. Make `answerOptions` a required field (with empty array default)
+    ///   3. Track usage via analytics to determine if this property is actually needed
+    ///
+    /// - Returns: Always `false` (conservative default)
+    @available(*, deprecated, message: "Returns false due to generator limitation - see documentation")
     var isMultipleChoice: Bool {
         // Conservative default - cannot determine without answerOptions property
+        // If this is needed in production, update API contract per documentation above
         false
     }
 
     /// Indicates if the question has answer options
     ///
-    /// **Note:** Returns `false` as a conservative default because the generated type does not
-    /// include the `answerOptions` property.
+    /// - Warning: This property always returns `false` because the generated type does not include
+    ///   the `answerOptions` property. See `isMultipleChoice` documentation for details.
+    @available(*, deprecated, message: "Returns false due to generator limitation - see documentation")
     var hasOptions: Bool {
         isMultipleChoice
     }

@@ -178,11 +178,11 @@ actor MockAPIClient: APIClientProtocol {
     /// - Note: The backend now returns `PaginatedTestHistoryResponse` instead of `[TestResult]`
     func setTestHistoryResponse(_ results: [TestResult], totalCount: Int? = nil, hasMore: Bool = false) {
         let paginatedResponse = PaginatedTestHistoryResponse(
-            results: results,
-            totalCount: totalCount ?? results.count,
+            hasMore: hasMore,
             limit: 50,
             offset: 0,
-            hasMore: hasMore
+            results: results,
+            totalCount: totalCount ?? results.count
         )
         // Use base path without query params since endpoint.path includes them
         endpointResponses["/v1/test/history"] = paginatedResponse
@@ -203,11 +203,11 @@ actor MockAPIClient: APIClientProtocol {
         hasMore: Bool
     ) {
         let paginatedResponse = PaginatedTestHistoryResponse(
-            results: results,
-            totalCount: totalCount,
+            hasMore: hasMore,
             limit: limit,
             offset: offset,
-            hasMore: hasMore
+            results: results,
+            totalCount: totalCount
         )
         // Use base path without query params since endpoint.path includes them
         endpointResponses["/v1/test/history"] = paginatedResponse

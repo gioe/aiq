@@ -823,7 +823,7 @@ final class QuestionTests: XCTestCase {
     func testQuestionResponseWithNegativeTimeSpent() throws {
         // Should throw QuestionResponseValidationError.negativeTimeSpent
         XCTAssertThrowsError(
-            try QuestionResponse(
+            try QuestionResponse.validated(
                 questionId: 1,
                 userAnswer: "Answer",
                 timeSpentSeconds: -5
@@ -908,7 +908,7 @@ final class QuestionTests: XCTestCase {
 
     func testQuestionResponseInitializationThrowsForNegativeTimeSpent() {
         XCTAssertThrowsError(
-            try QuestionResponse(
+            try QuestionResponse.validated(
                 questionId: 1,
                 userAnswer: "Answer",
                 timeSpentSeconds: -1
@@ -1006,7 +1006,7 @@ final class QuestionTests: XCTestCase {
         userAnswer: String = "Test answer",
         timeSpentSeconds: Int? = nil
     ) throws -> QuestionResponse {
-        try QuestionResponse(
+        try QuestionResponse.validated(
             questionId: questionId,
             userAnswer: userAnswer,
             timeSpentSeconds: timeSpentSeconds

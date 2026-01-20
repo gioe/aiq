@@ -269,9 +269,9 @@ final class FeedbackViewModelTests: XCTestCase {
 
         // Configure mock response
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you for your feedback",
             submissionId: 123,
-            message: "Thank you for your feedback"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -304,9 +304,9 @@ final class FeedbackViewModelTests: XCTestCase {
 
         // Configure mock response with success=false
         let mockResponse = FeedbackSubmitResponse(
-            success: false,
+            message: "Feedback submission failed",
             submissionId: 0,
-            message: "Feedback submission failed"
+            success: false
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -373,9 +373,9 @@ final class FeedbackViewModelTests: XCTestCase {
 
         // Configure mock response
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 456,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -401,9 +401,9 @@ final class FeedbackViewModelTests: XCTestCase {
         sut.description = "This is a detailed bug report"
 
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 123,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -437,9 +437,9 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "should have error set")
 
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 123,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -548,9 +548,9 @@ final class FeedbackViewModelTests: XCTestCase {
 
         // When - Configure mock and submit
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you for your valuable feedback",
             submissionId: 789,
-            message: "Thank you for your valuable feedback"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
         await sut.submitFeedback()
@@ -581,9 +581,9 @@ final class FeedbackViewModelTests: XCTestCase {
         // When - Clear error and retry with success
         await mockAPIClient.reset()
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Success on retry",
             submissionId: 999,
-            message: "Success on retry"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
         await sut.submitFeedback()
@@ -606,9 +606,9 @@ final class FeedbackViewModelTests: XCTestCase {
 
             // When
             let mockResponse = FeedbackSubmitResponse(
-                success: true,
+                message: "Thank you",
                 submissionId: Int.random(in: 1 ... 1000),
-                message: "Thank you"
+                success: true
             )
             await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
             await sut.submitFeedback()
@@ -634,9 +634,9 @@ final class FeedbackViewModelTests: XCTestCase {
         sut.description = "This is a detailed bug report"
 
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 123,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -665,9 +665,9 @@ final class FeedbackViewModelTests: XCTestCase {
         sut.description = "This is a detailed bug report"
 
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 123,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
 
@@ -703,9 +703,9 @@ final class FeedbackViewModelTests: XCTestCase {
         sut.description = "This is a detailed bug report"
 
         let mockResponse = FeedbackSubmitResponse(
-            success: true,
+            message: "Thank you",
             submissionId: 123,
-            message: "Thank you"
+            success: true
         )
         await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
         await sut.submitFeedback()

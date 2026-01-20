@@ -24,46 +24,38 @@ extension Components.Schemas.TestSessionResponse: Equatable {
             lhs.userId == rhs.userId &&
             lhs.status == rhs.status &&
             lhs.startedAt == rhs.startedAt &&
+            lhs.completedAt == rhs.completedAt &&
             lhs.timeLimitExceeded == rhs.timeLimitExceeded
-        // Note: completedAt is not generated due to anyOf nullable limitation
     }
 }
 
 // MARK: - Status Helpers
 
 extension Components.Schemas.TestSessionResponse {
-    /// Test status enumeration for type-safe status checks
-    ///
-    /// This enum mirrors the backend's test status values and provides
-    /// type-safe helpers for working with the status string property.
-    enum Status: String {
-        case inProgress = "in_progress"
-        case completed
-        case abandoned
-    }
-
     /// Returns the parsed status as an enum value
+    ///
+    /// Uses the top-level `TestStatus` enum defined in TestSession.swift.
     ///
     /// **Note:** This returns nil if the status string doesn't match known values.
     /// The backend should only return valid status strings, but we handle unknown
     /// values gracefully.
-    var statusEnum: Status? {
-        Status(rawValue: status)
+    var statusEnum: TestStatus? {
+        TestStatus(rawValue: status)
     }
 
     /// Whether this test session is currently in progress
     var isInProgress: Bool {
-        status == Status.inProgress.rawValue
+        status == TestStatus.inProgress.rawValue
     }
 
     /// Whether this test session has been completed
     var isCompleted: Bool {
-        status == Status.completed.rawValue
+        status == TestStatus.completed.rawValue
     }
 
     /// Whether this test session has been abandoned
     var isAbandoned: Bool {
-        status == Status.abandoned.rawValue
+        status == TestStatus.abandoned.rawValue
     }
 
     /// Display text for the status

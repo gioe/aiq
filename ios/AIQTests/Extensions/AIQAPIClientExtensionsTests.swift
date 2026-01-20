@@ -76,27 +76,27 @@ final class AIQAPIClientExtensionsTests: XCTestCase {
     // MARK: - ConfidenceIntervalSchema Extension Tests
 
     func testConfidenceInterval_rangeFormatted() {
-        let ci = createConfidenceInterval(lower: 101, upper: 115)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.rangeFormatted, "101-115")
     }
 
     func testConfidenceInterval_confidencePercentage() {
-        let ci = createConfidenceInterval(confidenceLevel: 0.95)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 5.0, upper: 105)
         XCTAssertEqual(ci.confidencePercentage, 95)
     }
 
     func testConfidenceInterval_confidencePercentage_rounds() {
-        let ci = createConfidenceInterval(confidenceLevel: 0.956)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.956, lower: 95, standardError: 5.0, upper: 105)
         XCTAssertEqual(ci.confidencePercentage, 96)
     }
 
     func testConfidenceInterval_fullDescription() {
-        let ci = createConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.fullDescription, "95% confidence interval: 101-115")
     }
 
     func testConfidenceInterval_accessibilityDescription() {
-        let ci = createConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         let description = ci.accessibilityDescription
 
         XCTAssertTrue(description.contains("101"), "Should contain lower bound")
@@ -105,22 +105,22 @@ final class AIQAPIClientExtensionsTests: XCTestCase {
     }
 
     func testConfidenceInterval_intervalWidth() {
-        let ci = createConfidenceInterval(lower: 101, upper: 115)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.intervalWidth, 14)
     }
 
     func testConfidenceInterval_intervalWidth_narrowInterval() {
-        let ci = createConfidenceInterval(lower: 108, upper: 112)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 108, standardError: 5.0, upper: 112)
         XCTAssertEqual(ci.intervalWidth, 4)
     }
 
     func testConfidenceInterval_standardErrorFormatted() {
-        let ci = createConfidenceInterval(standardError: 4.5678)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.5678, upper: 105)
         XCTAssertEqual(ci.standardErrorFormatted, "4.57")
     }
 
     func testConfidenceInterval_standardErrorFormatted_roundsCorrectly() {
-        let ci = createConfidenceInterval(standardError: 4.556)
+        let ci: AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.556, upper: 105)
         XCTAssertEqual(ci.standardErrorFormatted, "4.56")
     }
 
@@ -459,12 +459,12 @@ final class AIQAPIClientExtensionsTests: XCTestCase {
     }
 
     private func createConfidenceInterval(
-        lower: Int = 95,
-        upper: Int = 105,
         confidenceLevel: Double = 0.95,
-        standardError: Double = 5.0
-    ) -> Components.Schemas.ConfidenceIntervalSchema {
-        Components.Schemas.ConfidenceIntervalSchema(
+        lower: Int = 95,
+        standardError: Double = 5.0,
+        upper: Int = 105
+    ) -> AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema {
+        AIQAPIClient.Components.Schemas.ConfidenceIntervalSchema(
             confidenceLevel: confidenceLevel,
             lower: lower,
             standardError: standardError,

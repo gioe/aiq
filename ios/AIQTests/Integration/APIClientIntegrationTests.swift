@@ -78,13 +78,13 @@ final class APIClientIntegrationTests: XCTestCase {
 
         // When
         let registrationRequest = RegisterRequest(
+            birthYear: nil,
+            country: nil,
+            educationLevel: nil,
             email: email,
-            password: password,
             firstName: firstName,
             lastName: lastName,
-            birthYear: nil,
-            educationLevel: nil,
-            country: nil,
+            password: password,
             region: nil
         )
         let result: AuthResponse = try await sut.request(
@@ -138,7 +138,7 @@ final class APIClientIntegrationTests: XCTestCase {
         )
 
         // Then - Verify test started
-        XCTAssertEqual(startResponse.session.status, .inProgress)
+        XCTAssertEqual(startResponse.session.status, "in_progress")
         XCTAssertEqual(startResponse.questions.count, 2)
 
         // When - Submit test
@@ -327,7 +327,7 @@ final class APIClientIntegrationTests: XCTestCase {
 
         // Then
         XCTAssertEqual(response.session.id, 123)
-        XCTAssertEqual(response.session.status, .inProgress)
+        XCTAssertEqual(response.session.status, "in_progress")
         XCTAssertEqual(response.questionsCount, 5)
     }
 
@@ -555,11 +555,12 @@ extension APIClientIntegrationTests {
 
     private func submitTest(sessionId: Int) async throws -> TestSubmitResponse {
         let submitRequest = TestSubmission(
-            sessionId: sessionId,
             responses: [
-                try! QuestionResponse(questionId: 1, userAnswer: "4"),
-                try! QuestionResponse(questionId: 2, userAnswer: "4")
-            ]
+                try! QuestionResponse.validated(questionId: 1, userAnswer: "4"),
+                try! QuestionResponse.validated(questionId: 2, userAnswer: "4")
+            ],
+            sessionId: sessionId,
+            timeLimitExceeded: false
         )
 
         return try await sut.request(

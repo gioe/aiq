@@ -65,27 +65,19 @@ enum TestStatus: String, Codable, Equatable {
 
 // MARK: - Test Submission
 
-/// Test submission request
+/// Test submission request re-exported from OpenAPI generated types
 ///
+/// This typealias provides a clean interface to the generated `Components.Schemas.ResponseSubmission` type.
 /// This is a request DTO sent to the backend when submitting test answers.
-/// It remains a manual model as it's not part of the OpenAPI response types.
-struct TestSubmission: Codable, Equatable {
-    let sessionId: Int
-    let responses: [QuestionResponse]
-    let timeLimitExceeded: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case sessionId = "session_id"
-        case responses
-        case timeLimitExceeded = "time_limit_exceeded"
-    }
-
-    init(sessionId: Int, responses: [QuestionResponse], timeLimitExceeded: Bool = false) {
-        self.sessionId = sessionId
-        self.responses = responses
-        self.timeLimitExceeded = timeLimitExceeded
-    }
-}
+///
+/// **Generated Properties:**
+/// - sessionId: Int (mapped from session_id)
+/// - responses: [ResponseItem] - Array of user responses to questions
+/// - timeLimitExceeded: Bool (mapped from time_limit_exceeded) - Whether the time limit was exceeded
+///
+/// **Note:** The generated type has a different initializer parameter order than the manual type.
+/// The generated initializer is: `ResponseSubmission(responses:, sessionId:, timeLimitExceeded:)`
+public typealias TestSubmission = Components.Schemas.ResponseSubmission
 
 // MARK: - Response Time Analysis
 
