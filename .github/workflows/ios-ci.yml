@@ -55,13 +55,13 @@ jobs:
 
           if [ ! -f "$SOURCE" ]; then
             echo "::error::OpenAPI spec not found at $SOURCE"
-            echo "Run 'cd backend && poetry run python export_openapi.py' to generate it"
+            echo "Run 'cd backend && python export_openapi.py' to generate it, then commit the result."
             exit 1
           fi
 
           if [ ! -f "$DEST" ]; then
             echo "::error::OpenAPI spec not found at $DEST"
-            echo "Run 'cd ios && scripts/sync_openapi_spec.sh' to sync it"
+            echo "Run 'cd ios && scripts/sync_openapi_spec.sh' to sync it, then commit the result."
             exit 1
           fi
 
@@ -74,8 +74,8 @@ jobs:
             echo "  1. Run: cd ios && scripts/sync_openapi_spec.sh"
             echo "  2. Commit the updated spec"
             echo ""
-            echo "Differences:"
-            diff "$SOURCE" "$DEST" | head -50
+            echo "First 50 lines of diff:"
+            diff -u "$SOURCE" "$DEST" | head -50
             exit 1
           fi
 
