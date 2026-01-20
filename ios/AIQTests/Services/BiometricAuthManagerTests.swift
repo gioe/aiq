@@ -88,6 +88,174 @@ final class BiometricAuthManagerTests: XCTestCase {
         XCTAssertEqual(sut.biometricType, initialType)
     }
 
+    // MARK: - Error Mapping Tests
+
+    func testMapLAError_BiometryNotAvailable_ReturnsNotAvailable() {
+        // Given
+        let laError = LAError(.biometryNotAvailable)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .notAvailable)
+    }
+
+    func testMapLAError_BiometryNotEnrolled_ReturnsNotEnrolled() {
+        // Given
+        let laError = LAError(.biometryNotEnrolled)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .notEnrolled)
+    }
+
+    func testMapLAError_BiometryLockout_ReturnsLockedOut() {
+        // Given
+        let laError = LAError(.biometryLockout)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .lockedOut)
+    }
+
+    func testMapLAError_UserCancel_ReturnsUserCancelled() {
+        // Given
+        let laError = LAError(.userCancel)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .userCancelled)
+    }
+
+    func testMapLAError_UserFallback_ReturnsUserFallback() {
+        // Given
+        let laError = LAError(.userFallback)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .userFallback)
+    }
+
+    func testMapLAError_SystemCancel_ReturnsSystemCancelled() {
+        // Given
+        let laError = LAError(.systemCancel)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .systemCancelled)
+    }
+
+    func testMapLAError_AuthenticationFailed_ReturnsAuthenticationFailed() {
+        // Given
+        let laError = LAError(.authenticationFailed)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .authenticationFailed)
+    }
+
+    func testMapLAError_AppCancel_ReturnsSystemCancelled() {
+        // Given
+        let laError = LAError(.appCancel)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .systemCancelled)
+    }
+
+    func testMapLAError_PasscodeNotSet_ReturnsNotAvailable() {
+        // Given
+        let laError = LAError(.passcodeNotSet)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .notAvailable)
+    }
+
+    func testMapLAError_InvalidContext_ReturnsUnknownWithMessage() {
+        // Given
+        let laError = LAError(.invalidContext)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .unknown("Authentication context is invalid"))
+    }
+
+    func testMapLAError_NotInteractive_ReturnsUnknownWithMessage() {
+        // Given
+        let laError = LAError(.notInteractive)
+
+        // When
+        let result = sut.mapLAError(laError)
+
+        // Then
+        XCTAssertEqual(result, .unknown("Authentication requires user interaction"))
+    }
+
+    func testMapLAError_NilError_ReturnsNotAvailable() {
+        // Given
+        let error: Error? = nil
+
+        // When
+        let result = sut.mapLAError(error)
+
+        // Then
+        XCTAssertEqual(result, .notAvailable)
+    }
+
+    func testMapLAError_NonLAError_ReturnsUnknownWithDescription() {
+        // Given
+        let nsError = NSError(domain: "TestDomain", code: 42, userInfo: [NSLocalizedDescriptionKey: "Test error"])
+
+        // When
+        let result = sut.mapLAError(nsError)
+
+        // Then
+        XCTAssertEqual(result, .unknown("Test error"))
+    }
+
+    func testLAErrorMapping_ContainsAllExpectedCodes() {
+        // Given
+        let expectedCodes: [LAError.Code] = [
+            .biometryNotAvailable,
+            .biometryNotEnrolled,
+            .biometryLockout,
+            .userCancel,
+            .userFallback,
+            .systemCancel,
+            .authenticationFailed,
+            .appCancel,
+            .passcodeNotSet
+        ]
+
+        // Then
+        for code in expectedCodes {
+            XCTAssertNotNil(
+                BiometricAuthManager.laErrorMapping[code],
+                "laErrorMapping should contain mapping for \(code)"
+            )
+        }
+    }
+
     // MARK: - BiometricType Tests
 
     func testBiometricType_AllCasesExist() {

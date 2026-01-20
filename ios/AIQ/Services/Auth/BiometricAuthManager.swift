@@ -177,9 +177,11 @@ public class BiometricAuthManager: BiometricAuthManagerProtocol {
                 biometricType = .touchID
                 Self.logger.debug("Biometric available: Touch ID")
             case .opticID:
-                // Treat Optic ID (Vision Pro) as not available for now
+                // Optic ID (Vision Pro) is not supported in v1.0 as the app is designed
+                // for iPhone/iPad form factors. Vision Pro support may be added in a
+                // future release when the UI is optimized for spatial computing.
                 biometricType = .none
-                Self.logger.debug("Optic ID detected, treating as not available")
+                Self.logger.debug("Optic ID detected - Vision Pro not supported in v1.0")
             @unknown default:
                 biometricType = .none
                 Self.logger.debug("Unknown biometry type")
@@ -192,10 +194,11 @@ public class BiometricAuthManager: BiometricAuthManagerProtocol {
         }
     }
 
-    // MARK: - Private Methods
+    // MARK: - Internal Methods (for testing)
 
     /// Mapping from LAError codes to BiometricAuthError
-    private static let laErrorMapping: [LAError.Code: BiometricAuthError] = [
+    /// - Note: Internal access to enable unit testing with @testable import
+    static let laErrorMapping: [LAError.Code: BiometricAuthError] = [
         .biometryNotAvailable: .notAvailable,
         .biometryNotEnrolled: .notEnrolled,
         .biometryLockout: .lockedOut,
@@ -208,7 +211,8 @@ public class BiometricAuthManager: BiometricAuthManagerProtocol {
     ]
 
     /// Map LocalAuthentication errors to BiometricAuthError
-    private func mapLAError(_ error: Error?) -> BiometricAuthError {
+    /// - Note: Internal access to enable unit testing with @testable import
+    func mapLAError(_ error: Error?) -> BiometricAuthError {
         guard let laError = error as? LAError else {
             if let nsError = error as NSError? {
                 return BiometricAuthError.unknown(nsError.localizedDescription)

@@ -64,6 +64,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AIQ uses Face ID to securely verify your identity and protect your cognitive test data.</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.aiq.refresh</string>
