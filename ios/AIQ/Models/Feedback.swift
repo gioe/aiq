@@ -40,7 +40,7 @@ public typealias FeedbackSubmitResponse = Components.Schemas.FeedbackSubmitRespo
 // MARK: - FeedbackCategory Extension
 
 /// UI-specific extension for FeedbackCategory
-extension Components.Schemas.FeedbackCategorySchema {
+public extension Components.Schemas.FeedbackCategorySchema {
     /// User-friendly display name for the feedback category
     var displayName: String {
         switch self {

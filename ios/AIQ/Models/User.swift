@@ -32,7 +32,7 @@ typealias User = Components.Schemas.UserResponse
 public typealias EducationLevel = Components.Schemas.EducationLevelSchema
 
 /// UI-specific extension for EducationLevel
-extension Components.Schemas.EducationLevelSchema {
+public extension Components.Schemas.EducationLevelSchema {
     /// User-friendly display name for the education level
     var displayName: String {
         switch self {

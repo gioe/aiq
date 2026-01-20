@@ -17,8 +17,6 @@ extension Components.Schemas.TestSessionResponse: Identifiable {
     // id property already exists on the generated type
 }
 
-// Note: Equality comparison is incomplete - completedAt is not compared due to generator limitations.
-// Sessions with different completion times may compare as equal if other fields match.
 extension Components.Schemas.TestSessionResponse: Equatable {
     // swiftlint:disable:next line_length
     public static func == (lhs: Components.Schemas.TestSessionResponse, rhs: Components.Schemas.TestSessionResponse) -> Bool {
@@ -26,6 +24,7 @@ extension Components.Schemas.TestSessionResponse: Equatable {
             lhs.userId == rhs.userId &&
             lhs.status == rhs.status &&
             lhs.startedAt == rhs.startedAt &&
+            lhs.completedAt == rhs.completedAt &&
             lhs.timeLimitExceeded == rhs.timeLimitExceeded
     }
 }
