@@ -45,16 +45,21 @@ final class HistoryViewModelTests: XCTestCase {
 
     private func createMockTestResult(id: Int, iqScore: Int = 100, completedAt: Date = Date()) -> TestResult {
         TestResult(
+            accuracyPercentage: 50.0,
+            completedAt: completedAt,
+            completionTimeSeconds: 300,
+            confidenceInterval: nil,
+            correctAnswers: 10,
+            domainScores: nil,
             id: id,
-            testSessionId: id,
-            userId: 1,
             iqScore: iqScore,
             percentileRank: 50.0,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: id,
             totalQuestions: 20,
-            correctAnswers: 10,
-            accuracyPercentage: 50.0,
-            completionTimeSeconds: 300,
-            completedAt: completedAt
+            userId: 1,
+            weakestDomain: nil
         )
     }
 

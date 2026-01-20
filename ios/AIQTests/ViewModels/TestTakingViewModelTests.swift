@@ -199,9 +199,9 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         // Response with no questions
         let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: nil,
             questionsCount: 0,
-            questions: nil
+            session: mockSession
         )
         await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
 
@@ -415,9 +415,9 @@ final class TestTakingViewModelTests: XCTestCase {
             )
         ]
         let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: mockQuestions,
             questionsCount: mockQuestions.count,
-            questions: mockQuestions
+            session: mockSession
         )
         await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
         // Saved progress includes an answer for question 3 (not in session) and question 1 (in session)
@@ -489,9 +489,9 @@ final class TestTakingViewModelTests: XCTestCase {
         questionsCount: Int? = nil
     ) -> TestSessionStatusResponse {
         TestSessionStatusResponse(
-            session: makeTestSession(id: sessionId),
+            questions: questions,
             questionsCount: questionsCount ?? questions.count,
-            questions: questions
+            session: makeTestSession(id: sessionId)
         )
     }
 
@@ -1043,11 +1043,11 @@ final class TestTakingViewModelTests: XCTestCase {
     func testIsFirstTest_IsCalculatedBeforeTestStarts() async {
         // Given - Set up API to return zero test count
         let emptyHistoryResponse = PaginatedTestHistoryResponse(
-            results: [],
-            totalCount: 0,
+            hasMore: false,
             limit: 1,
             offset: 0,
-            hasMore: false
+            results: [],
+            totalCount: 0
         )
         await mockAPIClient.setResponse(emptyHistoryResponse, for: .testHistory(limit: 1, offset: nil))
 
@@ -1072,11 +1072,11 @@ final class TestTakingViewModelTests: XCTestCase {
     func testIsFirstTest_UsesForceRefreshForAccurateCount() async {
         // Given
         let historyResponse = PaginatedTestHistoryResponse(
-            results: [],
-            totalCount: 0,
+            hasMore: false,
             limit: 1,
             offset: 0,
-            hasMore: false
+            results: [],
+            totalCount: 0
         )
         await mockAPIClient.setResponse(historyResponse, for: .testHistory(limit: 1, offset: nil))
 

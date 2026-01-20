@@ -108,19 +108,19 @@ import Foundation
             switch scenario {
             case .loggedInNoHistory, .loggedOut, .default:
                 PaginatedTestHistoryResponse(
-                    results: [],
-                    totalCount: 0,
+                    hasMore: false,
                     limit: 50,
                     offset: 0,
-                    hasMore: false
+                    results: [],
+                    totalCount: 0
                 )
             case .loggedInWithHistory, .testInProgress, .loginFailure, .networkError:
                 PaginatedTestHistoryResponse(
-                    results: UITestMockData.sampleTestHistory,
-                    totalCount: UITestMockData.sampleTestHistory.count,
+                    hasMore: false,
                     limit: 50,
                     offset: 0,
-                    hasMore: false
+                    results: UITestMockData.sampleTestHistory,
+                    totalCount: UITestMockData.sampleTestHistory.count
                 )
             }
         }

@@ -531,7 +531,7 @@ class TestTakingViewModel: BaseViewModel {
             guard let answer = userAnswers[question.id], !answer.isEmpty else { return nil }
             let timeSpent = questionTimeSpent[question.id]
             do {
-                return try QuestionResponse(
+                return try QuestionResponse.validated(
                     questionId: question.id,
                     userAnswer: answer,
                     timeSpentSeconds: timeSpent
@@ -543,12 +543,16 @@ class TestTakingViewModel: BaseViewModel {
                     print("⚠️ Failed to create QuestionResponse for question \(question.id): \(error.localizedDescription)")
                 #endif
                 // Return response without time data rather than losing the answer entirely
-                return try? QuestionResponse(questionId: question.id, userAnswer: answer, timeSpentSeconds: nil)
+                return try? QuestionResponse.validated(
+                    questionId: question.id,
+                    userAnswer: answer,
+                    timeSpentSeconds: nil
+                )
             }
         }
         return TestSubmission(
-            sessionId: session.id,
             responses: responses,
+            sessionId: session.id,
             timeLimitExceeded: timeLimitExceeded
         )
     }

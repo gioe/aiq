@@ -108,9 +108,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 2,
-            questions: nil
+            session: activeSession
         )
 
         await mockAPIClient.setTestHistoryResponse([])
@@ -136,9 +136,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-3600) // Started 1 hour ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 5,
-            questions: nil
+            session: activeSession
         )
 
         await mockAPIClient.setTestHistoryResponse([])
@@ -156,9 +156,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User resumes test from dashboard
         let mockQuestions = makeQuestions(count: 5)
         let resumeResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: mockQuestions,
             questionsCount: 5,
-            questions: mockQuestions
+            session: activeSession
         )
         await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
 
@@ -192,9 +192,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Dashboard shows active session
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 3,
-            questions: nil
+            session: activeSession
         )
         await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
@@ -222,9 +222,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Reset mock and set up resume response
         await mockAPIClient.reset()
         let resumeResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: mockQuestions,
             questionsCount: 3,
-            questions: mockQuestions
+            session: activeSession
         )
 
         await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
@@ -253,9 +253,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-7200) // Started 2 hours ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 10,
-            questions: nil
+            session: activeSession
         )
 
         // Set endpoint-specific responses for parallel API calls
@@ -420,8 +420,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User chooses to resume the conflicted session
         let mockQuestions = makeQuestions(count: 4)
         let resumeResponse = TestSessionStatusResponse(
-            questionsCount: 4,
             questions: mockQuestions,
+            questionsCount: 4,
             session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
@@ -530,9 +530,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 5,
-            questions: nil
+            session: activeSession
         )
 
         await mockAPIClient.setTestHistoryResponse([])
@@ -550,9 +550,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User answers more questions (simulated by updated count)
         // and dashboard refreshes
         let updatedActiveSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 8, // User answered 3 more questions
-            questions: nil
+            session: activeSession
         )
 
         await mockAPIClient.setTestHistoryResponse([])
@@ -580,9 +580,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
-                session: activeSession,
+                questions: nil,
                 questionsCount: 2,
-                questions: nil
+                session: activeSession
             ),
             for: .testActive
         )
@@ -650,16 +650,21 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - Dashboard refreshes after completion
         // Convert SubmittedTestResult to TestResult for history fetch
         let historyResult = TestResult(
+            accuracyPercentage: testResult.accuracyPercentage,
+            completedAt: testResult.completedAt,
+            completionTimeSeconds: testResult.completionTimeSeconds,
+            confidenceInterval: testResult.confidenceInterval,
+            correctAnswers: testResult.correctAnswers,
+            domainScores: testResult.domainScores,
             id: testResult.id,
-            testSessionId: testResult.testSessionId,
-            userId: testResult.userId,
             iqScore: testResult.iqScore,
             percentileRank: testResult.percentileRank,
+            responseTimeFlags: testResult.responseTimeFlags,
+            strongestDomain: testResult.strongestDomain,
+            testSessionId: testResult.testSessionId,
             totalQuestions: testResult.totalQuestions,
-            correctAnswers: testResult.correctAnswers,
-            accuracyPercentage: testResult.accuracyPercentage,
-            completionTimeSeconds: testResult.completionTimeSeconds,
-            completedAt: testResult.completedAt
+            userId: testResult.userId,
+            weakestDomain: testResult.weakestDomain
         )
         await mockAPIClient.setTestHistoryResponse([historyResult])
         await mockAPIClient.setResponse(NSNull(), for: .testActive) // No active session after completion
@@ -684,9 +689,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            session: activeSession,
+            questions: nil,
             questionsCount: 3,
-            questions: nil
+            session: activeSession
         )
 
         await mockAPIClient.setTestHistoryResponse([])
@@ -743,9 +748,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
-                session: activeSession,
+                questions: nil,
                 questionsCount: 5,
-                questions: nil
+                session: activeSession
             ),
             for: .testActive
         )
@@ -756,9 +761,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await mockAPIClient.setTestHistoryResponse([])
         await mockAPIClient.setResponse(
             TestSessionStatusResponse(
-                session: activeSession,
+                questions: nil,
                 questionsCount: 7,
-                questions: nil
+                session: activeSession
             ),
             for: .testActive
         )
@@ -769,16 +774,21 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Third refresh - session completed
         await mockAPIClient.setTestHistoryResponse(
             [TestResult(
+                accuracyPercentage: 80.0,
+                completedAt: Date(),
+                completionTimeSeconds: 600,
+                confidenceInterval: nil,
+                correctAnswers: 8,
+                domainScores: nil,
                 id: 1,
-                testSessionId: sessionId,
-                userId: 1,
                 iqScore: 120,
                 percentileRank: 85.0,
+                responseTimeFlags: nil,
+                strongestDomain: nil,
+                testSessionId: sessionId,
                 totalQuestions: 10,
-                correctAnswers: 8,
-                accuracyPercentage: 80.0,
-                completionTimeSeconds: 600,
-                completedAt: Date()
+                userId: 1,
+                weakestDomain: nil
             )]
         )
         await mockAPIClient.setResponse(NSNull(), for: .testActive)
@@ -800,12 +810,12 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         difficulty: DifficultyLevel = .medium
     ) -> Question {
         try! Question(
+            answerOptions: ["A", "B", "C", "D"],
+            difficultyLevel: difficulty.rawValue,
+            explanation: nil,
             id: id,
             questionText: text,
-            questionType: type,
-            difficultyLevel: difficulty,
-            answerOptions: ["A", "B", "C", "D"],
-            explanation: nil
+            questionType: type.rawValue
         )
     }
 

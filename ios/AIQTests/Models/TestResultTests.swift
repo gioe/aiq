@@ -523,35 +523,35 @@ final class TestResultTests: XCTestCase {
     }
 
     func testConfidenceIntervalRangeFormatted() {
-        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
         XCTAssertEqual(ci.rangeFormatted, "101-115")
     }
 
     func testConfidenceIntervalConfidencePercentage() {
-        let ci95 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci95 = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
         XCTAssertEqual(ci95.confidencePercentage, 95)
 
-        let ci90 = ConfidenceInterval(lower: 102, upper: 114, confidenceLevel: 0.90, standardError: 3.5)
+        let ci90 = ConfidenceInterval(confidenceLevel: 0.90, lower: 102, standardError: 3.5, upper: 114)
         XCTAssertEqual(ci90.confidencePercentage, 90)
 
-        let ci99 = ConfidenceInterval(lower: 99, upper: 117, confidenceLevel: 0.99, standardError: 3.5)
+        let ci99 = ConfidenceInterval(confidenceLevel: 0.99, lower: 99, standardError: 3.5, upper: 117)
         XCTAssertEqual(ci99.confidencePercentage, 99)
     }
 
     func testConfidenceIntervalFullDescription() {
-        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
         XCTAssertEqual(ci.fullDescription, "95% confidence interval: 101-115")
     }
 
     func testConfidenceIntervalAccessibilityDescription() {
-        let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
+        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
         XCTAssertEqual(ci.accessibilityDescription, "Score range from 101 to 115 with 95 percent confidence")
     }
 
     func testConfidenceIntervalEquality() {
-        let ci1 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
-        let ci2 = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
-        let ci3 = ConfidenceInterval(lower: 100, upper: 116, confidenceLevel: 0.95, standardError: 3.5)
+        let ci1 = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
+        let ci2 = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
+        let ci3 = ConfidenceInterval(confidenceLevel: 0.95, lower: 100, standardError: 3.5, upper: 116)
 
         XCTAssertEqual(ci1, ci2)
         XCTAssertNotEqual(ci1, ci3)
@@ -732,12 +732,12 @@ final class TestResultTests: XCTestCase {
 
     func testConfidenceIntervalAtBoundaries() {
         // Test lower boundary of valid IQ range (40)
-        let ciAtLowerBound = ConfidenceInterval(lower: 40, upper: 55, confidenceLevel: 0.95, standardError: 7.5)
+        let ciAtLowerBound = ConfidenceInterval(confidenceLevel: 0.95, lower: 40, standardError: 7.5, upper: 55)
         XCTAssertEqual(ciAtLowerBound.lower, 40)
         XCTAssertEqual(ciAtLowerBound.rangeFormatted, "40-55")
 
         // Test upper boundary of valid IQ range (160)
-        let ciAtUpperBound = ConfidenceInterval(lower: 145, upper: 160, confidenceLevel: 0.95, standardError: 7.5)
+        let ciAtUpperBound = ConfidenceInterval(confidenceLevel: 0.95, lower: 145, standardError: 7.5, upper: 160)
         XCTAssertEqual(ciAtUpperBound.upper, 160)
         XCTAssertEqual(ciAtUpperBound.rangeFormatted, "145-160")
     }

@@ -49,49 +49,44 @@ enum DifficultyLevel: String, Codable, Equatable {
 
 // MARK: - Question Response
 
-/// User's response to a question
+/// User's response to a question re-exported from OpenAPI generated types
 ///
+/// This typealias provides a clean interface to the generated `Components.Schemas.ResponseItem` type.
 /// This is a request DTO sent to the backend when submitting test answers.
-/// It remains a manual model as it's not part of the OpenAPI response types.
-struct QuestionResponse: Codable, Equatable {
-    let questionId: Int
-    let userAnswer: String
-    let timeSpentSeconds: Int?
+///
+/// **Generated Properties:**
+/// - questionId: Int (mapped from question_id)
+/// - userAnswer: String (mapped from user_answer)
+/// - timeSpentSeconds: Int? (mapped from time_spent_seconds, optional)
+///
+/// **Note:** The generated type does not include validation for negative timeSpentSeconds.
+/// Use the factory method `QuestionResponse.validated(...)` to create instances with validation.
+public typealias QuestionResponse = Components.Schemas.ResponseItem
 
-    enum CodingKeys: String, CodingKey {
-        case questionId = "question_id"
-        case userAnswer = "user_answer"
-        case timeSpentSeconds = "time_spent_seconds"
-    }
-
-    /// Creates a QuestionResponse with validation
+/// Factory extension for QuestionResponse with validation
+extension Components.Schemas.ResponseItem {
+    /// Creates a validated QuestionResponse
+    /// - Parameters:
+    ///   - questionId: The ID of the question being answered
+    ///   - userAnswer: The user's answer
+    ///   - timeSpentSeconds: Optional time spent on the question in seconds
     /// - Throws: `QuestionResponseValidationError.negativeTimeSpent` if timeSpentSeconds is negative
-    init(questionId: Int, userAnswer: String, timeSpentSeconds: Int? = nil) throws {
-        if let timeSpent = timeSpentSeconds, timeSpent < 0 {
-            throw QuestionResponseValidationError.negativeTimeSpent
-        }
-
-        self.questionId = questionId
-        self.userAnswer = userAnswer
-        self.timeSpentSeconds = timeSpentSeconds
-    }
-
-    /// Custom decoder with validation
-    /// - Throws: `QuestionResponseValidationError.negativeTimeSpent` if timeSpentSeconds is negative
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let questionId = try container.decode(Int.self, forKey: .questionId)
-        let userAnswer = try container.decode(String.self, forKey: .userAnswer)
-        let timeSpentSeconds = try container.decodeIfPresent(Int.self, forKey: .timeSpentSeconds)
-
+    /// - Returns: A validated ResponseItem instance
+    static func validated(
+        questionId: Int,
+        userAnswer: String,
+        timeSpentSeconds: Int? = nil
+    ) throws -> Components.Schemas.ResponseItem {
         // Validate timeSpentSeconds is not negative
         if let timeSpent = timeSpentSeconds, timeSpent < 0 {
             throw QuestionResponseValidationError.negativeTimeSpent
         }
 
-        self.questionId = questionId
-        self.userAnswer = userAnswer
-        self.timeSpentSeconds = timeSpentSeconds
+        return Components.Schemas.ResponseItem(
+            questionId: questionId,
+            timeSpentSeconds: timeSpentSeconds,
+            userAnswer: userAnswer
+        )
     }
 }
 

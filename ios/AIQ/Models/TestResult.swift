@@ -25,36 +25,25 @@ public typealias SubmittedTestResult = TestResult
 
 // MARK: - Paginated Test History Response (BCQ-004)
 
-/// Response wrapper for paginated test history endpoint.
-/// The backend now returns paginated results with metadata for pagination UI.
-struct PaginatedTestHistoryResponse: Codable {
-    /// List of test results for the current page
-    let results: [TestResult]
-
-    /// Total number of test results available for this user
-    let totalCount: Int
-
-    /// Number of results per page (max 100)
-    let limit: Int
-
-    /// Offset from the start of the results
-    let offset: Int
-
-    /// Whether there are more results beyond this page
-    let hasMore: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case results
-        case totalCount = "total_count"
-        case limit
-        case offset
-        case hasMore = "has_more"
-    }
-}
+/// Response wrapper for paginated test history endpoint re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.PaginatedTestHistoryResponse` type.
+/// The backend returns paginated results with metadata for pagination UI.
+///
+/// **Generated Properties:**
+/// - results: [TestResultResponse] - List of test results for the current page
+/// - totalCount: Int (mapped from total_count) - Total number of test results available for this user
+/// - limit: Int - Number of results per page (max 100)
+/// - offset: Int - Offset from the start of the results
+/// - hasMore: Bool (mapped from has_more) - Whether there are more results beyond this page
+public typealias PaginatedTestHistoryResponse = Components.Schemas.PaginatedTestHistoryResponse
 
 // MARK: - Confidence Interval
 
-/// Represents a confidence interval for an IQ score.
+/// Confidence interval model re-exported from OpenAPI generated types
+///
+/// This typealias provides a clean interface to the generated `Components.Schemas.ConfidenceIntervalSchema` type.
+/// UI-specific computed properties are provided via an extension below.
 ///
 /// Confidence intervals quantify the uncertainty in score measurement,
 /// providing a range within which the true score is likely to fall.
@@ -63,46 +52,14 @@ struct PaginatedTestHistoryResponse: Codable {
 ///
 /// Example: A score of 108 with CI [101, 115] at 95% confidence means
 /// there is a 95% probability the true score falls between 101 and 115.
-struct ConfidenceInterval: Codable, Equatable {
-    /// Lower bound of the confidence interval (clamped to valid IQ range 40-160)
-    let lower: Int
-
-    /// Upper bound of the confidence interval (clamped to valid IQ range 40-160)
-    let upper: Int
-
-    /// Confidence level as a decimal (e.g., 0.95 for 95% CI)
-    let confidenceLevel: Double
-
-    /// Standard Error of Measurement (SEM) used to calculate the interval
-    let standardError: Double
-
-    enum CodingKeys: String, CodingKey {
-        case lower
-        case upper
-        case confidenceLevel = "confidence_level"
-        case standardError = "standard_error"
-    }
-
-    /// Formatted range string (e.g., "101-115")
-    var rangeFormatted: String {
-        "\(lower)-\(upper)"
-    }
-
-    /// Confidence level as a percentage (e.g., 95 for 0.95)
-    var confidencePercentage: Int {
-        Int(round(confidenceLevel * 100))
-    }
-
-    /// Full description (e.g., "95% confidence interval: 101-115")
-    var fullDescription: String {
-        "\(confidencePercentage)% confidence interval: \(rangeFormatted)"
-    }
-
-    /// Accessibility description for VoiceOver
-    var accessibilityDescription: String {
-        "Score range from \(lower) to \(upper) with \(confidencePercentage) percent confidence"
-    }
-}
+///
+/// **Generated Properties:**
+/// - lower: Int - Lower bound of the confidence interval (clamped to valid IQ range 40-160)
+/// - upper: Int - Upper bound of the confidence interval (clamped to valid IQ range 40-160)
+/// - confidenceLevel: Double (mapped from confidence_level) - Confidence level as a decimal (e.g., 0.95 for 95% CI)
+/// - standardError: Double (mapped from standard_error) - Standard Error of Measurement (SEM)
+///   used to calculate the interval
+public typealias ConfidenceInterval = Components.Schemas.ConfidenceIntervalSchema
 
 // MARK: - Domain Score
 

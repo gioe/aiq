@@ -317,7 +317,7 @@ final class UserTests: XCTestCase {
 
         XCTAssertEqual(profile.firstName, "Profile")
         XCTAssertEqual(profile.lastName, "Test")
-        XCTAssertTrue(profile.notificationEnabled)
+        XCTAssertEqual(profile.notificationEnabled, true)
     }
 
     func testUserProfileCodingKeysMapping() throws {
@@ -335,7 +335,7 @@ final class UserTests: XCTestCase {
         // Verify snake_case to camelCase mapping
         XCTAssertEqual(profile.firstName, "First")
         XCTAssertEqual(profile.lastName, "Last")
-        XCTAssertFalse(profile.notificationEnabled)
+        XCTAssertEqual(profile.notificationEnabled, false)
     }
 
     func testUserProfileEncodingRoundTrip() throws {

@@ -69,9 +69,9 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: nil,
             questionsCount: 5,
-            questions: nil
+            session: mockSession
         )
 
         await mockAPIClient.setResponse(mockResponse, for: .testActive)
@@ -91,7 +91,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should not be nil")
         XCTAssertEqual(sut.activeTestSession?.id, 123, "Should set correct session ID")
-        XCTAssertEqual(sut.activeTestSession?.status, .inProgress, "Should set correct status")
+        XCTAssertEqual(sut.activeTestSession?.status, "in_progress", "Should set correct status")
         XCTAssertEqual(sut.activeSessionQuestionsAnswered, 5, "Should set questions count")
         XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should be true")
     }
@@ -145,16 +145,21 @@ final class DashboardViewModelTests: XCTestCase {
     func testFetchDashboardData_ActiveSessionErrorDoesNotBlockDashboard() async {
         // Given - Set up test history to succeed
         let mockTestResult = TestResult(
+            accuracyPercentage: 75.0,
+            completedAt: Date(),
+            completionTimeSeconds: 300,
+            confidenceInterval: nil,
+            correctAnswers: 15,
+            domainScores: nil,
             id: 1,
-            testSessionId: 100,
-            userId: 1,
             iqScore: 120,
             percentileRank: 84.0,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: 100,
             totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completionTimeSeconds: 300,
-            completedAt: Date()
+            userId: 1,
+            weakestDomain: nil
         )
         await mockAPIClient.setTestHistoryResponse([mockTestResult])
 
@@ -186,9 +191,9 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: nil,
             questionsCount: 3,
-            questions: nil
+            session: mockSession
         )
 
         // When - First call should fetch from API
@@ -220,9 +225,9 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: nil,
             questionsCount: 7,
-            questions: nil
+            session: mockSession
         )
         await mockAPIClient.setResponse(mockResponse, for: .testActive)
 
@@ -383,9 +388,9 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Set up cache with active session
         let cachedResponse = TestSessionStatusResponse(
-            session: mockSession,
+            questions: nil,
             questionsCount: 10,
-            questions: nil
+            session: mockSession
         )
         await DataCache.shared.set(
             cachedResponse,
@@ -444,16 +449,21 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Mock dashboard data - should be called during refresh
         let mockTestResult = TestResult(
+            accuracyPercentage: 75.0,
+            completedAt: Date(),
+            completionTimeSeconds: 300,
+            confidenceInterval: nil,
+            correctAnswers: 15,
+            domainScores: nil,
             id: 1,
-            testSessionId: 100,
-            userId: 1,
             iqScore: 120,
             percentileRank: 84.0,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: 100,
             totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completionTimeSeconds: 300,
-            completedAt: Date()
+            userId: 1,
+            weakestDomain: nil
         )
 
         // Queue all responses in order: abandon, test history, active session

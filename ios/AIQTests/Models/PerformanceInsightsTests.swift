@@ -11,16 +11,21 @@ final class PerformanceInsightsTests: XCTestCase {
         completionTimeSeconds: Int? = nil
     ) -> TestResult {
         TestResult(
+            accuracyPercentage: 75.0,
+            completedAt: completedAt,
+            completionTimeSeconds: completionTimeSeconds,
+            confidenceInterval: nil,
+            correctAnswers: 15,
+            domainScores: nil,
             id: id,
-            testSessionId: id,
-            userId: 1,
             iqScore: iqScore,
             percentileRank: nil,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: id,
             totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completionTimeSeconds: completionTimeSeconds,
-            completedAt: completedAt
+            userId: 1,
+            weakestDomain: nil
         )
     }
 

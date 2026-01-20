@@ -49,10 +49,10 @@ extension Components.Schemas.TestResultResponse {
     var confidenceIntervalConverted: ConfidenceInterval? {
         guard let payload = confidenceInterval?.value1 else { return nil }
         return ConfidenceInterval(
-            lower: payload.lower,
-            upper: payload.upper,
             confidenceLevel: payload.confidenceLevel,
-            standardError: payload.standardError
+            lower: payload.lower,
+            standardError: payload.standardError,
+            upper: payload.upper
         )
     }
 
