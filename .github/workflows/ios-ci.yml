@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - "ios/**"
+      - "backend/**"
+      - "docs/api/**"
       - ".github/workflows/ios-ci.yml"
   push:
     branches:
       - main
     paths:
       - "ios/**"
+      - "backend/**"
+      - "docs/api/**"
       - ".github/workflows/ios-ci.yml"
 
 jobs:
@@ -39,11 +43,43 @@ jobs:
       - name: List available simulators
         run: xcrun simctl list devices available
 
-      - name: Sync OpenAPI spec to iOS package
+      - name: Verify OpenAPI spec is in sync
         run: |
-          cd ios
-          chmod +x scripts/sync_openapi_spec.sh
-          scripts/sync_openapi_spec.sh
+          # Check that the OpenAPI spec in the iOS package matches the source in docs/api/
+          # This catches two drift scenarios:
+          # 1. docs/api/openapi.json was updated but not synced to iOS
+          # 2. iOS spec was modified directly instead of updating the source
+
+          SOURCE="docs/api/openapi.json"
+          DEST="ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json"
+
+          if [ ! -f "$SOURCE" ]; then
+            echo "::error::OpenAPI spec not found at $SOURCE"
+            echo "Run 'cd backend && poetry run python export_openapi.py' to generate it"
+            exit 1
+          fi
+
+          if [ ! -f "$DEST" ]; then
+            echo "::error::OpenAPI spec not found at $DEST"
+            echo "Run 'cd ios && scripts/sync_openapi_spec.sh' to sync it"
+            exit 1
+          fi
+
+          if ! diff -q "$SOURCE" "$DEST" > /dev/null 2>&1; then
+            echo "::error::OpenAPI spec is out of sync!"
+            echo ""
+            echo "The OpenAPI spec at $DEST does not match the source at $SOURCE."
+            echo ""
+            echo "To fix this:"
+            echo "  1. Run: cd ios && scripts/sync_openapi_spec.sh"
+            echo "  2. Commit the updated spec"
+            echo ""
+            echo "Differences:"
+            diff "$SOURCE" "$DEST" | head -50
+            exit 1
+          fi
+
+          echo "OpenAPI spec is in sync"
 
       - name: Build iOS project
         run: |
