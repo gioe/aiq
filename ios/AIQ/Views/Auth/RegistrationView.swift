@@ -16,6 +16,21 @@ struct RegistrationView: View {
     @State private var isAnimating = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    // MARK: - Focus State for Keyboard Navigation
+
+    enum Field: Hashable {
+        case firstName
+        case lastName
+        case email
+        case password
+        case confirmPassword
+        case birthYear
+        case country
+        case region
+    }
+
+    @FocusState private var focusedField: Field?
+
     var body: some View {
         ZStack {
             // Gradient Background
@@ -97,8 +112,11 @@ struct RegistrationView: View {
                                     placeholder: "John",
                                     text: $viewModel.firstName,
                                     autocapitalization: .words,
-                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.firstNameTextField
+                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.firstNameTextField,
+                                    submitLabel: .next,
+                                    onSubmit: { focusedField = .lastName }
                                 )
+                                .focused($focusedField, equals: .firstName)
 
                                 if let firstNameError = viewModel.firstNameError {
                                     Text(firstNameError)
@@ -114,8 +132,11 @@ struct RegistrationView: View {
                                     placeholder: "Doe",
                                     text: $viewModel.lastName,
                                     autocapitalization: .words,
-                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.lastNameTextField
+                                    accessibilityId: AccessibilityIdentifiers.RegistrationView.lastNameTextField,
+                                    submitLabel: .next,
+                                    onSubmit: { focusedField = .email }
                                 )
+                                .focused($focusedField, equals: .lastName)
 
                                 if let lastNameError = viewModel.lastNameError {
                                     Text(lastNameError)
@@ -134,8 +155,11 @@ struct RegistrationView: View {
                                 text: $viewModel.email,
                                 keyboardType: .emailAddress,
                                 autocapitalization: .never,
-                                accessibilityId: AccessibilityIdentifiers.RegistrationView.emailTextField
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.emailTextField,
+                                submitLabel: .next,
+                                onSubmit: { focusedField = .password }
                             )
+                            .focused($focusedField, equals: .email)
 
                             if let emailError = viewModel.emailError {
                                 Text(emailError)
@@ -152,8 +176,11 @@ struct RegistrationView: View {
                                 placeholder: "At least 8 characters",
                                 text: $viewModel.password,
                                 isSecure: true,
-                                accessibilityId: AccessibilityIdentifiers.RegistrationView.passwordTextField
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.passwordTextField,
+                                submitLabel: .next,
+                                onSubmit: { focusedField = .confirmPassword }
                             )
+                            .focused($focusedField, equals: .password)
 
                             if let passwordError = viewModel.passwordError {
                                 Text(passwordError)
@@ -170,8 +197,11 @@ struct RegistrationView: View {
                                 placeholder: "Re-enter your password",
                                 text: $viewModel.confirmPassword,
                                 isSecure: true,
-                                accessibilityId: AccessibilityIdentifiers.RegistrationView.confirmPasswordTextField
+                                accessibilityId: AccessibilityIdentifiers.RegistrationView.confirmPasswordTextField,
+                                submitLabel: .done,
+                                onSubmit: { focusedField = nil }
                             )
+                            .focused($focusedField, equals: .confirmPassword)
 
                             if let confirmPasswordError = viewModel.confirmPasswordError {
                                 Text(confirmPasswordError)
@@ -204,12 +234,17 @@ struct RegistrationView: View {
                         }
 
                         // Birth Year field
+                        // Note: .numbersAndPunctuation used instead of .numberPad
+                        // because numberPad lacks a toolbar with Next/Done buttons
                         CustomTextField(
                             title: "Birth Year (Optional)",
                             placeholder: "e.g., 1990",
                             text: $viewModel.birthYear,
-                            keyboardType: .numberPad
+                            keyboardType: .numbersAndPunctuation,
+                            submitLabel: .next,
+                            onSubmit: { focusedField = .country }
                         )
+                        .focused($focusedField, equals: .birthYear)
 
                         // Education Level picker
                         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -260,16 +295,22 @@ struct RegistrationView: View {
                             title: "Country (Optional)",
                             placeholder: "e.g., United States",
                             text: $viewModel.country,
-                            autocapitalization: .words
+                            autocapitalization: .words,
+                            submitLabel: .next,
+                            onSubmit: { focusedField = .region }
                         )
+                        .focused($focusedField, equals: .country)
 
                         // Region field
                         CustomTextField(
                             title: "State/Region (Optional)",
                             placeholder: "e.g., California",
                             text: $viewModel.region,
-                            autocapitalization: .words
+                            autocapitalization: .words,
+                            submitLabel: .done,
+                            onSubmit: { focusedField = nil }
                         )
+                        .focused($focusedField, equals: .region)
                     }
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
