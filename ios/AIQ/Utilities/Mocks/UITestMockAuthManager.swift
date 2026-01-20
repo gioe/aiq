@@ -34,6 +34,16 @@ import Foundation
         /// Whether registration should succeed (configurable per test)
         var shouldSucceedRegister: Bool = true
 
+        /// The type of registration error to simulate (if shouldSucceedRegister is false)
+        var registrationErrorType: RegistrationErrorType = .generic
+
+        /// Types of registration errors that can be simulated
+        enum RegistrationErrorType {
+            case generic
+            case timeout
+            case serverError
+        }
+
         init() {}
 
         /// Configure the mock for a specific test scenario
@@ -58,6 +68,20 @@ import Foundation
                 isAuthenticated = false
                 currentUser = nil
                 shouldSucceedLogin = false
+
+            case .registrationTimeout:
+                isAuthenticated = false
+                currentUser = nil
+                shouldSucceedLogin = true
+                shouldSucceedRegister = false
+                registrationErrorType = .timeout
+
+            case .registrationServerError:
+                isAuthenticated = false
+                currentUser = nil
+                shouldSucceedLogin = true
+                shouldSucceedRegister = false
+                registrationErrorType = .serverError
             }
         }
 
@@ -93,14 +117,26 @@ import Foundation
                 currentUser = mockUser
                 isLoading = false
             } else {
-                let error = NSError(
+                let error = makeRegistrationError()
+                authError = error
+                isLoading = false
+                throw error
+            }
+        }
+
+        /// Create the appropriate error based on the configured registration error type
+        private func makeRegistrationError() -> Error {
+            switch registrationErrorType {
+            case .generic:
+                NSError(
                     domain: "UITestMockAuthManager",
                     code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Registration failed"]
                 )
-                authError = error
-                isLoading = false
-                throw error
+            case .timeout:
+                APIError.timeout
+            case .serverError:
+                APIError.serverError(statusCode: 500, message: "Internal server error")
             }
         }
 
