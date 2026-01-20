@@ -507,4 +507,67 @@ final class ValidatorsTests: XCTestCase {
         // Then
         XCTAssertTrue(result.isValid)
     }
+
+    // MARK: - Error Message Contract Tests
+
+    // These tests document the error message strings used by UI tests.
+    // If these tests fail, update RegistrationHelper.ValidationErrors in AIQUITests
+    // to match the new error messages.
+
+    func testValidators_ErrorMessages_MatchUITestContract() {
+        // First name errors
+        XCTAssertEqual(
+            Validators.validateName("", fieldName: "First name").errorMessage,
+            "First name is required",
+            "Error message contract: First name required"
+        )
+        XCTAssertEqual(
+            Validators.validateName("X", fieldName: "First name").errorMessage,
+            "First name must be at least 2 characters",
+            "Error message contract: First name too short"
+        )
+
+        // Last name errors
+        XCTAssertEqual(
+            Validators.validateName("", fieldName: "Last name").errorMessage,
+            "Last name is required",
+            "Error message contract: Last name required"
+        )
+        XCTAssertEqual(
+            Validators.validateName("X", fieldName: "Last name").errorMessage,
+            "Last name must be at least 2 characters",
+            "Error message contract: Last name too short"
+        )
+
+        // Email errors
+        XCTAssertEqual(
+            Validators.validateEmail("").errorMessage,
+            "Email is required",
+            "Error message contract: Email required"
+        )
+        XCTAssertEqual(
+            Validators.validateEmail("invalid").errorMessage,
+            "Please enter a valid email address",
+            "Error message contract: Email invalid"
+        )
+
+        // Password errors
+        XCTAssertEqual(
+            Validators.validatePassword("").errorMessage,
+            "Password is required",
+            "Error message contract: Password required"
+        )
+        XCTAssertEqual(
+            Validators.validatePassword("short").errorMessage,
+            "Password must be at least 8 characters",
+            "Error message contract: Password too short"
+        )
+
+        // Confirm password errors
+        XCTAssertEqual(
+            Validators.validatePasswordConfirmation("pass1", "pass2").errorMessage,
+            "Passwords do not match",
+            "Error message contract: Passwords do not match"
+        )
+    }
 }
