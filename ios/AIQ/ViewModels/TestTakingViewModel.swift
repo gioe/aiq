@@ -157,6 +157,9 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Test Management
 
     func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
+        #if DEBUG
+            print("[TestTakingViewModel] startTest called with questionCount: \(questionCount)")
+        #endif
         setLoading(true)
         clearError()
 
@@ -165,10 +168,19 @@ class TestTakingViewModel: BaseViewModel {
 
         do {
             let response = try await fetchTestQuestions(questionCount: questionCount)
+            #if DEBUG
+                print("[TestTakingViewModel] Got response with \(response.questions.count) questions")
+            #endif
             handleTestStartSuccess(response: response)
         } catch let error as APIError {
+            #if DEBUG
+                print("[TestTakingViewModel] APIError in startTest: \(error)")
+            #endif
             handleTestStartError(error, questionCount: questionCount)
         } catch {
+            #if DEBUG
+                print("[TestTakingViewModel] Generic error in startTest: \(error)")
+            #endif
             handleGenericTestStartError(error, questionCount: questionCount)
         }
     }
@@ -186,11 +198,17 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func handleTestStartSuccess(response: StartTestResponse) {
+        #if DEBUG
+            print("[TestTakingViewModel] handleTestStartSuccess: received \(response.questions.count) questions")
+        #endif
         testSession = response.session
         questions = response.questions
         currentQuestionIndex = 0
         userAnswers.removeAll()
         isTestCompleted = false
+        #if DEBUG
+            print("[TestTakingViewModel] questions array now has \(questions.count) items")
+        #endif
 
         // Initialize time tracking
         resetTimeTracking()
@@ -202,6 +220,9 @@ class TestTakingViewModel: BaseViewModel {
         )
 
         setLoading(false)
+        #if DEBUG
+            print("[TestTakingViewModel] isLoading set to false, questions.count = \(questions.count)")
+        #endif
     }
 
     private func handleTestStartError(_ error: APIError, questionCount: Int) {

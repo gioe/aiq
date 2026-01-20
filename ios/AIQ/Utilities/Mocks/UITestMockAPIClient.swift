@@ -41,17 +41,27 @@ import Foundation
             cacheDuration _: TimeInterval?,
             forceRefresh _: Bool
         ) async throws -> T {
+            print("[UITestMockAPIClient] Request: \(endpoint.path), expecting type: \(T.self)")
+
             // Simulate network delay
             try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
             if shouldSimulateNetworkError {
+                print("[UITestMockAPIClient] Simulating network error")
                 throw APIError.networkError(
                     NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
                 )
             }
 
             // Route to appropriate mock response based on endpoint
-            return try mockResponse(for: endpoint)
+            do {
+                let response: T = try mockResponse(for: endpoint)
+                print("[UITestMockAPIClient] Response success for: \(endpoint.path)")
+                return response
+            } catch {
+                print("[UITestMockAPIClient] Error for \(endpoint.path): \(error)")
+                throw error
+            }
         }
 
         // MARK: - Mock Response Routing

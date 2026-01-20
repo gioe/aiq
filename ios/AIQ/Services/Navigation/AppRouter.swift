@@ -378,9 +378,16 @@ final class AppRouter: ObservableObject {
 // MARK: - Environment Key
 
 /// Environment key for injecting AppRouter into the SwiftUI environment
+///
+/// Note: Using MainActor.assumeIsolated to access the main actor-isolated
+/// AppRouter initialization. In practice, SwiftUI environment access
+/// always happens on the main actor.
 struct AppRouterKey: EnvironmentKey {
-    @MainActor
-    static let defaultValue = AppRouter()
+    static var defaultValue: AppRouter {
+        MainActor.assumeIsolated {
+            AppRouter()
+        }
+    }
 }
 
 extension EnvironmentValues {

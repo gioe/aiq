@@ -9,7 +9,8 @@ struct TestProgressView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var progress: Double {
-        Double(currentQuestion) / Double(totalQuestions)
+        guard totalQuestions > 0 else { return 0 }
+        return Double(currentQuestion) / Double(totalQuestions)
     }
 
     var completionPercentage: Int {
@@ -77,7 +78,7 @@ struct TestProgressView: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressBar)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "Test progress: Question \(currentQuestion) of \(totalQuestions), " +
                 "\(answeredCount) answered, \(totalQuestions - answeredCount) remaining, " +
@@ -106,7 +107,9 @@ struct TestProgressView: View {
                         )
                     )
                     .frame(
-                        width: geometry.size.width * (Double(answeredCount) / Double(totalQuestions)),
+                        width: totalQuestions > 0
+                            ? geometry.size.width * (Double(answeredCount) / Double(totalQuestions))
+                            : 0,
                         height: 10
                     )
                     .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: answeredCount)

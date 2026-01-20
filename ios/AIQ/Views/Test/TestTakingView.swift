@@ -4,7 +4,7 @@ import SwiftUI
 struct TestTakingView: View {
     @StateObject private var viewModel: TestTakingViewModel
     @StateObject private var timerManager = TestTimerManager()
-    @Environment(\.appRouter) var router
+    @EnvironmentObject var router: AppRouter
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var showResumeAlert = false
     @State private var showExitConfirmation = false
@@ -187,6 +187,9 @@ struct TestTakingView: View {
     }
 
     private func checkForSavedProgress() async {
+        #if DEBUG
+            print("[TestTakingView] checkForSavedProgress called")
+        #endif
         if let progress = viewModel.loadSavedProgress() {
             // Check if test time has already expired
             if progress.isTimeExpired {
@@ -198,7 +201,14 @@ struct TestTakingView: View {
             savedProgress = progress
             showResumeAlert = true
         } else {
+            #if DEBUG
+                print("[TestTakingView] No saved progress, calling startTest")
+            #endif
             await viewModel.startTest()
+            #if DEBUG
+                let qCount = viewModel.questions.count
+                print("[TestTakingView] After startTest: questions.count=\(qCount), isLoading=\(viewModel.isLoading)")
+            #endif
             // Start timer after test loads successfully using session start time
             if let session = viewModel.testSession {
                 timerManager.startWithSessionTime(session.startedAt)
@@ -241,6 +251,20 @@ struct TestTakingView: View {
 
     private var testContentView: some View {
         VStack(spacing: 0) {
+            #if DEBUG
+                // Debug indicator for test mode - shows question count and loading state
+                HStack {
+                    let qCount = viewModel.questions.count
+                    let loadState = viewModel.isLoading ? "Y" : "N"
+                    let mockState = MockModeDetector.isMockMode ? "Y" : "N"
+                    Text("Q:\(qCount) L:\(loadState) M:\(mockState)")
+                        .font(.caption)
+                        .padding(4)
+                        .background(viewModel.questions.isEmpty ? Color.red.opacity(0.3) : Color.green.opacity(0.3))
+                        .cornerRadius(4)
+                        .accessibilityIdentifier("testTakingView.debugState")
+                }
+            #endif
             // Time warning banner (shown when 5 minutes remaining)
             if showTimeWarningBanner {
                 TimeWarningBanner(

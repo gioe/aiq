@@ -5,7 +5,7 @@ import UserNotifications
 /// Main tab view for authenticated users
 struct MainTabView: View {
     private static let logger = Logger(subsystem: "com.aiq.app", category: "MainTabView")
-    @Environment(\.appRouter) private var router
+    @EnvironmentObject private var router: AppRouter
     /// Selected tab with persistence across app launches.
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
@@ -257,10 +257,10 @@ private struct DashboardTabNavigationView: View {
 
 /// Wrapper view for History tab with router-based navigation
 private struct HistoryTabNavigationView: View {
-    @Environment(\.appRouter) private var router
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: router.binding(for: .history)) {
+        NavigationStack(path: $router.historyPath) {
             HistoryView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)
@@ -285,10 +285,10 @@ private struct HistoryTabNavigationView: View {
 
 /// Wrapper view for Settings tab with router-based navigation
 private struct SettingsTabNavigationView: View {
-    @Environment(\.appRouter) private var router
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: router.binding(for: .settings)) {
+        NavigationStack(path: $router.settingsPath) {
             SettingsView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)

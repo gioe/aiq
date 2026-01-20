@@ -91,8 +91,9 @@ class TestTakingHelper {
     }
 
     /// Progress label showing "Question X of Y"
+    /// Note: This is an HStack container, not a StaticText, so we use otherElements
     var progressLabel: XCUIElement {
-        app.staticTexts["testTakingView.progressLabel"]
+        app.otherElements["testTakingView.progressLabel"]
     }
 
     /// All answer option buttons (for multiple choice questions)
@@ -158,8 +159,32 @@ class TestTakingHelper {
 
         startTestButton.tap()
 
+        // First, verify navigation happened by checking for exit button
+        let navigationTimeout: TimeInterval = 5.0
+        let exitButtonExists = app.buttons["testTakingView.exitButton"].waitForExistence(timeout: navigationTimeout)
+        print("[TestTakingHelper] After tap - exitButton exists: \(exitButtonExists)")
+
+        if !exitButtonExists {
+            // Dump what's on screen for debugging
+            let buttons = app.buttons.allElementsBoundByIndex.map { "\($0.identifier): \($0.label)" }
+            let navBars = app.navigationBars.allElementsBoundByIndex.map(\.identifier)
+            print("[TestTakingHelper] Buttons on screen: \(buttons)")
+            print("[TestTakingHelper] Navigation bars: \(navBars)")
+            XCTFail("Navigation to TestTakingView failed - exit button not found")
+            return false
+        }
+
+        // Check debug state element to understand view state
+        let debugState = app.staticTexts["testTakingView.debugState"]
+        if debugState.waitForExistence(timeout: 2.0) {
+            print("[TestTakingHelper] Debug state: \(debugState.label)")
+        } else {
+            print("[TestTakingHelper] Debug state element not found")
+        }
+
         if waitForFirstQuestion {
-            return waitForQuestion()
+            // Use network timeout since starting a test involves API calls
+            return waitForQuestion(timeout: networkTimeout)
         }
 
         return true
