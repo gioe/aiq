@@ -74,6 +74,64 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(jsonString, "\"in_progress\"")
     }
 
+    // MARK: - MockDataFactory Tests
+
+    func testMakeTestSession_InProgressSessionNeverHasCompletedAt() {
+        // Even if completedAt is explicitly provided, in-progress sessions should not have it
+        let session = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date(),
+            completedAt: Date() // Try to force a completedAt
+        )
+        XCTAssertNil(session.completedAt, "In-progress sessions should never have completedAt")
+    }
+
+    func testMakeTestSession_AbandonedSessionNeverHasCompletedAt() {
+        let session = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "abandoned",
+            startedAt: Date(),
+            completedAt: Date() // Try to force a completedAt
+        )
+        XCTAssertNil(session.completedAt, "Abandoned sessions should never have completedAt")
+    }
+
+    func testMakeTestSession_CompletedSessionAlwaysHasCompletedAt() {
+        let startedAt = Date()
+        let session = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "completed",
+            startedAt: startedAt
+        )
+        XCTAssertNotNil(session.completedAt, "Completed sessions should always have completedAt")
+        // Default is 30 minutes (1800 seconds) after start
+        if let completedAt = session.completedAt {
+            XCTAssertEqual(
+                completedAt.timeIntervalSince(startedAt),
+                1800,
+                accuracy: 1.0,
+                "Default completedAt should be 30 minutes after startedAt"
+            )
+        }
+    }
+
+    func testMakeTestSession_CompletedSessionUsesProvidedCompletedAt() {
+        let startedAt = Date()
+        let providedCompletedAt = startedAt.addingTimeInterval(900) // 15 minutes
+        let session = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "completed",
+            startedAt: startedAt,
+            completedAt: providedCompletedAt
+        )
+        XCTAssertEqual(session.completedAt, providedCompletedAt)
+    }
+
     // MARK: - TestSession Decoding Tests
 
     func testTestSessionDecodingWithAllFields() throws {

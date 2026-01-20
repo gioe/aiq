@@ -52,7 +52,7 @@ enum MockDataFactory {
         timeLimitExceeded: Bool = false
     ) -> TestSession {
         Components.Schemas.TestSessionResponse(
-            completedAt: completedAt ?? (status == "completed" ? startedAt.addingTimeInterval(1800) : nil),
+            completedAt: status == "completed" ? (completedAt ?? startedAt.addingTimeInterval(1800)) : nil,
             id: id,
             startedAt: startedAt,
             status: status,
