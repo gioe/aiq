@@ -481,4 +481,28 @@ class RegistrationHelper {
         let firstError = errorLabels.firstMatch
         return firstError.exists ? firstError.label : nil
     }
+
+    /// Check if timeout error message is shown
+    var hasTimeoutError: Bool {
+        let predicate = NSPredicate(
+            format: "label CONTAINS[c] 'timed out' OR label CONTAINS[c] 'timeout' OR label CONTAINS[c] 'took too long'"
+        )
+        return app.staticTexts.matching(predicate).firstMatch.exists
+    }
+
+    /// Check if server error message is shown
+    var hasServerError: Bool {
+        let predicate = NSPredicate(
+            format: "label CONTAINS[c] 'server' AND (label CONTAINS[c] 'error' OR label CONTAINS[c] 'issues')"
+        )
+        return app.staticTexts.matching(predicate).firstMatch.exists
+    }
+
+    /// Check if network error message is shown (generic network errors including connection issues)
+    var hasNetworkError: Bool {
+        let predicate = NSPredicate(
+            format: "label CONTAINS[c] 'network' OR label CONTAINS[c] 'connection' OR label CONTAINS[c] 'internet'"
+        )
+        return app.staticTexts.matching(predicate).firstMatch.exists
+    }
 }

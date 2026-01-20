@@ -55,9 +55,14 @@ import Foundation
             // MARK: - Layer 2: Services depending on Layer 1
 
             let mockSecureStorage = UITestMockSecureStorage()
-            if scenario == .loggedInWithHistory || scenario == .loggedInNoHistory || scenario == .testInProgress {
+            switch scenario {
+            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress:
                 mockSecureStorage.configureAuthenticated()
+            case .default, .loggedOut, .loginFailure, .networkError, .registrationTimeout, .registrationServerError:
+                // Keep secure storage unauthenticated - user should see welcome screen
+                break
             }
+            container.register(SecureStorageProtocol.self, instance: mockSecureStorage)
 
             let mockNotificationService = UITestMockNotificationService()
             container.register(NotificationServiceProtocol.self, instance: mockNotificationService)

@@ -127,4 +127,10 @@ enum MockScenario: String, CaseIterable {
 
     /// API calls will fail with network errors
     case networkError
+
+    /// Registration will fail with network timeout
+    case registrationTimeout
+
+    /// Registration will fail with server error (500)
+    case registrationServerError
 }

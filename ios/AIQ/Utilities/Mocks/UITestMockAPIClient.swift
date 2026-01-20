@@ -106,7 +106,7 @@ import Foundation
 
         private func mockTestHistoryResponse() -> PaginatedTestHistoryResponse {
             switch scenario {
-            case .loggedInNoHistory, .loggedOut, .default:
+            case .loggedInNoHistory, .loggedOut, .default, .registrationTimeout, .registrationServerError:
                 PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
