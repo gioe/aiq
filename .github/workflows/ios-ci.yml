@@ -44,6 +44,7 @@ jobs:
         run: xcrun simctl list devices available
 
       - name: Verify OpenAPI spec is in sync
+        shell: bash
         run: |
           # Check that the OpenAPI spec in the iOS package matches the source in docs/api/
           # This catches two drift scenarios:
@@ -51,7 +52,8 @@ jobs:
           # 2. iOS spec was modified directly instead of updating the source
 
           SOURCE="docs/api/openapi.json"
-          DEST="ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json"
+          DEST_PACKAGE="ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json"
+          DEST_LEGACY="ios/AIQ/openapi.json"
 
           if [ ! -f "$SOURCE" ]; then
             echo "::error::OpenAPI spec not found at $SOURCE"
@@ -59,23 +61,34 @@ jobs:
             exit 1
           fi
 
-          if [ ! -f "$DEST" ]; then
-            echo "::error::OpenAPI spec not found at $DEST"
+          if [ ! -f "$DEST_PACKAGE" ]; then
+            echo "::error::OpenAPI spec not found at $DEST_PACKAGE"
             echo "Run 'cd ios && scripts/sync_openapi_spec.sh' to sync it, then commit the result."
             exit 1
           fi
 
-          if ! diff -q "$SOURCE" "$DEST" > /dev/null 2>&1; then
-            echo "::error::OpenAPI spec is out of sync!"
+          # Verify package location (primary)
+          if ! diff -q "$SOURCE" "$DEST_PACKAGE" > /dev/null; then
+            echo "::error::OpenAPI spec is out of sync at $DEST_PACKAGE!"
             echo ""
-            echo "The OpenAPI spec at $DEST does not match the source at $SOURCE."
+            echo "The OpenAPI spec at $DEST_PACKAGE does not match the source at $SOURCE."
             echo ""
             echo "To fix this:"
             echo "  1. Run: cd ios && scripts/sync_openapi_spec.sh"
             echo "  2. Commit the updated spec"
             echo ""
             echo "First 50 lines of diff:"
-            diff -u "$SOURCE" "$DEST" | head -50
+            diff -u "$SOURCE" "$DEST_PACKAGE" | head -50
+            exit 1
+          fi
+
+          # Verify legacy location (for backward compatibility)
+          if [ -f "$DEST_LEGACY" ] && ! diff -q "$SOURCE" "$DEST_LEGACY" > /dev/null; then
+            echo "::error::OpenAPI spec is out of sync at legacy location $DEST_LEGACY!"
+            echo ""
+            echo "To fix this:"
+            echo "  1. Run: cd ios && scripts/sync_openapi_spec.sh"
+            echo "  2. Commit the updated spec"
             exit 1
           fi
 
