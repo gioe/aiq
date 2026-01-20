@@ -9,6 +9,8 @@ struct CustomTextField: View {
     var keyboardType: UIKeyboardType = .default
     var autocapitalization: TextInputAutocapitalization = .sentences
     var accessibilityId: String?
+    var submitLabel: SubmitLabel = .return
+    var onSubmit: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -21,6 +23,8 @@ struct CustomTextField: View {
             Group {
                 if isSecure {
                     SecureField(placeholder, text: $text)
+                        .submitLabel(submitLabel)
+                        .onSubmit { onSubmit?() }
                         .accessibilityLabel(title)
                         .accessibilityValue(text.isEmpty ? "Empty" : "Entered")
                         .accessibilityHint("Secure text field. Double tap to edit")
@@ -29,6 +33,8 @@ struct CustomTextField: View {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboardType)
                         .textInputAutocapitalization(autocapitalization)
+                        .submitLabel(submitLabel)
+                        .onSubmit { onSubmit?() }
                         .accessibilityLabel(title)
                         .accessibilityValue(text.isEmpty ? "Empty" : text)
                         .accessibilityHint("Text field. Double tap to edit")
