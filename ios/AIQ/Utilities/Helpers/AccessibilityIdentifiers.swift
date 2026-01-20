@@ -62,6 +62,13 @@ enum AccessibilityIdentifiers {
         static let educationLevelButton = "registrationView.educationLevelButton"
         static let createAccountButton = "registrationView.createAccountButton"
         static let signInLink = "registrationView.signInLink"
+
+        // Validation error labels
+        static let firstNameError = "registrationView.firstNameError"
+        static let lastNameError = "registrationView.lastNameError"
+        static let emailError = "registrationView.emailError"
+        static let passwordError = "registrationView.passwordError"
+        static let confirmPasswordError = "registrationView.confirmPasswordError"
     }
 
     // MARK: - Dashboard View

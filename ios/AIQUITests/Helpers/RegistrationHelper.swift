@@ -424,44 +424,136 @@ class RegistrationHelper {
 
     // MARK: - Validation Error Checks
 
+    // Validation error messages from Validators.swift
+    // These must match exactly to ensure reliable UI tests
+    private enum ValidationErrors {
+        // First name errors
+        static let firstNameRequired = "First name is required"
+        static let firstNameTooShort = "First name must be at least 2 characters"
+
+        // Last name errors
+        static let lastNameRequired = "Last name is required"
+        static let lastNameTooShort = "Last name must be at least 2 characters"
+
+        // Email errors
+        static let emailRequired = "Email is required"
+        static let emailInvalid = "Please enter a valid email address"
+
+        // Password errors
+        static let passwordRequired = "Password is required"
+        static let passwordTooShort = "Password must be at least 8 characters"
+
+        // Confirm password errors
+        static let passwordsDoNotMatch = "Passwords do not match"
+    }
+
+    // Accessibility identifiers for validation error labels
+    private enum ErrorIdentifiers {
+        static let firstName = "registrationView.firstNameError"
+        static let lastName = "registrationView.lastNameError"
+        static let email = "registrationView.emailError"
+        static let password = "registrationView.passwordError"
+        static let confirmPassword = "registrationView.confirmPasswordError"
+    }
+
+    /// First name validation error element (uses accessibility identifier)
+    var firstNameErrorLabel: XCUIElement {
+        app.staticTexts[ErrorIdentifiers.firstName]
+    }
+
+    /// Last name validation error element (uses accessibility identifier)
+    var lastNameErrorLabel: XCUIElement {
+        app.staticTexts[ErrorIdentifiers.lastName]
+    }
+
+    /// Email validation error element (uses accessibility identifier)
+    var emailErrorLabel: XCUIElement {
+        app.staticTexts[ErrorIdentifiers.email]
+    }
+
+    /// Password validation error element (uses accessibility identifier)
+    var passwordErrorLabel: XCUIElement {
+        app.staticTexts[ErrorIdentifiers.password]
+    }
+
+    /// Confirm password validation error element (uses accessibility identifier)
+    var confirmPasswordErrorLabel: XCUIElement {
+        app.staticTexts[ErrorIdentifiers.confirmPassword]
+    }
+
     /// Check if first name validation error is shown
+    /// Uses accessibility identifier for reliable element lookup
     var hasFirstNameError: Bool {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'first name' AND label CONTAINS[c] 'required'"
-        )
-        return app.staticTexts.matching(predicate).firstMatch.exists
+        firstNameErrorLabel.exists
+    }
+
+    /// Check if first name "required" error is shown
+    var hasFirstNameRequiredError: Bool {
+        firstNameErrorLabel.exists && firstNameErrorLabel.label == ValidationErrors.firstNameRequired
+    }
+
+    /// Check if first name "too short" error is shown
+    var hasFirstNameTooShortError: Bool {
+        firstNameErrorLabel.exists && firstNameErrorLabel.label == ValidationErrors.firstNameTooShort
     }
 
     /// Check if last name validation error is shown
+    /// Uses accessibility identifier for reliable element lookup
     var hasLastNameError: Bool {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'last name' AND label CONTAINS[c] 'required'"
-        )
-        return app.staticTexts.matching(predicate).firstMatch.exists
+        lastNameErrorLabel.exists
+    }
+
+    /// Check if last name "required" error is shown
+    var hasLastNameRequiredError: Bool {
+        lastNameErrorLabel.exists && lastNameErrorLabel.label == ValidationErrors.lastNameRequired
+    }
+
+    /// Check if last name "too short" error is shown
+    var hasLastNameTooShortError: Bool {
+        lastNameErrorLabel.exists && lastNameErrorLabel.label == ValidationErrors.lastNameTooShort
     }
 
     /// Check if email validation error is shown
+    /// Uses accessibility identifier for reliable element lookup
     var hasEmailError: Bool {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'email' AND label CONTAINS[c] 'valid'"
-        )
-        return app.staticTexts.matching(predicate).firstMatch.exists
+        emailErrorLabel.exists
+    }
+
+    /// Check if email "required" error is shown
+    var hasEmailRequiredError: Bool {
+        emailErrorLabel.exists && emailErrorLabel.label == ValidationErrors.emailRequired
+    }
+
+    /// Check if email "invalid" error is shown
+    var hasEmailInvalidError: Bool {
+        emailErrorLabel.exists && emailErrorLabel.label == ValidationErrors.emailInvalid
     }
 
     /// Check if password validation error is shown
+    /// Uses accessibility identifier for reliable element lookup
     var hasPasswordError: Bool {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'password' AND label CONTAINS[c] 'characters'"
-        )
-        return app.staticTexts.matching(predicate).firstMatch.exists
+        passwordErrorLabel.exists
+    }
+
+    /// Check if password "required" error is shown
+    var hasPasswordRequiredError: Bool {
+        passwordErrorLabel.exists && passwordErrorLabel.label == ValidationErrors.passwordRequired
+    }
+
+    /// Check if password "too short" error is shown
+    var hasPasswordTooShortError: Bool {
+        passwordErrorLabel.exists && passwordErrorLabel.label == ValidationErrors.passwordTooShort
     }
 
     /// Check if confirm password validation error is shown
+    /// Uses accessibility identifier for reliable element lookup
     var hasConfirmPasswordError: Bool {
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'password' AND label CONTAINS[c] 'not match'"
-        )
-        return app.staticTexts.matching(predicate).firstMatch.exists
+        confirmPasswordErrorLabel.exists
+    }
+
+    /// Check if passwords "do not match" error is shown
+    var hasPasswordsDoNotMatchError: Bool {
+        confirmPasswordErrorLabel.exists && confirmPasswordErrorLabel.label == ValidationErrors.passwordsDoNotMatch
     }
 
     /// Check if any error banner is displayed

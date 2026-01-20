@@ -123,6 +123,9 @@ struct RegistrationView: View {
                                         .font(Typography.captionMedium)
                                         .foregroundColor(ColorPalette.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
+                                        .accessibilityIdentifier(
+                                            AccessibilityIdentifiers.RegistrationView.firstNameError
+                                        )
                                 }
                             }
 
@@ -143,6 +146,9 @@ struct RegistrationView: View {
                                         .font(Typography.captionMedium)
                                         .foregroundColor(ColorPalette.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
+                                        .accessibilityIdentifier(
+                                            AccessibilityIdentifiers.RegistrationView.lastNameError
+                                        )
                                 }
                             }
                         }
@@ -166,6 +172,7 @@ struct RegistrationView: View {
                                     .font(Typography.captionMedium)
                                     .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.emailError)
                             }
                         }
 
@@ -187,6 +194,7 @@ struct RegistrationView: View {
                                     .font(Typography.captionMedium)
                                     .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.passwordError)
                             }
                         }
 
@@ -208,6 +216,9 @@ struct RegistrationView: View {
                                     .font(Typography.captionMedium)
                                     .foregroundColor(ColorPalette.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier(
+                                        AccessibilityIdentifiers.RegistrationView.confirmPasswordError
+                                    )
                             }
                         }
                     }
