@@ -843,18 +843,10 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     // MARK: - Deep Link Navigation Tests
 
-    @MainActor
-    func testHandleNavigation_Settings_ReturnsTrue() async {
-        // Given
-        let deepLink = DeepLink.settings
-        let mockRouter = AppRouter()
-
-        // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter)
-
-        // Then
-        XCTAssertTrue(result, "Settings navigation should return true")
-    }
+    // Note: testHandleNavigation_Settings is intentionally not tested here because
+    // settings deep links are handled at the tab level in MainTabView, not via
+    // handleNavigation(). Calling handleNavigation() with .settings is a programming
+    // error and results in fatalError.
 
     @MainActor
     func testHandleNavigation_ResumeTest_ReturnsUntilImplemented() async {
