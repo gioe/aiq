@@ -215,10 +215,10 @@ struct MainTabView: View {
 
 /// Wrapper view for Dashboard tab with router-based navigation
 private struct DashboardTabNavigationView: View {
-    @Environment(\.appRouter) private var router
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: router.binding(for: .dashboard)) {
+        NavigationStack(path: $router.dashboardPath) {
             DashboardView()
                 .navigationDestination(for: Route.self) { route in
                     destinationView(for: route)

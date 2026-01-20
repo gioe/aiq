@@ -241,9 +241,12 @@ final class AppRouter: ObservableObject {
     ///   - tab: The tab to push the route in
     func push(_ route: Route, in tab: TabDestination) {
         switch tab {
-        case .dashboard: dashboardPath.append(route)
-        case .history: historyPath.append(route)
-        case .settings: settingsPath.append(route)
+        case .dashboard:
+            dashboardPath.append(route)
+        case .history:
+            historyPath.append(route)
+        case .settings:
+            settingsPath.append(route)
         }
     }
 

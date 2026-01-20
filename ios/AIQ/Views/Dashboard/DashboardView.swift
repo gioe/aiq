@@ -4,7 +4,7 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var authManager = AuthManager.shared
-    @Environment(\.appRouter) var router
+    @EnvironmentObject var router: AppRouter
 
     /// Whether user skipped onboarding (determines if info card should show)
     @AppStorage("didSkipOnboarding") private var didSkipOnboarding: Bool = false
@@ -407,7 +407,6 @@ struct DashboardView: View {
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
-                .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateView)
 
                 Spacer()
             }

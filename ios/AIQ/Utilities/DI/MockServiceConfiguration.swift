@@ -45,6 +45,12 @@ import Foundation
 
             // MARK: - Layer 1: Services with no dependencies
 
+            let mockNetworkMonitor = UITestMockNetworkMonitor()
+            container.register(NetworkMonitorProtocol.self, instance: mockNetworkMonitor)
+
+            let mockToastManager = UITestMockToastManager()
+            container.register(ToastManagerProtocol.self, instance: mockToastManager)
+
             let mockAPIClient = UITestMockAPIClient()
             mockAPIClient.configureForScenario(scenario)
             container.register(APIClientProtocol.self, instance: mockAPIClient)
@@ -52,15 +58,14 @@ import Foundation
             let mockLocalAnswerStorage = UITestMockLocalAnswerStorage()
             container.register(LocalAnswerStorageProtocol.self, instance: mockLocalAnswerStorage)
 
+            let mockHapticManager = UITestMockHapticManager()
+            container.register(HapticManagerProtocol.self, instance: mockHapticManager)
+
             // MARK: - Layer 2: Services depending on Layer 1
 
             let mockSecureStorage = UITestMockSecureStorage()
-            switch scenario {
-            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress:
+            if scenario == .loggedInWithHistory || scenario == .loggedInNoHistory || scenario == .testInProgress {
                 mockSecureStorage.configureAuthenticated()
-            case .default, .loggedOut, .loginFailure, .networkError, .registrationTimeout, .registrationServerError:
-                // Keep secure storage unauthenticated - user should see welcome screen
-                break
             }
             container.register(SecureStorageProtocol.self, instance: mockSecureStorage)
 

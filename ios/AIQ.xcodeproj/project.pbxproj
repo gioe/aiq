@@ -92,6 +92,7 @@
 		392C4883901BFBF0E46469B2 /* CrashlyticsErrorRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAA1814DC1180D4FEEBA3EF /* CrashlyticsErrorRecorderTests.swift */; };
 		396A0E2060CF6864C0BA63D1 /* TestResultsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C014BEB3B4B926F951F1C5D9 /* TestResultsViewTests.swift */; };
 		3994005DF68942F2F93BA0F5 /* SavedTestProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED0FE853EEB74DF308E3DE5 /* SavedTestProgress.swift */; };
+		3A5A135B4D21848C78DC3D39 /* UITestMockToastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B28F142418B446FFBF1E24 /* UITestMockToastManager.swift */; };
 		3ABB745B0B63DB518FE1B679 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72704EDD064DAB7B07592442 /* SettingsViewModel.swift */; };
 		3AC11B85E9F247E74E27B4FC /* FeedbackViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47B029F2D8A7A84C7D5BC812 /* FeedbackViewModelTests.swift */; };
 		3EC6082B483B4D1EC7E9576B /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409E33929D1D00C484DD2426 /* Feedback.swift */; };
@@ -250,6 +251,7 @@
 		E904B381E22BD76186DF144C /* NotificationPermissionBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B794E1EC683537C5661C9A8F /* NotificationPermissionBannerTests.swift */; };
 		EAB0CB5AE0087B71E58F6943 /* TestTakingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9839EE4D75666CE025D3DDB /* TestTakingView.swift */; };
 		EABE17CD601C89592E23F4E5 /* OnboardingPage1View.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0081EE8361082FB59A7ECFC /* OnboardingPage1View.swift */; };
+		ED8AACC1354B34EDA90CBCF0 /* UITestMockNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */; };
 		F05954FD58CACCA597D8FE6D /* String+Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCBEB7A4DC5D8CBA08283D20 /* String+Localization.swift */; };
 		F275167083CE029A30B3E025 /* TestResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D604AF70DEC0710B31F79B3 /* TestResult.swift */; };
 		F359F1B716F240F9A36ABCB7 /* ViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38D677F5976BDC16636962B /* ViewModelFactory.swift */; };
@@ -468,6 +470,7 @@
 		A16988A601D72DDA897C6605 /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
 		A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandlerTests.swift; sourceTree = "<group>"; };
 		A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockApplication.swift; sourceTree = "<group>"; };
+		A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockNetworkMonitor.swift; sourceTree = "<group>"; };
 		A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		A4822133E0084FC6B5E58520 /* UserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTests.swift; sourceTree = "<group>"; };
 		A69F71CE91E33159738DFCAC /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
@@ -481,6 +484,7 @@
 		ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationProtocol.swift; sourceTree = "<group>"; };
 		ADE8D249CD1075408405247E /* BackgroundRefreshManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshManager.swift; sourceTree = "<group>"; };
 		B0B3F3BBD693AFDD1B7D9D28 /* NetworkMonitorObserverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkMonitorObserverTests.swift; sourceTree = "<group>"; };
+		B1B28F142418B446FFBF1E24 /* UITestMockToastManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockToastManager.swift; sourceTree = "<group>"; };
 		B38852F28AADEDF8F22A77FE /* ToastManagerObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ToastManagerObserver.swift; sourceTree = "<group>"; };
 		B38D677F5976BDC16636962B /* ViewModelFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ViewModelFactory.swift; sourceTree = "<group>"; };
 		B3F9E7E6F76233D867D7559F /* AuthManagerDeleteAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthManagerDeleteAccountTests.swift; sourceTree = "<group>"; };
@@ -810,6 +814,8 @@
 				A85927AD9092DE898E5DE90E /* UITestMockLocalAnswerStorage.swift */,
 				1BB6C6E11CC2796D59F918C1 /* UITestMockHapticManager.swift */,
 				C278684A058000797F88381C /* UITestMockBiometricAuthManager.swift */,
+				A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */,
+				B1B28F142418B446FFBF1E24 /* UITestMockToastManager.swift */,
 			);
 			name = Mocks;
 			path = Mocks;
@@ -1617,6 +1623,8 @@
 				9E2B105F93AE96D0FF297C97 /* BiometricAuthManagerProtocol.swift in Sources */,
 				2C128C867F01A69FD8F3A53C /* BiometricAuthManager.swift in Sources */,
 				A9368874F5F0374E78DE1AFF /* UITestMockBiometricAuthManager.swift in Sources */,
+				ED8AACC1354B34EDA90CBCF0 /* UITestMockNetworkMonitor.swift in Sources */,
+				3A5A135B4D21848C78DC3D39 /* UITestMockToastManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -30,7 +30,7 @@ struct AIQApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .withAppRouter(router)
+                .environmentObject(router)
                 .environment(\.serviceContainer, ServiceContainer.shared)
         }
         .onChange(of: scenePhase) { newPhase in
