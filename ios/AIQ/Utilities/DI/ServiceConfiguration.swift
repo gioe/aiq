@@ -44,6 +44,7 @@ enum ServiceConfiguration {
     /// - `NetworkMonitorProtocol`: Container-owned instance for network connectivity monitoring
     /// - `ToastManagerProtocol`: Container-owned instance for toast notifications
     /// - `HapticManagerProtocol`: Container-owned instance for haptic feedback
+    /// - `BiometricAuthManagerProtocol`: Container-owned instance for biometric authentication
     ///
     /// - Parameter container: The ServiceContainer to register services with
     ///
@@ -63,6 +64,9 @@ enum ServiceConfiguration {
 
         let hapticManager = HapticManager()
         container.register(HapticManagerProtocol.self, instance: hapticManager)
+
+        let biometricAuthManager = BiometricAuthManager()
+        container.register(BiometricAuthManagerProtocol.self, instance: biometricAuthManager)
 
         let apiClient = APIClient(
             baseURL: AppConfig.apiBaseURL,

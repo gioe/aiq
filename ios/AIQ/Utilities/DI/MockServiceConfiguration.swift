@@ -74,6 +74,11 @@ import Foundation
             mockNotificationManager.configureForScenario(scenario)
             container.register(NotificationManagerProtocol.self, instance: mockNotificationManager)
 
+            // MARK: - Layer 5: BiometricAuthManager
+
+            let mockBiometricAuthManager = UITestMockBiometricAuthManager()
+            container.register(BiometricAuthManagerProtocol.self, instance: mockBiometricAuthManager)
+
             print("[MockServiceConfiguration] All mock services registered for scenario: \(scenario.rawValue)")
         }
     }
