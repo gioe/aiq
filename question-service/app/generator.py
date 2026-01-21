@@ -9,6 +9,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from .circuit_breaker import (
+    CircuitBreakerOpen,
+    CircuitBreakerRegistry,
+    get_circuit_breaker_registry,
+)
 from .models import (
     DifficultyLevel,
     GeneratedQuestion,
@@ -17,7 +22,7 @@ from .models import (
 )
 from .prompts import build_generation_prompt
 from .providers.anthropic_provider import AnthropicProvider
-from .providers.base import BaseLLMProvider
+from .providers.base import BaseLLMProvider, LLMProviderError
 from .providers.google_provider import GoogleProvider
 from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
@@ -42,6 +47,7 @@ class QuestionGenerator:
         anthropic_model: str = "claude-sonnet-4-5",
         google_model: str = "gemini-pro",
         xai_model: str = "grok-4",
+        circuit_breaker_registry: Optional[CircuitBreakerRegistry] = None,
     ):
         """Initialize the question generator with LLM provider credentials.
 
@@ -54,30 +60,38 @@ class QuestionGenerator:
             anthropic_model: Anthropic model to use
             google_model: Google model to use
             xai_model: xAI model to use
+            circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
         """
         self.providers: Dict[str, BaseLLMProvider] = {}
+        self._circuit_breaker_registry = (
+            circuit_breaker_registry or get_circuit_breaker_registry()
+        )
 
         # Initialize available providers
         if openai_api_key:
             self.providers["openai"] = OpenAIProvider(
                 api_key=openai_api_key, model=openai_model
             )
+            self._circuit_breaker_registry.get_or_create("openai")
             logger.info(f"Initialized OpenAI provider with model {openai_model}")
 
         if anthropic_api_key:
             self.providers["anthropic"] = AnthropicProvider(
                 api_key=anthropic_api_key, model=anthropic_model
             )
+            self._circuit_breaker_registry.get_or_create("anthropic")
             logger.info(f"Initialized Anthropic provider with model {anthropic_model}")
 
         if google_api_key:
             self.providers["google"] = GoogleProvider(
                 api_key=google_api_key, model=google_model
             )
+            self._circuit_breaker_registry.get_or_create("google")
             logger.info(f"Initialized Google provider with model {google_model}")
 
         if xai_api_key:
             self.providers["xai"] = XAIProvider(api_key=xai_api_key, model=xai_model)
+            self._circuit_breaker_registry.get_or_create("xai")
             logger.info(f"Initialized xAI provider with model {xai_model}")
 
         if not self.providers:
@@ -95,12 +109,12 @@ class QuestionGenerator:
         temperature: float = 0.8,
         max_tokens: int = 1500,
     ) -> GeneratedQuestion:
-        """Generate a single question using a specific or random provider.
+        """Generate a single question using a specific or available provider.
 
         Args:
             question_type: Type of question to generate
             difficulty: Difficulty level
-            provider_name: Specific provider to use (None = round-robin)
+            provider_name: Specific provider to use (None = first available)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
 
@@ -109,6 +123,7 @@ class QuestionGenerator:
 
         Raises:
             ValueError: If provider_name is invalid or no providers available
+            CircuitBreakerOpen: If the specified provider's circuit is open
             Exception: If generation fails
         """
         # Select provider
@@ -120,9 +135,17 @@ class QuestionGenerator:
                 )
             provider = self.providers[provider_name]
         else:
-            # Use first available provider (could be enhanced with round-robin)
-            provider_name = next(iter(self.providers.keys()))
+            # Use first available provider with non-open circuit
+            provider_name = self._get_available_provider()
+            if provider_name is None:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
             provider = self.providers[provider_name]
+
+        # Get circuit breaker for this provider
+        circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
 
         logger.info(
             f"Generating {question_type.value} question at {difficulty.value} "
@@ -132,14 +155,17 @@ class QuestionGenerator:
         # Build prompt
         prompt = build_generation_prompt(question_type, difficulty, count=1)
 
-        # Generate question
-        try:
-            response = provider.generate_structured_completion(
+        # Generate question with circuit breaker protection
+        def _do_generation() -> Dict[str, Any]:
+            return provider.generate_structured_completion(
                 prompt=prompt,
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+
+        try:
+            response = circuit_breaker.execute(_do_generation)
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -155,9 +181,49 @@ class QuestionGenerator:
             )
             return question
 
+        except CircuitBreakerOpen:
+            logger.warning(
+                f"Circuit breaker is open for {provider_name}, cannot generate question"
+            )
+            raise
+        except LLMProviderError as e:
+            logger.error(
+                f"Failed to generate question with {provider_name}: {str(e)} "
+                f"(category={e.classified_error.category.value})"
+            )
+            raise
         except Exception as e:
             logger.error(f"Failed to generate question with {provider_name}: {str(e)}")
             raise
+
+    def _get_available_provider(self) -> Optional[str]:
+        """Get the first available provider with non-open circuit.
+
+        Returns:
+            Provider name or None if all circuits are open
+        """
+        for provider_name in self.providers.keys():
+            circuit_breaker = self._circuit_breaker_registry.get_or_create(
+                provider_name
+            )
+            if circuit_breaker.is_available:
+                return provider_name
+        return None
+
+    def _get_available_providers(self) -> List[str]:
+        """Get list of providers with non-open circuits.
+
+        Returns:
+            List of available provider names
+        """
+        available = []
+        for provider_name in self.providers.keys():
+            circuit_breaker = self._circuit_breaker_registry.get_or_create(
+                provider_name
+            )
+            if circuit_breaker.is_available:
+                available.append(provider_name)
+        return available
 
     def generate_batch(
         self,
@@ -169,6 +235,9 @@ class QuestionGenerator:
         max_tokens: int = 1500,
     ) -> GenerationBatch:
         """Generate a batch of questions, optionally distributed across providers.
+
+        Uses circuit breakers to skip providers that are failing and automatically
+        fallback to available providers.
 
         Args:
             question_type: Type of questions to generate
@@ -182,7 +251,7 @@ class QuestionGenerator:
             Batch of generated questions
 
         Raises:
-            Exception: If generation fails
+            ValueError: If no providers are available
         """
         logger.info(
             f"Generating batch of {count} {question_type.value} questions "
@@ -190,12 +259,34 @@ class QuestionGenerator:
         )
 
         questions: List[GeneratedQuestion] = []
+        skipped_providers: Dict[str, int] = {}
+        failed_questions: int = 0  # Track questions that couldn't be generated
 
         if distribute_across_providers and len(self.providers) > 1:
             # Distribute generation across available providers
-            providers = list(self.providers.keys())
+            available_providers = self._get_available_providers()
+
+            if not available_providers:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
+
             for i in range(count):
-                provider_name = providers[i % len(providers)]
+                # Get current available providers (may change if circuits open)
+                available_providers = self._get_available_providers()
+
+                if not available_providers:
+                    logger.warning(
+                        f"All providers became unavailable during batch generation "
+                        f"({len(questions)}/{count} completed)"
+                    )
+                    failed_questions += count - i
+                    break
+
+                # Round-robin across available providers
+                provider_name = available_providers[i % len(available_providers)]
+
                 try:
                     question = self.generate_question(
                         question_type=question_type,
@@ -205,31 +296,84 @@ class QuestionGenerator:
                         max_tokens=max_tokens,
                     )
                     questions.append(question)
+                except CircuitBreakerOpen:
+                    skipped_providers[provider_name] = (
+                        skipped_providers.get(provider_name, 0) + 1
+                    )
+                    logger.warning(
+                        f"Skipped {provider_name} (circuit open) for question {i+1}/{count}"
+                    )
+                    # Try with another available provider
+                    fallback_provider = self._get_available_provider()
+                    if fallback_provider:
+                        try:
+                            question = self.generate_question(
+                                question_type=question_type,
+                                difficulty=difficulty,
+                                provider_name=fallback_provider,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                            )
+                            questions.append(question)
+                        except Exception as e:
+                            logger.error(
+                                f"Fallback provider {fallback_provider} also failed: {str(e)}"
+                            )
+                            failed_questions += 1
+                    else:
+                        # No fallback available, question is lost
+                        failed_questions += 1
                 except Exception as e:
                     logger.error(
                         f"Failed to generate question {i+1}/{count} with "
                         f"{provider_name}: {str(e)}"
                     )
+                    failed_questions += 1
                     # Continue with next provider on failure
                     continue
         else:
             # Use single provider for all questions
-            provider_name = next(iter(self.providers.keys()))
+            current_provider: Optional[str] = self._get_available_provider()
+
+            if current_provider is None:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
+
             for i in range(count):
+                if current_provider is None:
+                    logger.warning("No more providers available, stopping batch")
+                    failed_questions += count - i
+                    break
                 try:
                     question = self.generate_question(
                         question_type=question_type,
                         difficulty=difficulty,
-                        provider_name=provider_name,
+                        provider_name=current_provider,
                         temperature=temperature,
                         max_tokens=max_tokens,
                     )
                     questions.append(question)
+                except CircuitBreakerOpen:
+                    logger.warning(
+                        f"Circuit opened for {current_provider} during batch generation "
+                        f"({len(questions)}/{count} completed)"
+                    )
+                    skipped_providers[current_provider] = (
+                        skipped_providers.get(current_provider, 0) + 1
+                    )
+                    # Try to find another available provider
+                    current_provider = self._get_available_provider()
+                    if current_provider is None:
+                        failed_questions += 1
                 except Exception as e:
                     logger.error(f"Failed to generate question {i+1}/{count}: {str(e)}")
+                    failed_questions += 1
                     continue
 
         # Create batch
+        circuit_breaker_stats = self._circuit_breaker_registry.get_all_stats()
         batch = GenerationBatch(
             questions=questions,
             question_type=question_type,
@@ -238,7 +382,13 @@ class QuestionGenerator:
             metadata={
                 "target_difficulty": difficulty.value,
                 "providers_used": list(set(q.source_llm for q in questions)),
-                "success_rate": len(questions) / count,
+                "success_rate": len(questions) / count if count > 0 else 0.0,
+                "skipped_providers": skipped_providers,
+                "failed_questions": failed_questions,
+                "circuit_breaker_states": {
+                    name: stats["state"]
+                    for name, stats in circuit_breaker_stats.items()
+                },
             },
         )
 
@@ -364,15 +514,47 @@ class QuestionGenerator:
         return list(self.providers.keys())
 
     def get_provider_stats(self) -> Dict[str, Dict[str, Any]]:
-        """Get statistics about configured providers.
+        """Get statistics about configured providers including circuit breaker state.
 
         Returns:
-            Dictionary with provider information
+            Dictionary with provider information and circuit breaker stats
         """
         stats = {}
         for name, provider in self.providers.items():
+            circuit_breaker = self._circuit_breaker_registry.get_or_create(name)
+            cb_stats = circuit_breaker.get_stats()
+
             stats[name] = {
                 "model": provider.model,
                 "provider_class": provider.__class__.__name__,
+                "circuit_breaker": {
+                    "state": cb_stats["state"],
+                    "is_available": circuit_breaker.is_available,
+                    "consecutive_failures": cb_stats["consecutive_failures"],
+                    "error_rate": cb_stats["error_rate"],
+                    "total_calls": cb_stats["total_calls"],
+                    "total_failures": cb_stats["total_failures"],
+                },
             }
         return stats
+
+    def get_circuit_breaker_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get circuit breaker statistics for all providers.
+
+        Returns:
+            Dictionary mapping provider names to circuit breaker stats
+        """
+        return self._circuit_breaker_registry.get_all_stats()
+
+    def reset_circuit_breaker(self, provider_name: Optional[str] = None) -> None:
+        """Reset circuit breaker(s).
+
+        Args:
+            provider_name: Specific provider to reset, or None to reset all
+        """
+        if provider_name:
+            self._circuit_breaker_registry.reset(provider_name)
+            logger.info(f"Reset circuit breaker for {provider_name}")
+        else:
+            self._circuit_breaker_registry.reset_all()
+            logger.info("Reset all circuit breakers")
