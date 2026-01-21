@@ -424,7 +424,9 @@ def main() -> int:
                     return EXIT_CONFIG_ERROR
 
                 deduplicator = QuestionDeduplicator(
-                    openai_api_key=settings.openai_api_key
+                    openai_api_key=settings.openai_api_key,
+                    similarity_threshold=settings.dedup_similarity_threshold,
+                    embedding_model=settings.dedup_embedding_model,
                 )
                 logger.info("✓ Deduplicator initialized")
             except Exception as e:
