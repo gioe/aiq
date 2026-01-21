@@ -1,12 +1,15 @@
 """
 Request/response logging middleware for tracking API interactions.
 """
-import json
 import logging
+import time
+import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable
+
+from app.core.logging_config import request_id_context
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +58,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from the endpoint
         """
+        # Generate or extract request ID for correlation
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request_id_context.set(request_id)
+
+        start_time = time.time()
+
         # Extract user identifier from Authorization header if present
         user_identifier = "anonymous"
         auth_header = request.headers.get("Authorization", "")
@@ -63,33 +72,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             token_preview = auth_header[7:17] + "..."
             user_identifier = f"token:{token_preview}"
 
-        # Log request
-        request_log = {
-            "method": request.method,
-            "path": str(request.url.path),
-            "query_params": dict(request.query_params),
-            "user_identifier": user_identifier,
-            "client_host": request.client.host if request.client else "unknown",
-        }
+        method = request.method
+        path = str(request.url.path)
+        client_host = request.client.host if request.client else "unknown"
 
-        # Log request body for non-sensitive endpoints
+        # Log request body for non-sensitive endpoints (only log as debug in dev)
         if (
             self.log_request_body
-            and request.method in ["POST", "PUT", "PATCH"]
-            and not any(
-                path in str(request.url.path) for path in self.SKIP_BODY_LOGGING_PATHS
-            )
+            and method in ["POST", "PUT", "PATCH"]
+            and not any(skip_path in path for skip_path in self.SKIP_BODY_LOGGING_PATHS)
         ):
             try:
                 body = await request.body()
                 if body:
-                    # Try to parse as JSON for better logging
-                    try:
-                        body_json = json.loads(body.decode("utf-8"))
-                        request_log["body"] = body_json
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        request_log["body"] = "<binary or non-JSON data>"
-
                     # Re-construct request with body since we've consumed it
                     async def receive():
                         return {"type": "http.request", "body": body}
@@ -98,25 +93,42 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 logger.debug(f"Could not read request body: {e}")
 
-        logger.info(f"Incoming request: {json.dumps(request_log)}")
+        # Log incoming request with structured fields
+        logger.info(
+            "Incoming request",
+            extra={
+                "method": method,
+                "path": path,
+                "client_host": client_host,
+                "user_identifier": user_identifier,
+            },
+        )
 
         # Process request
         response = await call_next(request)
 
-        # Log response
-        response_log = {
-            "method": request.method,
-            "path": str(request.url.path),
-            "status_code": response.status_code,
+        # Calculate duration in milliseconds
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        status_code = response.status_code
+
+        # Add request_id header to response for client-side correlation
+        response.headers["X-Request-ID"] = request_id
+
+        # Log response with structured fields
+        extra_fields = {
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "duration_ms": duration_ms,
+            "client_host": client_host,
             "user_identifier": user_identifier,
         }
 
-        # Log response status
-        if response.status_code >= 500:
-            logger.error(f"Server error response: {json.dumps(response_log)}")
-        elif response.status_code >= 400:
-            logger.warning(f"Client error response: {json.dumps(response_log)}")
+        if status_code >= 500:
+            logger.error("Server error response", extra=extra_fields)
+        elif status_code >= 400:
+            logger.warning("Client error response", extra=extra_fields)
         else:
-            logger.info(f"Successful response: {json.dumps(response_log)}")
+            logger.info("Request completed", extra=extra_fields)
 
         return response
