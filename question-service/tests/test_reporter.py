@@ -87,7 +87,7 @@ class TestRunReporterInit:
         )
         assert reporter.backend_url == "http://localhost:8000"
         assert reporter.service_key == "test-key"
-        assert reporter.timeout == 30.0
+        assert reporter.timeout == pytest.approx(30.0)
 
     def test_init_with_custom_timeout(self):
         """Test initialization with custom timeout."""
@@ -96,7 +96,7 @@ class TestRunReporterInit:
             service_key="test-key",
             timeout=60.0,
         )
-        assert reporter.timeout == 60.0
+        assert reporter.timeout == pytest.approx(60.0)
 
     def test_init_strips_trailing_slash(self):
         """Test that trailing slash is stripped from URL."""
@@ -238,7 +238,7 @@ class TestTransformMetricsToPayload:
 
         assert payload["prompt_version"] == "v2.1"
         assert payload["arbiter_config_version"] == "v1.0"
-        assert payload["min_arbiter_score_threshold"] == 0.75
+        assert payload["min_arbiter_score_threshold"] == pytest.approx(0.75)
 
     def test_transform_failed_run(self, reporter, minimal_metrics_tracker):
         """Test transformation of a failed run."""
@@ -615,7 +615,7 @@ class TestIntegrationScenarios:
             assert payload["triggered_by"] == "scheduler"
             assert payload["prompt_version"] == "v2.1"
             assert payload["arbiter_config_version"] == "v1.5"
-            assert payload["min_arbiter_score_threshold"] == 0.80
+            assert payload["min_arbiter_score_threshold"] == pytest.approx(0.80)
 
     def test_report_run_verifies_metrics_content(self):
         """Test that report_run correctly transforms all metric categories."""
@@ -725,8 +725,8 @@ class TestPayloadTransformationEdgeCases:
 
         assert payload["questions_requested"] == 0
         assert payload["questions_generated"] == 0
-        assert payload["generation_success_rate"] == 0.0
-        assert payload["overall_success_rate"] == 0.0
+        assert payload["generation_success_rate"] == pytest.approx(0.0)
+        assert payload["overall_success_rate"] == pytest.approx(0.0)
 
     def test_transform_with_all_failures(self, reporter):
         """Test transformation when all generation attempts failed."""
@@ -780,7 +780,7 @@ class TestPayloadTransformationEdgeCases:
 
         assert payload["duplicates_found"] == 5
         assert payload["semantic_duplicates"] == 5
-        assert payload["duplicate_rate"] == 1.0
+        assert payload["duplicate_rate"] == pytest.approx(1.0)
         assert payload["questions_inserted"] == 0
 
     def test_transform_with_extreme_scores(self, reporter):
@@ -810,9 +810,9 @@ class TestPayloadTransformationEdgeCases:
             exit_code=0,
         )
 
-        assert payload["min_arbiter_score"] == 0.0
-        assert payload["max_arbiter_score"] == 1.0
-        assert payload["avg_arbiter_score"] == 0.5
+        assert payload["min_arbiter_score"] == pytest.approx(0.0)
+        assert payload["max_arbiter_score"] == pytest.approx(1.0)
+        assert payload["avg_arbiter_score"] == pytest.approx(0.5)
 
     def test_transform_with_missing_optional_sections(self, reporter):
         """Test transformation handles missing optional sections gracefully."""
@@ -884,7 +884,7 @@ class TestPayloadTransformationEdgeCases:
         for diff in ["easy", "easy", "medium", "medium", "hard", "hard"]:
             tracker.record_generation_success(
                 provider="openai",
-                question_type="pattern_recognition",
+                question_type="pattern",  # Use canonical value
                 difficulty=diff,
             )
 
@@ -899,12 +899,16 @@ class TestPayloadTransformationEdgeCases:
         assert payload["difficulty_metrics"] == {"easy": 2, "medium": 2, "hard": 2}
 
     def test_transform_with_mixed_question_types(self, reporter):
-        """Test transformation with mixed question types."""
+        """Test transformation with mixed question types normalizes legacy values.
+
+        Legacy question type values (e.g., "pattern_recognition") should be
+        normalized to canonical backend values (e.g., "pattern") in the payload.
+        """
         tracker = MetricsTracker()
         tracker.start_run()
         tracker.record_generation_request(6)
 
-        types = [
+        legacy_types = [
             "pattern_recognition",
             "logical_reasoning",
             "spatial_reasoning",
@@ -912,7 +916,7 @@ class TestPayloadTransformationEdgeCases:
             "verbal_reasoning",
             "memory",
         ]
-        for qt in types:
+        for qt in legacy_types:
             tracker.record_generation_success(
                 provider="anthropic",
                 question_type=qt,
@@ -927,10 +931,17 @@ class TestPayloadTransformationEdgeCases:
             exit_code=0,
         )
 
+        # Legacy values should be normalized to canonical backend values
         assert payload["type_metrics"] is not None
-        for qt in types:
-            assert qt in payload["type_metrics"]
-            assert payload["type_metrics"][qt] == 1
+        expected_canonical = {
+            "pattern": 1,  # from pattern_recognition
+            "logic": 1,  # from logical_reasoning
+            "spatial": 1,  # from spatial_reasoning
+            "math": 1,  # from mathematical
+            "verbal": 1,  # from verbal_reasoning
+            "memory": 1,  # unchanged (already canonical)
+        }
+        assert payload["type_metrics"] == expected_canonical
 
 
 class TestGracefulFailureHandling:
@@ -1302,7 +1313,7 @@ class TestTimeoutConfiguration:
             backend_url="http://test.local",
             service_key="key",
         )
-        assert reporter.timeout == 30.0
+        assert reporter.timeout == pytest.approx(30.0)
 
     def test_custom_timeout(self):
         """Test custom timeout configuration."""
@@ -1311,7 +1322,7 @@ class TestTimeoutConfiguration:
             service_key="key",
             timeout=120.0,
         )
-        assert reporter.timeout == 120.0
+        assert reporter.timeout == pytest.approx(120.0)
 
     def test_timeout_passed_to_client(self, populated_metrics_tracker):
         """Test that timeout is passed to httpx.Client."""
