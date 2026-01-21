@@ -340,6 +340,7 @@ See [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) for Railway-specifi
 
 ## Documentation
 
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Visual architecture diagrams (pipeline flow, components, deployment)
 - **[docs/OPERATIONS.md](docs/OPERATIONS.md)** - Complete operations guide
 - **[docs/ALERTING.md](docs/ALERTING.md)** - Alert configuration and handling
 - **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling options
