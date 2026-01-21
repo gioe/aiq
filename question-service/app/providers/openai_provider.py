@@ -51,17 +51,21 @@ class OpenAIProvider(BaseLLMProvider):
         Raises:
             openai.OpenAIError: If the API call fails
         """
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **kwargs,
-            )
-            return response.choices[0].message.content or ""
-        except openai.OpenAIError as e:
-            raise self._handle_api_error(e)
+
+        def _make_request() -> str:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
+                return response.choices[0].message.content or ""
+            except openai.OpenAIError as e:
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def generate_structured_completion(
         self,
@@ -88,25 +92,29 @@ class OpenAIProvider(BaseLLMProvider):
             openai.OpenAIError: If the API call fails
             json.JSONDecodeError: If response cannot be parsed as JSON
         """
-        try:
-            # Add JSON mode instruction to the prompt
-            json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": json_prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-                **kwargs,
-            )
+        def _make_request() -> Dict[str, Any]:
+            try:
+                # Add JSON mode instruction to the prompt
+                json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-            content = response.choices[0].message.content or "{}"
-            return json.loads(content)
-        except openai.OpenAIError as e:
-            raise self._handle_api_error(e)
-        except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": json_prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format={"type": "json_object"},
+                    **kwargs,
+                )
+
+                content = response.choices[0].message.content or "{}"
+                return json.loads(content)
+            except openai.OpenAIError as e:
+                raise self._handle_api_error(e)
+            except json.JSONDecodeError as e:
+                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+
+        return self._execute_with_retry(_make_request)
 
     def count_tokens(self, text: str) -> int:
         """

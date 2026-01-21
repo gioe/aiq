@@ -63,20 +63,24 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call fails
         """
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **kwargs,
-            )
 
-            return response.choices[0].message.content
+        def _make_request() -> str:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
 
-        except Exception as e:
-            logger.error(f"xAI API error: {str(e)}")
-            raise self._handle_api_error(e)
+                return response.choices[0].message.content
+
+            except Exception as e:
+                logger.debug(f"xAI API call failed: {str(e)}")
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def generate_structured_completion(
         self,
@@ -102,47 +106,52 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call or JSON parsing fails
         """
-        try:
-            # Add JSON formatting instruction to the prompt
-            json_prompt = (
-                f"{prompt}\n\n"
-                f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                f"IMPORTANT: Return ONLY valid JSON with no markdown formatting or additional text."
-            )
 
-            # Make API call using OpenAI SDK
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": json_prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-                **kwargs,
-            )
+        def _make_request() -> Dict[str, Any]:
+            content = ""
+            try:
+                # Add JSON formatting instruction to the prompt
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                    f"IMPORTANT: Return ONLY valid JSON with no markdown formatting or additional text."
+                )
 
-            # Extract and parse JSON response
-            content = response.choices[0].message.content
-            logger.debug(f"xAI API response content: {content[:500]}")
+                # Make API call using OpenAI SDK
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": json_prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format={"type": "json_object"},
+                    **kwargs,
+                )
 
-            # Strip markdown code fences if present (defensive)
-            content = content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            elif content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            content = content.strip()
+                # Extract and parse JSON response
+                content = response.choices[0].message.content
+                logger.debug(f"xAI API response content: {content[:500]}")
 
-            return json.loads(content)
+                # Strip markdown code fences if present (defensive)
+                content = content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                elif content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {str(e)}")
-            logger.error(f"Raw response: {content}")
-            raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-        except Exception as e:
-            logger.error(f"xAI API error: {str(e)}")
-            raise self._handle_api_error(e)
+                return json.loads(content)
+
+            except json.JSONDecodeError as e:
+                logger.debug(f"Failed to parse JSON response: {str(e)}")
+                logger.debug(f"Raw response: {content}")
+                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+            except Exception as e:
+                logger.debug(f"xAI API call failed: {str(e)}")
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def count_tokens(self, text: str) -> int:
         """

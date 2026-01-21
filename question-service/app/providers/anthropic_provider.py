@@ -48,22 +48,26 @@ class AnthropicProvider(BaseLLMProvider):
         Raises:
             anthropic.AnthropicError: If the API call fails
         """
-        try:
-            response = self.client.messages.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **kwargs,
-            )
 
-            # Extract text from response
-            if response.content and len(response.content) > 0:
-                return response.content[0].text
-            return ""
+        def _make_request() -> str:
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
 
-        except anthropic.AnthropicError as e:
-            raise self._handle_api_error(e)
+                # Extract text from response
+                if response.content and len(response.content) > 0:
+                    return response.content[0].text
+                return ""
+
+            except anthropic.AnthropicError as e:
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def generate_structured_completion(
         self,
@@ -94,46 +98,50 @@ class AnthropicProvider(BaseLLMProvider):
             Anthropic doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
-        try:
-            # Add JSON formatting instruction to the prompt
-            json_prompt = (
-                f"{prompt}\n\n"
-                f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                f"Your response must be only valid JSON with no additional text."
-            )
 
-            response = self.client.messages.create(
-                model=self.model,
-                messages=[{"role": "user", "content": json_prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **kwargs,
-            )
+        def _make_request() -> Dict[str, Any]:
+            try:
+                # Add JSON formatting instruction to the prompt
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                    f"Your response must be only valid JSON with no additional text."
+                )
 
-            # Extract text from response
-            if response.content and len(response.content) > 0:
-                content = response.content[0].text
-                logger.debug(f"Anthropic API response content: {content[:500]}")
+                response = self.client.messages.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": json_prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
 
-                # Strip markdown code fences if present
-                content = content.strip()
-                if content.startswith("```json"):
-                    content = content[7:]  # Remove ```json
-                elif content.startswith("```"):
-                    content = content[3:]  # Remove ```
-                if content.endswith("```"):
-                    content = content[:-3]  # Remove trailing ```
-                content = content.strip()
+                # Extract text from response
+                if response.content and len(response.content) > 0:
+                    content = response.content[0].text
+                    logger.debug(f"Anthropic API response content: {content[:500]}")
 
-                return json.loads(content)
+                    # Strip markdown code fences if present
+                    content = content.strip()
+                    if content.startswith("```json"):
+                        content = content[7:]  # Remove ```json
+                    elif content.startswith("```"):
+                        content = content[3:]  # Remove ```
+                    if content.endswith("```"):
+                        content = content[:-3]  # Remove trailing ```
+                    content = content.strip()
 
-            logger.warning("Anthropic API returned empty response")
-            return {}
+                    return json.loads(content)
 
-        except anthropic.AnthropicError as e:
-            raise self._handle_api_error(e)
-        except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+                logger.warning("Anthropic API returned empty response")
+                return {}
+
+            except anthropic.AnthropicError as e:
+                raise self._handle_api_error(e)
+            except json.JSONDecodeError as e:
+                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+
+        return self._execute_with_retry(_make_request)
 
     def count_tokens(self, text: str) -> int:
         """

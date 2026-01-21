@@ -46,25 +46,29 @@ class GoogleProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
-        try:
-            generation_config = GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-                **kwargs,
-            )
 
-            response = self.client.generate_content(
-                prompt,
-                generation_config=generation_config,
-            )
+        def _make_request() -> str:
+            try:
+                generation_config = GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                    **kwargs,
+                )
 
-            # Extract text from response
-            if response.text:
-                return response.text
-            return ""
+                response = self.client.generate_content(
+                    prompt,
+                    generation_config=generation_config,
+                )
 
-        except Exception as e:
-            raise self._handle_api_error(e)
+                # Extract text from response
+                if response.text:
+                    return response.text
+                return ""
+
+            except Exception as e:
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def generate_structured_completion(
         self,
@@ -94,36 +98,39 @@ class GoogleProvider(BaseLLMProvider):
             Google Gemini doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
-        try:
-            # Add JSON formatting instruction to the prompt
-            json_prompt = (
-                f"{prompt}\n\n"
-                f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                f"Your response must be only valid JSON with no additional text."
-            )
 
-            generation_config = GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-                **kwargs,
-            )
+        def _make_request() -> Dict[str, Any]:
+            try:
+                # Add JSON formatting instruction to the prompt
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                    f"Your response must be only valid JSON with no additional text."
+                )
 
-            response = self.client.generate_content(
-                json_prompt,
-                generation_config=generation_config,
-            )
+                generation_config = GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                    **kwargs,
+                )
 
-            # Extract text from response
-            if response.text:
-                return json.loads(response.text)
+                response = self.client.generate_content(
+                    json_prompt,
+                    generation_config=generation_config,
+                )
 
-            return {}
+                # Extract text from response
+                if response.text:
+                    return json.loads(response.text)
 
-        except Exception as e:
-            # Check if it's a JSON parsing error
-            if isinstance(e, json.JSONDecodeError):
+                return {}
+
+            except json.JSONDecodeError as e:
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            raise self._handle_api_error(e)
+            except Exception as e:
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
 
     def count_tokens(self, text: str) -> int:
         """

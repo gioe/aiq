@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .error_classifier import ClassifiedError
+from .providers.base import get_retry_metrics, reset_retry_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ class MetricsTracker:
         """Reset all metrics to initial state."""
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
+
+        # Reset retry metrics
+        reset_retry_metrics()
 
         # Generation metrics
         self.questions_requested = 0
@@ -385,6 +389,7 @@ class MetricsTracker:
                     + self.insertion_failures
                 ),
             },
+            "retry": get_retry_metrics().get_summary(),
         }
 
         return summary
@@ -454,6 +459,16 @@ class MetricsTracker:
             print(f"  Critical Errors:  {error_class['critical_errors']}")
             print(f"  By Category: {error_class['by_category']}")
             print(f"  By Severity: {error_class['by_severity']}")
+
+        # Retry stats
+        retry = summary["retry"]
+        if retry["total_retries"] > 0:
+            print("\nRetry Statistics:")
+            print(f"  Total Retries:      {retry['total_retries']}")
+            print(f"  Successful Retries: {retry['successful_retries']}")
+            print(f"  Exhausted Retries:  {retry['exhausted_retries']}")
+            print(f"  Retry Success Rate: {retry['success_rate']:.1%}")
+            print(f"  By Provider: {retry['retries_by_provider']}")
 
         # Overall
         overall = summary["overall"]
