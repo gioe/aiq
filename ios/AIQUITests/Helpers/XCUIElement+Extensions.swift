@@ -84,27 +84,6 @@ extension XCUIElement {
         }
     }
 
-    /// Clear all text from a text field by selecting all and deleting
-    func clearText() {
-        guard let stringValue = value as? String, !stringValue.isEmpty else {
-            return
-        }
-
-        tap()
-
-        // Double-tap to select word, then tap Select All if needed
-        doubleTap()
-
-        // Try to find and tap "Select All" button
-        let selectAllButton = XCUIApplication().menuItems["Select All"]
-        if selectAllButton.exists {
-            selectAllButton.tap()
-        }
-
-        // Delete using keyboard
-        typeText(XCUIKeyboardKey.delete.rawValue)
-    }
-
     // MARK: - Scrolling
 
     /// Scroll to make the element visible
