@@ -4,6 +4,7 @@ This module provides functionality to detect duplicate questions using both
 exact match checking and semantic similarity analysis via embeddings.
 """
 
+import hashlib
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,6 +14,108 @@ from openai import OpenAI
 from .models import GeneratedQuestion
 
 logger = logging.getLogger(__name__)
+
+
+class EmbeddingCache:
+    """In-memory cache for text embeddings with hash-based keys.
+
+    Uses SHA-256 hash of normalized text as cache key to efficiently store
+    and retrieve embeddings. This reduces API calls from O(n*m) to O(n+m)
+    when checking n new questions against m existing questions.
+
+    Cache Invalidation Strategy:
+    - The cache is instance-scoped, so it is automatically cleared when
+      the QuestionDeduplicator instance is garbage collected
+    - For long-running processes, call clear() periodically or create
+      a new QuestionDeduplicator instance
+    - The cache has no TTL as embeddings are deterministic for a given
+      model - the same text always produces the same embedding
+    """
+
+    def __init__(self) -> None:
+        """Initialize empty embedding cache."""
+        self._cache: Dict[str, np.ndarray] = {}
+        self._hits = 0
+        self._misses = 0
+
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text for consistent cache keys.
+
+        Args:
+            text: Raw text to normalize
+
+        Returns:
+            Normalized text (stripped and lowercased)
+        """
+        return text.strip().lower()
+
+    def _compute_key(self, text: str) -> str:
+        """Compute SHA-256 hash key for text.
+
+        Args:
+            text: Text to hash (will be normalized first)
+
+        Returns:
+            Hex digest of SHA-256 hash
+        """
+        normalized = self._normalize_text(text)
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def get(self, text: str) -> Optional[np.ndarray]:
+        """Get cached embedding for text if available.
+
+        Args:
+            text: Text to look up
+
+        Returns:
+            Cached embedding array or None if not found
+        """
+        key = self._compute_key(text)
+        embedding = self._cache.get(key)
+        if embedding is not None:
+            self._hits += 1
+            logger.debug(f"Cache hit for text hash {key[:8]}...")
+        else:
+            self._misses += 1
+            logger.debug(f"Cache miss for text hash {key[:8]}...")
+        return embedding
+
+    def set(self, text: str, embedding: np.ndarray) -> None:
+        """Store embedding in cache.
+
+        Args:
+            text: Text that was embedded
+            embedding: Embedding vector to cache
+        """
+        key = self._compute_key(text)
+        self._cache[key] = embedding
+        logger.debug(f"Cached embedding for text hash {key[:8]}...")
+
+    def clear(self) -> None:
+        """Clear all cached embeddings."""
+        count = len(self._cache)
+        self._cache.clear()
+        self._hits = 0
+        self._misses = 0
+        logger.info(f"Cleared {count} cached embeddings")
+
+    @property
+    def size(self) -> int:
+        """Return number of cached embeddings."""
+        return len(self._cache)
+
+    @property
+    def stats(self) -> Dict[str, int]:
+        """Return cache statistics.
+
+        Returns:
+            Dictionary with size, hits, and misses counts
+        """
+        return {
+            "size": self.size,
+            "hits": self._hits,
+            "misses": self._misses,
+        }
 
 
 class DuplicateCheckResult:
@@ -87,6 +190,7 @@ class QuestionDeduplicator:
         self.openai_client = OpenAI(api_key=openai_api_key)
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
+        self._embedding_cache = EmbeddingCache()
 
         logger.info(
             f"QuestionDeduplicator initialized with threshold={similarity_threshold}, "
@@ -230,7 +334,10 @@ class QuestionDeduplicator:
             raise
 
     def _get_embedding(self, text: str) -> np.ndarray:
-        """Generate embedding vector for text using OpenAI API.
+        """Generate embedding vector for text using OpenAI API with caching.
+
+        Uses an in-memory cache to avoid redundant API calls for the same text.
+        Cache keys are SHA-256 hashes of normalized (stripped, lowercased) text.
 
         Args:
             text: Text to generate embedding for
@@ -241,13 +348,23 @@ class QuestionDeduplicator:
         Raises:
             Exception: If API call fails
         """
+        # Check cache first
+        cached = self._embedding_cache.get(text)
+        if cached is not None:
+            return cached
+
         try:
             response = self.openai_client.embeddings.create(
                 input=text,
                 model=self.embedding_model,
             )
             embedding = response.data[0].embedding
-            return np.array(embedding)
+            embedding_array = np.array(embedding)
+
+            # Cache the result
+            self._embedding_cache.set(text, embedding_array)
+
+            return embedding_array
 
         except Exception as e:
             logger.error(f"Failed to generate embedding: {str(e)}")
@@ -316,12 +433,20 @@ class QuestionDeduplicator:
         return unique_questions, duplicates
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get deduplicator configuration statistics.
+        """Get deduplicator configuration and cache statistics.
 
         Returns:
-            Dictionary with configuration information
+            Dictionary with configuration and cache information
         """
         return {
             "similarity_threshold": self.similarity_threshold,
             "embedding_model": self.embedding_model,
+            "cache": self._embedding_cache.stats,
         }
+
+    def clear_cache(self) -> None:
+        """Clear the embedding cache.
+
+        Useful for long-running processes or when memory needs to be freed.
+        """
+        self._embedding_cache.clear()
