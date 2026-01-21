@@ -877,6 +877,167 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
     }
 
-    // Note: Testing .testResults navigation requires mocking the API client
-    // which would make the test more complex. This is covered in integration tests.
+    // MARK: - Test Results Deep Link Navigation Tests (with Mock API)
+
+    @MainActor
+    func testHandleNavigation_TestResults_Success_NavigatesToTestDetail() async {
+        // Given
+        let testId = 123
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Create a mock test result that will be returned by the API
+        let mockTestResult = MockDataFactory.makeTestResult(
+            id: testId,
+            testSessionId: 456,
+            userId: 1,
+            iqScore: 110,
+            totalQuestions: 20,
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completedAt: Date()
+        )
+
+        // Configure mock to return the test result
+        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertTrue(result, "Navigation should return true on successful API call")
+        XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to testDetail")
+
+        // Verify the API was called
+        let requestCalled = await mockAPIClient.requestCalled
+        XCTAssertTrue(requestCalled, "API client should have been called")
+    }
+
+    @MainActor
+    func testHandleNavigation_TestResults_APIError_ReturnsFalse() async {
+        // Given
+        let testId = 999
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Configure mock to throw an error (simulating test not found)
+        await mockAPIClient.setError(APIError.notFound(message: "Test result not found"), for: .testResults(String(testId)))
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertFalse(result, "Navigation should return false on API error")
+        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
+
+        // Verify the API was called
+        let requestCalled = await mockAPIClient.requestCalled
+        XCTAssertTrue(requestCalled, "API client should have been called")
+    }
+
+    @MainActor
+    func testHandleNavigation_TestResults_NetworkError_ReturnsFalse() async {
+        // Given
+        let testId = 456
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Configure mock to throw a network error
+        let networkError = URLError(.notConnectedToInternet)
+        await mockAPIClient.setError(APIError.networkError(networkError), for: .testResults(String(testId)))
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertFalse(result, "Navigation should return false on network error")
+        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
+    }
+
+    @MainActor
+    func testHandleNavigation_TestResults_ServerError_ReturnsFalse() async {
+        // Given
+        let testId = 789
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Configure mock to throw a server error
+        await mockAPIClient.setError(APIError.serverError(statusCode: 500, message: "Internal server error"), for: .testResults(String(testId)))
+
+        // When
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertFalse(result, "Navigation should return false on server error")
+        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
+    }
+
+    @MainActor
+    func testHandleNavigation_TestResults_NavigatesToSpecifiedTab() async {
+        // Given
+        let testId = 123
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Create a mock test result
+        let mockTestResult = MockDataFactory.makeTestResult(
+            id: testId,
+            testSessionId: 456,
+            userId: 1,
+            iqScore: 105,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date()
+        )
+
+        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+
+        // When - navigate to history tab explicitly
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, tab: .history, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertTrue(result, "Navigation should return true")
+        XCTAssertEqual(mockRouter.depth(in: .history), 1, "Should have navigated in history tab")
+        XCTAssertEqual(mockRouter.depth(in: .dashboard), 0, "Dashboard should remain at root")
+    }
+
+    @MainActor
+    func testHandleNavigation_TestResults_UsesCurrentTabWhenTabNotSpecified() async {
+        // Given
+        let testId = 123
+        let deepLink = DeepLink.testResults(id: testId)
+        let mockRouter = AppRouter()
+        let mockAPIClient = MockAPIClient()
+
+        // Set current tab to history
+        mockRouter.currentTab = .history
+
+        // Create a mock test result
+        let mockTestResult = MockDataFactory.makeTestResult(
+            id: testId,
+            testSessionId: 456,
+            userId: 1,
+            iqScore: 115,
+            totalQuestions: 20,
+            correctAnswers: 16,
+            accuracyPercentage: 80.0,
+            completedAt: Date()
+        )
+
+        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+
+        // When - don't specify tab, should use router's currentTab
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+
+        // Then
+        XCTAssertTrue(result, "Navigation should return true")
+        XCTAssertEqual(mockRouter.depth(in: .history), 1, "Should have navigated in current tab (history)")
+        XCTAssertEqual(mockRouter.depth(in: .dashboard), 0, "Dashboard should remain at root")
+    }
 }
