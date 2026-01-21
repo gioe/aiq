@@ -150,6 +150,126 @@ The app uses TrustKit for SSL certificate pinning to prevent man-in-the-middle (
 4. Test API calls against production backend
 5. Return to DEBUG configuration for normal development
 
+## Universal Links
+
+The app supports Universal Links for seamless deep linking from web URLs to app screens.
+
+### How It Works
+
+Universal Links allow URLs like `https://aiq.app/test/results/123` to open directly in the app instead of Safari. This requires coordination between:
+1. **iOS app** - Declares which domains it handles via Associated Domains entitlement
+2. **Apple Developer Portal** - Enables Associated Domains capability for the app
+3. **Web server** - Hosts an `apple-app-site-association` (AASA) file proving domain ownership
+
+### Supported URL Patterns
+
+| URL Pattern | Action |
+|------------|--------|
+| `https://aiq.app/test/results/{id}` | View specific test results |
+| `https://aiq.app/test/resume/{sessionId}` | Resume a test session |
+| `https://aiq.app/settings` | Open settings |
+
+Custom URL scheme equivalents (`aiq://...`) are also supported.
+
+### iOS App Configuration
+
+**Entitlements file:** `AIQ/AIQ.entitlements`
+
+The Associated Domains entitlement declares which domains the app handles:
+```xml
+<key>com.apple.developer.associated-domains</key>
+<array>
+    <string>applinks:aiq.app</string>
+</array>
+```
+
+**Code implementation:**
+- `DeepLinkHandler.swift` - Parses URLs into structured navigation commands
+- `AppDelegate.swift` - Receives universal links via `application(_:continue:restorationHandler:)`
+
+### Apple Developer Portal Configuration
+
+To enable Universal Links for a new app or team:
+
+1. Sign in to [Apple Developer Portal](https://developer.apple.com/account)
+2. Go to **Certificates, Identifiers & Profiles** → **Identifiers**
+3. Select the App ID (`com.aiq.app`)
+4. Under **Capabilities**, enable **Associated Domains**
+5. Click **Save**
+
+When building with Xcode:
+- Xcode automatically syncs the capability with your provisioning profile
+- Ensure your signing team has the Associated Domains capability enabled
+
+### Server-Side Configuration (AASA File)
+
+The server must host an `apple-app-site-association` file that tells iOS which apps can handle URLs for the domain.
+
+**Required location:** `https://aiq.app/.well-known/apple-app-site-association`
+
+**File format (iOS 14+ recommended):**
+```json
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.aiq.app"],
+        "components": [
+          { "/": "/test/results/*" },
+          { "/": "/test/resume/*" },
+          { "/": "/settings" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Server requirements:**
+- File must be served over HTTPS with a valid certificate
+- Content-Type should be `application/json`
+- File must be accessible without redirects (except HTTPS upgrade)
+- No authentication required to access the file
+
+**Validate deployment:**
+```bash
+# Using the validation script (requires APNS_TEAM_ID env var)
+./scripts/validate-universal-links.sh
+
+# Or with explicit parameters
+./scripts/validate-universal-links.sh --team-id ABCD123456 --domain aiq.app
+```
+
+### Troubleshooting
+
+**Links open in Safari instead of the app:**
+1. Verify the AASA file is accessible: `curl https://aiq.app/.well-known/apple-app-site-association`
+2. Check the Team ID + Bundle ID combination matches exactly
+3. Delete and reinstall the app (iOS caches AASA on first install)
+4. Check device console for "swcd" (Site Association Daemon) errors
+
+**AASA file validation fails:**
+- Ensure the file is valid JSON (no trailing commas)
+- Verify Content-Type header is `application/json`
+- Check that Team ID is exactly 10 alphanumeric characters
+- Run the validation script for detailed diagnostics
+
+**Universal Links work on simulator but not device:**
+- Simulator may have different caching behavior
+- Ensure the app is signed with a profile that has Associated Domains enabled
+- Check that the domain in entitlements matches the AASA file exactly
+
+**Deep links work but navigation fails:**
+- Check `DeepLinkHandler` is parsing the URL correctly
+- Verify the app router is connected (`appRouter` in `AppDelegate`)
+- Check console logs for parsing errors
+
+**Testing Universal Links:**
+1. Install the app on a device (not simulator for most accurate testing)
+2. Send yourself a link via Messages or Notes
+3. Tap the link - it should open the app directly
+4. Long-press the link to see "Open in AIQ" option
+
 ## Development Commands
 
 ```bash
