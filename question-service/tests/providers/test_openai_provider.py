@@ -274,3 +274,90 @@ class TestOpenAIProvider:
         result = provider.generate_completion(sample_prompt)
 
         assert result == ""
+
+    @patch("app.providers.openai_provider.OpenAI")
+    def test_generate_completion_with_model_override(
+        self,
+        mock_openai_class,
+        mock_openai_api_key,
+        sample_prompt,
+        mock_completion_response,
+    ):
+        """Test that model_override uses the specified model without mutating provider."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_message = Mock()
+        mock_message.content = mock_completion_response
+
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = OpenAIProvider(
+            api_key=mock_openai_api_key, model="gpt-4-turbo-preview"
+        )
+
+        # Use model_override to use a different model
+        provider.generate_completion(
+            sample_prompt, temperature=0.7, max_tokens=1000, model_override="gpt-4"
+        )
+
+        # Verify the API was called with the override model
+        mock_client.chat.completions.create.assert_called_once_with(
+            model="gpt-4",
+            messages=[{"role": "user", "content": sample_prompt}],
+            temperature=0.7,
+            max_tokens=1000,
+        )
+
+        # Verify the provider's default model was not mutated
+        assert provider.model == "gpt-4-turbo-preview"
+
+    @patch("app.providers.openai_provider.OpenAI")
+    def test_generate_structured_completion_with_model_override(
+        self,
+        mock_openai_class,
+        mock_openai_api_key,
+        sample_prompt,
+        sample_json_schema,
+        mock_json_response,
+    ):
+        """Test that model_override works for structured completion without mutating provider."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_message = Mock()
+        mock_message.content = json.dumps(mock_json_response)
+
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = OpenAIProvider(
+            api_key=mock_openai_api_key, model="gpt-4-turbo-preview"
+        )
+
+        # Use model_override to use a different model
+        provider.generate_structured_completion(
+            sample_prompt,
+            sample_json_schema,
+            temperature=0.7,
+            max_tokens=1000,
+            model_override="gpt-4",
+        )
+
+        # Verify the API was called with the override model
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs["model"] == "gpt-4"
+
+        # Verify the provider's default model was not mutated
+        assert provider.model == "gpt-4-turbo-preview"

@@ -1,7 +1,7 @@
 """Google Generative AI provider integration."""
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
@@ -24,11 +24,25 @@ class GoogleProvider(BaseLLMProvider):
         genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(model)
 
+    def _get_client(self, model: str) -> genai.GenerativeModel:
+        """Get a GenerativeModel client for the specified model.
+
+        Args:
+            model: Model identifier
+
+        Returns:
+            GenerativeModel instance
+        """
+        if model == self.model:
+            return self.client
+        return genai.GenerativeModel(model)
+
     def generate_completion(
         self,
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -38,6 +52,7 @@ class GoogleProvider(BaseLLMProvider):
             prompt: The prompt to send to the model
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional Google-specific parameters
 
         Returns:
@@ -46,6 +61,7 @@ class GoogleProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
+        client = self._get_client(model_override or self.model)
 
         def _make_request() -> str:
             try:
@@ -55,7 +71,7 @@ class GoogleProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                response = self.client.generate_content(
+                response = client.generate_content(
                     prompt,
                     generation_config=generation_config,
                 )
@@ -76,6 +92,7 @@ class GoogleProvider(BaseLLMProvider):
         response_format: Dict[str, Any],
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -86,6 +103,7 @@ class GoogleProvider(BaseLLMProvider):
             response_format: JSON schema for the expected response
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional Google-specific parameters
 
         Returns:
@@ -98,6 +116,7 @@ class GoogleProvider(BaseLLMProvider):
             Google Gemini doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
+        client = self._get_client(model_override or self.model)
 
         def _make_request() -> Dict[str, Any]:
             try:
@@ -114,7 +133,7 @@ class GoogleProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                response = self.client.generate_content(
+                response = client.generate_content(
                     json_prompt,
                     generation_config=generation_config,
                 )

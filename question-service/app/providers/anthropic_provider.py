@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import anthropic
 from anthropic import Anthropic
@@ -31,6 +31,7 @@ class AnthropicProvider(BaseLLMProvider):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -40,6 +41,7 @@ class AnthropicProvider(BaseLLMProvider):
             prompt: The prompt to send to the model
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate (required by Anthropic)
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional Anthropic-specific parameters
 
         Returns:
@@ -48,11 +50,12 @@ class AnthropicProvider(BaseLLMProvider):
         Raises:
             anthropic.AnthropicError: If the API call fails
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> str:
             try:
                 response = self.client.messages.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -75,6 +78,7 @@ class AnthropicProvider(BaseLLMProvider):
         response_format: Dict[str, Any],
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -85,6 +89,7 @@ class AnthropicProvider(BaseLLMProvider):
             response_format: JSON schema for the expected response
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional Anthropic-specific parameters
 
         Returns:
@@ -98,6 +103,7 @@ class AnthropicProvider(BaseLLMProvider):
             Anthropic doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> Dict[str, Any]:
             try:
@@ -109,7 +115,7 @@ class AnthropicProvider(BaseLLMProvider):
                 )
 
                 response = self.client.messages.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,

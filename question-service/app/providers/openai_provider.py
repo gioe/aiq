@@ -34,6 +34,7 @@ class OpenAIProvider(BaseLLMProvider):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -43,6 +44,7 @@ class OpenAIProvider(BaseLLMProvider):
             prompt: The prompt to send to the model
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional OpenAI-specific parameters
 
         Returns:
@@ -51,11 +53,12 @@ class OpenAIProvider(BaseLLMProvider):
         Raises:
             openai.OpenAIError: If the API call fails
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> str:
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -73,6 +76,7 @@ class OpenAIProvider(BaseLLMProvider):
         response_format: Dict[str, Any],
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -83,6 +87,7 @@ class OpenAIProvider(BaseLLMProvider):
             response_format: JSON schema for the expected response
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional OpenAI-specific parameters
 
         Returns:
@@ -92,6 +97,7 @@ class OpenAIProvider(BaseLLMProvider):
             openai.OpenAIError: If the API call fails
             json.JSONDecodeError: If response cannot be parsed as JSON
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> Dict[str, Any]:
             try:
@@ -99,7 +105,7 @@ class OpenAIProvider(BaseLLMProvider):
                 json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
                 response = self.client.chat.completions.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,

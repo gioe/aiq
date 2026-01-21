@@ -123,30 +123,27 @@ class QuestionArbiter:
 
         provider = self.providers[arbiter_model.provider]
 
-        # Update provider model if needed (arbiter may use different model than default)
-        original_model = provider.model
-        provider.model = arbiter_model.model
+        # Build arbiter prompt
+        prompt = build_arbiter_prompt(
+            question=question.question_text,
+            answer_options=question.answer_options or [question.correct_answer],
+            correct_answer=question.correct_answer,
+            question_type=question_type,
+            difficulty=question.difficulty_level.value,
+        )
+
+        logger.debug(
+            f"Using arbiter model: {arbiter_model.model} ({arbiter_model.provider})"
+        )
 
         try:
-            # Build arbiter prompt
-            prompt = build_arbiter_prompt(
-                question=question.question_text,
-                answer_options=question.answer_options or [question.correct_answer],
-                correct_answer=question.correct_answer,
-                question_type=question_type,
-                difficulty=question.difficulty_level.value,
-            )
-
-            logger.debug(
-                f"Using arbiter model: {arbiter_model.model} ({arbiter_model.provider})"
-            )
-
-            # Get evaluation from LLM
+            # Get evaluation from LLM using model_override to avoid mutating provider state
             response = provider.generate_structured_completion(
                 prompt=prompt,
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
+                model_override=arbiter_model.model,
             )
 
             # Parse evaluation scores
@@ -180,10 +177,6 @@ class QuestionArbiter:
         except Exception as e:
             logger.error(f"Failed to evaluate question: {str(e)}")
             raise
-
-        finally:
-            # Restore original model
-            provider.model = original_model
 
     def evaluate_batch(
         self,
