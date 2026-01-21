@@ -16,6 +16,7 @@ from app.models import User
 from app.services.notification_scheduler import (
     NotificationScheduler,
     calculate_next_test_date,
+    generate_deep_link,
     get_users_due_for_test,
     get_users_never_tested,
 )
@@ -305,6 +306,25 @@ class TestNotificationScheduler:
         assert next_date is None
 
 
+class TestDeepLinkGeneration:
+    """Test deep link URL generation."""
+
+    def test_generate_deep_link_with_result_id(self):
+        """Test deep link generation with a result ID."""
+        deep_link = generate_deep_link("test_reminder", result_id=123)
+        assert deep_link == "aiq://test/results/123"
+
+    def test_generate_deep_link_without_result_id(self):
+        """Test deep link generation without a result ID falls back to home."""
+        deep_link = generate_deep_link("test_reminder", result_id=None)
+        assert deep_link == "aiq://home"
+
+    def test_generate_deep_link_for_day_30_reminder(self):
+        """Test deep link generation for day 30 reminder type."""
+        deep_link = generate_deep_link("day_30_reminder", result_id=456)
+        assert deep_link == "aiq://test/results/456"
+
+
 class TestNotificationPayloadFormatting:
     """Test notification payload formatting."""
 
@@ -338,12 +358,19 @@ class TestNotificationPayloadFormatting:
         title = "Time for Your IQ Test!"
         body = f"Hi {user.first_name}, it's been 6 months! Ready to track your cognitive progress?"
 
+        # Generate deep link with the test result ID
+        deep_link = generate_deep_link("test_reminder", test_result.id)
+
         notification = {
             "device_token": user.apns_device_token,
             "title": title,
             "body": body,
             "badge": 1,
-            "data": {"type": "test_reminder", "user_id": str(user.id)},
+            "data": {
+                "type": "test_reminder",
+                "user_id": str(user.id),
+                "deep_link": deep_link,
+            },
         }
 
         # Verify structure
@@ -353,3 +380,35 @@ class TestNotificationPayloadFormatting:
         assert notification["badge"] == 1
         assert notification["data"]["type"] == "test_reminder"
         assert notification["data"]["user_id"] == str(test_user.id)
+        assert (
+            notification["data"]["deep_link"] == f"aiq://test/results/{test_result.id}"
+        )
+
+    def test_notification_payload_includes_deep_link(
+        self, db_session: Session, test_user: User
+    ):
+        """Test that notification payloads include deep_link field with result ID."""
+        test_user.notification_enabled = True
+        test_user.apns_device_token = "test-device-token"
+        test_user.first_name = "Jane"
+        db_session.commit()
+
+        # Create a test result 6 months ago
+        from app.models import TestResult as TestResultModel
+
+        test_result = TestResultModel(
+            user_id=test_user.id,
+            test_session_id=1,
+            iq_score=115,
+            total_questions=20,
+            correct_answers=14,
+            completion_time_seconds=850,
+            completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
+        )
+        db_session.add(test_result)
+        db_session.commit()
+
+        # The deep link should point to the user's last test result
+        expected_deep_link = f"aiq://test/results/{test_result.id}"
+        deep_link = generate_deep_link("test_reminder", test_result.id)
+        assert deep_link == expected_deep_link
