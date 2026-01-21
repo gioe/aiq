@@ -10,6 +10,10 @@ struct MainTabView: View {
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
+    /// Tracks whether a deep link is currently being processed to prevent concurrent handling.
+    /// Thread-safety: Notification handlers use `.receive(on: DispatchQueue.main)` to ensure
+    /// main thread execution before accessing this property.
+    @State private var isProcessingDeepLink = false
 
     // MARK: - Upgrade Prompt State
 
@@ -67,11 +71,17 @@ struct MainTabView: View {
             // Note: @AppStorage handles invalid values by falling back to the default (.dashboard)
             router.currentTab = selectedTab
         }
-        .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .deepLinkReceived)
+                .receive(on: DispatchQueue.main)
+        ) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
             handleDeepLinkNavigation(deepLink)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .notificationTapped)
+                .receive(on: DispatchQueue.main)
+        ) { notification in
             handleNotificationTap(notification)
         }
         .sheet(isPresented: $showUpgradePrompt) {
@@ -169,8 +179,17 @@ struct MainTabView: View {
 
     /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
     /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
+    /// Concurrent deep links are ignored while one is being processed.
     private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
-        Task {
+        // Guard against concurrent deep link processing
+        guard !isProcessingDeepLink else {
+            let deepLinkDescription = String(describing: deepLink)
+            Self.logger.info("Ignoring deep link (concurrent): \(deepLinkDescription, privacy: .public)")
+            return
+        }
+
+        isProcessingDeepLink = true
+        Task { @MainActor in
             switch deepLink {
             case .settings:
                 // For settings deep link, switch to the settings tab
@@ -207,6 +226,7 @@ struct MainTabView: View {
             case .invalid:
                 Self.logger.warning("Received invalid deep link: \(String(describing: deepLink), privacy: .public)")
             }
+            isProcessingDeepLink = false
         }
     }
 }
