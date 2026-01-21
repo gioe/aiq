@@ -849,7 +849,7 @@ final class DeepLinkHandlerTests: XCTestCase {
     // error and results in fatalError.
 
     @MainActor
-    func testHandleNavigation_ResumeTest_ReturnsUntilImplemented() async {
+    func testHandleNavigation_ResumeTest_NavigatesToTestTakingWithSessionId() async {
         // Given
         let deepLink = DeepLink.resumeTest(sessionId: 123)
         let mockRouter = AppRouter()
@@ -858,10 +858,9 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = await sut.handleNavigation(deepLink, router: mockRouter)
 
         // Then
-        // Session resumption is not yet implemented (ICG-132), so the handler
-        // returns false to indicate the deep link couldn't be fully handled
-        XCTAssertFalse(result, "Resume test navigation should return false until ICG-132 is implemented")
-        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated since session resumption not implemented")
+        // Session resumption navigates to testTaking with the sessionId
+        XCTAssertTrue(result, "Resume test navigation should return true")
+        XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to testTaking")
     }
 
     @MainActor

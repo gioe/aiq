@@ -259,8 +259,8 @@ private struct DashboardTabNavigationView: View {
     @ViewBuilder
     private func destinationView(for route: Route) -> some View {
         switch route {
-        case .testTaking:
-            TestTakingView()
+        case let .testTaking(sessionId):
+            TestTakingView(sessionId: sessionId)
         case let .testResults(result, isFirstTest):
             TestResultsView(
                 result: result,

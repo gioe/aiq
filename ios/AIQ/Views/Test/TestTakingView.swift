@@ -15,10 +15,16 @@ struct TestTakingView: View {
     @State private var showTimeExpiredAlert = false
     @State private var isAutoSubmitting = false
 
+    /// The session ID to resume (if any)
+    private let sessionId: Int?
+
     /// Creates a TestTakingView with the specified service container
-    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
-    ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
-    init(serviceContainer: ServiceContainer = .shared) {
+    /// - Parameters:
+    ///   - sessionId: Optional session ID to resume an existing test session
+    ///   - serviceContainer: Container for resolving dependencies. Defaults to the shared container.
+    ///     Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
+    init(sessionId: Int? = nil, serviceContainer: ServiceContainer = .shared) {
+        self.sessionId = sessionId
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -72,7 +78,13 @@ struct TestTakingView: View {
             }
         }
         .task {
-            await checkForSavedProgress()
+            if let sessionId {
+                // Deep link resume: use the provided session ID
+                await resumeSessionFromDeepLink(sessionId: sessionId)
+            } else {
+                // Normal flow: check for saved progress
+                await checkForSavedProgress()
+            }
         }
         .onChange(of: timerManager.showWarning) { showWarning in
             // Show warning banner when timer hits 5 minutes (unless already dismissed)
@@ -212,6 +224,24 @@ struct TestTakingView: View {
             // Start timer after test loads successfully using session start time
             if let session = viewModel.testSession {
                 timerManager.startWithSessionTime(session.startedAt)
+            }
+        }
+    }
+
+    /// Resume a test session from a deep link
+    /// - Parameter sessionId: The ID of the session to resume
+    private func resumeSessionFromDeepLink(sessionId: Int) async {
+        #if DEBUG
+            print("[TestTakingView] resumeSessionFromDeepLink called with sessionId: \(sessionId)")
+        #endif
+        await viewModel.resumeActiveSession(sessionId: sessionId)
+
+        // Start timer using the session's original start time
+        if let session = viewModel.testSession {
+            let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+            if !timerStarted {
+                // Time expired - trigger auto-submit
+                handleTimerExpiration()
             }
         }
     }

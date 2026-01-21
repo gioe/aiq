@@ -49,7 +49,8 @@ enum Route: Hashable, Equatable {
     // MARK: - Test Routes
 
     /// Test taking screen (starts new test or resumes existing)
-    case testTaking
+    /// - Parameter sessionId: Optional session ID to resume via deep link. Defaults to nil (start new test).
+    case testTaking(sessionId: Int? = nil)
 
     /// Test results screen showing the completed test results
     case testResults(result: SubmittedTestResult, isFirstTest: Bool = false)
@@ -81,8 +82,8 @@ enum Route: Hashable, Equatable {
             true
         case (.registration, .registration):
             true
-        case (.testTaking, .testTaking):
-            true
+        case let (.testTaking(lhsSessionId), .testTaking(rhsSessionId)):
+            lhsSessionId == rhsSessionId
         case let (.testResults(lhsResult, lhsFirst), .testResults(rhsResult, rhsFirst)):
             lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
@@ -106,8 +107,9 @@ enum Route: Hashable, Equatable {
             hasher.combine("welcome")
         case .registration:
             hasher.combine("registration")
-        case .testTaking:
+        case let .testTaking(sessionId):
             hasher.combine("testTaking")
+            hasher.combine(sessionId)
         case let .testResults(result, isFirstTest):
             hasher.combine("testResults")
             hasher.combine(result.id)

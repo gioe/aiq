@@ -283,16 +283,10 @@ extension DeepLinkHandler {
             }
 
         case let .resumeTest(sessionId):
-            // Session resumption is not yet implemented - we cannot resume a specific session.
-            // Navigating to a fresh test would violate user expectations.
-            // See ICG-132 for full session resumption implementation.
-            Self.logger.warning(
-                """
-                Resume test deep link received for sessionId: \(sessionId, privacy: .public). \
-                Session resumption not yet implemented - deep link cannot be handled.
-                """
-            )
-            return false
+            // Navigate to test taking view with the session ID to resume
+            Self.logger.info("Navigating to resume test session: \(sessionId, privacy: .public)")
+            router.navigateTo(.testTaking(sessionId: sessionId), in: targetTab)
+            return true
 
         case .settings:
             // Settings navigation is handled at the tab level in MainTabView.
