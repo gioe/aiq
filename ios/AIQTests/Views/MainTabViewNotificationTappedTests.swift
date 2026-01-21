@@ -688,7 +688,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     /// Test that .settings deep link preserves other tabs' navigation state
     func testSettingsDeepLink_PreservesOtherTabsNavigation() {
         // Given - router has navigation state in dashboard and history tabs
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         router.currentTab = .dashboard
         XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
@@ -762,7 +762,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     func testTestResultsDeepLink_CallsPopToRootInDashboard() {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
         router.push(.help, in: .dashboard)
         XCTAssertEqual(router.depth(in: .dashboard), 2, "setup: dashboard should have 2 routes")
 
@@ -859,7 +859,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     func testResumeTestDeepLink_CallsPopToRootInDashboard() {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
         XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
 
         // When - simulating handleDeepLinkNavigation for .resumeTest
@@ -928,7 +928,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     /// Test that .invalid deep link does not affect navigation state
     func testInvalidDeepLink_PreservesNavigationState() {
         // Given - router has navigation state across all tabs
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         router.push(.help, in: .settings)
         router.currentTab = .dashboard
@@ -965,7 +965,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             ]
         ]
         router.currentTab = .dashboard
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
 
         // When - simulating full notification tap flow (matching MainTabView logic)
         guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
@@ -1005,7 +1005,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         ]
         router.currentTab = .settings
         router.push(.help, in: .settings)
-        router.push(.testTaking, in: .dashboard)
+        router.push(.testTaking(), in: .dashboard)
 
         // When - simulating full notification tap flow (matching MainTabView logic)
         guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],

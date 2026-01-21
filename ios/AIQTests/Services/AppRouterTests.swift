@@ -37,7 +37,7 @@ final class AppRouterTests: XCTestCase {
         sut.currentTab = .dashboard
 
         // When
-        sut.push(.testTaking)
+        sut.push(.testTaking())
 
         // Then
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "dashboard path should contain one route")
@@ -50,7 +50,7 @@ final class AppRouterTests: XCTestCase {
         sut.currentTab = .dashboard
 
         // When
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.notificationSettings)
         sut.push(.help)
 
@@ -78,7 +78,7 @@ final class AppRouterTests: XCTestCase {
     func testPop_RemovesLastRoute() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.help)
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: should have 2 routes")
 
@@ -94,7 +94,7 @@ final class AppRouterTests: XCTestCase {
     func testPop_ToRoot() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "setup: should have 1 route")
 
         // When
@@ -124,7 +124,7 @@ final class AppRouterTests: XCTestCase {
     func testPopToRoot_ClearsEntirePath() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.notificationSettings)
         sut.push(.help)
         XCTAssertEqual(sut.depth(in: .dashboard), 3, "setup: should have 3 routes")
@@ -154,7 +154,7 @@ final class AppRouterTests: XCTestCase {
     func testPopToRoot_OnSingleRoute() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "setup: should have 1 route")
 
         // When
@@ -170,7 +170,7 @@ final class AppRouterTests: XCTestCase {
     func testNavigateTo_SingleRoute_ReplacesStack() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.help)
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: should have 2 routes")
 
@@ -189,7 +189,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertTrue(sut.isAtRoot(in: .dashboard), "setup: path should be empty")
 
         // When
-        sut.navigateTo(.testTaking)
+        sut.navigateTo(.testTaking())
 
         // Then
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "path should contain one route")
@@ -202,7 +202,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertTrue(sut.isAtRoot(in: .dashboard), "setup: path should be empty")
 
         // When
-        let routes: [Route] = [.testTaking, .notificationSettings]
+        let routes: [Route] = [.testTaking(), .notificationSettings]
         sut.navigateTo(routes)
 
         // Then
@@ -219,7 +219,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: should have 2 routes")
 
         // When
-        let routes: [Route] = [.testTaking, .notificationSettings, .help]
+        let routes: [Route] = [.testTaking(), .notificationSettings, .help]
         sut.navigateTo(routes)
 
         // Then
@@ -230,7 +230,7 @@ final class AppRouterTests: XCTestCase {
     func testNavigateTo_EmptyArray_ClearsStack() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.help)
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: should have 2 routes")
 
@@ -257,7 +257,7 @@ final class AppRouterTests: XCTestCase {
     func testIsAtRoot_WhenPathNotEmpty() {
         // Given
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
 
         // Then
         XCTAssertFalse(sut.isAtRoot, "isAtRoot should be false when path is not empty")
@@ -269,7 +269,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(sut.depth, 0, "depth should be 0 initially")
 
         // When/Then - add routes and check depth
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         XCTAssertEqual(sut.depth, 1, "depth should be 1")
 
         sut.push(.help)
@@ -290,8 +290,8 @@ final class AppRouterTests: XCTestCase {
 
     func testRoute_Equality_SimpleRoutes() {
         // Given
-        let route1 = Route.testTaking
-        let route2 = Route.testTaking
+        let route1 = Route.testTaking()
+        let route2 = Route.testTaking()
         let route3 = Route.help
 
         // Then
@@ -335,8 +335,8 @@ final class AppRouterTests: XCTestCase {
 
     func testRoute_Hashability_SimpleRoutes() {
         // Given
-        let route1 = Route.testTaking
-        let route2 = Route.testTaking
+        let route1 = Route.testTaking()
+        let route2 = Route.testTaking()
         let route3 = Route.help
 
         // When
@@ -344,7 +344,7 @@ final class AppRouterTests: XCTestCase {
 
         // Then
         XCTAssertEqual(set.count, 2, "set should contain 2 unique routes")
-        XCTAssertTrue(set.contains(.testTaking), "set should contain testTaking")
+        XCTAssertTrue(set.contains(.testTaking()), "set should contain testTaking")
         XCTAssertTrue(set.contains(.help), "set should contain help")
     }
 
@@ -373,7 +373,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertTrue(sut.isAtRoot, "start at root")
 
         // User starts a test
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         XCTAssertEqual(sut.depth, 1, "should have 1 route")
 
         // User completes test and views results
@@ -413,7 +413,7 @@ final class AppRouterTests: XCTestCase {
         sut.currentTab = .dashboard
         let result = createMockSubmittedTestResult()
         let routes: [Route] = [
-            .testTaking,
+            .testTaking(),
             .testResults(result: result)
         ]
 
@@ -427,7 +427,7 @@ final class AppRouterTests: XCTestCase {
 
     func testPerTabPaths_AreIndependent() {
         // When - Push routes to different tabs
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         sut.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         sut.push(.help, in: .settings)
 
@@ -448,7 +448,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertTrue(sut.isAtRoot(in: .history), "setup: history should be at root")
 
         // When - Push to dashboard
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
 
         // Then - Dashboard has route, history still at root
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard should have 1 route")
@@ -473,8 +473,8 @@ final class AppRouterTests: XCTestCase {
 
     func testPopToRootInOneTab_DoesNotAffectOtherTabs() {
         // Given - All tabs have routes
-        sut.push(.testTaking, in: .dashboard)
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         sut.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         sut.push(.help, in: .settings)
 
@@ -496,7 +496,7 @@ final class AppRouterTests: XCTestCase {
         sut.currentTab = .dashboard
 
         // When - Push without specifying tab
-        sut.push(.testTaking)
+        sut.push(.testTaking())
 
         // Then - Should push to dashboard
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard should have 1 route")
@@ -507,7 +507,7 @@ final class AppRouterTests: XCTestCase {
     func testSwitchingCurrentTab_UpdatesNavigationContext() {
         // Given - Start with dashboard
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
 
         // When - Switch to history and push
@@ -521,7 +521,7 @@ final class AppRouterTests: XCTestCase {
 
     func testNavigateTo_WithTab_TargetsSpecificTab() {
         // Given - Dashboard has some routes
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         sut.push(.help, in: .dashboard)
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: dashboard should have 2 routes")
 
@@ -536,7 +536,7 @@ final class AppRouterTests: XCTestCase {
 
     func testBinding_ReturnsCorrectPathForTab() {
         // Given - Push routes to different tabs
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         sut.push(.help, in: .settings)
 
         // When - Get bindings
@@ -556,7 +556,7 @@ final class AppRouterTests: XCTestCase {
 
         // When - Modify binding by appending a route
         var modifiedPath = dashboardBinding.wrappedValue
-        modifiedPath.append(Route.testTaking)
+        modifiedPath.append(Route.testTaking())
         dashboardBinding.wrappedValue = modifiedPath
 
         // Then - Dashboard path should be updated
@@ -566,7 +566,7 @@ final class AppRouterTests: XCTestCase {
 
     func testMultipleRoutesInDifferentTabs_PreserveState() {
         // Given - Complex navigation state across tabs
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         let testResult = createMockSubmittedTestResult()
         sut.push(.testResults(result: testResult), in: .dashboard)
 
@@ -593,7 +593,7 @@ final class AppRouterTests: XCTestCase {
 
     func testDeepLink_ToSpecificTab_ClearsOnlyThatTab() {
         // Given - All tabs have routes
-        sut.push(.testTaking, in: .dashboard)
+        sut.push(.testTaking(), in: .dashboard)
         sut.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         sut.push(.help, in: .settings)
 
@@ -612,7 +612,7 @@ final class AppRouterTests: XCTestCase {
 
         // When - Deep link with hierarchy to dashboard
         let routes: [Route] = [
-            .testTaking,
+            .testTaking(),
             .testResults(result: createMockSubmittedTestResult())
         ]
         sut.navigateTo(routes, in: .dashboard)
@@ -628,7 +628,7 @@ final class AppRouterTests: XCTestCase {
 
         // When - Navigate in dashboard
         sut.currentTab = .dashboard
-        sut.push(.testTaking)
+        sut.push(.testTaking())
         sut.push(.testResults(result: createMockSubmittedTestResult()))
         XCTAssertEqual(sut.depth, 2, "Dashboard should have 2 routes")
 

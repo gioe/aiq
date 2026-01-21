@@ -84,7 +84,7 @@ struct DashboardView: View {
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
                             viewModel.trackTestResumed()
-                            router.push(.testTaking)
+                            router.push(.testTaking())
                         },
                         onAbandon: {
                             await viewModel.abandonActiveTest()
@@ -323,7 +323,7 @@ struct DashboardView: View {
 
             // Action button
             Button {
-                router.push(.testTaking)
+                router.push(.testTaking())
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
@@ -383,7 +383,7 @@ struct DashboardView: View {
                         session: activeSession,
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
-                            router.push(.testTaking)
+                            router.push(.testTaking())
                         },
                         onAbandon: {
                             await viewModel.abandonActiveTest()
@@ -403,7 +403,7 @@ struct DashboardView: View {
                         """,
                     actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
                     action: {
-                        router.push(.testTaking)
+                        router.push(.testTaking())
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
