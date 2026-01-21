@@ -10,6 +10,10 @@ struct MainTabView: View {
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
+    /// Tracks whether a deep link is currently being processed to prevent concurrent handling.
+    /// Thread-safety: Notification handlers use `.receive(on: DispatchQueue.main)` to ensure
+    /// main thread execution before accessing this property.
+    @State private var isProcessingDeepLink = false
 
     // MARK: - Upgrade Prompt State
 
@@ -67,11 +71,21 @@ struct MainTabView: View {
             // Note: @AppStorage handles invalid values by falling back to the default (.dashboard)
             router.currentTab = selectedTab
         }
-        .onReceive(NotificationCenter.default.publisher(for: .deepLinkReceived)) { notification in
+        .onDisappear {
+            // Reset deep link processing state when view disappears to prevent stale state
+            isProcessingDeepLink = false
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .deepLinkReceived)
+                .receive(on: DispatchQueue.main)
+        ) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
             handleDeepLinkNavigation(deepLink)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .notificationTapped)
+                .receive(on: DispatchQueue.main)
+        ) { notification in
             handleNotificationTap(notification)
         }
         .sheet(isPresented: $showUpgradePrompt) {
@@ -169,8 +183,23 @@ struct MainTabView: View {
 
     /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
     /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
+    ///
+    /// - Note: Concurrent deep links are dropped (not queued) while one is being processed. This is intentional
+    ///   because deep links represent user intent at a specific moment. Processing an older deep link after a
+    ///   newer one completes would create unexpected navigation and poor UX.
     private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
+        // Guard against concurrent deep link processing.
+        // The flag is set before Task creation to prevent race conditions.
+        guard !isProcessingDeepLink else {
+            let deepLinkDescription = String(describing: deepLink)
+            Self.logger.info("Dropping deep link (concurrent): \(deepLinkDescription, privacy: .public)")
+            return
+        }
+
+        isProcessingDeepLink = true
         Task {
+            defer { isProcessingDeepLink = false }
+
             switch deepLink {
             case .settings:
                 // For settings deep link, switch to the settings tab
