@@ -29,6 +29,23 @@ def calculate_next_test_date(last_test_date: datetime) -> datetime:
     return last_test_date + timedelta(days=settings.TEST_CADENCE_DAYS)
 
 
+def generate_deep_link(notification_type: str, result_id: Optional[int] = None) -> str:
+    """
+    Generate a deep link URL for a notification.
+
+    Args:
+        notification_type: The type of notification (test_reminder, day_30_reminder)
+        result_id: Optional test result ID for result-specific deep links
+
+    Returns:
+        A deep link URL string (e.g., aiq://test/results/123)
+    """
+    if result_id is not None:
+        return f"aiq://test/results/{result_id}"
+    # Default deep link opens the app (no specific destination)
+    return "aiq://home"
+
+
 def get_users_due_for_test(
     db: Session,
     notification_window_start: Optional[datetime] = None,
@@ -342,6 +359,23 @@ class NotificationScheduler:
         if not users_to_notify:
             return {"total": 0, "success": 0, "failed": 0}
 
+        # Get the latest test result ID for each user to include in deep links
+        from sqlalchemy.sql import func
+
+        user_ids = [user.id for user in users_to_notify]
+        latest_results = (
+            self.db.query(
+                TestResult.user_id,
+                func.max(TestResult.id).label("latest_result_id"),
+            )
+            .filter(TestResult.user_id.in_(user_ids))
+            .group_by(TestResult.user_id)
+            .all()
+        )
+        user_to_latest_result = {
+            row.user_id: row.latest_result_id for row in latest_results
+        }
+
         # Build notification payloads
         notifications = []
         for user in users_to_notify:
@@ -351,13 +385,21 @@ class NotificationScheduler:
             title = "Time for Your IQ Test!"
             body = f"Hi {user.first_name}, it's been 3 months! Ready to track your cognitive progress?"
 
+            # Generate deep link to user's last test result
+            latest_result_id = user_to_latest_result.get(user.id)
+            deep_link = generate_deep_link("test_reminder", latest_result_id)
+
             notifications.append(
                 {
                     "device_token": user.apns_device_token,
                     "title": title,
                     "body": body,
                     "badge": 1,
-                    "data": {"type": "test_reminder", "user_id": str(user.id)},
+                    "data": {
+                        "type": "test_reminder",
+                        "user_id": str(user.id),
+                        "deep_link": deep_link,
+                    },
                 }
             )
 
@@ -402,6 +444,23 @@ class NotificationScheduler:
         if not users_to_notify:
             return {"total": 0, "success": 0, "failed": 0, "users_found": 0}
 
+        # Get the first (and only) test result ID for each user to include in deep links
+        from sqlalchemy.sql import func
+
+        user_ids = [user.id for user in users_to_notify]
+        first_results = (
+            self.db.query(
+                TestResult.user_id,
+                func.min(TestResult.id).label("first_result_id"),
+            )
+            .filter(TestResult.user_id.in_(user_ids))
+            .group_by(TestResult.user_id)
+            .all()
+        )
+        user_to_first_result = {
+            row.user_id: row.first_result_id for row in first_results
+        }
+
         # Build notification payloads for Day 30 reminder
         # Keep track of user_id -> notification mapping for deduplication marking
         notifications = []
@@ -416,6 +475,10 @@ class NotificationScheduler:
 
             title = "Your Cognitive Journey Continues"
             body = f"Hi {first_name}! It's been 30 days since your first test. Your next test is in 60 days."
+
+            # Generate deep link to user's first test result
+            first_result_id = user_to_first_result.get(user.id)
+            deep_link = generate_deep_link("day_30_reminder", first_result_id)
 
             user_id_to_notification_index[user.id] = len(notifications)
             notifications.append(
@@ -432,6 +495,7 @@ class NotificationScheduler:
                         "user_id": str(user.id),
                         "days_since_first_test": 30,
                         "days_until_next_test": 60,
+                        "deep_link": deep_link,
                     },
                 }
             )
