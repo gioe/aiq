@@ -386,6 +386,88 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized test action in universal link")
     }
 
+    // MARK: - Development Domain Universal Link Tests
+
+    func testParseUniversalLink_DevDomain_TestResults_ValidID() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/test/results/123")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .testResults(id: 123), "should parse test results from dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_ResumeTest_ValidSessionID() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/test/resume/456")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .resumeTest(sessionId: 456), "should parse resume test from dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_Settings() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/settings")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .settings, "should parse settings from dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_InvalidRoute() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/unknown")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should return invalid for unrecognized route on dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_EmptyPath() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should return invalid for empty path on dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_TestResults_InvalidID() {
+        // Given
+        let url = URL(string: "https://dev.aiq.app/test/results/abc")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        XCTAssertEqual(result, .invalid, "should return invalid for non-numeric ID on dev domain")
+    }
+
+    func testParseUniversalLink_DevDomain_EquivalentToProd() {
+        // Given - same path on prod and dev domains
+        let prodURL = URL(string: "https://aiq.app/test/results/789")!
+        let devURL = URL(string: "https://dev.aiq.app/test/results/789")!
+
+        // When
+        let prodResult = sut.parse(prodURL)
+        let devResult = sut.parse(devURL)
+
+        // Then
+        XCTAssertEqual(prodResult, devResult, "dev and prod domains should produce equivalent results")
+        XCTAssertEqual(devResult, .testResults(id: 789))
+    }
+
     // MARK: - Invalid URL Tests
 
     func testParse_InvalidScheme_HTTP() {
@@ -799,7 +881,7 @@ final class DeepLinkHandlerTests: XCTestCase {
     }
 
     func testParse_AllSupportedRoutes_UniversalLink() {
-        // Test all supported universal link routes
+        // Test all supported universal link routes (production domain)
         let testCases: [(String, DeepLink)] = [
             ("https://aiq.app/test/results/1", .testResults(id: 1)),
             ("https://aiq.app/test/results/999", .testResults(id: 999)),
@@ -816,6 +898,27 @@ final class DeepLinkHandlerTests: XCTestCase {
 
             let result = sut.parse(url)
             XCTAssertEqual(result, expected, "Failed to parse \(urlString)")
+        }
+    }
+
+    func testParse_AllSupportedRoutes_UniversalLink_DevDomain() {
+        // Test all supported universal link routes (development domain)
+        let testCases: [(String, DeepLink)] = [
+            ("https://dev.aiq.app/test/results/1", .testResults(id: 1)),
+            ("https://dev.aiq.app/test/results/999", .testResults(id: 999)),
+            ("https://dev.aiq.app/test/resume/50", .resumeTest(sessionId: 50)),
+            ("https://dev.aiq.app/test/resume/123", .resumeTest(sessionId: 123)),
+            ("https://dev.aiq.app/settings", .settings)
+        ]
+
+        for (urlString, expected) in testCases {
+            guard let url = URL(string: urlString) else {
+                XCTFail("Failed to create URL from \(urlString)")
+                continue
+            }
+
+            let result = sut.parse(url)
+            XCTAssertEqual(result, expected, "Failed to parse dev domain URL: \(urlString)")
         }
     }
 

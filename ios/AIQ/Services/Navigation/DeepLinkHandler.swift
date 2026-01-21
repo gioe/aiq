@@ -64,16 +64,19 @@ enum DeepLink: Equatable {
 
 /// Handles parsing of URL schemes and universal links into structured navigation commands
 ///
-/// Supports both URL schemes (aiq://) and universal links (https://aiq.app/...).
+/// Supports both URL schemes (aiq://) and universal links (https://aiq.app/..., https://dev.aiq.app/...).
 /// Returns a DeepLink enum representing the parsed destination.
 ///
 /// Supported URL patterns:
 /// - `aiq://test/results/{id}` - View specific test results
 /// - `aiq://test/resume/{sessionId}` - Resume a test session
 /// - `aiq://settings` - Open settings
-/// - `https://aiq.app/test/results/{id}` - View specific test results
-/// - `https://aiq.app/test/resume/{sessionId}` - Resume a test session
-/// - `https://aiq.app/settings` - Open settings
+/// - `https://aiq.app/test/results/{id}` - View specific test results (production)
+/// - `https://aiq.app/test/resume/{sessionId}` - Resume a test session (production)
+/// - `https://aiq.app/settings` - Open settings (production)
+/// - `https://dev.aiq.app/test/results/{id}` - View specific test results (development)
+/// - `https://dev.aiq.app/test/resume/{sessionId}` - Resume a test session (development)
+/// - `https://dev.aiq.app/settings` - Open settings (development)
 ///
 /// Usage:
 /// ```swift
@@ -96,8 +99,8 @@ struct DeepLinkHandler {
     /// URL scheme for AIQ deep links (aiq://)
     private static let urlScheme = "aiq"
 
-    /// Universal link host (aiq.app)
-    private static let universalLinkHost = "aiq.app"
+    /// Universal link hosts (production and development)
+    private static let universalLinkHosts = ["aiq.app", "dev.aiq.app"]
 
     /// Logger for deep link parsing events
     private static let logger = Logger(subsystem: "com.aiq.app", category: "DeepLink")
@@ -109,10 +112,10 @@ struct DeepLinkHandler {
     /// - Parameter url: The URL to parse (can be URL scheme or universal link)
     /// - Returns: A DeepLink representing the destination, or .invalid if unrecognized
     func parse(_ url: URL) -> DeepLink {
-        // Check if this is a URL scheme (aiq://) or universal link (https://aiq.app)
+        // Check if this is a URL scheme (aiq://) or universal link (https://aiq.app or https://dev.aiq.app)
         if url.scheme == Self.urlScheme {
             return parseURLScheme(url)
-        } else if url.scheme == "https" && url.host == Self.universalLinkHost {
+        } else if url.scheme == "https", let host = url.host, Self.universalLinkHosts.contains(host) {
             return parseUniversalLink(url)
         }
 
