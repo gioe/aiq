@@ -157,7 +157,7 @@ class Question(Base):
         Text, nullable=True
     )  # Optional explanation for the correct answer
     question_metadata: Mapped[Optional[Any]] = mapped_column(
-        JSON, nullable=True
+        "metadata", JSON, nullable=True
     )  # Flexible field for additional data
     source_llm: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True

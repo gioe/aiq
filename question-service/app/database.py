@@ -76,7 +76,9 @@ class QuestionModel(Base):
     correct_answer = Column(String(500), nullable=False)
     answer_options = Column(JSON)
     explanation = Column(Text)
-    question_metadata = Column(JSON)
+    question_metadata = Column(
+        "metadata", JSON
+    )  # Maps to 'metadata' DB column (TASK-445)
     source_llm = Column(String(100))
     source_model = Column(String(100))
     arbiter_score = Column(Float)
@@ -392,7 +394,7 @@ class DatabaseService:
                         "correct_answer": q.correct_answer,
                         "answer_options": q.answer_options,
                         "explanation": q.explanation,
-                        "question_metadata": q.question_metadata,
+                        "metadata": q.question_metadata,  # TASK-445: Standardized key name
                         "source_llm": q.source_llm,
                         "source_model": q.source_model,
                         "arbiter_score": q.arbiter_score,
