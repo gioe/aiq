@@ -179,17 +179,23 @@ struct MainTabView: View {
 
     /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
     /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
-    /// Concurrent deep links are ignored while one is being processed.
+    ///
+    /// - Note: Concurrent deep links are dropped (not queued) while one is being processed. This is intentional
+    ///   because deep links represent user intent at a specific moment. Processing an older deep link after a
+    ///   newer one completes would create unexpected navigation and poor UX.
     private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
-        // Guard against concurrent deep link processing
+        // Guard against concurrent deep link processing.
+        // The flag is set before Task creation to prevent race conditions.
         guard !isProcessingDeepLink else {
             let deepLinkDescription = String(describing: deepLink)
-            Self.logger.info("Ignoring deep link (concurrent): \(deepLinkDescription, privacy: .public)")
+            Self.logger.info("Dropping deep link (concurrent): \(deepLinkDescription, privacy: .public)")
             return
         }
 
         isProcessingDeepLink = true
-        Task { @MainActor in
+        Task {
+            defer { isProcessingDeepLink = false }
+
             switch deepLink {
             case .settings:
                 // For settings deep link, switch to the settings tab
@@ -226,7 +232,6 @@ struct MainTabView: View {
             case .invalid:
                 Self.logger.warning("Received invalid deep link: \(String(describing: deepLink), privacy: .public)")
             }
-            isProcessingDeepLink = false
         }
     }
 }

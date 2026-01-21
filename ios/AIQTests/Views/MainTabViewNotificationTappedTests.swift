@@ -1376,18 +1376,18 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
 
     // MARK: - Logging Behavior Tests
 
-    /// Test that ignored deep links would generate appropriate log messages
+    /// Test that dropped deep links would generate appropriate log messages
     ///
     /// Note: This test validates the log message format that MainTabView produces
-    func testLogMessage_ForIgnoredDeepLink_ContainsDeepLinkDescription() {
-        // Given - a deep link that would be ignored
+    func testLogMessage_ForDroppedDeepLink_ContainsDeepLinkDescription() {
+        // Given - a deep link that would be dropped
         let deepLink = DeepLink.testResults(id: 123)
 
         // When - formatting the log message (as MainTabView does)
-        let logMessage = "Ignoring deep link while another is being processed: \(String(describing: deepLink))"
+        let logMessage = "Dropping deep link (concurrent): \(String(describing: deepLink))"
 
         // Then - log message should contain the deep link description
-        XCTAssertTrue(logMessage.contains("Ignoring"), "log should indicate ignoring")
+        XCTAssertTrue(logMessage.contains("Dropping"), "log should indicate dropping")
         XCTAssertTrue(logMessage.contains("testResults"), "log should contain deep link type")
         XCTAssertTrue(logMessage.contains("123"), "log should contain deep link ID")
     }
@@ -1438,7 +1438,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
 
             // Simulate guard check
             guard !isProcessingDeepLink else {
-                // Would log: "Ignoring deep link while another is being processed"
+                // Would log: "Dropping deep link (concurrent): ..."
                 continue
             }
 
