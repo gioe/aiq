@@ -256,6 +256,15 @@ final class QuestionTests: XCTestCase {
         XCTAssertFalse(question.isMultipleChoice)
     }
 
+    func testIsMultipleChoiceWithSingleOption() throws {
+        // A question with only one option is not considered "multiple choice"
+        // but it does have options available
+        let question = try createValidQuestion(answerOptions: ["Only Option"])
+
+        XCTAssertFalse(question.isMultipleChoice)
+        XCTAssertTrue(question.hasOptions)
+    }
+
     func testHasOptionsWithOptions() throws {
         let question = try createValidQuestion(answerOptions: ["Option 1", "Option 2"])
 
