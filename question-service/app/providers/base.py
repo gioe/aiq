@@ -270,6 +270,7 @@ class BaseLLMProvider(ABC):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -279,6 +280,7 @@ class BaseLLMProvider(ABC):
             prompt: The prompt to send to the model
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum number of tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional provider-specific parameters
 
         Returns:
@@ -296,6 +298,7 @@ class BaseLLMProvider(ABC):
         response_format: Dict[str, Any],
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -306,6 +309,7 @@ class BaseLLMProvider(ABC):
             response_format: JSON schema for the expected response
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum number of tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional provider-specific parameters
 
         Returns:

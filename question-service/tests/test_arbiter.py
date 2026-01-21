@@ -174,11 +174,11 @@ class TestQuestionArbiter:
         evaluation = arbiter._parse_evaluation_response(sample_evaluation_response)
 
         assert isinstance(evaluation, EvaluationScore)
-        assert evaluation.clarity_score == 0.9
-        assert evaluation.difficulty_score == 0.8
-        assert evaluation.validity_score == 0.85
-        assert evaluation.formatting_score == 0.95
-        assert evaluation.creativity_score == 0.7
+        assert evaluation.clarity_score == pytest.approx(0.9)
+        assert evaluation.difficulty_score == pytest.approx(0.8)
+        assert evaluation.validity_score == pytest.approx(0.85)
+        assert evaluation.formatting_score == pytest.approx(0.95)
+        assert evaluation.creativity_score == pytest.approx(0.7)
         assert evaluation.feedback == "Good question, clear and well-formatted."
 
     @patch("app.arbiter.OpenAIProvider")
@@ -237,7 +237,7 @@ class TestQuestionArbiter:
         )
 
         overall = arbiter._calculate_overall_score(perfect_evaluation)
-        assert overall == 1.0
+        assert overall == pytest.approx(1.0)
 
     @patch("app.arbiter.OpenAIProvider")
     def test_calculate_overall_score_with_zero_scores(
@@ -259,7 +259,7 @@ class TestQuestionArbiter:
         )
 
         overall = arbiter._calculate_overall_score(zero_evaluation)
-        assert overall == 0.0
+        assert overall == pytest.approx(0.0)
 
     @patch("app.arbiter.OpenAIProvider")
     def test_evaluate_question_success(
@@ -522,16 +522,16 @@ class TestQuestionArbiter:
         assert "arbiters" in stats
 
         assert stats["config_version"] == "1.0.0"
-        assert stats["min_arbiter_score"] == 0.7
+        assert stats["min_arbiter_score"] == pytest.approx(0.7)
         assert set(stats["available_providers"]) == {"openai", "anthropic"}
 
         # Check evaluation criteria
         criteria = stats["evaluation_criteria"]
-        assert criteria["clarity"] == 0.25
-        assert criteria["difficulty"] == 0.20
-        assert criteria["validity"] == 0.30
-        assert criteria["formatting"] == 0.10
-        assert criteria["creativity"] == 0.15
+        assert criteria["clarity"] == pytest.approx(0.25)
+        assert criteria["difficulty"] == pytest.approx(0.20)
+        assert criteria["validity"] == pytest.approx(0.30)
+        assert criteria["formatting"] == pytest.approx(0.10)
+        assert criteria["creativity"] == pytest.approx(0.15)
 
         # Check arbiters
         assert "math" in stats["arbiters"]
@@ -615,3 +615,51 @@ class TestArbiterIntegration:
         logic_q = questions_by_type[QuestionType.LOGIC]
         evaluated_logic = arbiter.evaluate_question(logic_q)
         assert "anthropic" in evaluated_logic.arbiter_model
+
+    @patch("app.arbiter.OpenAIProvider")
+    def test_provider_model_not_mutated_during_evaluation(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test that provider model attribute is not mutated during evaluation.
+
+        This verifies thread safety - concurrent evaluations should not interfere
+        with each other by modifying shared provider state.
+        """
+        # Setup mock provider with a different default model than arbiter config
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4-turbo-preview"  # Default model
+        mock_provider.generate_structured_completion.return_value = (
+            sample_evaluation_response
+        )
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Record the original model before evaluation
+        original_model = mock_provider.model
+
+        # Evaluate question (arbiter config uses "gpt-4" for math questions)
+        arbiter.evaluate_question(sample_question)
+
+        # Verify provider model was NOT mutated
+        assert mock_provider.model == original_model, (
+            "Provider model should not be mutated during evaluation. "
+            f"Expected {original_model}, got {mock_provider.model}"
+        )
+
+        # Verify model_override was passed to the completion call
+        call_kwargs = mock_provider.generate_structured_completion.call_args.kwargs
+        assert (
+            "model_override" in call_kwargs
+        ), "model_override should be passed to generate_structured_completion"
+        assert (
+            call_kwargs["model_override"] == "gpt-4"
+        ), f"model_override should be 'gpt-4', got {call_kwargs['model_override']}"

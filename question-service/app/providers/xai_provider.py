@@ -6,7 +6,7 @@ allowing us to use the OpenAI SDK with a different base URL.
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from openai import OpenAI
 
@@ -46,6 +46,7 @@ class XAIProvider(BaseLLMProvider):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs,
     ) -> str:
         """
@@ -55,6 +56,7 @@ class XAIProvider(BaseLLMProvider):
             prompt: The prompt to generate from
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional arguments passed to the API
 
         Returns:
@@ -63,11 +65,12 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call fails
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> str:
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -88,6 +91,7 @@ class XAIProvider(BaseLLMProvider):
         response_format: Dict[str, Any],
         temperature: float = 0.7,
         max_tokens: int = 1000,
+        model_override: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -98,6 +102,7 @@ class XAIProvider(BaseLLMProvider):
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
             response_format: Expected response schema (for validation)
+            model_override: Optional model to use instead of the provider's default
             **kwargs: Additional arguments passed to the API
 
         Returns:
@@ -106,6 +111,7 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call or JSON parsing fails
         """
+        model_to_use = model_override or self.model
 
         def _make_request() -> Dict[str, Any]:
             content = ""
@@ -119,7 +125,7 @@ class XAIProvider(BaseLLMProvider):
 
                 # Make API call using OpenAI SDK
                 response = self.client.chat.completions.create(
-                    model=self.model,
+                    model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
