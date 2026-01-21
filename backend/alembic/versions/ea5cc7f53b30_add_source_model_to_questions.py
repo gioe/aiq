@@ -1,8 +1,8 @@
 """Add source_model column to questions table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: ea5cc7f53b30
 Revises: 994ffcaca527
-Create Date: 2026-01-20 10:00:00.000000
+Create Date: 2026-01-20 21:01:36.231666
 
 Rationale (TASK-429):
 The question-service tracks both source_llm (provider like "openai", "anthropic")
@@ -15,6 +15,9 @@ the provider name, enabling:
 - Analysis of question quality by specific model version
 - Tracking performance across model updates
 - Better debugging when questions have issues
+
+Note: Existing questions will have NULL for source_model. New questions generated
+by the question-service will populate this field automatically.
 """
 from typing import Sequence, Union
 
@@ -23,7 +26,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "ea5cc7f53b30"
 down_revision: Union[str, None] = "994ffcaca527"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
