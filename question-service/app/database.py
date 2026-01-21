@@ -72,6 +72,7 @@ class QuestionModel(Base):
     explanation = Column(Text)
     question_metadata = Column(JSON)
     source_llm = Column(String(100))
+    source_model = Column(String(100))
     arbiter_score = Column(Float)
     prompt_version = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -155,6 +156,7 @@ class DatabaseService:
                 explanation=question.explanation,
                 question_metadata=question.metadata,
                 source_llm=question.source_llm,
+                source_model=question.source_model,
                 arbiter_score=arbiter_score,
                 prompt_version=PROMPT_VERSION,
                 is_active=True,
@@ -237,6 +239,7 @@ class DatabaseService:
                     explanation=question.explanation,
                     question_metadata=question.metadata,
                     source_llm=question.source_llm,
+                    source_model=question.source_model,
                     arbiter_score=arbiter_score,
                     prompt_version=PROMPT_VERSION,
                     is_active=True,
@@ -308,6 +311,7 @@ class DatabaseService:
                         "explanation": q.explanation,
                         "question_metadata": q.question_metadata,
                         "source_llm": q.source_llm,
+                        "source_model": q.source_model,
                         "arbiter_score": q.arbiter_score,
                         "prompt_version": q.prompt_version,
                         "created_at": q.created_at,

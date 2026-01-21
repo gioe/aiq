@@ -95,6 +95,7 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.discrimination,
         Question.arbiter_score,
         Question.source_llm,
+        Question.source_model,
         Question.is_active,
     ]
 
@@ -112,6 +113,7 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.discrimination,
         # LLM Metadata
         Question.source_llm,
+        Question.source_model,
         Question.arbiter_score,
         Question.question_metadata,
         # IRT Fields (future use)
@@ -123,7 +125,11 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.is_active,
     ]
 
-    column_searchable_list = [Question.question_text, Question.source_llm]
+    column_searchable_list = [
+        Question.question_text,
+        Question.source_llm,
+        Question.source_model,
+    ]
 
     column_sortable_list = [
         Question.id,
@@ -146,6 +152,7 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         Question.difficulty_level,
         Question.is_active,
         Question.source_llm,
+        Question.source_model,
         Question.response_count,
         Question.discrimination,
     ]
