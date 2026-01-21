@@ -235,22 +235,26 @@ async def trigger_generation(
     )
 
     with _job_lock:
+        # Clean up completed job reference to avoid memory leaks
+        if _running_job is not None and not _running_job.is_alive():
+            _running_job = None
+
         # Check if a job is already running
-        if _running_job is not None and _running_job.is_alive():
+        if _running_job is not None:
             logger.warning("Generation job already running - rejecting request")
             raise HTTPException(
                 status_code=409,
                 detail="A generation job is already running. Please wait for it to complete.",
             )
 
-        # Start the job in a background thread (same as cron would run it)
+        # Create thread and set reference BEFORE starting to prevent race condition
         thread = threading.Thread(
             target=run_generation_job,
             args=(request.count, request.dry_run, request.verbose),
             daemon=True,
         )
-        thread.start()
         _running_job = thread
+        thread.start()
 
     logger.info(
         f"Started generation job in background thread: "
