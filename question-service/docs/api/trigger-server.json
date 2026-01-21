@@ -1,0 +1,280 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Question Generation Trigger Service",
+    "description": "HTTP API for manually triggering AIQ question generation jobs. This service provides on-demand execution of the question generation pipeline, bypassing the scheduled cron job. Requires admin authentication.",
+    "contact": {
+      "name": "AIQ Team"
+    },
+    "license": {
+      "name": "Proprietary"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health check",
+        "description": "Returns the health status of the trigger service. Used by load balancers and monitoring systems.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trigger": {
+      "post": {
+        "tags": [
+          "Generation"
+        ],
+        "summary": "Trigger question generation",
+        "description": "Manually trigger the question generation job. This executes the same pipeline as the scheduled cron job. The job runs asynchronously in the background; this endpoint returns immediately after starting the job. Only one job can run at a time.",
+        "operationId": "trigger_generation_trigger_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Admin authentication token. Must match the ADMIN_TOKEN environment variable.",
+              "example": "your-secret-admin-token",
+              "title": "X-Admin-Token"
+            },
+            "description": "Admin authentication token. Must match the ADMIN_TOKEN environment variable."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job successfully started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing admin token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A generation job is already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server configuration error (admin token not set)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable error message.",
+            "example": "Invalid admin token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "HTTPErrorResponse",
+        "description": "Standard error response body."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Service health status.",
+            "example": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "description": "Name of the service.",
+            "example": "question-generation-trigger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service"
+        ],
+        "title": "HealthResponse",
+        "description": "Response from the health check endpoint."
+      },
+      "TriggerRequest": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 500.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count",
+            "description": "Number of questions to generate. Must be between 1 and 500.",
+            "default": 50,
+            "example": 50
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "If true, simulates the job without persisting generated questions.",
+            "default": false,
+            "example": false
+          },
+          "verbose": {
+            "type": "boolean",
+            "title": "Verbose",
+            "description": "If true, enables detailed logging during generation.",
+            "default": true,
+            "example": true
+          }
+        },
+        "type": "object",
+        "title": "TriggerRequest",
+        "description": "Request body for triggering a question generation job."
+      },
+      "TriggerResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable status message describing the triggered job.",
+            "example": "Question generation job started (count=50, dry_run=False)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Job status. Will be 'started' when job is successfully triggered.",
+            "example": "started"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO 8601 timestamp when the job was triggered.",
+            "example": "2026-01-21T10:30:00.000000"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "status",
+          "timestamp"
+        ],
+        "title": "TriggerResponse",
+        "description": "Response returned after successfully starting a generation job."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
