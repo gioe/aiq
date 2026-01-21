@@ -412,7 +412,11 @@ def main() -> int:
 
         if not args.dry_run:
             try:
-                db = QuestionDatabase(settings.database_url)
+                # TASK-433: Pass OpenAI API key to database service for embedding generation
+                db = QuestionDatabase(
+                    database_url=settings.database_url,
+                    openai_api_key=settings.openai_api_key,
+                )
                 logger.info("✓ Database connected")
 
                 if not settings.openai_api_key:

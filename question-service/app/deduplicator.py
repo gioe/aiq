@@ -289,9 +289,13 @@ class QuestionDeduplicator:
     ) -> DuplicateCheckResult:
         """Check semantic similarity using embeddings.
 
+        TASK-433: Updated to use pre-computed embeddings when available.
+        Falls back to on-demand computation for questions without embeddings.
+
         Args:
             question_text: Question text to check
-            existing_questions: List of existing question data
+            existing_questions: List of existing question data (may include
+                              'question_embedding' field with pre-computed vectors)
 
         Returns:
             DuplicateCheckResult with semantic similarity details
@@ -312,8 +316,25 @@ class QuestionDeduplicator:
                 if not existing_text:
                     continue
 
-                # Generate embedding for existing question
-                existing_embedding = self._get_embedding(existing_text)
+                # TASK-433: Use pre-computed embedding if available
+                # This eliminates API calls for existing questions, dramatically
+                # improving performance as the question pool grows.
+                existing_embedding_data = existing.get("question_embedding")
+
+                if existing_embedding_data:
+                    # Use pre-computed embedding from database
+                    existing_embedding = np.array(existing_embedding_data)
+                    logger.debug(
+                        f"Using pre-computed embedding for question {existing.get('id', 'unknown')}"
+                    )
+                else:
+                    # Fall back to on-demand generation for questions without embeddings
+                    # (e.g., questions created before TASK-433 was implemented)
+                    existing_embedding = self._get_embedding(existing_text)
+                    logger.debug(
+                        f"Computing embedding on-demand for question {existing.get('id', 'unknown')} "
+                        "(missing pre-computed embedding)"
+                    )
 
                 # Calculate cosine similarity
                 similarity = self._cosine_similarity(new_embedding, existing_embedding)
