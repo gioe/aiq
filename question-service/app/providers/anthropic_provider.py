@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 import anthropic
 from anthropic import Anthropic
 
+from ..cost_tracking import CompletionResult, TokenUsage
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,142 @@ class AnthropicProvider(BaseLLMProvider):
         # Rough approximation: 1 token ≈ 4 characters
         # For Claude models, this is a reasonable estimate
         return len(text) // 4
+
+    def _generate_completion_internal(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Generate completion with actual token usage from Anthropic API.
+
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Sampling temperature (0.0 to 1.0)
+            max_tokens: Maximum tokens to generate (required by Anthropic)
+            model_override: Optional model to use instead of the provider's default
+            **kwargs: Additional Anthropic-specific parameters
+
+        Returns:
+            CompletionResult with content and actual token usage
+        """
+        model_to_use = model_override or self.model
+
+        def _make_request() -> CompletionResult:
+            try:
+                response = self.client.messages.create(
+                    model=model_to_use,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
+
+                # Extract text from response
+                content = ""
+                if response.content and len(response.content) > 0:
+                    content = response.content[0].text
+
+                # Extract actual token usage from response
+                token_usage = None
+                if response.usage:
+                    token_usage = TokenUsage(
+                        input_tokens=response.usage.input_tokens,
+                        output_tokens=response.usage.output_tokens,
+                        model=model_to_use,
+                        provider=self.get_provider_name(),
+                    )
+
+                return CompletionResult(content=content, token_usage=token_usage)
+
+            except anthropic.AnthropicError as e:
+                raise self._handle_api_error(e)
+
+        return self._execute_with_retry(_make_request)
+
+    def _generate_structured_completion_internal(
+        self,
+        prompt: str,
+        response_format: Dict[str, Any],
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Generate structured completion with actual token usage from Anthropic API.
+
+        Args:
+            prompt: The prompt to send to the model
+            response_format: JSON schema for the expected response
+            temperature: Sampling temperature (0.0 to 1.0)
+            max_tokens: Maximum tokens to generate
+            model_override: Optional model to use instead of the provider's default
+            **kwargs: Additional Anthropic-specific parameters
+
+        Returns:
+            CompletionResult with parsed JSON content and actual token usage
+        """
+        model_to_use = model_override or self.model
+
+        def _make_request() -> CompletionResult:
+            try:
+                # Add JSON formatting instruction to the prompt
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                    f"Your response must be only valid JSON with no additional text."
+                )
+
+                response = self.client.messages.create(
+                    model=model_to_use,
+                    messages=[{"role": "user", "content": json_prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
+
+                # Extract text from response
+                content: Dict[str, Any] = {}
+                if response.content and len(response.content) > 0:
+                    raw_content = response.content[0].text
+                    logger.debug(f"Anthropic API response content: {raw_content[:500]}")
+
+                    # Strip markdown code fences if present
+                    raw_content = raw_content.strip()
+                    if raw_content.startswith("```json"):
+                        raw_content = raw_content[7:]  # Remove ```json
+                    elif raw_content.startswith("```"):
+                        raw_content = raw_content[3:]  # Remove ```
+                    if raw_content.endswith("```"):
+                        raw_content = raw_content[:-3]  # Remove trailing ```
+                    raw_content = raw_content.strip()
+
+                    content = json.loads(raw_content)
+                else:
+                    logger.warning("Anthropic API returned empty response")
+
+                # Extract actual token usage from response
+                token_usage = None
+                if response.usage:
+                    token_usage = TokenUsage(
+                        input_tokens=response.usage.input_tokens,
+                        output_tokens=response.usage.output_tokens,
+                        model=model_to_use,
+                        provider=self.get_provider_name(),
+                    )
+
+                return CompletionResult(content=content, token_usage=token_usage)
+
+            except anthropic.AnthropicError as e:
+                raise self._handle_api_error(e)
+            except json.JSONDecodeError as e:
+                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
+
+        return self._execute_with_retry(_make_request)
 
     def get_available_models(self) -> list[str]:
         """
