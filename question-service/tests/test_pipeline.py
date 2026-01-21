@@ -55,14 +55,14 @@ class TestQuestionGenerationPipeline:
         mock_generator.generate_batch.return_value = mock_batch
 
         result = pipeline.generate_questions(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.EASY,
             count=10,
         )
 
         # Verify generator was called correctly
         mock_generator.generate_batch.assert_called_once_with(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.EASY,
             count=10,
             distribute_across_providers=True,
@@ -77,7 +77,7 @@ class TestQuestionGenerationPipeline:
         mock_generator.generate_batch.return_value = mock_batch
 
         pipeline.generate_questions(
-            question_type=QuestionType.LOGICAL_REASONING,
+            question_type=QuestionType.LOGIC,
             difficulty=DifficultyLevel.MEDIUM,
             count=5,
             distribute_providers=False,
@@ -126,7 +126,7 @@ class TestQuestionGenerationPipeline:
         mock_batch = Mock(spec=GenerationBatch)
         mock_question = Mock()
         mock_question.source_llm = "openai"
-        mock_question.question_type = QuestionType.MATHEMATICAL
+        mock_question.question_type = QuestionType.MATH
         mock_question.difficulty_level = DifficultyLevel.EASY
         mock_batch.questions = [mock_question] * 5
 
@@ -155,7 +155,7 @@ class TestQuestionGenerationPipeline:
 
         result = pipeline.run_generation_job(
             questions_per_run=10,
-            question_types=[QuestionType.MATHEMATICAL, QuestionType.LOGICAL_REASONING],
+            question_types=[QuestionType.MATH, QuestionType.LOGIC],
         )
 
         # Should only generate for specified types

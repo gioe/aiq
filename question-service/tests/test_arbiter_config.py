@@ -21,31 +21,31 @@ def valid_config_dict():
     return {
         "version": "1.0",
         "arbiters": {
-            "mathematical": {
+            "math": {
                 "model": "gpt-4-turbo",
                 "provider": "openai",
                 "rationale": "Strong math performance",
                 "enabled": True,
             },
-            "logical_reasoning": {
+            "logic": {
                 "model": "claude-3-5-sonnet-20241022",
                 "provider": "anthropic",
                 "rationale": "Excellent reasoning",
                 "enabled": True,
             },
-            "pattern_recognition": {
+            "pattern": {
                 "model": "gpt-4-turbo",
                 "provider": "openai",
                 "rationale": "Good pattern recognition",
                 "enabled": True,
             },
-            "spatial_reasoning": {
+            "spatial": {
                 "model": "claude-3-5-sonnet-20241022",
                 "provider": "anthropic",
                 "rationale": "Spatial reasoning",
                 "enabled": True,
             },
-            "verbal_reasoning": {
+            "verbal": {
                 "model": "claude-3-5-sonnet-20241022",
                 "provider": "anthropic",
                 "rationale": "Verbal skills",
@@ -198,12 +198,12 @@ class TestArbiterConfig:
     def test_missing_required_question_type(self, valid_config_dict):
         """Test that missing required question types raise error."""
         # Remove a required question type
-        del valid_config_dict["arbiters"]["mathematical"]
+        del valid_config_dict["arbiters"]["math"]
 
         with pytest.raises(ValidationError) as exc_info:
             ArbiterConfig(**valid_config_dict)
         assert "Missing required question types" in str(exc_info.value)
-        assert "mathematical" in str(exc_info.value)
+        assert "math" in str(exc_info.value)
 
     def test_invalid_min_score(self, valid_config_dict):
         """Test that invalid min_arbiter_score raises error."""
@@ -245,7 +245,7 @@ class TestArbiterConfigLoader:
         loader = ArbiterConfigLoader(valid_config_file)
         loader.load()
 
-        arbiter = loader.get_arbiter_for_question_type("mathematical")
+        arbiter = loader.get_arbiter_for_question_type("math")
         assert arbiter.model == "gpt-4-turbo"
         assert arbiter.provider == "openai"
 
@@ -264,7 +264,7 @@ class TestArbiterConfigLoader:
         with open(valid_config_file, "r") as f:
             config_dict = yaml.safe_load(f)
 
-        config_dict["arbiters"]["mathematical"]["enabled"] = False
+        config_dict["arbiters"]["math"]["enabled"] = False
 
         with open(valid_config_file, "w") as f:
             yaml.dump(config_dict, f)
@@ -272,7 +272,7 @@ class TestArbiterConfigLoader:
         loader = ArbiterConfigLoader(valid_config_file)
         loader.load()
 
-        arbiter = loader.get_arbiter_for_question_type("mathematical")
+        arbiter = loader.get_arbiter_for_question_type("math")
         # Should fall back to default
         assert arbiter == loader.config.default_arbiter
 
@@ -283,11 +283,11 @@ class TestArbiterConfigLoader:
 
         types = loader.get_all_question_types()
         assert len(types) == 6
-        assert "mathematical" in types
-        assert "logical_reasoning" in types
-        assert "pattern_recognition" in types
-        assert "spatial_reasoning" in types
-        assert "verbal_reasoning" in types
+        assert "math" in types
+        assert "logic" in types
+        assert "pattern" in types
+        assert "spatial" in types
+        assert "verbal" in types
         assert "memory" in types
 
     def test_get_evaluation_criteria(self, valid_config_file):

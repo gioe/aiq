@@ -15,7 +15,7 @@ class TestBuildGenerationPrompt:
     def test_build_single_question_prompt(self):
         """Test building a prompt for a single question."""
         prompt = build_generation_prompt(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.EASY,
             count=1,
         )
@@ -29,12 +29,12 @@ class TestBuildGenerationPrompt:
     def test_build_multiple_questions_prompt(self):
         """Test building a prompt for multiple questions."""
         prompt = build_generation_prompt(
-            question_type=QuestionType.LOGICAL_REASONING,
+            question_type=QuestionType.LOGIC,
             difficulty=DifficultyLevel.HARD,
             count=5,
         )
 
-        assert "logical_reasoning" in prompt.lower()
+        assert "logic" in prompt.lower()
         assert "hard" in prompt.lower()
         assert "Generate 5 unique" in prompt
         assert "array of question objects" in prompt.lower()
@@ -55,7 +55,7 @@ class TestBuildGenerationPrompt:
         """Test that prompt contains difficulty-specific instructions."""
         for difficulty in DifficultyLevel:
             prompt = build_generation_prompt(
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty=difficulty,
                 count=1,
             )

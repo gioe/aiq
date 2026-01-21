@@ -27,31 +27,31 @@ def mock_arbiter_config():
     config = ArbiterConfig(
         version="1.0.0",
         arbiters={
-            "mathematical": ArbiterModel(
+            "math": ArbiterModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Strong math performance",
                 enabled=True,
             ),
-            "logical_reasoning": ArbiterModel(
+            "logic": ArbiterModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Excellent reasoning",
                 enabled=True,
             ),
-            "pattern_recognition": ArbiterModel(
+            "pattern": ArbiterModel(
                 model="gemini-pro",
                 provider="google",
                 rationale="Good pattern detection",
                 enabled=True,
             ),
-            "spatial_reasoning": ArbiterModel(
+            "spatial": ArbiterModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Spatial capabilities",
                 enabled=True,
             ),
-            "verbal_reasoning": ArbiterModel(
+            "verbal": ArbiterModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Language strength",
@@ -97,7 +97,7 @@ def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
         question_text="What is 2 + 2?",
-        question_type=QuestionType.MATHEMATICAL,
+        question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
         correct_answer="4",
         answer_options=["2", "3", "4", "5"],
@@ -376,7 +376,7 @@ class TestQuestionArbiter:
         # Create batch with 3 questions
         batch = GenerationBatch(
             questions=[sample_question, sample_question, sample_question],
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             batch_size=3,
             generation_timestamp="2024-01-01T00:00:00Z",
         )
@@ -417,7 +417,7 @@ class TestQuestionArbiter:
         # Create batch with 3 questions
         batch = GenerationBatch(
             questions=[sample_question, sample_question, sample_question],
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             batch_size=3,
             generation_timestamp="2024-01-01T00:00:00Z",
         )
@@ -460,7 +460,7 @@ class TestQuestionArbiter:
         # Create batch with 3 questions
         batch = GenerationBatch(
             questions=[sample_question, sample_question, sample_question],
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             batch_size=3,
             generation_timestamp="2024-01-01T00:00:00Z",
         )
@@ -534,8 +534,8 @@ class TestQuestionArbiter:
         assert criteria["creativity"] == 0.15
 
         # Check arbiters
-        assert "mathematical" in stats["arbiters"]
-        assert stats["arbiters"]["mathematical"]["provider"] == "openai"
+        assert "math" in stats["arbiters"]
+        assert stats["arbiters"]["math"]["provider"] == "openai"
 
 
 class TestArbiterIntegration:
@@ -545,9 +545,9 @@ class TestArbiterIntegration:
     def questions_by_type(self):
         """Create sample questions for each type."""
         return {
-            QuestionType.MATHEMATICAL: GeneratedQuestion(
+            QuestionType.MATH: GeneratedQuestion(
                 question_text="If x + 5 = 12, what is x?",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="7",
                 answer_options=["5", "6", "7", "8"],
@@ -555,9 +555,9 @@ class TestArbiterIntegration:
                 source_llm="openai",
                 source_model="gpt-4",
             ),
-            QuestionType.LOGICAL_REASONING: GeneratedQuestion(
+            QuestionType.LOGIC: GeneratedQuestion(
                 question_text="All cats are animals. Some animals are pets. Therefore...",
-                question_type=QuestionType.LOGICAL_REASONING,
+                question_type=QuestionType.LOGIC,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 correct_answer="Some cats might be pets",
                 answer_options=[
@@ -607,11 +607,11 @@ class TestArbiterIntegration:
         arbiter.providers["anthropic"] = mock_anthropic_instance
 
         # Evaluate mathematical question (should use OpenAI per config)
-        math_q = questions_by_type[QuestionType.MATHEMATICAL]
+        math_q = questions_by_type[QuestionType.MATH]
         evaluated_math = arbiter.evaluate_question(math_q)
         assert "openai" in evaluated_math.arbiter_model
 
         # Evaluate logical reasoning question (should use Anthropic per config)
-        logic_q = questions_by_type[QuestionType.LOGICAL_REASONING]
+        logic_q = questions_by_type[QuestionType.LOGIC]
         evaluated_logic = arbiter.evaluate_question(logic_q)
         assert "anthropic" in evaluated_logic.arbiter_model

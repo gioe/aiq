@@ -14,7 +14,7 @@
 version: "1.0"
 
 arbiters:
-  mathematical:
+  math:
     model: "grok-4"
     provider: "xai"
     rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning with perfect scores on advanced math competitions."
@@ -25,7 +25,7 @@ arbiters:
       MMLU: "92.1%"
     enabled: true
 
-  logical_reasoning:
+  logic:
     model: "claude-sonnet-4-5"
     provider: "anthropic"
     rationale: "Best-in-class logical reasoning: HumanEval (93.7%), GPQA (67.2%). Claude 3.5 Sonnet demonstrates superior performance on coding logic and graduate-level reasoning tasks."
@@ -35,7 +35,7 @@ arbiters:
       MMLU: "90.4%"
     enabled: true
 
-  pattern_recognition:
+  pattern:
     model: "claude-sonnet-4-5"
     provider: "anthropic"
     rationale: "Superior abstract reasoning: GPQA (67.2%), MMLU (90.4%). Claude 3.5 Sonnet excels at identifying patterns in complex reasoning tasks, significantly outperforming alternatives."
@@ -44,7 +44,7 @@ arbiters:
       MMLU: "90.4%"
     enabled: true
 
-  spatial_reasoning:
+  spatial:
     model: "claude-sonnet-4-5"
     provider: "anthropic"
     rationale: "Strong general reasoning capabilities with GPQA (67.2%) and MMLU (90.4%) scores. While spatial-specific benchmarks are limited, Claude 3.5 Sonnet's reasoning strength makes it ideal for spatial tasks."
@@ -53,7 +53,7 @@ arbiters:
       MMLU: "90.4%"
     enabled: true
 
-  verbal_reasoning:
+  verbal:
     model: "claude-sonnet-4-5"
     provider: "anthropic"
     rationale: "Exceptional language understanding: MMLU (90.4%), strong performance on HellaSwag and WinoGrande. Claude 3.5 Sonnet leads in natural language reasoning and comprehension tasks."

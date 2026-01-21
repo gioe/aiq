@@ -11,13 +11,17 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class QuestionType(str, Enum):
-    """Types of IQ test questions."""
+    """Types of IQ test questions.
 
-    PATTERN_RECOGNITION = "pattern_recognition"
-    LOGICAL_REASONING = "logical_reasoning"
-    SPATIAL_REASONING = "spatial_reasoning"
-    MATHEMATICAL = "mathematical"
-    VERBAL_REASONING = "verbal_reasoning"
+    Values match backend enum (backend/app/models/models.py) to eliminate
+    mapping code and ensure data consistency across services.
+    """
+
+    PATTERN = "pattern"
+    LOGIC = "logic"
+    SPATIAL = "spatial"
+    MATH = "math"
+    VERBAL = "verbal"
     MEMORY = "memory"
 
 
