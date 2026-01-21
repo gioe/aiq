@@ -17,14 +17,13 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     CheckConstraint,
-    ARRAY,
-    Float,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSON
 
 from app.core.datetime_utils import utc_now
 from .base import Base
+from .types import FloatArray
 
 
 class QuestionType(str, enum.Enum):
@@ -268,10 +267,10 @@ class Question(Base):
     # Embedding storage (TASK-433)
     # Pre-computed text embedding for semantic deduplication
     # Uses text-embedding-3-small model (1536 dimensions)
-    # Stored as PostgreSQL ARRAY for efficient similarity comparisons
+    # Uses FloatArray type: PostgreSQL ARRAY for production, JSON for SQLite tests
     # NULL for questions created before embedding storage was implemented
     question_embedding: Mapped[Optional[List[float]]] = mapped_column(
-        ARRAY(Float), nullable=True
+        FloatArray(), nullable=True
     )  # Embedding vector for semantic similarity (1536 dimensions)
     # Computed once at question creation time using OpenAI text-embedding-3-small
     # Enables efficient duplicate detection without recomputing embeddings
