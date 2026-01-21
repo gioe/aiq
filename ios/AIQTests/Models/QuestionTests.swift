@@ -256,6 +256,15 @@ final class QuestionTests: XCTestCase {
         XCTAssertFalse(question.isMultipleChoice)
     }
 
+    func testIsMultipleChoiceWithSingleOption() throws {
+        // A question with only one option is not considered "multiple choice"
+        // but it does have options available
+        let question = try createValidQuestion(answerOptions: ["Only Option"])
+
+        XCTAssertFalse(question.isMultipleChoice)
+        XCTAssertTrue(question.hasOptions)
+    }
+
     func testHasOptionsWithOptions() throws {
         let question = try createValidQuestion(answerOptions: ["Option 1", "Option 2"])
 
@@ -990,14 +999,16 @@ final class QuestionTests: XCTestCase {
         questionText: String = "Test question",
         questionType: String = "pattern",
         difficultyLevel: String = "medium",
-        answerOptions _: [String]? = nil,
-        explanation _: String? = nil
+        answerOptions: [String]? = nil,
+        explanation: String? = nil
     ) throws -> Question {
         MockDataFactory.makeQuestion(
             id: id,
             questionText: questionText,
             questionType: questionType,
-            difficultyLevel: difficultyLevel
+            difficultyLevel: difficultyLevel,
+            answerOptions: answerOptions,
+            explanation: explanation
         )
     }
 

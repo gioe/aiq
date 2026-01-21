@@ -13,8 +13,8 @@ import Foundation
 /// - questionText: String (mapped from question_text)
 /// - questionType: String (raw string like "pattern", "logic")
 /// - difficultyLevel: String (raw string like "easy", "medium", "hard")
-/// - answerOptions: May have limited availability depending on OpenAPI generator version
-/// - explanation: May have limited availability depending on OpenAPI generator version
+/// - answerOptions: [String]? (optional array for multiple choice questions)
+/// - explanation: String? (optional explanation for the correct answer)
 ///
 /// **Note:** The generated type uses String for questionType and difficultyLevel instead of enums.
 /// Extensions handle string comparisons for these properties.
