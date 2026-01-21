@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .circuit_breaker import (
+    get_circuit_breaker_registry,
+    reset_circuit_breaker_registry,
+)
 from .cost_tracking import get_cost_tracker, reset_cost_tracker
 from .error_classifier import ClassifiedError
 from .providers.base import get_retry_metrics, reset_retry_metrics
@@ -35,9 +39,10 @@ class MetricsTracker:
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
 
-        # Reset retry metrics and cost tracking
+        # Reset retry metrics, cost tracking, and circuit breakers
         reset_retry_metrics()
         reset_cost_tracker()
+        reset_circuit_breaker_registry()
 
         # Generation metrics
         self.questions_requested = 0
@@ -393,6 +398,7 @@ class MetricsTracker:
                 ),
             },
             "retry": get_retry_metrics().get_summary(),
+            "circuit_breaker": get_circuit_breaker_registry().get_all_stats(),
         }
 
         return summary
@@ -486,6 +492,21 @@ class MetricsTracker:
             print(f"  Exhausted Retries:  {retry['exhausted_retries']}")
             print(f"  Retry Success Rate: {retry['success_rate']:.1%}")
             print(f"  By Provider: {retry['retries_by_provider']}")
+
+        # Circuit breaker stats
+        circuit_breaker = summary.get("circuit_breaker", {})
+        if circuit_breaker:
+            print("\nCircuit Breaker Status:")
+            for provider, cb_stats in circuit_breaker.items():
+                state = cb_stats.get("state", "unknown")
+                total_calls = cb_stats.get("total_calls", 0)
+                total_failures = cb_stats.get("total_failures", 0)
+                error_rate = cb_stats.get("error_rate", 0.0)
+                print(
+                    f"  {provider}: {state.upper()} "
+                    f"(calls={total_calls}, failures={total_failures}, "
+                    f"error_rate={error_rate:.1%})"
+                )
 
         # Overall
         overall = summary["overall"]

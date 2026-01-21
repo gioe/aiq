@@ -62,6 +62,20 @@ class Settings(BaseSettings):
     provider_retry_max_delay: float = 60.0  # Maximum delay between retries in seconds
     provider_retry_exponential_base: float = 2.0  # Multiplier for exponential backoff
 
+    # Circuit Breaker Configuration
+    circuit_breaker_enabled: bool = True  # Enable/disable circuit breaker
+    circuit_breaker_failure_threshold: int = (
+        5  # Consecutive failures before opening circuit
+    )
+    circuit_breaker_error_rate_threshold: float = (
+        0.5  # Error rate (0.0-1.0) to open circuit
+    )
+    circuit_breaker_recovery_timeout: float = 60.0  # Seconds before attempting recovery
+    circuit_breaker_success_threshold: int = (
+        2  # Successes in half-open to close circuit
+    )
+    circuit_breaker_window_size: int = 10  # Sliding window for error rate calculation
+
     # Deduplication Configuration
     dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
     dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
