@@ -278,6 +278,18 @@ private struct DashboardTabNavigationView: View {
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)
+                .onAppear {
+                    let error = NSError(
+                        domain: "com.aiq.navigation",
+                        code: 1001,
+                        userInfo: [NSLocalizedDescriptionKey: "Unimplemented route in DashboardTab: \(route)"]
+                    )
+                    CrashlyticsErrorRecorder.recordError(
+                        error,
+                        context: .unimplementedRoute,
+                        additionalInfo: ["tab": "dashboard", "route": String(describing: route)]
+                    )
+                }
         }
     }
 }
@@ -306,6 +318,18 @@ private struct HistoryTabNavigationView: View {
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)
+                .onAppear {
+                    let error = NSError(
+                        domain: "com.aiq.navigation",
+                        code: 1001,
+                        userInfo: [NSLocalizedDescriptionKey: "Unimplemented route in HistoryTab: \(route)"]
+                    )
+                    CrashlyticsErrorRecorder.recordError(
+                        error,
+                        context: .unimplementedRoute,
+                        additionalInfo: ["tab": "history", "route": String(describing: route)]
+                    )
+                }
         }
     }
 }
@@ -338,6 +362,18 @@ private struct SettingsTabNavigationView: View {
         default:
             Text("Route not implemented")
                 .foregroundColor(.secondary)
+                .onAppear {
+                    let error = NSError(
+                        domain: "com.aiq.navigation",
+                        code: 1001,
+                        userInfo: [NSLocalizedDescriptionKey: "Unimplemented route in SettingsTab: \(route)"]
+                    )
+                    CrashlyticsErrorRecorder.recordError(
+                        error,
+                        context: .unimplementedRoute,
+                        additionalInfo: ["tab": "settings", "route": String(describing: route)]
+                    )
+                }
         }
     }
 }
