@@ -17,6 +17,8 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     CheckConstraint,
+    ARRAY,
+    Float,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSON
@@ -262,6 +264,18 @@ class Question(Base):
     )  # Timestamp when quality_flag was last updated
     # NULL for questions that have never been flagged (always "normal")
     # Used for audit trail and to identify recently flagged questions
+
+    # Embedding storage (TASK-433)
+    # Pre-computed text embedding for semantic deduplication
+    # Uses text-embedding-3-small model (1536 dimensions)
+    # Stored as PostgreSQL ARRAY for efficient similarity comparisons
+    # NULL for questions created before embedding storage was implemented
+    question_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        ARRAY(Float), nullable=True
+    )  # Embedding vector for semantic similarity (1536 dimensions)
+    # Computed once at question creation time using OpenAI text-embedding-3-small
+    # Enables efficient duplicate detection without recomputing embeddings
+    # Format: Array of 1536 float values representing semantic meaning
 
     # Relationships
     responses: Mapped[List["Response"]] = relationship(back_populates="question")
