@@ -160,7 +160,10 @@ class Question(Base):
     )  # Flexible field for additional data
     source_llm: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
-    )  # Which LLM generated this question
+    )  # Which LLM generated this question (provider: "openai", "anthropic", "google")
+    source_model: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # Specific model identifier (e.g., "gpt-4-turbo", "claude-3-opus")
     arbiter_score: Mapped[Optional[float]] = mapped_column(
         nullable=True
     )  # Quality score from arbiter LLM
