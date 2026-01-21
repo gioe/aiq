@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 from ..config import settings
+from ..cost_tracking import CompletionResult, TokenUsage, get_cost_tracker
 from ..error_classifier import ClassifiedError, ErrorClassifier
 
 logger = logging.getLogger(__name__)
@@ -335,6 +336,180 @@ class BaseLLMProvider(ABC):
             This is often an approximation and may vary by model.
         """
         pass
+
+    def generate_completion_with_usage(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Generate a completion and track token usage.
+
+        This is the preferred method for generation as it tracks costs.
+        Subclasses should override _generate_completion_internal to provide
+        actual token usage from the API response.
+
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Sampling temperature (0.0 to 1.0)
+            max_tokens: Maximum number of tokens to generate
+            model_override: Optional model to use instead of the provider's default
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            CompletionResult with content and token usage
+        """
+        result = self._generate_completion_internal(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_override=model_override,
+            **kwargs,
+        )
+
+        # Record usage in global tracker if available
+        if result.token_usage:
+            get_cost_tracker().record_usage(result.token_usage)
+
+        return result
+
+    def generate_structured_completion_with_usage(
+        self,
+        prompt: str,
+        response_format: Dict[str, Any],
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Generate a structured completion and track token usage.
+
+        This is the preferred method for structured generation as it tracks costs.
+        Subclasses should override _generate_structured_completion_internal to provide
+        actual token usage from the API response.
+
+        Args:
+            prompt: The prompt to send to the model
+            response_format: JSON schema for the expected response
+            temperature: Sampling temperature (0.0 to 1.0)
+            max_tokens: Maximum number of tokens to generate
+            model_override: Optional model to use instead of the provider's default
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            CompletionResult with parsed JSON content and token usage
+        """
+        result = self._generate_structured_completion_internal(
+            prompt=prompt,
+            response_format=response_format,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_override=model_override,
+            **kwargs,
+        )
+
+        # Record usage in global tracker if available
+        if result.token_usage:
+            get_cost_tracker().record_usage(result.token_usage)
+
+        return result
+
+    def _generate_completion_internal(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Internal method to generate completion with token usage.
+
+        Subclasses should override this to extract actual token usage from API responses.
+        Default implementation falls back to generate_completion with estimated tokens.
+
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            model_override: Optional model override
+            **kwargs: Additional parameters
+
+        Returns:
+            CompletionResult with content and token usage (may be estimated)
+        """
+        content = self.generate_completion(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_override=model_override,
+            **kwargs,
+        )
+
+        # Estimate token usage if not provided by subclass
+        model = model_override or self.model
+        token_usage = TokenUsage(
+            input_tokens=self.count_tokens(prompt),
+            output_tokens=self.count_tokens(content),
+            model=model,
+            provider=self.get_provider_name(),
+        )
+
+        return CompletionResult(content=content, token_usage=token_usage)
+
+    def _generate_structured_completion_internal(
+        self,
+        prompt: str,
+        response_format: Dict[str, Any],
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        model_override: Optional[str] = None,
+        **kwargs: Any,
+    ) -> CompletionResult:
+        """
+        Internal method to generate structured completion with token usage.
+
+        Subclasses should override this to extract actual token usage from API responses.
+        Default implementation falls back to generate_structured_completion with estimated tokens.
+
+        Args:
+            prompt: The prompt to send to the model
+            response_format: JSON schema for the expected response
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            model_override: Optional model override
+            **kwargs: Additional parameters
+
+        Returns:
+            CompletionResult with parsed JSON content and token usage (may be estimated)
+        """
+        import json
+
+        content = self.generate_structured_completion(
+            prompt=prompt,
+            response_format=response_format,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_override=model_override,
+            **kwargs,
+        )
+
+        # Estimate token usage if not provided by subclass
+        model = model_override or self.model
+        # For structured completion, the prompt includes the schema
+        full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
+        token_usage = TokenUsage(
+            input_tokens=self.count_tokens(full_prompt),
+            output_tokens=self.count_tokens(json.dumps(content)),
+            model=model,
+            provider=self.get_provider_name(),
+        )
+
+        return CompletionResult(content=content, token_usage=token_usage)
 
     def get_provider_name(self) -> str:
         """

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .cost_tracking import get_cost_tracker, reset_cost_tracker
 from .error_classifier import ClassifiedError
 from .providers.base import get_retry_metrics, reset_retry_metrics
 
@@ -34,8 +35,9 @@ class MetricsTracker:
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
 
-        # Reset retry metrics
+        # Reset retry metrics and cost tracking
         reset_retry_metrics()
+        reset_cost_tracker()
 
         # Generation metrics
         self.questions_requested = 0
@@ -368,6 +370,7 @@ class MetricsTracker:
                 "total_calls": self.total_api_calls,
                 "by_provider": dict(self.api_calls_by_provider),
             },
+            "cost": get_cost_tracker().get_summary(),
             "error_classification": {
                 "by_category": dict(self.errors_by_category),
                 "by_severity": dict(self.errors_by_severity),
@@ -450,6 +453,20 @@ class MetricsTracker:
         print("\nAPI Usage:")
         print(f"  Total Calls: {api['total_calls']}")
         print(f"  By Provider: {api['by_provider']}")
+
+        # Cost tracking
+        cost = summary["cost"]
+        print("\nCost Tracking:")
+        print(f"  Total Cost: ${cost['total_cost_usd']:.4f}")
+        print(f"  Total Tokens: {cost['total_tokens']:,}")
+        print(f"    Input:  {cost['total_input_tokens']:,}")
+        print(f"    Output: {cost['total_output_tokens']:,}")
+        if cost["by_provider"]:
+            print("  By Provider:")
+            for provider, pdata in cost["by_provider"].items():
+                print(
+                    f"    {provider}: ${pdata['total_cost_usd']:.4f} ({pdata['total_tokens']:,} tokens)"
+                )
 
         # Error classification
         error_class = summary["error_classification"]
