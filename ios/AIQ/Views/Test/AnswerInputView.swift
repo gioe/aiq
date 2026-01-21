@@ -231,7 +231,8 @@ private struct OptionButton: View {
             id: 1,
             questionText: "Which word doesn't belong?",
             questionType: "logic",
-            difficultyLevel: "easy"
+            difficultyLevel: "easy",
+            answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
         ),
         userAnswer: .constant("Carrot")
     )

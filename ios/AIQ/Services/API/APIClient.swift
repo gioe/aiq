@@ -4,31 +4,21 @@ import Foundation
 
 //
 // The AIQAPIClient package contains OpenAPI-generated types (Components.Schemas.*)
-// that will eventually replace the manual types in ios/AIQ/Models/.
+// that are now used directly via typealiases in ios/AIQ/Models/.
 //
-// Current Limitation:
-// The Swift OpenAPI Generator (v1.10.4) does not support nullable types using
-// `anyOf: [type, null]` format (see docs/api/openapi.json for examples). This
-// causes optional fields like `confidenceInterval`, `domainScores`, `answerOptions`,
-// `timeSpentSeconds`, etc. to be omitted from generated types.
+// Migration Status:
+// The Swift OpenAPI Generator now correctly generates nullable types for optional fields.
+// Most types have been migrated to use generated types via typealiases (see Models/).
 //
-// Tracking: https://github.com/apple/swift-openapi-generator/issues
-// When nullable types are supported, execute migration plan below.
-//
-// Planned Migration Path (preferred: Option 1):
-// 1. Wait for Swift OpenAPI Generator to support nullable types (recommended)
-// 2. Alternative: Update backend OpenAPI spec to use a different nullable format
-// 3. Once generated types are complete, replace manual types with typealiases
-//
-// Type Mappings (for future migration):
+// Type Mappings (completed migrations marked with ✓):
+// - ✓ Question → Components.Schemas.QuestionResponse (includes answerOptions, explanation)
+// - ✓ QuestionResponse → Components.Schemas.ResponseItem
+// - ✓ TestSession → Components.Schemas.TestSessionResponse
+// - ✓ TestResult → Components.Schemas.TestResultResponse
 // - LoginRequest → Components.Schemas.UserLogin
 // - RegisterRequest → Components.Schemas.UserRegister
 // - AuthResponse → Components.Schemas.Token
 // - User → Components.Schemas.UserResponse
-// - Question → Components.Schemas.QuestionResponse
-// - QuestionResponse → Components.Schemas.ResponseItem
-// - TestSession → Components.Schemas.TestSessionResponse
-// - TestResult → Components.Schemas.TestResultResponse
 // - Feedback → Components.Schemas.FeedbackSubmitRequest
 //
 // See OpenAPIClientAdapter.swift for using the generated OpenAPI client directly.

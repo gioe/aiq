@@ -990,14 +990,16 @@ final class QuestionTests: XCTestCase {
         questionText: String = "Test question",
         questionType: String = "pattern",
         difficultyLevel: String = "medium",
-        answerOptions _: [String]? = nil,
-        explanation _: String? = nil
+        answerOptions: [String]? = nil,
+        explanation: String? = nil
     ) throws -> Question {
         MockDataFactory.makeQuestion(
             id: id,
             questionText: questionText,
             questionType: questionType,
-            difficultyLevel: difficultyLevel
+            difficultyLevel: difficultyLevel,
+            answerOptions: answerOptions,
+            explanation: explanation
         )
     }
 

@@ -78,14 +78,26 @@ enum MockDataFactory {
     // MARK: - Question Mock Data
 
     /// Creates a mock Question for previews.
+    ///
+    /// - Parameters:
+    ///   - id: Question ID
+    ///   - questionText: The question text
+    ///   - questionType: Type of question (pattern, logic, math, verbal, spatial, memory)
+    ///   - difficultyLevel: Difficulty level (easy, medium, hard)
+    ///   - answerOptions: Optional array of answer options for multiple choice questions
+    ///   - explanation: Optional explanation for the correct answer
     static func makeQuestion(
         id: Int,
         questionText: String,
         questionType: String,
-        difficultyLevel: String
+        difficultyLevel: String,
+        answerOptions: [String]? = nil,
+        explanation: String? = nil
     ) -> Question {
         Components.Schemas.QuestionResponse(
+            answerOptions: answerOptions,
             difficultyLevel: difficultyLevel,
+            explanation: explanation,
             id: id,
             questionText: questionText,
             questionType: questionType
@@ -175,19 +187,23 @@ enum MockDataFactory {
                 id: 1,
                 questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange?",
                 questionType: "logic",
-                difficultyLevel: "easy"
+                difficultyLevel: "easy",
+                answerOptions: ["Apple", "Banana", "Carrot", "Orange"],
+                explanation: "Carrot is a vegetable, while the others are fruits."
             ),
             makeQuestion(
                 id: 2,
                 questionText: "What is 15% of 200?",
                 questionType: "math",
-                difficultyLevel: "easy"
+                difficultyLevel: "easy",
+                explanation: "15% of 200 = 0.15 × 200 = 30"
             ),
             makeQuestion(
                 id: 3,
                 questionText: "What number comes next: 2, 4, 8, 16, ?",
                 questionType: "pattern",
-                difficultyLevel: "medium"
+                difficultyLevel: "medium",
+                explanation: "Each number doubles the previous one. 16 × 2 = 32"
             )
         ]
     }
