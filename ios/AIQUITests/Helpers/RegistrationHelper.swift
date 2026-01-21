@@ -23,9 +23,9 @@ import XCTest
 /// registrationHelper.submitRegistration()
 /// ```
 ///
-/// Note: Accessibility identifiers are implemented in `AccessibilityIdentifiers.swift`.
-/// This helper uses a mix of identifiers (e.g., educationLevelButton) and labels.
-/// Migration to use more identifiers is recommended for more reliable element queries.
+/// Note: This helper uses accessibility identifiers for all registration form elements,
+/// matching those defined in `AccessibilityIdentifiers.RegistrationView`. This ensures
+/// reliable element queries that are not affected by localization or copy changes.
 class RegistrationHelper {
     // MARK: - Properties
 
@@ -33,71 +33,85 @@ class RegistrationHelper {
     private let timeout: TimeInterval
     private let networkTimeout: TimeInterval
 
+    // MARK: - Accessibility Identifiers
+
+    /// Accessibility identifiers for registration form elements.
+    /// These match the identifiers defined in AccessibilityIdentifiers.RegistrationView.
+    private enum Identifiers {
+        static let firstNameTextField = "registrationView.firstNameTextField"
+        static let lastNameTextField = "registrationView.lastNameTextField"
+        static let emailTextField = "registrationView.emailTextField"
+        static let passwordTextField = "registrationView.passwordTextField"
+        static let confirmPasswordTextField = "registrationView.confirmPasswordTextField"
+        static let birthYearTextField = "registrationView.birthYearTextField"
+        static let countryTextField = "registrationView.countryTextField"
+        static let regionTextField = "registrationView.regionTextField"
+        static let educationLevelButton = "registrationView.educationLevelButton"
+        static let createAccountButton = "registrationView.createAccountButton"
+        static let signInLink = "registrationView.signInLink"
+    }
+
     // MARK: - UI Element Queries
 
-    // Note: Uses mix of accessibility identifiers and labels - see AccessibilityIdentifiers.swift
-
     /// Create Account button on Welcome screen
+    /// Uses accessibility label since this is on WelcomeView, not RegistrationView
     var createAccountButton: XCUIElement {
         app.buttons["Create Account"]
     }
 
-    /// First Name text field
+    /// First Name text field (uses accessibility identifier)
     var firstNameTextField: XCUIElement {
-        app.textFields["First Name"]
+        app.textFields[Identifiers.firstNameTextField]
     }
 
-    /// Last Name text field
+    /// Last Name text field (uses accessibility identifier)
     var lastNameTextField: XCUIElement {
-        app.textFields["Last Name"]
+        app.textFields[Identifiers.lastNameTextField]
     }
 
-    /// Email text field
+    /// Email text field (uses accessibility identifier)
     var emailTextField: XCUIElement {
-        app.textFields["Email"]
+        app.textFields[Identifiers.emailTextField]
     }
 
-    /// Password secure text field
+    /// Password secure text field (uses accessibility identifier)
     var passwordTextField: XCUIElement {
-        app.secureTextFields["Password"]
+        app.secureTextFields[Identifiers.passwordTextField]
     }
 
-    /// Confirm Password secure text field
+    /// Confirm Password secure text field (uses accessibility identifier)
     var confirmPasswordTextField: XCUIElement {
-        app.secureTextFields["Confirm Password"]
+        app.secureTextFields[Identifiers.confirmPasswordTextField]
     }
 
-    /// Birth Year text field (optional)
+    /// Birth Year text field (uses accessibility identifier)
     var birthYearTextField: XCUIElement {
-        app.textFields["Birth Year (Optional)"]
+        app.textFields[Identifiers.birthYearTextField]
     }
 
-    /// Country text field (optional)
+    /// Country text field (uses accessibility identifier)
     var countryTextField: XCUIElement {
-        app.textFields["Country (Optional)"]
+        app.textFields[Identifiers.countryTextField]
     }
 
-    /// Region text field (optional)
+    /// Region text field (uses accessibility identifier)
     var regionTextField: XCUIElement {
-        app.textFields["State/Region (Optional)"]
+        app.textFields[Identifiers.regionTextField]
     }
 
-    /// Education Level menu button (optional)
+    /// Education Level menu button (uses accessibility identifier)
     var educationLevelButton: XCUIElement {
-        app.buttons["registrationView.educationLevelButton"]
+        app.buttons[Identifiers.educationLevelButton]
     }
 
-    /// Submit button - uses "Create Account" label
-    /// - Note: There's also a text button with same label on welcome screen,
-    ///   but on the registration screen we target the main submit button.
-    ///   See ICG-144 for adding accessibility identifiers for more reliable queries.
+    /// Submit button (uses accessibility identifier)
     var submitButton: XCUIElement {
-        app.buttons["Create Account"]
+        app.buttons[Identifiers.createAccountButton]
     }
 
-    /// Sign In link (to go back to login)
+    /// Sign In link (uses accessibility identifier)
     var signInLink: XCUIElement {
-        app.buttons["Sign In"]
+        app.buttons[Identifiers.signInLink]
     }
 
     /// Registration screen icon

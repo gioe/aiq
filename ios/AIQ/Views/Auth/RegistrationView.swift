@@ -252,6 +252,7 @@ struct RegistrationView: View {
                             placeholder: "e.g., 1990",
                             text: $viewModel.birthYear,
                             keyboardType: .numbersAndPunctuation,
+                            accessibilityId: AccessibilityIdentifiers.RegistrationView.birthYearTextField,
                             submitLabel: .next,
                             onSubmit: { focusedField = .country }
                         )
@@ -307,6 +308,7 @@ struct RegistrationView: View {
                             placeholder: "e.g., United States",
                             text: $viewModel.country,
                             autocapitalization: .words,
+                            accessibilityId: AccessibilityIdentifiers.RegistrationView.countryTextField,
                             submitLabel: .next,
                             onSubmit: { focusedField = .region }
                         )
@@ -318,6 +320,7 @@ struct RegistrationView: View {
                             placeholder: "e.g., California",
                             text: $viewModel.region,
                             autocapitalization: .words,
+                            accessibilityId: AccessibilityIdentifiers.RegistrationView.regionTextField,
                             submitLabel: .done,
                             onSubmit: { focusedField = nil }
                         )
