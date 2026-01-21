@@ -85,9 +85,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Add request_id header to response for client-side correlation
             try:
                 response.headers["X-Request-ID"] = request_id
-            except Exception:
-                # Some response types don't support header modification
-                pass
+            except (AttributeError, TypeError, RuntimeError):
+                # Some response types (e.g., StreamingResponse) may not support header modification
+                logger.debug(
+                    f"Could not add X-Request-ID header to response type: {type(response).__name__}"
+                )
 
             # Log response with structured fields
             extra_fields = {

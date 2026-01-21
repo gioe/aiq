@@ -212,6 +212,7 @@ class TestSetupLogging:
         """Test that production environment uses JSON formatter."""
         mock_settings.ENV = "production"
         mock_settings.DEBUG = False
+        mock_settings.LOG_LEVEL = "INFO"
 
         with patch("logging.config.dictConfig") as mock_dictconfig:
             setup_logging()
@@ -224,6 +225,7 @@ class TestSetupLogging:
         """Test that development environment uses human-readable formatter."""
         mock_settings.ENV = "development"
         mock_settings.DEBUG = True
+        mock_settings.LOG_LEVEL = "DEBUG"
 
         with patch("logging.config.dictConfig") as mock_dictconfig:
             setup_logging()

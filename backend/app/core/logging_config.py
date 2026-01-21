@@ -11,7 +11,9 @@ from typing import Any, Dict, Optional
 
 from app.core.config import settings
 
-# Context variable for request ID correlation across async tasks
+# Context variable for request ID correlation across async tasks.
+# Used by RequestLoggingMiddleware to propagate request_id to all log entries
+# within an async request context, enabling log correlation across services.
 request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 
 
@@ -24,8 +26,10 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
+        # Use record.created for accurate timing (epoch timestamp when record was created)
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc)
         log_entry: Dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": timestamp.isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -71,11 +75,9 @@ def setup_logging() -> None:
     - Human-readable format for development
     - Request ID correlation via context variables
     """
-    log_level = getattr(
-        logging,
-        settings.ENV.upper() if hasattr(settings, "LOG_LEVEL") else "INFO",
-        logging.INFO,
-    )
+    # Get log level from settings if defined, otherwise default to INFO
+    log_level_name = getattr(settings, "LOG_LEVEL", "INFO")
+    log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 
     is_production = settings.ENV == "production"
 
