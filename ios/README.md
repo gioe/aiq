@@ -225,9 +225,11 @@ The server must host an `apple-app-site-association` file that tells iOS which a
 }
 ```
 
+**Note:** Replace `TEAMID` with your actual 10-character Apple Developer Team ID (e.g., `ABCD123456`).
+
 **Server requirements:**
 - File must be served over HTTPS with a valid certificate
-- Content-Type should be `application/json`
+- Content-Type should be `application/json` (or `application/pkcs7-mime` for signed AASA files)
 - File must be accessible without redirects (except HTTPS upgrade)
 - No authentication required to access the file
 
