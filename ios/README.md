@@ -180,8 +180,14 @@ The Associated Domains entitlement declares which domains the app handles:
 <key>com.apple.developer.associated-domains</key>
 <array>
     <string>applinks:aiq.app</string>
+    <string>applinks:dev.aiq.app</string>
 </array>
 ```
+
+| Domain | Purpose |
+|--------|---------|
+| `aiq.app` | Production domain |
+| `dev.aiq.app` | Development/staging domain for testing Universal Links |
 
 **Code implementation:**
 - `DeepLinkHandler.swift` - Parses URLs into structured navigation commands
@@ -233,12 +239,21 @@ The server must host an `apple-app-site-association` file that tells iOS which a
 - File must be accessible without redirects (except HTTPS upgrade)
 - No authentication required to access the file
 
+**Development domain (`dev.aiq.app`):**
+
+For Universal Links to work in staging environments, the dev domain needs its own AASA file:
+- **Required location:** `https://dev.aiq.app/.well-known/apple-app-site-association`
+- **Content:** Same format as production, with the same Team ID and Bundle ID
+
 **Validate deployment:**
 ```bash
-# Using the validation script (requires APNS_TEAM_ID env var)
+# Validate production domain (requires APNS_TEAM_ID env var)
 ./scripts/validate-universal-links.sh
 
-# Or with explicit parameters
+# Validate development domain
+./scripts/validate-universal-links.sh --team-id ABCD123456 --dev
+
+# Or with explicit domain
 ./scripts/validate-universal-links.sh --team-id ABCD123456 --domain aiq.app
 ```
 

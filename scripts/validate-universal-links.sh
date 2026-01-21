@@ -29,6 +29,7 @@ NC='\033[0m' # No Color
 # Default values
 DEFAULT_BUNDLE_ID="com.aiq.app"
 DEFAULT_DOMAIN="aiq.app"
+DEV_DOMAIN="dev.aiq.app"
 
 # Parse arguments
 TEAM_ID="${APNS_TEAM_ID:-}"
@@ -49,8 +50,12 @@ while [[ $# -gt 0 ]]; do
             DOMAIN="$2"
             shift 2
             ;;
+        --dev)
+            DOMAIN="$DEV_DOMAIN"
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--team-id TEAM_ID] [--bundle-id BUNDLE_ID] [--domain DOMAIN]"
+            echo "Usage: $0 [--team-id TEAM_ID] [--bundle-id BUNDLE_ID] [--domain DOMAIN] [--dev]"
             echo ""
             echo "Validates the apple-app-site-association file for Universal Links."
             echo ""
@@ -58,12 +63,18 @@ while [[ $# -gt 0 ]]; do
             echo "  --team-id     Apple Developer Team ID (10 characters)"
             echo "  --bundle-id   App bundle identifier (default: $DEFAULT_BUNDLE_ID)"
             echo "  --domain      Domain to check (default: $DEFAULT_DOMAIN)"
+            echo "  --dev         Use development domain ($DEV_DOMAIN)"
             echo "  --help, -h    Show this help message"
             echo ""
             echo "Environment Variables:"
             echo "  APNS_TEAM_ID  - Apple Developer Team ID (alternative to --team-id)"
             echo "  BUNDLE_ID     - App bundle identifier (alternative to --bundle-id)"
             echo "  DOMAIN        - Domain to check (alternative to --domain)"
+            echo ""
+            echo "Examples:"
+            echo "  $0 --team-id ABCD123456                    # Validate production domain"
+            echo "  $0 --team-id ABCD123456 --dev              # Validate dev domain"
+            echo "  $0 --team-id ABCD123456 --domain staging.aiq.app  # Validate custom domain"
             exit 0
             ;;
         *)
