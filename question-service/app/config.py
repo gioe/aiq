@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     prompt_version: Optional[str] = None  # Version of prompts used
     arbiter_config_version: Optional[str] = None  # Version of arbiter config
 
+    # Provider Retry Configuration
+    provider_max_retries: int = 3  # Max retry attempts for transient failures
+    provider_retry_base_delay: float = (
+        1.0  # Base delay in seconds for exponential backoff
+    )
+    provider_retry_max_delay: float = 60.0  # Maximum delay between retries in seconds
+    provider_retry_exponential_base: float = 2.0  # Multiplier for exponential backoff
+
 
 # Global settings instance
 settings = Settings()
