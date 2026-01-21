@@ -11,8 +11,15 @@ from typing import Any, Dict, Optional
 import httpx
 
 from .metrics import MetricsTracker
+from .type_mapping import normalize_difficulty_metrics, normalize_type_metrics
 
 logger = logging.getLogger(__name__)
+
+# Exit codes from run_generation.py
+EXIT_CODE_PARTIAL_FAILURE = 3
+
+# HTTP status codes
+HTTP_STATUS_CREATED = 201
 
 
 class RunReporter:
@@ -140,10 +147,14 @@ class RunReporter:
             "total_api_calls": api.get("total_calls", 0),
             # Breakdown by provider
             "provider_metrics": provider_metrics if provider_metrics else None,
-            # Breakdown by question type
-            "type_metrics": generation.get("by_type") or None,
-            # Breakdown by difficulty
-            "difficulty_metrics": generation.get("by_difficulty") or None,
+            # Breakdown by question type (normalized to canonical backend values)
+            "type_metrics": normalize_type_metrics(generation.get("by_type", {}))
+            or None,
+            # Breakdown by difficulty (normalized to canonical backend values)
+            "difficulty_metrics": normalize_difficulty_metrics(
+                generation.get("by_difficulty", {})
+            )
+            or None,
             # Error tracking
             "error_summary": error_summary if any(error_summary.values()) else None,
             # Configuration used
@@ -178,7 +189,7 @@ class RunReporter:
         """
         if exit_code == 0:
             return "success"
-        elif exit_code == 3:
+        elif exit_code == EXIT_CODE_PARTIAL_FAILURE:
             return "partial_failure"
         elif exit_code in (1, 2, 4, 5, 6):
             return "failed"
@@ -281,7 +292,7 @@ class RunReporter:
                     headers=self._get_headers(),
                 )
 
-                if response.status_code == 201:
+                if response.status_code == HTTP_STATUS_CREATED:
                     data = response.json()
                     run_id = data.get("id")
                     logger.info(f"Run reported successfully with ID: {run_id}")
@@ -346,7 +357,7 @@ class RunReporter:
                     headers=self._get_headers(),
                 )
 
-                if response.status_code == 201:
+                if response.status_code == HTTP_STATUS_CREATED:
                     data = response.json()
                     run_id = data.get("id")
                     logger.info(f"Run start reported with ID: {run_id}")
