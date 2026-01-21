@@ -61,6 +61,19 @@ class CircuitBreakerConfig:
     enabled: bool = True
     """Whether circuit breaker is enabled."""
 
+    def __post_init__(self) -> None:
+        """Validate configuration after initialization."""
+        if self.failure_threshold < 1:
+            raise ValueError("failure_threshold must be at least 1")
+        if not 0.0 <= self.error_rate_threshold <= 1.0:
+            raise ValueError("error_rate_threshold must be between 0.0 and 1.0")
+        if self.recovery_timeout < 0:
+            raise ValueError("recovery_timeout must be non-negative")
+        if self.success_threshold < 1:
+            raise ValueError("success_threshold must be at least 1")
+        if self.window_size < 1:
+            raise ValueError("window_size must be at least 1")
+
     @classmethod
     def from_settings(cls) -> "CircuitBreakerConfig":
         """Create config from application settings.

@@ -260,6 +260,7 @@ class QuestionGenerator:
 
         questions: List[GeneratedQuestion] = []
         skipped_providers: Dict[str, int] = {}
+        failed_questions: int = 0  # Track questions that couldn't be generated
 
         if distribute_across_providers and len(self.providers) > 1:
             # Distribute generation across available providers
@@ -280,6 +281,7 @@ class QuestionGenerator:
                         f"All providers became unavailable during batch generation "
                         f"({len(questions)}/{count} completed)"
                     )
+                    failed_questions += count - i
                     break
 
                 # Round-robin across available providers
@@ -317,11 +319,16 @@ class QuestionGenerator:
                             logger.error(
                                 f"Fallback provider {fallback_provider} also failed: {str(e)}"
                             )
+                            failed_questions += 1
+                    else:
+                        # No fallback available, question is lost
+                        failed_questions += 1
                 except Exception as e:
                     logger.error(
                         f"Failed to generate question {i+1}/{count} with "
                         f"{provider_name}: {str(e)}"
                     )
+                    failed_questions += 1
                     # Continue with next provider on failure
                     continue
         else:
@@ -337,6 +344,7 @@ class QuestionGenerator:
             for i in range(count):
                 if current_provider is None:
                     logger.warning("No more providers available, stopping batch")
+                    failed_questions += count - i
                     break
                 try:
                     question = self.generate_question(
@@ -352,10 +360,16 @@ class QuestionGenerator:
                         f"Circuit opened for {current_provider} during batch generation "
                         f"({len(questions)}/{count} completed)"
                     )
+                    skipped_providers[current_provider] = (
+                        skipped_providers.get(current_provider, 0) + 1
+                    )
                     # Try to find another available provider
                     current_provider = self._get_available_provider()
+                    if current_provider is None:
+                        failed_questions += 1
                 except Exception as e:
                     logger.error(f"Failed to generate question {i+1}/{count}: {str(e)}")
+                    failed_questions += 1
                     continue
 
         # Create batch
@@ -370,6 +384,7 @@ class QuestionGenerator:
                 "providers_used": list(set(q.source_llm for q in questions)),
                 "success_rate": len(questions) / count if count > 0 else 0.0,
                 "skipped_providers": skipped_providers,
+                "failed_questions": failed_questions,
                 "circuit_breaker_states": {
                     name: stats["state"]
                     for name, stats in circuit_breaker_stats.items()

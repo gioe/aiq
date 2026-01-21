@@ -48,6 +48,46 @@ class TestCircuitBreakerConfig:
         assert config.window_size == 5
         assert config.enabled is False
 
+    def test_invalid_failure_threshold(self):
+        """Test that failure_threshold must be at least 1."""
+        with pytest.raises(ValueError, match="failure_threshold must be at least 1"):
+            CircuitBreakerConfig(failure_threshold=0)
+
+    def test_invalid_error_rate_threshold_low(self):
+        """Test that error_rate_threshold must be >= 0."""
+        with pytest.raises(ValueError, match="error_rate_threshold must be between"):
+            CircuitBreakerConfig(error_rate_threshold=-0.1)
+
+    def test_invalid_error_rate_threshold_high(self):
+        """Test that error_rate_threshold must be <= 1.0."""
+        with pytest.raises(ValueError, match="error_rate_threshold must be between"):
+            CircuitBreakerConfig(error_rate_threshold=1.1)
+
+    def test_invalid_recovery_timeout(self):
+        """Test that recovery_timeout must be non-negative."""
+        with pytest.raises(ValueError, match="recovery_timeout must be non-negative"):
+            CircuitBreakerConfig(recovery_timeout=-1.0)
+
+    def test_invalid_success_threshold(self):
+        """Test that success_threshold must be at least 1."""
+        with pytest.raises(ValueError, match="success_threshold must be at least 1"):
+            CircuitBreakerConfig(success_threshold=0)
+
+    def test_invalid_window_size(self):
+        """Test that window_size must be at least 1."""
+        with pytest.raises(ValueError, match="window_size must be at least 1"):
+            CircuitBreakerConfig(window_size=0)
+
+    def test_boundary_error_rate_threshold_zero(self):
+        """Test that error_rate_threshold can be 0.0."""
+        config = CircuitBreakerConfig(error_rate_threshold=0.0)
+        assert config.error_rate_threshold == pytest.approx(0.0)
+
+    def test_boundary_error_rate_threshold_one(self):
+        """Test that error_rate_threshold can be 1.0."""
+        config = CircuitBreakerConfig(error_rate_threshold=1.0)
+        assert config.error_rate_threshold == pytest.approx(1.0)
+
     def test_from_settings(self):
         """Test that config can be created from settings."""
         config = CircuitBreakerConfig.from_settings()
