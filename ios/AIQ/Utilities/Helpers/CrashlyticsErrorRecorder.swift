@@ -56,6 +56,7 @@ enum CrashlyticsErrorRecorder {
         // Navigation
         case deepLinkParse = "navigation_deeplink_parse"
         case deepLinkNavigation = "navigation_deeplink_navigation"
+        case unimplementedRoute = "navigation_unimplemented_route"
 
         // Generic
         case unknown
