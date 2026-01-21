@@ -43,3 +43,9 @@ def mock_json_response() -> dict:
         "correct_answer": "32",
         "answer_options": ["24", "30", "32", "64"],
     }
+
+
+@pytest.fixture
+def mock_xai_api_key() -> str:
+    """Fixture providing a mock xAI API key for testing."""
+    return "xai-test-mock-api-key-12345"
