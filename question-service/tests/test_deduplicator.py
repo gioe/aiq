@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from unittest.mock import Mock, patch
 
-from app.deduplicator import DuplicateCheckResult, QuestionDeduplicator
+from app.deduplicator import DuplicateCheckResult, EmbeddingCache, QuestionDeduplicator
 from app.models import DifficultyLevel, GeneratedQuestion, QuestionType
 
 
@@ -55,7 +55,7 @@ class TestDuplicateCheckResult:
 
         assert result.is_duplicate is False
         assert result.duplicate_type is None
-        assert result.similarity_score == 0.0
+        assert result.similarity_score == pytest.approx(0.0)
         assert result.matched_question is None
 
     def test_initialization_duplicate(self):
@@ -70,7 +70,7 @@ class TestDuplicateCheckResult:
 
         assert result.is_duplicate is True
         assert result.duplicate_type == "exact"
-        assert result.similarity_score == 1.0
+        assert result.similarity_score == pytest.approx(1.0)
         assert result.matched_question == matched
 
     def test_repr_not_duplicate(self):
@@ -102,7 +102,7 @@ class TestQuestionDeduplicator:
             similarity_threshold=0.85,
         )
 
-        assert deduplicator.similarity_threshold == 0.85
+        assert deduplicator.similarity_threshold == pytest.approx(0.85)
         assert deduplicator.embedding_model == "text-embedding-3-small"
 
     @patch("app.deduplicator.OpenAI")
@@ -148,7 +148,7 @@ class TestQuestionDeduplicator:
 
         assert result.is_duplicate is True
         assert result.duplicate_type == "exact"
-        assert result.similarity_score == 1.0
+        assert result.similarity_score == pytest.approx(1.0)
         assert result.matched_question["id"] == 4
 
     @patch("app.deduplicator.OpenAI")
@@ -322,7 +322,7 @@ class TestQuestionDeduplicator:
         vec2 = np.array([1.0, 2.0, 3.0])
 
         similarity = deduplicator._cosine_similarity(vec1, vec2)
-        assert similarity == 0.0
+        assert similarity == pytest.approx(0.0)
 
     @patch("app.deduplicator.OpenAI")
     def test_get_embedding_success(self, mock_openai):
@@ -336,7 +336,7 @@ class TestQuestionDeduplicator:
 
         assert isinstance(embedding, np.ndarray)
         assert len(embedding) == 1536
-        assert all(v == 0.1 for v in embedding)
+        assert all(v == pytest.approx(0.1) for v in embedding)
 
     @patch("app.deduplicator.OpenAI")
     def test_get_embedding_failure(self, mock_openai):
@@ -415,7 +415,7 @@ class TestQuestionDeduplicator:
 
         stats = deduplicator.get_stats()
 
-        assert stats["similarity_threshold"] == 0.90
+        assert stats["similarity_threshold"] == pytest.approx(0.90)
         assert stats["embedding_model"] == "text-embedding-ada-002"
 
 
@@ -479,3 +479,294 @@ class TestDeduplicatorIntegration:
         # Should be marked as duplicate if at or above threshold
         assert result.is_duplicate is True
         assert result.similarity_score >= 0.85
+
+
+class TestEmbeddingCache:
+    """Tests for EmbeddingCache class."""
+
+    def test_cache_initialization(self):
+        """Test cache initializes empty."""
+        cache = EmbeddingCache()
+
+        assert cache.size == 0
+        assert cache.stats["hits"] == 0
+        assert cache.stats["misses"] == 0
+
+    def test_cache_miss_returns_none(self):
+        """Test cache miss returns None."""
+        cache = EmbeddingCache()
+
+        result = cache.get("uncached text", "text-embedding-3-small")
+
+        assert result is None
+        assert cache.stats["misses"] == 1
+        assert cache.stats["hits"] == 0
+
+    def test_cache_set_and_get(self):
+        """Test setting and getting cached embedding."""
+        cache = EmbeddingCache()
+        embedding = np.array([0.1, 0.2, 0.3])
+        model = "text-embedding-3-small"
+
+        cache.set("test text", model, embedding)
+        result = cache.get("test text", model)
+
+        assert result is not None
+        np.testing.assert_array_equal(result, embedding)
+        assert cache.size == 1
+        assert cache.stats["hits"] == 1
+
+    def test_cache_normalization(self):
+        """Test that cache normalizes text (case-insensitive, stripped)."""
+        cache = EmbeddingCache()
+        embedding = np.array([0.1, 0.2, 0.3])
+        model = "text-embedding-3-small"
+
+        cache.set("Test Text", model, embedding)
+
+        # All variations should hit the same cache entry
+        assert cache.get("test text", model) is not None
+        assert cache.get("TEST TEXT", model) is not None
+        assert cache.get("  Test Text  ", model) is not None
+        assert cache.get("  test text  ", model) is not None
+
+        # All 4 lookups should be hits
+        assert cache.stats["hits"] == 4
+        # Only one entry in cache
+        assert cache.size == 1
+
+    def test_cache_clear(self):
+        """Test clearing the cache."""
+        cache = EmbeddingCache()
+        model = "text-embedding-3-small"
+        cache.set("text1", model, np.array([0.1, 0.2]))
+        cache.set("text2", model, np.array([0.3, 0.4]))
+        cache.get("text1", model)  # hit
+
+        assert cache.size == 2
+        assert cache.stats["hits"] == 1
+
+        cache.clear()
+
+        assert cache.size == 0
+        assert cache.stats["hits"] == 0
+        assert cache.stats["misses"] == 0
+
+    def test_cache_stats(self):
+        """Test cache statistics tracking."""
+        cache = EmbeddingCache()
+        model = "text-embedding-3-small"
+
+        # Miss
+        cache.get("text1", model)
+        # Set
+        cache.set("text1", model, np.array([0.1]))
+        # Hit
+        cache.get("text1", model)
+        # Miss
+        cache.get("text2", model)
+
+        stats = cache.stats
+        assert stats["size"] == 1
+        assert stats["hits"] == 1
+        assert stats["misses"] == 2
+
+    def test_cache_model_isolation(self):
+        """Test that different models have separate cache entries."""
+        cache = EmbeddingCache()
+        embedding_small = np.array([0.1, 0.2, 0.3])
+        embedding_ada = np.array([0.4, 0.5, 0.6])
+
+        # Cache same text with different models
+        cache.set("test question", "text-embedding-3-small", embedding_small)
+        cache.set("test question", "text-embedding-ada-002", embedding_ada)
+
+        # Should have 2 separate cache entries
+        assert cache.size == 2
+
+        # Each model should return its own embedding
+        result_small = cache.get("test question", "text-embedding-3-small")
+        result_ada = cache.get("test question", "text-embedding-ada-002")
+
+        np.testing.assert_array_equal(result_small, embedding_small)
+        np.testing.assert_array_equal(result_ada, embedding_ada)
+
+        # Wrong model should miss
+        assert cache.get("test question", "text-embedding-3-large") is None
+
+
+class TestDeduplicatorCacheIntegration:
+    """Tests for QuestionDeduplicator embedding cache integration."""
+
+    @patch("app.deduplicator.OpenAI")
+    def test_cache_reduces_api_calls(self, mock_openai):
+        """Test that caching reduces duplicate API calls."""
+        mock_response = Mock()
+        mock_response.data = [Mock(embedding=[0.1] * 1536)]
+        mock_openai.return_value.embeddings.create.return_value = mock_response
+
+        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
+
+        # Get embedding for same text twice
+        embedding1 = deduplicator._get_embedding("test question")
+        embedding2 = deduplicator._get_embedding("test question")
+
+        # API should only be called once
+        assert mock_openai.return_value.embeddings.create.call_count == 1
+        # Both embeddings should be identical
+        np.testing.assert_array_equal(embedding1, embedding2)
+
+    @patch("app.deduplicator.OpenAI")
+    def test_cache_case_insensitive(self, mock_openai):
+        """Test that cache is case-insensitive for same text."""
+        mock_response = Mock()
+        mock_response.data = [Mock(embedding=[0.1] * 1536)]
+        mock_openai.return_value.embeddings.create.return_value = mock_response
+
+        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
+
+        # Get embedding with different case variations
+        deduplicator._get_embedding("Test Question")
+        deduplicator._get_embedding("test question")
+        deduplicator._get_embedding("TEST QUESTION")
+
+        # API should only be called once
+        assert mock_openai.return_value.embeddings.create.call_count == 1
+
+    @patch("app.deduplicator.OpenAI")
+    def test_get_stats_includes_cache(self, mock_openai):
+        """Test that get_stats includes cache statistics."""
+        mock_response = Mock()
+        mock_response.data = [Mock(embedding=[0.1] * 1536)]
+        mock_openai.return_value.embeddings.create.return_value = mock_response
+
+        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
+
+        # Generate some cache activity
+        deduplicator._get_embedding("question 1")  # miss
+        deduplicator._get_embedding("question 1")  # hit
+        deduplicator._get_embedding("question 2")  # miss
+
+        stats = deduplicator.get_stats()
+
+        assert "cache" in stats
+        assert stats["cache"]["size"] == 2
+        assert stats["cache"]["hits"] == 1
+        assert stats["cache"]["misses"] == 2
+
+    @patch("app.deduplicator.OpenAI")
+    def test_clear_cache(self, mock_openai):
+        """Test that clear_cache removes all cached embeddings."""
+        mock_response = Mock()
+        mock_response.data = [Mock(embedding=[0.1] * 1536)]
+        mock_openai.return_value.embeddings.create.return_value = mock_response
+
+        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
+
+        # Cache some embeddings
+        deduplicator._get_embedding("question 1")
+        deduplicator._get_embedding("question 2")
+
+        assert deduplicator.get_stats()["cache"]["size"] == 2
+
+        deduplicator.clear_cache()
+
+        assert deduplicator.get_stats()["cache"]["size"] == 0
+        assert deduplicator.get_stats()["cache"]["hits"] == 0
+        assert deduplicator.get_stats()["cache"]["misses"] == 0
+
+    @patch("app.deduplicator.OpenAI")
+    def test_batch_check_uses_cache_efficiently(
+        self, mock_openai, sample_existing_questions
+    ):
+        """Test that batch checking reuses embeddings for existing questions."""
+        mock_response = Mock()
+        mock_response.data = [Mock(embedding=[0.1] * 1536)]
+        mock_openai.return_value.embeddings.create.return_value = mock_response
+
+        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
+
+        # Create two questions to check
+        questions = [
+            GeneratedQuestion(
+                question_text="New question 1",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="4",
+                answer_options=["2", "3", "4", "5"],
+                explanation="Explanation",
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+            GeneratedQuestion(
+                question_text="New question 2",
+                question_type=QuestionType.VERBAL,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="answer",
+                answer_options=["a", "b", "answer", "d"],
+                explanation="Explanation",
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+        ]
+
+        # Check both questions against existing ones
+        deduplicator.check_duplicates_batch(questions, sample_existing_questions)
+
+        # Without cache: 2 new + 2*3 existing = 8 API calls
+        # With cache: 2 new + 3 existing = 5 API calls
+        # (each existing question only embedded once, regardless of how many new questions)
+        assert mock_openai.return_value.embeddings.create.call_count == 5
+
+        # Check cache stats
+        stats = deduplicator.get_stats()["cache"]
+        # 5 unique texts cached
+        assert stats["size"] == 5
+        # 3 hits (existing questions checked second time)
+        assert stats["hits"] == 3
+        # 5 misses (first time for each text)
+        assert stats["misses"] == 5
+
+    @patch("app.deduplicator.OpenAI")
+    def test_model_change_invalidates_cache(self, mock_openai):
+        """Test that changing embedding model doesn't reuse stale cache entries."""
+        # Set up different embeddings for each model
+        embedding_small = [0.1] * 1536
+        embedding_ada = [0.9] * 1536
+
+        call_count = [0]
+
+        def mock_embeddings_create(input, model):
+            call_count[0] += 1
+            mock_response = Mock()
+            if model == "text-embedding-3-small":
+                mock_response.data = [Mock(embedding=embedding_small)]
+            else:
+                mock_response.data = [Mock(embedding=embedding_ada)]
+            return mock_response
+
+        mock_openai.return_value.embeddings.create.side_effect = mock_embeddings_create
+
+        deduplicator = QuestionDeduplicator(
+            openai_api_key="test-key",
+            embedding_model="text-embedding-3-small",
+        )
+
+        # Get embedding with first model
+        result1 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 1  # API called
+
+        # Get same text again - should hit cache
+        result2 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 1  # No new API call
+        np.testing.assert_array_equal(result1, result2)
+
+        # Change the model
+        deduplicator.embedding_model = "text-embedding-ada-002"
+
+        # Get embedding for same text - should NOT hit cache (different model)
+        result3 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 2  # New API call for different model
+
+        # Verify we got different embeddings
+        assert not np.array_equal(result1, result3)
