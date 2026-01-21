@@ -71,6 +71,10 @@ struct MainTabView: View {
             // Note: @AppStorage handles invalid values by falling back to the default (.dashboard)
             router.currentTab = selectedTab
         }
+        .onDisappear {
+            // Reset deep link processing state when view disappears to prevent stale state
+            isProcessingDeepLink = false
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: .deepLinkReceived)
                 .receive(on: DispatchQueue.main)
