@@ -7,7 +7,10 @@
 
 import XCTest
 
-/// Example UI test demonstrating how to use the helper infrastructure
+/// Example UI test demonstrating how to use the helper infrastructure.
+///
+/// **Important**: These tests are for **reference and documentation purposes only**.
+/// They are NOT intended to run in CI and are all skipped by default.
 ///
 /// This test shows basic usage patterns for:
 /// - BaseUITest: Provides app instance and common helpers
@@ -16,8 +19,24 @@ import XCTest
 /// - TestTakingHelper: Interact with test-taking flows
 /// - XCUIElement+Extensions: Convenient element operations
 ///
-/// Note: These tests use placeholder credentials and are skipped by default.
-/// To run them, set up proper test credentials and remove the skip calls.
+/// ## Why These Tests Are Skipped
+/// - Require valid test credentials (not committed to repo)
+/// - Require backend connection
+/// - Serve as code examples, not regression tests
+///
+/// ## How to Use These Examples
+/// 1. Copy the relevant test pattern to your own test file
+/// 2. Replace placeholder credentials with real test credentials
+/// 3. Remove the `XCTSkip` call
+/// 4. Add the test to your CI suite
+///
+/// ## Test Isolation
+/// The parent class `BaseUITest` handles all app lifecycle management:
+/// - `setUpWithError()`: App initialization, launch configuration, and launch
+/// - `tearDownWithError()`: App termination and cleanup
+///
+/// Each test starts with a fresh app instance, ensuring proper isolation.
+/// If you need additional setup/teardown, override these methods and call `super`.
 final class ExampleUITest: BaseUITest {
     // MARK: - Example: Login Flow
 
