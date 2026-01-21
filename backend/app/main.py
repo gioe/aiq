@@ -240,11 +240,7 @@ def create_application() -> FastAPI:
 
     # Configure Request Logging
     # Add first to log all incoming requests and responses
-    app.add_middleware(
-        RequestLoggingMiddleware,
-        log_request_body=True,  # Log request bodies (except sensitive endpoints)
-        log_response_body=False,  # Don't log response bodies (can be verbose)
-    )
+    app.add_middleware(RequestLoggingMiddleware)
 
     # Configure Performance Monitoring
     # Add before other middleware to measure total request time
