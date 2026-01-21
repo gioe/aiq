@@ -17,7 +17,7 @@
 #   0 - All validations passed
 #   1 - Validation failed or error occurred
 
-set -e
+set -eo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -86,6 +86,14 @@ fi
 if ! [[ "$TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
     echo -e "${YELLOW}[WARNING]${NC} Team ID '$TEAM_ID' may be invalid."
     echo "Expected format: 10 alphanumeric characters (e.g., ABCD123456)"
+fi
+
+# Validate domain format (alphanumeric with dots and hyphens, no path or protocol)
+if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$ ]]; then
+    echo -e "${RED}[ERROR]${NC} Invalid domain format: '$DOMAIN'"
+    echo "Expected format: domain name only (e.g., aiq.app, www.example.com)"
+    echo "Do not include protocol (https://) or path"
+    exit 1
 fi
 
 # Construct expected appID
