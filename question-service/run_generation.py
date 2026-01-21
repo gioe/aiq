@@ -19,6 +19,7 @@ Exit Codes:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -152,14 +153,17 @@ Examples:
   # Generate 100 questions
   python run_generation.py --count 100
 
-  # Generate only mathematical and logical reasoning questions
-  python run_generation.py --types mathematical logical_reasoning
+  # Generate only math and logic questions
+  python run_generation.py --types math logic
 
   # Dry run (generate but don't insert to database)
   python run_generation.py --dry-run
 
   # Verbose logging
   python run_generation.py --verbose
+
+  # Use async parallel generation for faster execution
+  python run_generation.py --async
         """,
     )
 
@@ -223,6 +227,13 @@ Examples:
         default="manual",
         choices=["scheduler", "manual", "webhook"],
         help="Source that triggered this run (default: manual)",
+    )
+
+    parser.add_argument(
+        "--async",
+        dest="use_async",
+        action="store_true",
+        help="Use async parallel generation for improved performance",
     )
 
     return parser.parse_args()
@@ -465,10 +476,19 @@ def main() -> int:
         logger.info("PHASE 1: Question Generation")
         logger.info("=" * 80)
 
-        job_result = pipeline.run_generation_job(
-            questions_per_run=args.count,
-            question_types=question_types,
-        )
+        if args.use_async:
+            logger.info("Using async parallel generation mode")
+            job_result = asyncio.run(
+                pipeline.run_generation_job_async(
+                    questions_per_run=args.count,
+                    question_types=question_types,
+                )
+            )
+        else:
+            job_result = pipeline.run_generation_job(
+                questions_per_run=args.count,
+                question_types=question_types,
+            )
 
         stats = job_result["statistics"]
         generated_questions = job_result["questions"]

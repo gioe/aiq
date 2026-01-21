@@ -1,6 +1,7 @@
 """Tests for question generator."""
 
-from unittest.mock import Mock, patch
+import asyncio
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -247,3 +248,239 @@ class TestQuestionGeneratorIntegration:
         assert len(sources) == 2  # Both openai and anthropic
         assert "openai" in sources
         assert "anthropic" in sources
+
+
+class TestAsyncQuestionGenerator:
+    """Tests for async question generation."""
+
+    @pytest.fixture
+    def mock_openai_provider_async(self):
+        """Mock OpenAI provider with async methods."""
+        with patch("app.generator.OpenAIProvider") as mock:
+            provider = Mock()
+            provider.model = "gpt-4"
+            # Mock sync method for backward compatibility
+            provider.generate_structured_completion.return_value = {
+                "question_text": "What is 2 + 2?",
+                "correct_answer": "4",
+                "answer_options": ["2", "3", "4", "5"],
+                "explanation": "2 + 2 equals 4 by basic addition.",
+            }
+            # Mock async method
+            provider.generate_structured_completion_async = AsyncMock(
+                return_value={
+                    "question_text": "What is 2 + 2? (async)",
+                    "correct_answer": "4",
+                    "answer_options": ["2", "3", "4", "5"],
+                    "explanation": "2 + 2 equals 4 by basic addition.",
+                }
+            )
+            mock.return_value = provider
+            yield mock
+
+    @pytest.fixture
+    def async_generator(self, mock_openai_provider_async):
+        """Create generator with mocked async-capable provider."""
+        return QuestionGenerator(openai_api_key="test-key")
+
+    @pytest.mark.asyncio
+    async def test_generate_question_async(self, async_generator):
+        """Test generating a single question asynchronously."""
+        question = await async_generator.generate_question_async(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+        )
+
+        assert question.question_text == "What is 2 + 2? (async)"
+        assert question.correct_answer == "4"
+        assert question.question_type == QuestionType.MATH
+        assert question.difficulty_level == DifficultyLevel.EASY
+        assert question.source_llm == "openai"
+
+    @pytest.mark.asyncio
+    async def test_generate_question_async_with_specific_provider(
+        self, async_generator
+    ):
+        """Test generating a question asynchronously with a specific provider."""
+        question = await async_generator.generate_question_async(
+            question_type=QuestionType.LOGIC,
+            difficulty=DifficultyLevel.MEDIUM,
+            provider_name="openai",
+        )
+
+        assert question.source_llm == "openai"
+        assert question.question_type == QuestionType.LOGIC
+
+    @pytest.mark.asyncio
+    async def test_generate_question_async_with_invalid_provider(self, async_generator):
+        """Test that invalid provider name raises error in async mode."""
+        with pytest.raises(ValueError, match="Provider.*not available"):
+            await async_generator.generate_question_async(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                provider_name="invalid-provider",
+            )
+
+    @pytest.mark.asyncio
+    async def test_generate_batch_async(self, async_generator):
+        """Test generating a batch of questions asynchronously."""
+        batch = await async_generator.generate_batch_async(
+            question_type=QuestionType.VERBAL,
+            difficulty=DifficultyLevel.HARD,
+            count=3,
+            distribute_across_providers=False,
+        )
+
+        assert len(batch.questions) == 3
+        assert batch.question_type == QuestionType.VERBAL
+        assert batch.batch_size == 3
+        assert batch.metadata.get("async") is True
+        assert all(q.question_type == QuestionType.VERBAL for q in batch.questions)
+
+    @pytest.mark.asyncio
+    async def test_generate_batch_async_with_failures(self, async_generator):
+        """Test async batch generation with some failures."""
+        # Mock to fail on second call
+        provider = async_generator.providers["openai"]
+        provider.generate_structured_completion_async.side_effect = [
+            {
+                "question_text": "Question 1?",
+                "correct_answer": "A",
+                "answer_options": ["A", "B", "C", "D"],
+                "explanation": "Explanation 1",
+            },
+            Exception("API Error"),
+            {
+                "question_text": "Question 3?",
+                "correct_answer": "C",
+                "answer_options": ["A", "B", "C", "D"],
+                "explanation": "Explanation 3",
+            },
+        ]
+
+        batch = await async_generator.generate_batch_async(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=3,
+            distribute_across_providers=False,
+        )
+
+        # Should have 2 successful questions despite 1 failure
+        assert len(batch.questions) == 2
+        assert batch.batch_size == 3
+
+
+class TestAsyncMultiProviderGenerator:
+    """Tests for async generation with multiple providers."""
+
+    @pytest.fixture
+    def multi_provider_async_generator(self):
+        """Create generator with multiple mocked async-capable providers."""
+        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generator.AnthropicProvider"
+        ) as mock_anthropic:
+            # Mock OpenAI
+            openai_provider = Mock()
+            openai_provider.model = "gpt-4"
+            openai_provider.generate_structured_completion_async = AsyncMock(
+                return_value={
+                    "question_text": "OpenAI async question?",
+                    "correct_answer": "A",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "OpenAI async explanation",
+                }
+            )
+            mock_openai.return_value = openai_provider
+
+            # Mock Anthropic
+            anthropic_provider = Mock()
+            anthropic_provider.model = "claude-3-5-sonnet"
+            anthropic_provider.generate_structured_completion_async = AsyncMock(
+                return_value={
+                    "question_text": "Anthropic async question?",
+                    "correct_answer": "B",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Anthropic async explanation",
+                }
+            )
+            mock_anthropic.return_value = anthropic_provider
+
+            generator = QuestionGenerator(
+                openai_api_key="openai-key",
+                anthropic_api_key="anthropic-key",
+            )
+
+            yield generator
+
+    @pytest.mark.asyncio
+    async def test_distribute_across_providers_async(
+        self, multi_provider_async_generator
+    ):
+        """Test that async questions are distributed across providers."""
+        batch = await multi_provider_async_generator.generate_batch_async(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.MEDIUM,
+            count=4,
+            distribute_across_providers=True,
+        )
+
+        # Should have questions from both providers
+        sources = set(q.source_llm for q in batch.questions)
+        assert len(sources) == 2  # Both openai and anthropic
+        assert "openai" in sources
+        assert "anthropic" in sources
+
+    @pytest.mark.asyncio
+    async def test_async_parallel_execution(self, multi_provider_async_generator):
+        """Test that async batch actually runs in parallel."""
+        import time
+
+        # Track call order and timing
+        call_times = []
+
+        async def slow_openai_response(*args, **kwargs):
+            call_times.append(("openai_start", time.time()))
+            await asyncio.sleep(0.1)  # Simulate API latency
+            call_times.append(("openai_end", time.time()))
+            return {
+                "question_text": "OpenAI question?",
+                "correct_answer": "A",
+                "answer_options": ["A", "B", "C", "D"],
+                "explanation": "OpenAI explanation",
+            }
+
+        async def slow_anthropic_response(*args, **kwargs):
+            call_times.append(("anthropic_start", time.time()))
+            await asyncio.sleep(0.1)  # Simulate API latency
+            call_times.append(("anthropic_end", time.time()))
+            return {
+                "question_text": "Anthropic question?",
+                "correct_answer": "B",
+                "answer_options": ["A", "B", "C", "D"],
+                "explanation": "Anthropic explanation",
+            }
+
+        # Override the async mocks
+        openai_provider = multi_provider_async_generator.providers["openai"]
+        anthropic_provider = multi_provider_async_generator.providers["anthropic"]
+        openai_provider.generate_structured_completion_async.side_effect = (
+            slow_openai_response
+        )
+        anthropic_provider.generate_structured_completion_async.side_effect = (
+            slow_anthropic_response
+        )
+
+        start = time.time()
+        batch = await multi_provider_async_generator.generate_batch_async(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=4,  # 2 questions each provider
+            distribute_across_providers=True,
+        )
+        duration = time.time() - start
+
+        # If sequential: 4 * 0.1s = 0.4s minimum
+        # If parallel: ~0.1s (all run concurrently)
+        # Allow some overhead but should be well under sequential time
+        assert duration < 0.3, f"Async execution took {duration}s, expected < 0.3s"
+        assert len(batch.questions) == 4

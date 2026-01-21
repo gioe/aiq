@@ -4,6 +4,7 @@ This module implements the question generator that orchestrates multiple
 LLM providers to generate candidate IQ test questions.
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -398,6 +399,205 @@ class QuestionGenerator:
         )
 
         return batch
+
+    async def generate_question_async(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        provider_name: Optional[str] = None,
+        temperature: float = 0.8,
+        max_tokens: int = 1500,
+    ) -> GeneratedQuestion:
+        """Generate a single question asynchronously using a specific or random provider.
+
+        Args:
+            question_type: Type of question to generate
+            difficulty: Difficulty level
+            provider_name: Specific provider to use (None = round-robin)
+            temperature: Sampling temperature for generation
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Generated question
+
+        Raises:
+            ValueError: If provider_name is invalid or no providers available
+            Exception: If generation fails
+        """
+        # Select provider
+        if provider_name:
+            if provider_name not in self.providers:
+                raise ValueError(
+                    f"Provider '{provider_name}' not available. "
+                    f"Available: {list(self.providers.keys())}"
+                )
+            provider = self.providers[provider_name]
+        else:
+            # Use first available provider (could be enhanced with round-robin)
+            provider_name = next(iter(self.providers.keys()))
+            provider = self.providers[provider_name]
+
+        logger.info(
+            f"Generating {question_type.value} question at {difficulty.value} "
+            f"difficulty using {provider_name} (async)"
+        )
+
+        # Build prompt
+        prompt = build_generation_prompt(question_type, difficulty, count=1)
+
+        # Generate question asynchronously
+        try:
+            response = await provider.generate_structured_completion_async(
+                prompt=prompt,
+                response_format={},  # Provider will handle JSON mode
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            # Parse response into GeneratedQuestion
+            question = self._parse_generated_response(
+                response=response,
+                question_type=question_type,
+                difficulty=difficulty,
+                provider_name=provider_name,
+                model=provider.model,
+            )
+
+            logger.info(
+                f"Successfully generated question (async): {question.question_text[:50]}..."
+            )
+            return question
+
+        except Exception as e:
+            logger.error(
+                f"Failed to generate question with {provider_name} (async): {str(e)}"
+            )
+            raise
+
+    async def generate_batch_async(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        count: int,
+        distribute_across_providers: bool = True,
+        temperature: float = 0.8,
+        max_tokens: int = 1500,
+    ) -> GenerationBatch:
+        """Generate a batch of questions asynchronously in parallel.
+
+        This method generates all questions concurrently using asyncio.gather,
+        significantly reducing total generation time compared to sequential calls.
+
+        Args:
+            question_type: Type of questions to generate
+            difficulty: Difficulty level
+            count: Number of questions to generate
+            distribute_across_providers: If True, distribute across all providers
+            temperature: Sampling temperature for generation
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Batch of generated questions
+
+        Raises:
+            Exception: If generation fails
+        """
+        logger.info(
+            f"Generating batch of {count} {question_type.value} questions "
+            f"at {difficulty.value} difficulty (async parallel)"
+        )
+
+        # Prepare list of generation tasks
+        tasks = []
+        provider_assignments = []
+
+        if distribute_across_providers and len(self.providers) > 1:
+            providers = list(self.providers.keys())
+            for i in range(count):
+                provider_name = providers[i % len(providers)]
+                provider_assignments.append(provider_name)
+        else:
+            provider_name = next(iter(self.providers.keys()))
+            provider_assignments = [provider_name] * count
+
+        # Create async tasks for all questions
+        for i, provider_name in enumerate(provider_assignments):
+            task = self._generate_question_task(
+                task_index=i,
+                question_type=question_type,
+                difficulty=difficulty,
+                provider_name=provider_name,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            tasks.append(task)
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter successful results and log failures
+        questions: List[GeneratedQuestion] = []
+        for i, result in enumerate(results):
+            if isinstance(result, BaseException):
+                logger.error(
+                    f"Failed to generate question {i+1}/{count} with "
+                    f"{provider_assignments[i]}: {str(result)}"
+                )
+            elif isinstance(result, GeneratedQuestion):
+                questions.append(result)
+
+        # Create batch
+        batch = GenerationBatch(
+            questions=questions,
+            question_type=question_type,
+            batch_size=count,
+            generation_timestamp=datetime.now(timezone.utc).isoformat(),
+            metadata={
+                "target_difficulty": difficulty.value,
+                "providers_used": list(set(q.source_llm for q in questions)),
+                "success_rate": len(questions) / count if count > 0 else 0,
+                "async": True,
+            },
+        )
+
+        logger.info(
+            f"Async batch generation complete: {len(questions)}/{count} questions "
+            f"successfully generated"
+        )
+
+        return batch
+
+    async def _generate_question_task(
+        self,
+        task_index: int,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        provider_name: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> GeneratedQuestion:
+        """Internal task for generating a single question.
+
+        This wraps generate_question_async for use with asyncio.gather.
+
+        Args:
+            task_index: Index of this task (for logging)
+            question_type: Type of question to generate
+            difficulty: Difficulty level
+            provider_name: Provider to use
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens
+
+        Returns:
+            Generated question
+        """
+        return await self.generate_question_async(
+            question_type=question_type,
+            difficulty=difficulty,
+            provider_name=provider_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
     def generate_diverse_batch(
         self,
