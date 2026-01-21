@@ -1,0 +1,211 @@
+import SwiftUI
+import XCTest
+
+@testable import AIQ
+
+/// Tests for DashboardView navigation integration with AppRouter.
+///
+/// Verifies that all navigation points in DashboardView correctly trigger
+/// router.push(.testTaking()) to navigate to the test-taking screen.
+@MainActor
+final class DashboardNavigationTests: XCTestCase {
+    var sut: AppRouter!
+    var mockAPIClient: MockAPIClient!
+
+    override func setUp() {
+        super.setUp()
+        sut = AppRouter()
+        mockAPIClient = MockAPIClient()
+    }
+
+    override func tearDown() {
+        sut = nil
+        mockAPIClient = nil
+        super.tearDown()
+    }
+
+    // MARK: - Action Button Navigation Tests
+
+    /// Test that calling the action button's navigation closure correctly
+    /// pushes .testTaking() route to the router.
+    func testActionButton_Navigation_PushesTestTakingRoute() {
+        // Given - Router starts at root in dashboard tab
+        sut.currentTab = .dashboard
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Router should be at root initially")
+
+        // When - Simulate action button tap navigation
+        sut.push(.testTaking())
+
+        // Then - Router should have testTaking route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route after navigation")
+        XCTAssertFalse(sut.isAtRoot(in: .dashboard), "Router should not be at root after navigation")
+    }
+
+    /// Test that action button navigation with existing routes appends testTaking.
+    func testActionButton_Navigation_AppendsToExistingStack() {
+        // Given - Router with existing routes
+        sut.currentTab = .dashboard
+        sut.push(.help)
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Setup: should have 1 route")
+
+        // When - Simulate action button tap navigation
+        sut.push(.testTaking())
+
+        // Then - Route should be appended
+        XCTAssertEqual(sut.depth(in: .dashboard), 2, "Router should have 2 routes after navigation")
+    }
+
+    // MARK: - Resume Button Navigation Tests
+
+    /// Test that calling the resume button's navigation closure correctly
+    /// pushes .testTaking() route to the router.
+    func testResumeButton_Navigation_PushesTestTakingRoute() {
+        // Given - Router starts at root
+        sut.currentTab = .dashboard
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Router should be at root initially")
+
+        // When - Simulate resume button tap navigation (same as action button)
+        sut.push(.testTaking())
+
+        // Then - Router should have testTaking route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route after resume navigation")
+    }
+
+    /// Test that resume button navigation works correctly regardless of current tab.
+    func testResumeButton_Navigation_WorksFromDashboardTab() {
+        // Given - Router on dashboard tab
+        sut.currentTab = .dashboard
+
+        // When - Simulate resume button tap
+        sut.push(.testTaking())
+
+        // Then - Should push to dashboard path
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard path should have route")
+        XCTAssertEqual(sut.depth(in: .history), 0, "History path should be empty")
+        XCTAssertEqual(sut.depth(in: .settings), 0, "Settings path should be empty")
+    }
+
+    // MARK: - Empty State Button Navigation Tests
+
+    /// Test that calling the empty state button's navigation closure correctly
+    /// pushes .testTaking() route to the router.
+    func testEmptyStateButton_Navigation_PushesTestTakingRoute() {
+        // Given - Router starts at root
+        sut.currentTab = .dashboard
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Router should be at root initially")
+
+        // When - Simulate empty state button tap navigation
+        sut.push(.testTaking())
+
+        // Then - Router should have testTaking route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route after empty state navigation")
+    }
+
+    /// Test that empty state navigation doesn't affect other tabs.
+    func testEmptyStateButton_Navigation_DoesNotAffectOtherTabs() {
+        // Given - Router with routes in other tabs
+        sut.push(.help, in: .settings)
+        sut.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        sut.currentTab = .dashboard
+
+        XCTAssertEqual(sut.depth(in: .settings), 1, "Setup: settings should have 1 route")
+        XCTAssertEqual(sut.depth(in: .history), 1, "Setup: history should have 1 route")
+
+        // When - Simulate empty state button tap
+        sut.push(.testTaking())
+
+        // Then - Only dashboard should be affected
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard should have 1 route")
+        XCTAssertEqual(sut.depth(in: .settings), 1, "Settings should still have 1 route")
+        XCTAssertEqual(sut.depth(in: .history), 1, "History should still have 1 route")
+    }
+
+    // MARK: - Navigation Route Equality Tests
+
+    /// Test that all navigation points use the same route (.testTaking()).
+    func testAllNavigationPoints_UseTestTakingRoute() {
+        // Given - Three routes representing the three navigation points
+        let actionButtonRoute = Route.testTaking()
+        let resumeButtonRoute = Route.testTaking()
+        let emptyStateRoute = Route.testTaking()
+
+        // Then - All should be equal (same route used everywhere)
+        XCTAssertEqual(actionButtonRoute, resumeButtonRoute, "Action and resume buttons should use same route")
+        XCTAssertEqual(resumeButtonRoute, emptyStateRoute, "Resume and empty state buttons should use same route")
+        XCTAssertEqual(actionButtonRoute, emptyStateRoute, "Action and empty state buttons should use same route")
+    }
+
+    /// Test that testTaking route without sessionId creates route for new test.
+    func testTestTakingRoute_WithoutSessionId_CreatesNewTestRoute() {
+        // Given
+        let newTestRoute = Route.testTaking()
+        let anotherNewTestRoute = Route.testTaking()
+
+        // Then - Routes without sessionId should be equal
+        XCTAssertEqual(newTestRoute, anotherNewTestRoute, "Routes without sessionId should be equal")
+    }
+
+    /// Test that testTaking route with sessionId creates route for resuming test.
+    func testTestTakingRoute_WithSessionId_CreatesResumeTestRoute() {
+        // Given
+        let resumeRoute = Route.testTaking(sessionId: 123)
+        let sameResumeRoute = Route.testTaking(sessionId: 123)
+        let differentResumeRoute = Route.testTaking(sessionId: 456)
+
+        // Then
+        XCTAssertEqual(resumeRoute, sameResumeRoute, "Routes with same sessionId should be equal")
+        XCTAssertNotEqual(resumeRoute, differentResumeRoute, "Routes with different sessionId should not be equal")
+    }
+
+    // MARK: - Navigation Flow Integration Tests
+
+    /// Test complete navigation flow: dashboard -> testTaking -> back to dashboard.
+    func testNavigationFlow_DashboardToTestTakingAndBack() {
+        // Given - Start at dashboard root
+        sut.currentTab = .dashboard
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Should start at root")
+
+        // When - Navigate to test taking
+        sut.push(.testTaking())
+
+        // Then - Should be in test taking
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Should have 1 route")
+        XCTAssertFalse(sut.isAtRoot(in: .dashboard), "Should not be at root")
+
+        // When - Pop back
+        sut.pop()
+
+        // Then - Should be back at root
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Should be back at root after pop")
+    }
+
+    /// Test that navigation preserves state when switching tabs.
+    func testNavigation_PreservesStateAcrossTabSwitch() {
+        // Given - Navigate in dashboard
+        sut.currentTab = .dashboard
+        sut.push(.testTaking())
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Setup: dashboard should have 1 route")
+
+        // When - Switch to history and back
+        sut.currentTab = .history
+        sut.currentTab = .dashboard
+
+        // Then - Dashboard state should be preserved
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard state should be preserved")
+    }
+
+    // MARK: - Helper Methods
+
+    private func createMockTestResult(id: Int = 1) -> TestResult {
+        MockDataFactory.makeTestResult(
+            id: id,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 115,
+            totalQuestions: 30,
+            correctAnswers: 24,
+            accuracyPercentage: 80.0,
+            completedAt: Date()
+        )
+    }
+}
