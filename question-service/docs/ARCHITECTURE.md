@@ -556,7 +556,7 @@ flowchart LR
 ```mermaid
 erDiagram
     questions {
-        uuid id PK
+        int id PK
         text question_text
         enum question_type
         enum difficulty_level
@@ -568,6 +568,7 @@ erDiagram
         float arbiter_score
         varchar prompt_version
         float[] question_embedding
+        jsonb question_metadata
         timestamp created_at
         boolean is_active
     }
