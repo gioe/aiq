@@ -60,6 +60,36 @@ enum DeepLink: Equatable {
 
     /// Invalid or unrecognized deep link
     case invalid
+
+    /// Returns the analytics destination type string for this deep link
+    var analyticsDestinationType: String {
+        switch self {
+        case .testResults:
+            "test_results"
+        case .resumeTest:
+            "resume_test"
+        case .settings:
+            "settings"
+        case .invalid:
+            "invalid"
+        }
+    }
+}
+
+/// Source of a deep link for analytics tracking
+enum DeepLinkSource: String {
+    /// Deep link from a push notification
+    case pushNotification = "push_notification"
+    /// Deep link from an external app
+    case externalApp = "external_app"
+    /// Deep link from Safari or a web view
+    case safari
+    /// Custom URL scheme (aiq://)
+    case urlScheme = "url_scheme"
+    /// Universal link (https://aiq.app or https://dev.aiq.app)
+    case universalLink = "universal_link"
+    /// Unknown source
+    case unknown
 }
 
 /// Handles parsing of URL schemes and universal links into structured navigation commands
@@ -104,6 +134,18 @@ struct DeepLinkHandler {
 
     /// Logger for deep link parsing events
     private static let logger = Logger(subsystem: "com.aiq.app", category: "DeepLink")
+
+    // MARK: - Dependencies
+
+    /// Analytics service for tracking deep link events
+    private let analyticsService: AnalyticsService
+
+    // MARK: - Initialization
+
+    /// Initialize with default analytics service
+    init(analyticsService: AnalyticsService = .shared) {
+        self.analyticsService = analyticsService
+    }
 
     // MARK: - Public API
 
@@ -252,54 +294,146 @@ extension DeepLinkHandler {
     ///   - router: The app router to use for navigation
     ///   - tab: The tab to navigate in (defaults to current tab)
     ///   - apiClient: The API client for fetching data (optional, defaults to shared instance)
+    ///   - source: The source of the deep link for analytics tracking
+    ///   - originalURL: The original URL string for analytics tracking
     /// - Returns: True if navigation was initiated, false if the deep link couldn't be handled
     @MainActor
     func handleNavigation(
         _ deepLink: DeepLink,
         router: AppRouter,
         tab: TabDestination? = nil,
-        apiClient: APIClientProtocol = APIClient.shared
+        apiClient: APIClientProtocol = APIClient.shared,
+        source: DeepLinkSource = .unknown,
+        originalURL: String = ""
     ) async -> Bool {
-        // Determine target tab (use provided tab or router's current tab)
         let targetTab = tab ?? router.currentTab
 
         switch deepLink {
         case let .testResults(id):
-            // Fetch test result from API
-            do {
-                let result: TestResult = try await apiClient.request(
-                    endpoint: .testResults(String(id)),
-                    method: .get,
-                    body: nil as String?,
-                    requiresAuth: true
-                )
-
-                // Convert TestResult to SubmittedTestResult for navigation
-                // Note: We use the result data we have; userAverage can be nil for deep links
+            if let result = await handleTestResultsNavigation(
+                id: id, router: router, targetTab: targetTab, apiClient: apiClient
+            ) {
                 router.navigateTo(.testDetail(result: result, userAverage: nil), in: targetTab)
+                trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
                 return true
-            } catch {
-                Self.logger.error("Failed to fetch test result \(id): \(error.localizedDescription, privacy: .public)")
-                // Record error to Crashlytics
-                CrashlyticsErrorRecorder.recordError(error, context: .deepLinkNavigation)
-                return false
             }
-
+            trackFailure(errorType: "api_fetch_failed", source: source, originalURL: originalURL)
+            return false
         case let .resumeTest(sessionId):
-            // Navigate to test taking view with the session ID to resume
             Self.logger.info("Navigating to resume test session: \(sessionId, privacy: .public)")
             router.navigateTo(.testTaking(sessionId: sessionId), in: targetTab)
+            trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
             return true
-
         case .settings:
-            // Settings navigation is handled at the tab level in MainTabView.
-            // This case should never be reached - if it is, there's a bug in the deep link routing logic.
-            Self.logger.error("Settings deep link incorrectly routed to handleNavigation - programming error")
-            fatalError("Settings deep link should be handled in MainTabView, not via router navigation")
-
+            trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
+            Self.logger.error("Settings deep link incorrectly routed to handleNavigation")
+            fatalError("Settings deep link should be handled in MainTabView")
         case .invalid:
             Self.logger.warning("Attempted to navigate with invalid deep link")
+            trackFailure(errorType: "invalid_deep_link", source: source, originalURL: originalURL)
             return false
+        }
+    }
+
+    /// Handle test results deep link navigation
+    @MainActor
+    private func handleTestResultsNavigation(
+        id: Int,
+        router _: AppRouter,
+        targetTab _: TabDestination,
+        apiClient: APIClientProtocol
+    ) async -> TestResult? {
+        do {
+            return try await apiClient.request(
+                endpoint: .testResults(String(id)),
+                method: .get,
+                body: nil as String?,
+                requiresAuth: true
+            )
+        } catch {
+            Self.logger.error("Failed to fetch test result \(id): \(error.localizedDescription, privacy: .public)")
+            CrashlyticsErrorRecorder.recordError(error, context: .deepLinkNavigation)
+            return nil
+        }
+    }
+
+    /// Track successful deep link navigation
+    private func trackSuccess(deepLink: DeepLink, source: DeepLinkSource, originalURL: String) {
+        analyticsService.trackDeepLinkNavigationSuccess(
+            destinationType: deepLink.analyticsDestinationType,
+            source: source.rawValue,
+            url: originalURL
+        )
+    }
+
+    /// Track failed deep link navigation
+    private func trackFailure(errorType: String, source: DeepLinkSource, originalURL: String) {
+        analyticsService.trackDeepLinkNavigationFailed(
+            errorType: errorType,
+            source: source.rawValue,
+            url: originalURL
+        )
+    }
+
+    /// Track a successful deep link navigation (for use when navigation happens outside this handler)
+    ///
+    /// - Parameters:
+    ///   - deepLink: The deep link that was successfully navigated
+    ///   - source: The source of the deep link
+    ///   - originalURL: The original URL string
+    func trackNavigationSuccess(
+        _ deepLink: DeepLink,
+        source: DeepLinkSource,
+        originalURL: String
+    ) {
+        analyticsService.trackDeepLinkNavigationSuccess(
+            destinationType: deepLink.analyticsDestinationType,
+            source: source.rawValue,
+            url: originalURL
+        )
+    }
+
+    /// Track a failed deep link parse (for use when parsing fails)
+    ///
+    /// - Parameters:
+    ///   - error: The error that caused the failure
+    ///   - source: The source of the deep link
+    ///   - originalURL: The original URL string
+    func trackParseFailed(
+        error: DeepLinkError,
+        source: DeepLinkSource,
+        originalURL: String
+    ) {
+        analyticsService.trackDeepLinkNavigationFailed(
+            errorType: errorTypeString(from: error),
+            source: source.rawValue,
+            url: originalURL
+        )
+    }
+
+    /// Convert a DeepLinkError to an analytics-friendly error type string
+    private func errorTypeString(from error: DeepLinkError) -> String {
+        switch error {
+        case .unrecognizedSchemeOrHost:
+            "unrecognized_scheme_or_host"
+        case .emptyPath:
+            "empty_path"
+        case .unrecognizedRoute:
+            "unrecognized_route"
+        case .missingTestActionOrID:
+            "missing_test_action_or_id"
+        case .invalidTestResultsID:
+            "invalid_test_results_id"
+        case .nonPositiveTestResultsID:
+            "non_positive_test_results_id"
+        case .invalidSessionID:
+            "invalid_session_id"
+        case .nonPositiveSessionID:
+            "non_positive_session_id"
+        case .unrecognizedTestAction:
+            "unrecognized_test_action"
+        case .settingsSubPathNotAllowed:
+            "settings_subpath_not_allowed"
         }
     }
 }

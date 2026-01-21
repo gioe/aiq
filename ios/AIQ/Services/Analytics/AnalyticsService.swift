@@ -52,6 +52,10 @@ enum AnalyticsEvent: String {
     case notificationUpgradePromptDismissed = "notification.upgrade_prompt.dismissed"
     case notificationFullPermissionGranted = "notification.full_permission.granted"
     case notificationFullPermissionDenied = "notification.full_permission.denied"
+
+    // Deep link events
+    case deepLinkNavigationSuccess = "deeplink.navigation.success"
+    case deepLinkNavigationFailed = "deeplink.navigation.failed"
 }
 
 /// A single analytics event with timestamp and properties
@@ -583,6 +587,49 @@ class AnalyticsService {
         logger.info("Full Notification Permission Denied")
 
         track(event: .notificationFullPermissionDenied)
+    }
+
+    // MARK: - Deep Link Analytics Tracking
+
+    /// Track successful deep link navigation
+    ///
+    /// - Parameters:
+    ///   - destinationType: The type of destination navigated to (e.g., "testResults")
+    ///   - source: Source of the deep link (e.g., "push_notification", "external_app")
+    ///   - url: The original deep link URL (sanitized - no query params or sensitive data)
+    func trackDeepLinkNavigationSuccess(destinationType: String, source: String, url: String) {
+        logger.info("Deep Link Navigation Success: destination=\(destinationType), source=\(source)")
+
+        track(event: .deepLinkNavigationSuccess, properties: [
+            "destination_type": destinationType,
+            "source": source,
+            "url_scheme": extractScheme(from: url)
+        ])
+    }
+
+    /// Track failed deep link navigation
+    ///
+    /// - Parameters:
+    ///   - errorType: The type of error that occurred (e.g., "unrecognized_scheme")
+    ///   - source: Source of the deep link (e.g., "push_notification", "external_app")
+    ///   - url: The original deep link URL (sanitized - no query params or sensitive data)
+    func trackDeepLinkNavigationFailed(errorType: String, source: String, url: String) {
+        errorLogger.error("Deep Link Navigation Failed: error=\(errorType), source=\(source)")
+
+        track(event: .deepLinkNavigationFailed, properties: [
+            "error_type": errorType,
+            "source": source,
+            "url_scheme": extractScheme(from: url)
+        ])
+    }
+
+    /// Extract the scheme from a URL for analytics (privacy-preserving)
+    ///
+    /// - Parameter urlString: The URL string
+    /// - Returns: The scheme (e.g., "aiq", "https") or "unknown"
+    private func extractScheme(from urlString: String) -> String {
+        guard let url = URL(string: urlString) else { return "unknown" }
+        return url.scheme ?? "unknown"
     }
 
     /// Force submission of all pending events
