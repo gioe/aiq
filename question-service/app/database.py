@@ -144,22 +144,11 @@ class DatabaseService:
         """
         session = self.get_session()
         try:
-            # Map question type enum values
-            question_type_map = {
-                "pattern_recognition": "pattern",
-                "logical_reasoning": "logic",
-                "spatial_reasoning": "spatial",
-                "mathematical": "math",
-                "verbal_reasoning": "verbal",
-                "memory": "memory",
-            }
-
             # Create database model
+            # Note: No mapping needed - QuestionType enum values now match backend directly
             db_question = QuestionModel(
                 question_text=question.question_text,
-                question_type=question_type_map.get(
-                    question.question_type.value, question.question_type.value
-                ),
+                question_type=question.question_type.value,
                 difficulty_level=question.difficulty_level.value,
                 correct_answer=question.correct_answer,
                 answer_options=question.answer_options,
@@ -235,24 +224,13 @@ class DatabaseService:
         question_ids = []
 
         try:
-            # Map question type enum values
-            question_type_map = {
-                "pattern_recognition": "pattern",
-                "logical_reasoning": "logic",
-                "spatial_reasoning": "spatial",
-                "mathematical": "math",
-                "verbal_reasoning": "verbal",
-                "memory": "memory",
-            }
-
+            # Note: No mapping needed - QuestionType enum values now match backend directly
             for i, question in enumerate(questions):
                 arbiter_score = arbiter_scores[i] if arbiter_scores else None
 
                 db_question = QuestionModel(
                     question_text=question.question_text,
-                    question_type=question_type_map.get(
-                        question.question_type.value, question.question_type.value
-                    ),
+                    question_type=question.question_type.value,
                     difficulty_level=question.difficulty_level.value,
                     correct_answer=question.correct_answer,
                     answer_options=question.answer_options,

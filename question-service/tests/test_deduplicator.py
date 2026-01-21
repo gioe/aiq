@@ -13,7 +13,7 @@ def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
         question_text="What is 2 + 2?",
-        question_type=QuestionType.MATHEMATICAL,
+        question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
         correct_answer="4",
         answer_options=["2", "3", "4", "5"],
@@ -239,7 +239,7 @@ class TestQuestionDeduplicator:
         questions = [
             GeneratedQuestion(
                 question_text="New question 1",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="4",
                 answer_options=["2", "3", "4", "5"],
@@ -249,7 +249,7 @@ class TestQuestionDeduplicator:
             ),
             GeneratedQuestion(
                 question_text="What is the capital of France?",  # Exact duplicate
-                question_type=QuestionType.VERBAL_REASONING,
+                question_type=QuestionType.VERBAL,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="Paris",
                 answer_options=["London", "Paris", "Berlin", "Rome"],
@@ -259,7 +259,7 @@ class TestQuestionDeduplicator:
             ),
             GeneratedQuestion(
                 question_text="New question 3",
-                question_type=QuestionType.LOGICAL_REASONING,
+                question_type=QuestionType.LOGIC,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 correct_answer="true",
                 answer_options=["true", "false"],
@@ -354,7 +354,7 @@ class TestQuestionDeduplicator:
         questions = [
             GeneratedQuestion(
                 question_text="Unique question 1",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="4",
                 answer_options=["2", "3", "4", "5"],
@@ -364,7 +364,7 @@ class TestQuestionDeduplicator:
             ),
             GeneratedQuestion(
                 question_text="What is the capital of France?",  # Duplicate
-                question_type=QuestionType.VERBAL_REASONING,
+                question_type=QuestionType.VERBAL,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="Paris",
                 answer_options=["London", "Paris", "Berlin", "Rome"],
@@ -374,7 +374,7 @@ class TestQuestionDeduplicator:
             ),
             GeneratedQuestion(
                 question_text="Unique question 2",
-                question_type=QuestionType.LOGICAL_REASONING,
+                question_type=QuestionType.LOGIC,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 correct_answer="true",
                 answer_options=["true", "false"],
@@ -427,7 +427,7 @@ class TestDeduplicatorIntegration:
         """Test that whitespace differences don't affect exact matching."""
         question = GeneratedQuestion(
             question_text="  What is 2 + 2?  ",
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
             answer_options=["2", "3", "4", "5"],
@@ -451,7 +451,7 @@ class TestDeduplicatorIntegration:
         """Test behavior at similarity threshold boundary."""
         question = GeneratedQuestion(
             question_text="Test question",
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
             answer_options=["2", "3", "4", "5"],

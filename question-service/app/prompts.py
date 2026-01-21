@@ -46,7 +46,7 @@ ANTI-PATTERNS TO AVOID:
 
 # Question type-specific generation prompts
 QUESTION_TYPE_PROMPTS: Dict[QuestionType, str] = {
-    QuestionType.PATTERN_RECOGNITION: """Generate a pattern recognition question that tests the ability to identify visual or logical patterns.
+    QuestionType.PATTERN: """Generate a pattern recognition question that tests the ability to identify visual or logical patterns.
 
 Requirements:
 - Present a sequence or pattern (can be numbers, letters, shapes, or symbols)
@@ -70,7 +70,7 @@ Example types:
 - Matrix patterns (describe a 3x3 grid with one missing cell)
 - Alternating or recursive patterns
 """,
-    QuestionType.LOGICAL_REASONING: """Generate a logical reasoning question that tests deductive or inductive reasoning abilities.
+    QuestionType.LOGIC: """Generate a logical reasoning question that tests deductive or inductive reasoning abilities.
 
 Requirements:
 - Present a logical scenario, syllogism, or reasoning puzzle
@@ -99,7 +99,7 @@ Example types:
 - Deductive puzzles from given facts
 - Necessary vs. sufficient conditions
 """,
-    QuestionType.SPATIAL_REASONING: """Generate a spatial reasoning question that tests the ability to visualize and manipulate objects in space.
+    QuestionType.SPATIAL: """Generate a spatial reasoning question that tests the ability to visualize and manipulate objects in space.
 
 Requirements:
 - Present a spatial transformation problem (rotations, folding, 3D visualization)
@@ -123,7 +123,7 @@ Example types:
 - Mirror/reflection problems
 - Cross-section identification (what shape results from slicing a 3D object)
 """,
-    QuestionType.MATHEMATICAL: """Generate a mathematical reasoning question that tests quantitative and numerical reasoning.
+    QuestionType.MATH: """Generate a mathematical reasoning question that tests quantitative and numerical reasoning.
 
 Requirements:
 - Present a mathematical problem requiring reasoning, not just calculation
@@ -147,7 +147,7 @@ Example types:
 - Algebraic thinking (pattern generalization, unknown quantities)
 - Logical-mathematical puzzles (digit problems, arithmetic constraints)
 """,
-    QuestionType.VERBAL_REASONING: """Generate a verbal reasoning question that tests language comprehension and reasoning.
+    QuestionType.VERBAL: """Generate a verbal reasoning question that tests language comprehension and reasoning.
 
 Requirements:
 - Present analogies, word relationships, or vocabulary problems

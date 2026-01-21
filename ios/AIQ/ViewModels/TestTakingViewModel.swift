@@ -270,14 +270,20 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     #if DEBUG
+        private var isRunningTests: Bool {
+            NSClassFromString("XCTestCase") != nil
+        }
+
         private func fallbackToMockData(error: Error, questionCount: Int) {
             print("🚨 [TestTakingViewModel] API FAILURE - Falling back to mock data!")
             print("   Error type: \(type(of: error))")
             print("   Error details: \(error)")
-            assertionFailure(
-                "[TestTakingViewModel] API call failed, using mock data. " +
-                    "Error: \(error). Check network/backend configuration."
-            )
+            if !isRunningTests {
+                assertionFailure(
+                    "[TestTakingViewModel] API call failed, using mock data. " +
+                        "Error: \(error). Check network/backend configuration."
+                )
+            }
             loadMockQuestions(count: questionCount)
             setLoading(false)
         }

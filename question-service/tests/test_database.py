@@ -19,7 +19,7 @@ def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
         question_text="What is 2 + 2?",
-        question_type=QuestionType.MATHEMATICAL,
+        question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
         correct_answer="4",
         answer_options=["2", "3", "4", "5"],
@@ -188,7 +188,7 @@ class TestDatabaseService:
         questions = [
             GeneratedQuestion(
                 question_text=f"Question {i}",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i + 1),
                 answer_options=["1", "2", "3", "4"],
@@ -219,7 +219,7 @@ class TestDatabaseService:
         questions = [
             GeneratedQuestion(
                 question_text=f"Question {i}",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i + 1),
                 answer_options=["1", "2", "3", "4"],
@@ -252,7 +252,7 @@ class TestDatabaseService:
         questions = [
             GeneratedQuestion(
                 question_text="Question 1",
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="1",
                 answer_options=["1", "2", "3", "4"],
@@ -274,7 +274,7 @@ class TestDatabaseService:
             EvaluatedQuestion(
                 question=GeneratedQuestion(
                     question_text=f"Question {i}",
-                    question_type=QuestionType.MATHEMATICAL,
+                    question_type=QuestionType.MATH,
                     difficulty_level=DifficultyLevel.EASY,
                     correct_answer=str(i + 1),
                     answer_options=["1", "2", "3", "4"],
@@ -414,7 +414,7 @@ class TestQuestionTypeMapping:
 
         question = GeneratedQuestion(
             question_text="Test question",
-            question_type=QuestionType.PATTERN_RECOGNITION,
+            question_type=QuestionType.PATTERN,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="A",
             answer_options=["A", "B", "C", "D"],

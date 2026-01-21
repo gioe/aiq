@@ -96,13 +96,17 @@ class ArbiterConfig(BaseModel):
     @field_validator("arbiters")
     @classmethod
     def validate_arbiters(cls, v: Dict[str, ArbiterModel]) -> Dict[str, ArbiterModel]:
-        """Validate that required question types are present."""
+        """Validate that required question types are present.
+
+        Note: Keys must match QuestionType enum values from app/models.py
+        (pattern, logic, spatial, math, verbal, memory).
+        """
         required_types = {
-            "mathematical",
-            "logical_reasoning",
-            "pattern_recognition",
-            "spatial_reasoning",
-            "verbal_reasoning",
+            "math",
+            "logic",
+            "pattern",
+            "spatial",
+            "verbal",
             "memory",
         }
         missing = required_types - set(v.keys())
@@ -182,7 +186,7 @@ class ArbiterConfigLoader:
         """Get the arbiter model for a specific question type.
 
         Args:
-            question_type: Type of question (e.g., "mathematical", "logical_reasoning")
+            question_type: Type of question (e.g., "math", "logic", "pattern")
 
         Returns:
             Arbiter model configuration for the question type

@@ -63,13 +63,13 @@ class TestQuestionGenerator:
     def test_generate_question(self, generator_with_openai):
         """Test generating a single question."""
         question = generator_with_openai.generate_question(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.EASY,
         )
 
         assert question.question_text == "What is 2 + 2?"
         assert question.correct_answer == "4"
-        assert question.question_type == QuestionType.MATHEMATICAL
+        assert question.question_type == QuestionType.MATH
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.source_llm == "openai"
         assert len(question.answer_options) == 4
@@ -77,20 +77,20 @@ class TestQuestionGenerator:
     def test_generate_question_with_specific_provider(self, generator_with_openai):
         """Test generating a question with a specific provider."""
         question = generator_with_openai.generate_question(
-            question_type=QuestionType.LOGICAL_REASONING,
+            question_type=QuestionType.LOGIC,
             difficulty=DifficultyLevel.MEDIUM,
             provider_name="openai",
         )
 
         assert question.source_llm == "openai"
-        assert question.question_type == QuestionType.LOGICAL_REASONING
+        assert question.question_type == QuestionType.LOGIC
         assert question.difficulty_level == DifficultyLevel.MEDIUM
 
     def test_generate_question_with_invalid_provider(self, generator_with_openai):
         """Test that invalid provider name raises error."""
         with pytest.raises(ValueError, match="Provider.*not available"):
             generator_with_openai.generate_question(
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty=DifficultyLevel.EASY,
                 provider_name="invalid-provider",
             )
@@ -98,18 +98,16 @@ class TestQuestionGenerator:
     def test_generate_batch(self, generator_with_openai):
         """Test generating a batch of questions."""
         batch = generator_with_openai.generate_batch(
-            question_type=QuestionType.VERBAL_REASONING,
+            question_type=QuestionType.VERBAL,
             difficulty=DifficultyLevel.HARD,
             count=3,
             distribute_across_providers=False,
         )
 
         assert len(batch.questions) == 3
-        assert batch.question_type == QuestionType.VERBAL_REASONING
+        assert batch.question_type == QuestionType.VERBAL
         assert batch.batch_size == 3
-        assert all(
-            q.question_type == QuestionType.VERBAL_REASONING for q in batch.questions
-        )
+        assert all(q.question_type == QuestionType.VERBAL for q in batch.questions)
         assert all(q.difficulty_level == DifficultyLevel.HARD for q in batch.questions)
 
     def test_generate_batch_with_failures(self, generator_with_openai):
@@ -133,7 +131,7 @@ class TestQuestionGenerator:
         ]
 
         batch = generator_with_openai.generate_batch(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.EASY,
             count=3,
             distribute_across_providers=False,
@@ -154,7 +152,7 @@ class TestQuestionGenerator:
 
         question = generator_with_openai._parse_generated_response(
             response=response,
-            question_type=QuestionType.PATTERN_RECOGNITION,
+            question_type=QuestionType.PATTERN,
             difficulty=DifficultyLevel.MEDIUM,
             provider_name="openai",
             model="gpt-4",
@@ -175,7 +173,7 @@ class TestQuestionGenerator:
         with pytest.raises(ValueError, match="Missing required fields"):
             generator_with_openai._parse_generated_response(
                 response=response,
-                question_type=QuestionType.MATHEMATICAL,
+                question_type=QuestionType.MATH,
                 difficulty=DifficultyLevel.EASY,
                 provider_name="openai",
                 model="gpt-4",
@@ -238,7 +236,7 @@ class TestQuestionGeneratorIntegration:
     def test_distribute_across_providers(self, multi_provider_generator):
         """Test that questions are distributed across providers."""
         batch = multi_provider_generator.generate_batch(
-            question_type=QuestionType.MATHEMATICAL,
+            question_type=QuestionType.MATH,
             difficulty=DifficultyLevel.MEDIUM,
             count=4,
             distribute_across_providers=True,
