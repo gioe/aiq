@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     provider_retry_max_delay: float = 60.0  # Maximum delay between retries in seconds
     provider_retry_exponential_base: float = 2.0  # Multiplier for exponential backoff
 
+    # Deduplication Configuration
+    dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
+    dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
+
 
 # Global settings instance
 settings = Settings()
