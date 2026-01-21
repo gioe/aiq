@@ -496,7 +496,7 @@ class TestEmbeddingCache:
         """Test cache miss returns None."""
         cache = EmbeddingCache()
 
-        result = cache.get("uncached text")
+        result = cache.get("uncached text", "text-embedding-3-small")
 
         assert result is None
         assert cache.stats["misses"] == 1
@@ -506,9 +506,10 @@ class TestEmbeddingCache:
         """Test setting and getting cached embedding."""
         cache = EmbeddingCache()
         embedding = np.array([0.1, 0.2, 0.3])
+        model = "text-embedding-3-small"
 
-        cache.set("test text", embedding)
-        result = cache.get("test text")
+        cache.set("test text", model, embedding)
+        result = cache.get("test text", model)
 
         assert result is not None
         np.testing.assert_array_equal(result, embedding)
@@ -519,14 +520,15 @@ class TestEmbeddingCache:
         """Test that cache normalizes text (case-insensitive, stripped)."""
         cache = EmbeddingCache()
         embedding = np.array([0.1, 0.2, 0.3])
+        model = "text-embedding-3-small"
 
-        cache.set("Test Text", embedding)
+        cache.set("Test Text", model, embedding)
 
         # All variations should hit the same cache entry
-        assert cache.get("test text") is not None
-        assert cache.get("TEST TEXT") is not None
-        assert cache.get("  Test Text  ") is not None
-        assert cache.get("  test text  ") is not None
+        assert cache.get("test text", model) is not None
+        assert cache.get("TEST TEXT", model) is not None
+        assert cache.get("  Test Text  ", model) is not None
+        assert cache.get("  test text  ", model) is not None
 
         # All 4 lookups should be hits
         assert cache.stats["hits"] == 4
@@ -536,9 +538,10 @@ class TestEmbeddingCache:
     def test_cache_clear(self):
         """Test clearing the cache."""
         cache = EmbeddingCache()
-        cache.set("text1", np.array([0.1, 0.2]))
-        cache.set("text2", np.array([0.3, 0.4]))
-        cache.get("text1")  # hit
+        model = "text-embedding-3-small"
+        cache.set("text1", model, np.array([0.1, 0.2]))
+        cache.set("text2", model, np.array([0.3, 0.4]))
+        cache.get("text1", model)  # hit
 
         assert cache.size == 2
         assert cache.stats["hits"] == 1
@@ -552,20 +555,44 @@ class TestEmbeddingCache:
     def test_cache_stats(self):
         """Test cache statistics tracking."""
         cache = EmbeddingCache()
+        model = "text-embedding-3-small"
 
         # Miss
-        cache.get("text1")
+        cache.get("text1", model)
         # Set
-        cache.set("text1", np.array([0.1]))
+        cache.set("text1", model, np.array([0.1]))
         # Hit
-        cache.get("text1")
+        cache.get("text1", model)
         # Miss
-        cache.get("text2")
+        cache.get("text2", model)
 
         stats = cache.stats
         assert stats["size"] == 1
         assert stats["hits"] == 1
         assert stats["misses"] == 2
+
+    def test_cache_model_isolation(self):
+        """Test that different models have separate cache entries."""
+        cache = EmbeddingCache()
+        embedding_small = np.array([0.1, 0.2, 0.3])
+        embedding_ada = np.array([0.4, 0.5, 0.6])
+
+        # Cache same text with different models
+        cache.set("test question", "text-embedding-3-small", embedding_small)
+        cache.set("test question", "text-embedding-ada-002", embedding_ada)
+
+        # Should have 2 separate cache entries
+        assert cache.size == 2
+
+        # Each model should return its own embedding
+        result_small = cache.get("test question", "text-embedding-3-small")
+        result_ada = cache.get("test question", "text-embedding-ada-002")
+
+        np.testing.assert_array_equal(result_small, embedding_small)
+        np.testing.assert_array_equal(result_ada, embedding_ada)
+
+        # Wrong model should miss
+        assert cache.get("test question", "text-embedding-3-large") is None
 
 
 class TestDeduplicatorCacheIntegration:
@@ -699,3 +726,47 @@ class TestDeduplicatorCacheIntegration:
         assert stats["hits"] == 3
         # 5 misses (first time for each text)
         assert stats["misses"] == 5
+
+    @patch("app.deduplicator.OpenAI")
+    def test_model_change_invalidates_cache(self, mock_openai):
+        """Test that changing embedding model doesn't reuse stale cache entries."""
+        # Set up different embeddings for each model
+        embedding_small = [0.1] * 1536
+        embedding_ada = [0.9] * 1536
+
+        call_count = [0]
+
+        def mock_embeddings_create(input, model):
+            call_count[0] += 1
+            mock_response = Mock()
+            if model == "text-embedding-3-small":
+                mock_response.data = [Mock(embedding=embedding_small)]
+            else:
+                mock_response.data = [Mock(embedding=embedding_ada)]
+            return mock_response
+
+        mock_openai.return_value.embeddings.create.side_effect = mock_embeddings_create
+
+        deduplicator = QuestionDeduplicator(
+            openai_api_key="test-key",
+            embedding_model="text-embedding-3-small",
+        )
+
+        # Get embedding with first model
+        result1 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 1  # API called
+
+        # Get same text again - should hit cache
+        result2 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 1  # No new API call
+        np.testing.assert_array_equal(result1, result2)
+
+        # Change the model
+        deduplicator.embedding_model = "text-embedding-ada-002"
+
+        # Get embedding for same text - should NOT hit cache (different model)
+        result3 = deduplicator._get_embedding("test question")
+        assert call_count[0] == 2  # New API call for different model
+
+        # Verify we got different embeddings
+        assert not np.array_equal(result1, result3)

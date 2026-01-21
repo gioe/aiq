@@ -49,28 +49,31 @@ class EmbeddingCache:
         """
         return text.strip().lower()
 
-    def _compute_key(self, text: str) -> str:
-        """Compute SHA-256 hash key for text.
+    def _compute_key(self, text: str, model: str) -> str:
+        """Compute SHA-256 hash key for text and model combination.
 
         Args:
             text: Text to hash (will be normalized first)
+            model: Embedding model name to include in key
 
         Returns:
             Hex digest of SHA-256 hash
         """
         normalized = self._normalize_text(text)
-        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        key_input = f"{model}:{normalized}"
+        return hashlib.sha256(key_input.encode("utf-8")).hexdigest()
 
-    def get(self, text: str) -> Optional[np.ndarray]:
+    def get(self, text: str, model: str) -> Optional[np.ndarray]:
         """Get cached embedding for text if available.
 
         Args:
             text: Text to look up
+            model: Embedding model name used for generation
 
         Returns:
             Cached embedding array or None if not found
         """
-        key = self._compute_key(text)
+        key = self._compute_key(text, model)
         embedding = self._cache.get(key)
         if embedding is not None:
             self._hits += 1
@@ -80,14 +83,15 @@ class EmbeddingCache:
             logger.debug(f"Cache miss for text hash {key[:8]}...")
         return embedding
 
-    def set(self, text: str, embedding: np.ndarray) -> None:
+    def set(self, text: str, model: str, embedding: np.ndarray) -> None:
         """Store embedding in cache.
 
         Args:
             text: Text that was embedded
+            model: Embedding model name used for generation
             embedding: Embedding vector to cache
         """
-        key = self._compute_key(text)
+        key = self._compute_key(text, model)
         self._cache[key] = embedding
         logger.debug(f"Cached embedding for text hash {key[:8]}...")
 
@@ -348,8 +352,8 @@ class QuestionDeduplicator:
         Raises:
             Exception: If API call fails
         """
-        # Check cache first
-        cached = self._embedding_cache.get(text)
+        # Check cache first (includes model in key to prevent stale cache after model change)
+        cached = self._embedding_cache.get(text, self.embedding_model)
         if cached is not None:
             return cached
 
@@ -361,8 +365,8 @@ class QuestionDeduplicator:
             embedding = response.data[0].embedding
             embedding_array = np.array(embedding)
 
-            # Cache the result
-            self._embedding_cache.set(text, embedding_array)
+            # Cache the result with model in key
+            self._embedding_cache.set(text, self.embedding_model, embedding_array)
 
             return embedding_array
 
