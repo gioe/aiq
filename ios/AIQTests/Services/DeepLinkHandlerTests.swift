@@ -1143,4 +1143,50 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(mockRouter.depth(in: .history), 1, "Should have navigated in current tab (history)")
         XCTAssertEqual(mockRouter.depth(in: .dashboard), 0, "Dashboard should remain at root")
     }
+
+    // MARK: - DeepLink Analytics Destination Type Tests
+
+    func testDeepLink_AnalyticsDestinationType_TestResults() {
+        // Given
+        let deepLink = DeepLink.testResults(id: 123)
+
+        // Then
+        XCTAssertEqual(deepLink.analyticsDestinationType, "test_results")
+    }
+
+    func testDeepLink_AnalyticsDestinationType_ResumeTest() {
+        // Given
+        let deepLink = DeepLink.resumeTest(sessionId: 456)
+
+        // Then
+        XCTAssertEqual(deepLink.analyticsDestinationType, "resume_test")
+    }
+
+    func testDeepLink_AnalyticsDestinationType_Settings() {
+        // Given
+        let deepLink = DeepLink.settings
+
+        // Then
+        XCTAssertEqual(deepLink.analyticsDestinationType, "settings")
+    }
+
+    func testDeepLink_AnalyticsDestinationType_Invalid() {
+        // Given
+        let deepLink = DeepLink.invalid
+
+        // Then
+        XCTAssertEqual(deepLink.analyticsDestinationType, "invalid")
+    }
+
+    // MARK: - DeepLinkSource Tests
+
+    func testDeepLinkSource_RawValues() {
+        // Verify all source raw values are correctly defined
+        XCTAssertEqual(DeepLinkSource.pushNotification.rawValue, "push_notification")
+        XCTAssertEqual(DeepLinkSource.externalApp.rawValue, "external_app")
+        XCTAssertEqual(DeepLinkSource.safari.rawValue, "safari")
+        XCTAssertEqual(DeepLinkSource.urlScheme.rawValue, "url_scheme")
+        XCTAssertEqual(DeepLinkSource.universalLink.rawValue, "universal_link")
+        XCTAssertEqual(DeepLinkSource.unknown.rawValue, "unknown")
+    }
 }

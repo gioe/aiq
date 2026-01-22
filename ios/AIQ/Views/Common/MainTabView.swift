@@ -80,7 +80,9 @@ struct MainTabView: View {
                 .receive(on: DispatchQueue.main)
         ) { notification in
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
-            handleDeepLinkNavigation(deepLink)
+            let source = notification.userInfo?["source"] as? DeepLinkSource ?? .unknown
+            let originalURL = notification.userInfo?["originalURL"] as? String ?? ""
+            handleDeepLinkNavigation(deepLink, source: source, originalURL: originalURL)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .notificationTapped)
@@ -140,7 +142,18 @@ struct MainTabView: View {
         // Parse and handle the deep link
         let deepLink = deepLinkHandler.parse(deepLinkURL)
         Self.logger.info("Parsed deep link from notification: \(String(describing: deepLink), privacy: .public)")
-        handleDeepLinkNavigation(deepLink)
+
+        // Sanitize URL for analytics (remove query parameters)
+        let sanitizedURL = sanitizeURLForAnalytics(deepLinkURL)
+        handleDeepLinkNavigation(deepLink, source: .pushNotification, originalURL: sanitizedURL)
+    }
+
+    /// Sanitize a URL for analytics by removing sensitive query parameters
+    private func sanitizeURLForAnalytics(_ url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.queryItems = nil
+        components?.fragment = nil
+        return components?.string ?? url.absoluteString
     }
 
     /// Determine if the upgrade prompt should be shown
@@ -184,10 +197,19 @@ struct MainTabView: View {
     /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
     /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
     ///
+    /// - Parameters:
+    ///   - deepLink: The parsed deep link to navigate to
+    ///   - source: The source of the deep link for analytics tracking
+    ///   - originalURL: The original URL string for analytics tracking
+    ///
     /// - Note: Concurrent deep links are dropped (not queued) while one is being processed. This is intentional
     ///   because deep links represent user intent at a specific moment. Processing an older deep link after a
     ///   newer one completes would create unexpected navigation and poor UX.
-    private func handleDeepLinkNavigation(_ deepLink: DeepLink) {
+    private func handleDeepLinkNavigation(
+        _ deepLink: DeepLink,
+        source: DeepLinkSource = .unknown,
+        originalURL: String = ""
+    ) {
         // Guard against concurrent deep link processing.
         // The flag is set before Task creation to prevent race conditions.
         guard !isProcessingDeepLink else {
@@ -206,6 +228,8 @@ struct MainTabView: View {
                 selectedTab = .settings
                 router.currentTab = .settings
                 router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
+                // Track successful navigation for settings (handled here, not in DeepLinkHandler)
+                deepLinkHandler.trackNavigationSuccess(deepLink, source: source, originalURL: originalURL)
 
             case .testResults, .resumeTest:
                 // Switch to Dashboard tab first for test-related deep links
@@ -214,7 +238,13 @@ struct MainTabView: View {
                 router.currentTab = .dashboard
                 router.popToRoot(in: .dashboard) // Clear any existing navigation stack
 
-                let success = await deepLinkHandler.handleNavigation(deepLink, router: router, tab: .dashboard)
+                let success = await deepLinkHandler.handleNavigation(
+                    deepLink,
+                    router: router,
+                    tab: .dashboard,
+                    source: source,
+                    originalURL: originalURL
+                )
                 if !success {
                     let linkDesc = String(describing: deepLink)
                     Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
