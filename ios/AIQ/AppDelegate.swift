@@ -218,7 +218,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         options _: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
         Self.logger.info("Received URL scheme deep link: \(url.absoluteString, privacy: .public)")
-        return handleDeepLink(url)
+        return handleDeepLink(url, source: .urlScheme)
     }
 
     /// Handle universal links (https://aiq.app/...)
@@ -245,7 +245,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
 
         Self.logger.info("Received universal link: \(url.absoluteString, privacy: .public)")
-        return handleDeepLink(url)
+        return handleDeepLink(url, source: .universalLink)
     }
 
     /// Process a deep link URL and navigate to the appropriate destination
@@ -255,15 +255,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// 2. Posts a notification with the deep link for the app to handle
     /// 3. The notification is handled asynchronously by the MainTabView or other components
     ///
-    /// - Parameter url: The deep link URL to handle
+    /// - Parameters:
+    ///   - url: The deep link URL to handle
+    ///   - source: The source of the deep link (URL scheme, universal link, etc.)
     /// - Returns: true if the URL was parsed successfully, false otherwise
-    private func handleDeepLink(_ url: URL) -> Bool {
+    private func handleDeepLink(_ url: URL, source: DeepLinkSource) -> Bool {
         // Parse the deep link
         let deepLink = deepLinkHandler.parse(url)
+
+        // Sanitize URL for analytics (remove query parameters that might contain sensitive data)
+        let sanitizedURL = sanitizeURLForAnalytics(url)
 
         // Check if the deep link is valid
         guard deepLink != .invalid else {
             Self.logger.warning("Invalid deep link: \(url.absoluteString, privacy: .public)")
+            // Track the parse failure in analytics
+            deepLinkHandler.trackParseFailed(
+                error: .unrecognizedRoute(route: url.path, url: sanitizedURL),
+                source: source,
+                originalURL: sanitizedURL
+            )
             // Show user-friendly error toast
             // The detailed error has already been logged and sent to Crashlytics by DeepLinkHandler
             Task { @MainActor in
@@ -280,10 +291,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         NotificationCenter.default.post(
             name: .deepLinkReceived,
             object: nil,
-            userInfo: ["deepLink": deepLink]
+            userInfo: [
+                "deepLink": deepLink,
+                "source": source,
+                "originalURL": sanitizedURL
+            ]
         )
 
         return true
+    }
+
+    /// Sanitize a URL for analytics by removing sensitive query parameters
+    ///
+    /// - Parameter url: The URL to sanitize
+    /// - Returns: A sanitized URL string with scheme, host, and path only
+    private func sanitizeURLForAnalytics(_ url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        // Remove query parameters to avoid leaking sensitive data
+        components?.queryItems = nil
+        components?.fragment = nil
+        return components?.string ?? url.absoluteString
     }
 }
 

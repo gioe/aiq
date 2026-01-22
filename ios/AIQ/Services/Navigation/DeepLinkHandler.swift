@@ -325,9 +325,20 @@ extension DeepLinkHandler {
             trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
             return true
         case .settings:
-            trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
-            Self.logger.error("Settings deep link incorrectly routed to handleNavigation")
-            fatalError("Settings deep link should be handled in MainTabView")
+            // Settings navigation is handled at the tab level in MainTabView.
+            // This case should never be reached - if it is, it's a programming error.
+            // Log and track the error but don't crash the app.
+            Self.logger.error("Settings deep link incorrectly routed to handleNavigation - programming error")
+            trackFailure(errorType: "settings_routing_error", source: source, originalURL: originalURL)
+            CrashlyticsErrorRecorder.recordError(
+                NSError(
+                    domain: "com.aiq.deeplink",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Settings deep link routed to handleNavigation"]
+                ),
+                context: .deepLinkNavigation
+            )
+            return false
         case .invalid:
             Self.logger.warning("Attempted to navigate with invalid deep link")
             trackFailure(errorType: "invalid_deep_link", source: source, originalURL: originalURL)
