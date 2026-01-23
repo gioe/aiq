@@ -378,3 +378,166 @@ class MetricsResponse(BaseModel):
 | Union of specific strings | `Literal["a", "b", "c"]` |
 | Dictionary with known structure | `TypedDict` |
 | API request/response schemas | Pydantic `BaseModel` |
+
+## Git and Version Control
+
+### Branching Strategy
+
+We use a simple trunk-based workflow with short-lived feature branches:
+
+| Branch Type | Pattern | Purpose |
+|-------------|---------|---------|
+| Main | `main` | Production-ready code, always deployable |
+| Feature | `feature/TASK-XXX-brief-description` | New features and enhancements |
+| Bugfix | `bugfix/TASK-XXX-brief-description` | Bug fixes |
+| Hotfix | `hotfix/TASK-XXX-brief-description` | Urgent production fixes |
+
+**Guidelines:**
+- All feature branches should be created from `main`
+- Keep feature branches short-lived (merge within a few days)
+- Delete branches after merging
+- Never commit directly to `main`
+
+### Commit Message Format
+
+All commits must follow this format:
+
+```
+[TASK-XXX] Brief imperative description
+
+Optional longer description explaining:
+- What changed
+- Why it changed
+- Any important context
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+**Examples:**
+```
+# Good
+[TASK-123] Add rate limiting to question service endpoint
+[TASK-456] Fix null pointer in score calculation
+[TASK-789] Refactor authentication to use Redis token storage
+
+# Bad
+fixed stuff
+WIP
+TASK-123 adding feature
+```
+
+**Rules:**
+- Use imperative mood ("Add" not "Added" or "Adds")
+- Keep the first line under 72 characters
+- Reference the task ID in brackets
+- Capitalize the first word after the task ID
+- No period at the end of the subject line
+- Include `Co-Authored-By` when AI-assisted
+
+### Pull Request Guidelines
+
+#### PR Size
+- **Target**: 200-400 lines of changes
+- **Maximum**: 500 lines (excluding auto-generated files, tests)
+- Large changes should be split into smaller, logical PRs
+
+#### PR Title Format
+```
+[TASK-XXX] Brief description
+```
+
+#### PR Description Template
+```markdown
+## Summary
+- Bullet point summary of changes
+
+## Test plan
+- [ ] Unit tests added/updated
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+```
+
+#### Before Opening a PR
+- [ ] All tests pass locally
+- [ ] Code is formatted (run linters)
+- [ ] No secrets or credentials committed
+- [ ] PR description is complete
+- [ ] Self-review completed
+
+### Merge Policy
+
+We use **squash merges** to `main`:
+- Keeps history clean and linear
+- Each PR becomes a single commit
+- Feature branch commits are preserved in PR history
+
+**To merge:**
+```bash
+gh pr merge <PR_NUMBER> --squash --delete-branch
+```
+
+### Handling Merge Conflicts
+
+1. **Pull latest main:**
+   ```bash
+   git fetch origin main
+   git rebase origin/main
+   ```
+
+2. **Resolve conflicts:**
+   - Resolve each file conflict
+   - Run tests after resolution
+   - Continue rebase: `git rebase --continue`
+
+3. **Force push your branch:**
+   ```bash
+   git push --force-with-lease
+   ```
+
+**Prefer rebase over merge** for updating feature branches to keep history clean.
+
+### Tagging and Versioning
+
+We use semantic versioning (SemVer) for releases:
+
+| Version Part | When to Increment |
+|--------------|------------------|
+| Major (X.0.0) | Breaking API changes |
+| Minor (0.X.0) | New features, backward compatible |
+| Patch (0.0.X) | Bug fixes, backward compatible |
+
+**Creating a release tag:**
+```bash
+git tag -a v1.2.3 -m "Release v1.2.3: Brief description"
+git push origin v1.2.3
+```
+
+### Pre-Commit Hooks
+
+The repository uses pre-commit hooks for code quality:
+- **Linting**: `flake8` for Python code
+- **Formatting**: `black` for code formatting
+- **Type checking**: `mypy` for type validation
+
+If a commit fails due to hooks:
+1. Review the error message
+2. Fix the issue
+3. Stage the fixes
+4. Commit again (create a NEW commit, don't amend)
+
+### Git Safety Rules
+
+**NEVER:**
+- Force push to `main`
+- Commit secrets, API keys, or credentials
+- Use `git commit --amend` on shared branches
+- Use `--no-verify` to skip hooks
+- Perform hard resets on shared branches
+
+**ALWAYS:**
+- Pull before starting work
+- Create a branch for your changes
+- Review your diff before committing
+- Keep commits atomic and focused
