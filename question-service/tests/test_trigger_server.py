@@ -477,7 +477,7 @@ class TestRateLimiting:
                     json={"count": 10},
                     headers={
                         "X-Admin-Token": "test-secret-token",
-                        "X-Forwarded-For": "1.2.3.4",
+                        "X-Envoy-External-Address": "1.2.3.4",
                     },
                 )
                 assert response.status_code == 200
@@ -488,7 +488,7 @@ class TestRateLimiting:
                 json={"count": 10},
                 headers={
                     "X-Admin-Token": "test-secret-token",
-                    "X-Forwarded-For": "1.2.3.4",
+                    "X-Envoy-External-Address": "1.2.3.4",
                 },
             )
             assert response.status_code == 429
@@ -499,27 +499,27 @@ class TestRateLimiting:
                 json={"count": 10},
                 headers={
                     "X-Admin-Token": "test-secret-token",
-                    "X-Forwarded-For": "5.6.7.8",
+                    "X-Envoy-External-Address": "5.6.7.8",
                 },
             )
             assert response.status_code == 200
             assert response.headers["X-RateLimit-Remaining"] == "9"
 
-    def test_rate_limit_uses_x_forwarded_for_header(self):
-        """Test that rate limiter uses X-Forwarded-For header for client IP."""
+    def test_rate_limit_uses_envoy_external_address_header(self):
+        """Test that rate limiter uses X-Envoy-External-Address header for client IP."""
         with patch.object(self.module, "run_generation_job", return_value=None):
-            # Make request with X-Forwarded-For header
+            # Make request with X-Envoy-External-Address header
             response = self.client.post(
                 "/trigger",
                 json={"count": 10},
                 headers={
                     "X-Admin-Token": "test-secret-token",
-                    "X-Forwarded-For": "10.0.0.1, 10.0.0.2",  # Multiple IPs
+                    "X-Envoy-External-Address": "10.0.0.1, 10.0.0.2",  # Multiple IPs
                 },
             )
             assert response.status_code == 200
 
-            # Should track by first IP in X-Forwarded-For
+            # Should track by first IP in X-Envoy-External-Address
             # Make 9 more requests from same first IP
             for _ in range(9):
                 response = self.client.post(
@@ -527,7 +527,7 @@ class TestRateLimiting:
                     json={"count": 10},
                     headers={
                         "X-Admin-Token": "test-secret-token",
-                        "X-Forwarded-For": "10.0.0.1, 10.0.0.3",  # Same first IP
+                        "X-Envoy-External-Address": "10.0.0.1, 10.0.0.3",  # Same first IP
                     },
                 )
                 assert response.status_code == 200
@@ -538,7 +538,7 @@ class TestRateLimiting:
                 json={"count": 10},
                 headers={
                     "X-Admin-Token": "test-secret-token",
-                    "X-Forwarded-For": "10.0.0.1",
+                    "X-Envoy-External-Address": "10.0.0.1",
                 },
             )
             assert response.status_code == 429
@@ -556,7 +556,7 @@ class TestRateLimiting:
                         json={"count": 10},
                         headers={
                             "X-Admin-Token": "test-secret-token",
-                            "X-Forwarded-For": "192.168.1.1",
+                            "X-Envoy-External-Address": "192.168.1.1",
                         },
                     )
 
@@ -572,7 +572,7 @@ class TestRateLimiting:
                     json={"count": 10},
                     headers={
                         "X-Admin-Token": "test-secret-token",
-                        "X-Forwarded-For": "192.168.1.2",  # Different client
+                        "X-Envoy-External-Address": "192.168.1.2",  # Different client
                     },
                 )
 

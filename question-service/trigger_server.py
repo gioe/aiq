@@ -46,9 +46,15 @@ class RateLimiter:
     @staticmethod
     def _get_client_id(request: Request) -> str:
         """
-        Extract client identifier from request.
+        Securely extract client identifier from request.
 
-        Uses X-Forwarded-For header (Railway proxy) with fallback to client.host.
+        Uses trusted proxy headers to prevent IP spoofing attacks.
+
+        Security notes:
+        - X-Forwarded-For is UNTRUSTED: clients can inject arbitrary values
+        - X-Real-IP is UNTRUSTED: clients can inject arbitrary values
+        - X-Envoy-External-Address is TRUSTED: set by Railway's Envoy proxy
+        - request.client.host is RELIABLE: direct connection IP
 
         Args:
             request: FastAPI Request object
@@ -56,18 +62,17 @@ class RateLimiter:
         Returns:
             Client IP address as identifier
         """
-        # Railway sets X-Forwarded-For header with real client IP
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-            # Use the first IP (leftmost) as the real client
-            return forwarded_for.split(",")[0].strip()
+        # Priority 1: X-Envoy-External-Address (Railway-specific, infrastructure-set)
+        # This header is set by Railway's Envoy proxy and cannot be spoofed
+        envoy_ip = request.headers.get("X-Envoy-External-Address")
+        if envoy_ip:
+            return envoy_ip.split(",")[0].strip()
 
-        # Fallback to direct client host
+        # Priority 2: Direct client IP (for local development without proxy)
         if request.client:
             return request.client.host
 
-        # Last resort fallback
+        # Priority 3: Unknown fallback
         return "unknown"
 
     @staticmethod
@@ -150,8 +155,8 @@ class RateLimiter:
                 retry_after = int(reset_at - current_time)
 
                 logger.warning(
-                    f"Rate limit exceeded for client {client_id}: "
-                    f"{current_count}/{RATE_LIMIT_REQUESTS} requests"
+                    f"Rate limit exceeded for client {client_id} on {request.url.path}: "
+                    f"{current_count}/{RATE_LIMIT_REQUESTS} requests in window"
                 )
 
                 raise HTTPException(

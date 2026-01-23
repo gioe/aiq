@@ -449,7 +449,7 @@ curl -i -X POST https://your-service.railway.app/trigger \
 The trigger service uses a fixed-window rate limiting algorithm:
 - Requests are counted in 60-second windows
 - Each client IP gets 10 requests per window
-- Uses `X-Forwarded-For` header for Railway proxy environments
+- Uses `X-Envoy-External-Address` header for Railway proxy environments (secure, cannot be spoofed)
 - Automatic cleanup of expired entries prevents memory leaks
 - Thread-safe with proper locking for concurrent requests
 
