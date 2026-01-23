@@ -517,7 +517,7 @@ git push origin v1.2.3
 ### Pre-Commit Hooks
 
 The repository uses pre-commit hooks for code quality:
-- **Linting**: `ruff` for Python code
+- **Linting**: `flake8` for Python code
 - **Formatting**: `black` for code formatting
 - **Type checking**: `mypy` for type validation
 
