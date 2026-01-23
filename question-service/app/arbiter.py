@@ -340,13 +340,19 @@ class QuestionArbiter:
         This method evaluates all questions concurrently using asyncio.gather,
         significantly reducing total evaluation time compared to sequential calls.
 
+        Failures (timeouts, circuit breaker opens, API errors) are logged but do not
+        stop processing - only successfully evaluated questions are returned. The
+        batch statistics logged at completion include failure counts broken down by
+        cause (circuit breaker, timeout, other errors).
+
         Args:
             questions: List of generated questions to evaluate
             temperature: Sampling temperature for evaluation
             max_tokens: Maximum tokens for evaluation response
 
         Returns:
-            List of successfully evaluated questions (failed evaluations are excluded)
+            List of successfully evaluated questions only. Failed evaluations are
+            excluded from results but are logged with error details.
         """
         if not questions:
             return []
@@ -356,12 +362,11 @@ class QuestionArbiter:
         # Create async tasks for all questions
         tasks = [
             self._evaluate_question_task(
-                task_index=i,
                 question=question,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
-            for i, question in enumerate(questions)
+            for question in questions
         ]
 
         # Execute all tasks concurrently
@@ -411,7 +416,6 @@ class QuestionArbiter:
 
     async def _evaluate_question_task(
         self,
-        task_index: int,
         question: GeneratedQuestion,
         temperature: float,
         max_tokens: int,
@@ -419,15 +423,15 @@ class QuestionArbiter:
         """Internal task for evaluating a single question.
 
         This wraps evaluate_question_async for use with asyncio.gather.
+        Failures are handled by asyncio.gather with return_exceptions=True.
 
         Args:
-            task_index: Index of this task (for logging)
             question: Question to evaluate
             temperature: Sampling temperature
             max_tokens: Maximum tokens
 
         Returns:
-            Evaluated question
+            Evaluated question (or raises exception which gather catches)
         """
         return await self.evaluate_question_async(
             question=question,
