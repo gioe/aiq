@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective Date:** [EFFECTIVE_DATE]
+**Effective Date:** January 23, 2026
 
 This Privacy Policy describes how AIQ ("we," "us," or "our") collects, uses, and shares your personal information when you use our mobile application (the "App"). We are committed to protecting your privacy and being transparent about our data practices.
 
@@ -343,6 +343,6 @@ We will respond to all legitimate requests within the timeframes required by app
 
 ---
 
-**Last Updated:** [EFFECTIVE_DATE]
+**Last Updated:** January 23, 2026
 
 This Privacy Policy is effective as of the date stated above and applies to all users of the AIQ mobile application.
