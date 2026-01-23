@@ -230,12 +230,15 @@ def create_application() -> FastAPI:
         )
 
     # Configure CORS
+    # Security: Explicitly list allowed methods and headers instead of wildcards
+    # Methods: REST verbs used by iOS app and admin dashboard
+    # Headers: Authorization (JWT), Content-Type (JSON), X-Platform/X-App-Version (telemetry)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Platform", "X-App-Version"],
     )
 
     # Configure Request Logging
