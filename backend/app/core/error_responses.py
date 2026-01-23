@@ -97,6 +97,12 @@ class ErrorMessages:
     QUALITY_FLAG_REASON_REQUIRED = (
         "Reason is required when setting quality_flag to 'deactivated'."
     )
+    RESET_TOKEN_INVALID = "Invalid or expired reset token."
+    RESET_TOKEN_EXPIRED = "Password reset token has expired. Please request a new one."
+    RESET_TOKEN_ALREADY_USED = "This password reset link has already been used."
+    PASSWORD_RESET_RATE_LIMITED = (
+        "Too many password reset requests. Please try again later."
+    )
 
     # ==========================================================================
     # Server Errors (500)

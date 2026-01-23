@@ -48,6 +48,9 @@ class EventType(str, Enum):
     USER_LOGIN = "user.login"
     USER_LOGOUT = "user.logout"
     TOKEN_REFRESHED = "user.token_refreshed"
+    PASSWORD_RESET_REQUESTED = "user.password_reset_requested"
+    PASSWORD_RESET_COMPLETED = "user.password_reset_completed"
+    PASSWORD_RESET_FAILED = "user.password_reset_failed"
 
     # Test session events
     TEST_STARTED = "test.started"

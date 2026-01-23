@@ -772,3 +772,310 @@ class TestDatabaseErrorHandling:
                 mock_logger.error.assert_called_once()
                 log_call_args = str(mock_logger.error.call_args)
                 assert "Database error during login" in log_call_args
+
+
+class TestPasswordReset:
+    """Tests for password reset functionality (TASK-503)."""
+
+    def test_request_password_reset_success(self, client, test_user, db_session):
+        """Test successful password reset request creates token."""
+        from app.models.models import PasswordResetToken
+
+        request_data = {"email": "test@example.com"}
+        response = client.post("/v1/auth/request-password-reset", json=request_data)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert "If an account exists" in data["message"]
+
+        # Verify token was created in database
+        token = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.user_id == test_user.id)
+            .first()
+        )
+        assert token is not None
+        assert token.user_id == test_user.id
+        assert len(token.token) > 0
+        assert token.expires_at > token.created_at
+        assert token.used_at is None
+
+    def test_request_password_reset_nonexistent_email_returns_success(
+        self, client, db_session
+    ):
+        """Test password reset request for non-existent email returns generic success message."""
+        from app.models.models import PasswordResetToken
+
+        request_data = {"email": "nonexistent@example.com"}
+        response = client.post("/v1/auth/request-password-reset", json=request_data)
+
+        # Should return success to prevent email enumeration
+        assert response.status_code == 200
+        data = response.json()
+        assert "If an account exists" in data["message"]
+
+        # Verify no token was created
+        tokens = db_session.query(PasswordResetToken).all()
+        assert len(tokens) == 0
+
+    def test_request_password_reset_invalidates_previous_tokens(
+        self, client, test_user, db_session
+    ):
+        """Test that new password reset request invalidates previous unused tokens."""
+        from app.models.models import PasswordResetToken
+
+        # Request password reset twice
+        request_data = {"email": "test@example.com"}
+        response1 = client.post("/v1/auth/request-password-reset", json=request_data)
+        assert response1.status_code == 200
+
+        # Get first token
+        first_token = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.user_id == test_user.id)
+            .first()
+        )
+        first_token_value = first_token.token
+
+        # Request second time
+        response2 = client.post("/v1/auth/request-password-reset", json=request_data)
+        assert response2.status_code == 200
+
+        # Verify first token was invalidated (marked as used)
+        db_session.expire_all()
+        old_token = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.token == first_token_value)
+            .first()
+        )
+        assert old_token.used_at is not None
+
+        # Verify new token exists and is unused
+        new_tokens = (
+            db_session.query(PasswordResetToken)
+            .filter(
+                PasswordResetToken.user_id == test_user.id,
+                PasswordResetToken.used_at.is_(None),
+            )
+            .all()
+        )
+        assert len(new_tokens) == 1
+
+    def test_reset_password_with_valid_token_succeeds(
+        self, client, test_user, db_session
+    ):
+        """Test password reset with valid token updates password."""
+        from app.models.models import PasswordResetToken
+        from app.core.security import verify_password
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create valid reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_record = PasswordResetToken(
+            user_id=test_user.id,
+            token=reset_token,
+            expires_at=utc_now() + timedelta(minutes=30),
+        )
+        db_session.add(token_record)
+        db_session.commit()
+
+        # Reset password
+        reset_data = {"token": reset_token, "new_password": "NewSecureP@ssw0rd!"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "Password has been reset successfully" in data["message"]
+
+        # Verify password was updated
+        db_session.expire_all()
+        from app.models import User
+
+        user = db_session.query(User).filter(User.id == test_user.id).first()
+        assert verify_password("NewSecureP@ssw0rd!", user.password_hash)
+
+        # Verify token was marked as used
+        db_session.expire_all()
+        token = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.token == reset_token)
+            .first()
+        )
+        assert token.used_at is not None
+
+    def test_reset_password_with_invalid_token_fails(self, client):
+        """Test password reset with non-existent token fails."""
+        reset_data = {"token": "invalid_token_12345", "new_password": "NewPassword123"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+
+        assert response.status_code == 400
+        assert "Invalid or expired" in response.json()["detail"]
+
+    def test_reset_password_with_already_used_token_fails(
+        self, client, test_user, db_session
+    ):
+        """Test password reset with already-used token fails."""
+        from app.models.models import PasswordResetToken
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create already-used reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_record = PasswordResetToken(
+            user_id=test_user.id,
+            token=reset_token,
+            expires_at=utc_now() + timedelta(minutes=30),
+            used_at=utc_now(),  # Already used
+        )
+        db_session.add(token_record)
+        db_session.commit()
+
+        # Try to reset password
+        reset_data = {"token": reset_token, "new_password": "NewPassword123"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+
+        assert response.status_code == 400
+        assert "already been used" in response.json()["detail"]
+
+    def test_reset_password_with_expired_token_fails(
+        self, client, test_user, db_session
+    ):
+        """Test password reset with expired token fails."""
+        from app.models.models import PasswordResetToken
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create expired reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_record = PasswordResetToken(
+            user_id=test_user.id,
+            token=reset_token,
+            expires_at=utc_now() - timedelta(minutes=5),  # Expired 5 minutes ago
+        )
+        db_session.add(token_record)
+        db_session.commit()
+
+        # Try to reset password
+        reset_data = {"token": reset_token, "new_password": "NewPassword123"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+
+        assert response.status_code == 400
+        assert "expired" in response.json()["detail"]
+
+    def test_reset_password_validates_password_strength(
+        self, client, test_user, db_session
+    ):
+        """Test that password strength validation is enforced on reset."""
+        from app.models.models import PasswordResetToken
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create valid reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_record = PasswordResetToken(
+            user_id=test_user.id,
+            token=reset_token,
+            expires_at=utc_now() + timedelta(minutes=30),
+        )
+        db_session.add(token_record)
+        db_session.commit()
+
+        # Try to reset with weak password
+        reset_data = {"token": reset_token, "new_password": "weak"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+
+        assert response.status_code == 422  # Validation error
+        # Token should not be consumed on validation failure
+        db_session.expire_all()
+        token = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.token == reset_token)
+            .first()
+        )
+        assert token.used_at is None
+
+    def test_reset_password_can_login_with_new_password(
+        self, client, test_user, db_session
+    ):
+        """Test that user can login with new password after reset."""
+        from app.models.models import PasswordResetToken
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create valid reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_record = PasswordResetToken(
+            user_id=test_user.id,
+            token=reset_token,
+            expires_at=utc_now() + timedelta(minutes=30),
+        )
+        db_session.add(token_record)
+        db_session.commit()
+
+        # Reset password
+        new_password = "NewSecureP@ssw0rd123!"
+        reset_data = {"token": reset_token, "new_password": new_password}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+        assert response.status_code == 200
+
+        # Verify can login with new password
+        login_data = {"email": "test@example.com", "password": new_password}
+        login_response = client.post("/v1/auth/login", json=login_data)
+        assert login_response.status_code == 200
+
+        # Verify cannot login with old password
+        old_login_data = {"email": "test@example.com", "password": "testpassword123"}
+        old_login_response = client.post("/v1/auth/login", json=old_login_data)
+        assert old_login_response.status_code == 401
+
+    def test_request_password_reset_invalid_email_format(self, client):
+        """Test password reset request with invalid email format."""
+        request_data = {"email": "not-an-email"}
+        response = client.post("/v1/auth/request-password-reset", json=request_data)
+
+        assert response.status_code == 422  # Validation error
+
+    def test_reset_password_invalidates_other_tokens(
+        self, client, test_user, db_session
+    ):
+        """Test that successful password reset invalidates all other tokens for user."""
+        from app.models.models import PasswordResetToken
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Create multiple reset tokens
+        token1 = secrets.token_urlsafe(32)
+        token2 = secrets.token_urlsafe(32)
+        token3 = secrets.token_urlsafe(32)
+
+        for token_value in [token1, token2, token3]:
+            token_record = PasswordResetToken(
+                user_id=test_user.id,
+                token=token_value,
+                expires_at=utc_now() + timedelta(minutes=30),
+            )
+            db_session.add(token_record)
+        db_session.commit()
+
+        # Use token2 to reset password
+        reset_data = {"token": token2, "new_password": "NewPassword123!"}
+        response = client.post("/v1/auth/reset-password", json=reset_data)
+        assert response.status_code == 200
+
+        # Verify all tokens are marked as used
+        db_session.expire_all()
+        tokens = (
+            db_session.query(PasswordResetToken)
+            .filter(PasswordResetToken.user_id == test_user.id)
+            .all()
+        )
+        for token in tokens:
+            assert token.used_at is not None

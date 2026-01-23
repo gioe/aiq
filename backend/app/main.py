@@ -321,6 +321,15 @@ def create_application() -> FastAPI:
                     "limit": 10,
                     "window": 60,
                 },  # 10 per min
+                # Password reset rate limits (TASK-503)
+                f"{settings.API_V1_PREFIX}/auth/request-password-reset": {
+                    "limit": 3,
+                    "window": 900,
+                },  # 3 per 15 min - prevent email spam abuse
+                f"{settings.API_V1_PREFIX}/auth/reset-password": {
+                    "limit": 5,
+                    "window": 3600,
+                },  # 5 per hour - prevent brute force attempts
                 # Rate limits for admin endpoints to prevent abuse
                 # Computationally expensive endpoints have stricter limits
                 f"{settings.API_V1_PREFIX}/admin/reliability": {
