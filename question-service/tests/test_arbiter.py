@@ -1,7 +1,8 @@
 """Tests for question arbiter functionality."""
 
+import asyncio
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from app.arbiter import QuestionArbiter
 from app.arbiter_config import (
@@ -663,3 +664,319 @@ class TestArbiterIntegration:
         assert (
             call_kwargs["model_override"] == "gpt-4"
         ), f"model_override should be 'gpt-4', got {call_kwargs['model_override']}"
+
+
+class TestQuestionArbiterAsync:
+    """Tests for async arbiter functionality."""
+
+    @patch("app.arbiter.OpenAIProvider")
+    def test_initialization_creates_rate_limiter(
+        self, mock_openai, mock_arbiter_config
+    ):
+        """Test that arbiter initialization creates rate limiter with correct concurrency."""
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+            max_concurrent_evaluations=5,
+            async_timeout_seconds=30.0,
+        )
+
+        assert arbiter._rate_limiter._value == 5
+        assert arbiter._async_timeout == pytest.approx(30.0)
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_question_async_success(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test successful async question evaluation."""
+        # Setup mock provider with async method
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            return_value=sample_evaluation_response
+        )
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Evaluate question asynchronously
+        evaluated = await arbiter.evaluate_question_async(sample_question)
+
+        # Assertions
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.question == sample_question
+        assert isinstance(evaluated.evaluation, EvaluationScore)
+        assert evaluated.arbiter_model == "openai/gpt-4"
+        assert evaluated.approved is True  # Score 0.84 > threshold 0.7
+
+        # Verify provider async method was called
+        mock_provider.generate_structured_completion_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_question_async_timeout(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+    ):
+        """Test async question evaluation timeout handling."""
+        # Setup mock provider that times out
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+
+        async def slow_completion(*args, **kwargs):
+            await asyncio.sleep(10)  # Simulate slow response
+            return {}
+
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            side_effect=slow_completion
+        )
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+            async_timeout_seconds=0.1,  # Very short timeout
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Should raise timeout error
+        with pytest.raises(asyncio.TimeoutError):
+            await arbiter.evaluate_question_async(sample_question)
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_question_async_provider_not_available(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+    ):
+        """Test async evaluation fails when required provider not available."""
+        # Initialize with empty providers dict to simulate provider not available
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        # Clear the providers to simulate the scenario
+        arbiter.providers.clear()
+        arbiter.providers["anthropic"] = Mock()  # Only Anthropic available
+
+        # Try to evaluate mathematical question (needs OpenAI in config)
+        with pytest.raises(ValueError, match="not available"):
+            await arbiter.evaluate_question_async(sample_question)
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_questions_list_async_success(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test successful async parallel question evaluation."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            return_value=sample_evaluation_response
+        )
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Create list of 5 questions
+        questions = [sample_question for _ in range(5)]
+
+        # Evaluate all questions in parallel
+        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+
+        # Assertions
+        assert len(evaluated_questions) == 5
+        assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
+        assert all(eq.approved for eq in evaluated_questions)
+
+        # Verify provider was called 5 times
+        assert mock_provider.generate_structured_completion_async.call_count == 5
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_questions_list_async_with_failures(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test async list evaluation handles failures gracefully."""
+        # Setup mock provider that fails on some calls
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+
+        # Alternate between success and failure
+        call_count = 0
+
+        async def alternating_response(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count % 2 == 0:
+                raise Exception("API error")
+            return sample_evaluation_response
+
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            side_effect=alternating_response
+        )
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Create list of 4 questions
+        questions = [sample_question for _ in range(4)]
+
+        # Evaluate all questions in parallel
+        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+
+        # Assertions - should have 2 successful evaluations (odd-numbered calls)
+        assert len(evaluated_questions) == 2
+        assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_questions_list_async_empty_list(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+    ):
+        """Test async list evaluation with empty list."""
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+
+        # Evaluate empty list
+        evaluated_questions = await arbiter.evaluate_questions_list_async([])
+
+        # Assertions
+        assert evaluated_questions == []
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_evaluate_questions_list_async_respects_rate_limit(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test async list evaluation respects rate limiting."""
+        # Setup mock provider with delay
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+
+        concurrent_count = 0
+        max_concurrent = 0
+
+        async def tracked_completion(*args, **kwargs):
+            nonlocal concurrent_count, max_concurrent
+            concurrent_count += 1
+            max_concurrent = max(max_concurrent, concurrent_count)
+            await asyncio.sleep(0.1)  # Simulate API latency
+            concurrent_count -= 1
+            return sample_evaluation_response
+
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            side_effect=tracked_completion
+        )
+        mock_provider_class.return_value = mock_provider
+
+        # Create arbiter with max 2 concurrent evaluations
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+            max_concurrent_evaluations=2,
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Create list of 6 questions
+        questions = [sample_question for _ in range(6)]
+
+        # Evaluate all questions
+        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+
+        # Assertions
+        assert len(evaluated_questions) == 6
+        # Max concurrent should not exceed rate limit (2)
+        assert max_concurrent <= 2
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_cleanup(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+    ):
+        """Test arbiter cleanup closes all provider resources."""
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.cleanup = AsyncMock()
+        mock_provider_class.return_value = mock_provider
+
+        arbiter = QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        )
+        arbiter.providers["openai"] = mock_provider
+
+        # Call cleanup
+        await arbiter.cleanup()
+
+        # Verify provider cleanup was called
+        mock_provider.cleanup.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.arbiter.OpenAIProvider")
+    async def test_async_context_manager(
+        self,
+        mock_provider_class,
+        mock_arbiter_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test arbiter works as async context manager."""
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_async = AsyncMock(
+            return_value=sample_evaluation_response
+        )
+        mock_provider.cleanup = AsyncMock()
+        mock_provider_class.return_value = mock_provider
+
+        async with QuestionArbiter(
+            arbiter_config=mock_arbiter_config,
+            openai_api_key="test-key",
+        ) as arbiter:
+            arbiter.providers["openai"] = mock_provider
+            evaluated = await arbiter.evaluate_question_async(sample_question)
+            assert evaluated.approved is True
+
+        # Verify cleanup was called when exiting context
+        mock_provider.cleanup.assert_called_once()

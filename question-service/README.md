@@ -144,6 +144,9 @@ Options:
   --async                Use parallel async generation for faster throughput
   --max-concurrent N     Max concurrent LLM API calls (default: 10, requires --async)
   --timeout SECONDS      Timeout for individual API calls (default: 60, requires --async)
+  --async-arbiter        Use parallel async arbiter evaluation for faster throughput
+  --max-concurrent-arbiter N  Max concurrent arbiter calls (default: 10, requires --async-arbiter)
+  --arbiter-timeout SEC  Timeout for arbiter API calls (default: 60, requires --async-arbiter)
   --verbose, -v          Enable DEBUG logging
   --log-file PATH        Custom log file path
   --no-console           Disable console logging

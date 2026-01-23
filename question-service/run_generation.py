@@ -164,6 +164,12 @@ Examples:
 
   # Use async parallel generation for faster execution
   python run_generation.py --async
+
+  # Use async parallel arbiter evaluation for faster execution
+  python run_generation.py --async-arbiter
+
+  # Use both async generation and async arbiter evaluation
+  python run_generation.py --async --async-arbiter
         """,
     )
 
@@ -248,6 +254,27 @@ Examples:
         type=int,
         default=60,
         help="Timeout in seconds for async API calls (default: 60)",
+    )
+
+    parser.add_argument(
+        "--async-arbiter",
+        dest="use_async_arbiter",
+        action="store_true",
+        help="Use async parallel arbiter evaluation for improved performance",
+    )
+
+    parser.add_argument(
+        "--max-concurrent-arbiter",
+        type=int,
+        default=10,
+        help="Maximum concurrent arbiter requests when using async mode (default: 10)",
+    )
+
+    parser.add_argument(
+        "--arbiter-timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds for async arbiter API calls (default: 60)",
     )
 
     return parser.parse_args()
@@ -428,6 +455,8 @@ def main() -> int:
             anthropic_api_key=settings.anthropic_api_key,
             google_api_key=settings.google_api_key,
             xai_api_key=settings.xai_api_key,
+            max_concurrent_evaluations=args.max_concurrent_arbiter,
+            async_timeout_seconds=args.arbiter_timeout,
         )
         logger.info("✓ Arbiter initialized")
 
@@ -570,23 +599,32 @@ def main() -> int:
         approved_questions = []
         rejected_questions = []
 
-        for i, question in enumerate(generated_questions, 1):
-            logger.info(f"Evaluating question {i}/{len(generated_questions)}...")
+        if args.use_async_arbiter:
+            logger.info(
+                f"Using async parallel arbiter evaluation mode "
+                f"(max_concurrent={args.max_concurrent_arbiter}, "
+                f"timeout={args.arbiter_timeout}s)"
+            )
 
-            try:
-                evaluated_question = arbiter.evaluate_question(question)
+            async def run_async_arbiter_with_cleanup() -> list:
+                try:
+                    return await arbiter.evaluate_questions_list_async(
+                        questions=generated_questions,
+                    )
+                finally:
+                    await arbiter.cleanup()
 
+            all_evaluated = asyncio.run(run_async_arbiter_with_cleanup())
+
+            # Separate approved and rejected, record metrics
+            for evaluated_question in all_evaluated:
                 if evaluated_question.evaluation.overall_score >= min_score:
-                    approved_questions.append(
-                        evaluated_question
-                    )  # Store evaluated_question with score
+                    approved_questions.append(evaluated_question)
                     logger.info(
                         f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
                 else:
-                    rejected_questions.append(
-                        evaluated_question
-                    )  # Also store rejected with scores for metrics
+                    rejected_questions.append(evaluated_question)
                     logger.info(
                         f"  ✗ REJECTED (score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
@@ -597,11 +635,41 @@ def main() -> int:
                     approved=evaluated_question.evaluation.overall_score >= min_score,
                     arbiter_model=evaluated_question.arbiter_model,
                 )
+        else:
+            # Sequential evaluation
+            for i, question in enumerate(generated_questions, 1):
+                logger.info(f"Evaluating question {i}/{len(generated_questions)}...")
 
-            except Exception as e:
-                logger.error(f"  ✗ Evaluation failed: {e}")
-                # Can't append to rejected_questions as we don't have an evaluation
-                continue
+                try:
+                    evaluated_question = arbiter.evaluate_question(question)
+
+                    if evaluated_question.evaluation.overall_score >= min_score:
+                        approved_questions.append(
+                            evaluated_question
+                        )  # Store evaluated_question with score
+                        logger.info(
+                            f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
+                        )
+                    else:
+                        rejected_questions.append(
+                            evaluated_question
+                        )  # Also store rejected with scores for metrics
+                        logger.info(
+                            f"  ✗ REJECTED (score: {evaluated_question.evaluation.overall_score:.2f})"
+                        )
+
+                    # Record evaluation metrics
+                    metrics.record_evaluation_success(
+                        score=evaluated_question.evaluation.overall_score,
+                        approved=evaluated_question.evaluation.overall_score
+                        >= min_score,
+                        arbiter_model=evaluated_question.arbiter_model,
+                    )
+
+                except Exception as e:
+                    logger.error(f"  ✗ Evaluation failed: {e}")
+                    # Can't append to rejected_questions as we don't have an evaluation
+                    continue
 
         approval_rate = len(approved_questions) / len(generated_questions) * 100
         logger.info(

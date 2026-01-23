@@ -4,11 +4,17 @@ This module implements the arbiter that evaluates generated questions using
 specialized LLM models based on question type.
 """
 
+import asyncio
 import json
 import logging
 from typing import Any, Dict, List, Optional
 
 from .arbiter_config import ArbiterConfigLoader
+from .circuit_breaker import (
+    CircuitBreakerOpen,
+    CircuitBreakerRegistry,
+    get_circuit_breaker_registry,
+)
 from .models import (
     EvaluatedQuestion,
     EvaluationScore,
@@ -23,6 +29,10 @@ from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 
 logger = logging.getLogger(__name__)
+
+# Default rate limiting settings for async operations
+DEFAULT_MAX_CONCURRENT_EVALUATIONS = 10  # Max concurrent arbiter API calls
+DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async evaluation calls
 
 
 class QuestionArbiter:
@@ -39,6 +49,9 @@ class QuestionArbiter:
         anthropic_api_key: Optional[str] = None,
         google_api_key: Optional[str] = None,
         xai_api_key: Optional[str] = None,
+        circuit_breaker_registry: Optional[CircuitBreakerRegistry] = None,
+        max_concurrent_evaluations: int = DEFAULT_MAX_CONCURRENT_EVALUATIONS,
+        async_timeout_seconds: float = DEFAULT_ASYNC_TIMEOUT_SECONDS,
     ):
         """Initialize the question arbiter.
 
@@ -48,18 +61,27 @@ class QuestionArbiter:
             anthropic_api_key: Anthropic API key (optional)
             google_api_key: Google API key (optional)
             xai_api_key: xAI (Grok) API key (optional)
+            circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
+            max_concurrent_evaluations: Maximum concurrent arbiter API calls (default: 10)
+            async_timeout_seconds: Timeout for individual async calls in seconds (default: 60)
 
         Raises:
             ValueError: If no API keys are provided
         """
         self.arbiter_config = arbiter_config
         self.providers: Dict[str, BaseLLMProvider] = {}
+        self._circuit_breaker_registry = (
+            circuit_breaker_registry or get_circuit_breaker_registry()
+        )
+        self._rate_limiter = asyncio.Semaphore(max_concurrent_evaluations)
+        self._async_timeout = async_timeout_seconds
 
         # Initialize providers for all available API keys
         if openai_api_key:
             self.providers["openai"] = OpenAIProvider(
                 api_key=openai_api_key, model="gpt-4-turbo-preview"  # Default model
             )
+            self._circuit_breaker_registry.get_or_create("arbiter-openai")
             logger.info("Initialized OpenAI provider for arbiter")
 
         if anthropic_api_key:
@@ -67,18 +89,21 @@ class QuestionArbiter:
                 api_key=anthropic_api_key,
                 model="claude-sonnet-4-5",  # Default model
             )
+            self._circuit_breaker_registry.get_or_create("arbiter-anthropic")
             logger.info("Initialized Anthropic provider for arbiter")
 
         if google_api_key:
             self.providers["google"] = GoogleProvider(
                 api_key=google_api_key, model="gemini-pro"  # Default model
             )
+            self._circuit_breaker_registry.get_or_create("arbiter-google")
             logger.info("Initialized Google provider for arbiter")
 
         if xai_api_key:
             self.providers["xai"] = XAIProvider(
                 api_key=xai_api_key, model="grok-4"  # Default model
             )
+            self._circuit_breaker_registry.get_or_create("arbiter-xai")
             logger.info("Initialized xAI provider for arbiter")
 
         if not self.providers:
@@ -177,6 +202,242 @@ class QuestionArbiter:
         except Exception as e:
             logger.error(f"Failed to evaluate question: {str(e)}")
             raise
+
+    async def evaluate_question_async(
+        self,
+        question: GeneratedQuestion,
+        temperature: float = 0.3,
+        max_tokens: int = 500,
+        timeout: Optional[float] = None,
+    ) -> EvaluatedQuestion:
+        """Evaluate a single generated question asynchronously.
+
+        This method uses circuit breaker protection, rate limiting to avoid overwhelming
+        provider APIs, and includes timeout protection to prevent indefinite hangs.
+
+        Args:
+            question: The generated question to evaluate
+            temperature: Sampling temperature for evaluation (lower = more consistent)
+            max_tokens: Maximum tokens for evaluation response
+            timeout: Timeout in seconds (uses instance default if not specified)
+
+        Returns:
+            Evaluated question with scores and approval status
+
+        Raises:
+            ValueError: If arbiter model not available or evaluation fails
+            CircuitBreakerOpen: If the specified provider's circuit is open
+            asyncio.TimeoutError: If the API call times out
+            Exception: If LLM call fails
+        """
+        question_type = question.question_type.value
+        logger.info(f"Evaluating {question_type} question (async)")
+
+        # Get arbiter model for this question type
+        arbiter_model = self.arbiter_config.get_arbiter_for_question_type(question_type)
+
+        # Verify provider is available
+        if arbiter_model.provider not in self.providers:
+            raise ValueError(
+                f"Arbiter provider '{arbiter_model.provider}' not available. "
+                f"Available providers: {list(self.providers.keys())}"
+            )
+
+        provider = self.providers[arbiter_model.provider]
+
+        # Get circuit breaker for this arbiter provider
+        circuit_breaker_name = f"arbiter-{arbiter_model.provider}"
+        circuit_breaker = self._circuit_breaker_registry.get_or_create(
+            circuit_breaker_name
+        )
+
+        # Build arbiter prompt
+        prompt = build_arbiter_prompt(
+            question=question.question_text,
+            answer_options=question.answer_options or [question.correct_answer],
+            correct_answer=question.correct_answer,
+            question_type=question_type,
+            difficulty=question.difficulty_level.value,
+        )
+
+        logger.debug(
+            f"Using arbiter model: {arbiter_model.model} ({arbiter_model.provider}) (async)"
+        )
+
+        # Use provided timeout or instance default
+        effective_timeout = timeout if timeout is not None else self._async_timeout
+
+        # Define the async API call with rate limiting and timeout
+        async def _do_async_evaluation() -> Dict[str, Any]:
+            async with self._rate_limiter:
+                return await asyncio.wait_for(
+                    provider.generate_structured_completion_async(
+                        prompt=prompt,
+                        response_format={},  # Provider will handle JSON mode
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        model_override=arbiter_model.model,
+                    ),
+                    timeout=effective_timeout,
+                )
+
+        try:
+            # Execute with circuit breaker protection
+            response = await circuit_breaker.execute_async(_do_async_evaluation)
+
+            # Parse evaluation scores
+            evaluation = self._parse_evaluation_response(response)
+
+            # Calculate overall score using evaluation criteria weights
+            overall_score = self._calculate_overall_score(evaluation)
+
+            # Update overall score in evaluation
+            evaluation.overall_score = overall_score
+
+            # Determine if question is approved
+            min_score = self.arbiter_config.get_min_arbiter_score()
+            approved = overall_score >= min_score
+
+            logger.info(
+                f"Question evaluated (async): overall_score={overall_score:.3f}, "
+                f"approved={approved} (threshold={min_score})"
+            )
+
+            # Create evaluated question
+            evaluated = EvaluatedQuestion(
+                question=question,
+                evaluation=evaluation,
+                arbiter_model=f"{arbiter_model.provider}/{arbiter_model.model}",
+                approved=approved,
+            )
+
+            return evaluated
+
+        except CircuitBreakerOpen:
+            logger.warning(
+                f"Circuit breaker is open for arbiter-{arbiter_model.provider}, "
+                f"cannot evaluate question (async)"
+            )
+            raise
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Timeout evaluating question with {arbiter_model.provider} "
+                f"(async) after {effective_timeout}s"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to evaluate question (async): {str(e)}")
+            raise
+
+    async def evaluate_questions_list_async(
+        self,
+        questions: List[GeneratedQuestion],
+        temperature: float = 0.3,
+        max_tokens: int = 500,
+    ) -> List[EvaluatedQuestion]:
+        """Evaluate a list of generated questions asynchronously in parallel.
+
+        This method evaluates all questions concurrently using asyncio.gather,
+        significantly reducing total evaluation time compared to sequential calls.
+
+        Failures (timeouts, circuit breaker opens, API errors) are logged but do not
+        stop processing - only successfully evaluated questions are returned. The
+        batch statistics logged at completion include failure counts broken down by
+        cause (circuit breaker, timeout, other errors).
+
+        Args:
+            questions: List of generated questions to evaluate
+            temperature: Sampling temperature for evaluation
+            max_tokens: Maximum tokens for evaluation response
+
+        Returns:
+            List of successfully evaluated questions only. Failed evaluations are
+            excluded from results but are logged with error details.
+        """
+        if not questions:
+            return []
+
+        logger.info(f"Evaluating list of {len(questions)} questions (async parallel)")
+
+        # Create async tasks for all questions
+        tasks = [
+            self._evaluate_question_task(
+                question=question,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            for question in questions
+        ]
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter successful results and track failures
+        evaluated_questions: List[EvaluatedQuestion] = []
+        errors = 0
+        circuit_breaker_skips = 0
+        timeout_errors = 0
+
+        for i, result in enumerate(results):
+            if isinstance(result, CircuitBreakerOpen):
+                circuit_breaker_skips += 1
+                errors += 1
+                logger.warning(
+                    f"Skipped question {i+1}/{len(questions)} (circuit breaker open)"
+                )
+            elif isinstance(result, asyncio.TimeoutError):
+                timeout_errors += 1
+                errors += 1
+                logger.error(f"Question {i+1}/{len(questions)} evaluation timed out")
+            elif isinstance(result, BaseException):
+                errors += 1
+                logger.error(
+                    f"Failed to evaluate question {i+1}/{len(questions)}: {str(result)}"
+                )
+            elif isinstance(result, EvaluatedQuestion):
+                evaluated_questions.append(result)
+
+        # Log batch statistics
+        approved_count = sum(1 for eq in evaluated_questions if eq.approved)
+        avg_score = (
+            sum(eq.evaluation.overall_score for eq in evaluated_questions)
+            / len(evaluated_questions)
+            if evaluated_questions
+            else 0.0
+        )
+
+        logger.info(
+            f"Async list evaluation complete: {len(evaluated_questions)}/{len(questions)} "
+            f"evaluated, {approved_count} approved, avg_score={avg_score:.3f}, "
+            f"errors={errors} (circuit_breaker={circuit_breaker_skips}, timeout={timeout_errors})"
+        )
+
+        return evaluated_questions
+
+    async def _evaluate_question_task(
+        self,
+        question: GeneratedQuestion,
+        temperature: float,
+        max_tokens: int,
+    ) -> EvaluatedQuestion:
+        """Internal task for evaluating a single question.
+
+        This wraps evaluate_question_async for use with asyncio.gather.
+        Failures are handled by asyncio.gather with return_exceptions=True.
+
+        Args:
+            question: Question to evaluate
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens
+
+        Returns:
+            Evaluated question (or raises exception which gather catches)
+        """
+        return await self.evaluate_question_async(
+            question=question,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
     def evaluate_batch(
         self,
@@ -384,3 +645,27 @@ class QuestionArbiter:
                 for qt, arbiter in config.arbiters.items()
             },
         }
+
+    async def cleanup(self) -> None:
+        """Clean up all provider resources.
+
+        This should be called when the arbiter is no longer needed to ensure
+        all async clients are properly closed and resources are released.
+        """
+        logger.info("Cleaning up question arbiter resources...")
+        cleanup_tasks = []
+        for name, provider in self.providers.items():
+            logger.debug(f"Cleaning up arbiter {name} provider")
+            cleanup_tasks.append(provider.cleanup())
+
+        if cleanup_tasks:
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+        logger.info("Question arbiter cleanup complete")
+
+    async def __aenter__(self) -> "QuestionArbiter":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit - ensures cleanup is called."""
+        await self.cleanup()
