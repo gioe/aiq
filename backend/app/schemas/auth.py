@@ -228,3 +228,62 @@ class UserProfileUpdate(BaseModel):
             raise ValueError("Name contains invalid characters")
 
         return sanitized
+
+
+class PasswordResetRequest(BaseModel):
+    """Schema for password reset request (TASK-503)."""
+
+    email: EmailStr = Field(
+        ...,
+        description="Email address associated with the account",
+    )
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Validate and normalize email."""
+        return EmailValidator.normalize_email(v)
+
+
+class PasswordResetConfirm(BaseModel):
+    """Schema for password reset confirmation (TASK-503)."""
+
+    token: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Password reset token from email",
+    )
+    new_password: str = Field(
+        ...,
+        min_length=PasswordValidator.MIN_LENGTH,
+        max_length=PasswordValidator.MAX_LENGTH,
+        description=f"New password ({PasswordValidator.MIN_LENGTH}-{PasswordValidator.MAX_LENGTH} characters)",
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password strength."""
+        is_valid, error_message = PasswordValidator.validate(v)
+        if not is_valid:
+            raise ValueError(error_message)
+        return v
+
+
+class PasswordResetResponse(BaseModel):
+    """Schema for password reset request response (TASK-503)."""
+
+    message: str = Field(
+        ...,
+        description="Success message",
+    )
+
+
+class PasswordResetConfirmResponse(BaseModel):
+    """Schema for password reset confirmation response (TASK-503)."""
+
+    message: str = Field(
+        ...,
+        description="Success message",
+    )

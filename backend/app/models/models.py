@@ -737,6 +737,47 @@ class ReliabilityMetric(Base):
     )
 
 
+class PasswordResetToken(Base):
+    """
+    Password reset tokens for secure password recovery (TASK-503).
+
+    Stores time-limited, single-use tokens for password reset requests.
+    Tokens are generated when users request a password reset and are
+    validated during the password reset process. Each token:
+    - Expires after 30 minutes
+    - Can only be used once (tracked via used_at)
+    - Is invalidated when a new reset is requested
+    - Uses secure random token (not JWT) for added security
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    token: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True
+    )  # Secure random token (urlsafe)
+    expires_at: Mapped[datetime] = mapped_column(
+        index=True
+    )  # Token expiration timestamp
+    used_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
+    )  # When token was consumed (NULL = unused)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+
+    # Relationship
+    user: Mapped["User"] = relationship()
+
+    # Indexes for common query patterns
+    __table_args__ = (
+        Index("ix_password_reset_tokens_user_expires", "user_id", "expires_at"),
+        Index("ix_password_reset_tokens_token_expires", "token", "expires_at"),
+        Index("ix_password_reset_tokens_user_used", "user_id", "used_at"),
+    )
+
+
 class FeedbackSubmission(Base):
     """
     User feedback submissions for bugs, feature requests, and general feedback.

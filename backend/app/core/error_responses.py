@@ -97,6 +97,13 @@ class ErrorMessages:
     QUALITY_FLAG_REASON_REQUIRED = (
         "Reason is required when setting quality_flag to 'deactivated'."
     )
+    # Use single generic message for all token validation failures to prevent enumeration
+    RESET_TOKEN_INVALID = (
+        "Invalid or expired password reset token. Please request a new one."
+    )
+    PASSWORD_RESET_RATE_LIMITED = (
+        "Too many password reset requests. Please try again later."
+    )
 
     # ==========================================================================
     # Server Errors (500)
