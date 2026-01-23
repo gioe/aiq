@@ -44,6 +44,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
   - [Background Task Execution Patterns](#background-task-execution-patterns)
 - [Performance](#performance)
 - [Security](#security)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Recommended Enhancements](#recommended-enhancements)
 
 ---
@@ -3762,6 +3763,206 @@ Add these dates to team calendar with 30-day advance warnings:
 ### Sensitive Data Logging
 
 See [SENSITIVE_LOGGING_AUDIT.md](./SENSITIVE_LOGGING_AUDIT.md) for guidelines on logging sensitive data.
+
+---
+
+## CI/CD Pipeline
+
+This section documents the complete build, test, and deploy pipeline for the AIQ iOS application.
+
+### GitHub Actions Workflow Overview
+
+The iOS CI pipeline is defined in `.github/workflows/ios-ci.yml` and runs on:
+- **Pull requests** that modify `ios/**`, `backend/**`, `docs/api/**`, or the workflow file itself
+- **Pushes to main** with the same path filters
+
+The pipeline consists of two jobs that run sequentially:
+
+#### Job 1: lint-and-build
+
+Runs on `macos-15` and performs:
+
+1. **SwiftLint** - Static code analysis with strict mode
+2. **SwiftFormat** - Code formatting verification (lint mode)
+3. **OpenAPI Spec Sync** - Verifies iOS OpenAPI spec matches source in `docs/api/`
+4. **Build** - Compiles the project for iOS Simulator
+5. **Unit Tests** - Runs all unit tests in the AIQ scheme
+
+#### Job 2: ui-tests
+
+Runs after `lint-and-build` succeeds:
+
+1. **Simulator Boot** - Pre-boots iPhone 16 Pro simulator for stability
+2. **UI Tests** - Runs the `AIQUITests` target with test credentials from secrets
+
+### Required Checks
+
+All of the following must pass before a PR can be merged:
+
+| Check | Tool | Fails On |
+|-------|------|----------|
+| Linting | SwiftLint | Any violation in strict mode |
+| Formatting | SwiftFormat | Any formatting deviation |
+| OpenAPI Sync | Custom script | Spec mismatch between `docs/api/` and iOS package |
+| Build | xcodebuild | Compilation errors |
+| Unit Tests | xcodebuild test | Any test failure |
+| UI Tests | xcodebuild test | Any UI test failure |
+
+### Build Configuration
+
+#### Debug vs Release
+
+| Configuration | Use Case | Optimizations | Code Signing |
+|--------------|----------|---------------|--------------|
+| Debug | Development, CI | Disabled | Not required |
+| Release | TestFlight, App Store | Enabled | Required |
+
+CI uses Debug configuration with code signing disabled:
+
+```bash
+xcodebuild -project AIQ.xcodeproj \
+  -scheme AIQ \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+  -skipPackagePluginValidation \
+  clean build \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGN_IDENTITY=""
+```
+
+#### Key Build Flags
+
+- `CODE_SIGNING_ALLOWED=NO` - Disables code signing for CI builds
+- `-skipPackagePluginValidation` - Speeds up Swift Package Manager resolution
+- `-sdk iphonesimulator` - Targets simulator (no provisioning needed)
+
+### Branch Protection Rules
+
+The `main` branch is protected with:
+
+- **Required status checks**: `lint-and-build` and `ui-tests` must pass
+- **Required reviews**: At least one approving review (Claude Code review runs automatically)
+- **No force pushes**: History cannot be rewritten
+- **No deletions**: Branch cannot be deleted
+
+### Deployment Process
+
+#### TestFlight Distribution
+
+TestFlight builds are created manually through Xcode or Xcode Cloud:
+
+1. Increment build number in project settings
+2. Archive with Release configuration
+3. Upload to App Store Connect
+4. TestFlight processes and distributes to testers
+
+#### App Store Release
+
+1. Complete TestFlight testing
+2. Submit for App Review from App Store Connect
+3. Upon approval, release manually or schedule release
+
+### Certificate and Provisioning Management
+
+#### Required Certificates
+
+| Certificate | Purpose | Managed By |
+|------------|---------|------------|
+| Apple Development | Local development builds | Xcode automatic signing |
+| Apple Distribution | App Store and TestFlight | Xcode automatic signing |
+
+#### Provisioning Profiles
+
+| Profile | Use Case |
+|---------|----------|
+| Development | Running on physical devices during development |
+| App Store | Distribution through App Store and TestFlight |
+
+**Best Practices:**
+- Use Xcode's automatic signing for simplicity
+- Keep Apple Developer account credentials secure
+- Monitor certificate expiration dates (see Security section for Railway certificates)
+
+### Claude Code Review Integration
+
+Every PR automatically receives a code review from Claude via `.github/workflows/claude-code-review.yml`:
+
+- Reviews code quality, potential bugs, performance, security, and test coverage
+- Posts review as a PR comment
+- References `CLAUDE.md` for project-specific conventions
+
+Additionally, `.github/workflows/claude.yml` enables interactive Claude assistance:
+- Mention `@claude` in any issue or PR comment to get help
+- Claude can analyze code, suggest fixes, and answer questions
+
+### Other CI Workflows
+
+| Workflow | Purpose | Trigger |
+|----------|---------|---------|
+| `pre-commit.yml` | Runs pre-commit hooks on backend/question-service | All PRs and main pushes |
+| `backend-ci.yml` | Tests backend with Black, Flake8, MyPy, pytest | Backend file changes |
+| `question-service-ci.yml` | Tests question service | Question service file changes |
+| `close-jira-on-merge.yml` | Auto-closes Jira tickets when PRs merge | PR merge events |
+
+### Running CI Checks Locally
+
+Before pushing, run checks locally to catch issues early:
+
+```bash
+# Linting
+cd ios
+swiftlint lint --config .swiftlint.yml --strict
+
+# Formatting check
+swiftformat --config .swiftformat --lint AIQ/
+
+# Build
+xcodebuild -project AIQ.xcodeproj \
+  -scheme AIQ \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+  build
+
+# Unit tests
+xcodebuild test \
+  -project AIQ.xcodeproj \
+  -scheme AIQ \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+```
+
+### Troubleshooting CI Failures
+
+#### SwiftLint Violations
+
+```bash
+# See all violations with auto-fix suggestions
+swiftlint lint --config .swiftlint.yml
+
+# Auto-fix correctable violations
+swiftlint --fix --config .swiftlint.yml
+```
+
+#### SwiftFormat Violations
+
+```bash
+# Auto-format all files
+swiftformat --config .swiftformat AIQ/
+```
+
+#### OpenAPI Spec Out of Sync
+
+```bash
+# Sync the spec from source
+cd ios
+scripts/sync_openapi_spec.sh
+```
+
+#### Test Failures
+
+- Check the uploaded test artifacts in GitHub Actions for `.xcresult` files
+- Open in Xcode: `xcrun xcresulttool get --path <file>.xcresult --format json`
+- Look for screenshots and logs in UI test failures
 
 ---
 
