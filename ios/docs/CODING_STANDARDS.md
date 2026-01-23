@@ -4247,8 +4247,8 @@ Use these indicators to evaluate whether a dependency is healthy:
 |------------|---------|---------------|
 | Firebase iOS SDK | Analytics, crash reporting, auth | ✅ Actively maintained by Google |
 | TrustKit | Certificate pinning | ✅ Active, security-focused maintainers |
-| swift-openapi-runtime | API client generation | ✅ Maintained by Apple |
-| swift-openapi-generator | Build-time code generation | ✅ Maintained by Apple |
+| swift-openapi-runtime | OpenAPI client runtime library | ✅ Maintained by Apple |
+| swift-openapi-generator | Build-time API client code generation | ✅ Maintained by Apple |
 | swift-openapi-urlsession | URLSession transport | ✅ Maintained by Apple |
 | swift-http-types | HTTP type definitions | ✅ Maintained by Apple |
 
