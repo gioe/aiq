@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
-from app.core.security import get_password_hash  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
 from app.models.models import (  # noqa: E402
     User,
     TestSession,
@@ -141,7 +141,7 @@ def create_demo_user(db, dry_run: bool = False) -> Optional[User]:
     # Create the user
     user = User(
         email=config["email"],
-        password_hash=get_password_hash(config["password"]),
+        password_hash=hash_password(config["password"]),
         first_name=config["first_name"],
         last_name=config["last_name"],
         birth_year=config["birth_year"],
