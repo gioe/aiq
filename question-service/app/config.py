@@ -1,12 +1,29 @@
 """Configuration management for question generation service."""
 
+import logging
 from typing import Optional
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing_extensions import Self
+
+from app.secrets import get_secret
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings loaded from environment variables.
+
+    Sensitive values (API keys, passwords) are loaded through the secrets
+    management abstraction layer, which supports multiple backends:
+    - Environment variables (default, works with Railway sealed variables)
+    - Doppler (future integration)
+
+    Configure the secrets backend via SECRETS_BACKEND environment variable:
+    - "env" (default): Read from environment variables
+    - "doppler": Use Doppler SDK (not yet implemented)
+    """
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -24,7 +41,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "./logs/question_service.log"
 
-    # LLM API Keys
+    # LLM API Keys - loaded via secrets management
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     google_api_key: Optional[str] = None
@@ -42,7 +59,7 @@ class Settings(BaseSettings):
     smtp_host: Optional[str] = None
     smtp_port: int = 587
     smtp_username: Optional[str] = None
-    smtp_password: Optional[str] = None
+    smtp_password: Optional[str] = None  # Loaded via secrets management
     alert_from_email: Optional[str] = None
     alert_to_emails: Optional[str] = None  # Comma-separated list
     alert_file_path: str = "./logs/alerts.log"
@@ -50,7 +67,7 @@ class Settings(BaseSettings):
     # Run Reporter Configuration
     enable_run_reporting: bool = True  # Enable/disable reporting to backend API
     backend_api_url: Optional[str] = None  # Backend API base URL
-    backend_service_key: Optional[str] = None  # API key for service-to-service auth
+    backend_service_key: Optional[str] = None  # Loaded via secrets management
     prompt_version: Optional[str] = None  # Version of prompts used
     judge_config_version: Optional[str] = None  # Version of judge config
 
@@ -79,6 +96,93 @@ class Settings(BaseSettings):
     # Deduplication Configuration
     dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
     dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
+
+    @model_validator(mode="after")
+    def load_secrets_and_validate(self) -> Self:
+        """Load secrets from secrets management backend and validate configuration.
+
+        This validator:
+        1. Loads sensitive values (API keys, passwords) from the secrets backend
+        2. Validates that at least one LLM API key is configured
+        3. Ensures critical secrets are present when features are enabled
+
+        Returns:
+            Self with secrets loaded
+
+        Raises:
+            ValueError: If validation fails (no LLM keys, missing required secrets)
+        """
+        # Load LLM API keys from secrets backend
+        # These override values from environment if both are set
+        if secret_value := get_secret("openai_api_key"):
+            self.openai_api_key = secret_value
+        if secret_value := get_secret("anthropic_api_key"):
+            self.anthropic_api_key = secret_value
+        if secret_value := get_secret("google_api_key"):
+            self.google_api_key = secret_value
+        if secret_value := get_secret("xai_api_key"):
+            self.xai_api_key = secret_value
+
+        # Load other sensitive values
+        if secret_value := get_secret("smtp_password"):
+            self.smtp_password = secret_value
+        if secret_value := get_secret("backend_service_key"):
+            self.backend_service_key = secret_value
+
+        # Validate that at least one LLM API key is configured
+        llm_keys_configured = [
+            self.openai_api_key,
+            self.anthropic_api_key,
+            self.google_api_key,
+            self.xai_api_key,
+        ]
+        if not any(llm_keys_configured):
+            raise ValueError(
+                "At least one LLM API key must be configured. "
+                "Set one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY"
+            )
+
+        # Log which LLM providers are available (without revealing keys)
+        available_providers = []
+        if self.openai_api_key:
+            available_providers.append("OpenAI")
+        if self.anthropic_api_key:
+            available_providers.append("Anthropic")
+        if self.google_api_key:
+            available_providers.append("Google")
+        if self.xai_api_key:
+            available_providers.append("xAI")
+
+        logger.info(f"Configured LLM providers: {', '.join(available_providers)}")
+
+        # Validate email alert configuration
+        if self.enable_email_alerts:
+            if not self.smtp_password:
+                raise ValueError(
+                    "SMTP_PASSWORD must be configured when ENABLE_EMAIL_ALERTS=true"
+                )
+            if not self.smtp_username:
+                raise ValueError(
+                    "SMTP_USERNAME must be configured when ENABLE_EMAIL_ALERTS=true"
+                )
+            if not self.alert_to_emails:
+                raise ValueError(
+                    "ALERT_TO_EMAILS must be configured when ENABLE_EMAIL_ALERTS=true"
+                )
+
+        # Validate run reporting configuration
+        # Only enforce in non-development environments to allow testing
+        if self.enable_run_reporting and self.env not in ("development", "test"):
+            if not self.backend_service_key:
+                raise ValueError(
+                    "BACKEND_SERVICE_KEY must be configured when ENABLE_RUN_REPORTING=true"
+                )
+            if not self.backend_api_url:
+                raise ValueError(
+                    "BACKEND_API_URL must be configured when ENABLE_RUN_REPORTING=true"
+                )
+
+        return self
 
 
 # Global settings instance
