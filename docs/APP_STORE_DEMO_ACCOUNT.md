@@ -14,9 +14,11 @@ This document contains credentials and instructions for the Apple App Store Revi
 
 ## Account Details
 
-- **User ID**: 2
+- **Email**: `demo-reviewer@aiq-app.com`
 - **Created**: 2026-01-23
 - **Status**: Active with test history
+
+> Note: User ID is dynamically assigned. Query by email to find the account.
 
 ## Test History
 

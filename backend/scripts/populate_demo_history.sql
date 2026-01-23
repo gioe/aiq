@@ -5,7 +5,7 @@
 -- Run this via: railway connect postgres < scripts/populate_demo_history.sql
 --
 -- IMPORTANT: This must be run AFTER creating the demo user via API.
--- The demo user should have ID 2 (demo-reviewer@aiq-app.com)
+-- The script looks up the user by email: demo-reviewer@aiq-app.com
 -- =============================================================================
 
 -- Verify the demo user exists
