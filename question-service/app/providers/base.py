@@ -6,7 +6,7 @@ import random
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
 
 from ..config import settings
 from ..cost_tracking import CompletionResult, TokenUsage, get_cost_tracker
@@ -253,7 +253,7 @@ def with_retry(
 
 
 async def with_retry_async(
-    func: Callable[..., T],
+    func: Callable[[], Awaitable[T]],
     provider_name: str,
     config: Optional[RetryConfig] = None,
 ) -> T:
@@ -886,7 +886,7 @@ class BaseLLMProvider(ABC):
 
     async def _execute_with_retry_async(
         self,
-        api_call: Callable[[], T],
+        api_call: Callable[[], Awaitable[T]],
         retry_config: Optional[RetryConfig] = None,
     ) -> T:
         """Execute an async API call with automatic retry for transient failures.

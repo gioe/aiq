@@ -264,7 +264,9 @@ class AnthropicProvider(BaseLLMProvider):
                 # Extract text from response
                 if response.content and len(response.content) > 0:
                     content = response.content[0].text
-                    logger.debug(f"Anthropic API async response content: {content[:500]}")
+                    logger.debug(
+                        f"Anthropic API async response content: {content[:500]}"
+                    )
 
                     # Strip markdown code fences if present
                     content = content.strip()
@@ -525,7 +527,9 @@ class AnthropicProvider(BaseLLMProvider):
                 content: Dict[str, Any] = {}
                 if response.content and len(response.content) > 0:
                     raw_content = response.content[0].text
-                    logger.debug(f"Anthropic API async response content: {raw_content[:500]}")
+                    logger.debug(
+                        f"Anthropic API async response content: {raw_content[:500]}"
+                    )
 
                     # Strip markdown code fences if present
                     raw_content = raw_content.strip()

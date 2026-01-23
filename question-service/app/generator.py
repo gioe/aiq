@@ -556,13 +556,13 @@ class QuestionGenerator:
                 provider_name = available_providers[i % len(available_providers)]
                 provider_assignments.append(provider_name)
         else:
-            provider_name = self._get_available_provider()
-            if provider_name is None:
+            selected_provider = self._get_available_provider()
+            if selected_provider is None:
                 raise ValueError(
                     "No providers available (all circuits are open). "
                     f"Configured providers: {list(self.providers.keys())}"
                 )
-            provider_assignments = [provider_name] * count
+            provider_assignments = [selected_provider] * count
 
         # Create async tasks for all questions
         for i, provider_name in enumerate(provider_assignments):
