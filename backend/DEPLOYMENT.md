@@ -54,7 +54,7 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 API_V1_PREFIX=/v1
 CORS_ORIGINS=*
 
-# Rate Limiting
+# Rate Limiting (REQUIRED for production security)
 RATE_LIMIT_ENABLED=True
 RATE_LIMIT_STRATEGY=token_bucket
 RATE_LIMIT_DEFAULT_LIMIT=100
@@ -103,6 +103,54 @@ git push origin main
    ```
 
 4. **View API docs**: Visit `https://your-app.railway.app/v1/docs`
+
+### Step 6: Verify Rate Limiting
+
+**Important**: Rate limiting must be enabled in production to prevent abuse. It's disabled by default (`RATE_LIMIT_ENABLED=False`) to simplify local development, but should **always** be enabled in production environments.
+
+1. **Check rate limit headers** on any rate-limited API response:
+   ```bash
+   curl -i https://your-app.railway.app/v1/user
+   ```
+
+   > **Note**: The `/v1/health` and `/v1/docs` endpoints are excluded from rate limiting by default.
+
+   You should see these headers in the response:
+   ```
+   X-RateLimit-Limit: 100
+   X-RateLimit-Remaining: 99
+   X-RateLimit-Reset: <unix-timestamp>
+   ```
+
+2. **Test rate limit enforcement** (optional - be careful not to lock yourself out):
+   ```bash
+   # Test login endpoint (limited to 5 requests per 5 minutes)
+   # This will trigger a 429 after 5 rapid requests
+   for i in {1..6}; do
+     curl -s -o /dev/null -w "%{http_code}\n" \
+       -X POST https://your-app.railway.app/v1/auth/login \
+       -H "Content-Type: application/json" \
+       -d '{"email":"test@test.com","password":"test"}'
+   done
+   # Expected: 5 responses (200 or 401 depending on credentials), then 429 on 6th
+   ```
+
+3. **Monitor rate limiting in logs**:
+   ```bash
+   railway logs | grep -i "rate"
+   ```
+
+   Look for these log messages:
+   - `Rate limiting using in-memory storage` (startup confirmation)
+   - `Rate limit exceeded for <identifier>` (when limits are hit)
+
+**Endpoint-specific limits** (configured in the application):
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `/v1/auth/login` | 5 | 5 minutes |
+| `/v1/auth/register` | 3 | 1 hour |
+| `/v1/auth/refresh` | 10 | 1 minute |
+| All other endpoints | 100 | 1 minute |
 
 ## Alternative: CLI Method
 
@@ -384,7 +432,7 @@ Railway dashboard → Project → **"Usage"** tab
 - [ ] Changed `ADMIN_PASSWORD` from default
 - [ ] Set `ENV=production` and `DEBUG=False`
 - [ ] Configured appropriate `CORS_ORIGINS` (not `*` in production)
-- [ ] Enabled rate limiting (`RATE_LIMIT_ENABLED=True`)
+- [ ] **Enabled rate limiting** (`RATE_LIMIT_ENABLED=True`) - see [Step 6: Verify Rate Limiting](#step-6-verify-rate-limiting)
 - [ ] Database backups enabled (automatic with Railway PostgreSQL)
 - [ ] HTTPS enabled (automatic with Railway)
 
