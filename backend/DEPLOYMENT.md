@@ -106,12 +106,14 @@ git push origin main
 
 ### Step 6: Verify Rate Limiting
 
-**Important**: Rate limiting must be enabled in production to prevent abuse.
+**Important**: Rate limiting must be enabled in production to prevent abuse. It's disabled by default (`RATE_LIMIT_ENABLED=False`) to simplify local development, but should **always** be enabled in production environments.
 
-1. **Check rate limit headers** on any API response:
+1. **Check rate limit headers** on any rate-limited API response:
    ```bash
-   curl -i https://your-app.railway.app/v1/health
+   curl -i https://your-app.railway.app/v1/user
    ```
+
+   > **Note**: The `/v1/health` and `/v1/docs` endpoints are excluded from rate limiting by default.
 
    You should see these headers in the response:
    ```
@@ -130,7 +132,7 @@ git push origin main
        -H "Content-Type: application/json" \
        -d '{"email":"test@test.com","password":"test"}'
    done
-   # Expected: 401, 401, 401, 401, 401, 429
+   # Expected: 5 responses (200 or 401 depending on credentials), then 429 on 6th
    ```
 
 3. **Monitor rate limiting in logs**:
