@@ -236,6 +236,20 @@ Examples:
         help="Use async parallel generation for improved performance",
     )
 
+    parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=10,
+        help="Maximum concurrent requests when using async mode (default: 10)",
+    )
+
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds for async API calls (default: 60)",
+    )
+
     return parser.parse_args()
 
 
@@ -477,13 +491,25 @@ def main() -> int:
         logger.info("=" * 80)
 
         if args.use_async:
-            logger.info("Using async parallel generation mode")
-            job_result = asyncio.run(
-                pipeline.run_generation_job_async(
-                    questions_per_run=args.count,
-                    question_types=question_types,
-                )
+            logger.info(
+                f"Using async parallel generation mode "
+                f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
             )
+
+            # Reconfigure generator with CLI-specified async parameters
+            pipeline.generator._rate_limiter = asyncio.Semaphore(args.max_concurrent)
+            pipeline.generator._async_timeout = args.timeout
+
+            async def run_async_with_cleanup() -> dict:
+                try:
+                    return await pipeline.run_generation_job_async(
+                        questions_per_run=args.count,
+                        question_types=question_types,
+                    )
+                finally:
+                    await pipeline.cleanup()
+
+            job_result = asyncio.run(run_async_with_cleanup())
         else:
             job_result = pipeline.run_generation_job(
                 questions_per_run=args.count,
