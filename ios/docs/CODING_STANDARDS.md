@@ -45,6 +45,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Performance](#performance)
 - [Security](#security)
 - [CI/CD Pipeline](#cicd-pipeline)
+- [Git and Version Control](#git-and-version-control)
 - [Recommended Enhancements](#recommended-enhancements)
 
 ---
@@ -3963,6 +3964,172 @@ scripts/sync_openapi_spec.sh
 - Check the uploaded test artifacts in GitHub Actions for `.xcresult` files
 - Open in Xcode: `xcrun xcresulttool get --path <file>.xcresult --format json`
 - Look for screenshots and logs in UI test failures
+
+---
+
+## Git and Version Control
+
+### Branching Strategy
+
+We use a simple trunk-based workflow with short-lived feature branches:
+
+| Branch Type | Pattern | Purpose |
+|-------------|---------|---------|
+| Main | `main` | Production-ready code, always deployable |
+| Feature | `feature/TASK-XXX-brief-description` | New features and enhancements |
+| Bugfix | `bugfix/TASK-XXX-brief-description` | Bug fixes |
+| Hotfix | `hotfix/TASK-XXX-brief-description` | Urgent production fixes |
+
+**Guidelines:**
+- All feature branches should be created from `main`
+- Keep feature branches short-lived (merge within a few days)
+- Delete branches after merging
+- Never commit directly to `main`
+
+### Commit Message Format
+
+All commits must follow this format:
+
+```
+[TASK-XXX] Brief imperative description
+
+Optional longer description explaining:
+- What changed
+- Why it changed
+- Any important context
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+**Examples:**
+```
+# Good
+[TASK-123] Add pull-to-refresh to dashboard view
+[TASK-456] Fix memory leak in test session handler
+[TASK-789] Refactor navigation to use typed destinations
+
+# Bad
+fixed stuff
+WIP
+TASK-123 adding feature
+```
+
+**Rules:**
+- Use imperative mood ("Add" not "Added" or "Adds")
+- Keep the first line under 72 characters
+- Reference the task ID in brackets
+- Capitalize the first word after the task ID
+- No period at the end of the subject line
+- Include `Co-Authored-By` when AI-assisted
+
+### Pull Request Guidelines
+
+#### PR Size
+- **Target**: 200-400 lines of changes
+- **Maximum**: 500 lines (excluding auto-generated files, tests)
+- Large changes should be split into smaller, logical PRs
+
+#### PR Title Format
+```
+[TASK-XXX] Brief description
+```
+
+#### PR Description Template
+```markdown
+## Summary
+- Bullet point summary of changes
+
+## Test plan
+- [ ] Unit tests added/updated
+- [ ] UI tests pass
+- [ ] Manual testing on device/simulator
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+```
+
+#### Before Opening a PR
+- [ ] Build succeeds (`/build-ios-project`)
+- [ ] All tests pass (`/run-ios-test`)
+- [ ] SwiftLint and SwiftFormat pass
+- [ ] No secrets or credentials committed
+- [ ] PR description is complete
+- [ ] Self-review completed
+
+### Merge Policy
+
+We use **squash merges** to `main`:
+- Keeps history clean and linear
+- Each PR becomes a single commit
+- Feature branch commits are preserved in PR history
+
+**To merge:**
+```bash
+gh pr merge <PR_NUMBER> --squash --delete-branch
+```
+
+### Handling Merge Conflicts
+
+1. **Pull latest main:**
+   ```bash
+   git fetch origin main
+   git rebase origin/main
+   ```
+
+2. **Resolve conflicts:**
+   - Resolve each file conflict
+   - For `project.pbxproj` conflicts, prefer regenerating via Xcode or `/xcode-file-manager`
+   - Run build after resolution to verify
+   - Continue rebase: `git rebase --continue`
+
+3. **Force push your branch:**
+   ```bash
+   git push --force-with-lease
+   ```
+
+**Prefer rebase over merge** for updating feature branches to keep history clean.
+
+### Xcode Project File Conflicts
+
+The `project.pbxproj` file frequently causes merge conflicts. Best practices:
+
+1. **Minimize concurrent changes**: Coordinate with team when adding new files
+2. **Use the `/xcode-file-manager` skill**: Ensures proper Xcode integration
+3. **When conflicts occur**: Often easier to:
+   - Accept one version completely
+   - Re-add missing files via `/xcode-file-manager`
+   - Verify build succeeds
+
+### Tagging and Versioning
+
+We use semantic versioning (SemVer) for releases:
+
+| Version Part | When to Increment |
+|--------------|------------------|
+| Major (X.0.0) | Breaking changes, major features |
+| Minor (0.X.0) | New features, backward compatible |
+| Patch (0.0.X) | Bug fixes, backward compatible |
+
+**Creating a release tag:**
+```bash
+git tag -a v1.2.3 -m "Release v1.2.3: Brief description"
+git push origin v1.2.3
+```
+
+### Git Safety Rules
+
+**NEVER:**
+- Force push to `main`
+- Commit secrets, API keys, or credentials
+- Use `git commit --amend` on shared branches
+- Use `--no-verify` to skip hooks
+- Perform hard resets on shared branches
+
+**ALWAYS:**
+- Pull before starting work
+- Create a branch for your changes
+- Review your diff before committing
+- Keep commits atomic and focused
+- Build and test before pushing
 
 ---
 
