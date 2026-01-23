@@ -1,6 +1,6 @@
-"""Question arbiter for evaluating generated questions.
+"""Question judge for evaluating generated questions.
 
-This module implements the arbiter that evaluates generated questions using
+This module implements the judge that evaluates generated questions using
 specialized LLM models based on question type.
 """
 
@@ -9,7 +9,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from .arbiter_config import ArbiterConfigLoader
+from .judge_config import JudgeConfigLoader
 from .circuit_breaker import (
     CircuitBreakerOpen,
     CircuitBreakerRegistry,
@@ -21,7 +21,7 @@ from .models import (
     GeneratedQuestion,
     GenerationBatch,
 )
-from .prompts import build_arbiter_prompt
+from .prompts import build_judge_prompt
 from .providers.anthropic_provider import AnthropicProvider
 from .providers.base import BaseLLMProvider
 from .providers.google_provider import GoogleProvider
@@ -31,20 +31,20 @@ from .providers.xai_provider import XAIProvider
 logger = logging.getLogger(__name__)
 
 # Default rate limiting settings for async operations
-DEFAULT_MAX_CONCURRENT_EVALUATIONS = 10  # Max concurrent arbiter API calls
+DEFAULT_MAX_CONCURRENT_EVALUATIONS = 10  # Max concurrent judge API calls
 DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async evaluation calls
 
 
-class QuestionArbiter:
-    """Evaluates generated questions using specialized arbiter models.
+class QuestionJudge:
+    """Evaluates generated questions using specialized judge models.
 
     This class manages the evaluation of questions using different LLM models
-    specialized for different question types, as configured in the arbiter config.
+    specialized for different question types, as configured in the judge config.
     """
 
     def __init__(
         self,
-        arbiter_config: ArbiterConfigLoader,
+        judge_config: JudgeConfigLoader,
         openai_api_key: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
         google_api_key: Optional[str] = None,
@@ -53,22 +53,22 @@ class QuestionArbiter:
         max_concurrent_evaluations: int = DEFAULT_MAX_CONCURRENT_EVALUATIONS,
         async_timeout_seconds: float = DEFAULT_ASYNC_TIMEOUT_SECONDS,
     ):
-        """Initialize the question arbiter.
+        """Initialize the question judge.
 
         Args:
-            arbiter_config: Loaded arbiter configuration
+            judge_config: Loaded judge configuration
             openai_api_key: OpenAI API key (optional)
             anthropic_api_key: Anthropic API key (optional)
             google_api_key: Google API key (optional)
             xai_api_key: xAI (Grok) API key (optional)
             circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
-            max_concurrent_evaluations: Maximum concurrent arbiter API calls (default: 10)
+            max_concurrent_evaluations: Maximum concurrent judge API calls (default: 10)
             async_timeout_seconds: Timeout for individual async calls in seconds (default: 60)
 
         Raises:
             ValueError: If no API keys are provided
         """
-        self.arbiter_config = arbiter_config
+        self.judge_config = judge_config
         self.providers: Dict[str, BaseLLMProvider] = {}
         self._circuit_breaker_registry = (
             circuit_breaker_registry or get_circuit_breaker_registry()
@@ -81,37 +81,37 @@ class QuestionArbiter:
             self.providers["openai"] = OpenAIProvider(
                 api_key=openai_api_key, model="gpt-4-turbo-preview"  # Default model
             )
-            self._circuit_breaker_registry.get_or_create("arbiter-openai")
-            logger.info("Initialized OpenAI provider for arbiter")
+            self._circuit_breaker_registry.get_or_create("judge-openai")
+            logger.info("Initialized OpenAI provider for judge")
 
         if anthropic_api_key:
             self.providers["anthropic"] = AnthropicProvider(
                 api_key=anthropic_api_key,
                 model="claude-sonnet-4-5",  # Default model
             )
-            self._circuit_breaker_registry.get_or_create("arbiter-anthropic")
-            logger.info("Initialized Anthropic provider for arbiter")
+            self._circuit_breaker_registry.get_or_create("judge-anthropic")
+            logger.info("Initialized Anthropic provider for judge")
 
         if google_api_key:
             self.providers["google"] = GoogleProvider(
                 api_key=google_api_key, model="gemini-pro"  # Default model
             )
-            self._circuit_breaker_registry.get_or_create("arbiter-google")
-            logger.info("Initialized Google provider for arbiter")
+            self._circuit_breaker_registry.get_or_create("judge-google")
+            logger.info("Initialized Google provider for judge")
 
         if xai_api_key:
             self.providers["xai"] = XAIProvider(
                 api_key=xai_api_key, model="grok-4"  # Default model
             )
-            self._circuit_breaker_registry.get_or_create("arbiter-xai")
-            logger.info("Initialized xAI provider for arbiter")
+            self._circuit_breaker_registry.get_or_create("judge-xai")
+            logger.info("Initialized xAI provider for judge")
 
         if not self.providers:
             raise ValueError(
-                "At least one LLM provider API key must be provided for arbiter"
+                "At least one LLM provider API key must be provided for judge"
             )
 
-        logger.info(f"QuestionArbiter initialized with {len(self.providers)} providers")
+        logger.info(f"QuestionJudge initialized with {len(self.providers)} providers")
 
     def evaluate_question(
         self,
@@ -130,26 +130,26 @@ class QuestionArbiter:
             Evaluated question with scores and approval status
 
         Raises:
-            ValueError: If arbiter model not available or evaluation fails
+            ValueError: If judge model not available or evaluation fails
             Exception: If LLM call fails
         """
         question_type = question.question_type.value
         logger.info(f"Evaluating {question_type} question")
 
-        # Get arbiter model for this question type
-        arbiter_model = self.arbiter_config.get_arbiter_for_question_type(question_type)
+        # Get judge model for this question type
+        judge_model = self.judge_config.get_judge_for_question_type(question_type)
 
         # Verify provider is available
-        if arbiter_model.provider not in self.providers:
+        if judge_model.provider not in self.providers:
             raise ValueError(
-                f"Arbiter provider '{arbiter_model.provider}' not available. "
+                f"Judge provider '{judge_model.provider}' not available. "
                 f"Available providers: {list(self.providers.keys())}"
             )
 
-        provider = self.providers[arbiter_model.provider]
+        provider = self.providers[judge_model.provider]
 
-        # Build arbiter prompt
-        prompt = build_arbiter_prompt(
+        # Build judge prompt
+        prompt = build_judge_prompt(
             question=question.question_text,
             answer_options=question.answer_options or [question.correct_answer],
             correct_answer=question.correct_answer,
@@ -157,9 +157,7 @@ class QuestionArbiter:
             difficulty=question.difficulty_level.value,
         )
 
-        logger.debug(
-            f"Using arbiter model: {arbiter_model.model} ({arbiter_model.provider})"
-        )
+        logger.debug(f"Using judge model: {judge_model.model} ({judge_model.provider})")
 
         try:
             # Get evaluation from LLM using model_override to avoid mutating provider state
@@ -168,7 +166,7 @@ class QuestionArbiter:
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
-                model_override=arbiter_model.model,
+                model_override=judge_model.model,
             )
 
             # Parse evaluation scores
@@ -181,7 +179,7 @@ class QuestionArbiter:
             evaluation.overall_score = overall_score
 
             # Determine if question is approved
-            min_score = self.arbiter_config.get_min_arbiter_score()
+            min_score = self.judge_config.get_min_judge_score()
             approved = overall_score >= min_score
 
             logger.info(
@@ -193,7 +191,7 @@ class QuestionArbiter:
             evaluated = EvaluatedQuestion(
                 question=question,
                 evaluation=evaluation,
-                arbiter_model=f"{arbiter_model.provider}/{arbiter_model.model}",
+                judge_model=f"{judge_model.provider}/{judge_model.model}",
                 approved=approved,
             )
 
@@ -225,7 +223,7 @@ class QuestionArbiter:
             Evaluated question with scores and approval status
 
         Raises:
-            ValueError: If arbiter model not available or evaluation fails
+            ValueError: If judge model not available or evaluation fails
             CircuitBreakerOpen: If the specified provider's circuit is open
             asyncio.TimeoutError: If the API call times out
             Exception: If LLM call fails
@@ -233,26 +231,26 @@ class QuestionArbiter:
         question_type = question.question_type.value
         logger.info(f"Evaluating {question_type} question (async)")
 
-        # Get arbiter model for this question type
-        arbiter_model = self.arbiter_config.get_arbiter_for_question_type(question_type)
+        # Get judge model for this question type
+        judge_model = self.judge_config.get_judge_for_question_type(question_type)
 
         # Verify provider is available
-        if arbiter_model.provider not in self.providers:
+        if judge_model.provider not in self.providers:
             raise ValueError(
-                f"Arbiter provider '{arbiter_model.provider}' not available. "
+                f"Judge provider '{judge_model.provider}' not available. "
                 f"Available providers: {list(self.providers.keys())}"
             )
 
-        provider = self.providers[arbiter_model.provider]
+        provider = self.providers[judge_model.provider]
 
-        # Get circuit breaker for this arbiter provider
-        circuit_breaker_name = f"arbiter-{arbiter_model.provider}"
+        # Get circuit breaker for this judge provider
+        circuit_breaker_name = f"judge-{judge_model.provider}"
         circuit_breaker = self._circuit_breaker_registry.get_or_create(
             circuit_breaker_name
         )
 
-        # Build arbiter prompt
-        prompt = build_arbiter_prompt(
+        # Build judge prompt
+        prompt = build_judge_prompt(
             question=question.question_text,
             answer_options=question.answer_options or [question.correct_answer],
             correct_answer=question.correct_answer,
@@ -261,7 +259,7 @@ class QuestionArbiter:
         )
 
         logger.debug(
-            f"Using arbiter model: {arbiter_model.model} ({arbiter_model.provider}) (async)"
+            f"Using judge model: {judge_model.model} ({judge_model.provider}) (async)"
         )
 
         # Use provided timeout or instance default
@@ -276,7 +274,7 @@ class QuestionArbiter:
                         response_format={},  # Provider will handle JSON mode
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        model_override=arbiter_model.model,
+                        model_override=judge_model.model,
                     ),
                     timeout=effective_timeout,
                 )
@@ -295,7 +293,7 @@ class QuestionArbiter:
             evaluation.overall_score = overall_score
 
             # Determine if question is approved
-            min_score = self.arbiter_config.get_min_arbiter_score()
+            min_score = self.judge_config.get_min_judge_score()
             approved = overall_score >= min_score
 
             logger.info(
@@ -307,7 +305,7 @@ class QuestionArbiter:
             evaluated = EvaluatedQuestion(
                 question=question,
                 evaluation=evaluation,
-                arbiter_model=f"{arbiter_model.provider}/{arbiter_model.model}",
+                judge_model=f"{judge_model.provider}/{judge_model.model}",
                 approved=approved,
             )
 
@@ -315,13 +313,13 @@ class QuestionArbiter:
 
         except CircuitBreakerOpen:
             logger.warning(
-                f"Circuit breaker is open for arbiter-{arbiter_model.provider}, "
+                f"Circuit breaker is open for judge-{judge_model.provider}, "
                 f"cannot evaluate question (async)"
             )
             raise
         except asyncio.TimeoutError:
             logger.error(
-                f"Timeout evaluating question with {arbiter_model.provider} "
+                f"Timeout evaluating question with {judge_model.provider} "
                 f"(async) after {effective_timeout}s"
             )
             raise
@@ -603,7 +601,7 @@ class QuestionArbiter:
         Returns:
             Weighted overall score (0.0 to 1.0)
         """
-        criteria = self.arbiter_config.get_evaluation_criteria()
+        criteria = self.judge_config.get_evaluation_criteria()
 
         overall = (
             evaluation.clarity_score * criteria.clarity
@@ -616,18 +614,18 @@ class QuestionArbiter:
         # Ensure score is in valid range (handle floating point errors)
         return max(0.0, min(1.0, overall))
 
-    def get_arbiter_stats(self) -> Dict[str, Any]:
-        """Get statistics about arbiter configuration.
+    def get_judge_stats(self) -> Dict[str, Any]:
+        """Get statistics about judge configuration.
 
         Returns:
-            Dictionary with arbiter configuration information
+            Dictionary with judge configuration information
         """
-        config = self.arbiter_config.config
+        config = self.judge_config.config
         criteria = config.evaluation_criteria
 
         return {
             "config_version": config.version,
-            "min_arbiter_score": config.min_arbiter_score,
+            "min_judge_score": config.min_judge_score,
             "available_providers": list(self.providers.keys()),
             "evaluation_criteria": {
                 "clarity": criteria.clarity,
@@ -636,33 +634,33 @@ class QuestionArbiter:
                 "formatting": criteria.formatting,
                 "creativity": criteria.creativity,
             },
-            "arbiters": {
+            "judges": {
                 qt: {
-                    "model": arbiter.model,
-                    "provider": arbiter.provider,
-                    "enabled": arbiter.enabled,
+                    "model": judge.model,
+                    "provider": judge.provider,
+                    "enabled": judge.enabled,
                 }
-                for qt, arbiter in config.arbiters.items()
+                for qt, judge in config.judges.items()
             },
         }
 
     async def cleanup(self) -> None:
         """Clean up all provider resources.
 
-        This should be called when the arbiter is no longer needed to ensure
+        This should be called when the judge is no longer needed to ensure
         all async clients are properly closed and resources are released.
         """
-        logger.info("Cleaning up question arbiter resources...")
+        logger.info("Cleaning up question judge resources...")
         cleanup_tasks = []
         for name, provider in self.providers.items():
-            logger.debug(f"Cleaning up arbiter {name} provider")
+            logger.debug(f"Cleaning up judge {name} provider")
             cleanup_tasks.append(provider.cleanup())
 
         if cleanup_tasks:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-        logger.info("Question arbiter cleanup complete")
+        logger.info("Question judge cleanup complete")
 
-    async def __aenter__(self) -> "QuestionArbiter":
+    async def __aenter__(self) -> "QuestionJudge":
         """Async context manager entry."""
         return self
 

@@ -17,7 +17,7 @@ This document establishes baseline performance metrics for the question generati
 The question generation pipeline processes questions through four main stages:
 
 1. **Generation** - LLM creates raw question content
-2. **Evaluation** - Arbiter model assesses question quality
+2. **Evaluation** - Judge model assesses question quality
 3. **Deduplication** - Embedding-based similarity check
 4. **Storage** - Database insertion with embedding persistence
 
@@ -26,7 +26,7 @@ The question generation pipeline processes questions through four main stages:
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Questions per run | 50 | `config.py:questions_per_run` |
-| Min arbiter score | 0.7 | `config.py:min_arbiter_score` |
+| Min judge score | 0.7 | `config.py:min_judge_score` |
 | Similarity threshold | 0.85 | `config.py:dedup_similarity_threshold` |
 | Embedding model | text-embedding-3-small | `config.py:dedup_embedding_model` |
 | Retry max attempts | 3 | `config.py:provider_max_retries` |
@@ -54,9 +54,9 @@ Questions are generated across multiple LLM providers in round-robin distributio
 | Google | gemini-1.5-pro | Question generation |
 | xAI | grok-4 | Question generation |
 
-### Stage 2: Evaluation (Arbiter)
+### Stage 2: Evaluation (Judge)
 
-Type-specific arbiter models evaluate questions against five weighted criteria:
+Type-specific judge models evaluate questions against five weighted criteria:
 
 | Criterion | Weight | Description |
 |-----------|--------|-------------|
@@ -66,7 +66,7 @@ Type-specific arbiter models evaluate questions against five weighted criteria:
 | Formatting | 0.15 | Properly formatted with correct answer |
 | Creativity | 0.10 | Novel and interesting |
 
-**Arbiter Model Assignments:**
+**Judge Model Assignments:**
 
 | Question Type | Provider | Model | Rationale |
 |---------------|----------|-------|-----------|
@@ -148,7 +148,7 @@ For a typical 50-question run:
 |--------|-------|-------|
 | Observed duration | ~100-120s | From heartbeat.json |
 | Questions generated | 15-25 | Before evaluation |
-| Questions approved | 8-15 | After arbiter filtering |
+| Questions approved | 8-15 | After judge filtering |
 | Questions inserted | 5-12 | After deduplication |
 | Effective throughput | 3-7 q/min | Net new questions to DB |
 
@@ -211,7 +211,7 @@ The `MetricsTracker` class (`app/metrics.py`) captures:
 - `questions_by_difficulty` - Per-difficulty breakdown
 
 **Evaluation Metrics:**
-- `questions_evaluated` - Sent to arbiter
+- `questions_evaluated` - Sent to judge
 - `questions_approved` - Passed threshold
 - `questions_rejected` - Below threshold
 - `evaluation_scores` - Score distribution (min/max/avg)

@@ -36,7 +36,7 @@ XAI_API_KEY=...  # Optional
 ```bash
 # Generation settings
 QUESTIONS_PER_RUN=50
-MIN_ARBITER_SCORE=0.7
+MIN_JUDGE_SCORE=0.7
 
 # Alert configuration (optional but recommended)
 ENABLE_EMAIL_ALERTS=True
@@ -191,13 +191,13 @@ Check the `SUCCESS_RUN` log entry:
 
 **Healthy metrics:**
 - `questions_generated`: 18-50+ (depending on config)
-- `questions_inserted`: 40-70% of generated (after arbiter + dedup)
+- `questions_inserted`: 40-70% of generated (after judge + dedup)
 - `approval_rate`: 40-70%
 - `duration_seconds`: 60-300s (1-5 min for 50 questions)
 
 **Warning signs:**
 - `questions_inserted`: 0 → Database issue or all duplicates
-- `approval_rate`: <30% → Arbiter too strict or generation quality issue
+- `approval_rate`: <30% → Judge too strict or generation quality issue
 - `duration_seconds`: >600s → API slowness or rate limiting
 
 ### 3. Check for Alerts
@@ -258,13 +258,13 @@ Check the `exit_code` in the failed heartbeat:
 ```
 
 **Diagnosis:**
-- All questions rejected by arbiter
+- All questions rejected by judge
 - Database connection failed during insertion
 - All questions were duplicates
 
 **Solutions:**
-1. Check `MIN_ARBITER_SCORE` (try lowering to 0.6)
-2. Review arbiter configuration
+1. Check `MIN_JUDGE_SCORE` (try lowering to 0.6)
+2. Review judge configuration
 3. Check database logs
 4. Look for "REJECTED" count in logs
 

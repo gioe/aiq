@@ -33,8 +33,8 @@ The Question Generation Service is an AI-powered system that generates novel IQ 
    - Anthropic (Claude 3.5 Sonnet)
    - Google (Gemini Pro)
 
-2. **Arbiters**: Specialized models evaluate question quality
-   - Different arbiters for different question types
+2. **Judges**: Specialized models evaluate question quality
+   - Different judges for different question types
    - Configurable model assignments based on benchmarks
 
 3. **Deduplicator**: Prevents insertion of similar questions
@@ -110,10 +110,10 @@ GOOGLE_API_KEY=...                 # For Google models
 ```bash
 # Generation settings
 QUESTIONS_PER_RUN=50               # Default: 50
-MIN_ARBITER_SCORE=0.7              # Default: 0.7 (range: 0.0-1.0)
+MIN_JUDGE_SCORE=0.7              # Default: 0.7 (range: 0.0-1.0)
 
 # Configuration paths
-ARBITER_CONFIG_PATH=./config/arbiters.yaml  # Default: ./config/arbiters.yaml
+JUDGE_CONFIG_PATH=./config/judges.yaml  # Default: ./config/judges.yaml
 
 # Logging
 LOG_LEVEL=INFO                     # Options: DEBUG, INFO, WARNING, ERROR
@@ -144,11 +144,11 @@ LOG_LEVEL=INFO
 QUESTIONS_PER_RUN=50
 ```
 
-### Arbiter Configuration
+### Judge Configuration
 
-Arbiter models are configured in `config/arbiters.yaml`. This maps each question type to the best-performing LLM arbiter based on benchmark research.
+Judge models are configured in `config/judges.yaml`. This maps each question type to the best-performing LLM judge based on benchmark research.
 
-**Configuration File**: `config/arbiters.yaml`
+**Configuration File**: `config/judges.yaml`
 
 **Default Assignments**:
 - **mathematical** → gpt-4-turbo (OpenAI)
@@ -158,21 +158,21 @@ Arbiter models are configured in `config/arbiters.yaml`. This maps each question
 - **verbal_reasoning** → claude-3-5-sonnet-20241022 (Anthropic)
 - **memory** → claude-3-5-sonnet-20241022 (Anthropic)
 
-**Documentation**: See [config/README.md](config/README.md) for detailed arbiter configuration guide.
+**Documentation**: See [config/README.md](config/README.md) for detailed judge configuration guide.
 
-**Research Rationale**: See [docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md) for benchmark-driven selection methodology.
+**Research Rationale**: See [docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md) for benchmark-driven selection methodology.
 
-#### Modifying Arbiter Configuration
+#### Modifying Judge Configuration
 
 ```bash
-# Edit arbiter configuration
-nano config/arbiters.yaml
+# Edit judge configuration
+nano config/judges.yaml
 
 # Test configuration validity
-pytest tests/test_arbiter_config.py
+pytest tests/test_judge_config.py
 
 # Verify configuration loads
-python examples/arbiter_config_example.py
+python examples/judge_config_example.py
 ```
 
 Configuration changes take effect immediately on next run (no restart needed).
@@ -215,7 +215,7 @@ python run_generation.py --dry-run --types mathematical --count 3
 #### Advanced Options
 
 ```bash
-# Custom minimum arbiter score
+# Custom minimum judge score
 python run_generation.py --min-score 0.8
 
 # Skip deduplication (use with caution)
@@ -248,7 +248,7 @@ if [ $EXIT_CODE -eq 0 ]; then
 elif [ $EXIT_CODE -eq 1 ]; then
     echo "Partial failure - check logs"
 elif [ $EXIT_CODE -eq 3 ]; then
-    echo "Configuration error - check .env and arbiters.yaml"
+    echo "Configuration error - check .env and judges.yaml"
 fi
 ```
 
@@ -349,7 +349,7 @@ sudo systemctl status aiq-generation.timer
 
 1. **Exit Codes**: Non-zero indicates failure
 2. **Generation Rate**: Questions generated vs. target
-3. **Approval Rate**: Percentage passing arbiter evaluation
+3. **Approval Rate**: Percentage passing judge evaluation
 4. **Duplicate Rate**: Percentage detected as duplicates
 5. **Execution Duration**: Time to complete generation
 6. **API Errors**: LLM provider failures
@@ -378,7 +378,7 @@ psql $DATABASE_URL -c "SELECT COUNT(*) FROM questions;"
 
 # Check recent questions
 psql $DATABASE_URL -c "
-  SELECT id, question_type, created_at, source_llm, arbiter_score
+  SELECT id, question_type, created_at, source_llm, judge_score
   FROM questions
   ORDER BY created_at DESC
   LIMIT 10;
@@ -468,15 +468,15 @@ cat .env | grep API_KEY
 # Test API key loading
 python -c "from app.config import settings; print(settings.openai_api_key)"
 
-# Validate arbiter config
-python examples/arbiter_config_example.py
+# Validate judge config
+python examples/judge_config_example.py
 ```
 
 **Solutions**:
 - Verify `.env` file exists and contains valid keys
 - Check API keys haven't expired or been revoked
 - Test API connectivity: `curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"`
-- Validate `arbiters.yaml` syntax: `pytest tests/test_arbiter_config.py`
+- Validate `judges.yaml` syntax: `pytest tests/test_judge_config.py`
 
 #### 3. Database Connection Error (Exit Code 4)
 
@@ -512,7 +512,7 @@ grep "ERROR" logs/question_service.log | tail -20
 # Check LLM API rate limits
 grep "rate limit" logs/question_service.log
 
-# Check arbiter evaluation failures
+# Check judge evaluation failures
 grep "Evaluation failed" logs/question_service.log
 ```
 
@@ -535,12 +535,12 @@ python run_generation.py --verbose --count 5
 grep "Approval rate" logs/question_service.log | tail -5
 
 # Test individual components
-python examples/arbiter_config_example.py
+python examples/judge_config_example.py
 ```
 
 **Solutions**:
-- Check `MIN_ARBITER_SCORE` isn't too high (default: 0.7)
-- Verify arbiter models are accessible
+- Check `MIN_JUDGE_SCORE` isn't too high (default: 0.7)
+- Verify judge models are accessible
 - Review rejected questions for patterns
 - Test with `--dry-run` to isolate issues
 
@@ -558,9 +558,9 @@ python run_generation.py --dry-run --count 5 --verbose
 ```
 
 **Solutions**:
-- Review arbiter evaluation criteria in `arbiters.yaml`
-- Lower `MIN_ARBITER_SCORE` if too strict
-- Check arbiter models are performing correctly
+- Review judge evaluation criteria in `judges.yaml`
+- Lower `MIN_JUDGE_SCORE` if too strict
+- Check judge models are performing correctly
 - Review sample rejected questions for quality issues
 
 #### 7. High Duplicate Rates
@@ -599,8 +599,8 @@ print('Anthropic:', 'SET' if settings.anthropic_api_key else 'MISSING')
 print('Google:', 'SET' if settings.google_api_key else 'MISSING')
 "
 
-# 4. Test arbiter config
-python examples/arbiter_config_example.py
+# 4. Test judge config
+python examples/judge_config_example.py
 
 # 5. Run full test
 python run_generation.py --count 5
@@ -629,7 +629,7 @@ python run_generation.py --count 5
 
 #### Quarterly
 
-- [ ] Review arbiter model assignments (see [Arbiter Update Process](#updating-arbiter-configuration))
+- [ ] Review judge model assignments (see [Judge Update Process](#updating-judge-configuration))
 - [ ] Analyze question quality metrics
 - [ ] Review and rotate log files
 - [ ] Update LLM provider SDKs: `pip install --upgrade openai anthropic google-generativeai`
@@ -642,9 +642,9 @@ python run_generation.py --count 5
 - [ ] Review and update documentation
 - [ ] Performance optimization review
 
-### Updating Arbiter Configuration
+### Updating Judge Configuration
 
-Arbiter model assignments should be reviewed quarterly or when:
+Judge model assignments should be reviewed quarterly or when:
 - New LLM models are released
 - Public benchmark results change significantly
 - Question quality issues are observed
@@ -655,25 +655,25 @@ Arbiter model assignments should be reviewed quarterly or when:
 # 1. Research latest benchmark data
 # See: https://www.vellum.ai/llm-leaderboard
 
-# 2. Update arbiters.yaml
-nano config/arbiters.yaml
+# 2. Update judges.yaml
+nano config/judges.yaml
 
 # 3. Test configuration
-pytest tests/test_arbiter_config.py
-python examples/arbiter_config_example.py
+pytest tests/test_judge_config.py
+python examples/judge_config_example.py
 
 # 4. Test generation with new config
 python run_generation.py --dry-run --count 5 --verbose
 
 # 5. Document changes
-nano docs/ARBITER_SELECTION.md  # Add to Change History
+nano docs/JUDGE_SELECTION.md  # Add to Change History
 
 # 6. Commit changes
-git add config/arbiters.yaml docs/ARBITER_SELECTION.md
-git commit -m "[P6-013] Update arbiter configuration based on Q1 2025 benchmarks"
+git add config/judges.yaml docs/JUDGE_SELECTION.md
+git commit -m "[P6-013] Update judge configuration based on Q1 2025 benchmarks"
 ```
 
-**Documentation**: See [docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md) for detailed update methodology.
+**Documentation**: See [docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md) for detailed update methodology.
 
 ### Log Rotation
 
@@ -739,8 +739,8 @@ python run_generation.py --dry-run --count 5
 ### Quick Links
 
 - **[README.md](README.md)** - Service overview and architecture
-- **[config/README.md](config/README.md)** - Arbiter configuration reference
-- **[docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md)** - Benchmark-driven arbiter selection guide
+- **[config/README.md](config/README.md)** - Judge configuration reference
+- **[docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md)** - Benchmark-driven judge selection guide
 - **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Comprehensive scheduling guide
 - **[.env.example](.env.example)** - Environment variable template
 
@@ -750,8 +750,8 @@ python run_generation.py --dry-run --count 5
 question-service/
 ├── app/                          # Application code
 │   ├── __init__.py
-│   ├── arbiter.py               # Question evaluation logic
-│   ├── arbiter_config.py        # Arbiter configuration loader
+│   ├── judge.py               # Question evaluation logic
+│   ├── judge_config.py        # Judge configuration loader
 │   ├── config.py                # Settings and environment variables
 │   ├── database.py              # Database operations
 │   ├── deduplicator.py          # Duplicate detection
@@ -766,13 +766,13 @@ question-service/
 │       ├── anthropic_provider.py
 │       └── google_provider.py
 ├── config/
-│   ├── arbiters.yaml            # Arbiter model configuration
+│   ├── judges.yaml            # Judge model configuration
 │   └── README.md                # Configuration documentation
 ├── docs/
-│   ├── ARBITER_SELECTION.md     # Arbiter selection guide
+│   ├── JUDGE_SELECTION.md     # Judge selection guide
 │   └── SCHEDULING.md            # Scheduling guide
 ├── examples/
-│   └── arbiter_config_example.py # Configuration usage example
+│   └── judge_config_example.py # Configuration usage example
 ├── logs/                        # Log files (created at runtime)
 │   ├── question_service.log
 │   └── cron.log
@@ -801,10 +801,10 @@ python run_generation.py --min-score 0.8                    # Custom minimum sco
 # Testing
 python run_generation.py --dry-run --count 5 --verbose     # Full test with logging
 pytest                                                      # Run test suite
-pytest tests/test_arbiter_config.py                        # Test specific component
+pytest tests/test_judge_config.py                        # Test specific component
 
 # Configuration
-python examples/arbiter_config_example.py                   # Test arbiter config
+python examples/judge_config_example.py                   # Test judge config
 cp .env.example .env                                        # Create environment file
 
 # Database

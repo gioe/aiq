@@ -47,7 +47,7 @@ def populated_metrics_tracker():
         tracker.record_evaluation_success(
             score=score,
             approved=approved,
-            arbiter_model="openai/gpt-4",
+            judge_model="openai/gpt-4",
         )
 
     # Record deduplication metrics
@@ -232,13 +232,13 @@ class TestTransformMetricsToPayload:
             summary=summary,
             exit_code=0,
             prompt_version="v2.1",
-            arbiter_config_version="v1.0",
-            min_arbiter_score_threshold=0.75,
+            judge_config_version="v1.0",
+            min_judge_score_threshold=0.75,
         )
 
         assert payload["prompt_version"] == "v2.1"
-        assert payload["arbiter_config_version"] == "v1.0"
-        assert payload["min_arbiter_score_threshold"] == pytest.approx(0.75)
+        assert payload["judge_config_version"] == "v1.0"
+        assert payload["min_judge_score_threshold"] == pytest.approx(0.75)
 
     def test_transform_failed_run(self, reporter, minimal_metrics_tracker):
         """Test transformation of a failed run."""
@@ -432,7 +432,7 @@ class TestEndToEnd:
             tracker.record_evaluation_success(
                 score=0.8 + i * 0.01,
                 approved=True,
-                arbiter_model="anthropic/claude-3-haiku",
+                judge_model="anthropic/claude-3-haiku",
             )
 
         for _ in range(8):
@@ -604,8 +604,8 @@ class TestIntegrationScenarios:
                 environment="production",
                 triggered_by="scheduler",
                 prompt_version="v2.1",
-                arbiter_config_version="v1.5",
-                min_arbiter_score_threshold=0.80,
+                judge_config_version="v1.5",
+                min_judge_score_threshold=0.80,
             )
 
             payload = captured_data["json"]
@@ -614,8 +614,8 @@ class TestIntegrationScenarios:
             assert payload["environment"] == "production"
             assert payload["triggered_by"] == "scheduler"
             assert payload["prompt_version"] == "v2.1"
-            assert payload["arbiter_config_version"] == "v1.5"
-            assert payload["min_arbiter_score_threshold"] == pytest.approx(0.80)
+            assert payload["judge_config_version"] == "v1.5"
+            assert payload["min_judge_score_threshold"] == pytest.approx(0.80)
 
     def test_report_run_verifies_metrics_content(self):
         """Test that report_run correctly transforms all metric categories."""
@@ -654,7 +654,7 @@ class TestIntegrationScenarios:
                 tracker.record_evaluation_success(
                     score=score,
                     approved=score >= 0.7,
-                    arbiter_model="openai/gpt-4",
+                    judge_model="openai/gpt-4",
                 )
 
             # Deduplication metrics
@@ -692,7 +692,7 @@ class TestIntegrationScenarios:
             assert payload["questions_evaluated"] == 15
             assert payload["questions_approved"] > 0
             assert payload["questions_rejected"] >= 0
-            assert payload["avg_arbiter_score"] is not None
+            assert payload["avg_judge_score"] is not None
 
             # Verify deduplication metrics
             assert payload["duplicates_found"] == 2
@@ -766,7 +766,7 @@ class TestPayloadTransformationEdgeCases:
             tracker.record_evaluation_success(
                 score=0.85,
                 approved=True,
-                arbiter_model="openai/gpt-4",
+                judge_model="openai/gpt-4",
             )
         for _ in range(5):
             tracker.record_duplicate_check(is_duplicate=True, duplicate_type="semantic")
@@ -784,7 +784,7 @@ class TestPayloadTransformationEdgeCases:
         assert payload["questions_inserted"] == 0
 
     def test_transform_with_extreme_scores(self, reporter):
-        """Test transformation with extreme arbiter scores."""
+        """Test transformation with extreme judge scores."""
         tracker = MetricsTracker()
         tracker.start_run()
         tracker.record_generation_request(3)
@@ -795,13 +795,9 @@ class TestPayloadTransformationEdgeCases:
                 difficulty="hard",
             )
         # Record scores at extremes
-        tracker.record_evaluation_success(
-            score=0.0, approved=False, arbiter_model="a/b"
-        )
-        tracker.record_evaluation_success(
-            score=0.5, approved=False, arbiter_model="a/b"
-        )
-        tracker.record_evaluation_success(score=1.0, approved=True, arbiter_model="a/b")
+        tracker.record_evaluation_success(score=0.0, approved=False, judge_model="a/b")
+        tracker.record_evaluation_success(score=0.5, approved=False, judge_model="a/b")
+        tracker.record_evaluation_success(score=1.0, approved=True, judge_model="a/b")
         tracker.end_run()
 
         summary = tracker.get_summary()
@@ -810,9 +806,9 @@ class TestPayloadTransformationEdgeCases:
             exit_code=0,
         )
 
-        assert payload["min_arbiter_score"] == pytest.approx(0.0)
-        assert payload["max_arbiter_score"] == pytest.approx(1.0)
-        assert payload["avg_arbiter_score"] == pytest.approx(0.5)
+        assert payload["min_judge_score"] == pytest.approx(0.0)
+        assert payload["max_judge_score"] == pytest.approx(1.0)
+        assert payload["avg_judge_score"] == pytest.approx(0.5)
 
     def test_transform_with_missing_optional_sections(self, reporter):
         """Test transformation handles missing optional sections gracefully."""

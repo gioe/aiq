@@ -7,7 +7,7 @@ AI-powered service for generating novel IQ test questions using multiple LLMs wi
 This service generates IQ test questions through a multi-stage pipeline:
 
 1. **Generation**: Multiple LLM providers create candidate questions
-2. **Evaluation**: Specialized arbiter models evaluate question quality
+2. **Evaluation**: Specialized judge models evaluate question quality
 3. **Deduplication**: Semantic similarity checking prevents duplicates
 4. **Storage**: Approved questions are inserted into the database
 
@@ -38,11 +38,11 @@ python run_generation.py --count 50
 |-----------|------|-------------|
 | Pipeline | `app/pipeline.py` | Orchestrates the complete generation flow |
 | Generator | `app/generator.py` | Manages multi-LLM question generation |
-| Arbiter | `app/arbiter.py` | Evaluates question quality using specialized models |
+| Judge | `app/judge.py` | Evaluates question quality using specialized models |
 | Deduplicator | `app/deduplicator.py` | Semantic similarity checking via embeddings |
 | Models | `app/models.py` | Pydantic data models for questions and evaluations |
 | Database | `app/database.py` | PostgreSQL storage via SQLAlchemy |
-| Config | `app/arbiter_config.py` | YAML-based arbiter configuration loader |
+| Config | `app/judge_config.py` | YAML-based judge configuration loader |
 
 ### LLM Providers
 
@@ -90,20 +90,20 @@ XAI_API_KEY=...
 
 # Generation Settings
 QUESTIONS_PER_RUN=50
-MIN_ARBITER_SCORE=0.7
-ARBITER_CONFIG_PATH=./config/arbiters.yaml
+MIN_JUDGE_SCORE=0.7
+JUDGE_CONFIG_PATH=./config/judges.yaml
 
 # Logging
 LOG_LEVEL=INFO
 LOG_FILE=./logs/generation.log
 ```
 
-### Arbiter Configuration
+### Judge Configuration
 
-The arbiter system uses specialized models for different question types, configured in `config/arbiters.yaml`:
+The judge system uses specialized models for different question types, configured in `config/judges.yaml`:
 
 ```yaml
-arbiters:
+judges:
   mathematical:
     model: "grok-4"
     provider: "xai"
@@ -123,7 +123,7 @@ evaluation_criteria:
   formatting: 0.15
   creativity: 0.10
 
-min_arbiter_score: 0.7
+min_judge_score: 0.7
 ```
 
 See [config/README.md](config/README.md) for full configuration reference.
@@ -140,13 +140,13 @@ Options:
   --types TYPE [TYPE...] Question types to generate (default: all)
   --dry-run              Generate without database insertion
   --skip-deduplication   Skip duplicate checking
-  --min-score FLOAT      Override minimum arbiter score threshold
+  --min-score FLOAT      Override minimum judge score threshold
   --async                Use parallel async generation for faster throughput
   --max-concurrent N     Max concurrent LLM API calls (default: 10, requires --async)
   --timeout SECONDS      Timeout for individual API calls (default: 60, requires --async)
-  --async-arbiter        Use parallel async arbiter evaluation for faster throughput
-  --max-concurrent-arbiter N  Max concurrent arbiter calls (default: 10, requires --async-arbiter)
-  --arbiter-timeout SEC  Timeout for arbiter API calls (default: 60, requires --async-arbiter)
+  --async-judge        Use parallel async judge evaluation for faster throughput
+  --max-concurrent-judge N  Max concurrent judge calls (default: 10, requires --async-judge)
+  --judge-timeout SEC  Timeout for judge API calls (default: 60, requires --async-judge)
   --verbose, -v          Enable DEBUG logging
   --log-file PATH        Custom log file path
   --no-console           Disable console logging
@@ -203,7 +203,7 @@ python run_generation.py --count 200 --async --max-concurrent 15 --timeout 90
 │                         │                                        │
 │                         ▼                                        │
 │  2. EVALUATION    ┌─────────────┐                               │
-│                   │   Arbiter   │  Type-specific models          │
+│                   │   Judge   │  Type-specific models          │
 │                   │  Evaluation │  Weighted scoring              │
 │                   └──────┬──────┘                               │
 │                          │                                       │
@@ -297,8 +297,8 @@ question-service/
 ├── app/
 │   ├── __init__.py          # Package exports
 │   ├── alerting.py          # Email/file alerting
-│   ├── arbiter.py           # Question evaluation
-│   ├── arbiter_config.py    # YAML config loader
+│   ├── judge.py           # Question evaluation
+│   ├── judge_config.py    # YAML config loader
 │   ├── config.py            # Settings management
 │   ├── database.py          # PostgreSQL operations
 │   ├── deduplicator.py      # Semantic deduplication
@@ -317,7 +317,7 @@ question-service/
 │       ├── google_provider.py
 │       └── xai_provider.py
 ├── config/
-│   └── arbiters.yaml        # Arbiter model configuration
+│   └── judges.yaml        # Judge model configuration
 ├── tests/                   # Test suite
 ├── logs/                    # Runtime logs
 ├── run_generation.py        # Main entry point
@@ -357,5 +357,5 @@ See [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) for Railway-specifi
 - **[docs/ALERTING.md](docs/ALERTING.md)** - Alert configuration and handling
 - **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling options
 - **[docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)** - Railway deployment guide
-- **[docs/ARBITER_SELECTION.md](docs/ARBITER_SELECTION.md)** - Model selection rationale
-- **[config/README.md](config/README.md)** - Arbiter configuration reference
+- **[docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md)** - Model selection rationale
+- **[config/README.md](config/README.md)** - Judge configuration reference

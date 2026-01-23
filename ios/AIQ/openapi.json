@@ -2357,7 +2357,7 @@
             "type": "number"
           },
           "rejection_loss": {
-            "description": "Questions rejected by arbiter (evaluated - approved)",
+            "description": "Questions rejected by judge (evaluated - approved)",
             "title": "Rejection Loss",
             "type": "integer"
           },
@@ -2506,17 +2506,17 @@
             "title": "Approval Rate",
             "type": "number"
           },
-          "arbiter_config_version": {
-            "description": "Arbiter config version used",
+          "judge_config_version": {
+            "description": "Judge config version used",
             "maxLength": 50,
             "nullable": true,
-            "title": "Arbiter Config Version",
+            "title": "Judge Config Version",
             "type": "string"
           },
-          "avg_arbiter_score": {
-            "description": "Average arbiter score",
+          "avg_judge_score": {
+            "description": "Average judge score",
             "nullable": true,
-            "title": "Avg Arbiter Score",
+            "title": "Avg Judge Score",
             "type": "number"
           },
           "completed_at": {
@@ -2596,22 +2596,22 @@
             "title": "Insertion Failures",
             "type": "integer"
           },
-          "max_arbiter_score": {
-            "description": "Maximum arbiter score",
+          "max_judge_score": {
+            "description": "Maximum judge score",
             "nullable": true,
-            "title": "Max Arbiter Score",
+            "title": "Max Judge Score",
             "type": "number"
           },
-          "min_arbiter_score": {
-            "description": "Minimum arbiter score",
+          "min_judge_score": {
+            "description": "Minimum judge score",
             "nullable": true,
-            "title": "Min Arbiter Score",
+            "title": "Min Judge Score",
             "type": "number"
           },
-          "min_arbiter_score_threshold": {
-            "description": "Minimum arbiter score threshold for approval",
+          "min_judge_score_threshold": {
+            "description": "Minimum judge score threshold for approval",
             "nullable": true,
-            "title": "Min Arbiter Score Threshold",
+            "title": "Min Judge Score Threshold",
             "type": "number"
           },
           "overall_success_rate": {
@@ -2638,13 +2638,13 @@
           },
           "questions_approved": {
             "default": 0,
-            "description": "Questions approved by arbiter",
+            "description": "Questions approved by judge",
             "title": "Questions Approved",
             "type": "integer"
           },
           "questions_evaluated": {
             "default": 0,
-            "description": "Questions evaluated by arbiter",
+            "description": "Questions evaluated by judge",
             "title": "Questions Evaluated",
             "type": "integer"
           },
@@ -2662,7 +2662,7 @@
           },
           "questions_rejected": {
             "default": 0,
-            "description": "Questions rejected by arbiter",
+            "description": "Questions rejected by judge",
             "title": "Questions Rejected",
             "type": "integer"
           },
@@ -2759,16 +2759,16 @@
             "title": "Approval Rate",
             "type": "number"
           },
-          "arbiter_config_version": {
-            "description": "Arbiter config version used",
+          "judge_config_version": {
+            "description": "Judge config version used",
             "nullable": true,
-            "title": "Arbiter Config Version",
+            "title": "Judge Config Version",
             "type": "string"
           },
-          "avg_arbiter_score": {
-            "description": "Average arbiter score",
+          "avg_judge_score": {
+            "description": "Average judge score",
             "nullable": true,
-            "title": "Avg Arbiter Score",
+            "title": "Avg Judge Score",
             "type": "number"
           },
           "completed_at": {
@@ -2854,22 +2854,22 @@
             "title": "Insertion Failures",
             "type": "integer"
           },
-          "max_arbiter_score": {
-            "description": "Maximum arbiter score",
+          "max_judge_score": {
+            "description": "Maximum judge score",
             "nullable": true,
-            "title": "Max Arbiter Score",
+            "title": "Max Judge Score",
             "type": "number"
           },
-          "min_arbiter_score": {
-            "description": "Minimum arbiter score",
+          "min_judge_score": {
+            "description": "Minimum judge score",
             "nullable": true,
-            "title": "Min Arbiter Score",
+            "title": "Min Judge Score",
             "type": "number"
           },
-          "min_arbiter_score_threshold": {
-            "description": "Minimum arbiter score threshold",
+          "min_judge_score_threshold": {
+            "description": "Minimum judge score threshold",
             "nullable": true,
-            "title": "Min Arbiter Score Threshold",
+            "title": "Min Judge Score Threshold",
             "type": "number"
           },
           "overall_success_rate": {
@@ -2898,12 +2898,12 @@
             "type": "object"
           },
           "questions_approved": {
-            "description": "Questions approved by arbiter",
+            "description": "Questions approved by judge",
             "title": "Questions Approved",
             "type": "integer"
           },
           "questions_evaluated": {
-            "description": "Questions evaluated by arbiter",
+            "description": "Questions evaluated by judge",
             "title": "Questions Evaluated",
             "type": "integer"
           },
@@ -2918,7 +2918,7 @@
             "type": "integer"
           },
           "questions_rejected": {
-            "description": "Questions rejected by arbiter",
+            "description": "Questions rejected by judge",
             "title": "Questions Rejected",
             "type": "integer"
           },
@@ -3054,10 +3054,10 @@
             "title": "Avg Approval Rate",
             "type": "number"
           },
-          "avg_arbiter_score": {
-            "description": "Average arbiter score",
+          "avg_judge_score": {
+            "description": "Average judge score",
             "nullable": true,
-            "title": "Avg Arbiter Score",
+            "title": "Avg Judge Score",
             "type": "number"
           },
           "avg_duplicate_rate": {
@@ -3083,16 +3083,16 @@
             "title": "Failed Runs",
             "type": "integer"
           },
-          "max_arbiter_score": {
-            "description": "Maximum arbiter score across all runs",
+          "max_judge_score": {
+            "description": "Maximum judge score across all runs",
             "nullable": true,
-            "title": "Max Arbiter Score",
+            "title": "Max Judge Score",
             "type": "number"
           },
-          "min_arbiter_score": {
-            "description": "Minimum arbiter score across all runs",
+          "min_judge_score": {
+            "description": "Minimum judge score across all runs",
             "nullable": true,
-            "title": "Min Arbiter Score",
+            "title": "Min Judge Score",
             "type": "number"
           },
           "partial_failure_runs": {
@@ -3194,10 +3194,10 @@
             "title": "Approval Rate",
             "type": "number"
           },
-          "avg_arbiter_score": {
-            "description": "Average arbiter score",
+          "avg_judge_score": {
+            "description": "Average judge score",
             "nullable": true,
-            "title": "Avg Arbiter Score",
+            "title": "Avg Judge Score",
             "type": "number"
           },
           "completed_at": {
@@ -6502,7 +6502,7 @@
     },
     "/v1/admin/generation-runs/stats": {
       "get": {
-        "description": "Get aggregated statistics for generation runs over a time period.\n\nReturns aggregate metrics including success rates, approval rates, arbiter scores,\nprovider comparisons, and trend indicators. Useful for dashboards, trend analysis,\nand quality monitoring.\n\nRequires X-Service-Key header with valid service API key.\n\n**Query Parameters:**\n- `start_date`: Start of the analysis period (ISO 8601 format, required)\n- `end_date`: End of the analysis period (ISO 8601 format, required)\n- `environment`: Optional filter by environment (production, staging, development)\n\n**Trend Indicators:**\nThe response includes trend indicators comparing the first half vs second half\nof the analysis period. Possible values: \"improving\", \"declining\", \"stable\".\nA difference of less than 5% is considered \"stable\".\n\n**Provider Summary:**\nAggregated metrics per provider extracted from JSONB provider_metrics fields.\nIncludes total questions generated, total API calls, and success rates per provider.\n\nArgs:\n    start_date: Start of the analysis period\n    end_date: End of the analysis period\n    environment: Optional environment filter\n    db: Database session\n    _: Service key validation dependency\n\nReturns:\n    QuestionGenerationRunStats with aggregated metrics and trends\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/generation-runs/stats?start_date=2024-11-01T00:00:00Z&end_date=2024-12-01T00:00:00Z\" \\\n      -H \"X-Service-Key: your-service-key\"\n    ```",
+        "description": "Get aggregated statistics for generation runs over a time period.\n\nReturns aggregate metrics including success rates, approval rates, judge scores,\nprovider comparisons, and trend indicators. Useful for dashboards, trend analysis,\nand quality monitoring.\n\nRequires X-Service-Key header with valid service API key.\n\n**Query Parameters:**\n- `start_date`: Start of the analysis period (ISO 8601 format, required)\n- `end_date`: End of the analysis period (ISO 8601 format, required)\n- `environment`: Optional filter by environment (production, staging, development)\n\n**Trend Indicators:**\nThe response includes trend indicators comparing the first half vs second half\nof the analysis period. Possible values: \"improving\", \"declining\", \"stable\".\nA difference of less than 5% is considered \"stable\".\n\n**Provider Summary:**\nAggregated metrics per provider extracted from JSONB provider_metrics fields.\nIncludes total questions generated, total API calls, and success rates per provider.\n\nArgs:\n    start_date: Start of the analysis period\n    end_date: End of the analysis period\n    environment: Optional environment filter\n    db: Database session\n    _: Service key validation dependency\n\nReturns:\n    QuestionGenerationRunStats with aggregated metrics and trends\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/generation-runs/stats?start_date=2024-11-01T00:00:00Z&end_date=2024-12-01T00:00:00Z\" \\\n      -H \"X-Service-Key: your-service-key\"\n    ```",
         "operationId": "get_generation_runs_stats_v1_admin_generation_runs_stats_get",
         "parameters": [
           {
@@ -6583,7 +6583,7 @@
     },
     "/v1/admin/generation-runs/{run_id}": {
       "get": {
-        "description": "Get detailed information for a specific generation run.\n\nReturns full run details including all JSONB breakdown fields and computed\npipeline loss metrics showing where questions were lost at each stage.\n\nRequires X-Service-Key header with valid service API key.\n\n**Pipeline Loss Metrics:**\nThe response includes a `pipeline_losses` object that tracks questions lost at:\n- `generation_loss`: Failed during LLM generation (requested - generated)\n- `evaluation_loss`: Not evaluated by arbiter (generated - evaluated)\n- `rejection_loss`: Rejected by arbiter (evaluated - approved)\n- `deduplication_loss`: Removed as duplicates\n- `insertion_loss`: Failed during database insertion\n- `total_loss`: Total lost across all stages (requested - inserted)\n\nEach loss includes both absolute count and percentage values.\n\nArgs:\n    run_id: The unique identifier of the generation run\n    db: Database session\n    _: Service key validation dependency\n\nReturns:\n    QuestionGenerationRunDetail with full run details and computed losses\n\nRaises:\n    HTTPException 404: If the run with the specified ID is not found\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/generation-runs/123\" \\\n      -H \"X-Service-Key: your-service-key\"\n    ```",
+        "description": "Get detailed information for a specific generation run.\n\nReturns full run details including all JSONB breakdown fields and computed\npipeline loss metrics showing where questions were lost at each stage.\n\nRequires X-Service-Key header with valid service API key.\n\n**Pipeline Loss Metrics:**\nThe response includes a `pipeline_losses` object that tracks questions lost at:\n- `generation_loss`: Failed during LLM generation (requested - generated)\n- `evaluation_loss`: Not evaluated by judge (generated - evaluated)\n- `rejection_loss`: Rejected by judge (evaluated - approved)\n- `deduplication_loss`: Removed as duplicates\n- `insertion_loss`: Failed during database insertion\n- `total_loss`: Total lost across all stages (requested - inserted)\n\nEach loss includes both absolute count and percentage values.\n\nArgs:\n    run_id: The unique identifier of the generation run\n    db: Database session\n    _: Service key validation dependency\n\nReturns:\n    QuestionGenerationRunDetail with full run details and computed losses\n\nRaises:\n    HTTPException 404: If the run with the specified ID is not found\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/generation-runs/123\" \\\n      -H \"X-Service-Key: your-service-key\"\n    ```",
         "operationId": "get_generation_run_v1_admin_generation_runs__run_id__get",
         "parameters": [
           {

@@ -96,7 +96,7 @@ def create_question(
         correct_answer="A",
         answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
         source_llm="test-llm",
-        arbiter_score=0.90,
+        judge_score=0.90,
         is_active=is_active,
     )
     db_session.add(question)

@@ -64,7 +64,7 @@ The question generation service is designed to run periodically to maintain a fr
 
    # Generation Settings
    QUESTIONS_PER_RUN=50
-   MIN_ARBITER_SCORE=0.7
+   MIN_JUDGE_SCORE=0.7
 
    # Logging
    LOG_LEVEL=INFO
@@ -446,7 +446,7 @@ def main(Timer: func.TimerRequest) -> None:
 **What to monitor**:
 - Exit codes (non-zero indicates failure)
 - Generation rate (questions generated vs. target)
-- Approval rate (percentage passing arbiter)
+- Approval rate (percentage passing judge)
 - Duplicate rate
 - Execution duration
 
@@ -617,10 +617,10 @@ python run_generation.py --verbose --dry-run --count 5
 ```
 
 **Solutions**:
-- Review arbiter evaluation criteria
-- Check `MIN_ARBITER_SCORE` setting (lower if too strict)
+- Review judge evaluation criteria
+- Check `MIN_JUDGE_SCORE` setting (lower if too strict)
 - Inspect rejected questions to identify patterns
-- Review arbiter prompts for clarity
+- Review judge prompts for clarity
 
 #### 5. High Duplicate Rates
 

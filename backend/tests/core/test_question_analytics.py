@@ -86,7 +86,7 @@ def create_test_question(
         answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
         explanation="Test explanation",
         source_llm="test-llm",
-        arbiter_score=0.90,
+        judge_score=0.90,
         is_active=is_active,
         empirical_difficulty=empirical_difficulty,
         response_count=response_count,

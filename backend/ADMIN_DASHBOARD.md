@@ -39,7 +39,7 @@ The Questions view has been enhanced with quality analytics that automatically t
 | **Responses** | Number of times the question has been answered |
 | **P-Value (Empirical)** | Proportion of users who answered correctly (0.0-1.0) |
 | **Discrimination** | Item-total correlation (-1.0 to 1.0) - how well the question distinguishes high/low performers |
-| **Arbiter Score** | LLM arbiter's quality rating |
+| **Judge Score** | LLM judge's quality rating |
 | **Source LLM** | Which LLM generated the question |
 | **Active** | Whether the question is currently active |
 
@@ -208,7 +208,7 @@ Planned improvements for the question quality dashboard:
 - **Automated Alerts**: Email notifications for questions flagged for review
 - **Batch Actions**: Deactivate multiple questions at once
 - **Trend Charts**: Visualize quality metrics over time
-- **LLM Performance**: Compare arbiter scores vs empirical performance by source LLM
+- **LLM Performance**: Compare judge scores vs empirical performance by source LLM
 - **Export Reports**: Download quality reports for analysis
 
 ## Technical Details

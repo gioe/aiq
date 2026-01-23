@@ -29,7 +29,7 @@ This document describes the technical architecture, component design, data model
 ┌────────▼────────────┐         ┌──────────────────────┐
 │     Database        │◄────────│  Question Service    │
 │  - Users            │         │  - Multi-LLM Gen     │
-│  - Questions        │         │  - Quality Arbiter   │
+│  - Questions        │         │  - Quality Judge   │
 │  - User-Questions   │         │  - Periodic Runner   │
 │  - Responses        │         │  - Metrics Reporter  │
 │  - Test Results     │         └──────────────────────┘
@@ -230,7 +230,7 @@ The **OpenAPI specification is the single source of truth** for all API contract
 
 **Key Responsibilities:**
 - Generate batches of candidate IQ questions using multiple LLMs
-- Evaluate question quality using specialized arbiter LLMs per question type
+- Evaluate question quality using specialized judge LLMs per question type
 - Check for duplicate questions (similarity matching)
 - Insert approved questions into database with metadata
 - Log generation metrics and approval rates
@@ -238,7 +238,7 @@ The **OpenAPI specification is the single source of truth** for all API contract
 
 **Question Generation Pipeline:**
 1. **Generation Phase**: Multiple LLMs generate candidate questions
-2. **Evaluation Phase**: Type-specific arbiter LLM scores each question on:
+2. **Evaluation Phase**: Type-specific judge LLM scores each question on:
    - Clarity and lack of ambiguity
    - Appropriate difficulty
    - Validity as IQ test question
@@ -253,7 +253,7 @@ The **OpenAPI specification is the single source of truth** for all API contract
 - Difficulty level (easy, medium, hard)
 - Correct answer
 - Generation timestamp
-- Approval score from arbiter
+- Approval score from judge
 - Source LLM
 - Prompt version
 
@@ -294,7 +294,7 @@ questions
 - explanation (optional)
 - question_metadata (JSON)
 - source_llm
-- arbiter_score
+- judge_score
 - prompt_version (string)
 - created_at
 - is_active (boolean)
@@ -307,7 +307,7 @@ questions
 - irt_discrimination (float, nullable)
 - irt_guessing (float, nullable)
 # Difficulty calibration tracking
-- original_difficulty_level (enum, nullable) - Arbiter's original judgment before recalibration
+- original_difficulty_level (enum, nullable) - Judge's original judgment before recalibration
 - difficulty_recalibrated_at (datetime, nullable) - Timestamp of most recent recalibration
 # Distractor analysis
 - distractor_stats (JSON, nullable) - Selection counts and quartile stats per option
@@ -396,9 +396,9 @@ question_generation_runs
 - questions_approved
 - questions_rejected
 - approval_rate (float)
-- avg_arbiter_score (float)
-- min_arbiter_score (float)
-- max_arbiter_score (float)
+- avg_judge_score (float)
+- min_judge_score (float)
+- max_judge_score (float)
 # Deduplication metrics
 - duplicates_found
 - exact_duplicates
@@ -418,8 +418,8 @@ question_generation_runs
 - error_summary (JSON) - Error categorization
 # Configuration
 - prompt_version
-- arbiter_config_version
-- min_arbiter_score_threshold (float)
+- judge_config_version
+- min_judge_score_threshold (float)
 # Environment context
 - environment (string) - production, staging, development
 - triggered_by (string) - scheduler, manual, webhook
@@ -532,7 +532,7 @@ ORDER BY completed_at DESC
 
 ### 4.3 Question Generation & Evaluation Architecture
 
-**Multi-LLM Generation with Specialized Arbiters**
+**Multi-LLM Generation with Specialized Judges**
 
 **Generator LLMs (multiple for diversity):**
 - OpenAI (GPT-4)
@@ -540,15 +540,15 @@ ORDER BY completed_at DESC
 - Google (Gemini)
 - xAI (Grok)
 
-**Arbiter Architecture:**
-- Specialized arbiters based on question type
+**Judge Architecture:**
+- Specialized judges based on question type
 - Different models excel at different reasoning tasks
 - Configurable mapping via YAML configuration
 
-**Configuration stored in:** `question-service/config/arbiters.yaml`
+**Configuration stored in:** `question-service/config/judges.yaml`
 
-**Current Arbiter Assignments:**
-| Question Type | Arbiter Model | Provider |
+**Current Judge Assignments:**
+| Question Type | Judge Model | Provider |
 |--------------|---------------|----------|
 | Mathematical | Grok 4 | xAI |
 | Logical Reasoning | Claude 3.5 Sonnet | Anthropic |
@@ -588,7 +588,7 @@ ORDER BY completed_at DESC
 | Backend Framework | Python + FastAPI |
 | Database | PostgreSQL |
 | Generator LLMs | Multiple (OpenAI, Anthropic, Google, xAI) |
-| Arbiter Approach | Specialized per question type |
+| Judge Approach | Specialized per question type |
 | Authentication | JWT + Bcrypt |
 | iOS Minimum Version | iOS 16+ |
 | Question Service Language | Python |

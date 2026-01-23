@@ -1,7 +1,7 @@
-"""Arbiter configuration management.
+"""Judge configuration management.
 
-This module provides functionality to load and access arbiter configuration
-from YAML files. It maps question types to specific arbiter models for
+This module provides functionality to load and access judge configuration
+from YAML files. It maps question types to specific judge models for
 quality evaluation.
 """
 
@@ -15,14 +15,14 @@ from pydantic import BaseModel, Field, field_validator
 logger = logging.getLogger(__name__)
 
 
-class ArbiterModel(BaseModel):
-    """Configuration for a single arbiter model.
+class JudgeModel(BaseModel):
+    """Configuration for a single judge model.
 
     Attributes:
         model: Model identifier (e.g., "gpt-4", "claude-3-5-sonnet-20241022")
         provider: Provider name ("openai", "anthropic", or "google")
         rationale: Explanation of why this model was chosen
-        enabled: Whether this arbiter is active
+        enabled: Whether this judge is active
     """
 
     model: str = Field(..., min_length=1)
@@ -76,26 +76,26 @@ class EvaluationCriteria(BaseModel):
         return v
 
 
-class ArbiterConfig(BaseModel):
-    """Complete arbiter configuration.
+class JudgeConfig(BaseModel):
+    """Complete judge configuration.
 
     Attributes:
         version: Configuration version
-        arbiters: Mapping of question types to arbiter models
-        default_arbiter: Fallback arbiter for unknown question types
+        judges: Mapping of question types to judge models
+        default_judge: Fallback judge for unknown question types
         evaluation_criteria: Weights for evaluation criteria
-        min_arbiter_score: Minimum score threshold for approval
+        min_judge_score: Minimum score threshold for approval
     """
 
     version: str
-    arbiters: Dict[str, ArbiterModel]
-    default_arbiter: ArbiterModel
+    judges: Dict[str, JudgeModel]
+    default_judge: JudgeModel
     evaluation_criteria: EvaluationCriteria
-    min_arbiter_score: float = Field(..., ge=0.0, le=1.0)
+    min_judge_score: float = Field(..., ge=0.0, le=1.0)
 
-    @field_validator("arbiters")
+    @field_validator("judges")
     @classmethod
-    def validate_arbiters(cls, v: Dict[str, ArbiterModel]) -> Dict[str, ArbiterModel]:
+    def validate_judges(cls, v: Dict[str, JudgeModel]) -> Dict[str, JudgeModel]:
         """Validate that required question types are present.
 
         Note: Keys must match QuestionType enum values from app/models.py
@@ -112,15 +112,15 @@ class ArbiterConfig(BaseModel):
         missing = required_types - set(v.keys())
         if missing:
             raise ValueError(
-                f"Missing required question types in arbiter config: {missing}"
+                f"Missing required question types in judge config: {missing}"
             )
         return v
 
 
-class ArbiterConfigLoader:
-    """Loader for arbiter configuration files.
+class JudgeConfigLoader:
+    """Loader for judge configuration files.
 
-    This class handles loading, parsing, and validating arbiter configuration
+    This class handles loading, parsing, and validating judge configuration
     from YAML files.
     """
 
@@ -128,16 +128,16 @@ class ArbiterConfigLoader:
         """Initialize the configuration loader.
 
         Args:
-            config_path: Path to the arbiter configuration YAML file
+            config_path: Path to the judge configuration YAML file
         """
         self.config_path = Path(config_path)
-        self._config: Optional[ArbiterConfig] = None
+        self._config: Optional[JudgeConfig] = None
 
-    def load(self) -> ArbiterConfig:
+    def load(self) -> JudgeConfig:
         """Load and parse the configuration file.
 
         Returns:
-            Parsed and validated arbiter configuration
+            Parsed and validated judge configuration
 
         Raises:
             FileNotFoundError: If configuration file doesn't exist
@@ -146,18 +146,18 @@ class ArbiterConfigLoader:
         """
         if not self.config_path.exists():
             raise FileNotFoundError(
-                f"Arbiter configuration file not found: {self.config_path}"
+                f"Judge configuration file not found: {self.config_path}"
             )
 
-        logger.info(f"Loading arbiter configuration from {self.config_path}")
+        logger.info(f"Loading judge configuration from {self.config_path}")
 
         try:
             with open(self.config_path, "r") as f:
                 raw_config = yaml.safe_load(f)
 
-            self._config = ArbiterConfig(**raw_config)
+            self._config = JudgeConfig(**raw_config)
             logger.info(
-                f"Successfully loaded arbiter configuration (version {self._config.version})"
+                f"Successfully loaded judge configuration (version {self._config.version})"
             )
             return self._config
 
@@ -165,11 +165,11 @@ class ArbiterConfigLoader:
             logger.error(f"Failed to parse YAML configuration: {e}")
             raise
         except Exception as e:
-            logger.error(f"Failed to load arbiter configuration: {e}")
+            logger.error(f"Failed to load judge configuration: {e}")
             raise
 
     @property
-    def config(self) -> ArbiterConfig:
+    def config(self) -> JudgeConfig:
         """Get the loaded configuration.
 
         Returns:
@@ -182,33 +182,33 @@ class ArbiterConfigLoader:
             raise RuntimeError("Configuration not loaded. Call load() first.")
         return self._config
 
-    def get_arbiter_for_question_type(self, question_type: str) -> ArbiterModel:
-        """Get the arbiter model for a specific question type.
+    def get_judge_for_question_type(self, question_type: str) -> JudgeModel:
+        """Get the judge model for a specific question type.
 
         Args:
             question_type: Type of question (e.g., "math", "logic", "pattern")
 
         Returns:
-            Arbiter model configuration for the question type
+            Judge model configuration for the question type
 
         Raises:
             RuntimeError: If configuration hasn't been loaded
         """
         config = self.config  # Ensures config is loaded
 
-        # Return specific arbiter if found and enabled
-        if question_type in config.arbiters:
-            arbiter = config.arbiters[question_type]
-            if arbiter.enabled:
-                return arbiter
+        # Return specific judge if found and enabled
+        if question_type in config.judges:
+            judge = config.judges[question_type]
+            if judge.enabled:
+                return judge
             else:
                 logger.warning(
-                    f"Arbiter for '{question_type}' is disabled, using default"
+                    f"Judge for '{question_type}' is disabled, using default"
                 )
 
-        # Fall back to default arbiter
-        logger.info(f"Using default arbiter for question type '{question_type}'")
-        return config.default_arbiter
+        # Fall back to default judge
+        logger.info(f"Using default judge for question type '{question_type}'")
+        return config.default_judge
 
     def get_all_question_types(self) -> list[str]:
         """Get all configured question types.
@@ -219,7 +219,7 @@ class ArbiterConfigLoader:
         Raises:
             RuntimeError: If configuration hasn't been loaded
         """
-        return list(self.config.arbiters.keys())
+        return list(self.config.judges.keys())
 
     def get_evaluation_criteria(self) -> EvaluationCriteria:
         """Get evaluation criteria weights.
@@ -232,8 +232,8 @@ class ArbiterConfigLoader:
         """
         return self.config.evaluation_criteria
 
-    def get_min_arbiter_score(self) -> float:
-        """Get minimum arbiter score threshold.
+    def get_min_judge_score(self) -> float:
+        """Get minimum judge score threshold.
 
         Returns:
             Minimum score for question approval
@@ -241,30 +241,30 @@ class ArbiterConfigLoader:
         Raises:
             RuntimeError: If configuration hasn't been loaded
         """
-        return self.config.min_arbiter_score
+        return self.config.min_judge_score
 
 
 # Global loader instance (to be initialized on application startup)
-_loader: Optional[ArbiterConfigLoader] = None
+_loader: Optional[JudgeConfigLoader] = None
 
 
-def initialize_arbiter_config(config_path: str | Path) -> None:
-    """Initialize the global arbiter configuration loader.
+def initialize_judge_config(config_path: str | Path) -> None:
+    """Initialize the global judge configuration loader.
 
     Args:
-        config_path: Path to the arbiter configuration YAML file
+        config_path: Path to the judge configuration YAML file
 
     Raises:
         FileNotFoundError: If configuration file doesn't exist
         ValueError: If configuration is invalid
     """
     global _loader
-    _loader = ArbiterConfigLoader(config_path)
+    _loader = JudgeConfigLoader(config_path)
     _loader.load()
 
 
-def get_arbiter_config() -> ArbiterConfigLoader:
-    """Get the global arbiter configuration loader.
+def get_judge_config() -> JudgeConfigLoader:
+    """Get the global judge configuration loader.
 
     Returns:
         Initialized configuration loader
@@ -274,7 +274,7 @@ def get_arbiter_config() -> ArbiterConfigLoader:
     """
     if _loader is None:
         raise RuntimeError(
-            "Arbiter configuration not initialized. "
-            "Call initialize_arbiter_config() first."
+            "Judge configuration not initialized. "
+            "Call initialize_judge_config() first."
         )
     return _loader

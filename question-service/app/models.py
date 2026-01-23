@@ -90,7 +90,7 @@ class GeneratedQuestion(BaseModel):
 
 
 class EvaluationScore(BaseModel):
-    """Evaluation score from an arbiter model.
+    """Evaluation score from an judge model.
 
     Attributes:
         clarity_score: Score for clarity and lack of ambiguity (0.0 to 1.0)
@@ -99,7 +99,7 @@ class EvaluationScore(BaseModel):
         formatting_score: Score for proper formatting (0.0 to 1.0)
         creativity_score: Score for novelty and interest (0.0 to 1.0)
         overall_score: Weighted overall score (0.0 to 1.0)
-        feedback: Optional textual feedback from arbiter
+        feedback: Optional textual feedback from judge
     """
 
     clarity_score: float = Field(..., ge=0.0, le=1.0)
@@ -116,14 +116,14 @@ class EvaluatedQuestion(BaseModel):
 
     Attributes:
         question: The generated question
-        evaluation: Evaluation score from arbiter
-        arbiter_model: Which arbiter model evaluated this
+        evaluation: Evaluation score from judge
+        judge_model: Which judge model evaluated this
         approved: Whether the question meets the threshold
     """
 
     question: GeneratedQuestion
     evaluation: EvaluationScore
-    arbiter_model: str
+    judge_model: str
     approved: bool
 
     @property

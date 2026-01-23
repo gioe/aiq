@@ -186,12 +186,12 @@ class TestEvaluatedQuestion:
         evaluated = EvaluatedQuestion(
             question=question,
             evaluation=score,
-            arbiter_model="gpt-4-turbo",
+            judge_model="gpt-4-turbo",
             approved=True,
         )
 
         assert evaluated.is_approved is True
-        assert evaluated.arbiter_model == "gpt-4-turbo"
+        assert evaluated.judge_model == "gpt-4-turbo"
         assert evaluated.question.question_text == "What is 2 + 2?"
 
 

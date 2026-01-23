@@ -284,7 +284,7 @@ Create a new generation run record (called by question-service after generation 
   "questions_approved": 45,
   "questions_rejected": 3,
   "approval_rate": 0.9375,
-  "avg_arbiter_score": 8.2,
+  "avg_judge_score": 8.2,
   "duplicates_found": 2,
   "questions_inserted": 43,
   "overall_success_rate": 0.86,
@@ -348,7 +348,7 @@ List generation runs with pagination, filtering, and sorting.
       "questions_inserted": 43,
       "overall_success_rate": 0.86,
       "approval_rate": 0.9375,
-      "avg_arbiter_score": 8.2,
+      "avg_judge_score": 8.2,
       "total_errors": 0,
       "environment": "production",
       "triggered_by": "scheduler"
@@ -401,8 +401,8 @@ Includes all fields from the create request plus computed `pipeline_losses`:
 
 **Pipeline Losses Explained:**
 - `generation_loss`: Questions that failed during LLM generation
-- `evaluation_loss`: Questions not evaluated by arbiter
-- `rejection_loss`: Questions rejected by arbiter (low quality)
+- `evaluation_loss`: Questions not evaluated by judge
+- `rejection_loss`: Questions rejected by judge (low quality)
 - `deduplication_loss`: Questions removed as duplicates
 - `insertion_loss`: Questions that failed database insertion
 - `total_loss`: Total questions lost across all stages
@@ -433,9 +433,9 @@ Get aggregated statistics for generation runs over a time period.
   "total_questions_inserted": 1380,
   "avg_overall_success_rate": 0.92,
   "avg_approval_rate": 0.95,
-  "avg_arbiter_score": 8.1,
-  "min_arbiter_score": 6.5,
-  "max_arbiter_score": 9.8,
+  "avg_judge_score": 8.1,
+  "min_judge_score": 6.5,
+  "max_judge_score": 9.8,
   "total_duplicates_found": 45,
   "avg_duplicate_rate": 0.03,
   "avg_duration_seconds": 295.5,

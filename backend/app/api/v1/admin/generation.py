@@ -577,9 +577,9 @@ async def create_generation_run(
             questions_approved=run_data.questions_approved,
             questions_rejected=run_data.questions_rejected,
             approval_rate=run_data.approval_rate,
-            avg_arbiter_score=run_data.avg_arbiter_score,
-            min_arbiter_score=run_data.min_arbiter_score,
-            max_arbiter_score=run_data.max_arbiter_score,
+            avg_judge_score=run_data.avg_judge_score,
+            min_judge_score=run_data.min_judge_score,
+            max_judge_score=run_data.max_judge_score,
             duplicates_found=run_data.duplicates_found,
             exact_duplicates=run_data.exact_duplicates,
             semantic_duplicates=run_data.semantic_duplicates,
@@ -594,8 +594,8 @@ async def create_generation_run(
             difficulty_metrics=run_data.difficulty_metrics,
             error_summary=run_data.error_summary,
             prompt_version=run_data.prompt_version,
-            arbiter_config_version=run_data.arbiter_config_version,
-            min_arbiter_score_threshold=run_data.min_arbiter_score_threshold,
+            judge_config_version=run_data.judge_config_version,
+            min_judge_score_threshold=run_data.min_judge_score_threshold,
             environment=run_data.environment,
             triggered_by=run_data.triggered_by,
         )
@@ -801,7 +801,7 @@ async def get_generation_runs_stats(
     r"""
     Get aggregated statistics for generation runs over a time period.
 
-    Returns aggregate metrics including success rates, approval rates, arbiter scores,
+    Returns aggregate metrics including success rates, approval rates, judge scores,
     provider comparisons, and trend indicators. Useful for dashboards, trend analysis,
     and quality monitoring.
 
@@ -903,8 +903,8 @@ async def get_generation_runs_stats(
                 func.avg(QuestionGenerationRun.approval_rate).label(
                     "avg_approval_rate"
                 ),
-                func.avg(QuestionGenerationRun.avg_arbiter_score).label(
-                    "avg_arbiter_score"
+                func.avg(QuestionGenerationRun.avg_judge_score).label(
+                    "avg_judge_score"
                 ),
                 func.avg(QuestionGenerationRun.duplicate_rate).label(
                     "avg_duplicate_rate"
@@ -913,11 +913,11 @@ async def get_generation_runs_stats(
                     "avg_duration_seconds"
                 ),
                 # Min/Max
-                func.min(QuestionGenerationRun.min_arbiter_score).label(
-                    "min_arbiter_score"
+                func.min(QuestionGenerationRun.min_judge_score).label(
+                    "min_judge_score"
                 ),
-                func.max(QuestionGenerationRun.max_arbiter_score).label(
-                    "max_arbiter_score"
+                func.max(QuestionGenerationRun.max_judge_score).label(
+                    "max_judge_score"
                 ),
             )
             .filter(*base_filters)
@@ -938,9 +938,9 @@ async def get_generation_runs_stats(
                 total_questions_inserted=0,
                 avg_overall_success_rate=None,
                 avg_approval_rate=None,
-                avg_arbiter_score=None,
-                min_arbiter_score=None,
-                max_arbiter_score=None,
+                avg_judge_score=None,
+                min_judge_score=None,
+                max_judge_score=None,
                 total_duplicates_found=0,
                 avg_duplicate_rate=None,
                 avg_duration_seconds=None,
@@ -976,9 +976,9 @@ async def get_generation_runs_stats(
             if stats.avg_approval_rate is not None
             else None
         )
-        avg_arbiter_score: Optional[float] = (
-            round(float(stats.avg_arbiter_score), 4)
-            if stats.avg_arbiter_score is not None
+        avg_judge_score: Optional[float] = (
+            round(float(stats.avg_judge_score), 4)
+            if stats.avg_judge_score is not None
             else None
         )
         avg_duplicate_rate: Optional[float] = (
@@ -992,15 +992,11 @@ async def get_generation_runs_stats(
             else None
         )
 
-        min_arbiter_score: Optional[float] = (
-            float(stats.min_arbiter_score)
-            if stats.min_arbiter_score is not None
-            else None
+        min_judge_score: Optional[float] = (
+            float(stats.min_judge_score) if stats.min_judge_score is not None else None
         )
-        max_arbiter_score: Optional[float] = (
-            float(stats.max_arbiter_score)
-            if stats.max_arbiter_score is not None
-            else None
+        max_judge_score: Optional[float] = (
+            float(stats.max_judge_score) if stats.max_judge_score is not None else None
         )
 
         # Calculate avg_api_calls_per_question (derived metric)
@@ -1130,9 +1126,9 @@ async def get_generation_runs_stats(
             total_questions_inserted=total_questions_inserted,
             avg_overall_success_rate=avg_overall_success_rate,
             avg_approval_rate=avg_approval_rate,
-            avg_arbiter_score=avg_arbiter_score,
-            min_arbiter_score=min_arbiter_score,
-            max_arbiter_score=max_arbiter_score,
+            avg_judge_score=avg_judge_score,
+            min_judge_score=min_judge_score,
+            max_judge_score=max_judge_score,
             total_duplicates_found=total_duplicates_found,
             avg_duplicate_rate=avg_duplicate_rate,
             avg_duration_seconds=avg_duration_seconds,
@@ -1244,8 +1240,8 @@ async def get_generation_run(
     **Pipeline Loss Metrics:**
     The response includes a `pipeline_losses` object that tracks questions lost at:
     - `generation_loss`: Failed during LLM generation (requested - generated)
-    - `evaluation_loss`: Not evaluated by arbiter (generated - evaluated)
-    - `rejection_loss`: Rejected by arbiter (evaluated - approved)
+    - `evaluation_loss`: Not evaluated by judge (generated - evaluated)
+    - `rejection_loss`: Rejected by judge (evaluated - approved)
     - `deduplication_loss`: Removed as duplicates
     - `insertion_loss`: Failed during database insertion
     - `total_loss`: Total lost across all stages (requested - inserted)
@@ -1310,9 +1306,9 @@ async def get_generation_run(
             questions_approved=db_run.questions_approved,
             questions_rejected=db_run.questions_rejected,
             approval_rate=db_run.approval_rate,
-            avg_arbiter_score=db_run.avg_arbiter_score,
-            min_arbiter_score=db_run.min_arbiter_score,
-            max_arbiter_score=db_run.max_arbiter_score,
+            avg_judge_score=db_run.avg_judge_score,
+            min_judge_score=db_run.min_judge_score,
+            max_judge_score=db_run.max_judge_score,
             duplicates_found=db_run.duplicates_found,
             exact_duplicates=db_run.exact_duplicates,
             semantic_duplicates=db_run.semantic_duplicates,
@@ -1327,8 +1323,8 @@ async def get_generation_run(
             difficulty_metrics=db_run.difficulty_metrics,
             error_summary=db_run.error_summary,
             prompt_version=db_run.prompt_version,
-            arbiter_config_version=db_run.arbiter_config_version,
-            min_arbiter_score_threshold=db_run.min_arbiter_score_threshold,
+            judge_config_version=db_run.judge_config_version,
+            min_judge_score_threshold=db_run.min_judge_score_threshold,
             environment=db_run.environment,
             triggered_by=db_run.triggered_by,
             created_at=db_run.created_at,

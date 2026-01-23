@@ -38,7 +38,7 @@ aiq/
 
 ### Question Service (`question-service/`)
 - Autonomous service for generating novel IQ test questions
-- Multi-LLM architecture with quality arbiter
+- Multi-LLM architecture with quality judge
 - Ensures continuous supply of fresh questions
 - Prevents question repetition per user
 

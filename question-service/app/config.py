@@ -32,10 +32,10 @@ class Settings(BaseSettings):
 
     # Question Generation Settings
     questions_per_run: int = 50
-    min_arbiter_score: float = 0.7
+    min_judge_score: float = 0.7
 
-    # Arbiter Configuration
-    arbiter_config_path: str = "./config/arbiters.yaml"
+    # Judge Configuration
+    judge_config_path: str = "./config/judges.yaml"
 
     # Alert Configuration
     enable_email_alerts: bool = False
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     backend_api_url: Optional[str] = None  # Backend API base URL
     backend_service_key: Optional[str] = None  # API key for service-to-service auth
     prompt_version: Optional[str] = None  # Version of prompts used
-    arbiter_config_version: Optional[str] = None  # Version of arbiter config
+    judge_config_version: Optional[str] = None  # Version of judge config
 
     # Provider Retry Configuration
     provider_max_retries: int = 3  # Max retry attempts for transient failures

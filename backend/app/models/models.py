@@ -165,9 +165,9 @@ class Question(Base):
     source_model: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
     )  # Specific model identifier (e.g., "gpt-4-turbo", "claude-3-opus")
-    arbiter_score: Mapped[Optional[float]] = mapped_column(
+    judge_score: Mapped[Optional[float]] = mapped_column(
         nullable=True
-    )  # Quality score from arbiter LLM
+    )  # Quality score from judge LLM
     prompt_version: Mapped[Optional[str]] = mapped_column(
         String(50), default="1.0", nullable=True
     )  # Version of prompts used for generation
@@ -229,7 +229,7 @@ class Question(Base):
     # These fields track when difficulty labels are recalibrated based on empirical data
     original_difficulty_level: Mapped[Optional[DifficultyLevel]] = mapped_column(
         nullable=True
-    )  # Preserves arbiter's original judgment before recalibration
+    )  # Preserves judge's original judgment before recalibration
     # NULL indicates the question has never been recalibrated
 
     difficulty_recalibrated_at: Mapped[Optional[datetime]] = mapped_column(
@@ -520,7 +520,7 @@ class QuestionGenerationRun(Base):
     Model for tracking question generation service execution metrics.
 
     Persists metrics from each run of the question-service to enable:
-    - Historical trend analysis (are arbiter scores declining over time?)
+    - Historical trend analysis (are judge scores declining over time?)
     - Provider performance comparison (which LLM produces best questions?)
     - Failure pattern detection (is a specific provider failing more often?)
     - Prompt version effectiveness tracking (did v2.1 improve approval rates?)
@@ -554,9 +554,9 @@ class QuestionGenerationRun(Base):
     questions_approved: Mapped[int] = mapped_column(default=0)
     questions_rejected: Mapped[int] = mapped_column(default=0)
     approval_rate: Mapped[Optional[float]] = mapped_column(nullable=True)
-    avg_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
-    min_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
-    max_arbiter_score: Mapped[Optional[float]] = mapped_column(nullable=True)
+    avg_judge_score: Mapped[Optional[float]] = mapped_column(nullable=True)
+    min_judge_score: Mapped[Optional[float]] = mapped_column(nullable=True)
+    max_judge_score: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Deduplication metrics
     duplicates_found: Mapped[int] = mapped_column(default=0)
@@ -595,10 +595,10 @@ class QuestionGenerationRun(Base):
 
     # Configuration used
     prompt_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    arbiter_config_version: Mapped[Optional[str]] = mapped_column(
+    judge_config_version: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True
     )
-    min_arbiter_score_threshold: Mapped[Optional[float]] = mapped_column(nullable=True)
+    min_judge_score_threshold: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Environment context
     environment: Mapped[Optional[str]] = mapped_column(

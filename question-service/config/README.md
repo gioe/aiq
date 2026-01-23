@@ -1,29 +1,29 @@
-# Arbiter Configuration
+# Judge Configuration
 
-This directory contains configuration files for the question generation arbiter system.
+This directory contains configuration files for the question generation judge system.
 
 ## Overview
 
-The arbiter configuration system maps question types to specific LLM models for quality evaluation. Each question type can be evaluated by a different model based on benchmark performance and domain expertise.
+The judge configuration system maps question types to specific LLM models for quality evaluation. Each question type can be evaluated by a different model based on benchmark performance and domain expertise.
 
-## Configuration File: `arbiters.yaml`
+## Configuration File: `judges.yaml`
 
 ### Structure
 
 ```yaml
 version: "1.0"
 
-arbiters:
+judges:
   question_type:
     model: "model-identifier"
     provider: "provider-name"
     rationale: "Explanation for model choice"
     enabled: true/false
 
-default_arbiter:
+default_judge:
   model: "default-model"
   provider: "provider-name"
-  rationale: "Fallback arbiter explanation"
+  rationale: "Fallback judge explanation"
   enabled: true
 
 evaluation_criteria:
@@ -33,7 +33,7 @@ evaluation_criteria:
   formatting: 0.15
   creativity: 0.10
 
-min_arbiter_score: 0.7
+min_judge_score: 0.7
 ```
 
 ### Required Question Types
@@ -55,7 +55,7 @@ Valid provider values:
 
 ### Evaluation Criteria
 
-The evaluation criteria define how heavily each factor is weighted when calculating the arbiter score:
+The evaluation criteria define how heavily each factor is weighted when calculating the judge score:
 
 - **clarity** (0.0 - 1.0): Question is clear and unambiguous
 - **difficulty** (0.0 - 1.0): Appropriate difficulty for IQ testing
@@ -65,45 +65,45 @@ The evaluation criteria define how heavily each factor is weighted when calculat
 
 **Important**: All weights must sum to 1.0.
 
-### Minimum Arbiter Score
+### Minimum Judge Score
 
-The `min_arbiter_score` (0.0 - 1.0) defines the minimum score a question must receive from the arbiter to be approved for use. Questions scoring below this threshold are rejected.
+The `min_judge_score` (0.0 - 1.0) defines the minimum score a question must receive from the judge to be approved for use. Questions scoring below this threshold are rejected.
 
 ## Usage
 
 ### Initialization
 
-Initialize the arbiter configuration at application startup:
+Initialize the judge configuration at application startup:
 
 ```python
-from app import initialize_arbiter_config
+from app import initialize_judge_config
 
 # Initialize with configuration file path
-initialize_arbiter_config("./config/arbiters.yaml")
+initialize_judge_config("./config/judges.yaml")
 ```
 
-### Getting Arbiter for Question Type
+### Getting Judge for Question Type
 
 ```python
-from app import get_arbiter_config
+from app import get_judge_config
 
 # Get the configuration loader
-config = get_arbiter_config()
+config = get_judge_config()
 
-# Get arbiter for a specific question type
-arbiter = config.get_arbiter_for_question_type("mathematical")
+# Get judge for a specific question type
+judge = config.get_judge_for_question_type("mathematical")
 
-print(f"Model: {arbiter.model}")
-print(f"Provider: {arbiter.provider}")
-print(f"Rationale: {arbiter.rationale}")
+print(f"Model: {judge.model}")
+print(f"Provider: {judge.provider}")
+print(f"Rationale: {judge.rationale}")
 ```
 
 ### Accessing Evaluation Criteria
 
 ```python
-from app import get_arbiter_config
+from app import get_judge_config
 
-config = get_arbiter_config()
+config = get_judge_config()
 
 # Get evaluation criteria weights
 criteria = config.get_evaluation_criteria()
@@ -117,9 +117,9 @@ print(f"Validity weight: {criteria.validity}")
 ### Getting All Question Types
 
 ```python
-from app import get_arbiter_config
+from app import get_judge_config
 
-config = get_arbiter_config()
+config = get_judge_config()
 
 # Get list of all configured question types
 question_types = config.get_all_question_types()
@@ -129,12 +129,12 @@ print(f"Configured types: {question_types}")
 ### Getting Minimum Score Threshold
 
 ```python
-from app import get_arbiter_config
+from app import get_judge_config
 
-config = get_arbiter_config()
+config = get_judge_config()
 
-# Get minimum arbiter score for approval
-min_score = config.get_min_arbiter_score()
+# Get minimum judge score for approval
+min_score = config.get_min_judge_score()
 print(f"Minimum score: {min_score}")
 ```
 
@@ -151,7 +151,7 @@ The configuration system includes comprehensive validation:
 ### Numerical Validation
 - Evaluation criteria weights must be between 0.0 and 1.0
 - Evaluation criteria weights must sum to 1.0 (±0.01 tolerance)
-- Minimum arbiter score must be between 0.0 and 1.0
+- Minimum judge score must be between 0.0 and 1.0
 
 ### Runtime Validation
 - Configuration file must exist
@@ -160,29 +160,29 @@ The configuration system includes comprehensive validation:
 
 ## Fallback Behavior
 
-### Disabled Arbiters
+### Disabled Judges
 
-If an arbiter is disabled (`enabled: false`), the system will fall back to the default arbiter:
+If an judge is disabled (`enabled: false`), the system will fall back to the default judge:
 
 ```python
-arbiter = config.get_arbiter_for_question_type("mathematical")
-# If mathematical arbiter is disabled, returns default_arbiter
+judge = config.get_judge_for_question_type("mathematical")
+# If mathematical judge is disabled, returns default_judge
 ```
 
 ### Unknown Question Types
 
-If requesting an arbiter for an unknown question type, the system returns the default arbiter:
+If requesting an judge for an unknown question type, the system returns the default judge:
 
 ```python
-arbiter = config.get_arbiter_for_question_type("unknown_type")
-# Returns default_arbiter
+judge = config.get_judge_for_question_type("unknown_type")
+# Returns default_judge
 ```
 
 ## Updating Configuration
 
 The configuration can be updated without code changes:
 
-1. Edit `arbiters.yaml`
+1. Edit `judges.yaml`
 2. Restart the application to reload configuration
 3. Changes take effect immediately
 
@@ -204,33 +204,33 @@ mathematical:
   enabled: true
 ```
 
-### Example: Temporarily Disabling an Arbiter
+### Example: Temporarily Disabling an Judge
 
 ```yaml
 mathematical:
   model: "gpt-4-turbo"
   provider: "openai"
   rationale: "Strong math performance"
-  enabled: false  # Temporarily disabled, uses default arbiter
+  enabled: false  # Temporarily disabled, uses default judge
 ```
 
 ## Testing
 
-Run tests for the arbiter configuration system:
+Run tests for the judge configuration system:
 
 ```bash
 cd question-service
 source venv/bin/activate
-pytest tests/test_arbiter_config.py -v
+pytest tests/test_judge_config.py -v
 ```
 
 ## Example Script
 
-See `examples/arbiter_config_example.py` for a complete working example demonstrating all features of the arbiter configuration system.
+See `examples/judge_config_example.py` for a complete working example demonstrating all features of the judge configuration system.
 
 ## Model Selection Guidelines
 
-When choosing arbiter models for question types, consider:
+When choosing judge models for question types, consider:
 
 1. **Public Benchmarks**: Review performance on relevant benchmarks:
    - MATH and GSM8K for mathematical reasoning
@@ -244,9 +244,9 @@ When choosing arbiter models for question types, consider:
 
 3. **Cost vs Performance**: Balance model capability with API costs
 
-4. **Latency**: Consider response time for arbiter evaluation
+4. **Latency**: Consider response time for judge evaluation
 
-5. **Regular Review**: Periodically review and update arbiter assignments as:
+5. **Regular Review**: Periodically review and update judge assignments as:
    - New models are released
    - Benchmark results change
    - Cost structures shift
@@ -255,9 +255,9 @@ When choosing arbiter models for question types, consider:
 
 ### Configuration Not Loading
 
-**Error**: `FileNotFoundError: Arbiter configuration file not found`
+**Error**: `FileNotFoundError: Judge configuration file not found`
 
-**Solution**: Ensure the path to `arbiters.yaml` is correct and the file exists.
+**Solution**: Ensure the path to `judges.yaml` is correct and the file exists.
 
 ### Validation Errors
 

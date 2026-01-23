@@ -46,7 +46,7 @@ def sample_evaluated_question(sample_question):
     return EvaluatedQuestion(
         question=sample_question,
         evaluation=evaluation,
-        arbiter_model="openai/gpt-4",
+        judge_model="openai/gpt-4",
         approved=True,
     )
 
@@ -120,10 +120,10 @@ class TestDatabaseService:
         mock_session.commit.assert_called_once()
         mock_database_service.close_session.assert_called_once()
 
-    def test_insert_question_with_arbiter_score(
+    def test_insert_question_with_judge_score(
         self, mock_database_service, sample_question
     ):
-        """Test question insertion with arbiter score."""
+        """Test question insertion with judge score."""
         mock_session = Mock(spec=Session)
         mock_db_question = Mock()
         mock_db_question.id = 456
@@ -137,7 +137,7 @@ class TestDatabaseService:
 
         with patch("app.database.QuestionModel", return_value=mock_db_question):
             question_id = mock_database_service.insert_question(
-                sample_question, arbiter_score=0.85
+                sample_question, judge_score=0.85
             )
 
         assert question_id == 456
@@ -215,7 +215,7 @@ class TestDatabaseService:
         mock_database_service.close_session.assert_called_once()
 
     def test_insert_questions_batch_with_scores(self, mock_database_service):
-        """Test batch insertion with arbiter scores."""
+        """Test batch insertion with judge scores."""
         questions = [
             GeneratedQuestion(
                 question_text=f"Question {i}",
@@ -241,7 +241,7 @@ class TestDatabaseService:
 
         with patch("app.database.QuestionModel"):
             question_ids = mock_database_service.insert_questions_batch(
-                questions, arbiter_scores=scores
+                questions, judge_scores=scores
             )
 
         assert isinstance(question_ids, list)
@@ -263,10 +263,8 @@ class TestDatabaseService:
         ]
         scores = [0.8, 0.9]  # Length mismatch
 
-        with pytest.raises(ValueError, match="Length of arbiter_scores"):
-            mock_database_service.insert_questions_batch(
-                questions, arbiter_scores=scores
-            )
+        with pytest.raises(ValueError, match="Length of judge_scores"):
+            mock_database_service.insert_questions_batch(questions, judge_scores=scores)
 
     def test_insert_evaluated_questions_batch(self, mock_database_service):
         """Test batch insertion of evaluated questions."""
@@ -290,7 +288,7 @@ class TestDatabaseService:
                     creativity_score=0.7,
                     overall_score=0.84,
                 ),
-                arbiter_model="openai/gpt-4",
+                judge_model="openai/gpt-4",
                 approved=True,
             )
             for i in range(2)
@@ -330,7 +328,7 @@ class TestDatabaseService:
                 question_metadata={},
                 source_llm="openai",
                 source_model="gpt-4-turbo",
-                arbiter_score=0.8,
+                judge_score=0.8,
                 prompt_version="2.0",
                 created_at="2024-01-01",
                 is_active=True,
@@ -346,7 +344,7 @@ class TestDatabaseService:
                 question_metadata={},
                 source_llm="anthropic",
                 source_model="claude-3-opus",
-                arbiter_score=0.85,
+                judge_score=0.85,
                 prompt_version="2.0",
                 created_at="2024-01-02",
                 is_active=True,

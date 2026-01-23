@@ -72,8 +72,8 @@ class RunReporter:
         environment: Optional[str] = None,
         triggered_by: Optional[str] = None,
         prompt_version: Optional[str] = None,
-        arbiter_config_version: Optional[str] = None,
-        min_arbiter_score_threshold: Optional[float] = None,
+        judge_config_version: Optional[str] = None,
+        min_judge_score_threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Transform MetricsTracker summary to API payload format.
 
@@ -83,8 +83,8 @@ class RunReporter:
             environment: Environment name (production, staging, development)
             triggered_by: Trigger source (scheduler, manual, webhook)
             prompt_version: Version of prompts used
-            arbiter_config_version: Version of arbiter config used
-            min_arbiter_score_threshold: Minimum arbiter score for approval
+            judge_config_version: Version of judge config used
+            min_judge_score_threshold: Minimum judge score for approval
 
         Returns:
             Dictionary matching QuestionGenerationRunCreate schema
@@ -129,9 +129,9 @@ class RunReporter:
             "questions_approved": evaluation.get("approved", 0),
             "questions_rejected": evaluation.get("rejected", 0),
             "approval_rate": evaluation.get("approval_rate"),
-            "avg_arbiter_score": evaluation.get("average_score"),
-            "min_arbiter_score": evaluation.get("min_score"),
-            "max_arbiter_score": evaluation.get("max_score"),
+            "avg_judge_score": evaluation.get("average_score"),
+            "min_judge_score": evaluation.get("min_score"),
+            "max_judge_score": evaluation.get("max_score"),
             # Deduplication metrics
             "duplicates_found": deduplication.get("duplicates_found", 0),
             "exact_duplicates": deduplication.get("exact_duplicates", 0),
@@ -159,8 +159,8 @@ class RunReporter:
             "error_summary": error_summary if any(error_summary.values()) else None,
             # Configuration used
             "prompt_version": prompt_version,
-            "arbiter_config_version": arbiter_config_version,
-            "min_arbiter_score_threshold": min_arbiter_score_threshold,
+            "judge_config_version": judge_config_version,
+            "min_judge_score_threshold": min_judge_score_threshold,
             # Environment context
             "environment": environment,
             "triggered_by": triggered_by,
@@ -245,8 +245,8 @@ class RunReporter:
         environment: Optional[str] = None,
         triggered_by: Optional[str] = None,
         prompt_version: Optional[str] = None,
-        arbiter_config_version: Optional[str] = None,
-        min_arbiter_score_threshold: Optional[float] = None,
+        judge_config_version: Optional[str] = None,
+        min_judge_score_threshold: Optional[float] = None,
     ) -> Optional[int]:
         """Report a completed generation run to the backend API.
 
@@ -260,8 +260,8 @@ class RunReporter:
             environment: Environment name (production, staging, development)
             triggered_by: Trigger source (scheduler, manual, webhook)
             prompt_version: Version of prompts used
-            arbiter_config_version: Version of arbiter config used
-            min_arbiter_score_threshold: Minimum arbiter score for approval
+            judge_config_version: Version of judge config used
+            min_judge_score_threshold: Minimum judge score for approval
 
         Returns:
             Created run ID if successful, None if reporting failed
@@ -277,8 +277,8 @@ class RunReporter:
                 environment=environment,
                 triggered_by=triggered_by,
                 prompt_version=prompt_version,
-                arbiter_config_version=arbiter_config_version,
-                min_arbiter_score_threshold=min_arbiter_score_threshold,
+                judge_config_version=judge_config_version,
+                min_judge_score_threshold=min_judge_score_threshold,
             )
 
             # Send to backend

@@ -1,7 +1,7 @@
 """Question generation pipeline orchestrator.
 
 This module provides the main pipeline for generating questions,
-coordinating the generator, arbiter, and other components.
+coordinating the generator, judge, and other components.
 """
 
 import asyncio
@@ -24,7 +24,7 @@ class QuestionGenerationPipeline:
     """Orchestrates the complete question generation pipeline.
 
     This class coordinates question generation across multiple LLM providers
-    and prepares questions for evaluation by the arbiter.
+    and prepares questions for evaluation by the judge.
     """
 
     def __init__(
@@ -438,8 +438,8 @@ class QuestionGenerationPipeline:
             "provider_stats": self.generator.get_provider_stats(),
             "settings": {
                 "questions_per_run": settings.questions_per_run,
-                "min_arbiter_score": settings.min_arbiter_score,
-                "arbiter_config_path": settings.arbiter_config_path,
+                "min_judge_score": settings.min_judge_score,
+                "judge_config_path": settings.judge_config_path,
             },
         }
 

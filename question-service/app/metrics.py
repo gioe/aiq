@@ -176,14 +176,14 @@ class MetricsTracker:
         self,
         score: float,
         approved: bool,
-        arbiter_model: str,
+        judge_model: str,
     ) -> None:
         """Record successful question evaluation.
 
         Args:
             score: Evaluation score
             approved: Whether question was approved
-            arbiter_model: Arbiter model used
+            judge_model: Judge model used
         """
         self.questions_evaluated += 1
         self.evaluation_scores.append(score)
@@ -193,8 +193,8 @@ class MetricsTracker:
         else:
             self.questions_rejected += 1
 
-        # Track API call for arbiter
-        provider = arbiter_model.split("/")[0]
+        # Track API call for judge
+        provider = judge_model.split("/")[0]
         self.api_calls_by_provider[provider] += 1
         self.total_api_calls += 1
 
@@ -203,19 +203,19 @@ class MetricsTracker:
     def record_evaluation_failure(
         self,
         error: str,
-        arbiter_model: Optional[str] = None,
+        judge_model: Optional[str] = None,
     ) -> None:
         """Record failed question evaluation.
 
         Args:
             error: Error message
-            arbiter_model: Arbiter model used (optional)
+            judge_model: Judge model used (optional)
         """
         self.evaluation_failures += 1
         self.evaluation_errors.append(
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "arbiter_model": arbiter_model,
+                "judge_model": judge_model,
                 "error": error,
             }
         )

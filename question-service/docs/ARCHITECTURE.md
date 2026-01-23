@@ -8,7 +8,7 @@ This document provides visual and detailed documentation of the question-service
 - [Pipeline Flow](#pipeline-flow)
 - [Component Architecture](#component-architecture)
 - [LLM Provider System](#llm-provider-system)
-- [Arbiter System](#arbiter-system)
+- [Judge System](#judge-system)
 - [Data Models](#data-models)
 - [Deployment Architecture](#deployment-architecture)
 - [Error Handling](#error-handling)
@@ -17,7 +17,7 @@ This document provides visual and detailed documentation of the question-service
 
 ## High-Level Overview
 
-The question-service generates IQ test questions through a multi-stage pipeline that leverages multiple LLM providers for generation, specialized arbiters for quality evaluation, and semantic deduplication to ensure uniqueness.
+The question-service generates IQ test questions through a multi-stage pipeline that leverages multiple LLM providers for generation, specialized judges for quality evaluation, and semantic deduplication to ensure uniqueness.
 
 ```mermaid
 flowchart TB
@@ -29,7 +29,7 @@ flowchart TB
 
     subgraph Pipeline["Question Generation Pipeline"]
         GEN["Generation<br/>Multi-LLM"]
-        EVAL["Evaluation<br/>Arbiter System"]
+        EVAL["Evaluation<br/>Judge System"]
         DEDUP["Deduplication<br/>Embeddings"]
         STORE["Storage<br/>PostgreSQL"]
     end
@@ -87,9 +87,9 @@ flowchart TD
     GENLOOP --> |Batch Complete| EVALLOOP[For Each Generated Question]
 
     subgraph Evaluation["2. EVALUATION STAGE"]
-        EVALLOOP --> ARBITER[Select Arbiter Model<br/>Based on Question Type]
-        ARBITER --> EVAL_PROMPT[Build Evaluation Prompt]
-        EVAL_PROMPT --> EVAL_CALL[Call Arbiter LLM]
+        EVALLOOP --> JUDGE[Select Judge Model<br/>Based on Question Type]
+        JUDGE --> EVAL_PROMPT[Build Evaluation Prompt]
+        EVAL_PROMPT --> EVAL_CALL[Call Judge LLM]
         EVAL_CALL --> SCORE[Parse Evaluation Score]
         SCORE --> CHECK{Score >= <br/>Threshold?}
         CHECK -->|Yes| APPROVED[Mark Approved]
@@ -150,7 +150,7 @@ sequenceDiagram
     participant Pipeline as QuestionPipeline
     participant Gen as QuestionGenerator
     participant LLM as LLM Provider
-    participant Arbiter as QuestionArbiter
+    participant Judge as QuestionJudge
     participant Dedup as QuestionDeduplicator
     participant DB as DatabaseService
     participant Backend as Backend API
@@ -167,12 +167,12 @@ sequenceDiagram
     end
 
     loop For each generated question
-        Pipeline->>Arbiter: evaluate_question(question)
-        Arbiter->>Arbiter: get_arbiter_for_type(type)
-        Arbiter->>LLM: evaluate_prompt(question)
-        LLM-->>Arbiter: EvaluationScore
-        Arbiter->>Arbiter: calculate_composite_score()
-        Arbiter-->>Pipeline: EvaluatedQuestion
+        Pipeline->>Judge: evaluate_question(question)
+        Judge->>Judge: get_judge_for_type(type)
+        Judge->>LLM: evaluate_prompt(question)
+        LLM-->>Judge: EvaluationScore
+        Judge->>Judge: calculate_composite_score()
+        Judge-->>Pipeline: EvaluatedQuestion
     end
 
     loop For each approved question
@@ -220,8 +220,8 @@ flowchart TB
     end
 
     subgraph Evaluation["Evaluation Layer"]
-        ARBITER["QuestionArbiter<br/>app/arbiter.py"]
-        ARBITER_CFG["ArbiterConfigLoader<br/>app/arbiter_config.py"]
+        JUDGE["QuestionJudge<br/>app/judge.py"]
+        JUDGE_CFG["JudgeConfigLoader<br/>app/judge_config.py"]
     end
 
     subgraph Quality["Quality Layer"]
@@ -249,14 +249,14 @@ flowchart TB
 
     subgraph Config["Configuration"]
         SETTINGS["Settings<br/>app/config.py"]
-        YAML[("arbiters.yaml")]
+        YAML[("judges.yaml")]
     end
 
     CLI --> PIPELINE
     TRIGGER --> PIPELINE
 
     PIPELINE --> GENERATOR
-    PIPELINE --> ARBITER
+    PIPELINE --> JUDGE
     PIPELINE --> DEDUP
     PIPELINE --> DATABASE
     PIPELINE --> METRICS
@@ -264,9 +264,9 @@ flowchart TB
     GENERATOR --> PROMPTS
     GENERATOR --> BASE
 
-    ARBITER --> ARBITER_CFG
-    ARBITER --> BASE
-    ARBITER_CFG --> YAML
+    JUDGE --> JUDGE_CFG
+    JUDGE --> BASE
+    JUDGE_CFG --> YAML
 
     DEDUP --> CACHE
     DEDUP --> BASE
@@ -289,7 +289,7 @@ flowchart TB
 classDiagram
     class QuestionGenerationPipeline {
         -generator: QuestionGenerator
-        -arbiter: QuestionArbiter
+        -judge: QuestionJudge
         -deduplicator: QuestionDeduplicator
         -database: DatabaseService
         -metrics: MetricsTracker
@@ -306,12 +306,12 @@ classDiagram
         -parse_response(response)
     }
 
-    class QuestionArbiter {
-        -config_loader: ArbiterConfigLoader
+    class QuestionJudge {
+        -config_loader: JudgeConfigLoader
         -providers: Dict~str, BaseLLMProvider~
         +evaluate_question(question) EvaluatedQuestion
         +evaluate_batch(questions) List~EvaluatedQuestion~
-        -get_arbiter_for_type(type) BaseLLMProvider
+        -get_judge_for_type(type) BaseLLMProvider
         -calculate_composite_score(scores) float
     }
 
@@ -355,12 +355,12 @@ classDiagram
     }
 
     QuestionGenerationPipeline --> QuestionGenerator
-    QuestionGenerationPipeline --> QuestionArbiter
+    QuestionGenerationPipeline --> QuestionJudge
     QuestionGenerationPipeline --> QuestionDeduplicator
     QuestionGenerationPipeline --> DatabaseService
 
     QuestionGenerator --> BaseLLMProvider
-    QuestionArbiter --> BaseLLMProvider
+    QuestionJudge --> BaseLLMProvider
     QuestionDeduplicator --> BaseLLMProvider
 
     BaseLLMProvider <|-- OpenAIProvider
@@ -444,9 +444,9 @@ flowchart TD
 
 ---
 
-## Arbiter System
+## Judge System
 
-### Type-Specific Arbiter Selection
+### Type-Specific Judge Selection
 
 ```mermaid
 flowchart LR
@@ -459,7 +459,7 @@ flowchart LR
         MEMORY["Memory"]
     end
 
-    subgraph ArbiterModels["Arbiter Models"]
+    subgraph JudgeModels["Judge Models"]
         CLAUDE["Claude Sonnet 3.5<br/>Anthropic"]
         GROK["Grok-4<br/>xAI"]
     end
@@ -565,7 +565,7 @@ erDiagram
         text explanation
         varchar source_llm
         varchar source_model
-        float arbiter_score
+        float judge_score
         varchar prompt_version
         float[] question_embedding
         jsonb question_metadata
@@ -743,5 +743,5 @@ flowchart TD
 - **[README.md](../README.md)** - Quick start guide and overview
 - **[docs/OPERATIONS.md](OPERATIONS.md)** - Operations and scheduling guide
 - **[docs/ALERTING.md](ALERTING.md)** - Alert configuration
-- **[docs/ARBITER_SELECTION.md](ARBITER_SELECTION.md)** - Arbiter model selection rationale
+- **[docs/JUDGE_SELECTION.md](JUDGE_SELECTION.md)** - Judge model selection rationale
 - **[config/README.md](../config/README.md)** - Configuration reference

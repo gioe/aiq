@@ -45,9 +45,9 @@ def valid_generation_run_data():
         "questions_approved": 45,
         "questions_rejected": 3,
         "approval_rate": 0.9375,
-        "avg_arbiter_score": 0.85,
-        "min_arbiter_score": 0.65,
-        "max_arbiter_score": 0.98,
+        "avg_judge_score": 0.85,
+        "min_judge_score": 0.65,
+        "max_judge_score": 0.98,
         "duplicates_found": 2,
         "exact_duplicates": 1,
         "semantic_duplicates": 1,
@@ -76,8 +76,8 @@ def valid_generation_run_data():
             "critical_count": 0,
         },
         "prompt_version": "v2.1",
-        "arbiter_config_version": "v1.0",
-        "min_arbiter_score_threshold": 0.7,
+        "judge_config_version": "v1.0",
+        "min_judge_score_threshold": 0.7,
         "environment": "production",
         "triggered_by": "scheduler",
     }
@@ -894,8 +894,8 @@ class TestGetGenerationRun:
 
         # Verify configuration fields
         assert data["prompt_version"] == "v2.1"
-        assert data["arbiter_config_version"] == "v1.0"
-        assert data["min_arbiter_score_threshold"] == pytest.approx(0.7)
+        assert data["judge_config_version"] == "v1.0"
+        assert data["min_judge_score_threshold"] == pytest.approx(0.7)
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
     def test_get_generation_run_pipeline_losses(
@@ -1059,9 +1059,9 @@ class TestGetGenerationRun:
             "questions_approved",
             "questions_rejected",
             "approval_rate",
-            "avg_arbiter_score",
-            "min_arbiter_score",
-            "max_arbiter_score",
+            "avg_judge_score",
+            "min_judge_score",
+            "max_judge_score",
             "duplicates_found",
             "exact_duplicates",
             "semantic_duplicates",
@@ -1076,8 +1076,8 @@ class TestGetGenerationRun:
             "difficulty_metrics",
             "error_summary",
             "prompt_version",
-            "arbiter_config_version",
-            "min_arbiter_score_threshold",
+            "judge_config_version",
+            "min_judge_score_threshold",
             "environment",
             "triggered_by",
             "created_at",
@@ -1197,7 +1197,7 @@ class TestGetGenerationRunStats:
         assert data["total_questions_inserted"] == 0
         assert data["avg_overall_success_rate"] is None
         assert data["avg_approval_rate"] is None
-        assert data["avg_arbiter_score"] is None
+        assert data["avg_judge_score"] is None
         assert data["total_api_calls"] == 0
         assert data["total_errors"] == 0
         assert data["provider_summary"] is None
@@ -1233,9 +1233,9 @@ class TestGetGenerationRunStats:
         assert data["total_questions_inserted"] == 43
         assert data["avg_overall_success_rate"] == pytest.approx(0.86)
         assert data["avg_approval_rate"] == pytest.approx(0.9375)
-        assert data["avg_arbiter_score"] == pytest.approx(0.85)
-        assert data["min_arbiter_score"] == pytest.approx(0.65)
-        assert data["max_arbiter_score"] == pytest.approx(0.98)
+        assert data["avg_judge_score"] == pytest.approx(0.85)
+        assert data["min_judge_score"] == pytest.approx(0.65)
+        assert data["max_judge_score"] == pytest.approx(0.98)
         assert data["total_duplicates_found"] == 2
         assert data["avg_duplicate_rate"] == pytest.approx(0.04)
         assert data["avg_duration_seconds"] == pytest.approx(300.5)
@@ -1257,9 +1257,9 @@ class TestGetGenerationRunStats:
                 "questions_inserted": 45,
                 "overall_success_rate": 0.9,
                 "approval_rate": 0.92,
-                "avg_arbiter_score": 0.88,
-                "min_arbiter_score": 0.75,
-                "max_arbiter_score": 0.95,
+                "avg_judge_score": 0.88,
+                "min_judge_score": 0.75,
+                "max_judge_score": 0.95,
                 "duplicates_found": 3,
                 "duplicate_rate": 0.06,
                 "total_api_calls": 100,
@@ -1275,9 +1275,9 @@ class TestGetGenerationRunStats:
                 "questions_inserted": 40,
                 "overall_success_rate": 0.8,
                 "approval_rate": 0.88,
-                "avg_arbiter_score": 0.82,
-                "min_arbiter_score": 0.70,
-                "max_arbiter_score": 0.92,
+                "avg_judge_score": 0.82,
+                "min_judge_score": 0.70,
+                "max_judge_score": 0.92,
                 "duplicates_found": 2,
                 "duplicate_rate": 0.04,
                 "total_api_calls": 110,
@@ -1305,9 +1305,9 @@ class TestGetGenerationRunStats:
                 "questions_inserted": 20,
                 "overall_success_rate": 0.4,
                 "approval_rate": 0.80,
-                "avg_arbiter_score": 0.78,
-                "min_arbiter_score": 0.65,
-                "max_arbiter_score": 0.88,
+                "avg_judge_score": 0.78,
+                "min_judge_score": 0.65,
+                "max_judge_score": 0.88,
                 "duplicates_found": 1,
                 "duplicate_rate": 0.04,
                 "total_api_calls": 80,
@@ -1349,13 +1349,13 @@ class TestGetGenerationRunStats:
         expected_avg_approval = round((0.92 + 0.88 + 0.80) / 3, 4)
         assert data["avg_approval_rate"] == expected_avg_approval
 
-        # avg_arbiter_score = (0.88 + 0.82 + 0.78) / 3
-        expected_avg_arbiter = round((0.88 + 0.82 + 0.78) / 3, 4)
-        assert data["avg_arbiter_score"] == expected_avg_arbiter
+        # avg_judge_score = (0.88 + 0.82 + 0.78) / 3
+        expected_avg_judge = round((0.88 + 0.82 + 0.78) / 3, 4)
+        assert data["avg_judge_score"] == expected_avg_judge
 
-        # min/max arbiter scores across all runs
-        assert data["min_arbiter_score"] == pytest.approx(0.65)
-        assert data["max_arbiter_score"] == pytest.approx(0.95)
+        # min/max judge scores across all runs
+        assert data["min_judge_score"] == pytest.approx(0.65)
+        assert data["max_judge_score"] == pytest.approx(0.95)
 
         # Verify totals
         assert data["total_duplicates_found"] == 6  # 3 + 2 + 0 + 1
@@ -1795,9 +1795,9 @@ class TestGetGenerationRunStats:
             "total_questions_inserted",
             "avg_overall_success_rate",
             "avg_approval_rate",
-            "avg_arbiter_score",
-            "min_arbiter_score",
-            "max_arbiter_score",
+            "avg_judge_score",
+            "min_judge_score",
+            "max_judge_score",
             "total_duplicates_found",
             "avg_duplicate_rate",
             "avg_duration_seconds",
@@ -1839,7 +1839,7 @@ def calibration_test_questions(db_session):
             correct_answer="A",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.90,
+            judge_score=0.90,
             is_active=True,
             response_count=150,
             empirical_difficulty=0.80,  # Within easy range (0.70-0.90)
@@ -1852,7 +1852,7 @@ def calibration_test_questions(db_session):
             correct_answer="B",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.85,
+            judge_score=0.85,
             is_active=True,
             response_count=120,
             empirical_difficulty=0.55,  # Within medium range (0.40-0.70)
@@ -1865,7 +1865,7 @@ def calibration_test_questions(db_session):
             correct_answer="C",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.88,
+            judge_score=0.88,
             is_active=True,
             response_count=100,
             empirical_difficulty=0.25,  # Within hard range (0.15-0.40)
@@ -1878,7 +1878,7 @@ def calibration_test_questions(db_session):
             correct_answer="D",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.92,
+            judge_score=0.92,
             is_active=True,
             response_count=200,
             empirical_difficulty=0.85,  # Should be "easy" - severe deviation
@@ -1891,7 +1891,7 @@ def calibration_test_questions(db_session):
             correct_answer="A",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.85,
+            judge_score=0.85,
             is_active=True,
             response_count=150,
             empirical_difficulty=0.45,  # Should be "medium" - major deviation
@@ -1904,7 +1904,7 @@ def calibration_test_questions(db_session):
             correct_answer="B",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.80,
+            judge_score=0.80,
             is_active=True,
             response_count=110,
             empirical_difficulty=0.75,  # Just outside medium upper bound (0.70)
@@ -1917,7 +1917,7 @@ def calibration_test_questions(db_session):
             correct_answer="C",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.75,
+            judge_score=0.75,
             is_active=True,
             response_count=50,  # Below default 100 threshold
             empirical_difficulty=0.30,
@@ -1930,7 +1930,7 @@ def calibration_test_questions(db_session):
             correct_answer="D",
             answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
             source_llm="test-llm",
-            arbiter_score=0.70,
+            judge_score=0.70,
             is_active=False,
             response_count=200,
             empirical_difficulty=0.10,
@@ -2169,7 +2169,7 @@ class TestCalibrationHealth:
                 correct_answer="A",
                 answer_options={"A": "1", "B": "2"},
                 source_llm="test-llm",
-                arbiter_score=0.90,
+                judge_score=0.90,
                 is_active=True,
                 response_count=150,
                 empirical_difficulty=p_value,
@@ -2486,7 +2486,7 @@ class TestRecalibrateQuestions:
                 correct_answer="A",
                 answer_options={"A": "1", "B": "2"},
                 source_llm="test-llm",
-                arbiter_score=0.90,
+                judge_score=0.90,
                 is_active=True,
                 response_count=150,
                 empirical_difficulty=p_value,

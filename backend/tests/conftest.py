@@ -96,7 +96,7 @@ def test_questions(db_session):
             answer_options={"A": "8", "B": "10", "C": "12", "D": "14"},
             explanation="This is a simple arithmetic sequence increasing by 2.",
             source_llm="test-llm",
-            arbiter_score=0.95,
+            judge_score=0.95,
             is_active=True,
         ),
         Question(
@@ -108,7 +108,7 @@ def test_questions(db_session):
             answer_options={"A": "Yes", "B": "No", "C": "Cannot be determined"},
             explanation="This is a logical fallacy - we cannot make this conclusion.",
             source_llm="test-llm",
-            arbiter_score=0.92,
+            judge_score=0.92,
             is_active=True,
         ),
         Question(
@@ -119,7 +119,7 @@ def test_questions(db_session):
             answer_options={"A": "150", "B": "180", "C": "200", "D": "210"},
             explanation="15 * 12 = 180",
             source_llm="test-llm",
-            arbiter_score=0.98,
+            judge_score=0.98,
             is_active=True,
         ),
         Question(
@@ -135,7 +135,7 @@ def test_questions(db_session):
             },
             explanation="Scarce means insufficient or in short supply.",
             source_llm="test-llm",
-            arbiter_score=0.90,
+            judge_score=0.90,
             is_active=True,
         ),
         Question(
@@ -146,7 +146,7 @@ def test_questions(db_session):
             answer_options=None,
             explanation="This is inactive",
             source_llm="test-llm",
-            arbiter_score=0.50,
+            judge_score=0.50,
             is_active=False,  # This question is inactive
         ),
     ]

@@ -1,13 +1,13 @@
 """AIQ Question Generation Service."""
 
-from app.arbiter import QuestionArbiter
-from app.arbiter_config import (
-    ArbiterConfig,
-    ArbiterConfigLoader,
-    ArbiterModel,
+from app.judge import QuestionJudge
+from app.judge_config import (
+    JudgeConfig,
+    JudgeConfigLoader,
+    JudgeModel,
     EvaluationCriteria,
-    get_arbiter_config,
-    initialize_arbiter_config,
+    get_judge_config,
+    initialize_judge_config,
 )
 from app.database import DatabaseService as QuestionDatabase
 from app.deduplicator import QuestionDeduplicator
@@ -16,13 +16,13 @@ from app.pipeline import QuestionGenerationPipeline
 __version__ = "0.1.0"
 
 __all__ = [
-    "ArbiterConfig",
-    "ArbiterConfigLoader",
-    "ArbiterModel",
+    "JudgeConfig",
+    "JudgeConfigLoader",
+    "JudgeModel",
     "EvaluationCriteria",
-    "get_arbiter_config",
-    "initialize_arbiter_config",
-    "QuestionArbiter",
+    "get_judge_config",
+    "initialize_judge_config",
+    "QuestionJudge",
     "QuestionDatabase",
     "QuestionDeduplicator",
     "QuestionGenerationPipeline",

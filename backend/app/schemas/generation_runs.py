@@ -82,24 +82,18 @@ class QuestionGenerationRunCreate(BaseModel):
 
     # Evaluation metrics
     questions_evaluated: int = Field(
-        default=0, description="Questions evaluated by arbiter"
+        default=0, description="Questions evaluated by judge"
     )
     questions_approved: int = Field(
-        default=0, description="Questions approved by arbiter"
+        default=0, description="Questions approved by judge"
     )
     questions_rejected: int = Field(
-        default=0, description="Questions rejected by arbiter"
+        default=0, description="Questions rejected by judge"
     )
     approval_rate: Optional[float] = Field(None, description="Approval rate (0.0-1.0)")
-    avg_arbiter_score: Optional[float] = Field(
-        None, description="Average arbiter score"
-    )
-    min_arbiter_score: Optional[float] = Field(
-        None, description="Minimum arbiter score"
-    )
-    max_arbiter_score: Optional[float] = Field(
-        None, description="Maximum arbiter score"
-    )
+    avg_judge_score: Optional[float] = Field(None, description="Average judge score")
+    min_judge_score: Optional[float] = Field(None, description="Minimum judge score")
+    max_judge_score: Optional[float] = Field(None, description="Maximum judge score")
 
     # Deduplication metrics
     duplicates_found: int = Field(default=0, description="Total duplicates found")
@@ -157,11 +151,11 @@ class QuestionGenerationRunCreate(BaseModel):
     prompt_version: Optional[str] = Field(
         None, max_length=50, description="Prompt version used"
     )
-    arbiter_config_version: Optional[str] = Field(
-        None, max_length=50, description="Arbiter config version used"
+    judge_config_version: Optional[str] = Field(
+        None, max_length=50, description="Judge config version used"
     )
-    min_arbiter_score_threshold: Optional[float] = Field(
-        None, description="Minimum arbiter score threshold for approval"
+    min_judge_score_threshold: Optional[float] = Field(
+        None, description="Minimum judge score threshold for approval"
     )
 
     # Environment context
@@ -208,19 +202,13 @@ class QuestionGenerationRunRead(BaseModel):
     )
 
     # Evaluation metrics
-    questions_evaluated: int = Field(..., description="Questions evaluated by arbiter")
-    questions_approved: int = Field(..., description="Questions approved by arbiter")
-    questions_rejected: int = Field(..., description="Questions rejected by arbiter")
+    questions_evaluated: int = Field(..., description="Questions evaluated by judge")
+    questions_approved: int = Field(..., description="Questions approved by judge")
+    questions_rejected: int = Field(..., description="Questions rejected by judge")
     approval_rate: Optional[float] = Field(None, description="Approval rate")
-    avg_arbiter_score: Optional[float] = Field(
-        None, description="Average arbiter score"
-    )
-    min_arbiter_score: Optional[float] = Field(
-        None, description="Minimum arbiter score"
-    )
-    max_arbiter_score: Optional[float] = Field(
-        None, description="Maximum arbiter score"
-    )
+    avg_judge_score: Optional[float] = Field(None, description="Average judge score")
+    min_judge_score: Optional[float] = Field(None, description="Minimum judge score")
+    max_judge_score: Optional[float] = Field(None, description="Maximum judge score")
 
     # Deduplication metrics
     duplicates_found: int = Field(..., description="Total duplicates found")
@@ -255,11 +243,11 @@ class QuestionGenerationRunRead(BaseModel):
 
     # Configuration used
     prompt_version: Optional[str] = Field(None, description="Prompt version used")
-    arbiter_config_version: Optional[str] = Field(
-        None, description="Arbiter config version used"
+    judge_config_version: Optional[str] = Field(
+        None, description="Judge config version used"
     )
-    min_arbiter_score_threshold: Optional[float] = Field(
-        None, description="Minimum arbiter score threshold"
+    min_judge_score_threshold: Optional[float] = Field(
+        None, description="Minimum judge score threshold"
     )
 
     # Environment context
@@ -293,7 +281,7 @@ class PipelineLosses(BaseModel):
     )
     rejection_loss: int = Field(
         ...,
-        description="Questions rejected by arbiter (evaluated - approved)",
+        description="Questions rejected by judge (evaluated - approved)",
     )
     deduplication_loss: int = Field(
         ...,
@@ -359,19 +347,13 @@ class QuestionGenerationRunDetail(BaseModel):
     )
 
     # Evaluation metrics
-    questions_evaluated: int = Field(..., description="Questions evaluated by arbiter")
-    questions_approved: int = Field(..., description="Questions approved by arbiter")
-    questions_rejected: int = Field(..., description="Questions rejected by arbiter")
+    questions_evaluated: int = Field(..., description="Questions evaluated by judge")
+    questions_approved: int = Field(..., description="Questions approved by judge")
+    questions_rejected: int = Field(..., description="Questions rejected by judge")
     approval_rate: Optional[float] = Field(None, description="Approval rate")
-    avg_arbiter_score: Optional[float] = Field(
-        None, description="Average arbiter score"
-    )
-    min_arbiter_score: Optional[float] = Field(
-        None, description="Minimum arbiter score"
-    )
-    max_arbiter_score: Optional[float] = Field(
-        None, description="Maximum arbiter score"
-    )
+    avg_judge_score: Optional[float] = Field(None, description="Average judge score")
+    min_judge_score: Optional[float] = Field(None, description="Minimum judge score")
+    max_judge_score: Optional[float] = Field(None, description="Maximum judge score")
 
     # Deduplication metrics
     duplicates_found: int = Field(..., description="Total duplicates found")
@@ -406,11 +388,11 @@ class QuestionGenerationRunDetail(BaseModel):
 
     # Configuration used
     prompt_version: Optional[str] = Field(None, description="Prompt version used")
-    arbiter_config_version: Optional[str] = Field(
-        None, description="Arbiter config version used"
+    judge_config_version: Optional[str] = Field(
+        None, description="Judge config version used"
     )
-    min_arbiter_score_threshold: Optional[float] = Field(
-        None, description="Minimum arbiter score threshold"
+    min_judge_score_threshold: Optional[float] = Field(
+        None, description="Minimum judge score threshold"
     )
 
     # Environment context
@@ -451,9 +433,7 @@ class QuestionGenerationRunSummary(BaseModel):
         None, description="Overall success rate"
     )
     approval_rate: Optional[float] = Field(None, description="Approval rate")
-    avg_arbiter_score: Optional[float] = Field(
-        None, description="Average arbiter score"
-    )
+    avg_judge_score: Optional[float] = Field(None, description="Average judge score")
     total_errors: int = Field(..., description="Total errors")
     environment: Optional[str] = Field(None, description="Environment")
     triggered_by: Optional[str] = Field(None, description="Trigger source")
@@ -510,14 +490,12 @@ class QuestionGenerationRunStats(BaseModel):
     avg_approval_rate: Optional[float] = Field(
         None, description="Average approval rate"
     )
-    avg_arbiter_score: Optional[float] = Field(
-        None, description="Average arbiter score"
+    avg_judge_score: Optional[float] = Field(None, description="Average judge score")
+    min_judge_score: Optional[float] = Field(
+        None, description="Minimum judge score across all runs"
     )
-    min_arbiter_score: Optional[float] = Field(
-        None, description="Minimum arbiter score across all runs"
-    )
-    max_arbiter_score: Optional[float] = Field(
-        None, description="Maximum arbiter score across all runs"
+    max_judge_score: Optional[float] = Field(
+        None, description="Maximum judge score across all runs"
     )
 
     # Aggregate deduplication metrics

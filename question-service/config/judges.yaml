@@ -1,5 +1,5 @@
-# Arbiter Model Configuration
-# Maps question types to specific arbiter models for quality evaluation
+# Judge Model Configuration
+# Maps question types to specific judge models for quality evaluation
 #
 # Each question type can be evaluated by a different model based on
 # benchmark performance and domain expertise.
@@ -9,11 +9,11 @@
 #     model: Model identifier (e.g., "gpt-4", "claude-sonnet-4-5")
 #     provider: Provider name ("openai", "anthropic", "google", "xai")
 #     rationale: Explanation of why this model was chosen
-#     enabled: Whether this arbiter is active (default: true)
+#     enabled: Whether this judge is active (default: true)
 
 version: "1.0"
 
-arbiters:
+judges:
   math:
     model: "grok-4"
     provider: "xai"
@@ -71,15 +71,15 @@ arbiters:
       context_window: "200,000 tokens"
     enabled: true
 
-# Default arbiter (fallback for unknown question types)
-default_arbiter:
+# Default judge (fallback for unknown question types)
+default_judge:
   model: "gpt-4-turbo"
   provider: "openai"
-  rationale: "General-purpose fallback arbiter"
+  rationale: "General-purpose fallback judge"
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)
-# These determine how heavily each factor is weighted in the arbiter score
+# These determine how heavily each factor is weighted in the judge score
 evaluation_criteria:
   clarity: 0.25              # Question is clear and unambiguous
   difficulty: 0.20           # Appropriate difficulty for IQ testing
@@ -88,10 +88,10 @@ evaluation_criteria:
   creativity: 0.10           # Novel and interesting question
 
 # Minimum score threshold for question approval (0.0 to 1.0)
-min_arbiter_score: 0.7
+min_judge_score: 0.7
 
 # Notes:
 # - Model identifiers should match the exact model names used by provider SDKs
 # - Provider names must match: "openai", "anthropic", "google", or "xai"
-# - Enabled flag can be used to temporarily disable specific arbiters
+# - Enabled flag can be used to temporarily disable specific judges
 # - Evaluation criteria weights should sum to 1.0

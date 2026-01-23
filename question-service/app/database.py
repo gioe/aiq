@@ -81,7 +81,7 @@ class QuestionModel(Base):
     )  # Maps to 'metadata' DB column (TASK-445)
     source_llm = Column(String(100))
     source_model = Column(String(100))
-    arbiter_score = Column(Float)
+    judge_score = Column(Float)
     prompt_version = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -195,13 +195,13 @@ class DatabaseService:
     def insert_question(
         self,
         question: GeneratedQuestion,
-        arbiter_score: Optional[float] = None,
+        judge_score: Optional[float] = None,
     ) -> int:
         """Insert a single approved question into the database.
 
         Args:
             question: Generated question to insert
-            arbiter_score: Optional arbiter score
+            judge_score: Optional judge score
 
         Returns:
             ID of inserted question
@@ -228,7 +228,7 @@ class DatabaseService:
                 question_metadata=question.metadata,
                 source_llm=question.source_llm,
                 source_model=question.source_model,
-                arbiter_score=arbiter_score,
+                judge_score=judge_score,
                 prompt_version=PROMPT_VERSION,
                 is_active=True,
                 question_embedding=embedding,  # TASK-433: Store pre-computed embedding
@@ -270,30 +270,30 @@ class DatabaseService:
         """
         return self.insert_question(
             question=evaluated_question.question,
-            arbiter_score=evaluated_question.evaluation.overall_score,
+            judge_score=evaluated_question.evaluation.overall_score,
         )
 
     def insert_questions_batch(
         self,
         questions: List[GeneratedQuestion],
-        arbiter_scores: Optional[List[float]] = None,
+        judge_scores: Optional[List[float]] = None,
     ) -> List[int]:
         """Insert multiple questions in a batch.
 
         Args:
             questions: List of generated questions to insert
-            arbiter_scores: Optional list of arbiter scores (must match length of questions)
+            judge_scores: Optional list of judge scores (must match length of questions)
 
         Returns:
             List of inserted question IDs
 
         Raises:
-            ValueError: If arbiter_scores length doesn't match questions
+            ValueError: If judge_scores length doesn't match questions
             Exception: If insertion fails
         """
-        if arbiter_scores and len(arbiter_scores) != len(questions):
+        if judge_scores and len(judge_scores) != len(questions):
             raise ValueError(
-                f"Length of arbiter_scores ({len(arbiter_scores)}) must match "
+                f"Length of judge_scores ({len(judge_scores)}) must match "
                 f"length of questions ({len(questions)})"
             )
 
@@ -304,7 +304,7 @@ class DatabaseService:
         try:
             # Note: No mapping needed - QuestionType enum values now match backend directly
             for i, question in enumerate(questions):
-                arbiter_score = arbiter_scores[i] if arbiter_scores else None
+                judge_score = judge_scores[i] if judge_scores else None
 
                 # Generate embedding for each question (TASK-433)
                 embedding = self._generate_embedding(question.question_text)
@@ -321,7 +321,7 @@ class DatabaseService:
                     question_metadata=question.metadata,
                     source_llm=question.source_llm,
                     source_model=question.source_model,
-                    arbiter_score=arbiter_score,
+                    judge_score=judge_score,
                     prompt_version=PROMPT_VERSION,
                     is_active=True,
                     question_embedding=embedding,  # TASK-433: Store pre-computed embedding
@@ -368,7 +368,7 @@ class DatabaseService:
         questions = [eq.question for eq in evaluated_questions]
         scores = [eq.evaluation.overall_score for eq in evaluated_questions]
 
-        return self.insert_questions_batch(questions=questions, arbiter_scores=scores)
+        return self.insert_questions_batch(questions=questions, judge_scores=scores)
 
     def get_all_questions(self) -> List[Dict[str, Any]]:
         """Retrieve all questions from database.
@@ -397,7 +397,7 @@ class DatabaseService:
                         "metadata": q.question_metadata,  # TASK-445: Standardized key name
                         "source_llm": q.source_llm,
                         "source_model": q.source_model,
-                        "arbiter_score": q.arbiter_score,
+                        "judge_score": q.judge_score,
                         "prompt_version": q.prompt_version,
                         "created_at": q.created_at,
                         "is_active": q.is_active,

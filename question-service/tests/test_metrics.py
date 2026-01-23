@@ -117,7 +117,7 @@ class TestMetricsTracker:
         tracker.record_evaluation_success(
             score=0.85,
             approved=True,
-            arbiter_model="openai/gpt-4",
+            judge_model="openai/gpt-4",
         )
 
         assert tracker.questions_evaluated == 1
@@ -131,7 +131,7 @@ class TestMetricsTracker:
         tracker.record_evaluation_success(
             score=0.65,
             approved=False,
-            arbiter_model="anthropic/claude",
+            judge_model="anthropic/claude",
         )
 
         assert tracker.questions_evaluated == 1
@@ -143,7 +143,7 @@ class TestMetricsTracker:
         """Test recording failed evaluation."""
         tracker.record_evaluation_failure(
             error="Invalid response format",
-            arbiter_model="google/gemini",
+            judge_model="google/gemini",
         )
 
         assert tracker.evaluation_failures == 1
@@ -151,7 +151,7 @@ class TestMetricsTracker:
 
         error = tracker.evaluation_errors[0]
         assert error["error"] == "Invalid response format"
-        assert error["arbiter_model"] == "google/gemini"
+        assert error["judge_model"] == "google/gemini"
 
     def test_record_duplicate_check_not_duplicate(self, tracker):
         """Test recording duplicate check for non-duplicate."""
@@ -395,7 +395,7 @@ class TestMetricsIntegration:
             tracker.record_evaluation_success(
                 score=score,
                 approved=approved,
-                arbiter_model="openai/gpt-4",
+                judge_model="openai/gpt-4",
             )
 
         # Simulate deduplication phase

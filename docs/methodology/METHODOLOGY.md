@@ -196,7 +196,7 @@ AIQ aligns with established cognitive domains:
 ### 4.3 Question Generation
 
 - Multi-LLM generation mirrors expert committee development
-- Arbiter evaluation mimics psychometric review
+- Judge evaluation mimics psychometric review
 - Difficulty levels (easy/medium/hard) follow industry practice
 - Deduplication prevents item repetition
 

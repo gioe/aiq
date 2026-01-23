@@ -11,5 +11,5 @@ cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python3 r
 
 Check the output to monitor question generation progress. The service will:
 1. Generate questions using multiple LLMs
-2. Run them through arbiter validation
+2. Run them through judge validation
 3. Insert approved questions into the database

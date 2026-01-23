@@ -9,7 +9,7 @@ The question-service is a **well-architected, production-grade microservice** th
 
 **Strengths:**
 - Exceptional documentation quality (850+ lines of operations guide alone)
-- Benchmark-driven arbiter model selection with research backing
+- Benchmark-driven judge model selection with research backing
 - Multi-provider redundancy with graceful degradation
 - Comprehensive metrics and alerting infrastructure
 
@@ -60,7 +60,7 @@ The question-service implements a **4-stage sequential pipeline**:
 Generation → Evaluation → Deduplication → Storage
     ↓            ↓             ↓            ↓
 Multi-LLM    Type-specific  Semantic     PostgreSQL
-Providers    Arbiters       Embeddings   Persistence
+Providers    Judges       Embeddings   Persistence
 ```
 
 #### Evidence: Pipeline Flow (`run_generation.py:458-678`)
@@ -69,8 +69,8 @@ Providers    Arbiters       Embeddings   Persistence
 # PHASE 1: Generation - Multi-provider question creation
 job_result = pipeline.run_generation_job(...)
 
-# PHASE 2: Arbiter Evaluation - Quality scoring
-evaluated_question = arbiter.evaluate_question(question)
+# PHASE 2: Judge Evaluation - Quality scoring
+evaluated_question = judge.evaluate_question(question)
 
 # PHASE 3: Deduplication - Semantic similarity check
 result = deduplicator.check_duplicate(evaluated_question.question, existing_questions)
@@ -96,10 +96,10 @@ if distribute_across_providers and len(self.providers) > 1:
             continue
 ```
 
-**Type-Specific Arbiters:** Different question types are evaluated by models proven best for that domain via benchmark research.
+**Type-Specific Judges:** Different question types are evaluated by models proven best for that domain via benchmark research.
 
 ```yaml
-# config/arbiters.yaml - Benchmark-driven assignments
+# config/judges.yaml - Benchmark-driven assignments
 mathematical:
   model: "grok-4"
   provider: "xai"
@@ -189,12 +189,12 @@ def __init__(
 ):
 ```
 
-**Provider Model Switching Side Effect:** The arbiter temporarily modifies provider model state.
+**Provider Model Switching Side Effect:** The judge temporarily modifies provider model state.
 
 ```python
-# arbiter.py:127-128 - Mutable state modification
+# judge.py:127-128 - Mutable state modification
 original_model = provider.model
-provider.model = arbiter_model.model  # Side effect
+provider.model = judge_model.model  # Side effect
 ```
 
 ---
@@ -207,7 +207,7 @@ provider.model = arbiter_model.model  # Side effect
 |----------|-------|---------|---------|
 | `README.md` | 349 | Service overview | Excellent |
 | `docs/OPERATIONS.md` | 850 | Operations guide | Outstanding |
-| `docs/ARBITER_SELECTION.md` | 488 | Model selection rationale | Exceptional |
+| `docs/JUDGE_SELECTION.md` | 488 | Model selection rationale | Exceptional |
 | `docs/SCHEDULING.md` | ~200 | Scheduling options | Good |
 | `docs/ALERTING.md` | ~150 | Alert configuration | Good |
 | `config/README.md` | ~100 | Config reference | Good |
@@ -235,16 +235,16 @@ grep "ERROR" logs/question_service.log | tail -20
 grep "rate limit" logs/question_service.log
 ```
 
-#### Evidence: Research-Backed Arbiter Selection
+#### Evidence: Research-Backed Judge Selection
 
-The ARBITER_SELECTION.md provides:
+The JUDGE_SELECTION.md provides:
 - Benchmark-to-question-type mapping rationale
 - Specific benchmark scores for each model
 - Update process with quarterly review schedule
 - Decision criteria with switching thresholds
 
 ```markdown
-# From ARBITER_SELECTION.md
+# From JUDGE_SELECTION.md
 ### Switching Checklist
 - [ ] New model shows >5% improvement on primary benchmark
 - [ ] Cost increase is acceptable (<20%) OR performance gain (>10%)
@@ -329,8 +329,8 @@ question_type_map = {
 | Test File | Lines | Focus Area |
 |-----------|-------|------------|
 | `test_generator.py` | 252 | Question generation |
-| `test_arbiter.py` | ~200 | Evaluation logic |
-| `test_arbiter_config.py` | ~150 | Configuration loading |
+| `test_judge.py` | ~200 | Evaluation logic |
+| `test_judge_config.py` | ~150 | Configuration loading |
 | `test_models.py` | ~100 | Data model validation |
 | `test_deduplicator.py` | ~150 | Duplicate detection |
 | `test_database.py` | ~100 | Database operations |
@@ -403,12 +403,12 @@ The question-service's dual-phase approach (generation + evaluation) follows thi
 | **Critical** | R03 | Store `source_model` in backend database | Low | Medium | Consistency |
 | **High** | R04 | Add embedding cache to deduplicator | Low | High | Performance |
 | **High** | R05 | Implement async/parallel LLM calls for generation | Medium | High | Performance |
-| **High** | R06 | Implement async/parallel arbiter evaluation | Medium | High | Performance |
+| **High** | R06 | Implement async/parallel judge evaluation | Medium | High | Performance |
 | **High** | R07 | Pre-compute and store embeddings in database | Medium | High | Performance |
 | **High** | R08 | Add provider-level unit tests | Low | Medium | Testing |
 | **High** | R09 | Add end-to-end integration tests | Medium | High | Testing |
 | **High** | R10 | Fix iOS `answerOptions` generation issue | Medium | High | Consistency |
-| **Medium** | R11 | Eliminate arbiter provider model mutation | Low | Medium | Code Quality |
+| **Medium** | R11 | Eliminate judge provider model mutation | Low | Medium | Code Quality |
 | **Medium** | R12 | Extract deduplication config to settings | Low | Medium | Maintainability |
 | **Medium** | R13 | Create architecture diagrams | Low | Medium | Documentation |
 | **Medium** | R14 | Document baseline performance metrics | Medium | Medium | Documentation |
@@ -418,7 +418,7 @@ The question-service's dual-phase approach (generation + evaluation) follows thi
 | **Medium** | R18 | Add retry logic with exponential backoff | Low | Medium | Reliability |
 | **Medium** | R19 | Implement circuit breaker for providers | Medium | Medium | Reliability |
 | **Medium** | R20 | Standardize metadata field naming | Low | Low | Consistency |
-| **Low** | R21 | Add A/B testing capability for arbiters | High | Medium | Features |
+| **Low** | R21 | Add A/B testing capability for judges | High | Medium | Features |
 | **Low** | R22 | Add consensus mechanism for borderline scores | Medium | Low | Features |
 | **Low** | R23 | Create shared domain types package | High | Medium | Architecture |
 | **Low** | R24 | Add performance/load tests | Medium | Low | Testing |
@@ -534,16 +534,16 @@ async def generate_batch_async(self, count: int) -> List[GeneratedQuestion]:
 
 ---
 
-#### R06: Implement Async/Parallel Arbiter Evaluation
+#### R06: Implement Async/Parallel Judge Evaluation
 
-**Problem:** Arbiter evaluations are also sequential - each question waits for the previous evaluation.
+**Problem:** Judge evaluations are also sequential - each question waits for the previous evaluation.
 
 **Evidence:** `run_generation.py:521-552` - sequential for loop over generated questions.
 
-**Solution:** Parallelize arbiter calls similar to generation.
+**Solution:** Parallelize judge calls similar to generation.
 
 **Files Affected:**
-- `question-service/app/arbiter.py`
+- `question-service/app/judge.py`
 - `question-service/run_generation.py`
 
 ---
@@ -607,16 +607,16 @@ async def generate_batch_async(self, count: int) -> List[GeneratedQuestion]:
 
 ### Medium Priority
 
-#### R11: Eliminate Arbiter Provider Model Mutation
+#### R11: Eliminate Judge Provider Model Mutation
 
-**Problem:** The arbiter temporarily mutates the provider's model attribute, which is a side effect that could cause issues in concurrent scenarios.
+**Problem:** The judge temporarily mutates the provider's model attribute, which is a side effect that could cause issues in concurrent scenarios.
 
-**Evidence:** `arbiter.py:127-128` - modifies `provider.model`, restores in `finally`.
+**Evidence:** `judge.py:127-128` - modifies `provider.model`, restores in `finally`.
 
 **Solution:** Create a new provider instance or pass model as parameter to completion method.
 
 **Files Affected:**
-- `question-service/app/arbiter.py`
+- `question-service/app/judge.py`
 - `question-service/app/providers/base.py` (accept model override)
 
 ---
@@ -744,15 +744,15 @@ async def generate_batch_async(self, count: int) -> List[GeneratedQuestion]:
 
 ### Low Priority
 
-#### R21: Add A/B Testing Capability for Arbiters
+#### R21: Add A/B Testing Capability for Judges
 
-**Problem:** Cannot easily compare arbiter model performance in production.
+**Problem:** Cannot easily compare judge model performance in production.
 
-**Solution:** Add configuration to split traffic between arbiter models and compare approval rates.
+**Solution:** Add configuration to split traffic between judge models and compare approval rates.
 
 **Files Affected:**
-- `question-service/app/arbiter.py`
-- `question-service/config/arbiters.yaml`
+- `question-service/app/judge.py`
+- `question-service/config/judges.yaml`
 - `question-service/app/metrics.py`
 
 ---
@@ -761,10 +761,10 @@ async def generate_batch_async(self, count: int) -> List[GeneratedQuestion]:
 
 **Problem:** Questions near the approval threshold (e.g., 0.68-0.72) are binary approved/rejected without additional review.
 
-**Solution:** For borderline cases, query multiple arbiters and use consensus.
+**Solution:** For borderline cases, query multiple judges and use consensus.
 
 **Files Affected:**
-- `question-service/app/arbiter.py`
+- `question-service/app/judge.py`
 - `question-service/app/config.py`
 
 ---
@@ -812,11 +812,11 @@ async def generate_batch_async(self, count: int) -> List[GeneratedQuestion]:
 - `__init__.py` - Package exports
 - `pipeline.py` - Pipeline orchestration (305 lines)
 - `generator.py` - Question generation (379 lines)
-- `arbiter.py` - Quality evaluation (394 lines)
+- `judge.py` - Quality evaluation (394 lines)
 - `deduplicator.py` - Duplicate detection (328 lines)
 - `database.py` - Database operations (385 lines)
 - `config.py` - Settings management (60 lines)
-- `arbiter_config.py` - YAML config loader (~200 lines)
+- `judge_config.py` - YAML config loader (~200 lines)
 - `models.py` - Pydantic data models (151 lines)
 - `prompts.py` - LLM prompt templates
 - `metrics.py` - Metrics tracking

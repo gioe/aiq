@@ -59,7 +59,7 @@ def create_test_questions(db_session, count=20):
             answer_options={"A": "correct", "B": "wrong", "C": "wrong", "D": "wrong"},
             explanation="Test explanation",
             source_llm="test-llm",
-            arbiter_score=0.9,
+            judge_score=0.9,
             is_active=True,
         )
         db_session.add(question)

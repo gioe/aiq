@@ -3,7 +3,7 @@
 
 This script runs the complete question generation pipeline including:
 - Question generation across multiple LLM providers
-- Arbiter evaluation of question quality
+- Judge evaluation of question quality
 - Deduplication checking against existing questions
 - Database insertion of approved questions
 - Metrics tracking and logging
@@ -32,7 +32,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app import (  # noqa: E402
-    QuestionArbiter,
+    QuestionJudge,
     QuestionDatabase,
     QuestionDeduplicator,
     QuestionGenerationPipeline,
@@ -165,11 +165,11 @@ Examples:
   # Use async parallel generation for faster execution
   python run_generation.py --async
 
-  # Use async parallel arbiter evaluation for faster execution
-  python run_generation.py --async-arbiter
+  # Use async parallel judge evaluation for faster execution
+  python run_generation.py --async-judge
 
-  # Use both async generation and async arbiter evaluation
-  python run_generation.py --async --async-arbiter
+  # Use both async generation and async judge evaluation
+  python run_generation.py --async --async-judge
         """,
     )
 
@@ -204,7 +204,7 @@ Examples:
         "--min-score",
         type=float,
         default=None,
-        help=f"Minimum arbiter score for approval (default: {settings.min_arbiter_score})",
+        help=f"Minimum judge score for approval (default: {settings.min_judge_score})",
     )
 
     parser.add_argument(
@@ -257,24 +257,24 @@ Examples:
     )
 
     parser.add_argument(
-        "--async-arbiter",
-        dest="use_async_arbiter",
+        "--async-judge",
+        dest="use_async_judge",
         action="store_true",
-        help="Use async parallel arbiter evaluation for improved performance",
+        help="Use async parallel judge evaluation for improved performance",
     )
 
     parser.add_argument(
-        "--max-concurrent-arbiter",
+        "--max-concurrent-judge",
         type=int,
         default=10,
-        help="Maximum concurrent arbiter requests when using async mode (default: 10)",
+        help="Maximum concurrent judge requests when using async mode (default: 10)",
     )
 
     parser.add_argument(
-        "--arbiter-timeout",
+        "--judge-timeout",
         type=int,
         default=60,
-        help="Timeout in seconds for async arbiter API calls (default: 60)",
+        help="Timeout in seconds for async judge API calls (default: 60)",
     )
 
     return parser.parse_args()
@@ -441,24 +441,24 @@ def main() -> int:
         )
         logger.info("✓ Pipeline initialized")
 
-        # Load arbiter configuration
-        from app.arbiter_config import ArbiterConfigLoader
+        # Load judge configuration
+        from app.judge_config import JudgeConfigLoader
 
-        arbiter_loader = ArbiterConfigLoader(settings.arbiter_config_path)
-        arbiter_loader.load()  # Load the config into the loader
-        logger.info(f"✓ Arbiter config loaded from {settings.arbiter_config_path}")
+        judge_loader = JudgeConfigLoader(settings.judge_config_path)
+        judge_loader.load()  # Load the config into the loader
+        logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
 
-        # Initialize arbiter (pass the loader, not the config)
-        arbiter = QuestionArbiter(
-            arbiter_config=arbiter_loader,
+        # Initialize judge (pass the loader, not the config)
+        judge = QuestionJudge(
+            judge_config=judge_loader,
             openai_api_key=settings.openai_api_key,
             anthropic_api_key=settings.anthropic_api_key,
             google_api_key=settings.google_api_key,
             xai_api_key=settings.xai_api_key,
-            max_concurrent_evaluations=args.max_concurrent_arbiter,
-            async_timeout_seconds=args.arbiter_timeout,
+            max_concurrent_evaluations=args.max_concurrent_judge,
+            async_timeout_seconds=args.judge_timeout,
         )
-        logger.info("✓ Arbiter initialized")
+        logger.info("✓ Judge initialized")
 
         # Initialize database and deduplicator
         db = None
@@ -588,33 +588,33 @@ def main() -> int:
             )
             return EXIT_COMPLETE_FAILURE
 
-        # Evaluate with arbiter
+        # Evaluate with judge
         logger.info("\n" + "=" * 80)
-        logger.info("PHASE 2: Arbiter Evaluation")
+        logger.info("PHASE 2: Judge Evaluation")
         logger.info("=" * 80)
 
-        min_score = args.min_score or settings.min_arbiter_score
+        min_score = args.min_score or settings.min_judge_score
         logger.info(f"Minimum approval score: {min_score}")
 
         approved_questions = []
         rejected_questions = []
 
-        if args.use_async_arbiter:
+        if args.use_async_judge:
             logger.info(
-                f"Using async parallel arbiter evaluation mode "
-                f"(max_concurrent={args.max_concurrent_arbiter}, "
-                f"timeout={args.arbiter_timeout}s)"
+                f"Using async parallel judge evaluation mode "
+                f"(max_concurrent={args.max_concurrent_judge}, "
+                f"timeout={args.judge_timeout}s)"
             )
 
-            async def run_async_arbiter_with_cleanup() -> list:
+            async def run_async_judge_with_cleanup() -> list:
                 try:
-                    return await arbiter.evaluate_questions_list_async(
+                    return await judge.evaluate_questions_list_async(
                         questions=generated_questions,
                     )
                 finally:
-                    await arbiter.cleanup()
+                    await judge.cleanup()
 
-            all_evaluated = asyncio.run(run_async_arbiter_with_cleanup())
+            all_evaluated = asyncio.run(run_async_judge_with_cleanup())
 
             # Separate approved and rejected, record metrics
             for evaluated_question in all_evaluated:
@@ -633,7 +633,7 @@ def main() -> int:
                 metrics.record_evaluation_success(
                     score=evaluated_question.evaluation.overall_score,
                     approved=evaluated_question.evaluation.overall_score >= min_score,
-                    arbiter_model=evaluated_question.arbiter_model,
+                    judge_model=evaluated_question.judge_model,
                 )
         else:
             # Sequential evaluation
@@ -641,7 +641,7 @@ def main() -> int:
                 logger.info(f"Evaluating question {i}/{len(generated_questions)}...")
 
                 try:
-                    evaluated_question = arbiter.evaluate_question(question)
+                    evaluated_question = judge.evaluate_question(question)
 
                     if evaluated_question.evaluation.overall_score >= min_score:
                         approved_questions.append(
@@ -663,7 +663,7 @@ def main() -> int:
                         score=evaluated_question.evaluation.overall_score,
                         approved=evaluated_question.evaluation.overall_score
                         >= min_score,
-                        arbiter_model=evaluated_question.arbiter_model,
+                        judge_model=evaluated_question.judge_model,
                     )
 
                 except Exception as e:
@@ -679,34 +679,34 @@ def main() -> int:
         logger.info(f"Rejected: {len(rejected_questions)}")
 
         if not approved_questions:
-            logger.warning("No questions passed arbiter evaluation!")
+            logger.warning("No questions passed judge evaluation!")
 
-            # Send alert for arbiter rejection
+            # Send alert for judge rejection
             from app.error_classifier import (
                 ClassifiedError,
                 ErrorCategory,
                 ErrorSeverity,
             )
 
-            arbiter_error = ClassifiedError(
+            judge_error = ClassifiedError(
                 category=ErrorCategory.INVALID_REQUEST,
                 severity=ErrorSeverity.HIGH,
-                provider="arbiter",
-                original_error="ArbiterRejectionFailure",
-                message=f"All {len(generated_questions)} generated questions were rejected by arbiter evaluation.",
+                provider="judge",
+                original_error="JudgeRejectionFailure",
+                message=f"All {len(generated_questions)} generated questions were rejected by judge evaluation.",
                 is_retryable=True,
             )
             alert_manager.send_alert(
-                arbiter_error,
-                context=f"Question generation produced {len(generated_questions)} questions but arbiter "
+                judge_error,
+                context=f"Question generation produced {len(generated_questions)} questions but judge "
                 f"rejected all of them. Minimum score threshold: {min_score}. "
-                f"Consider reviewing arbiter configuration or lowering MIN_ARBITER_SCORE.",
+                f"Consider reviewing judge configuration or lowering MIN_JUDGE_SCORE.",
             )
 
             write_heartbeat(
                 status="failed",
                 exit_code=EXIT_COMPLETE_FAILURE,
-                error_message="No questions passed arbiter evaluation",
+                error_message="No questions passed judge evaluation",
                 stats=stats,
             )
             return EXIT_COMPLETE_FAILURE
@@ -806,7 +806,7 @@ def main() -> int:
         logger.info("=" * 80)
         logger.info(f"Total duration: {summary['execution']['duration_seconds']:.1f}s")
         logger.info(f"Generated: {stats['questions_generated']}")
-        logger.info(f"Approved by arbiter: {len(approved_questions)}")
+        logger.info(f"Approved by judge: {len(approved_questions)}")
         logger.info(f"Unique: {len(unique_questions)}")
         logger.info(f"Inserted to database: {inserted_count}")
         logger.info(f"Approval rate: {approval_rate:.1f}%")
@@ -837,7 +837,7 @@ def main() -> int:
             )
             alert_manager.send_alert(
                 insertion_error,
-                context=f"Question generation completed successfully through arbiter evaluation, "
+                context=f"Question generation completed successfully through judge evaluation, "
                 f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
             )
 
@@ -872,15 +872,15 @@ def main() -> int:
 
         # Report run to backend API
         if run_reporter:
-            min_score = args.min_score or settings.min_arbiter_score
+            min_score = args.min_score or settings.min_judge_score
             run_id = run_reporter.report_run(
                 metrics_tracker=metrics,
                 exit_code=exit_code,
                 environment=settings.env,
                 triggered_by=args.triggered_by,
                 prompt_version=settings.prompt_version,
-                arbiter_config_version=settings.arbiter_config_version,
-                min_arbiter_score_threshold=min_score,
+                judge_config_version=settings.judge_config_version,
+                min_judge_score_threshold=min_score,
             )
             if run_id:
                 logger.info(f"Run reported to backend API (ID: {run_id})")

@@ -5,7 +5,7 @@ storage, using mocked external APIs but real internal component integration.
 
 Pipeline stages tested:
 1. Generation: QuestionGenerationPipeline -> QuestionGenerator -> LLM Providers
-2. Evaluation: QuestionArbiter -> Provider-specific evaluation
+2. Evaluation: QuestionJudge -> Provider-specific evaluation
 3. Deduplication: QuestionDeduplicator -> Embedding-based similarity check
 4. Storage: DatabaseService -> PostgreSQL
 
@@ -21,11 +21,11 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
-from app.arbiter import QuestionArbiter
-from app.arbiter_config import (
-    ArbiterConfig,
-    ArbiterConfigLoader,
-    ArbiterModel,
+from app.judge import QuestionJudge
+from app.judge_config import (
+    JudgeConfig,
+    JudgeConfigLoader,
+    JudgeModel,
     EvaluationCriteria,
 )
 from app.database import DatabaseService
@@ -47,49 +47,49 @@ from app.pipeline import QuestionGenerationPipeline
 
 
 @pytest.fixture
-def mock_arbiter_config():
-    """Create a mock arbiter configuration for all question types."""
-    config = ArbiterConfig(
+def mock_judge_config():
+    """Create a mock judge configuration for all question types."""
+    config = JudgeConfig(
         version="1.0.0",
-        arbiters={
-            "math": ArbiterModel(
+        judges={
+            "math": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Strong math performance",
                 enabled=True,
             ),
-            "logic": ArbiterModel(
+            "logic": JudgeModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Excellent reasoning",
                 enabled=True,
             ),
-            "pattern": ArbiterModel(
+            "pattern": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Good pattern detection",
                 enabled=True,
             ),
-            "spatial": ArbiterModel(
+            "spatial": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Spatial capabilities",
                 enabled=True,
             ),
-            "verbal": ArbiterModel(
+            "verbal": JudgeModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Language strength",
                 enabled=True,
             ),
-            "memory": ArbiterModel(
+            "memory": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Memory tasks",
                 enabled=True,
             ),
         },
-        default_arbiter=ArbiterModel(
+        default_judge=JudgeModel(
             model="gpt-4",
             provider="openai",
             rationale="Default fallback",
@@ -102,16 +102,16 @@ def mock_arbiter_config():
             formatting=0.10,
             creativity=0.15,
         ),
-        min_arbiter_score=0.7,
+        min_judge_score=0.7,
     )
 
-    loader = Mock(spec=ArbiterConfigLoader)
+    loader = Mock(spec=JudgeConfigLoader)
     loader.config = config
-    loader.get_arbiter_for_question_type.side_effect = lambda qt: config.arbiters.get(
-        qt, config.default_arbiter
+    loader.get_judge_for_question_type.side_effect = lambda qt: config.judges.get(
+        qt, config.default_judge
     )
     loader.get_evaluation_criteria.return_value = config.evaluation_criteria
-    loader.get_min_arbiter_score.return_value = config.min_arbiter_score
+    loader.get_min_judge_score.return_value = config.min_judge_score
 
     return loader
 
@@ -244,7 +244,7 @@ def sample_questions_all_types(
 
 @pytest.fixture
 def high_score_evaluation_response():
-    """Evaluation response that passes the arbiter threshold."""
+    """Evaluation response that passes the judge threshold."""
     return {
         "clarity_score": 0.9,
         "difficulty_score": 0.85,
@@ -257,7 +257,7 @@ def high_score_evaluation_response():
 
 @pytest.fixture
 def low_score_evaluation_response():
-    """Evaluation response that fails the arbiter threshold."""
+    """Evaluation response that fails the judge threshold."""
     return {
         "clarity_score": 0.5,
         "difficulty_score": 0.4,
@@ -299,26 +299,26 @@ def existing_questions_in_db():
 
 
 # ============================================================================
-# Generation -> Arbiter Integration Tests
+# Generation -> Judge Integration Tests
 # ============================================================================
 
 
-class TestGenerationToArbiterFlow:
-    """Tests for the generation -> arbiter evaluation flow."""
+class TestGenerationToJudgeFlow:
+    """Tests for the generation -> judge evaluation flow."""
 
     @patch("app.pipeline.QuestionGenerator")
-    @patch("app.arbiter.OpenAIProvider")
-    @patch("app.arbiter.AnthropicProvider")
-    def test_generated_questions_flow_to_arbiter(
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
+    def test_generated_questions_flow_to_judge(
         self,
         mock_anthropic_provider,
         mock_openai_provider,
         mock_generator_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         high_score_evaluation_response,
     ):
-        """Test that generated questions are correctly passed to arbiter for evaluation."""
+        """Test that generated questions are correctly passed to judge for evaluation."""
         # Setup mock generator
         mock_generator = Mock()
         mock_batch = Mock(spec=GenerationBatch)
@@ -326,7 +326,7 @@ class TestGenerationToArbiterFlow:
         mock_generator.generate_batch.return_value = mock_batch
         mock_generator_class.return_value = mock_generator
 
-        # Setup mock arbiter provider
+        # Setup mock judge provider
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
@@ -334,13 +334,13 @@ class TestGenerationToArbiterFlow:
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        # Create pipeline and arbiter
+        # Create pipeline and judge
         pipeline = QuestionGenerationPipeline(openai_api_key="test-key")
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Generate questions
         batch = pipeline.generate_questions(
@@ -349,10 +349,10 @@ class TestGenerationToArbiterFlow:
             count=1,
         )
 
-        # Evaluate with arbiter
+        # Evaluate with judge
         evaluated_questions = []
         for question in batch.questions:
-            evaluated = arbiter.evaluate_question(question)
+            evaluated = judge.evaluate_question(question)
             evaluated_questions.append(evaluated)
 
         # Assertions
@@ -363,24 +363,24 @@ class TestGenerationToArbiterFlow:
         assert evaluated_questions[0].evaluation.overall_score >= 0.7
 
     @patch("app.pipeline.QuestionGenerator")
-    @patch("app.arbiter.OpenAIProvider")
-    @patch("app.arbiter.AnthropicProvider")
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
     def test_multiple_question_types_evaluated_correctly(
         self,
         mock_anthropic_provider,
         mock_openai_provider,
         mock_generator_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         sample_spatial_question,
         high_score_evaluation_response,
     ):
-        """Test that multiple question types are evaluated with appropriate arbiters.
+        """Test that multiple question types are evaluated with appropriate judges.
 
         Note: Uses MATH, PATTERN, SPATIAL questions that all use OpenAI provider.
         """
-        # Select questions that use OpenAI provider per arbiter config
+        # Select questions that use OpenAI provider per judge config
         questions = [
             sample_math_question,
             sample_pattern_question,
@@ -402,14 +402,14 @@ class TestGenerationToArbiterFlow:
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        # Create arbiter with only OpenAI
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        # Create judge with only OpenAI
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
-        # Evaluate batch of mixed types (all using OpenAI arbiter)
+        # Evaluate batch of mixed types (all using OpenAI judge)
         batch = GenerationBatch(
             questions=questions,
             question_type=QuestionType.MATH,
@@ -417,7 +417,7 @@ class TestGenerationToArbiterFlow:
             generation_timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-        evaluated_questions = arbiter.evaluate_batch(batch)
+        evaluated_questions = judge.evaluate_batch(batch)
 
         # Assertions
         assert len(evaluated_questions) == 3
@@ -430,16 +430,16 @@ class TestGenerationToArbiterFlow:
         assert QuestionType.SPATIAL in types_evaluated
 
     @patch("app.pipeline.QuestionGenerator")
-    @patch("app.arbiter.OpenAIProvider")
-    def test_low_quality_questions_rejected_by_arbiter(
+    @patch("app.judge.OpenAIProvider")
+    def test_low_quality_questions_rejected_by_judge(
         self,
         mock_openai_provider,
         mock_generator_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         low_score_evaluation_response,
     ):
-        """Test that low quality questions are rejected by arbiter."""
+        """Test that low quality questions are rejected by judge."""
         # Setup mock generator
         mock_generator = Mock()
         mock_batch = Mock(spec=GenerationBatch)
@@ -455,27 +455,27 @@ class TestGenerationToArbiterFlow:
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        # Create arbiter
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        # Create judge
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate
-        evaluated = arbiter.evaluate_question(sample_math_question)
+        evaluated = judge.evaluate_question(sample_math_question)
 
         # Assertions
         assert evaluated.approved is False
         assert evaluated.evaluation.overall_score < 0.7
 
     @patch("app.pipeline.QuestionGenerator")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_mixed_quality_batch_partially_approved(
         self,
         mock_openai_provider,
         mock_generator_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         high_score_evaluation_response,
@@ -498,14 +498,14 @@ class TestGenerationToArbiterFlow:
         ]
         mock_openai_provider.return_value = mock_openai_instance
 
-        # Create arbiter
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        # Create judge
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
-        # Evaluate both questions (both use OpenAI per arbiter config)
+        # Evaluate both questions (both use OpenAI per judge config)
         batch = GenerationBatch(
             questions=[sample_math_question, sample_pattern_question],
             question_type=QuestionType.MATH,
@@ -513,7 +513,7 @@ class TestGenerationToArbiterFlow:
             generation_timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-        evaluated_questions = arbiter.evaluate_batch(batch)
+        evaluated_questions = judge.evaluate_batch(batch)
 
         # Assertions
         assert len(evaluated_questions) == 2
@@ -524,41 +524,41 @@ class TestGenerationToArbiterFlow:
 
 
 # ============================================================================
-# Arbiter -> Deduplication Integration Tests
+# Judge -> Deduplication Integration Tests
 # ============================================================================
 
 
-class TestArbiterToDeduplicationFlow:
-    """Tests for the arbiter -> deduplication flow."""
+class TestJudgeToDeduplicationFlow:
+    """Tests for the judge -> deduplication flow."""
 
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_approved_questions_checked_for_duplicates(
         self,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         high_score_evaluation_response,
         existing_questions_in_db,
     ):
         """Test that approved questions are checked against existing questions."""
-        # Setup arbiter
+        # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate question
-        evaluated = arbiter.evaluate_question(sample_math_question)
+        evaluated = judge.evaluate_question(sample_math_question)
         assert evaluated.approved is True
 
         # Setup deduplicator
@@ -582,12 +582,12 @@ class TestArbiterToDeduplicationFlow:
         assert result.is_duplicate is False
 
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_duplicate_question_detected_after_approval(
         self,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
-        mock_arbiter_config,
+        mock_judge_config,
         high_score_evaluation_response,
         existing_questions_in_db,
     ):
@@ -604,22 +604,22 @@ class TestArbiterToDeduplicationFlow:
             source_model="gpt-4",
         )
 
-        # Setup arbiter
+        # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate question (should pass)
-        evaluated = arbiter.evaluate_question(duplicate_question)
+        evaluated = judge.evaluate_question(duplicate_question)
         assert evaluated.approved is True
 
         # Setup deduplicator
@@ -636,12 +636,12 @@ class TestArbiterToDeduplicationFlow:
         assert result.similarity_score == pytest.approx(1.0)
 
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_semantic_duplicate_detected(
         self,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
-        mock_arbiter_config,
+        mock_judge_config,
         high_score_evaluation_response,
         existing_questions_in_db,
     ):
@@ -658,22 +658,22 @@ class TestArbiterToDeduplicationFlow:
             source_model="gpt-4",
         )
 
-        # Setup arbiter
+        # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate
-        evaluated = arbiter.evaluate_question(semantic_duplicate)
+        evaluated = judge.evaluate_question(semantic_duplicate)
         assert evaluated.approved is True
 
         # Setup deduplicator with semantic matching
@@ -706,12 +706,12 @@ class TestArbiterToDeduplicationFlow:
         assert result.similarity_score >= 0.85
 
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_batch_deduplication_filters_duplicates(
         self,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         high_score_evaluation_response,
         existing_questions_in_db,
@@ -729,23 +729,23 @@ class TestArbiterToDeduplicationFlow:
             source_model="gpt-4",
         )
 
-        # Setup arbiter
+        # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate both questions
-        evaluated_unique = arbiter.evaluate_question(sample_math_question)
-        evaluated_duplicate = arbiter.evaluate_question(duplicate_question)
+        evaluated_unique = judge.evaluate_question(sample_math_question)
+        evaluated_duplicate = judge.evaluate_question(duplicate_question)
 
         # Setup deduplicator
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -903,7 +903,7 @@ class TestDeduplicationToStorageFlow:
         sample_math_question,
         existing_questions_in_db,
     ):
-        """Test that evaluated questions are stored with their arbiter scores."""
+        """Test that evaluated questions are stored with their judge scores."""
         # Create evaluated question
         evaluation = EvaluationScore(
             clarity_score=0.9,
@@ -918,7 +918,7 @@ class TestDeduplicationToStorageFlow:
         evaluated_question = EvaluatedQuestion(
             question=sample_math_question,
             evaluation=evaluation,
-            arbiter_model="openai/gpt-4",
+            judge_model="openai/gpt-4",
             approved=True,
         )
 
@@ -954,7 +954,7 @@ class TestDeduplicationToStorageFlow:
         db_service.get_session = Mock(return_value=mock_session)
         db_service.close_session = Mock()
 
-        # Capture the question model to verify arbiter_score is set
+        # Capture the question model to verify judge_score is set
         captured_question = None
 
         def capture_add(q):
@@ -971,9 +971,9 @@ class TestDeduplicationToStorageFlow:
 
             question_id = db_service.insert_evaluated_question(evaluated_question)
 
-            # Verify arbiter_score was passed
+            # Verify judge_score was passed
             call_kwargs = MockModel.call_args[1]
-            assert call_kwargs["arbiter_score"] == pytest.approx(0.88)
+            assert call_kwargs["judge_score"] == pytest.approx(0.88)
 
         assert question_id == 200
 
@@ -989,16 +989,16 @@ class TestFullPipelineIntegration:
     @patch("app.database.create_engine")
     @patch("app.database.sessionmaker")
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     @patch("app.pipeline.QuestionGenerator")
     def test_full_pipeline_success_path(
         self,
         mock_generator_class,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
         mock_sessionmaker,
         mock_create_engine,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         sample_spatial_question,
@@ -1008,9 +1008,9 @@ class TestFullPipelineIntegration:
     ):
         """Test the complete success path through all pipeline stages.
 
-        Note: Uses questions that all use OpenAI arbiter (MATH, PATTERN, SPATIAL, MEMORY).
+        Note: Uses questions that all use OpenAI judge (MATH, PATTERN, SPATIAL, MEMORY).
         """
-        # Use only OpenAI-arbitered questions
+        # Use only OpenAI-judgeed questions
         openai_questions = [
             sample_math_question,
             sample_pattern_question,
@@ -1035,24 +1035,24 @@ class TestFullPipelineIntegration:
         )
         assert len(batch.questions) == len(openai_questions)
 
-        # Stage 2: Arbiter Evaluation Setup
+        # Stage 2: Judge Evaluation Setup
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         # Evaluate all questions
         evaluated_questions = []
         for question in batch.questions:
-            evaluated = arbiter.evaluate_question(question)
+            evaluated = judge.evaluate_question(question)
             if evaluated.approved:
                 evaluated_questions.append(evaluated)
 
@@ -1107,16 +1107,16 @@ class TestFullPipelineIntegration:
     @patch("app.database.create_engine")
     @patch("app.database.sessionmaker")
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     @patch("app.pipeline.QuestionGenerator")
     def test_full_pipeline_with_partial_rejections(
         self,
         mock_generator_class,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
         mock_sessionmaker,
         mock_create_engine,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         sample_spatial_question,
@@ -1124,9 +1124,9 @@ class TestFullPipelineIntegration:
         low_score_evaluation_response,
         existing_questions_in_db,
     ):
-        """Test pipeline with some questions rejected at arbiter stage.
+        """Test pipeline with some questions rejected at judge stage.
 
-        Note: Uses only questions with OpenAI arbiter (MATH, PATTERN, SPATIAL).
+        Note: Uses only questions with OpenAI judge (MATH, PATTERN, SPATIAL).
         """
         questions = [
             sample_math_question,
@@ -1148,7 +1148,7 @@ class TestFullPipelineIntegration:
             count=3,
         )
 
-        # Stage 2: Arbiter - reject middle question (PATTERN)
+        # Stage 2: Judge - reject middle question (PATTERN)
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.side_effect = [
@@ -1156,18 +1156,18 @@ class TestFullPipelineIntegration:
             low_score_evaluation_response,  # PATTERN question rejected
             high_score_evaluation_response,
         ]
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         approved_questions = []
         rejected_questions = []
         for question in batch.questions:
-            evaluated = arbiter.evaluate_question(question)
+            evaluated = judge.evaluate_question(question)
             if evaluated.approved:
                 approved_questions.append(evaluated)
             else:
@@ -1216,16 +1216,16 @@ class TestFullPipelineIntegration:
     @patch("app.database.create_engine")
     @patch("app.database.sessionmaker")
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     @patch("app.pipeline.QuestionGenerator")
     def test_full_pipeline_with_duplicates_filtered(
         self,
         mock_generator_class,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
         mock_sessionmaker,
         mock_create_engine,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         high_score_evaluation_response,
         existing_questions_in_db,
@@ -1259,23 +1259,23 @@ class TestFullPipelineIntegration:
             count=2,
         )
 
-        # Stage 2: Arbiter (both pass)
+        # Stage 2: Judge (both pass)
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         approved_questions = []
         for question in batch.questions:
-            evaluated = arbiter.evaluate_question(question)
+            evaluated = judge.evaluate_question(question)
             if evaluated.approved:
                 approved_questions.append(evaluated)
 
@@ -1352,41 +1352,41 @@ class TestFailurePaths:
                 count=5,
             )
 
-    @patch("app.arbiter.OpenAIProvider")
-    def test_arbiter_failure_on_single_question(
+    @patch("app.judge.OpenAIProvider")
+    def test_judge_failure_on_single_question(
         self,
         mock_openai_provider,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
     ):
-        """Test arbiter handles evaluation failures for single questions."""
+        """Test judge handles evaluation failures for single questions."""
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.side_effect = Exception(
-            "Arbiter API Error"
+            "Judge API Error"
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
-        with pytest.raises(Exception, match="Arbiter API Error"):
-            arbiter.evaluate_question(sample_math_question)
+        with pytest.raises(Exception, match="Judge API Error"):
+            judge.evaluate_question(sample_math_question)
 
-    @patch("app.arbiter.OpenAIProvider")
-    def test_arbiter_batch_continues_on_error(
+    @patch("app.judge.OpenAIProvider")
+    def test_judge_batch_continues_on_error(
         self,
         mock_openai_provider,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         sample_spatial_question,
         high_score_evaluation_response,
     ):
-        """Test arbiter batch evaluation continues after individual failures.
+        """Test judge batch evaluation continues after individual failures.
 
         Note: All questions use OpenAI provider (MATH, PATTERN, SPATIAL).
         """
@@ -1399,11 +1399,11 @@ class TestFailurePaths:
         ]
         mock_openai_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         batch = GenerationBatch(
             questions=[
@@ -1417,7 +1417,7 @@ class TestFailurePaths:
         )
 
         # Should continue on error
-        evaluated = arbiter.evaluate_batch(batch, continue_on_error=True)
+        evaluated = judge.evaluate_batch(batch, continue_on_error=True)
 
         assert len(evaluated) == 2  # One failed
 
@@ -1468,16 +1468,16 @@ class TestFailurePaths:
     @patch("app.database.create_engine")
     @patch("app.database.sessionmaker")
     @patch("app.deduplicator.OpenAI")
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     @patch("app.pipeline.QuestionGenerator")
     def test_complete_pipeline_failure_at_storage(
         self,
         mock_generator_class,
-        mock_arbiter_provider,
+        mock_judge_provider,
         mock_openai_client,
         mock_sessionmaker,
         mock_create_engine,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         high_score_evaluation_response,
         existing_questions_in_db,
@@ -1497,21 +1497,21 @@ class TestFailurePaths:
             count=1,
         )
 
-        # Setup successful arbiter evaluation
+        # Setup successful judge evaluation
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
         mock_openai_instance.generate_structured_completion.return_value = (
             high_score_evaluation_response
         )
-        mock_arbiter_provider.return_value = mock_openai_instance
+        mock_judge_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
-        evaluated = arbiter.evaluate_question(batch.questions[0])
+        evaluated = judge.evaluate_question(batch.questions[0])
         assert evaluated.approved is True
 
         # Setup successful deduplication
@@ -1578,21 +1578,21 @@ class TestEdgeCases:
 
         assert len(batch.questions) == 0
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_all_questions_rejected(
         self,
         mock_openai_provider,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_math_question,
         sample_pattern_question,
         sample_spatial_question,
         low_score_evaluation_response,
     ):
-        """Test handling when all questions are rejected by arbiter.
+        """Test handling when all questions are rejected by judge.
 
         Note: Uses only questions that use OpenAI provider (MATH, PATTERN, SPATIAL).
         """
-        # Only use questions that use OpenAI arbiter
+        # Only use questions that use OpenAI judge
         openai_questions = [
             sample_math_question,
             sample_pattern_question,
@@ -1606,15 +1606,15 @@ class TestEdgeCases:
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
         approved = []
         for question in openai_questions:
-            evaluated = arbiter.evaluate_question(question)
+            evaluated = judge.evaluate_question(question)
             if evaluated.approved:
                 approved.append(evaluated)
 
@@ -1669,13 +1669,13 @@ class TestEdgeCases:
 
         assert result.is_duplicate is False
 
-    @patch("app.arbiter.OpenAIProvider")
-    def test_borderline_arbiter_score(
-        self, mock_openai_provider, mock_arbiter_config, sample_math_question
+    @patch("app.judge.OpenAIProvider")
+    def test_borderline_judge_score(
+        self, mock_openai_provider, mock_judge_config, sample_math_question
     ):
         """Test handling of scores at the threshold boundary.
 
-        Note: The arbiter uses >= for threshold comparison, but floating point
+        Note: The judge uses >= for threshold comparison, but floating point
         arithmetic can cause issues. A score of exactly 0.7 from all dimensions
         results in 0.6999... due to float imprecision. This test verifies
         scores just above threshold are approved.
@@ -1698,13 +1698,13 @@ class TestEdgeCases:
         )
         mock_openai_provider.return_value = mock_openai_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
+        judge.providers["openai"] = mock_openai_instance
 
-        evaluated = arbiter.evaluate_question(sample_math_question)
+        evaluated = judge.evaluate_question(sample_math_question)
 
         # Just above threshold should be approved
         assert evaluated.evaluation.overall_score >= 0.7

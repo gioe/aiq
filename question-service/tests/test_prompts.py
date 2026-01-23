@@ -3,7 +3,7 @@
 from app.models import DifficultyLevel, QuestionType
 from app.prompts import (
     build_generation_prompt,
-    build_arbiter_prompt,
+    build_judge_prompt,
     QUESTION_TYPE_PROMPTS,
     DIFFICULTY_INSTRUCTIONS,
 )
@@ -76,12 +76,12 @@ class TestBuildGenerationPrompt:
             assert len(DIFFICULTY_INSTRUCTIONS[difficulty]) > 0
 
 
-class TestBuildArbiterPrompt:
-    """Tests for build_arbiter_prompt function."""
+class TestBuildJudgePrompt:
+    """Tests for build_judge_prompt function."""
 
-    def test_build_arbiter_prompt(self):
-        """Test building an arbiter evaluation prompt."""
-        prompt = build_arbiter_prompt(
+    def test_build_judge_prompt(self):
+        """Test building an judge evaluation prompt."""
+        prompt = build_judge_prompt(
             question="What is 2 + 2?",
             answer_options=["2", "3", "4", "5"],
             correct_answer="4",
@@ -97,10 +97,10 @@ class TestBuildArbiterPrompt:
         assert "validity" in prompt.lower()
         assert "JSON" in prompt
 
-    def test_arbiter_prompt_includes_all_options(self):
-        """Test that arbiter prompt includes all answer options."""
+    def test_judge_prompt_includes_all_options(self):
+        """Test that judge prompt includes all answer options."""
         options = ["Option A", "Option B", "Option C", "Option D"]
-        prompt = build_arbiter_prompt(
+        prompt = build_judge_prompt(
             question="Test question?",
             answer_options=options,
             correct_answer="Option C",
@@ -111,9 +111,9 @@ class TestBuildArbiterPrompt:
         for option in options:
             assert option in prompt
 
-    def test_arbiter_prompt_includes_evaluation_criteria(self):
-        """Test that arbiter prompt includes all evaluation criteria."""
-        prompt = build_arbiter_prompt(
+    def test_judge_prompt_includes_evaluation_criteria(self):
+        """Test that judge prompt includes all evaluation criteria."""
+        prompt = build_judge_prompt(
             question="Test question?",
             answer_options=["A", "B", "C", "D"],
             correct_answer="A",
@@ -125,9 +125,9 @@ class TestBuildArbiterPrompt:
         for criterion in criteria:
             assert criterion.lower() in prompt.lower()
 
-    def test_arbiter_prompt_specifies_score_range(self):
-        """Test that arbiter prompt specifies valid score range."""
-        prompt = build_arbiter_prompt(
+    def test_judge_prompt_specifies_score_range(self):
+        """Test that judge prompt specifies valid score range."""
+        prompt = build_judge_prompt(
             question="Test question?",
             answer_options=["A", "B"],
             correct_answer="A",

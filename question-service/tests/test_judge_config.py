@@ -1,4 +1,4 @@
-"""Tests for arbiter configuration system."""
+"""Tests for judge configuration system."""
 
 import tempfile
 from pathlib import Path
@@ -7,10 +7,10 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from app.arbiter_config import (
-    ArbiterConfig,
-    ArbiterConfigLoader,
-    ArbiterModel,
+from app.judge_config import (
+    JudgeConfig,
+    JudgeConfigLoader,
+    JudgeModel,
     EvaluationCriteria,
 )
 
@@ -20,7 +20,7 @@ def valid_config_dict():
     """Fixture providing a valid configuration dictionary."""
     return {
         "version": "1.0",
-        "arbiters": {
+        "judges": {
             "math": {
                 "model": "gpt-4-turbo",
                 "provider": "openai",
@@ -58,7 +58,7 @@ def valid_config_dict():
                 "enabled": True,
             },
         },
-        "default_arbiter": {
+        "default_judge": {
             "model": "gpt-4-turbo",
             "provider": "openai",
             "rationale": "Default fallback",
@@ -71,7 +71,7 @@ def valid_config_dict():
             "formatting": 0.15,
             "creativity": 0.10,
         },
-        "min_arbiter_score": 0.7,
+        "min_judge_score": 0.7,
     }
 
 
@@ -88,12 +88,12 @@ def valid_config_file(valid_config_dict):
     temp_path.unlink()
 
 
-class TestArbiterModel:
-    """Tests for ArbiterModel validation."""
+class TestJudgeModel:
+    """Tests for JudgeModel validation."""
 
-    def test_valid_arbiter_model(self):
-        """Test creating a valid arbiter model."""
-        model = ArbiterModel(
+    def test_valid_judge_model(self):
+        """Test creating a valid judge model."""
+        model = JudgeModel(
             model="gpt-4-turbo",
             provider="openai",
             rationale="Test rationale",
@@ -107,7 +107,7 @@ class TestArbiterModel:
     def test_invalid_provider(self):
         """Test that invalid provider raises validation error."""
         with pytest.raises(ValidationError):
-            ArbiterModel(
+            JudgeModel(
                 model="gpt-4-turbo",
                 provider="invalid_provider",
                 rationale="Test rationale",
@@ -116,7 +116,7 @@ class TestArbiterModel:
     def test_empty_model_name(self):
         """Test that empty model name raises validation error."""
         with pytest.raises(ValidationError):
-            ArbiterModel(
+            JudgeModel(
                 model="",
                 provider="openai",
                 rationale="Test rationale",
@@ -124,7 +124,7 @@ class TestArbiterModel:
 
     def test_default_enabled(self):
         """Test that enabled defaults to True."""
-        model = ArbiterModel(
+        model = JudgeModel(
             model="gpt-4-turbo",
             provider="openai",
             rationale="Test rationale",
@@ -185,100 +185,100 @@ class TestEvaluationCriteria:
             )
 
 
-class TestArbiterConfig:
-    """Tests for ArbiterConfig validation."""
+class TestJudgeConfig:
+    """Tests for JudgeConfig validation."""
 
     def test_valid_config(self, valid_config_dict):
         """Test creating a valid configuration."""
-        config = ArbiterConfig(**valid_config_dict)
+        config = JudgeConfig(**valid_config_dict)
         assert config.version == "1.0"
-        assert len(config.arbiters) == 6
-        assert config.min_arbiter_score == 0.7
+        assert len(config.judges) == 6
+        assert config.min_judge_score == 0.7
 
     def test_missing_required_question_type(self, valid_config_dict):
         """Test that missing required question types raise error."""
         # Remove a required question type
-        del valid_config_dict["arbiters"]["math"]
+        del valid_config_dict["judges"]["math"]
 
         with pytest.raises(ValidationError) as exc_info:
-            ArbiterConfig(**valid_config_dict)
+            JudgeConfig(**valid_config_dict)
         assert "Missing required question types" in str(exc_info.value)
         assert "math" in str(exc_info.value)
 
     def test_invalid_min_score(self, valid_config_dict):
-        """Test that invalid min_arbiter_score raises error."""
-        valid_config_dict["min_arbiter_score"] = 1.5  # Over 1.0
+        """Test that invalid min_judge_score raises error."""
+        valid_config_dict["min_judge_score"] = 1.5  # Over 1.0
 
         with pytest.raises(ValidationError):
-            ArbiterConfig(**valid_config_dict)
+            JudgeConfig(**valid_config_dict)
 
 
-class TestArbiterConfigLoader:
-    """Tests for ArbiterConfigLoader."""
+class TestJudgeConfigLoader:
+    """Tests for JudgeConfigLoader."""
 
     def test_load_valid_config(self, valid_config_file):
         """Test loading a valid configuration file."""
-        loader = ArbiterConfigLoader(valid_config_file)
+        loader = JudgeConfigLoader(valid_config_file)
         config = loader.load()
 
-        assert isinstance(config, ArbiterConfig)
+        assert isinstance(config, JudgeConfig)
         assert config.version == "1.0"
-        assert len(config.arbiters) == 6
+        assert len(config.judges) == 6
 
     def test_load_nonexistent_file(self):
         """Test that loading nonexistent file raises FileNotFoundError."""
-        loader = ArbiterConfigLoader("/nonexistent/path.yaml")
+        loader = JudgeConfigLoader("/nonexistent/path.yaml")
 
         with pytest.raises(FileNotFoundError):
             loader.load()
 
     def test_get_config_before_load(self, valid_config_file):
         """Test that accessing config before load raises RuntimeError."""
-        loader = ArbiterConfigLoader(valid_config_file)
+        loader = JudgeConfigLoader(valid_config_file)
 
         with pytest.raises(RuntimeError) as exc_info:
             _ = loader.config
         assert "not loaded" in str(exc_info.value).lower()
 
-    def test_get_arbiter_for_question_type(self, valid_config_file):
-        """Test getting arbiter for specific question type."""
-        loader = ArbiterConfigLoader(valid_config_file)
+    def test_get_judge_for_question_type(self, valid_config_file):
+        """Test getting judge for specific question type."""
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
-        arbiter = loader.get_arbiter_for_question_type("math")
-        assert arbiter.model == "gpt-4-turbo"
-        assert arbiter.provider == "openai"
+        judge = loader.get_judge_for_question_type("math")
+        assert judge.model == "gpt-4-turbo"
+        assert judge.provider == "openai"
 
-    def test_get_arbiter_for_unknown_type(self, valid_config_file):
-        """Test that unknown question type returns default arbiter."""
-        loader = ArbiterConfigLoader(valid_config_file)
+    def test_get_judge_for_unknown_type(self, valid_config_file):
+        """Test that unknown question type returns default judge."""
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
-        arbiter = loader.get_arbiter_for_question_type("unknown_type")
-        assert arbiter.model == "gpt-4-turbo"  # Default
-        assert arbiter.provider == "openai"
+        judge = loader.get_judge_for_question_type("unknown_type")
+        assert judge.model == "gpt-4-turbo"  # Default
+        assert judge.provider == "openai"
 
-    def test_get_arbiter_for_disabled_type(self, valid_config_file):
-        """Test that disabled arbiter falls back to default."""
-        # Modify config to disable one arbiter
+    def test_get_judge_for_disabled_type(self, valid_config_file):
+        """Test that disabled judge falls back to default."""
+        # Modify config to disable one judge
         with open(valid_config_file, "r") as f:
             config_dict = yaml.safe_load(f)
 
-        config_dict["arbiters"]["math"]["enabled"] = False
+        config_dict["judges"]["math"]["enabled"] = False
 
         with open(valid_config_file, "w") as f:
             yaml.dump(config_dict, f)
 
-        loader = ArbiterConfigLoader(valid_config_file)
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
-        arbiter = loader.get_arbiter_for_question_type("math")
+        judge = loader.get_judge_for_question_type("math")
         # Should fall back to default
-        assert arbiter == loader.config.default_arbiter
+        assert judge == loader.config.default_judge
 
     def test_get_all_question_types(self, valid_config_file):
         """Test getting all configured question types."""
-        loader = ArbiterConfigLoader(valid_config_file)
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
         types = loader.get_all_question_types()
@@ -292,7 +292,7 @@ class TestArbiterConfigLoader:
 
     def test_get_evaluation_criteria(self, valid_config_file):
         """Test getting evaluation criteria."""
-        loader = ArbiterConfigLoader(valid_config_file)
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
         criteria = loader.get_evaluation_criteria()
@@ -302,12 +302,12 @@ class TestArbiterConfigLoader:
         assert criteria.formatting == 0.15
         assert criteria.creativity == 0.10
 
-    def test_get_min_arbiter_score(self, valid_config_file):
-        """Test getting minimum arbiter score."""
-        loader = ArbiterConfigLoader(valid_config_file)
+    def test_get_min_judge_score(self, valid_config_file):
+        """Test getting minimum judge score."""
+        loader = JudgeConfigLoader(valid_config_file)
         loader.load()
 
-        min_score = loader.get_min_arbiter_score()
+        min_score = loader.get_min_judge_score()
         assert min_score == 0.7
 
     def test_invalid_yaml(self):
@@ -317,7 +317,7 @@ class TestArbiterConfigLoader:
             temp_path = Path(f.name)
 
         try:
-            loader = ArbiterConfigLoader(temp_path)
+            loader = JudgeConfigLoader(temp_path)
             with pytest.raises(yaml.YAMLError):
                 loader.load()
         finally:
@@ -329,30 +329,30 @@ class TestGlobalConfiguration:
 
     def test_initialize_and_get(self, valid_config_file):
         """Test initializing and getting global configuration."""
-        from app.arbiter_config import (
-            get_arbiter_config,
-            initialize_arbiter_config,
+        from app.judge_config import (
+            get_judge_config,
+            initialize_judge_config,
         )
 
         # Initialize
-        initialize_arbiter_config(valid_config_file)
+        initialize_judge_config(valid_config_file)
 
         # Get and verify
-        loader = get_arbiter_config()
-        assert isinstance(loader, ArbiterConfigLoader)
+        loader = get_judge_config()
+        assert isinstance(loader, JudgeConfigLoader)
 
         config = loader.config
         assert config.version == "1.0"
 
     def test_get_before_initialize(self):
         """Test that getting config before initialize raises error."""
-        from app.arbiter_config import get_arbiter_config
+        from app.judge_config import get_judge_config
 
         # Ensure loader is None
-        import app.arbiter_config as config_module
+        import app.judge_config as config_module
 
         config_module._loader = None
 
         with pytest.raises(RuntimeError) as exc_info:
-            get_arbiter_config()
+            get_judge_config()
         assert "not initialized" in str(exc_info.value).lower()

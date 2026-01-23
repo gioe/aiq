@@ -297,14 +297,14 @@ For each question, provide:
     return prompt.strip()
 
 
-def build_arbiter_prompt(
+def build_judge_prompt(
     question: str,
     answer_options: list[str],
     correct_answer: str,
     question_type: str,
     difficulty: str,
 ) -> str:
-    """Build an evaluation prompt for the arbiter to score a question.
+    """Build an evaluation prompt for the judge to score a question.
 
     Args:
         question: The question text
@@ -314,7 +314,7 @@ def build_arbiter_prompt(
         difficulty: Difficulty level
 
     Returns:
-        Prompt string for arbiter evaluation
+        Prompt string for judge evaluation
     """
     return f"""You are an expert psychometrician evaluating IQ test questions for a mobile app used for longitudinal cognitive tracking.
 

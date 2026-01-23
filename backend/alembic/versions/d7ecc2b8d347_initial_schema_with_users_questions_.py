@@ -51,7 +51,7 @@ def upgrade() -> None:
             "question_metadata", postgresql.JSON(astext_type=sa.Text()), nullable=True
         ),
         sa.Column("source_llm", sa.String(length=100), nullable=True),
-        sa.Column("arbiter_score", sa.Float(), nullable=True),
+        sa.Column("judge_score", sa.Float(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),

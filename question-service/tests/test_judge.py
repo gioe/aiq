@@ -1,14 +1,14 @@
-"""Tests for question arbiter functionality."""
+"""Tests for question judge functionality."""
 
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
-from app.arbiter import QuestionArbiter
-from app.arbiter_config import (
-    ArbiterConfig,
-    ArbiterConfigLoader,
-    ArbiterModel,
+from app.judge import QuestionJudge
+from app.judge_config import (
+    JudgeConfig,
+    JudgeConfigLoader,
+    JudgeModel,
     EvaluationCriteria,
 )
 from app.models import (
@@ -22,50 +22,50 @@ from app.models import (
 
 
 @pytest.fixture
-def mock_arbiter_config():
-    """Create a mock arbiter configuration."""
+def mock_judge_config():
+    """Create a mock judge configuration."""
     # Create mock config with all required fields
-    config = ArbiterConfig(
+    config = JudgeConfig(
         version="1.0.0",
-        arbiters={
-            "math": ArbiterModel(
+        judges={
+            "math": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Strong math performance",
                 enabled=True,
             ),
-            "logic": ArbiterModel(
+            "logic": JudgeModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Excellent reasoning",
                 enabled=True,
             ),
-            "pattern": ArbiterModel(
+            "pattern": JudgeModel(
                 model="gemini-pro",
                 provider="google",
                 rationale="Good pattern detection",
                 enabled=True,
             ),
-            "spatial": ArbiterModel(
+            "spatial": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Spatial capabilities",
                 enabled=True,
             ),
-            "verbal": ArbiterModel(
+            "verbal": JudgeModel(
                 model="claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 rationale="Language strength",
                 enabled=True,
             ),
-            "memory": ArbiterModel(
+            "memory": JudgeModel(
                 model="gpt-4",
                 provider="openai",
                 rationale="Memory tasks",
                 enabled=True,
             ),
         },
-        default_arbiter=ArbiterModel(
+        default_judge=JudgeModel(
             model="gpt-4",
             provider="openai",
             rationale="Default fallback",
@@ -78,17 +78,17 @@ def mock_arbiter_config():
             formatting=0.10,
             creativity=0.15,
         ),
-        min_arbiter_score=0.7,
+        min_judge_score=0.7,
     )
 
     # Create loader mock
-    loader = Mock(spec=ArbiterConfigLoader)
+    loader = Mock(spec=JudgeConfigLoader)
     loader.config = config
-    loader.get_arbiter_for_question_type.side_effect = lambda qt: config.arbiters.get(
-        qt, config.default_arbiter
+    loader.get_judge_for_question_type.side_effect = lambda qt: config.judges.get(
+        qt, config.default_judge
     )
     loader.get_evaluation_criteria.return_value = config.evaluation_criteria
-    loader.get_min_arbiter_score.return_value = config.min_arbiter_score
+    loader.get_min_judge_score.return_value = config.min_judge_score
 
     return loader
 
@@ -122,57 +122,55 @@ def sample_evaluation_response():
     }
 
 
-class TestQuestionArbiter:
-    """Tests for QuestionArbiter class."""
+class TestQuestionJudge:
+    """Tests for QuestionJudge class."""
 
-    @patch("app.arbiter.OpenAIProvider")
-    @patch("app.arbiter.AnthropicProvider")
-    @patch("app.arbiter.GoogleProvider")
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
+    @patch("app.judge.GoogleProvider")
     def test_initialization_with_all_providers(
-        self, mock_google, mock_anthropic, mock_openai, mock_arbiter_config
+        self, mock_google, mock_anthropic, mock_openai, mock_judge_config
     ):
-        """Test arbiter initialization with all providers."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        """Test judge initialization with all providers."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-openai-key",
             anthropic_api_key="test-anthropic-key",
             google_api_key="test-google-key",
         )
 
-        assert len(arbiter.providers) == 3
-        assert "openai" in arbiter.providers
-        assert "anthropic" in arbiter.providers
-        assert "google" in arbiter.providers
+        assert len(judge.providers) == 3
+        assert "openai" in judge.providers
+        assert "anthropic" in judge.providers
+        assert "google" in judge.providers
 
-    @patch("app.arbiter.OpenAIProvider")
-    def test_initialization_with_single_provider(
-        self, mock_openai, mock_arbiter_config
-    ):
-        """Test arbiter initialization with single provider."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+    @patch("app.judge.OpenAIProvider")
+    def test_initialization_with_single_provider(self, mock_openai, mock_judge_config):
+        """Test judge initialization with single provider."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-openai-key",
         )
 
-        assert len(arbiter.providers) == 1
-        assert "openai" in arbiter.providers
+        assert len(judge.providers) == 1
+        assert "openai" in judge.providers
 
-    def test_initialization_without_api_keys_raises_error(self, mock_arbiter_config):
+    def test_initialization_without_api_keys_raises_error(self, mock_judge_config):
         """Test that initialization without API keys raises ValueError."""
         with pytest.raises(ValueError, match="At least one LLM provider API key"):
-            QuestionArbiter(arbiter_config=mock_arbiter_config)
+            QuestionJudge(judge_config=mock_judge_config)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_parse_evaluation_response_valid(
-        self, mock_openai, mock_arbiter_config, sample_evaluation_response
+        self, mock_openai, mock_judge_config, sample_evaluation_response
     ):
         """Test parsing valid evaluation response."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
-        evaluation = arbiter._parse_evaluation_response(sample_evaluation_response)
+        evaluation = judge._parse_evaluation_response(sample_evaluation_response)
 
         assert isinstance(evaluation, EvaluationScore)
         assert evaluation.clarity_score == pytest.approx(0.9)
@@ -182,13 +180,13 @@ class TestQuestionArbiter:
         assert evaluation.creativity_score == pytest.approx(0.7)
         assert evaluation.feedback == "Good question, clear and well-formatted."
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_parse_evaluation_response_missing_fields(
-        self, mock_openai, mock_arbiter_config
+        self, mock_openai, mock_judge_config
     ):
         """Test parsing evaluation response with missing fields."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
@@ -199,32 +197,32 @@ class TestQuestionArbiter:
         }
 
         with pytest.raises(ValueError, match="Missing required fields"):
-            arbiter._parse_evaluation_response(incomplete_response)
+            judge._parse_evaluation_response(incomplete_response)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_calculate_overall_score(
-        self, mock_openai, mock_arbiter_config, sample_evaluation_response
+        self, mock_openai, mock_judge_config, sample_evaluation_response
     ):
         """Test calculation of weighted overall score."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
-        evaluation = arbiter._parse_evaluation_response(sample_evaluation_response)
-        overall = arbiter._calculate_overall_score(evaluation)
+        evaluation = judge._parse_evaluation_response(sample_evaluation_response)
+        overall = judge._calculate_overall_score(evaluation)
 
         # Expected: 0.9*0.25 + 0.8*0.20 + 0.85*0.30 + 0.95*0.10 + 0.7*0.15
         # = 0.225 + 0.16 + 0.255 + 0.095 + 0.105 = 0.84
         assert pytest.approx(overall, abs=0.01) == 0.84
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_calculate_overall_score_with_perfect_scores(
-        self, mock_openai, mock_arbiter_config
+        self, mock_openai, mock_judge_config
     ):
         """Test overall score calculation with perfect scores."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
@@ -237,16 +235,16 @@ class TestQuestionArbiter:
             overall_score=0.0,  # Will be calculated
         )
 
-        overall = arbiter._calculate_overall_score(perfect_evaluation)
+        overall = judge._calculate_overall_score(perfect_evaluation)
         assert overall == pytest.approx(1.0)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_calculate_overall_score_with_zero_scores(
-        self, mock_openai, mock_arbiter_config
+        self, mock_openai, mock_judge_config
     ):
         """Test overall score calculation with zero scores."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
@@ -259,14 +257,14 @@ class TestQuestionArbiter:
             overall_score=0.0,
         )
 
-        overall = arbiter._calculate_overall_score(zero_evaluation)
+        overall = judge._calculate_overall_score(zero_evaluation)
         assert overall == pytest.approx(0.0)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_question_success(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -279,30 +277,30 @@ class TestQuestionArbiter:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Evaluate question
-        evaluated = arbiter.evaluate_question(sample_question)
+        evaluated = judge.evaluate_question(sample_question)
 
         # Assertions
         assert isinstance(evaluated, EvaluatedQuestion)
         assert evaluated.question == sample_question
         assert isinstance(evaluated.evaluation, EvaluationScore)
-        assert evaluated.arbiter_model == "openai/gpt-4"
+        assert evaluated.judge_model == "openai/gpt-4"
         assert evaluated.approved is True  # Score 0.84 > threshold 0.7
 
         # Verify provider was called
         mock_provider.generate_structured_completion.assert_called_once()
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_question_below_threshold(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
     ):
         """Test question evaluation that doesn't meet threshold."""
@@ -320,42 +318,42 @@ class TestQuestionArbiter:
         mock_provider.generate_structured_completion.return_value = low_score_response
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Evaluate question
-        evaluated = arbiter.evaluate_question(sample_question)
+        evaluated = judge.evaluate_question(sample_question)
 
         # Assertions
         assert evaluated.approved is False  # Score < threshold 0.7
         assert evaluated.evaluation.overall_score < 0.7
 
-    @patch("app.arbiter.AnthropicProvider")
+    @patch("app.judge.AnthropicProvider")
     def test_evaluate_question_provider_not_available(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
     ):
         """Test evaluation fails when required provider not available."""
         # Initialize with only Anthropic, but question needs OpenAI
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             anthropic_api_key="test-key",  # Only Anthropic available
         )
 
         # Try to evaluate mathematical question (needs OpenAI in config)
         with pytest.raises(ValueError, match="not available"):
-            arbiter.evaluate_question(sample_question)
+            judge.evaluate_question(sample_question)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_batch_success(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -368,11 +366,11 @@ class TestQuestionArbiter:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create batch with 3 questions
         batch = GenerationBatch(
@@ -383,18 +381,18 @@ class TestQuestionArbiter:
         )
 
         # Evaluate batch
-        evaluated_questions = arbiter.evaluate_batch(batch)
+        evaluated_questions = judge.evaluate_batch(batch)
 
         # Assertions
         assert len(evaluated_questions) == 3
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
         assert all(eq.approved for eq in evaluated_questions)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_batch_with_errors_continue(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -409,11 +407,11 @@ class TestQuestionArbiter:
         ]
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create batch with 3 questions
         batch = GenerationBatch(
@@ -424,16 +422,16 @@ class TestQuestionArbiter:
         )
 
         # Evaluate batch with continue_on_error=True
-        evaluated_questions = arbiter.evaluate_batch(batch, continue_on_error=True)
+        evaluated_questions = judge.evaluate_batch(batch, continue_on_error=True)
 
         # Assertions - should have 2 successful evaluations
         assert len(evaluated_questions) == 2
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_batch_with_errors_no_continue(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
     ):
         """Test batch evaluation stops on errors when continue_on_error=False."""
@@ -452,11 +450,11 @@ class TestQuestionArbiter:
         ]
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create batch with 3 questions
         batch = GenerationBatch(
@@ -468,13 +466,13 @@ class TestQuestionArbiter:
 
         # Evaluate batch with continue_on_error=False should raise exception
         with pytest.raises(Exception, match="API error"):
-            arbiter.evaluate_batch(batch, continue_on_error=False)
+            judge.evaluate_batch(batch, continue_on_error=False)
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_evaluate_questions_list(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -487,43 +485,43 @@ class TestQuestionArbiter:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create list of questions
         questions = [sample_question, sample_question]
 
         # Evaluate list
-        evaluated_questions = arbiter.evaluate_questions_list(questions)
+        evaluated_questions = judge.evaluate_questions_list(questions)
 
         # Assertions
         assert len(evaluated_questions) == 2
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
 
-    @patch("app.arbiter.OpenAIProvider")
-    @patch("app.arbiter.AnthropicProvider")
-    def test_get_arbiter_stats(self, mock_anthropic, mock_openai, mock_arbiter_config):
-        """Test getting arbiter statistics."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
+    def test_get_judge_stats(self, mock_anthropic, mock_openai, mock_judge_config):
+        """Test getting judge statistics."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-openai-key",
             anthropic_api_key="test-anthropic-key",
         )
 
-        stats = arbiter.get_arbiter_stats()
+        stats = judge.get_judge_stats()
 
         # Assertions
         assert "config_version" in stats
-        assert "min_arbiter_score" in stats
+        assert "min_judge_score" in stats
         assert "available_providers" in stats
         assert "evaluation_criteria" in stats
-        assert "arbiters" in stats
+        assert "judges" in stats
 
         assert stats["config_version"] == "1.0.0"
-        assert stats["min_arbiter_score"] == pytest.approx(0.7)
+        assert stats["min_judge_score"] == pytest.approx(0.7)
         assert set(stats["available_providers"]) == {"openai", "anthropic"}
 
         # Check evaluation criteria
@@ -534,13 +532,13 @@ class TestQuestionArbiter:
         assert criteria["formatting"] == pytest.approx(0.10)
         assert criteria["creativity"] == pytest.approx(0.15)
 
-        # Check arbiters
-        assert "math" in stats["arbiters"]
-        assert stats["arbiters"]["math"]["provider"] == "openai"
+        # Check judges
+        assert "math" in stats["judges"]
+        assert stats["judges"]["math"]["provider"] == "openai"
 
 
-class TestArbiterIntegration:
-    """Integration tests for arbiter with different question types."""
+class TestJudgeIntegration:
+    """Integration tests for judge with different question types."""
 
     @pytest.fixture
     def questions_by_type(self):
@@ -573,17 +571,17 @@ class TestArbiterIntegration:
             ),
         }
 
-    @patch("app.arbiter.OpenAIProvider")
-    @patch("app.arbiter.AnthropicProvider")
-    def test_different_arbiters_for_different_types(
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
+    def test_different_judges_for_different_types(
         self,
         mock_anthropic,
         mock_openai,
-        mock_arbiter_config,
+        mock_judge_config,
         questions_by_type,
         sample_evaluation_response,
     ):
-        """Test that different question types use appropriate arbiters."""
+        """Test that different question types use appropriate judges."""
         # Setup mock providers
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
@@ -599,29 +597,29 @@ class TestArbiterIntegration:
         )
         mock_anthropic.return_value = mock_anthropic_instance
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-openai-key",
             anthropic_api_key="test-anthropic-key",
         )
-        arbiter.providers["openai"] = mock_openai_instance
-        arbiter.providers["anthropic"] = mock_anthropic_instance
+        judge.providers["openai"] = mock_openai_instance
+        judge.providers["anthropic"] = mock_anthropic_instance
 
         # Evaluate mathematical question (should use OpenAI per config)
         math_q = questions_by_type[QuestionType.MATH]
-        evaluated_math = arbiter.evaluate_question(math_q)
-        assert "openai" in evaluated_math.arbiter_model
+        evaluated_math = judge.evaluate_question(math_q)
+        assert "openai" in evaluated_math.judge_model
 
         # Evaluate logical reasoning question (should use Anthropic per config)
         logic_q = questions_by_type[QuestionType.LOGIC]
-        evaluated_logic = arbiter.evaluate_question(logic_q)
-        assert "anthropic" in evaluated_logic.arbiter_model
+        evaluated_logic = judge.evaluate_question(logic_q)
+        assert "anthropic" in evaluated_logic.judge_model
 
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     def test_provider_model_not_mutated_during_evaluation(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -630,7 +628,7 @@ class TestArbiterIntegration:
         This verifies thread safety - concurrent evaluations should not interfere
         with each other by modifying shared provider state.
         """
-        # Setup mock provider with a different default model than arbiter config
+        # Setup mock provider with a different default model than judge config
         mock_provider = Mock()
         mock_provider.model = "gpt-4-turbo-preview"  # Default model
         mock_provider.generate_structured_completion.return_value = (
@@ -638,17 +636,17 @@ class TestArbiterIntegration:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Record the original model before evaluation
         original_model = mock_provider.model
 
-        # Evaluate question (arbiter config uses "gpt-4" for math questions)
-        arbiter.evaluate_question(sample_question)
+        # Evaluate question (judge config uses "gpt-4" for math questions)
+        judge.evaluate_question(sample_question)
 
         # Verify provider model was NOT mutated
         assert mock_provider.model == original_model, (
@@ -666,30 +664,28 @@ class TestArbiterIntegration:
         ), f"model_override should be 'gpt-4', got {call_kwargs['model_override']}"
 
 
-class TestQuestionArbiterAsync:
-    """Tests for async arbiter functionality."""
+class TestQuestionJudgeAsync:
+    """Tests for async judge functionality."""
 
-    @patch("app.arbiter.OpenAIProvider")
-    def test_initialization_creates_rate_limiter(
-        self, mock_openai, mock_arbiter_config
-    ):
-        """Test that arbiter initialization creates rate limiter with correct concurrency."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+    @patch("app.judge.OpenAIProvider")
+    def test_initialization_creates_rate_limiter(self, mock_openai, mock_judge_config):
+        """Test that judge initialization creates rate limiter with correct concurrency."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
             max_concurrent_evaluations=5,
             async_timeout_seconds=30.0,
         )
 
-        assert arbiter._rate_limiter._value == 5
-        assert arbiter._async_timeout == pytest.approx(30.0)
+        assert judge._rate_limiter._value == 5
+        assert judge._async_timeout == pytest.approx(30.0)
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_question_async_success(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -702,31 +698,31 @@ class TestQuestionArbiterAsync:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Evaluate question asynchronously
-        evaluated = await arbiter.evaluate_question_async(sample_question)
+        evaluated = await judge.evaluate_question_async(sample_question)
 
         # Assertions
         assert isinstance(evaluated, EvaluatedQuestion)
         assert evaluated.question == sample_question
         assert isinstance(evaluated.evaluation, EvaluationScore)
-        assert evaluated.arbiter_model == "openai/gpt-4"
+        assert evaluated.judge_model == "openai/gpt-4"
         assert evaluated.approved is True  # Score 0.84 > threshold 0.7
 
         # Verify provider async method was called
         mock_provider.generate_structured_completion_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_question_async_timeout(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
     ):
         """Test async question evaluation timeout handling."""
@@ -743,45 +739,45 @@ class TestQuestionArbiterAsync:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
             async_timeout_seconds=0.1,  # Very short timeout
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Should raise timeout error
         with pytest.raises(asyncio.TimeoutError):
-            await arbiter.evaluate_question_async(sample_question)
+            await judge.evaluate_question_async(sample_question)
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_question_async_provider_not_available(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
     ):
         """Test async evaluation fails when required provider not available."""
         # Initialize with empty providers dict to simulate provider not available
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
         # Clear the providers to simulate the scenario
-        arbiter.providers.clear()
-        arbiter.providers["anthropic"] = Mock()  # Only Anthropic available
+        judge.providers.clear()
+        judge.providers["anthropic"] = Mock()  # Only Anthropic available
 
         # Try to evaluate mathematical question (needs OpenAI in config)
         with pytest.raises(ValueError, match="not available"):
-            await arbiter.evaluate_question_async(sample_question)
+            await judge.evaluate_question_async(sample_question)
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_success(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -794,17 +790,17 @@ class TestQuestionArbiterAsync:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create list of 5 questions
         questions = [sample_question for _ in range(5)]
 
         # Evaluate all questions in parallel
-        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+        evaluated_questions = await judge.evaluate_questions_list_async(questions)
 
         # Assertions
         assert len(evaluated_questions) == 5
@@ -815,11 +811,11 @@ class TestQuestionArbiterAsync:
         assert mock_provider.generate_structured_completion_async.call_count == 5
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_with_failures(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -843,47 +839,47 @@ class TestQuestionArbiterAsync:
         )
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create list of 4 questions
         questions = [sample_question for _ in range(4)]
 
         # Evaluate all questions in parallel
-        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+        evaluated_questions = await judge.evaluate_questions_list_async(questions)
 
         # Assertions - should have 2 successful evaluations (odd-numbered calls)
         assert len(evaluated_questions) == 2
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_empty_list(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
     ):
         """Test async list evaluation with empty list."""
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
 
         # Evaluate empty list
-        evaluated_questions = await arbiter.evaluate_questions_list_async([])
+        evaluated_questions = await judge.evaluate_questions_list_async([])
 
         # Assertions
         assert evaluated_questions == []
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_respects_rate_limit(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
@@ -908,19 +904,19 @@ class TestQuestionArbiterAsync:
         )
         mock_provider_class.return_value = mock_provider
 
-        # Create arbiter with max 2 concurrent evaluations
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        # Create judge with max 2 concurrent evaluations
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
             max_concurrent_evaluations=2,
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Create list of 6 questions
         questions = [sample_question for _ in range(6)]
 
         # Evaluate all questions
-        evaluated_questions = await arbiter.evaluate_questions_list_async(questions)
+        evaluated_questions = await judge.evaluate_questions_list_async(questions)
 
         # Assertions
         assert len(evaluated_questions) == 6
@@ -928,40 +924,40 @@ class TestQuestionArbiterAsync:
         assert max_concurrent <= 2
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_cleanup(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
     ):
-        """Test arbiter cleanup closes all provider resources."""
+        """Test judge cleanup closes all provider resources."""
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
         mock_provider.cleanup = AsyncMock()
         mock_provider_class.return_value = mock_provider
 
-        arbiter = QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        arbiter.providers["openai"] = mock_provider
+        judge.providers["openai"] = mock_provider
 
         # Call cleanup
-        await arbiter.cleanup()
+        await judge.cleanup()
 
         # Verify provider cleanup was called
         mock_provider.cleanup.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.arbiter.OpenAIProvider")
+    @patch("app.judge.OpenAIProvider")
     async def test_async_context_manager(
         self,
         mock_provider_class,
-        mock_arbiter_config,
+        mock_judge_config,
         sample_question,
         sample_evaluation_response,
     ):
-        """Test arbiter works as async context manager."""
+        """Test judge works as async context manager."""
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
         mock_provider.generate_structured_completion_async = AsyncMock(
@@ -970,12 +966,12 @@ class TestQuestionArbiterAsync:
         mock_provider.cleanup = AsyncMock()
         mock_provider_class.return_value = mock_provider
 
-        async with QuestionArbiter(
-            arbiter_config=mock_arbiter_config,
+        async with QuestionJudge(
+            judge_config=mock_judge_config,
             openai_api_key="test-key",
-        ) as arbiter:
-            arbiter.providers["openai"] = mock_provider
-            evaluated = await arbiter.evaluate_question_async(sample_question)
+        ) as judge:
+            judge.providers["openai"] = mock_provider
+            evaluated = await judge.evaluate_question_async(sample_question)
             assert evaluated.approved is True
 
         # Verify cleanup was called when exiting context

@@ -121,8 +121,8 @@ class RunReporterSimulator:
         environment: str = None,
         triggered_by: str = None,
         prompt_version: str = None,
-        arbiter_config_version: str = None,
-        min_arbiter_score_threshold: float = None,
+        judge_config_version: str = None,
+        min_judge_score_threshold: float = None,
     ) -> dict:
         """Transform MetricsTracker summary to API payload format."""
         execution = summary.get("execution", {})
@@ -178,9 +178,9 @@ class RunReporterSimulator:
             "questions_approved": evaluation.get("approved", 0),
             "questions_rejected": evaluation.get("rejected", 0),
             "approval_rate": evaluation.get("approval_rate"),
-            "avg_arbiter_score": evaluation.get("average_score"),
-            "min_arbiter_score": evaluation.get("min_score"),
-            "max_arbiter_score": evaluation.get("max_score"),
+            "avg_judge_score": evaluation.get("average_score"),
+            "min_judge_score": evaluation.get("min_score"),
+            "max_judge_score": evaluation.get("max_score"),
             "duplicates_found": deduplication.get("duplicates_found", 0),
             "exact_duplicates": deduplication.get("exact_duplicates", 0),
             "semantic_duplicates": deduplication.get("semantic_duplicates", 0),
@@ -195,8 +195,8 @@ class RunReporterSimulator:
             "difficulty_metrics": generation.get("by_difficulty") or None,
             "error_summary": error_summary if any(error_summary.values()) else None,
             "prompt_version": prompt_version,
-            "arbiter_config_version": arbiter_config_version,
-            "min_arbiter_score_threshold": min_arbiter_score_threshold,
+            "judge_config_version": judge_config_version,
+            "min_judge_score_threshold": min_judge_score_threshold,
             "environment": environment,
             "triggered_by": triggered_by,
         }
@@ -208,8 +208,8 @@ class RunReporterSimulator:
         environment: str = None,
         triggered_by: str = None,
         prompt_version: str = None,
-        arbiter_config_version: str = None,
-        min_arbiter_score_threshold: float = None,
+        judge_config_version: str = None,
+        min_judge_score_threshold: float = None,
     ) -> dict:
         """Report a completed run to the backend API."""
         payload = self._transform_summary_to_payload(
@@ -218,8 +218,8 @@ class RunReporterSimulator:
             environment=environment,
             triggered_by=triggered_by,
             prompt_version=prompt_version,
-            arbiter_config_version=arbiter_config_version,
-            min_arbiter_score_threshold=min_arbiter_score_threshold,
+            judge_config_version=judge_config_version,
+            min_judge_score_threshold=min_judge_score_threshold,
         )
 
         response = self.test_client.post(
@@ -255,8 +255,8 @@ class TestEndToEndRunReporting:
             environment="production",
             triggered_by="scheduler",
             prompt_version="v2.1",
-            arbiter_config_version="v1.0",
-            min_arbiter_score_threshold=0.7,
+            judge_config_version="v1.0",
+            min_judge_score_threshold=0.7,
         )
 
         # Step 1: Verify the API accepted the run
@@ -282,8 +282,8 @@ class TestEndToEndRunReporting:
         assert db_run.environment == "production"
         assert db_run.triggered_by == "scheduler"
         assert db_run.prompt_version == "v2.1"
-        assert db_run.arbiter_config_version == "v1.0"
-        assert db_run.min_arbiter_score_threshold == pytest.approx(0.7)
+        assert db_run.judge_config_version == "v1.0"
+        assert db_run.min_judge_score_threshold == pytest.approx(0.7)
 
         # Verify JSONB fields
         assert db_run.provider_metrics["openai"]["generated"] == 30
