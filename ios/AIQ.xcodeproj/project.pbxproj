@@ -1319,7 +1319,6 @@
 			packageReferences = (
 				4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "swift-openapi-generator" */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
 				821AE8B33C8E4177804FD173 /* XCLocalSwiftPackageReference "AIQAPIClient" */,
 			);
@@ -1961,14 +1960,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 3.0.7;
-			};
-		};
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "swift-openapi-generator" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-openapi-generator";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.10.4;
 			};
 		};
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */ = {
