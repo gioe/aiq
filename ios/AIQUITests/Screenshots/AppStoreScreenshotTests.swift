@@ -56,6 +56,10 @@ final class AppStoreScreenshotTests: BaseUITest {
     /// Timeout for UI animations to settle before taking screenshots
     private let animationSettleTimeout: TimeInterval = 1.0
 
+    /// Flag to enable onboarding flow (don't skip it)
+    /// Set to true before relaunching to capture onboarding screenshots
+    private var enableOnboardingFlow = false
+
     // MARK: - Setup
 
     override func setUpWithError() throws {
@@ -67,6 +71,23 @@ final class AppStoreScreenshotTests: BaseUITest {
         loginHelper = LoginHelper(app: app, timeout: standardTimeout)
         navHelper = NavigationHelper(app: app, timeout: standardTimeout)
         testHelper = TestTakingHelper(app: app, timeout: standardTimeout)
+    }
+
+    /// Override to conditionally skip onboarding based on enableOnboardingFlow flag
+    override func setupLaunchConfiguration() {
+        // Enable mock mode for UI tests
+        app.launchArguments.append("-UITestMockMode")
+
+        // Set the mock scenario via environment variable
+        app.launchEnvironment["MOCK_SCENARIO"] = mockScenario
+
+        // Conditionally skip/enable onboarding
+        app.launchArguments.append("-hasCompletedOnboarding")
+        app.launchArguments.append(enableOnboardingFlow ? "0" : "1")
+
+        // Conditionally skip/enable privacy consent
+        app.launchArguments.append("-com.aiq.privacyConsentAccepted")
+        app.launchArguments.append(enableOnboardingFlow ? "0" : "1")
     }
 
     override func tearDownWithError() throws {
@@ -177,17 +198,10 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     // MARK: - Screenshot Helpers
 
-    /// Wait for UI to settle after animations
-    /// - Parameter element: Element to wait for to be hittable
-    private func waitForUIToSettle(element: XCUIElement? = nil) {
-        if let element {
-            _ = waitForHittable(element, timeout: animationSettleTimeout)
-        } else {
-            // Wait for any pending animations by checking app state
-            let predicate = NSPredicate(format: "state == %d", XCUIApplication.State.runningForeground.rawValue)
-            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
-            _ = XCTWaiter.wait(for: [expectation], timeout: animationSettleTimeout)
-        }
+    /// Wait for UI to settle after animations by waiting for element to be hittable
+    /// - Parameter element: Element to wait for to be hittable before taking screenshot
+    private func waitForUIToSettle(element: XCUIElement) {
+        _ = waitForHittable(element, timeout: animationSettleTimeout)
     }
 
     /// Start a test and navigate to the question screen
@@ -373,16 +387,19 @@ extension AppStoreScreenshotTests {
     ///
     /// This test requires a fresh install state (not logged in).
     /// Uses loggedOut mock scenario with onboarding not completed.
+    /// Note: This test is not part of testGenerateAllScreenshots because it requires
+    /// a different app configuration (onboarding enabled).
     func testCaptureOnboarding() throws {
-        // Relaunch with custom configuration for onboarding
-        relaunchForOnboardingCapture()
+        // Enable onboarding flow and relaunch with logged out scenario
+        enableOnboardingFlow = true
+        relaunchWithScenario("loggedOut")
 
         // Wait for onboarding to appear
         let onboardingContainer = app.otherElements["onboardingContainer"]
         if onboardingContainer.waitForExistence(timeout: standardTimeout) {
             // Capture first onboarding page
             XCTAssertTrue(onboardingContainer.exists, "Onboarding container should be visible")
-            captureOnboardingScreenshot(named: "Onboarding_01_Welcome")
+            captureOnboardingScreenshot(named: "Onboarding_01_Welcome", waitElement: onboardingContainer)
 
             // Advance through pages
             let nextButton = app.buttons["onboarding.nextButton"]
@@ -390,7 +407,7 @@ extension AppStoreScreenshotTests {
                 nextButton.tap()
                 // Wait for page transition
                 _ = onboardingContainer.waitForExistence(timeout: quickTimeout)
-                captureOnboardingScreenshot(named: "Onboarding_0\(pageNum)")
+                captureOnboardingScreenshot(named: "Onboarding_0\(pageNum)", waitElement: onboardingContainer)
             }
         } else {
             // Capture welcome/login screen
@@ -399,33 +416,16 @@ extension AppStoreScreenshotTests {
                 welcomeIcon.waitForExistence(timeout: standardTimeout),
                 "Welcome screen should appear"
             )
-            captureOnboardingScreenshot(named: "Welcome_Login")
+            captureOnboardingScreenshot(named: "Welcome_Login", waitElement: welcomeIcon)
         }
+
+        // Reset flag for subsequent tests
+        enableOnboardingFlow = false
     }
 
-    /// Relaunch app configured for onboarding capture
-    /// Uses loggedOut scenario with hasCompletedOnboarding = false
-    private func relaunchForOnboardingCapture() {
-        app.terminate()
-
-        // Use inherited app termination delay - this is the only approved Thread.sleep use
-        Thread.sleep(forTimeInterval: appTerminationDelay)
-
-        // Reconfigure app for onboarding
-        app = XCUIApplication()
-        app.launchArguments.append("-UITestMockMode")
-        app.launchEnvironment["MOCK_SCENARIO"] = "loggedOut"
-        // Enable onboarding flow (don't skip it)
-        app.launchArguments.append("-hasCompletedOnboarding")
-        app.launchArguments.append("0")
-        app.launchArguments.append("-com.aiq.privacyConsentAccepted")
-        app.launchArguments.append("0")
-        app.launch()
-    }
-
-    private func captureOnboardingScreenshot(named name: String) {
-        // Wait for UI to settle using proper XCTest expectation
-        waitForUIToSettle()
+    private func captureOnboardingScreenshot(named name: String, waitElement: XCUIElement) {
+        // Wait for UI to settle
+        waitForUIToSettle(element: waitElement)
 
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
