@@ -44,6 +44,14 @@ This document outlines the coding standards and best practices for the AIQ iOS a
   - [Background Task Execution Patterns](#background-task-execution-patterns)
 - [Performance](#performance)
 - [Security](#security)
+- [Third-Party Dependencies](#third-party-dependencies)
+  - [Criteria for Adding Dependencies](#criteria-for-adding-dependencies)
+  - [Swift Package Manager vs CocoaPods](#swift-package-manager-vs-cocoapods)
+  - [Version Pinning Strategy](#version-pinning-strategy)
+  - [Dependency Update Process](#dependency-update-process)
+  - [Security Audit Requirements](#security-audit-requirements)
+  - [Evaluating Dependency Health](#evaluating-dependency-health)
+  - [Documentation Requirements](#documentation-requirements)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Git and Version Control](#git-and-version-control)
 - [Recommended Enhancements](#recommended-enhancements)
@@ -4027,6 +4035,249 @@ Add these dates to team calendar with 30-day advance warnings:
 ### Sensitive Data Logging
 
 See [SENSITIVE_LOGGING_AUDIT.md](./SENSITIVE_LOGGING_AUDIT.md) for guidelines on logging sensitive data.
+
+---
+
+## Third-Party Dependencies
+
+This section establishes standards for managing third-party dependencies in the AIQ iOS application. Thoughtful dependency management reduces security risks, minimizes maintenance burden, and ensures long-term project health.
+
+### Criteria for Adding Dependencies
+
+Before adding any new dependency, evaluate it against these criteria:
+
+**Required (Must Meet All):**
+
+| Criterion | Requirement |
+|-----------|-------------|
+| Real Problem | Solves a genuine problem that cannot be reasonably solved with native APIs |
+| Active Maintenance | Has been updated within the last 6 months |
+| License Compatibility | Uses MIT, Apache 2.0, BSD, or similarly permissive license |
+| Security Track Record | No unpatched critical vulnerabilities; responsive to security reports |
+
+**Evaluation Questions:**
+
+1. **Can we solve this with native APIs?** Apple's frameworks should always be preferred. SwiftUI, Combine, URLSession, and other system frameworks are well-maintained and have no dependency overhead.
+
+2. **Is this a "nice to have" or essential?** Dependencies add maintenance burden. Only add them for essential functionality.
+
+3. **What's the migration cost if abandoned?** Consider how difficult it would be to replace if the library becomes unmaintained.
+
+4. **Does it pull in excessive transitive dependencies?** A library that adds dozens of indirect dependencies should be scrutinized heavily.
+
+**DO:**
+- Prefer Apple's native frameworks (Foundation, SwiftUI, Combine, URLSession)
+- Use established, well-maintained libraries from reputable sources (Apple, Google, etc.)
+- Review the dependency's source code for quality and security practices
+
+**DON'T:**
+- Add dependencies for trivial functionality (e.g., string manipulation utilities)
+- Use dependencies that haven't been updated in over 6 months
+- Add dependencies with GPL or other restrictive licenses without legal review
+- Use dependencies with known unpatched security vulnerabilities
+
+### Swift Package Manager vs CocoaPods
+
+**Prefer Swift Package Manager (SPM)** for all new dependencies. SPM is Apple's official dependency manager and provides:
+- Native Xcode integration
+- Better build performance
+- First-class support from Apple
+- Simpler project configuration
+
+**When to Use CocoaPods:**
+- The library is not available via SPM (increasingly rare)
+- Migrating from CocoaPods and the library requires significant effort to port
+
+**Current Project Setup:**
+
+The AIQ project uses SPM exclusively. Dependencies are declared in:
+- **Xcode project**: Main app dependencies (Firebase, TrustKit, OpenAPI runtime)
+- **Local package**: `ios/Packages/AIQAPIClient/Package.swift` for the API client
+
+```swift
+// Example from AIQAPIClient/Package.swift
+dependencies: [
+    .package(
+        url: "https://github.com/apple/swift-openapi-generator",
+        from: "1.10.4"  // Uses semantic versioning with "from" constraint
+    ),
+    .package(
+        url: "https://github.com/apple/swift-openapi-runtime",
+        from: "1.9.0"
+    )
+]
+```
+
+**Migration from CocoaPods:**
+If migrating an existing CocoaPods dependency to SPM:
+1. Verify SPM support in the library's repository
+2. Add the SPM package reference in Xcode
+3. Remove the pod from Podfile
+4. Run `pod install` to update the Pods project
+5. Test thoroughly, as some libraries behave differently between package managers
+
+### Version Pinning Strategy
+
+Use semantic versioning constraints that balance stability with receiving security updates:
+
+| Constraint Type | Syntax | Use When |
+|----------------|--------|----------|
+| **From version** | `from: "1.10.4"` | Default choice—allows minor and patch updates |
+| **Up to next major** | `.upToNextMajor(from: "1.0.0")` | Same as `from:`, explicit about major version lock |
+| **Up to next minor** | `.upToNextMinor(from: "1.10.0")` | Critical dependencies where minor changes have caused issues |
+| **Exact version** | `.exact("1.10.4")` | Only for troubleshooting or temporary pins |
+
+**Standards:**
+
+```swift
+// PREFERRED: Allow compatible updates (default)
+.package(url: "...", from: "1.10.4")
+
+// ACCEPTABLE: When you need stricter control
+.package(url: "...", .upToNextMinor(from: "1.10.0"))
+
+// AVOID: Exact pins block security patches
+.package(url: "...", .exact("1.10.4"))  // Only use temporarily
+
+// NEVER: Using branch names in production
+.package(url: "...", branch: "main")  // Unstable, unpredictable
+```
+
+**Lockfile Management:**
+- SPM generates `Package.resolved` which locks exact versions
+- This file **must** be committed to version control
+- Use `swift package update` deliberately, not automatically
+
+### Dependency Update Process
+
+Dependencies should be updated regularly to receive security patches and bug fixes.
+
+**Update Cadence:**
+
+| Update Type | Frequency | Process |
+|-------------|-----------|---------|
+| Security patches | Immediately | Hotfix branch, expedited review |
+| Patch versions (x.x.Y) | Monthly | Batch with other patches |
+| Minor versions (x.Y.0) | Quarterly | Individual review, test thoroughly |
+| Major versions (X.0.0) | As needed | Dedicated PR, full regression testing |
+
+**Update Procedure:**
+
+1. **Check for updates:**
+   ```bash
+   # In Xcode: File > Packages > Update to Latest Package Versions
+   # Or via command line for local packages:
+   cd ios/Packages/AIQAPIClient
+   swift package update
+   ```
+
+2. **Review changelog:** Read release notes for breaking changes, deprecations, and security fixes
+
+3. **Run full test suite:**
+   ```bash
+   # Build and test
+   xcodebuild clean build test \
+     -project ios/AIQ.xcodeproj \
+     -scheme AIQ \
+     -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+   ```
+
+4. **Create dedicated PR:** Don't bundle dependency updates with feature work
+   - Title: `[Deps] Update <package-name> from X.Y.Z to A.B.C`
+   - Include changelog summary and any migration steps
+
+5. **Verify in staging:** For critical dependencies (Firebase, networking), verify in TestFlight build
+
+### Security Audit Requirements
+
+**For New Dependencies:**
+
+Before adding any new dependency, perform a security review:
+
+1. **Check for known vulnerabilities:**
+   - Search GitHub Security Advisories for the package
+   - Check [Snyk Vulnerability Database](https://snyk.io/vuln)
+   - Review the library's security policy (SECURITY.md)
+
+2. **Assess security practices:**
+   - Does the maintainer respond to security reports?
+   - Is there a responsible disclosure process?
+   - Are releases signed or verified?
+
+3. **Review code quality:**
+   - Are there obvious security anti-patterns?
+   - Does it follow secure coding practices?
+   - How does it handle sensitive data?
+
+**For Existing Dependencies:**
+
+- **Quarterly audit:** Review all dependencies for newly disclosed vulnerabilities
+- **Automated scanning:** GitHub Dependabot alerts are enabled—address immediately
+- **Supply chain attacks:** Be alert to maintainer changes or suspicious releases
+
+**Incident Response:**
+
+If a critical vulnerability is discovered in a dependency:
+1. Assess impact on AIQ immediately
+2. If exploitable, create hotfix branch
+3. Update or patch the dependency
+4. If no update available, consider:
+   - Forking and patching
+   - Removing the dependency
+   - Implementing mitigating controls
+5. Deploy fix through expedited review process
+
+### Evaluating Dependency Health
+
+Use these indicators to evaluate whether a dependency is healthy:
+
+| Indicator | Healthy | Warning Signs |
+|-----------|---------|---------------|
+| **Last commit** | Within 3 months | Over 6 months |
+| **Open issues** | Reasonable backlog, active triage | Hundreds ignored, no maintainer response |
+| **Release frequency** | Regular releases | No releases in 12+ months |
+| **Bus factor** | Multiple active contributors | Single maintainer, no activity |
+| **Documentation** | Clear README, API docs | Sparse or outdated docs |
+| **Test coverage** | Comprehensive tests, CI passing | No tests or broken CI |
+| **Community** | Active discussions, responsive maintainers | Unanswered questions, abandoned PRs |
+
+**Current Dependencies Health Check:**
+
+| Dependency | Purpose | Health Status |
+|------------|---------|---------------|
+| Firebase iOS SDK | Analytics, crash reporting, auth | ✅ Actively maintained by Google |
+| TrustKit | Certificate pinning | ✅ Active, security-focused maintainers |
+| swift-openapi-runtime | API client generation | ✅ Maintained by Apple |
+| swift-openapi-generator | Build-time code generation | ✅ Maintained by Apple |
+| swift-openapi-urlsession | URLSession transport | ✅ Maintained by Apple |
+| swift-http-types | HTTP type definitions | ✅ Maintained by Apple |
+
+### Documentation Requirements
+
+Every dependency must be documented. Maintain awareness of what's in the dependency tree.
+
+**Required Documentation:**
+
+For each direct dependency, document in this file or a dedicated `DEPENDENCIES.md`:
+
+1. **Why it exists:** What problem does it solve?
+2. **Alternatives considered:** Why was this chosen over alternatives?
+3. **Usage scope:** Where in the codebase is it used?
+4. **Migration path:** How would we remove it if needed?
+
+**Current Dependencies:**
+
+| Package | Purpose | Scope | Notes |
+|---------|---------|-------|-------|
+| Firebase iOS SDK | Analytics, Crashlytics, Remote Config | App-wide | Core infrastructure; would require significant effort to replace |
+| TrustKit | Certificate pinning for API security | Networking layer | Could implement manually if needed, but TrustKit handles edge cases well |
+| swift-openapi-* | Type-safe API client from OpenAPI spec | API layer | Could switch to manual implementation, but auto-generation reduces bugs |
+
+**When Adding a New Dependency:**
+
+1. Update this section with the dependency's entry
+2. Include the evaluation checklist results in the PR description
+3. Document any special configuration or initialization requirements
 
 ---
 
