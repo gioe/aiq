@@ -150,6 +150,44 @@ The app uses TrustKit for SSL certificate pinning to prevent man-in-the-middle (
 4. Test API calls against production backend
 5. Return to DEBUG configuration for normal development
 
+## Push Notifications (APNs)
+
+The app uses Apple Push Notification service (APNs) for test reminders.
+
+### APNs Environment Configuration
+
+**Entitlements file:** `AIQ/AIQ.entitlements`
+
+The `aps-environment` entitlement controls which APNs environment the app connects to:
+
+| Environment | Use Case | Where to Configure |
+|-------------|----------|-------------------|
+| `production` | App Store, TestFlight builds | Default in `AIQ.entitlements` |
+| `development` | Local development with push notifications | Change manually for testing |
+
+**Current setting:** `production` (required for App Store builds)
+
+### Switching Environments for Local Development
+
+If you need to test push notifications locally against the APNs sandbox:
+
+1. Open `AIQ/AIQ.entitlements`
+2. Change `aps-environment` from `production` to `development`
+3. Build and run on a physical device (push notifications don't work on simulator)
+4. **Important:** Revert to `production` before committing
+
+```xml
+<!-- For local push notification testing -->
+<key>aps-environment</key>
+<string>development</string>
+
+<!-- For App Store / TestFlight (default) -->
+<key>aps-environment</key>
+<string>production</string>
+```
+
+**Note:** The backend must send notifications to the correct APNs environment. Production builds require the production APNs endpoint; development builds require the sandbox endpoint. See backend documentation for server-side APNs configuration.
+
 ## Universal Links
 
 The app supports Universal Links for seamless deep linking from web URLs to app screens.
