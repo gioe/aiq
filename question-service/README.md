@@ -141,6 +141,9 @@ Options:
   --dry-run              Generate without database insertion
   --skip-deduplication   Skip duplicate checking
   --min-score FLOAT      Override minimum arbiter score threshold
+  --async                Use parallel async generation for faster throughput
+  --max-concurrent N     Max concurrent LLM API calls (default: 10, requires --async)
+  --timeout SECONDS      Timeout for individual API calls (default: 60, requires --async)
   --verbose, -v          Enable DEBUG logging
   --log-file PATH        Custom log file path
   --no-console           Disable console logging
@@ -161,6 +164,12 @@ python run_generation.py --dry-run --count 10 --verbose
 
 # Lower approval threshold
 python run_generation.py --min-score 0.6
+
+# Async parallel generation (4-10x faster for large batches)
+python run_generation.py --count 100 --async
+
+# Async with custom concurrency limits
+python run_generation.py --count 200 --async --max-concurrent 15 --timeout 90
 ```
 
 ### Exit Codes

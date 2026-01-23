@@ -52,7 +52,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate a text completion using xAI's Grok model.
@@ -97,7 +97,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Generate a structured response using xAI's Grok model.
@@ -185,7 +185,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate a text completion using xAI's Grok model asynchronously.
@@ -230,7 +230,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Generate a structured response using xAI's Grok model asynchronously.
@@ -303,7 +303,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> CompletionResult:
         """
         Generate completion with actual token usage from xAI API.
@@ -359,7 +359,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> CompletionResult:
         """
         Generate structured completion with actual token usage from xAI API.
@@ -441,7 +441,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> CompletionResult:
         """
         Generate completion asynchronously with actual token usage from xAI API.
@@ -495,7 +495,7 @@ class XAIProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         model_override: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> CompletionResult:
         """
         Generate structured completion asynchronously with actual token usage from xAI API.

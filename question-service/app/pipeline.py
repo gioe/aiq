@@ -443,6 +443,22 @@ class QuestionGenerationPipeline:
             },
         }
 
+    async def cleanup(self) -> None:
+        """Clean up all pipeline resources.
+
+        This should be called when the pipeline is no longer needed to ensure
+        all async clients are properly closed and resources are released.
+        """
+        await self.generator.cleanup()
+
+    async def __aenter__(self) -> "QuestionGenerationPipeline":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit - ensures cleanup is called."""
+        await self.cleanup()
+
 
 def create_pipeline(
     openai_key: Optional[str] = None,

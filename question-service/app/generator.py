@@ -30,6 +30,10 @@ from .providers.xai_provider import XAIProvider
 
 logger = logging.getLogger(__name__)
 
+# Default rate limiting settings
+DEFAULT_MAX_CONCURRENT_REQUESTS = 10  # Max concurrent LLM API calls per provider
+DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async LLM calls
+
 
 class QuestionGenerator:
     """Orchestrates multiple LLM providers to generate IQ test questions.
@@ -49,6 +53,8 @@ class QuestionGenerator:
         google_model: str = "gemini-pro",
         xai_model: str = "grok-4",
         circuit_breaker_registry: Optional[CircuitBreakerRegistry] = None,
+        max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS,
+        async_timeout_seconds: float = DEFAULT_ASYNC_TIMEOUT_SECONDS,
     ):
         """Initialize the question generator with LLM provider credentials.
 
@@ -62,11 +68,15 @@ class QuestionGenerator:
             google_model: Google model to use
             xai_model: xAI model to use
             circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
+            max_concurrent_requests: Maximum concurrent LLM API calls (default: 10)
+            async_timeout_seconds: Timeout for individual async calls in seconds (default: 60)
         """
         self.providers: Dict[str, BaseLLMProvider] = {}
         self._circuit_breaker_registry = (
             circuit_breaker_registry or get_circuit_breaker_registry()
         )
+        self._rate_limiter = asyncio.Semaphore(max_concurrent_requests)
+        self._async_timeout = async_timeout_seconds
 
         # Initialize available providers
         if openai_api_key:
@@ -407,8 +417,12 @@ class QuestionGenerator:
         provider_name: Optional[str] = None,
         temperature: float = 0.8,
         max_tokens: int = 1500,
+        timeout: Optional[float] = None,
     ) -> GeneratedQuestion:
         """Generate a single question asynchronously using a specific or random provider.
+
+        This method uses rate limiting to avoid overwhelming provider APIs and
+        includes timeout protection to prevent indefinite hangs.
 
         Args:
             question_type: Type of question to generate
@@ -416,12 +430,14 @@ class QuestionGenerator:
             provider_name: Specific provider to use (None = round-robin)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
+            timeout: Timeout in seconds (uses instance default if not specified)
 
         Returns:
             Generated question
 
         Raises:
             ValueError: If provider_name is invalid or no providers available
+            asyncio.TimeoutError: If the API call times out
             Exception: If generation fails
         """
         # Select provider
@@ -434,7 +450,12 @@ class QuestionGenerator:
             provider = self.providers[provider_name]
         else:
             # Use first available provider (could be enhanced with round-robin)
-            provider_name = next(iter(self.providers.keys()))
+            provider_name = self._get_available_provider()
+            if provider_name is None:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
             provider = self.providers[provider_name]
 
         logger.info(
@@ -445,14 +466,21 @@ class QuestionGenerator:
         # Build prompt
         prompt = build_generation_prompt(question_type, difficulty, count=1)
 
-        # Generate question asynchronously
+        # Use provided timeout or instance default
+        effective_timeout = timeout if timeout is not None else self._async_timeout
+
+        # Generate question asynchronously with rate limiting and timeout
         try:
-            response = await provider.generate_structured_completion_async(
-                prompt=prompt,
-                response_format={},  # Provider will handle JSON mode
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+            async with self._rate_limiter:
+                response = await asyncio.wait_for(
+                    provider.generate_structured_completion_async(
+                        prompt=prompt,
+                        response_format={},  # Provider will handle JSON mode
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    ),
+                    timeout=effective_timeout,
+                )
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -468,6 +496,12 @@ class QuestionGenerator:
             )
             return question
 
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Timeout generating question with {provider_name} "
+                f"(async) after {effective_timeout}s"
+            )
+            raise
         except Exception as e:
             logger.error(
                 f"Failed to generate question with {provider_name} (async): {str(e)}"
@@ -512,12 +546,22 @@ class QuestionGenerator:
         provider_assignments = []
 
         if distribute_across_providers and len(self.providers) > 1:
-            providers = list(self.providers.keys())
+            available_providers = self._get_available_providers()
+            if not available_providers:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
             for i in range(count):
-                provider_name = providers[i % len(providers)]
+                provider_name = available_providers[i % len(available_providers)]
                 provider_assignments.append(provider_name)
         else:
-            provider_name = next(iter(self.providers.keys()))
+            provider_name = self._get_available_provider()
+            if provider_name is None:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
             provider_assignments = [provider_name] * count
 
         # Create async tasks for all questions
@@ -758,3 +802,27 @@ class QuestionGenerator:
         else:
             self._circuit_breaker_registry.reset_all()
             logger.info("Reset all circuit breakers")
+
+    async def cleanup(self) -> None:
+        """Clean up all provider resources.
+
+        This should be called when the generator is no longer needed to ensure
+        all async clients are properly closed and resources are released.
+        """
+        logger.info("Cleaning up question generator resources...")
+        cleanup_tasks = []
+        for name, provider in self.providers.items():
+            logger.debug(f"Cleaning up {name} provider")
+            cleanup_tasks.append(provider.cleanup())
+
+        if cleanup_tasks:
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+        logger.info("Question generator cleanup complete")
+
+    async def __aenter__(self) -> "QuestionGenerator":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit - ensures cleanup is called."""
+        await self.cleanup()

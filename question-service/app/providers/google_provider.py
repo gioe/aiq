@@ -591,3 +591,14 @@ class GoogleProvider(BaseLLMProvider):
             "gemini-1.5-flash",
             "gemini-1.0-pro",
         ]
+
+    async def cleanup(self) -> None:
+        """Clean up async resources.
+
+        Google's generativeai SDK manages connections internally,
+        so no explicit cleanup is required for the client itself.
+        This method is provided for API consistency.
+        """
+        # Google's SDK uses a module-level configuration pattern
+        # and doesn't expose explicit async client cleanup
+        pass
