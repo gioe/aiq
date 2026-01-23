@@ -573,6 +573,20 @@ Code review is a critical quality gate ensuring correctness, maintainability, an
 - Self-review before requesting review
 - Respond promptly to reviewer questions
 
+### Review Scope Guidelines
+
+**In scope for this PR:**
+- Changes introduced by this PR
+- Direct impacts on related code
+- Test coverage for new functionality
+
+**Out of scope (create separate issues):**
+- Pre-existing bugs in unchanged code
+- Broader architectural refactoring opportunities
+- Unrelated technical debt discovered during review
+
+When you discover issues outside the PR scope, create a new task rather than expanding the current review.
+
 ### What Reviewers Should Look For
 
 #### High Priority (Must fix before merge)
@@ -718,7 +732,7 @@ Before requesting review, verify:
 - [ ] Database queries use parameterization
 - [ ] Authentication/authorization is correct
 
-**Database:**
+**Database:** (see [Database Query Performance Checklist](#database-query-performance-checklist))
 - [ ] Queries have LIMIT clauses where appropriate
 - [ ] Indexes exist for filter/sort columns
 - [ ] No N+1 query patterns
