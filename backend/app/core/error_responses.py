@@ -56,6 +56,7 @@ class ErrorMessages:
     INVALID_TOKEN_PAYLOAD = "Invalid token payload."
     USER_NOT_FOUND_AUTH = "User not found."
     TOKEN_EXPIRED = "Token has expired."
+    TOKEN_REVOKED = "Token has been revoked."
 
     # ==========================================================================
     # Authorization Errors (403)
