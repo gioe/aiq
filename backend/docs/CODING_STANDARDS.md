@@ -541,3 +541,239 @@ If a commit fails due to hooks:
 - Create a branch for your changes
 - Review your diff before committing
 - Keep commits atomic and focused
+
+## Code Review
+
+Code review is a critical quality gate ensuring correctness, maintainability, and knowledge sharing. Every change to `main` must go through review.
+
+### Reviewers and Approval
+
+| Requirement | Policy |
+|-------------|--------|
+| Minimum reviewers | 1 approval required |
+| Who can approve | Any team member or automated reviewer (Claude) |
+| Self-approval | Not permitted on `main` |
+
+**Reviewer selection:**
+- Choose reviewers familiar with the area being changed
+- For cross-domain changes (iOS + backend), request reviewers from each domain
+- For security-sensitive code, request review from someone with security expertise
+
+### Review Turnaround Expectations
+
+| Priority | Expected Response |
+|----------|------------------|
+| Normal PRs | Within 1 business day |
+| Urgent/blocking PRs | Same day (coordinate via chat) |
+| Large PRs (500+ lines) | May require additional time for thorough review |
+
+**Best practices for faster reviews:**
+- Keep PRs small and focused (200-400 lines ideal)
+- Write clear PR descriptions explaining the "why"
+- Self-review before requesting review
+- Respond promptly to reviewer questions
+
+### What Reviewers Should Look For
+
+#### High Priority (Must fix before merge)
+
+These issues are blocking and must be resolved:
+
+1. **Security vulnerabilities**
+   - SQL injection, XSS, command injection
+   - Exposed secrets or credentials
+   - Authentication/authorization bypasses
+   - Insecure data handling
+
+2. **Correctness issues**
+   - Logic errors and bugs
+   - Null pointer exceptions or unhandled edge cases
+   - Race conditions
+   - Breaking API changes
+
+3. **Test failures or missing tests**
+   - New functionality without tests
+   - Failing existing tests
+   - Tests that don't verify expected behavior
+
+4. **Database query issues** (see [Database Query Performance Checklist](#database-query-performance-checklist))
+   - Unbounded queries (missing LIMIT)
+   - N+1 query patterns
+   - Missing error handling
+
+#### Medium Priority (Should fix)
+
+These issues should be addressed but may be deferred with justification:
+
+1. **Type safety**
+   - `Dict[str, Any]` where `TypedDict` is appropriate
+   - String literals where enums exist
+   - Missing type hints on public functions
+
+2. **Code quality**
+   - Magic numbers without named constants
+   - Duplicated code that should be extracted
+   - Overly complex functions that should be split
+
+3. **Performance**
+   - Expensive operations without caching
+   - Inefficient algorithms
+   - Unnecessary database round trips
+
+#### Low Priority (Nice to have)
+
+These are suggestions that improve code quality but are not blocking:
+
+1. **Style and naming**
+   - Variable naming improvements
+   - Comment clarity
+   - Code organization
+
+2. **Documentation**
+   - Missing docstrings
+   - Outdated comments
+   - README updates
+
+### Approval Criteria
+
+A PR is ready to merge when:
+- [ ] All high-priority issues are resolved
+- [ ] Tests pass (CI green)
+- [ ] At least one approval from a reviewer
+- [ ] Medium-priority items are addressed or tracked as follow-up tasks
+- [ ] No unresolved reviewer questions
+
+### Blocking vs Non-Blocking Feedback
+
+**Blocking (must address before merge):**
+- Prefix with "**[Blocking]**" or mark as "Request Changes"
+- Security issues
+- Bugs or incorrect behavior
+- Missing error handling
+- Test coverage gaps
+- API contract violations
+
+**Non-blocking (can defer to follow-up):**
+- Prefix with "**[Non-blocking]**" or "**[Nit]**"
+- Style suggestions
+- Refactoring opportunities
+- Documentation improvements
+- Minor optimizations
+
+Example review comment:
+```
+**[Blocking]** This query is unbounded and could return millions of rows.
+Add `.limit(page_size or 100)` per our database query guidelines.
+
+**[Non-blocking]** Consider extracting this threshold (50) to a named constant
+for clarity, but not blocking for this PR.
+```
+
+### Handling Review Feedback
+
+#### As the PR author:
+
+1. **For each comment:**
+   - Address blocking items immediately with code changes
+   - Respond to questions with explanations
+   - For non-blocking items: fix now or create follow-up task
+
+2. **After making changes:**
+   - Push new commits (don't amend) for visibility
+   - Reply to comments indicating the fix
+   - Re-request review when all blocking items are addressed
+
+3. **For disagreements:**
+   - Explain your reasoning with context
+   - Be open to alternative approaches
+   - Escalate to team discussion if needed
+   - Document decisions for future reference
+
+#### As the reviewer:
+
+1. **Respond promptly** to author questions and updates
+2. **Acknowledge addressed feedback** with approval or further comments
+3. **Don't block on non-blocking items** - approve once blocking issues are resolved
+4. **Provide context** for why something is an issue, not just what to change
+
+### Self-Review Checklist
+
+Before requesting review, verify:
+
+**Correctness:**
+- [ ] Code compiles without errors
+- [ ] All tests pass locally
+- [ ] Manual testing completed for new features
+- [ ] Edge cases considered and handled
+
+**Code quality:**
+- [ ] No hardcoded values that should be constants
+- [ ] No duplicate code that should be extracted
+- [ ] Functions are focused and reasonably sized
+- [ ] Error handling is complete
+
+**Security:**
+- [ ] No secrets or credentials in code
+- [ ] User input is validated
+- [ ] Database queries use parameterization
+- [ ] Authentication/authorization is correct
+
+**Database:**
+- [ ] Queries have LIMIT clauses where appropriate
+- [ ] Indexes exist for filter/sort columns
+- [ ] No N+1 query patterns
+
+**Tests:**
+- [ ] New code has test coverage
+- [ ] Tests verify behavior, not just structure
+- [ ] Float comparisons use `pytest.approx()`
+- [ ] Tests are deterministic (no flakiness)
+
+**Documentation:**
+- [ ] PR description explains the change
+- [ ] Complex logic has explanatory comments
+- [ ] API changes are documented
+
+### Common Code Review Patterns
+
+#### Patterns to Flag
+
+| Pattern | Issue | Fix |
+|---------|-------|-----|
+| Magic numbers | `if count >= 50:` | Extract to named constant |
+| Unbounded query | `.all()` without `.limit()` | Add pagination |
+| N+1 queries | Query in a loop | Use `joinedload()` |
+| Float equality in tests | `assert x == 0.5` | Use `pytest.approx()` |
+| Short sleep in tests | `time.sleep(0.1)` | Use 0.5s+ or mock time |
+| String literals for status | `return "valid"` | Use enum |
+| `Dict[str, Any]` return | Untyped dictionary | Use `TypedDict` |
+| Weak test assertions | Only check status code | Verify actual values |
+| Missing error handling | No try-except on DB ops | Add error handling |
+| Unused logger import | `logger = ...` with no log calls | Add logging or remove |
+
+#### Anti-Patterns to Avoid
+
+**As a reviewer:**
+- Nitpicking style when substance matters more
+- Blocking on personal preference, not standards
+- Drive-by comments without context
+- Requesting complete rewrites instead of incremental fixes
+
+**As an author:**
+- Submitting huge PRs that are hard to review
+- Not running tests before requesting review
+- Ignoring or dismissing reviewer feedback
+- Making changes without responding to comments
+
+### Automated Code Review
+
+Claude (automated reviewer) performs initial review on all PRs. The automated review:
+- Checks for common patterns documented above
+- Provides immediate feedback without waiting for human reviewers
+- Categorizes issues by priority (High/Medium/Low)
+
+**Working with automated reviews:**
+1. Address high-priority issues before human review
+2. Medium- and low-priority issues can be discussed or deferred
+3. Automated approval is valid as the required approval for merge
+4. Human review is still valuable for context and knowledge sharing
