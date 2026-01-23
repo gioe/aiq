@@ -372,55 +372,60 @@ extension AppStoreScreenshotTests {
     /// Capture onboarding/welcome screens
     ///
     /// This test requires a fresh install state (not logged in).
+    /// Uses loggedOut mock scenario with onboarding not completed.
     func testCaptureOnboarding() throws {
-        // Relaunch in logged out state to see welcome screen
-        relaunchAsLoggedOut()
-
-        // Need to also skip onboarding skip to see the actual onboarding
-        app.terminate()
-        // appTerminationDelay is the only valid use of Thread.sleep per BaseUITest docs
-        Thread.sleep(forTimeInterval: appTerminationDelay)
-
-        // Configure for onboarding capture
-        let onboardingApp = XCUIApplication()
-        onboardingApp.launchArguments.append("-UITestMockMode")
-        onboardingApp.launchEnvironment["MOCK_SCENARIO"] = "loggedOut"
-        // Don't skip onboarding for this test
-        onboardingApp.launchArguments.append("-hasCompletedOnboarding")
-        onboardingApp.launchArguments.append("0")
-        onboardingApp.launch()
+        // Relaunch with custom configuration for onboarding
+        relaunchForOnboardingCapture()
 
         // Wait for onboarding to appear
-        let onboardingContainer = onboardingApp.otherElements["onboardingContainer"]
+        let onboardingContainer = app.otherElements["onboardingContainer"]
         if onboardingContainer.waitForExistence(timeout: standardTimeout) {
             // Capture first onboarding page
             XCTAssertTrue(onboardingContainer.exists, "Onboarding container should be visible")
-            captureOnboardingScreenshot(app: onboardingApp, named: "Onboarding_01_Welcome")
+            captureOnboardingScreenshot(named: "Onboarding_01_Welcome")
 
             // Advance through pages
-            let nextButton = onboardingApp.buttons["onboarding.nextButton"]
+            let nextButton = app.buttons["onboarding.nextButton"]
             for pageNum in 2 ... 4 where nextButton.waitForExistence(timeout: quickTimeout) {
                 nextButton.tap()
                 // Wait for page transition
                 _ = onboardingContainer.waitForExistence(timeout: quickTimeout)
-                captureOnboardingScreenshot(app: onboardingApp, named: "Onboarding_0\(pageNum)")
+                captureOnboardingScreenshot(named: "Onboarding_0\(pageNum)")
             }
         } else {
             // Capture welcome/login screen
-            let welcomeIcon = onboardingApp.images["welcomeView.brainIcon"]
+            let welcomeIcon = app.images["welcomeView.brainIcon"]
             XCTAssertTrue(
                 welcomeIcon.waitForExistence(timeout: standardTimeout),
                 "Welcome screen should appear"
             )
-            captureOnboardingScreenshot(app: onboardingApp, named: "Welcome_Login")
+            captureOnboardingScreenshot(named: "Welcome_Login")
         }
     }
 
-    private func captureOnboardingScreenshot(app: XCUIApplication, named name: String) {
-        // Wait for UI to settle
-        let predicate = NSPredicate(format: "state == %d", XCUIApplication.State.runningForeground.rawValue)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
-        _ = XCTWaiter.wait(for: [expectation], timeout: animationSettleTimeout)
+    /// Relaunch app configured for onboarding capture
+    /// Uses loggedOut scenario with hasCompletedOnboarding = false
+    private func relaunchForOnboardingCapture() {
+        app.terminate()
+
+        // Use inherited app termination delay - this is the only approved Thread.sleep use
+        Thread.sleep(forTimeInterval: appTerminationDelay)
+
+        // Reconfigure app for onboarding
+        app = XCUIApplication()
+        app.launchArguments.append("-UITestMockMode")
+        app.launchEnvironment["MOCK_SCENARIO"] = "loggedOut"
+        // Enable onboarding flow (don't skip it)
+        app.launchArguments.append("-hasCompletedOnboarding")
+        app.launchArguments.append("0")
+        app.launchArguments.append("-com.aiq.privacyConsentAccepted")
+        app.launchArguments.append("0")
+        app.launch()
+    }
+
+    private func captureOnboardingScreenshot(named name: String) {
+        // Wait for UI to settle using proper XCTest expectation
+        waitForUIToSettle()
 
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
