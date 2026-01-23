@@ -447,6 +447,183 @@ Keep acronyms lowercase except when starting a name:
 - Good: `apiClient`, `iqScore`, `URLSession`
 - Bad: `APIClient`, `IQScore`, `urlSession`
 
+### Delegate Protocols
+
+Name delegate protocols to describe the delegating type and the role:
+
+```swift
+// Good - describes the source and role
+protocol DashboardViewModelDelegate: AnyObject {
+    func dashboardViewModel(_ viewModel: DashboardViewModel, didUpdateScore score: Int)
+    func dashboardViewModelDidFinishLoading(_ viewModel: DashboardViewModel)
+}
+
+protocol TestSessionDataSource: AnyObject {
+    func numberOfQuestions(in session: TestSession) -> Int
+    func testSession(_ session: TestSession, questionAt index: Int) -> Question
+}
+
+// Bad - vague or missing context
+protocol DashboardDelegate { }  // Which dashboard?
+protocol DataDelegate { }       // Too generic
+```
+
+**Delegate method naming conventions:**
+- Include the delegating object as the first parameter
+- Use past tense for notifications (`didUpdate`, `didFinish`)
+- Use future tense for permission requests (`shouldAllow`, `willBegin`)
+
+### Factory Methods
+
+Use the `make` prefix for factory methods that create and return new instances:
+
+```swift
+// Good - clear factory pattern
+struct ViewModelFactory {
+    func makeDashboardViewModel() -> DashboardViewModel
+    func makeTestSessionViewModel(for test: Test) -> TestSessionViewModel
+}
+
+extension UIView {
+    static func makeLoadingIndicator() -> UIActivityIndicatorView
+}
+
+// Bad - unclear intent
+func getDashboardViewModel() -> DashboardViewModel  // "get" implies retrieval, not creation
+func createViewModel() -> DashboardViewModel        // less idiomatic in Swift
+func dashboardViewModel() -> DashboardViewModel     // ambiguous
+```
+
+**When to use `make`:**
+- Static factory methods returning new instances
+- Builder pattern methods
+- Dependency injection container methods
+
+### Fluent API Methods
+
+For chainable APIs, name methods to read naturally when chained:
+
+```swift
+// Good - reads like a sentence
+let request = URLRequest(url: endpoint)
+    .setting(\.httpMethod, to: "POST")
+    .addingHeader("Content-Type", value: "application/json")
+    .settingTimeout(30)
+
+// Good - builder pattern
+let alert = AlertBuilder()
+    .withTitle("Error")
+    .withMessage("Something went wrong")
+    .withPrimaryAction("OK")
+    .build()
+
+// Bad - doesn't read naturally
+let request = URLRequest(url: endpoint)
+    .setHttpMethod("POST")      // imperative, not descriptive
+    .headerAdd("Content-Type")  // awkward word order
+```
+
+**Guidelines for fluent APIs:**
+- Use present participles (`adding`, `setting`, `with`) for methods that return modified copies
+- Return `Self` to enable chaining
+- Keep method names short but descriptive
+
+### Mutating and Non-Mutating Method Pairs
+
+Follow Swift standard library conventions for mutating/non-mutating pairs:
+
+```swift
+// Standard pattern: verb (mutating) / past participle (non-mutating)
+extension Array {
+    mutating func sort()      // Mutates in place
+    func sorted() -> [Element] // Returns new sorted array
+
+    mutating func reverse()
+    func reversed() -> [Element]
+
+    mutating func shuffle()
+    func shuffled() -> [Element]
+}
+
+// Applied to custom types
+extension TestResults {
+    mutating func filter(by category: Category)
+    func filtered(by category: Category) -> TestResults
+
+    mutating func normalize()
+    func normalized() -> TestResults
+}
+```
+
+**Naming rules:**
+- Mutating: Use imperative verb (`sort`, `reverse`, `append`)
+- Non-mutating: Use past participle (`sorted`, `reversed`, `appended`) or noun form
+
+### Closure and Callback Parameters
+
+Name closure parameters to describe what they do, not their type:
+
+```swift
+// Good - describes the closure's purpose
+func fetchData(completion: @escaping (Result<Data, Error>) -> Void)
+func animate(duration: TimeInterval, animations: () -> Void, completion: ((Bool) -> Void)?)
+func process(items: [Item], transform: (Item) -> ProcessedItem)
+
+// Good - specific names for multiple closures
+func performRequest(
+    onSuccess: (Response) -> Void,
+    onFailure: (Error) -> Void,
+    onProgress: (Double) -> Void
+)
+
+// Bad - generic or type-focused names
+func fetchData(handler: @escaping (Result<Data, Error>) -> Void)  // "handler" is vague
+func fetchData(closure: @escaping (Result<Data, Error>) -> Void)  // describes type, not purpose
+func fetchData(callback: @escaping (Result<Data, Error>) -> Void) // acceptable but less specific
+```
+
+**Common closure parameter names:**
+- `completion` - for async operations that finish
+- `transform` - for mapping operations
+- `predicate` - for filtering conditions
+- `configure` - for configuration closures
+- `onSuccess`/`onFailure` - for split result handling
+
+### Generic Type Parameters
+
+Use descriptive names for generic type parameters beyond single letters:
+
+```swift
+// Good - single letter for simple, obvious generics
+func swap<T>(_ a: inout T, _ b: inout T)
+struct Box<T> { let value: T }
+
+// Good - descriptive names for complex generics
+struct Cache<Key: Hashable, Value> {
+    func store(_ value: Value, forKey key: Key)
+}
+
+protocol DataStore<Model, Identifier> {
+    func fetch(by id: Identifier) -> Model?
+}
+
+func transform<Input, Output>(_ input: Input, using transformer: (Input) -> Output) -> Output
+
+// Standard conventions
+// T, U, V - arbitrary types (use sparingly)
+// Element - collection element type
+// Key, Value - dictionary-like types
+// Model - data model types
+// Identifier/ID - unique identifier types
+// Source, Destination - transformation types
+// Request, Response - API types
+```
+
+**Guidelines:**
+- Use `T` only when the type's role is obvious from context
+- Use descriptive names when there are 2+ type parameters
+- Follow standard library conventions (`Element`, `Key`, `Value`)
+
 ---
 
 ## SwiftUI Best Practices
