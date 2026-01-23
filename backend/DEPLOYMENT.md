@@ -52,7 +52,9 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 
 # API Settings
 API_V1_PREFIX=/v1
-CORS_ORIGINS=*
+# IMPORTANT: In production, set to specific domains (not *)
+# Example: CORS_ORIGINS=https://aiq.app,https://app.aiq.app
+CORS_ORIGINS=https://your-domain.com
 
 # Rate Limiting (REQUIRED for production security)
 RATE_LIMIT_ENABLED=True
@@ -351,14 +353,16 @@ git push origin main
 
 ### ⚠️ CORS Errors from iOS App
 
-**Fix**: Update `CORS_ORIGINS` to include your iOS app's domains:
+**Fix**: Update `CORS_ORIGINS` to include your app's domains:
 ```bash
-# For development (allow all)
-CORS_ORIGINS=*
+# For local development only
+CORS_ORIGINS=http://localhost:3000,http://localhost:8080
 
-# For production (specific domains)
-CORS_ORIGINS=https://your-frontend.com,https://app.aiq.com
+# For production (specific domains - NEVER use * in production)
+CORS_ORIGINS=https://aiq.app,https://app.aiq.app
 ```
+
+**Note**: The backend restricts CORS to specific HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`) and headers (`Authorization`, `Content-Type`) for security.
 
 ## Monitoring & Logs
 
