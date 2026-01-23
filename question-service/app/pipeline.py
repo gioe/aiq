@@ -4,6 +4,7 @@ This module provides the main pipeline for generating questions,
 coordinating the generator, arbiter, and other components.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -92,6 +93,48 @@ class QuestionGenerationPipeline:
 
         logger.info(
             f"Pipeline: Generated {len(batch.questions)}/{count} questions successfully"
+        )
+
+        return batch
+
+    async def generate_questions_async(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        count: int = 10,
+        distribute_providers: bool = True,
+    ) -> GenerationBatch:
+        """Generate a batch of questions asynchronously for a specific type and difficulty.
+
+        This method generates questions in parallel, significantly reducing total
+        generation time compared to sequential generation.
+
+        Args:
+            question_type: Type of questions to generate
+            difficulty: Difficulty level
+            count: Number of questions to generate
+            distribute_providers: Whether to distribute across providers
+
+        Returns:
+            Batch of generated questions
+
+        Raises:
+            Exception: If generation fails
+        """
+        logger.info(
+            f"Pipeline (async): Generating {count} {question_type.value} questions "
+            f"at {difficulty.value} difficulty"
+        )
+
+        batch = await self.generator.generate_batch_async(
+            question_type=question_type,
+            difficulty=difficulty,
+            count=count,
+            distribute_across_providers=distribute_providers,
+        )
+
+        logger.info(
+            f"Pipeline (async): Generated {len(batch.questions)}/{count} questions successfully"
         )
 
         return batch
@@ -259,6 +302,131 @@ class QuestionGenerationPipeline:
             "questions": all_questions,
         }
 
+    async def run_generation_job_async(
+        self,
+        questions_per_run: Optional[int] = None,
+        question_types: Optional[List[QuestionType]] = None,
+        difficulty_distribution: Optional[Dict[DifficultyLevel, float]] = None,
+    ) -> Dict[str, Any]:
+        """Run a complete question generation job asynchronously with parallel generation.
+
+        This is the async entry point for scheduled question generation runs.
+        All question generation within each batch happens in parallel, and batches
+        for different type/difficulty combinations are also generated concurrently.
+
+        Args:
+            questions_per_run: Total questions to generate (uses settings if None)
+            question_types: Specific types to generate (None = all types)
+            difficulty_distribution: Distribution of difficulties (None = equal)
+
+        Returns:
+            Dictionary with job statistics and results
+
+        Raises:
+            Exception: If job fails
+        """
+        start_time = datetime.now(timezone.utc)
+        questions_per_run = questions_per_run or settings.questions_per_run
+
+        logger.info(
+            f"Starting async question generation job: {questions_per_run} questions"
+        )
+
+        # Determine which types to generate
+        types_to_generate = question_types or list(QuestionType)
+
+        # Default difficulty distribution
+        if difficulty_distribution is None:
+            difficulty_distribution = {
+                DifficultyLevel.EASY: 0.30,
+                DifficultyLevel.MEDIUM: 0.45,
+                DifficultyLevel.HARD: 0.25,
+            }
+
+        # Calculate questions per type
+        questions_per_type = questions_per_run // len(types_to_generate)
+
+        # Create tasks for all type/difficulty combinations
+        tasks = []
+        task_metadata = []
+
+        for question_type in types_to_generate:
+            for difficulty, proportion in difficulty_distribution.items():
+                count = max(1, int(questions_per_type * proportion))
+                task = self.generate_questions_async(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    distribute_providers=True,
+                )
+                tasks.append(task)
+                task_metadata.append(
+                    {
+                        "question_type": question_type,
+                        "difficulty": difficulty,
+                        "count": count,
+                    }
+                )
+
+        logger.info(f"Job (async): Executing {len(tasks)} generation tasks in parallel")
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        all_batches: List[GenerationBatch] = []
+        all_questions = []
+
+        for i, result in enumerate(results):
+            metadata = task_metadata[i]
+            if isinstance(result, BaseException):
+                logger.error(
+                    f"Job (async): Failed to generate {metadata['question_type'].value} - "
+                    f"{metadata['difficulty'].value}: {str(result)}"
+                )
+            elif isinstance(result, GenerationBatch):
+                all_batches.append(result)
+                all_questions.extend(result.questions)
+
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+
+        # Compile statistics
+        stats = {
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "target_questions": questions_per_run,
+            "questions_generated": len(all_questions),
+            "batches_created": len(all_batches),
+            "success_rate": len(all_questions) / questions_per_run
+            if questions_per_run > 0
+            else 0,
+            "providers_used": list(set(q.source_llm for q in all_questions)),
+            "questions_by_type": {
+                qt.value: len([q for q in all_questions if q.question_type == qt])
+                for qt in QuestionType
+            },
+            "questions_by_difficulty": {
+                diff.value: len(
+                    [q for q in all_questions if q.difficulty_level == diff]
+                )
+                for diff in DifficultyLevel
+            },
+            "async": True,
+        }
+
+        logger.info(
+            f"Job (async) complete: Generated {len(all_questions)}/{questions_per_run} "
+            f"questions in {duration:.1f}s"
+        )
+
+        return {
+            "statistics": stats,
+            "batches": all_batches,
+            "questions": all_questions,
+        }
+
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline configuration.
 
@@ -274,6 +442,22 @@ class QuestionGenerationPipeline:
                 "arbiter_config_path": settings.arbiter_config_path,
             },
         }
+
+    async def cleanup(self) -> None:
+        """Clean up all pipeline resources.
+
+        This should be called when the pipeline is no longer needed to ensure
+        all async clients are properly closed and resources are released.
+        """
+        await self.generator.cleanup()
+
+    async def __aenter__(self) -> "QuestionGenerationPipeline":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit - ensures cleanup is called."""
+        await self.cleanup()
 
 
 def create_pipeline(

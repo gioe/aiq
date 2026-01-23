@@ -67,3 +67,20 @@
 - **Original comment**: "Doc comment doesn't specify what happens if deep_link is missing or what URL schemes are supported"
 - **Reason deferred**: Nice-to-have documentation improvement
 - **Jira ticket**: BTS-294
+
+## Deferred from PR #673 Review (TASK-431 - Async/Parallel LLM Calls)
+
+### 1. Add per-provider rate limiting for async LLM calls
+- **Original comment**: "The global semaphore doesn't differentiate between providers. One slow provider could monopolize all slots, starving others."
+- **Reason deferred**: Current global rate limiting is functional. Per-provider limiting is an optimization that can be added incrementally.
+- **Task ID**: 512
+
+### 2. Consider asyncio.Lock for RetryMetrics in async contexts
+- **Original comment**: "RetryMetrics uses threading.Lock but the service is async. Consider using asyncio.Lock() for async-safe locking."
+- **Reason deferred**: threading.Lock is still safe in async code. Metrics are recorded sequentially with minimal lock duration.
+- **Task ID**: 513
+
+### 3. Add edge case tests for async question generation
+- **Original comment**: "Missing edge cases: all async calls timeout, circuit breakers open during batch, rate limiter at capacity, mixed successes/failures."
+- **Reason deferred**: Core functionality is tested and working. Edge cases are important for robustness but can be follow-up work.
+- **Task ID**: 514
