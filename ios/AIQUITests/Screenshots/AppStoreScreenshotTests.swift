@@ -53,6 +53,9 @@ final class AppStoreScreenshotTests: BaseUITest {
     /// Directory for screenshot output
     private let screenshotDirectory = "app-store/screenshots"
 
+    /// Timeout for UI animations to settle before taking screenshots
+    private let animationSettleTimeout: TimeInterval = 1.0
+
     // MARK: - Setup
 
     override func setUpWithError() throws {
@@ -89,7 +92,8 @@ final class AppStoreScreenshotTests: BaseUITest {
         )
 
         // 1. Dashboard Screenshot
-        captureScreenshot(named: "01_Dashboard", caption: "Track your cognitive performance")
+        XCTAssertTrue(dashboardTab.isHittable, "Dashboard tab should be interactable")
+        takeScreenshot(named: "01_Dashboard")
 
         // 2. Start a test and capture question screen
         captureTestQuestionScreenshot()
@@ -116,8 +120,9 @@ final class AppStoreScreenshotTests: BaseUITest {
             dashboardTab.waitForExistence(timeout: networkTimeout),
             "Dashboard should appear"
         )
+        XCTAssertTrue(dashboardTab.isHittable, "Dashboard tab should be interactable")
 
-        captureScreenshot(named: "01_Dashboard", caption: "Track your cognitive performance")
+        takeScreenshot(named: "01_Dashboard")
     }
 
     /// Capture an active test question
@@ -143,7 +148,9 @@ final class AppStoreScreenshotTests: BaseUITest {
         startTestAndAnswerQuestions()
         submitTestAndWaitForResults()
 
-        captureScreenshot(named: "03_Results", caption: "Detailed performance insights")
+        let resultsView = app.otherElements["testResultsView"]
+        XCTAssertTrue(resultsView.exists, "Results view should be visible")
+        takeScreenshot(named: "03_Results")
     }
 
     /// Capture history/trends screen
@@ -170,47 +177,47 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     // MARK: - Screenshot Helpers
 
-    /// Capture a screenshot with a descriptive name
-    private func captureScreenshot(named name: String, caption: String? = nil) {
-        // Allow UI to settle
-        Thread.sleep(forTimeInterval: 0.3)
-
-        let screenshot = app.screenshot()
-        let attachment = XCTAttachment(screenshot: screenshot)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-
-        print("[\(name)] Screenshot captured" + (caption.map { " - \($0)" } ?? ""))
+    /// Wait for UI to settle after animations
+    /// - Parameter element: Element to wait for to be hittable
+    private func waitForUIToSettle(element: XCUIElement? = nil) {
+        if let element {
+            _ = waitForHittable(element, timeout: animationSettleTimeout)
+        } else {
+            // Wait for any pending animations by checking app state
+            let predicate = NSPredicate(format: "state == %d", XCUIApplication.State.runningForeground.rawValue)
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+            _ = XCTWaiter.wait(for: [expectation], timeout: animationSettleTimeout)
+        }
     }
 
     /// Start a test and navigate to the question screen
     private func captureTestQuestionScreenshot() {
         // Look for Start Test button
         let startTestButton = app.buttons["dashboardView.startTestButton"]
-        if startTestButton.waitForExistence(timeout: standardTimeout) {
-            startTestButton.tap()
-
-            // Wait for first question to appear
-            let questionCard = app.otherElements["testTakingView.questionCard"]
-            if questionCard.waitForExistence(timeout: networkTimeout) {
-                // Allow question to fully render
-                Thread.sleep(forTimeInterval: 0.5)
-                captureScreenshot(named: "02_TestQuestion", caption: "AI-generated cognitive assessments")
-            } else {
-                // Fallback - capture whatever test screen is showing
-                captureScreenshot(named: "02_TestQuestion", caption: "AI-generated cognitive assessments")
-            }
-        } else {
-            print("[Warning] Start Test button not found - may need to clear existing test")
-            captureScreenshot(named: "02_TestQuestion_Fallback", caption: "Test screen")
+        guard startTestButton.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("Start Test button not found")
+            return
         }
+        startTestButton.tap()
+
+        // Wait for first question to appear
+        let questionCard = app.otherElements["testTakingView.questionCard"]
+        XCTAssertTrue(
+            questionCard.waitForExistence(timeout: networkTimeout),
+            "Question card should appear"
+        )
+
+        // Wait for question UI to be fully rendered
+        waitForUIToSettle(element: questionCard)
+
+        takeScreenshot(named: "02_TestQuestion")
     }
 
     /// Start test and answer some questions for results screen
     private func startTestAndAnswerQuestions() {
         let startTestButton = app.buttons["dashboardView.startTestButton"]
         guard startTestButton.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("Start Test button not found")
             return
         }
         startTestButton.tap()
@@ -218,30 +225,32 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Wait for test to start
         let questionCard = app.otherElements["testTakingView.questionCard"]
         guard questionCard.waitForExistence(timeout: networkTimeout) else {
+            XCTFail("Question card did not appear")
             return
         }
 
-        // Answer questions (mock will accept any answers)
-        for questionIndex in 1 ... 5 {
+        // Answer 5 questions (mock will accept any answers)
+        let totalQuestions = 5
+        for questionIndex in 1 ... totalQuestions {
             // Find and tap first answer option
             let answerOption = app.buttons.matching(
                 NSPredicate(format: "identifier CONTAINS 'answerOption'")
             ).firstMatch
 
-            if answerOption.waitForExistence(timeout: standardTimeout) {
-                answerOption.tap()
+            guard answerOption.waitForExistence(timeout: standardTimeout) else {
+                continue
             }
+            answerOption.tap()
 
             // Move to next question if not the last one
-            if questionIndex < 5 {
+            if questionIndex < totalQuestions {
                 let nextButton = app.buttons["testTakingView.nextButton"]
                 if nextButton.waitForExistence(timeout: quickTimeout) {
                     nextButton.tap()
+                    // Wait for next question to appear
+                    _ = questionCard.waitForExistence(timeout: quickTimeout)
                 }
             }
-
-            // Brief pause between questions
-            Thread.sleep(forTimeInterval: 0.3)
         }
     }
 
@@ -249,23 +258,31 @@ final class AppStoreScreenshotTests: BaseUITest {
     private func submitTestAndWaitForResults() {
         // Look for submit button
         let submitButton = app.buttons["testTakingView.submitButton"]
-        if submitButton.waitForExistence(timeout: standardTimeout) {
-            submitButton.tap()
+        guard submitButton.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("Submit button not found")
+            return
         }
+        submitButton.tap()
 
         // Wait for results screen
         let resultsView = app.otherElements["testResultsView"]
-        _ = resultsView.waitForExistence(timeout: networkTimeout)
+        XCTAssertTrue(
+            resultsView.waitForExistence(timeout: networkTimeout),
+            "Results view should appear"
+        )
 
-        // Allow results to fully animate
-        Thread.sleep(forTimeInterval: 0.5)
+        // Wait for results animations to complete
+        waitForUIToSettle(element: resultsView)
     }
 
     /// Capture results screenshot
     private func captureResultsScreenshot() {
         startTestAndAnswerQuestions()
         submitTestAndWaitForResults()
-        captureScreenshot(named: "03_Results", caption: "Detailed performance insights")
+
+        let resultsView = app.otherElements["testResultsView"]
+        XCTAssertTrue(resultsView.exists, "Results view should be visible")
+        takeScreenshot(named: "03_Results")
     }
 
     /// Navigate to history and capture screenshot
@@ -273,19 +290,22 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Navigate to History tab
         let historyTab = app.buttons["History"]
         guard historyTab.waitForExistence(timeout: standardTimeout) else {
-            print("[Warning] History tab not found")
+            XCTFail("History tab not found")
             return
         }
         historyTab.tap()
 
         // Wait for history content to load
         let historyList = app.tables.firstMatch
-        _ = historyList.waitForExistence(timeout: networkTimeout)
+        XCTAssertTrue(
+            historyList.waitForExistence(timeout: networkTimeout),
+            "History list should appear"
+        )
 
-        // Allow chart to animate
-        Thread.sleep(forTimeInterval: 0.8)
+        // Wait for chart animations to complete
+        waitForUIToSettle(element: historyList)
 
-        captureScreenshot(named: "04_History", caption: "Monitor your trends over time")
+        takeScreenshot(named: "04_History")
     }
 
     /// Capture domain scores breakdown
@@ -295,42 +315,54 @@ final class AppStoreScreenshotTests: BaseUITest {
         if domainScoresSection.exists {
             // Scroll to domain scores if needed
             domainScoresSection.swipeUp()
-            Thread.sleep(forTimeInterval: 0.3)
-            captureScreenshot(named: "05_DomainScores", caption: "Understand your strengths")
+            waitForUIToSettle(element: domainScoresSection)
+            XCTAssertTrue(domainScoresSection.isHittable, "Domain scores should be visible")
+            takeScreenshot(named: "05_DomainScores")
             return
         }
 
         // Alternative: Navigate to history and tap on a result to see domain scores
         let historyTab = app.buttons["History"]
-        if historyTab.waitForExistence(timeout: standardTimeout) {
-            historyTab.tap()
-
-            // Tap first history item
-            let firstItem = app.cells.firstMatch
-            if firstItem.waitForExistence(timeout: standardTimeout) {
-                firstItem.tap()
-
-                // Wait for detail view
-                Thread.sleep(forTimeInterval: 0.5)
-
-                captureScreenshot(named: "05_DomainScores", caption: "Understand your strengths")
-            }
+        guard historyTab.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("History tab not found")
+            return
         }
+        historyTab.tap()
+
+        // Tap first history item
+        let firstItem = app.cells.firstMatch
+        guard firstItem.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("No history items found")
+            return
+        }
+        firstItem.tap()
+
+        // Wait for detail view to appear
+        let detailView = app.otherElements["testDetailView"]
+        _ = detailView.waitForExistence(timeout: standardTimeout)
+        waitForUIToSettle(element: detailView)
+
+        takeScreenshot(named: "05_DomainScores")
     }
 
     /// Navigate to settings and capture screenshot
     private func captureSettingsScreenshot() {
         let settingsTab = app.buttons["Settings"]
         guard settingsTab.waitForExistence(timeout: standardTimeout) else {
-            print("[Warning] Settings tab not found")
+            XCTFail("Settings tab not found")
             return
         }
         settingsTab.tap()
 
         // Wait for settings to load
-        Thread.sleep(forTimeInterval: 0.3)
+        let settingsView = app.navigationBars["Settings"]
+        XCTAssertTrue(
+            settingsView.waitForExistence(timeout: standardTimeout),
+            "Settings should appear"
+        )
+        waitForUIToSettle(element: settingsView)
 
-        captureScreenshot(named: "06_Settings", caption: "Privacy-first design")
+        takeScreenshot(named: "06_Settings")
     }
 }
 
@@ -346,6 +378,7 @@ extension AppStoreScreenshotTests {
 
         // Need to also skip onboarding skip to see the actual onboarding
         app.terminate()
+        // appTerminationDelay is the only valid use of Thread.sleep per BaseUITest docs
         Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Configure for onboarding capture
@@ -361,26 +394,34 @@ extension AppStoreScreenshotTests {
         let onboardingContainer = onboardingApp.otherElements["onboardingContainer"]
         if onboardingContainer.waitForExistence(timeout: standardTimeout) {
             // Capture first onboarding page
+            XCTAssertTrue(onboardingContainer.exists, "Onboarding container should be visible")
             captureOnboardingScreenshot(app: onboardingApp, named: "Onboarding_01_Welcome")
 
             // Advance through pages
             let nextButton = onboardingApp.buttons["onboarding.nextButton"]
             for pageNum in 2 ... 4 where nextButton.waitForExistence(timeout: quickTimeout) {
                 nextButton.tap()
-                Thread.sleep(forTimeInterval: 0.3)
+                // Wait for page transition
+                _ = onboardingContainer.waitForExistence(timeout: quickTimeout)
                 captureOnboardingScreenshot(app: onboardingApp, named: "Onboarding_0\(pageNum)")
             }
         } else {
             // Capture welcome/login screen
             let welcomeIcon = onboardingApp.images["welcomeView.brainIcon"]
-            if welcomeIcon.waitForExistence(timeout: standardTimeout) {
-                captureOnboardingScreenshot(app: onboardingApp, named: "Welcome_Login")
-            }
+            XCTAssertTrue(
+                welcomeIcon.waitForExistence(timeout: standardTimeout),
+                "Welcome screen should appear"
+            )
+            captureOnboardingScreenshot(app: onboardingApp, named: "Welcome_Login")
         }
     }
 
     private func captureOnboardingScreenshot(app: XCUIApplication, named name: String) {
-        Thread.sleep(forTimeInterval: 0.3)
+        // Wait for UI to settle
+        let predicate = NSPredicate(format: "state == %d", XCUIApplication.State.runningForeground.rawValue)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        _ = XCTWaiter.wait(for: [expectation], timeout: animationSettleTimeout)
+
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
