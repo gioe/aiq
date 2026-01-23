@@ -421,8 +421,8 @@ class QuestionGenerator:
     ) -> GeneratedQuestion:
         """Generate a single question asynchronously using a specific or random provider.
 
-        This method uses rate limiting to avoid overwhelming provider APIs and
-        includes timeout protection to prevent indefinite hangs.
+        This method uses circuit breaker protection, rate limiting to avoid overwhelming
+        provider APIs, and includes timeout protection to prevent indefinite hangs.
 
         Args:
             question_type: Type of question to generate
@@ -437,6 +437,7 @@ class QuestionGenerator:
 
         Raises:
             ValueError: If provider_name is invalid or no providers available
+            CircuitBreakerOpen: If the specified provider's circuit is open
             asyncio.TimeoutError: If the API call times out
             Exception: If generation fails
         """
@@ -458,6 +459,9 @@ class QuestionGenerator:
                 )
             provider = self.providers[provider_name]
 
+        # Get circuit breaker for this provider
+        circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
+
         logger.info(
             f"Generating {question_type.value} question at {difficulty.value} "
             f"difficulty using {provider_name} (async)"
@@ -469,10 +473,10 @@ class QuestionGenerator:
         # Use provided timeout or instance default
         effective_timeout = timeout if timeout is not None else self._async_timeout
 
-        # Generate question asynchronously with rate limiting and timeout
-        try:
+        # Define the async API call
+        async def _do_async_generation() -> Dict[str, Any]:
             async with self._rate_limiter:
-                response = await asyncio.wait_for(
+                return await asyncio.wait_for(
                     provider.generate_structured_completion_async(
                         prompt=prompt,
                         response_format={},  # Provider will handle JSON mode
@@ -481,6 +485,10 @@ class QuestionGenerator:
                     ),
                     timeout=effective_timeout,
                 )
+
+        # Generate question asynchronously with circuit breaker protection
+        try:
+            response = await circuit_breaker.execute_async(_do_async_generation)
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -496,10 +504,21 @@ class QuestionGenerator:
             )
             return question
 
+        except CircuitBreakerOpen:
+            logger.warning(
+                f"Circuit breaker is open for {provider_name}, cannot generate question (async)"
+            )
+            raise
         except asyncio.TimeoutError:
             logger.error(
                 f"Timeout generating question with {provider_name} "
                 f"(async) after {effective_timeout}s"
+            )
+            raise
+        except LLMProviderError as e:
+            logger.error(
+                f"Failed to generate question with {provider_name} (async): {str(e)} "
+                f"(category={e.classified_error.category.value})"
             )
             raise
         except Exception as e:
@@ -579,18 +598,33 @@ class QuestionGenerator:
         # Execute all tasks concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter successful results and log failures
+        # Filter successful results and track failures
         questions: List[GeneratedQuestion] = []
+        failed_questions: int = 0
+        skipped_providers: Dict[str, int] = {}
+
         for i, result in enumerate(results):
-            if isinstance(result, BaseException):
+            provider = provider_assignments[i]
+            if isinstance(result, CircuitBreakerOpen):
+                # Track skipped due to circuit breaker
+                skipped_providers[provider] = skipped_providers.get(provider, 0) + 1
+                failed_questions += 1
+                logger.warning(
+                    f"Skipped question {i+1}/{count} with {provider} (circuit breaker open)"
+                )
+            elif isinstance(result, BaseException):
+                failed_questions += 1
                 logger.error(
                     f"Failed to generate question {i+1}/{count} with "
-                    f"{provider_assignments[i]}: {str(result)}"
+                    f"{provider}: {str(result)}"
                 )
             elif isinstance(result, GeneratedQuestion):
                 questions.append(result)
 
-        # Create batch
+        # Get circuit breaker states for metadata
+        circuit_breaker_stats = self._circuit_breaker_registry.get_all_stats()
+
+        # Create batch with full metadata aligned with sync version
         batch = GenerationBatch(
             questions=questions,
             question_type=question_type,
@@ -599,7 +633,13 @@ class QuestionGenerator:
             metadata={
                 "target_difficulty": difficulty.value,
                 "providers_used": list(set(q.source_llm for q in questions)),
-                "success_rate": len(questions) / count if count > 0 else 0,
+                "success_rate": len(questions) / count if count > 0 else 0.0,
+                "skipped_providers": skipped_providers,
+                "failed_questions": failed_questions,
+                "circuit_breaker_states": {
+                    name: stats["state"]
+                    for name, stats in circuit_breaker_stats.items()
+                },
                 "async": True,
             },
         )

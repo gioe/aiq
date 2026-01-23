@@ -386,6 +386,44 @@ class CircuitBreaker:
             self.record_failure()
             raise
 
+    async def execute_async(
+        self, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        """Execute an async function with circuit breaker protection.
+
+        Args:
+            func: Async function to execute
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+
+        Returns:
+            Result of the async function
+
+        Raises:
+            CircuitBreakerOpen: If circuit is open
+            Exception: If the function raises an exception
+        """
+        if not self.config.enabled:
+            return await func(*args, **kwargs)
+
+        with self._lock:
+            self._check_state_transition()
+
+            if self._stats.state == CircuitState.OPEN:
+                time_until_retry = 0.0
+                if self._stats.last_failure_time is not None:
+                    elapsed = time.time() - self._stats.last_failure_time
+                    time_until_retry = max(0, self.config.recovery_timeout - elapsed)
+                raise CircuitBreakerOpen(self.provider_name, time_until_retry)
+
+        try:
+            result = await func(*args, **kwargs)
+            self.record_success()
+            return result
+        except Exception:
+            self.record_failure()
+            raise
+
     def get_stats(self) -> Dict[str, Any]:
         """Get circuit breaker statistics.
 
