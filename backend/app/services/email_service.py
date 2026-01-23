@@ -14,6 +14,7 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from app.core.config import settings
+from app.core.datetime_utils import utc_now
 
 # SMTP connection timeout in seconds
 SMTP_TIMEOUT_SECONDS = 10
@@ -91,6 +92,7 @@ def _is_smtp_configured() -> bool:
         and settings.SMTP_USERNAME
         and settings.SMTP_PASSWORD
         and settings.SMTP_FROM_EMAIL
+        and settings.SMTP_FROM_NAME
     )
 
 
@@ -140,10 +142,8 @@ async def send_password_reset_email(
         return True
 
     try:
-        # Prepare email content
-        from datetime import datetime
-
-        current_year = datetime.now().year
+        # Prepare email content - use UTC for consistency
+        current_year = utc_now().year
 
         # Create message with properly encoded headers
         msg = MIMEMultipart("alternative")
