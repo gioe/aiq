@@ -112,8 +112,11 @@ class Settings(BaseSettings):
         Raises:
             ValueError: If validation fails (no LLM keys, missing required secrets)
         """
-        # Load LLM API keys from secrets backend
-        # These override values from environment if both are set
+        # Load LLM API keys from secrets backend.
+        # Note: The walrus operator (:=) only assigns if the value is truthy.
+        # This means empty strings from the secrets backend will NOT override
+        # existing env var values, which is the desired behavior - we treat
+        # empty strings as "not configured" consistently with validate_required_secrets.
         if secret_value := get_secret("openai_api_key"):
             self.openai_api_key = secret_value
         if secret_value := get_secret("anthropic_api_key"):

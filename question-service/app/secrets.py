@@ -215,6 +215,19 @@ class SecretsManager:
 _secrets_manager: Optional[SecretsManager] = None
 
 
+def reset_secrets_manager() -> None:
+    """Reset the global SecretsManager instance.
+
+    This is primarily intended for testing to allow re-initialization
+    with different configurations between tests.
+
+    Note:
+        In production, this should rarely if ever be called.
+    """
+    global _secrets_manager
+    _secrets_manager = None
+
+
 def get_secrets_manager() -> SecretsManager:
     """Get or create the global SecretsManager instance.
 

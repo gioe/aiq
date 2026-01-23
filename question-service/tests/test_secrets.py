@@ -11,6 +11,7 @@ from app.secrets import (
     SecretsManager,
     get_secret,
     get_secrets_manager,
+    reset_secrets_manager,
     validate_required_secrets,
 )
 
@@ -254,10 +255,7 @@ class TestConvenienceFunctions:
 
     def test_get_secrets_manager_returns_singleton(self):
         """Test that get_secrets_manager returns the same instance."""
-        # Reset the global manager
-        import app.secrets
-
-        app.secrets._secrets_manager = None
+        reset_secrets_manager()
 
         manager1 = get_secrets_manager()
         manager2 = get_secrets_manager()
@@ -266,10 +264,7 @@ class TestConvenienceFunctions:
     def test_get_secret_convenience_function(self):
         """Test convenience function for getting secrets."""
         with patch.dict(os.environ, {"TEST_SECRET": "test-value"}, clear=False):
-            # Reset the global manager
-            import app.secrets
-
-            app.secrets._secrets_manager = None
+            reset_secrets_manager()
 
             value = get_secret("test_secret")
             assert value == "test-value"
@@ -278,10 +273,7 @@ class TestConvenienceFunctions:
         """Test convenience function returns None for missing secret."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("NONEXISTENT", None)
-            # Reset the global manager
-            import app.secrets
-
-            app.secrets._secrets_manager = None
+            reset_secrets_manager()
 
             value = get_secret("nonexistent")
             assert value is None
@@ -293,10 +285,7 @@ class TestConvenienceFunctions:
             {"REQUIRED_ONE": "value1", "REQUIRED_TWO": "value2"},
             clear=False,
         ):
-            # Reset the global manager
-            import app.secrets
-
-            app.secrets._secrets_manager = None
+            reset_secrets_manager()
 
             # Should not raise
             validate_required_secrets(["required_one", "required_two"])
@@ -305,10 +294,7 @@ class TestConvenienceFunctions:
         """Test convenience validation function raises on missing secrets."""
         with patch.dict(os.environ, {"REQUIRED_ONE": "value1"}, clear=False):
             os.environ.pop("REQUIRED_TWO", None)
-            # Reset the global manager
-            import app.secrets
-
-            app.secrets._secrets_manager = None
+            reset_secrets_manager()
 
             with pytest.raises(SecretsError):
                 validate_required_secrets(["required_one", "required_two"])
@@ -343,9 +329,7 @@ class TestEdgeCases:
 
     def test_concurrent_access_to_global_manager(self):
         """Test that global manager can be accessed multiple times safely."""
-        import app.secrets
-
-        app.secrets._secrets_manager = None
+        reset_secrets_manager()
 
         with patch.dict(os.environ, {"SECRET": "value"}, clear=False):
             # Multiple calls should work
