@@ -3583,6 +3583,269 @@ Track performance issues automatically:
 - Compress images before adding to assets
 - Use appropriate resolutions for different device sizes
 
+### SwiftUI View Performance
+
+SwiftUI recomputes view bodies when state changes. Understanding and controlling this behavior is critical for smooth UI performance.
+
+#### Equatable Conformance
+
+When a view conforms to `Equatable`, SwiftUI uses that conformance to determine if the view body needs recomputation. Without it, SwiftUI uses reflection-based comparison which is slower and may trigger unnecessary re-renders.
+
+**DO:**
+
+```swift
+struct ScoreCard: View, Equatable {
+    let score: Int
+    let category: String
+
+    static func == (lhs: ScoreCard, rhs: ScoreCard) -> Bool {
+        lhs.score == rhs.score && lhs.category == rhs.category
+    }
+
+    var body: some View {
+        VStack {
+            Text("\(score)")
+            Text(category)
+        }
+    }
+}
+
+// Use .equatable() modifier for existing views
+ScoreCard(score: 85, category: "Memory")
+    .equatable()
+```
+
+**DON'T:**
+
+```swift
+// Closures prevent Equatable conformance - avoid passing closures as props when possible
+struct ScoreCard: View {
+    let onTap: () -> Void  // This breaks automatic diffing
+}
+```
+
+#### drawingGroup() for Complex Graphics
+
+The `.drawingGroup()` modifier renders view content into an off-screen Metal texture, which is faster for complex graphical elements. This is used in our `IQTrendChart` component.
+
+**DO:**
+
+```swift
+// Complex charts or graphics with gradients/overlays
+Chart(data) { point in
+    LineMark(x: .value("Date", point.date), y: .value("Score", point.score))
+}
+.drawingGroup() // Rasterize chart for better rendering performance
+```
+
+**DON'T:**
+
+```swift
+// Simple views - drawingGroup adds overhead without benefit
+Text("Hello")
+    .drawingGroup() // Unnecessary, may actually slow down rendering
+```
+
+#### .task(id:) for Efficient Async Work
+
+Use `.task(id:)` instead of `.onAppear` + manual cancellation for async operations that should restart when a dependency changes.
+
+**DO:**
+
+```swift
+struct TestHistoryView: View {
+    @State private var selectedCategory: Category = .all
+    @State private var results: [TestResult] = []
+
+    var body: some View {
+        List(results) { result in
+            TestResultRow(result: result)
+        }
+        .task(id: selectedCategory) {
+            // Automatically cancelled and restarted when selectedCategory changes
+            results = await fetchResults(for: selectedCategory)
+        }
+    }
+}
+```
+
+**DON'T:**
+
+```swift
+// Manual cancellation is error-prone and verbose
+.onAppear { task = Task { await fetch() } }
+.onDisappear { task?.cancel() }
+.onChange(of: category) { task?.cancel(); task = Task { await fetch() } }
+```
+
+#### View Body Complexity
+
+Keep view bodies focused on layout description, not computation. Extract complex logic to ViewModels or computed properties.
+
+**DO:**
+
+```swift
+struct DashboardView: View {
+    @StateObject private var viewModel: DashboardViewModel
+
+    var body: some View {
+        // Body only describes layout
+        VStack {
+            ScoreDisplay(score: viewModel.currentScore)
+            TrendIndicator(trend: viewModel.trendDirection)
+        }
+    }
+}
+
+// Logic lives in ViewModel
+class DashboardViewModel: ObservableObject {
+    var trendDirection: TrendDirection {
+        // Computation extracted from view body
+        scores.suffix(5).average > scores.prefix(5).average ? .up : .down
+    }
+}
+```
+
+**DON'T:**
+
+```swift
+var body: some View {
+    // Heavy computation in body - runs on every re-render
+    let filteredResults = allResults.filter { $0.date > cutoffDate }
+    let average = filteredResults.map(\.score).reduce(0, +) / filteredResults.count
+    let trend = calculateTrend(from: filteredResults)
+
+    VStack {
+        Text("\(average)")
+        TrendIndicator(trend: trend)
+    }
+}
+```
+
+#### LazyVStack and LazyHStack
+
+Use lazy stacks for scrollable content to render only visible items. Always provide stable identifiers for efficient diffing.
+
+**DO:**
+
+```swift
+ScrollView {
+    LazyVStack(spacing: 16) {
+        ForEach(testResults) { result in
+            TestResultRow(result: result)
+        }
+    }
+}
+```
+
+**DON'T:**
+
+```swift
+// VStack renders ALL items immediately regardless of visibility
+ScrollView {
+    VStack(spacing: 16) {
+        ForEach(largeDataset) { item in  // 1000+ items loaded at once
+            ExpensiveRow(item: item)
+        }
+    }
+}
+
+// Unstable identifiers force full reloads
+LazyVStack {
+    ForEach(items, id: \.self) { item in  // If items are modified, entire list re-renders
+        ItemRow(item: item)
+    }
+}
+```
+
+#### State Management Performance
+
+Choose the right property wrapper based on ownership and lifecycle requirements.
+
+| Wrapper | Use When | Initialization |
+|---------|----------|----------------|
+| `@State` | Simple value types owned by the view | Initialized inline |
+| `@StateObject` | ObservableObject owned by the view | Initialized once, survives re-renders |
+| `@ObservedObject` | ObservableObject passed from parent | Re-initialized on parent re-render |
+
+**DO:**
+
+```swift
+struct TestTakingView: View {
+    // ViewModel owned by this view - use @StateObject
+    @StateObject private var viewModel: TestTakingViewModel
+    @StateObject private var timerManager = TestTimerManager()
+}
+
+struct ChildView: View {
+    // ViewModel passed from parent - use @ObservedObject
+    @ObservedObject var viewModel: ParentViewModel
+}
+```
+
+**DON'T:**
+
+```swift
+struct TestTakingView: View {
+    // WRONG: @ObservedObject recreates the instance on every parent re-render
+    @ObservedObject private var viewModel = TestTakingViewModel()
+}
+```
+
+#### @ViewBuilder Performance
+
+Use `@ViewBuilder` for conditional view composition, but avoid excessive branching that creates unstable view identities.
+
+**DO:**
+
+```swift
+@ViewBuilder
+private var contentView: some View {
+    if viewModel.isLoading {
+        LoadingView()
+    } else if let error = viewModel.error {
+        ErrorView(error: error)
+    } else {
+        ResultsView(results: viewModel.results)
+    }
+}
+```
+
+**DON'T:**
+
+```swift
+// Avoid deep nesting that obscures view identity
+@ViewBuilder
+private var content: some View {
+    if condition1 {
+        if condition2 {
+            if condition3 {
+                View1()
+            } else {
+                View2()
+            }
+        } else {
+            View3()
+        }
+    } else {
+        View4()
+    }
+}
+```
+
+#### Profiling SwiftUI Performance
+
+Before optimizing, profile with Instruments to identify actual bottlenecks:
+
+1. **Product > Profile** (Cmd+I) in Xcode
+2. Select **SwiftUI** instrument
+3. Look for:
+   - Views with high body evaluation counts
+   - Slow body evaluation times (>16ms blocks 60fps)
+   - Unexpected re-renders during scrolling
+
+Address only confirmed bottlenecks—premature optimization adds complexity without benefit.
+
 ---
 
 ## Security
