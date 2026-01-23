@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # Prevents memory exhaustion attacks by using LRU eviction when limit is reached
     RATE_LIMIT_MAX_KEYS: int = 100000
 
+    # Token Blacklist (for JWT revocation)
+    # Redis connection URL for token blacklist (optional, uses in-memory if not set)
+    # Production: Use rediss:// (TLS) with strong password
+    TOKEN_BLACKLIST_REDIS_URL: str = ""
+
     # Notification Scheduling
     TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification

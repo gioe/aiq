@@ -126,6 +126,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     process_registry.register_shutdown_handler()
     logger.info("Process registry shutdown handlers registered")
 
+    # Initialize token blacklist for JWT revocation
+    from app.core.token_blacklist import init_token_blacklist
+
+    redis_url = (
+        settings.TOKEN_BLACKLIST_REDIS_URL
+        if settings.TOKEN_BLACKLIST_REDIS_URL
+        else None
+    )
+    token_blacklist = init_token_blacklist(redis_url=redis_url)
+    app.state.token_blacklist = token_blacklist
+    logger.info("Token blacklist initialized")
+
     yield
 
     # Shutdown
@@ -156,6 +168,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Closed feedback rate limit storage connection pool")
     except ImportError:
         pass  # Module not imported yet, nothing to close
+
+    # Close token blacklist storage connection pool
+    try:
+        from app.core.token_blacklist import get_token_blacklist
+
+        blacklist = get_token_blacklist()
+        blacklist.close()
+    except RuntimeError:
+        pass  # Blacklist not initialized, nothing to close
 
 
 # OpenAPI tags metadata

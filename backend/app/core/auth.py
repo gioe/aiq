@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import get_db, User
 from .security import decode_token, verify_token_type
 from .error_responses import ErrorMessages, raise_unauthorized
+from .token_blacklist import get_token_blacklist
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,19 @@ def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
     # Verify token type
     if not verify_token_type(payload, expected_type):
         raise_unauthorized(ErrorMessages.INVALID_TOKEN_TYPE)
+
+    # Check if token is blacklisted (revoked)
+    jti = payload.get("jti")
+    if jti:
+        try:
+            blacklist = get_token_blacklist()
+            if blacklist.is_revoked(jti):
+                logger.warning(f"Attempt to use revoked token {jti[:8]}...")
+                raise_unauthorized(ErrorMessages.TOKEN_REVOKED)
+        except RuntimeError:
+            # Blacklist not initialized - log warning but allow request
+            # This maintains backward compatibility during rollout
+            logger.warning("Token blacklist not initialized, skipping revocation check")
 
     # Extract user_id from payload
     user_id = payload.get("user_id")

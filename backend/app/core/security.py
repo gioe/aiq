@@ -2,6 +2,7 @@
 Security utilities for password hashing and JWT token management.
 """
 from datetime import timedelta
+import uuid
 
 from app.core.datetime_utils import utc_now
 from typing import Optional, Dict, Any
@@ -60,7 +61,9 @@ def _create_token(
     """
     to_encode = data.copy()
     expire = utc_now() + (expires_delta or default_expires)
-    to_encode.update({"exp": expire, "type": token_type})
+    # Add JTI (JWT ID) for token blacklist support
+    jti = str(uuid.uuid4())
+    to_encode.update({"exp": expire, "type": token_type, "jti": jti})
     return jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )

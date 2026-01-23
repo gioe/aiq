@@ -7,6 +7,7 @@ from datetime import timedelta
 from app.core.datetime_utils import utc_now
 
 from fastapi import APIRouter, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -28,8 +29,14 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    decode_token,
 )
-from app.core.auth import get_current_user, get_current_user_from_refresh_token
+from app.core.auth import (
+    get_current_user,
+    get_current_user_from_refresh_token,
+    security,
+)
+from app.core.token_blacklist import get_token_blacklist
 from app.core.analytics import AnalyticsTracker, EventType
 from app.core.error_responses import (
     ErrorMessages,
@@ -229,30 +236,64 @@ def refresh_access_token(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout_user(current_user: User = Depends(get_current_user)):
+def logout_user(
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
     """
-    Logout user (client-side token invalidation).
+    Logout user by blacklisting their current access token.
 
-    Note: Since we're using stateless JWT tokens, actual logout happens
-    on the client side by discarding the tokens. This endpoint validates
-    that the user is authenticated and allows the client to confirm logout.
+    This immediately revokes the token, preventing further use even before expiration.
+    The client should also discard tokens locally.
 
     Args:
         current_user: Current authenticated user
+        credentials: Token credentials for blacklisting
 
     Returns:
         No content (204)
     """
-    # Track analytics event
-    from app.core.analytics import EventType
+    # Decode token to get JTI and expiration
+    token = credentials.credentials
+    payload = decode_token(token)
 
+    if payload:
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        if jti and exp:
+            try:
+                from datetime import datetime, timezone
+
+                # Convert exp (Unix timestamp) to UTC datetime
+                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+
+                # Add token to blacklist
+                blacklist = get_token_blacklist()
+                blacklist.revoke_token(jti, expires_at)
+
+                logger.info(f"Token revoked for user_id={current_user.id}")
+            except RuntimeError:
+                # Blacklist not initialized - log warning but allow logout
+                logger.warning(
+                    "Token blacklist not initialized. "
+                    "Token not revoked (client-side only logout)."
+                )
+            except Exception as e:
+                # Log error but don't fail logout request
+                logger.error(f"Failed to blacklist token on logout: {e}")
+        else:
+            logger.warning(
+                f"Token missing JTI or exp for user_id={current_user.id}. "
+                "Cannot blacklist (client-side only logout)."
+            )
+
+    # Track analytics event
     AnalyticsTracker.track_event(
         EventType.USER_LOGOUT,
         user_id=int(current_user.id),
     )
 
-    # For JWT, logout is handled client-side by discarding tokens
-    # This endpoint just validates the token is valid
     return None
 
 
