@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Effective Date:** [EFFECTIVE_DATE]
+**Effective Date:** January 23, 2026
 
 **IMPORTANT LEGAL NOTICE:** This is a draft Terms of Service document. Legal review by a qualified attorney is strongly recommended before publication or use.
 
@@ -481,7 +481,7 @@ If we terminate your account for cause, you are not entitled to any refund of fe
 
 ### Governing Law
 
-These Terms are governed by and construed in accordance with the laws of the State of [STATE/JURISDICTION], United States, without regard to its conflict of law principles.
+These Terms are governed by and construed in accordance with the laws of the State of New York, United States, without regard to its conflict of law principles.
 
 ### Informal Resolution
 
@@ -496,8 +496,8 @@ You and AIQ agree that any dispute, claim, or controversy arising out of or rela
 **Arbitration Process:**
 
 - Arbitration will be conducted by the American Arbitration Association (AAA) under its Consumer Arbitration Rules
-- The arbitration will be held in [LOCATION] or another mutually agreeable location
-- The arbitrator will apply the substantive law of [STATE], excluding its conflict of law rules
+- The arbitration will be held in New York, New York or another mutually agreeable location
+- The arbitrator will apply the substantive law of New York, excluding its conflict of law rules
 - The arbitrator's decision will be final and binding
 - Judgment on the arbitration award may be entered in any court having jurisdiction
 
@@ -527,7 +527,7 @@ If any portion of this arbitration provision is found to be unenforceable, the r
 
 ### Venue
 
-If arbitration does not apply, you agree that any judicial proceeding will be brought exclusively in the federal or state courts located in [COUNTY, STATE], and you consent to personal jurisdiction in those courts.
+If arbitration does not apply, you agree that any judicial proceeding will be brought exclusively in the federal or state courts located in New York County, New York, and you consent to personal jurisdiction in those courts.
 
 ### Time Limitation
 
@@ -673,7 +673,7 @@ For privacy-related requests, please contact privacy@aiq.app (see our Privacy Po
 
 ---
 
-**Last Updated:** [EFFECTIVE_DATE]
+**Last Updated:** January 23, 2026
 
 **Legal Review Notice:** This Terms of Service document is a draft and should be reviewed by a qualified attorney before use. This document is not a substitute for legal advice.
 
