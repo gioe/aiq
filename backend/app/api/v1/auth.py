@@ -264,7 +264,7 @@ TOKEN_INVALIDATION_BATCH_SIZE = 100  # Batch size for invalidating old tokens
 
 
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
-async def request_password_reset(
+def request_password_reset(
     request_data: PasswordResetRequest,
     db: Session = Depends(get_db),
 ):
@@ -362,7 +362,7 @@ async def request_password_reset(
             db.commit()
 
             # Send password reset email
-            email_sent = await send_password_reset_email(
+            email_sent = send_password_reset_email(
                 email=email,
                 reset_token=reset_token,
             )

@@ -96,7 +96,7 @@ def _is_smtp_configured() -> bool:
     )
 
 
-async def send_password_reset_email(
+def send_password_reset_email(
     email: str,
     reset_token: str,
     reset_url_base: Optional[str] = None,
@@ -122,13 +122,13 @@ async def send_password_reset_email(
         ...     reset_url_base="https://app.aiq.com"
         ... )
     """
-    # Default to production backend URL if not specified
+    # Default to iOS Universal Link URL for production
+    # Universal links allow the iOS app to handle the URL natively
+    # Requires Associated Domains entitlement configured in Xcode
     if reset_url_base is None:
-        reset_url_base = "https://aiq-backend-production.up.railway.app"
+        reset_url_base = "https://aiq.app"
 
     # Construct the reset URL with proper URL encoding
-    # NOTE: For production iOS app, this should be a deep link or universal link
-    # that opens the app. For now, using a backend URL endpoint.
     query_params = urlencode({"token": reset_token})
     reset_url = f"{reset_url_base}/reset-password?{query_params}"
 
