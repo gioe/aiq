@@ -939,7 +939,8 @@ class TestPasswordReset:
         response = client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 400
-        assert "already been used" in response.json()["detail"]
+        # Generic message for all token failures (prevents enumeration)
+        assert "Invalid or expired" in response.json()["detail"]
 
     def test_reset_password_with_expired_token_fails(
         self, client, test_user, db_session
@@ -965,7 +966,8 @@ class TestPasswordReset:
         response = client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 400
-        assert "expired" in response.json()["detail"]
+        # Generic message for all token failures (prevents enumeration)
+        assert "Invalid or expired" in response.json()["detail"]
 
     def test_reset_password_validates_password_strength(
         self, client, test_user, db_session

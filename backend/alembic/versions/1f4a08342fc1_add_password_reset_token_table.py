@@ -67,6 +67,12 @@ def upgrade() -> None:
         ["user_id"],
         unique=False,
     )
+    op.create_index(
+        "ix_password_reset_tokens_user_used",
+        "password_reset_tokens",
+        ["user_id", "used_at"],
+        unique=False,
+    )
     op.alter_column(
         "feedback_submissions",
         "ip_address",
@@ -363,6 +369,9 @@ def downgrade() -> None:
         existing_type=sa.VARCHAR(length=45),
         comment="DEPRECATED: No longer populated as of 2026-01-09 for privacy compliance.\n        IP extraction occurs for rate limiting only (in-memory, not persisted).\n        Existing historical records may contain IP addresses but new submissions\n        will have NULL values. See privacy policy - no IP-based location tracking.",
         existing_nullable=True,
+    )
+    op.drop_index(
+        "ix_password_reset_tokens_user_used", table_name="password_reset_tokens"
     )
     op.drop_index(
         op.f("ix_password_reset_tokens_user_id"), table_name="password_reset_tokens"

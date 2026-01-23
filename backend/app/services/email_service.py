@@ -9,9 +9,14 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
 from typing import Optional
+from urllib.parse import urlencode
 
 from app.core.config import settings
+
+# SMTP connection timeout in seconds
+SMTP_TIMEOUT_SECONDS = 10
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +124,11 @@ async def send_password_reset_email(
     if reset_url_base is None:
         reset_url_base = "https://aiq-backend-production.up.railway.app"
 
-    # Construct the reset URL
+    # Construct the reset URL with proper URL encoding
     # NOTE: For production iOS app, this should be a deep link or universal link
     # that opens the app. For now, using a backend URL endpoint.
-    reset_url = f"{reset_url_base}/reset-password?token={reset_token}"
+    query_params = urlencode({"token": reset_token})
+    reset_url = f"{reset_url_base}/reset-password?{query_params}"
 
     # If SMTP is not configured, log the token for development/testing
     if not _is_smtp_configured():
@@ -139,11 +145,13 @@ async def send_password_reset_email(
 
         current_year = datetime.now().year
 
-        # Create message
+        # Create message with properly encoded headers
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "Reset Your AIQ Password"
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-        msg["To"] = email
+        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
+        msg["To"] = formataddr(
+            ("", email)
+        )  # Properly encode email to prevent header injection
 
         # Create plain text and HTML versions
         text_content = PASSWORD_RESET_TEXT_TEMPLATE.format(
@@ -161,8 +169,10 @@ async def send_password_reset_email(
         msg.attach(part_text)
         msg.attach(part_html)
 
-        # Send email via SMTP
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        # Send email via SMTP with timeout to prevent hanging
+        with smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
+        ) as server:
             server.starttls()  # Upgrade to secure connection
             server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
             server.send_message(msg)

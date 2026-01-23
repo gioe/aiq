@@ -4,9 +4,10 @@ Authentication endpoints for user registration and login.
 import logging
 import secrets
 from datetime import timedelta
-from app.core.datetime_utils import utc_now, ensure_timezone_aware
+from app.core.datetime_utils import utc_now
 
 from fastapi import APIRouter, Depends, status
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -255,8 +256,11 @@ def logout_user(current_user: User = Depends(get_current_user)):
     return None
 
 
-# Password reset token expiration (30 minutes)
-PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 30
+# Password reset token configuration
+PASSWORD_RESET_TOKEN_BYTES = 32  # 32 bytes = 256 bits of entropy for security
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 30  # Token expiration in minutes
+MAX_TOKENS_PER_USER = 10  # Maximum active (non-expired) tokens per user
+TOKEN_INVALIDATION_BATCH_SIZE = 100  # Batch size for invalidating old tokens
 
 
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
@@ -300,15 +304,48 @@ async def request_password_reset(
         user = db.query(User).filter(User.email == email).first()
 
         if user:
-            # Invalidate any existing unused tokens for this user
-            # This ensures only the most recent token is valid
-            db.query(PasswordResetToken).filter(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used_at.is_(None),
-            ).update({"used_at": utc_now()})
+            # Check token count to prevent resource exhaustion
+            active_token_count = (
+                db.query(func.count(PasswordResetToken.id))
+                .filter(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.expires_at > utc_now(),
+                    PasswordResetToken.used_at.is_(None),
+                )
+                .scalar()
+            )
 
-            # Generate secure random token (32 bytes = 256 bits)
-            reset_token = secrets.token_urlsafe(32)
+            if active_token_count >= MAX_TOKENS_PER_USER:
+                logger.warning(
+                    f"User {user.id} exceeded max password reset tokens ({MAX_TOKENS_PER_USER})"
+                )
+                # Still return generic message to prevent enumeration
+                return PasswordResetResponse(message=generic_message)
+
+            # Invalidate existing unused tokens in batches to prevent resource exhaustion
+            while True:
+                # Get batch of token IDs to invalidate
+                tokens_to_invalidate = (
+                    db.query(PasswordResetToken.id)
+                    .filter(
+                        PasswordResetToken.user_id == user.id,
+                        PasswordResetToken.used_at.is_(None),
+                    )
+                    .limit(TOKEN_INVALIDATION_BATCH_SIZE)
+                    .all()
+                )
+
+                if not tokens_to_invalidate:
+                    break
+
+                token_ids = [t.id for t in tokens_to_invalidate]
+                db.query(PasswordResetToken).filter(
+                    PasswordResetToken.id.in_(token_ids)
+                ).update({"used_at": utc_now()}, synchronize_session=False)
+                db.flush()
+
+            # Generate secure random token
+            reset_token = secrets.token_urlsafe(PASSWORD_RESET_TOKEN_BYTES)
 
             # Calculate expiration time
             expires_at = utc_now() + timedelta(
@@ -400,49 +437,34 @@ def reset_password(
     new_password = reset_data.new_password
 
     try:
-        # Look up token
-        token_record = (
+        # Use constant-time comparison to prevent timing attacks
+        # Fetch candidate tokens (non-expired, unused) and compare securely
+        candidate_tokens = (
             db.query(PasswordResetToken)
-            .filter(PasswordResetToken.token == token)
-            .first()
+            .filter(
+                PasswordResetToken.expires_at > utc_now(),
+                PasswordResetToken.used_at.is_(None),
+            )
+            .all()
         )
 
-        # Validate token exists
+        # Constant-time token lookup to prevent timing side-channel attacks
+        token_record = None
+        for candidate in candidate_tokens:
+            if secrets.compare_digest(token, candidate.token):
+                token_record = candidate
+                break
+
+        # Use generic error message for all validation failures to prevent enumeration
         if not token_record:
             logger.warning(
                 f"Password reset attempted with invalid token (length={len(token)})"
             )
             AnalyticsTracker.track_event(
                 EventType.PASSWORD_RESET_FAILED,
-                properties={"reason": "invalid_token"},
+                properties={"reason": "invalid_or_expired_token"},
             )
             raise_bad_request(ErrorMessages.RESET_TOKEN_INVALID)
-
-        # Validate token not already used
-        if token_record.used_at is not None:
-            logger.warning(
-                f"Password reset attempted with already-used token for user_id={token_record.user_id}"
-            )
-            AnalyticsTracker.track_event(
-                EventType.PASSWORD_RESET_FAILED,
-                user_id=int(token_record.user_id),
-                properties={"reason": "token_already_used"},
-            )
-            raise_bad_request(ErrorMessages.RESET_TOKEN_ALREADY_USED)
-
-        # Validate token not expired
-        # Ensure timezone-aware comparison (SQLite may return naive datetimes)
-        expires_at_aware = ensure_timezone_aware(token_record.expires_at)
-        if utc_now() > expires_at_aware:
-            logger.warning(
-                f"Password reset attempted with expired token for user_id={token_record.user_id}"
-            )
-            AnalyticsTracker.track_event(
-                EventType.PASSWORD_RESET_FAILED,
-                user_id=int(token_record.user_id),
-                properties={"reason": "token_expired"},
-            )
-            raise_bad_request(ErrorMessages.RESET_TOKEN_EXPIRED)
 
         # Get associated user
         user = db.query(User).filter(User.id == token_record.user_id).first()
@@ -459,13 +481,28 @@ def reset_password(
         # Mark token as used
         token_record.used_at = utc_now()
 
-        # Optionally invalidate all other tokens for this user
+        # Invalidate all other tokens for this user in batches
         # (defensive measure in case multiple reset requests were made)
-        db.query(PasswordResetToken).filter(
-            PasswordResetToken.user_id == user.id,
-            PasswordResetToken.id != token_record.id,
-            PasswordResetToken.used_at.is_(None),
-        ).update({"used_at": utc_now()})
+        while True:
+            tokens_to_invalidate = (
+                db.query(PasswordResetToken.id)
+                .filter(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.id != token_record.id,
+                    PasswordResetToken.used_at.is_(None),
+                )
+                .limit(TOKEN_INVALIDATION_BATCH_SIZE)
+                .all()
+            )
+
+            if not tokens_to_invalidate:
+                break
+
+            token_ids = [t.id for t in tokens_to_invalidate]
+            db.query(PasswordResetToken).filter(
+                PasswordResetToken.id.in_(token_ids)
+            ).update({"used_at": utc_now()}, synchronize_session=False)
+            db.flush()
 
         # Commit changes
         db.commit()

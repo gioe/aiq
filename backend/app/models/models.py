@@ -774,6 +774,7 @@ class PasswordResetToken(Base):
     __table_args__ = (
         Index("ix_password_reset_tokens_user_expires", "user_id", "expires_at"),
         Index("ix_password_reset_tokens_token_expires", "token", "expires_at"),
+        Index("ix_password_reset_tokens_user_used", "user_id", "used_at"),
     )
 
 
