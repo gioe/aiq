@@ -7,10 +7,10 @@ This document contains credentials and instructions for the Apple App Store Revi
 | Field | Value |
 |-------|-------|
 | **Email** | `demo-reviewer@aiq-app.com` |
-| **Password** | `DemoReview2026!Aiq` |
+| **Password** | *Stored in 1Password under "AIQ App Store Demo Account"* |
 | **Account Marker** | `APP_STORE_REVIEW_DEMO` |
 
-> **SECURITY NOTE**: These credentials are documented here for internal reference only. For production use, store them in 1Password or another secure secrets manager.
+> **SECURITY NOTE**: The password is stored securely in 1Password. Never commit credentials to source control.
 
 ## Account Details
 
@@ -38,7 +38,7 @@ When submitting the app for review, add these credentials to App Store Connect:
 3. Scroll to **App Review Information**
 4. Under **Sign-in Information**, enter:
    - **User name**: `demo-reviewer@aiq-app.com`
-   - **Password**: `DemoReview2026!Aiq`
+   - **Password**: *Retrieve from 1Password "AIQ App Store Demo Account"*
 5. In **Notes for Review**, add:
 
 ```
@@ -83,9 +83,10 @@ If the account needs to be recreated:
 
 1. **Create the user via API**:
    ```bash
+   # Replace <PASSWORD> with the actual password from 1Password
    curl -X POST "https://aiq-backend-production.up.railway.app/v1/auth/register" \
      -H "Content-Type: application/json" \
-     -d '{"email":"demo-reviewer@aiq-app.com","password":"DemoReview2026!Aiq","first_name":"App Store","last_name":"Reviewer","birth_year":1990,"education_level":"bachelors","country":"United States","region":"California"}'
+     -d '{"email":"demo-reviewer@aiq-app.com","password":"<PASSWORD>","first_name":"App Store","last_name":"Reviewer","birth_year":1990,"education_level":"bachelors","country":"United States","region":"California"}'
    ```
 
 2. **Populate test history**:

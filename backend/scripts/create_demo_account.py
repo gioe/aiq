@@ -45,30 +45,43 @@ from app.models.models import (  # noqa: E402
 # Demo Account Configuration
 # =============================================================================
 
-# IMPORTANT: Store actual credentials securely (1Password, environment variables)
-# These are the values that will be used - update as needed
-DEMO_ACCOUNT_CONFIG = {
-    "email": "demo-reviewer@aiq-app.com",
-    "password": "DemoReview2026!Aiq",  # Meets password requirements
-    "first_name": "App Store",
-    "last_name": "Reviewer",
-    "birth_year": 1990,
-    "education_level": EducationLevel.BACHELORS,
-    "country": "United States",
-    "region": "California",
-}
+# Demo account email (can be overridden via DEMO_ACCOUNT_EMAIL env var)
+DEMO_ACCOUNT_EMAIL = os.environ.get("DEMO_ACCOUNT_EMAIL", "demo-reviewer@aiq-app.com")
+
+# SECURITY: Password MUST be provided via environment variable
+# Never hardcode passwords in source code
+DEMO_ACCOUNT_PASSWORD = os.environ.get("DEMO_ACCOUNT_PASSWORD")
 
 # Marker to identify demo accounts (prevents accidental deletion)
 DEMO_ACCOUNT_MARKER = "APP_STORE_REVIEW_DEMO"
 
 
+def get_demo_account_config() -> dict:
+    """Get demo account configuration, validating required fields."""
+    if not DEMO_ACCOUNT_PASSWORD:
+        print("ERROR: DEMO_ACCOUNT_PASSWORD environment variable is required")
+        print("Set it via: export DEMO_ACCOUNT_PASSWORD='your-secure-password'")
+        sys.exit(1)
+
+    return {
+        "email": DEMO_ACCOUNT_EMAIL,
+        "password": DEMO_ACCOUNT_PASSWORD,
+        "first_name": "App Store",
+        "last_name": "Reviewer",
+        "birth_year": 1990,
+        "education_level": EducationLevel.BACHELORS,
+        "country": "United States",
+        "region": "California",
+    }
+
+
 def print_credentials():
-    """Print the demo account credentials in a secure format."""
+    """Print the demo account credentials info."""
     print("\n" + "=" * 60)
-    print("DEMO ACCOUNT CREDENTIALS FOR APP STORE REVIEW")
+    print("DEMO ACCOUNT INFO FOR APP STORE REVIEW")
     print("=" * 60)
-    print(f"\nEmail:    {DEMO_ACCOUNT_CONFIG['email']}")
-    print(f"Password: {DEMO_ACCOUNT_CONFIG['password']}")
+    print(f"\nEmail: {DEMO_ACCOUNT_EMAIL}")
+    print("Password: [Set via DEMO_ACCOUNT_PASSWORD environment variable]")
     print("\n" + "-" * 60)
     print("INSTRUCTIONS FOR APP STORE CONNECT:")
     print("-" * 60)
@@ -78,7 +91,7 @@ def print_credentials():
 2. Scroll to "App Review Information" section
 3. Under "Sign-in Information", enter:
    - User name: {email}
-   - Password: {password}
+   - Password: <retrieve from 1Password or DEMO_ACCOUNT_PASSWORD env var>
 4. In "Notes for Review", add:
    "This is a demo account with pre-populated test history.
    Use it to explore all app features including test results
@@ -87,8 +100,7 @@ def print_credentials():
 IMPORTANT: This account should NOT be deleted from production.
 It is marked for monitoring with marker: {marker}
 """.format(
-            email=DEMO_ACCOUNT_CONFIG["email"],
-            password=DEMO_ACCOUNT_CONFIG["password"],
+            email=DEMO_ACCOUNT_EMAIL,
             marker=DEMO_ACCOUNT_MARKER,
         )
     )
@@ -112,30 +124,30 @@ def get_database_session():
 
 def create_demo_user(db, dry_run: bool = False) -> Optional[User]:
     """Create the demo user account."""
+    config = get_demo_account_config()
+
     # Check if account already exists
-    existing = db.query(User).filter(User.email == DEMO_ACCOUNT_CONFIG["email"]).first()
+    existing = db.query(User).filter(User.email == config["email"]).first()
     if existing:
         print(f"Demo account already exists with ID: {existing.id}")
         return existing
 
     if dry_run:
         print("[DRY RUN] Would create demo user:")
-        print(f"  Email: {DEMO_ACCOUNT_CONFIG['email']}")
-        print(
-            f"  Name: {DEMO_ACCOUNT_CONFIG['first_name']} {DEMO_ACCOUNT_CONFIG['last_name']}"
-        )
+        print(f"  Email: {config['email']}")
+        print(f"  Name: {config['first_name']} {config['last_name']}")
         return None
 
     # Create the user
     user = User(
-        email=DEMO_ACCOUNT_CONFIG["email"],
-        password_hash=get_password_hash(DEMO_ACCOUNT_CONFIG["password"]),
-        first_name=DEMO_ACCOUNT_CONFIG["first_name"],
-        last_name=DEMO_ACCOUNT_CONFIG["last_name"],
-        birth_year=DEMO_ACCOUNT_CONFIG["birth_year"],
-        education_level=DEMO_ACCOUNT_CONFIG["education_level"],
-        country=DEMO_ACCOUNT_CONFIG["country"],
-        region=DEMO_ACCOUNT_CONFIG["region"],
+        email=config["email"],
+        password_hash=get_password_hash(config["password"]),
+        first_name=config["first_name"],
+        last_name=config["last_name"],
+        birth_year=config["birth_year"],
+        education_level=config["education_level"],
+        country=config["country"],
+        region=config["region"],
         notification_enabled=True,
         created_at=datetime.now(timezone.utc),
     )
@@ -344,7 +356,7 @@ def main():
 
     try:
         if args.verify:
-            verify_account(db, DEMO_ACCOUNT_CONFIG["email"])
+            verify_account(db, DEMO_ACCOUNT_EMAIL)
             return
 
         if args.dry_run:
@@ -361,7 +373,7 @@ def main():
 
         if not args.dry_run and user:
             # Verify and show credentials
-            verify_account(db, DEMO_ACCOUNT_CONFIG["email"])
+            verify_account(db, DEMO_ACCOUNT_EMAIL)
             print_credentials()
 
         print("\nDemo account setup complete!")
