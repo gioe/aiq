@@ -362,7 +362,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8080
 CORS_ORIGINS=https://aiq.app,https://app.aiq.app
 ```
 
-**Note**: The backend restricts CORS to specific HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`) and headers (`Authorization`, `Content-Type`) for security.
+**Note**: The backend restricts CORS to specific HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`) and headers (`Authorization`, `Content-Type`, `X-Platform`, `X-App-Version`) for security.
 
 ## Monitoring & Logs
 
