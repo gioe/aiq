@@ -74,6 +74,36 @@ Provider implementations are in `app/providers/`.
 
 ## Configuration
 
+### Secrets Management
+
+API keys and sensitive configuration values are managed through a secrets abstraction layer that supports multiple backends:
+
+| Backend | Description | Configuration |
+|---------|-------------|---------------|
+| `env` (default) | Environment variables | Works with Railway sealed variables |
+| `doppler` | Doppler secrets management | Future integration |
+
+**Configuring the secrets backend:**
+
+```bash
+# Use environment variables (default)
+SECRETS_BACKEND=env
+
+# Use Doppler (not yet implemented)
+SECRETS_BACKEND=doppler
+```
+
+**Railway Deployment:**
+
+For production deployments on Railway, use [sealed variables](https://docs.railway.com/reference/variables) for API keys:
+1. Add your API keys as environment variables in the Railway dashboard
+2. Click the 3-dot menu on each sensitive variable and select "Seal"
+3. Sealed values are provided to deployments but hidden from the UI and API
+
+**Doppler Integration (Future):**
+
+For advanced secrets management with rotation support, Doppler can be integrated via Railway's [native Doppler integration](https://docs.doppler.com/docs/railway).
+
 ### Environment Variables
 
 Create a `.env` file from `.env.example`:
@@ -81,6 +111,9 @@ Create a `.env` file from `.env.example`:
 ```bash
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/aiq
+
+# Secrets Backend (optional, defaults to "env")
+SECRETS_BACKEND=env
 
 # LLM API Keys (at least one required)
 OPENAI_API_KEY=sk-...
