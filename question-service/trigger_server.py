@@ -13,20 +13,229 @@ import os
 import secrets
 import subprocess
 import threading
-from datetime import datetime
-from typing import Optional
+import time
+from datetime import datetime, timezone
+from typing import Dict, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# Rate limiting constants
+RATE_LIMIT_REQUESTS = 10  # Maximum requests per window
+RATE_LIMIT_WINDOW = 60  # Window size in seconds (1 minute)
+RATE_LIMIT_CLEANUP_INTERVAL = 120  # Clean up old entries every 2 minutes
+
+# Rate limit storage: {client_id: {window_id: count}}
+_rate_limit_data: Dict[str, Dict[int, int]] = {}
+_rate_limit_lock = threading.Lock()
+_last_cleanup = time.time()
+
+
+class RateLimiter:
+    """
+    Thread-safe fixed-window rate limiter.
+
+    Uses fixed time windows to track request counts per client.
+    Automatically cleans up expired entries to prevent memory leaks.
+    """
+
+    @staticmethod
+    def _get_client_id(request: Request) -> str:
+        """
+        Extract client identifier from request.
+
+        Uses X-Forwarded-For header (Railway proxy) with fallback to client.host.
+
+        Args:
+            request: FastAPI Request object
+
+        Returns:
+            Client IP address as identifier
+        """
+        # Railway sets X-Forwarded-For header with real client IP
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+            # Use the first IP (leftmost) as the real client
+            return forwarded_for.split(",")[0].strip()
+
+        # Fallback to direct client host
+        if request.client:
+            return request.client.host
+
+        # Last resort fallback
+        return "unknown"
+
+    @staticmethod
+    def _cleanup_expired_entries(current_time: float) -> None:
+        """
+        Remove expired rate limit entries to prevent memory leaks.
+
+        Called periodically when cleanup interval has elapsed.
+
+        Args:
+            current_time: Current timestamp
+        """
+        global _last_cleanup
+
+        if current_time - _last_cleanup < RATE_LIMIT_CLEANUP_INTERVAL:
+            return
+
+        # Calculate cutoff window (keep current and previous window)
+        current_window = int(current_time // RATE_LIMIT_WINDOW)
+        cutoff_window = current_window - 1
+
+        # Remove expired entries
+        clients_to_remove = []
+        for client_id, windows in _rate_limit_data.items():
+            # Remove old windows
+            expired_windows = [w for w in windows if w < cutoff_window]
+            for window in expired_windows:
+                del windows[window]
+
+            # Mark client for removal if no active windows
+            if not windows:
+                clients_to_remove.append(client_id)
+
+        # Remove clients with no active windows
+        for client_id in clients_to_remove:
+            del _rate_limit_data[client_id]
+
+        _last_cleanup = current_time
+        logger.debug(
+            f"Rate limit cleanup: removed {len(clients_to_remove)} expired clients"
+        )
+
+    @staticmethod
+    def check_rate_limit(request: Request) -> Dict[str, int]:
+        """
+        Check if request is within rate limit.
+
+        Args:
+            request: FastAPI Request object
+
+        Returns:
+            Dictionary with rate limit metadata:
+                - limit: Maximum requests per window
+                - remaining: Requests remaining in current window
+                - reset: Unix timestamp when window resets
+
+        Raises:
+            HTTPException: 429 if rate limit exceeded
+        """
+        current_time = time.time()
+        window_id = int(current_time // RATE_LIMIT_WINDOW)
+        client_id = RateLimiter._get_client_id(request)
+
+        with _rate_limit_lock:
+            # Periodic cleanup to prevent memory leaks
+            RateLimiter._cleanup_expired_entries(current_time)
+
+            # Get or initialize client data
+            if client_id not in _rate_limit_data:
+                _rate_limit_data[client_id] = {}
+
+            client_windows = _rate_limit_data[client_id]
+
+            # Get current window count
+            current_count = client_windows.get(window_id, 0)
+
+            # Check if limit exceeded
+            if current_count >= RATE_LIMIT_REQUESTS:
+                reset_at = (window_id + 1) * RATE_LIMIT_WINDOW
+                retry_after = int(reset_at - current_time)
+
+                logger.warning(
+                    f"Rate limit exceeded for client {client_id}: "
+                    f"{current_count}/{RATE_LIMIT_REQUESTS} requests"
+                )
+
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
+                    headers={
+                        "X-RateLimit-Limit": str(RATE_LIMIT_REQUESTS),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": str(int(reset_at)),
+                        "Retry-After": str(retry_after),
+                    },
+                )
+
+            # Increment counter
+            client_windows[window_id] = current_count + 1
+
+            # Calculate metadata
+            remaining = RATE_LIMIT_REQUESTS - (current_count + 1)
+            reset_at = (window_id + 1) * RATE_LIMIT_WINDOW
+
+            return {
+                "limit": RATE_LIMIT_REQUESTS,
+                "remaining": remaining,
+                "reset": int(reset_at),
+            }
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    FastAPI middleware for rate limiting.
+
+    Applies rate limiting to all endpoints except those in skip_paths.
+    Adds rate limit headers to all responses.
+    """
+
+    def __init__(self, app, skip_paths: Optional[list[str]] = None):
+        """
+        Initialize rate limit middleware.
+
+        Args:
+            app: FastAPI application
+            skip_paths: List of paths to skip rate limiting (e.g., ["/health"])
+        """
+        super().__init__(app)
+        self.skip_paths = skip_paths or []
+
+    async def dispatch(self, request: Request, call_next):
+        """Process request with rate limiting."""
+        # Skip rate limiting for excluded paths
+        if request.url.path in self.skip_paths:
+            return await call_next(request)
+
+        # Check rate limit
+        try:
+            rate_limit_info = RateLimiter.check_rate_limit(request)
+
+            # Process request
+            response = await call_next(request)
+
+            # Add rate limit headers to response
+            response.headers["X-RateLimit-Limit"] = str(rate_limit_info["limit"])
+            response.headers["X-RateLimit-Remaining"] = str(
+                rate_limit_info["remaining"]
+            )
+            response.headers["X-RateLimit-Reset"] = str(rate_limit_info["reset"])
+
+            return response
+
+        except HTTPException as exc:
+            # Rate limit exceeded - return 429 with headers
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+
 
 app = FastAPI(
     title="Question Generation Trigger Service",
     description=(
         "HTTP API for manually triggering AIQ question generation jobs. "
         "This service provides on-demand execution of the question generation pipeline, "
-        "bypassing the scheduled cron job. Requires admin authentication."
+        "bypassing the scheduled cron job. Requires admin authentication. "
+        "Rate limited to 10 requests per minute per IP address."
     ),
     version="1.0.0",
     contact={
@@ -36,6 +245,9 @@ app = FastAPI(
         "name": "Proprietary",
     },
 )
+
+# Add rate limiting middleware (skip health check)
+app.add_middleware(RateLimitMiddleware, skip_paths=["/health"])
 
 # Admin token from environment
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
@@ -133,6 +345,15 @@ class HTTPErrorResponse(BaseModel):
     )
 
 
+class RateLimitExceededResponse(BaseModel):
+    """Response returned when rate limit is exceeded (HTTP 429)."""
+
+    detail: str = Field(
+        description="Human-readable error message with retry information.",
+        json_schema_extra={"example": "Rate limit exceeded. Try again in 42 seconds."},
+    )
+
+
 def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
     """
     Run the generation job in a separate process.
@@ -200,7 +421,7 @@ async def health_check() -> HealthResponse:
         "Manually trigger the question generation job. This executes the same pipeline "
         "as the scheduled cron job. The job runs asynchronously in the background; "
         "this endpoint returns immediately after starting the job. Only one job can "
-        "run at a time."
+        "run at a time. Rate limited to 10 requests per minute per IP address."
     ),
     tags=["Generation"],
     responses={
@@ -215,6 +436,10 @@ async def health_check() -> HealthResponse:
         409: {
             "description": "A generation job is already running",
             "model": HTTPErrorResponse,
+        },
+        429: {
+            "description": "Rate limit exceeded - too many requests",
+            "model": RateLimitExceededResponse,
         },
         500: {
             "description": "Server configuration error (admin token not set)",
@@ -264,7 +489,7 @@ async def trigger_generation(
     return TriggerResponse(
         message=f"Question generation job started (count={request.count}, dry_run={request.dry_run})",
         status="started",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 

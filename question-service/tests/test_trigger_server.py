@@ -303,3 +303,300 @@ class TestVerifyAdminToken:
             result = await self.module.verify_admin_token("test-token")
             assert result is True
             mock_compare.assert_called_once_with("test-token", "test-token")
+
+
+class TestRateLimiting:
+    """Tests for rate limiting functionality."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Reset module state before each test."""
+        with patch.dict(os.environ, {"ADMIN_TOKEN": "test-secret-token"}, clear=False):
+            import importlib
+
+            import trigger_server
+
+            importlib.reload(trigger_server)
+            self.app = trigger_server.app
+            self.client = TestClient(self.app)
+            self.module = trigger_server
+
+            # Reset rate limit state
+            with trigger_server._rate_limit_lock:
+                trigger_server._rate_limit_data.clear()
+                trigger_server._last_cleanup = time.time()
+
+            # Reset job state
+            with trigger_server._job_lock:
+                trigger_server._running_job = None
+
+            yield
+
+    def test_health_endpoint_not_rate_limited(self):
+        """Test that health endpoint is exempt from rate limiting."""
+        # Make many requests to health endpoint
+        for _ in range(15):
+            response = self.client.get("/health")
+            assert response.status_code == 200
+
+        # Health endpoint should not have rate limit headers
+        response = self.client.get("/health")
+        assert response.status_code == 200
+        assert "X-RateLimit-Limit" not in response.headers
+
+    def test_rate_limit_headers_included_on_success(self):
+        """Test that rate limit headers are included in successful responses."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={"X-Admin-Token": "test-secret-token"},
+            )
+
+            assert response.status_code == 200
+            assert "X-RateLimit-Limit" in response.headers
+            assert "X-RateLimit-Remaining" in response.headers
+            assert "X-RateLimit-Reset" in response.headers
+
+            assert response.headers["X-RateLimit-Limit"] == "10"
+            # First request, so 9 remaining
+            assert response.headers["X-RateLimit-Remaining"] == "9"
+
+    def test_rate_limit_remaining_decrements(self):
+        """Test that remaining count decrements with each request."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Make 3 requests
+            for i in range(3):
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+                assert response.status_code == 200
+                expected_remaining = 10 - (i + 1)
+                assert response.headers["X-RateLimit-Remaining"] == str(
+                    expected_remaining
+                )
+
+    def test_rate_limit_exceeded_returns_429(self):
+        """Test that exceeding rate limit returns 429."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Make exactly 10 requests (the limit)
+            for i in range(10):
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+                assert response.status_code == 200
+
+            # 11th request should be rate limited
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={"X-Admin-Token": "test-secret-token"},
+            )
+
+            assert response.status_code == 429
+            data = response.json()
+            assert "Rate limit exceeded" in data["detail"]
+            assert "Try again in" in data["detail"]
+
+    def test_rate_limit_429_includes_retry_headers(self):
+        """Test that 429 response includes retry headers."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Exhaust rate limit
+            for _ in range(10):
+                self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+
+            # Next request should return 429 with headers
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={"X-Admin-Token": "test-secret-token"},
+            )
+
+            assert response.status_code == 429
+            assert "X-RateLimit-Limit" in response.headers
+            assert "X-RateLimit-Remaining" in response.headers
+            assert "X-RateLimit-Reset" in response.headers
+            assert "Retry-After" in response.headers
+
+            assert response.headers["X-RateLimit-Limit"] == "10"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            # Retry-After should be positive
+            assert int(response.headers["Retry-After"]) > 0
+
+    def test_rate_limit_resets_after_window(self):
+        """Test that rate limit resets after time window expires."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Mock time to control window transitions
+            current_time = time.time()
+            window_start = current_time
+
+            with patch("time.time", return_value=window_start):
+                # Exhaust rate limit in first window
+                for _ in range(10):
+                    response = self.client.post(
+                        "/trigger",
+                        json={"count": 10},
+                        headers={"X-Admin-Token": "test-secret-token"},
+                    )
+                    assert response.status_code == 200
+
+                # Next request should be rate limited
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+                assert response.status_code == 429
+
+            # Move to next window (61 seconds later)
+            with patch("time.time", return_value=window_start + 61):
+                # Should be allowed again
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+                assert response.status_code == 200
+                assert response.headers["X-RateLimit-Remaining"] == "9"
+
+    def test_rate_limit_per_client_ip(self):
+        """Test that rate limiting is per client IP address."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Client 1 exhausts their limit
+            for _ in range(10):
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={
+                        "X-Admin-Token": "test-secret-token",
+                        "X-Forwarded-For": "1.2.3.4",
+                    },
+                )
+                assert response.status_code == 200
+
+            # Client 1 is rate limited
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={
+                    "X-Admin-Token": "test-secret-token",
+                    "X-Forwarded-For": "1.2.3.4",
+                },
+            )
+            assert response.status_code == 429
+
+            # Client 2 should still have their full quota
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={
+                    "X-Admin-Token": "test-secret-token",
+                    "X-Forwarded-For": "5.6.7.8",
+                },
+            )
+            assert response.status_code == 200
+            assert response.headers["X-RateLimit-Remaining"] == "9"
+
+    def test_rate_limit_uses_x_forwarded_for_header(self):
+        """Test that rate limiter uses X-Forwarded-For header for client IP."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Make request with X-Forwarded-For header
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={
+                    "X-Admin-Token": "test-secret-token",
+                    "X-Forwarded-For": "10.0.0.1, 10.0.0.2",  # Multiple IPs
+                },
+            )
+            assert response.status_code == 200
+
+            # Should track by first IP in X-Forwarded-For
+            # Make 9 more requests from same first IP
+            for _ in range(9):
+                response = self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={
+                        "X-Admin-Token": "test-secret-token",
+                        "X-Forwarded-For": "10.0.0.1, 10.0.0.3",  # Same first IP
+                    },
+                )
+                assert response.status_code == 200
+
+            # 11th request should be rate limited
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={
+                    "X-Admin-Token": "test-secret-token",
+                    "X-Forwarded-For": "10.0.0.1",
+                },
+            )
+            assert response.status_code == 429
+
+    def test_rate_limit_cleanup_removes_expired_entries(self):
+        """Test that cleanup removes expired rate limit entries."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            current_time = time.time()
+
+            # Make requests in first window
+            with patch("time.time", return_value=current_time):
+                for _ in range(5):
+                    self.client.post(
+                        "/trigger",
+                        json={"count": 10},
+                        headers={
+                            "X-Admin-Token": "test-secret-token",
+                            "X-Forwarded-For": "192.168.1.1",
+                        },
+                    )
+
+            # Verify data exists
+            with self.module._rate_limit_lock:
+                assert "192.168.1.1" in self.module._rate_limit_data
+
+            # Move forward past cleanup interval (121 seconds = 2 full windows)
+            with patch("time.time", return_value=current_time + 121):
+                # Make a request to trigger cleanup
+                self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={
+                        "X-Admin-Token": "test-secret-token",
+                        "X-Forwarded-For": "192.168.1.2",  # Different client
+                    },
+                )
+
+            # Old entry should be cleaned up
+            with self.module._rate_limit_lock:
+                assert "192.168.1.1" not in self.module._rate_limit_data
+
+    def test_rate_limit_applies_before_auth(self):
+        """Test that rate limiting is checked before authentication."""
+        with patch.object(self.module, "run_generation_job", return_value=None):
+            # Exhaust rate limit with valid token
+            for _ in range(10):
+                self.client.post(
+                    "/trigger",
+                    json={"count": 10},
+                    headers={"X-Admin-Token": "test-secret-token"},
+                )
+
+            # Try with invalid token - should get 429, not 401
+            response = self.client.post(
+                "/trigger",
+                json={"count": 10},
+                headers={"X-Admin-Token": "wrong-token"},
+            )
+
+            # Should be rate limited before auth check
+            assert response.status_code == 429
