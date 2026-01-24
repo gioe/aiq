@@ -569,22 +569,33 @@ class AnthropicProvider(BaseLLMProvider):
         Get list of available Anthropic models.
 
         Returns:
-            List of model identifiers
+            List of model identifiers ordered from newest to oldest
 
         Note:
-            Common Claude models:
-            - claude-sonnet-4-5-20250929 (Claude Sonnet 4.5 - most intelligent)
-            - claude-haiku-4-5-20251001 (Claude Haiku 4.5 - fast with near-frontier performance)
-            - claude-sonnet-4-20250514 (Claude Sonnet 4)
+            Current Claude models (as of January 2026):
             - claude-opus-4-5-20251101 (Claude Opus 4.5 - maximum capability)
+            - claude-sonnet-4-5-20250929 (Claude Sonnet 4.5 - best balance of intelligence/speed)
+            - claude-haiku-4-5-20251001 (Claude Haiku 4.5 - fastest with near-frontier intelligence)
+            - claude-opus-4-1-20250805 (Claude Opus 4.1 - enhanced agentic tasks)
+            - claude-sonnet-4-20250514 (Claude Sonnet 4)
+            - claude-opus-4-20250514 (Claude Opus 4)
+            - claude-3-7-sonnet-20250219 (Claude 3.7 Sonnet - legacy)
             - claude-3-5-sonnet-20241022 (Claude 3.5 Sonnet - legacy)
+            - claude-3-haiku-20240307 (Claude 3 Haiku - legacy, fast/low-cost)
         """
         return [
+            # Claude 4.5 models (latest)
+            "claude-opus-4-5-20251101",
             "claude-sonnet-4-5-20250929",
             "claude-haiku-4-5-20251001",
+            # Claude 4.x models
+            "claude-opus-4-1-20250805",
             "claude-sonnet-4-20250514",
-            "claude-opus-4-5-20251101",
+            "claude-opus-4-20250514",
+            # Claude 3.x models (legacy)
+            "claude-3-7-sonnet-20250219",
             "claude-3-5-sonnet-20241022",
+            "claude-3-haiku-20240307",
         ]
 
     async def cleanup(self) -> None:
