@@ -482,6 +482,38 @@ Use this checklist when evaluating judge changes:
 
 ## Change History
 
+### 2026-01-24 - Grok 4 Heavy Evaluation (TASK-554)
+
+**Review Type**: Targeted evaluation of Grok 4 Heavy as potential upgrade for math judging
+
+**Outcome**: **No change** - Keeping grok-4 for mathematical reasoning
+
+**Evaluation Summary**:
+
+Grok 4 Heavy was evaluated as a potential upgrade for math judging based on reports of improved USAMO performance.
+
+**Benchmark Comparison**:
+| Metric | Grok 4 | Grok 4 Heavy | Difference |
+|--------|--------|--------------|------------|
+| USAMO 2025 | 61.9% | 61.9% | 0% |
+| AIME 2024/2025 | 100% | 95-100% | ~0% |
+| Humanity's Last Exam | 38.6% | 44.4% | +5.8% |
+
+**Decision Factors**:
+1. **Identical USAMO performance** - No improvement on competition-level math
+2. **Not available via API** - Only accessible through SuperGrok Heavy subscription ($300/month)
+3. **Multi-agent overhead** - 4-7x longer processing times due to 5-agent parallel architecture
+4. **Cost prohibitive** - Enterprise-only pricing vs standard API access
+
+**Conclusion**: Grok 4 Heavy's improvements on Humanity's Last Exam do not translate to meaningful gains for IQ-test-level math judging. Combined with API unavailability and cost, grok-4 remains the optimal choice.
+
+**Sources**:
+- xAI official documentation: https://docs.x.ai/docs/models
+- Artificial Analysis: https://artificialanalysis.ai/models/grok-4
+- Epoch AI evaluation: https://epoch.ai/blog/grok-4-math
+
+---
+
 ### 2026-01-24 - January 2026 Quarterly Review (v2.0)
 
 **Review Type**: Quarterly review (Q1 2026) - Missed April 2025 review, now 12+ months since last update
