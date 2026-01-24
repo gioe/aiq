@@ -160,8 +160,9 @@ class QuestionJudge:
         logger.debug(f"Using judge model: {judge_model.model} ({judge_model.provider})")
 
         try:
-            # Get evaluation from LLM using model_override to avoid mutating provider state
-            response = provider.generate_structured_completion(
+            # Get evaluation from LLM with cost tracking
+            # Using model_override to avoid mutating provider state
+            result = provider.generate_structured_completion_with_usage(
                 prompt=prompt,
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
@@ -170,7 +171,7 @@ class QuestionJudge:
             )
 
             # Parse evaluation scores
-            evaluation = self._parse_evaluation_response(response)
+            evaluation = self._parse_evaluation_response(result.content)
 
             # Calculate overall score using evaluation criteria weights
             overall_score = self._calculate_overall_score(evaluation)
@@ -265,11 +266,11 @@ class QuestionJudge:
         # Use provided timeout or instance default
         effective_timeout = timeout if timeout is not None else self._async_timeout
 
-        # Define the async API call with rate limiting and timeout
+        # Define the async API call with rate limiting, timeout, and cost tracking
         async def _do_async_evaluation() -> Dict[str, Any]:
             async with self._rate_limiter:
-                return await asyncio.wait_for(
-                    provider.generate_structured_completion_async(
+                result = await asyncio.wait_for(
+                    provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
                         response_format={},  # Provider will handle JSON mode
                         temperature=temperature,
@@ -278,6 +279,7 @@ class QuestionJudge:
                     ),
                     timeout=effective_timeout,
                 )
+                return result.content
 
         try:
             # Execute with circuit breaker protection

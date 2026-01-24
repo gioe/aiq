@@ -5,8 +5,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from app.cost_tracking import CompletionResult
 from app.generator import QuestionGenerator
 from app.models import DifficultyLevel, QuestionType
+
+
+def make_completion_result(content):
+    """Helper to create a CompletionResult from content."""
+    return CompletionResult(content=content, token_usage=None)
 
 
 class TestQuestionGenerator:
@@ -18,12 +24,16 @@ class TestQuestionGenerator:
         with patch("app.generator.OpenAIProvider") as mock:
             provider = Mock()
             provider.model = "gpt-4"
-            provider.generate_structured_completion.return_value = {
-                "question_text": "What is 2 + 2?",
-                "correct_answer": "4",
-                "answer_options": ["2", "3", "4", "5"],
-                "explanation": "2 + 2 equals 4 by basic addition.",
-            }
+            provider.generate_structured_completion_with_usage.return_value = (
+                make_completion_result(
+                    {
+                        "question_text": "What is 2 + 2?",
+                        "correct_answer": "4",
+                        "answer_options": ["2", "3", "4", "5"],
+                        "explanation": "2 + 2 equals 4 by basic addition.",
+                    }
+                )
+            )
             mock.return_value = provider
             yield mock
 
@@ -115,20 +125,24 @@ class TestQuestionGenerator:
         """Test batch generation with some failures."""
         # Mock to fail on second call
         provider = generator_with_openai.providers["openai"]
-        provider.generate_structured_completion.side_effect = [
-            {
-                "question_text": "Question 1?",
-                "correct_answer": "A",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Explanation 1",
-            },
+        provider.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(
+                {
+                    "question_text": "Question 1?",
+                    "correct_answer": "A",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Explanation 1",
+                }
+            ),
             Exception("API Error"),
-            {
-                "question_text": "Question 3?",
-                "correct_answer": "C",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Explanation 3",
-            },
+            make_completion_result(
+                {
+                    "question_text": "Question 3?",
+                    "correct_answer": "C",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Explanation 3",
+                }
+            ),
         ]
 
         batch = generator_with_openai.generate_batch(
@@ -208,23 +222,29 @@ class TestQuestionGeneratorIntegration:
             # Mock OpenAI
             openai_provider = Mock()
             openai_provider.model = "gpt-4"
-            openai_provider.generate_structured_completion.return_value = {
-                "question_text": "OpenAI question?",
-                "correct_answer": "A",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "OpenAI explanation",
-            }
+            openai_provider.generate_structured_completion_with_usage.return_value = (
+                make_completion_result(
+                    {
+                        "question_text": "OpenAI question?",
+                        "correct_answer": "A",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": "OpenAI explanation",
+                    }
+                )
+            )
             mock_openai.return_value = openai_provider
 
             # Mock Anthropic
             anthropic_provider = Mock()
             anthropic_provider.model = "claude-3-5-sonnet"
-            anthropic_provider.generate_structured_completion.return_value = {
-                "question_text": "Anthropic question?",
-                "correct_answer": "B",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Anthropic explanation",
-            }
+            anthropic_provider.generate_structured_completion_with_usage.return_value = make_completion_result(
+                {
+                    "question_text": "Anthropic question?",
+                    "correct_answer": "B",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Anthropic explanation",
+                }
+            )
             mock_anthropic.return_value = anthropic_provider
 
             generator = QuestionGenerator(
@@ -260,20 +280,26 @@ class TestAsyncQuestionGenerator:
             provider = Mock()
             provider.model = "gpt-4"
             # Mock sync method for backward compatibility
-            provider.generate_structured_completion.return_value = {
-                "question_text": "What is 2 + 2?",
-                "correct_answer": "4",
-                "answer_options": ["2", "3", "4", "5"],
-                "explanation": "2 + 2 equals 4 by basic addition.",
-            }
+            provider.generate_structured_completion_with_usage.return_value = (
+                make_completion_result(
+                    {
+                        "question_text": "What is 2 + 2?",
+                        "correct_answer": "4",
+                        "answer_options": ["2", "3", "4", "5"],
+                        "explanation": "2 + 2 equals 4 by basic addition.",
+                    }
+                )
+            )
             # Mock async method
-            provider.generate_structured_completion_async = AsyncMock(
-                return_value={
-                    "question_text": "What is 2 + 2? (async)",
-                    "correct_answer": "4",
-                    "answer_options": ["2", "3", "4", "5"],
-                    "explanation": "2 + 2 equals 4 by basic addition.",
-                }
+            provider.generate_structured_completion_with_usage_async = AsyncMock(
+                return_value=make_completion_result(
+                    {
+                        "question_text": "What is 2 + 2? (async)",
+                        "correct_answer": "4",
+                        "answer_options": ["2", "3", "4", "5"],
+                        "explanation": "2 + 2 equals 4 by basic addition.",
+                    }
+                )
             )
             mock.return_value = provider
             yield mock
@@ -342,20 +368,24 @@ class TestAsyncQuestionGenerator:
         """Test async batch generation with some failures."""
         # Mock to fail on second call
         provider = async_generator.providers["openai"]
-        provider.generate_structured_completion_async.side_effect = [
-            {
-                "question_text": "Question 1?",
-                "correct_answer": "A",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Explanation 1",
-            },
+        provider.generate_structured_completion_with_usage_async.side_effect = [
+            make_completion_result(
+                {
+                    "question_text": "Question 1?",
+                    "correct_answer": "A",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Explanation 1",
+                }
+            ),
             Exception("API Error"),
-            {
-                "question_text": "Question 3?",
-                "correct_answer": "C",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Explanation 3",
-            },
+            make_completion_result(
+                {
+                    "question_text": "Question 3?",
+                    "correct_answer": "C",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Explanation 3",
+                }
+            ),
         ]
 
         batch = await async_generator.generate_batch_async(
@@ -382,26 +412,32 @@ class TestAsyncMultiProviderGenerator:
             # Mock OpenAI
             openai_provider = Mock()
             openai_provider.model = "gpt-4"
-            openai_provider.generate_structured_completion_async = AsyncMock(
-                return_value={
-                    "question_text": "OpenAI async question?",
-                    "correct_answer": "A",
-                    "answer_options": ["A", "B", "C", "D"],
-                    "explanation": "OpenAI async explanation",
-                }
+            openai_provider.generate_structured_completion_with_usage_async = AsyncMock(
+                return_value=make_completion_result(
+                    {
+                        "question_text": "OpenAI async question?",
+                        "correct_answer": "A",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": "OpenAI async explanation",
+                    }
+                )
             )
             mock_openai.return_value = openai_provider
 
             # Mock Anthropic
             anthropic_provider = Mock()
             anthropic_provider.model = "claude-3-5-sonnet"
-            anthropic_provider.generate_structured_completion_async = AsyncMock(
-                return_value={
-                    "question_text": "Anthropic async question?",
-                    "correct_answer": "B",
-                    "answer_options": ["A", "B", "C", "D"],
-                    "explanation": "Anthropic async explanation",
-                }
+            anthropic_provider.generate_structured_completion_with_usage_async = (
+                AsyncMock(
+                    return_value=make_completion_result(
+                        {
+                            "question_text": "Anthropic async question?",
+                            "correct_answer": "B",
+                            "answer_options": ["A", "B", "C", "D"],
+                            "explanation": "Anthropic async explanation",
+                        }
+                    )
+                )
             )
             mock_anthropic.return_value = anthropic_provider
 
@@ -442,31 +478,35 @@ class TestAsyncMultiProviderGenerator:
             call_times.append(("openai_start", time.time()))
             await asyncio.sleep(0.1)  # Simulate API latency
             call_times.append(("openai_end", time.time()))
-            return {
-                "question_text": "OpenAI question?",
-                "correct_answer": "A",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "OpenAI explanation",
-            }
+            return make_completion_result(
+                {
+                    "question_text": "OpenAI question?",
+                    "correct_answer": "A",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "OpenAI explanation",
+                }
+            )
 
         async def slow_anthropic_response(*args, **kwargs):
             call_times.append(("anthropic_start", time.time()))
             await asyncio.sleep(0.1)  # Simulate API latency
             call_times.append(("anthropic_end", time.time()))
-            return {
-                "question_text": "Anthropic question?",
-                "correct_answer": "B",
-                "answer_options": ["A", "B", "C", "D"],
-                "explanation": "Anthropic explanation",
-            }
+            return make_completion_result(
+                {
+                    "question_text": "Anthropic question?",
+                    "correct_answer": "B",
+                    "answer_options": ["A", "B", "C", "D"],
+                    "explanation": "Anthropic explanation",
+                }
+            )
 
         # Override the async mocks
         openai_provider = multi_provider_async_generator.providers["openai"]
         anthropic_provider = multi_provider_async_generator.providers["anthropic"]
-        openai_provider.generate_structured_completion_async.side_effect = (
+        openai_provider.generate_structured_completion_with_usage_async.side_effect = (
             slow_openai_response
         )
-        anthropic_provider.generate_structured_completion_async.side_effect = (
+        anthropic_provider.generate_structured_completion_with_usage_async.side_effect = (
             slow_anthropic_response
         )
 
