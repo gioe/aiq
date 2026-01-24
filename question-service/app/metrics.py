@@ -6,10 +6,12 @@ question generation, evaluation, deduplication, and database operations.
 
 import json
 import logging
+import time
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from .circuit_breaker import (
     get_circuit_breaker_registry,
@@ -83,6 +85,23 @@ class MetricsTracker:
         self.critical_errors: List[Dict[str, Any]] = []
         self.classified_errors: List[Dict[str, Any]] = []
 
+        # Per-stage timing metrics (TASK-472)
+        self._stage_durations: Dict[str, float] = {
+            "generation": 0.0,
+            "evaluation": 0.0,
+            "deduplication": 0.0,
+            "storage": 0.0,
+        }
+        self._stage_start_time: Optional[float] = None
+        self._current_stage: Optional[str] = None
+
+        # Embedding cache performance metrics (TASK-472)
+        self._embedding_cache_stats: Dict[str, int] = {
+            "hits": 0,
+            "misses": 0,
+            "size": 0,
+        }
+
         logger.debug("Metrics reset")
 
     def start_run(self) -> None:
@@ -94,6 +113,119 @@ class MetricsTracker:
         """Mark the end of a pipeline run."""
         self.end_time = datetime.now(timezone.utc)
         logger.info("Pipeline run completed")
+
+    def start_stage(self, stage: str) -> None:
+        """Mark the start of a pipeline stage for timing.
+
+        Args:
+            stage: Stage name ("generation", "evaluation", "deduplication", "storage")
+        """
+        if stage not in self._stage_durations:
+            logger.warning(
+                f"Unknown stage: {stage}. Valid stages: {list(self._stage_durations.keys())}"
+            )
+            return
+
+        self._current_stage = stage
+        self._stage_start_time = time.perf_counter()
+        logger.debug(f"Stage '{stage}' started")
+
+    def end_stage(self, stage: Optional[str] = None) -> float:
+        """Mark the end of a pipeline stage and record duration.
+
+        Args:
+            stage: Stage name (optional, uses current stage if not specified)
+
+        Returns:
+            Duration of the stage in seconds
+        """
+        stage = stage or self._current_stage
+        if stage is None:
+            logger.warning("No stage to end - start_stage was not called")
+            return 0.0
+
+        if stage not in self._stage_durations:
+            logger.warning(f"Unknown stage: {stage}")
+            return 0.0
+
+        if self._stage_start_time is None:
+            logger.warning(f"Stage '{stage}' was not started")
+            return 0.0
+
+        duration = time.perf_counter() - self._stage_start_time
+        self._stage_durations[stage] += duration
+        self._stage_start_time = None
+        self._current_stage = None
+
+        logger.debug(f"Stage '{stage}' completed in {duration:.3f}s")
+        return duration
+
+    @contextmanager
+    def time_stage(self, stage: str) -> Generator[None, None, None]:
+        """Context manager for timing a pipeline stage.
+
+        Usage:
+            with metrics.time_stage("generation"):
+                # do generation work
+
+        Args:
+            stage: Stage name ("generation", "evaluation", "deduplication", "storage")
+
+        Yields:
+            None
+        """
+        self.start_stage(stage)
+        try:
+            yield
+        finally:
+            self.end_stage(stage)
+
+    def get_stage_durations(self) -> Dict[str, float]:
+        """Get the accumulated duration for each pipeline stage.
+
+        Returns:
+            Dictionary mapping stage names to duration in seconds
+        """
+        return {
+            stage: round(duration, 3)
+            for stage, duration in self._stage_durations.items()
+        }
+
+    def record_embedding_cache_stats(self, hits: int, misses: int, size: int) -> None:
+        """Record embedding cache performance statistics.
+
+        Args:
+            hits: Number of cache hits
+            misses: Number of cache misses
+            size: Current cache size
+        """
+        self._embedding_cache_stats["hits"] = hits
+        self._embedding_cache_stats["misses"] = misses
+        self._embedding_cache_stats["size"] = size
+
+        total = hits + misses
+        hit_rate = hits / total if total > 0 else 0.0
+        logger.debug(
+            f"Embedding cache stats: hits={hits}, misses={misses}, "
+            f"size={size}, hit_rate={hit_rate:.2%}"
+        )
+
+    def get_embedding_cache_stats(self) -> Dict[str, Any]:
+        """Get embedding cache performance statistics.
+
+        Returns:
+            Dictionary with cache hits, misses, size, and hit rate
+        """
+        hits = self._embedding_cache_stats["hits"]
+        misses = self._embedding_cache_stats["misses"]
+        total = hits + misses
+
+        return {
+            "hits": hits,
+            "misses": misses,
+            "size": self._embedding_cache_stats["size"],
+            "hit_rate": round(hits / total, 4) if total > 0 else 0.0,
+        }
 
     def record_generation_request(self, count: int) -> None:
         """Record a request to generate questions.
@@ -399,6 +531,10 @@ class MetricsTracker:
             },
             "retry": get_retry_metrics().get_summary(),
             "circuit_breaker": get_circuit_breaker_registry().get_all_stats(),
+            # TASK-472: Per-stage timing metrics
+            "stage_durations": self.get_stage_durations(),
+            # TASK-472: Embedding cache performance metrics
+            "embedding_cache": self.get_embedding_cache_stats(),
         }
 
         return summary
@@ -515,6 +651,25 @@ class MetricsTracker:
         print(f"  Questions Inserted:  {overall['questions_final_output']}")
         print(f"  Overall Success:     {overall['overall_success_rate']:.1%}")
         print(f"  Total Errors:        {overall['total_errors']}")
+
+        # Stage Durations (TASK-472)
+        stage_durations = summary.get("stage_durations", {})
+        if any(d > 0 for d in stage_durations.values()):
+            print("\nStage Durations:")
+            for stage, duration in stage_durations.items():
+                if duration > 0:
+                    print(f"  {stage.capitalize()}: {duration:.3f}s")
+            total_stage_time = sum(stage_durations.values())
+            print(f"  Total Staged Time: {total_stage_time:.3f}s")
+
+        # Embedding Cache Stats (TASK-472)
+        embedding_cache = summary.get("embedding_cache", {})
+        if embedding_cache.get("hits", 0) > 0 or embedding_cache.get("misses", 0) > 0:
+            print("\nEmbedding Cache:")
+            print(f"  Hits:     {embedding_cache['hits']}")
+            print(f"  Misses:   {embedding_cache['misses']}")
+            print(f"  Size:     {embedding_cache['size']}")
+            print(f"  Hit Rate: {embedding_cache['hit_rate']:.1%}")
 
         print("=" * 80 + "\n")
 
