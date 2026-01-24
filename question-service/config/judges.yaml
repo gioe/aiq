@@ -24,6 +24,11 @@ judges:
       USAMO_2025: "61.9%"
       MMLU: "92.1%"
     enabled: true
+    # Decision Log (Jan 2026): Evaluated Grok 4 Heavy as alternative.
+    # Grok 4 Heavy achieves identical USAMO performance (61.9%) but is NOT available
+    # via API - only through SuperGrok Heavy subscription ($300/month). The multi-agent
+    # architecture adds 4-7x latency overhead with no meaningful improvement for our
+    # math judging use case. Keeping grok-4 as optimal choice for API-accessible math judging.
 
   logic:
     model: "claude-sonnet-4-5-20250929"
