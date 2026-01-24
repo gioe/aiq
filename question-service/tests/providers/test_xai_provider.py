@@ -552,3 +552,23 @@ class TestXAIProvider:
         # Unknown model should return False
         assert provider.validate_model("unknown-model") is False
         assert provider.validate_model("grok-99") is False
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_logs_warning(
+        self, mock_openai_class, mock_xai_api_key, caplog
+    ):
+        """Test that validate_model logs a warning for unknown models."""
+        import logging
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with caplog.at_level(logging.WARNING):
+            result = provider.validate_model("unknown-model")
+
+        assert result is False
+        assert "not in the known models list" in caplog.text
+        assert "unknown-model" in caplog.text
+        assert "xai" in caplog.text

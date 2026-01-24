@@ -246,14 +246,14 @@ class TestGeneratorConfigModelOverride:
         assert provider == "anthropic"
         assert model == "claude-sonnet-4-5-20250929"
 
-    def test_get_provider_and_model_without_model_specified(self):
-        """Test getting provider and model for a question type without model specified."""
+    def test_get_provider_and_model_with_explicit_model(self):
+        """Test that provider and model are returned when both are explicitly specified in config."""
         from app.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Math has xai with grok-4 model specified in the config
+        # Math has xai with grok-4 model explicitly specified in the config
         provider, model = loader.get_provider_and_model_for_question_type(
             "math", ["xai", "anthropic", "openai"]
         )
