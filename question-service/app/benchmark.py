@@ -329,9 +329,9 @@ async def run_benchmarks(
         print(f"{'='*60}", file=sys.stderr)
 
         # Reset cost tracker once before all parallel providers start.
-        # The CostTracker class is thread-safe (uses threading.Lock) and tracks
-        # costs by provider, so concurrent providers can safely record their usage.
-        # Each provider only retrieves its own cost data via by_provider[provider_name].
+        # The CostTracker is safe for concurrent asyncio tasks since asyncio uses
+        # cooperative multitasking on a single thread. Each provider records its
+        # own costs via by_provider[provider_name] after completion.
         reset_cost_tracker()
 
         # Calculate overall timeout: individual timeout * questions * buffer
