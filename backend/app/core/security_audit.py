@@ -160,10 +160,11 @@ class SecurityAuditLogger:
                 else SecurityEventType.LOGIN_FAILED
             )
 
+            masked_email = _mask_email(email)
             log_data = {
                 "event_type": event_type.value,
                 "client_ip": ip,
-                "user_identifier": _mask_email(email),
+                "user_identifier": masked_email,
                 "success": success,
                 "user_agent": user_agent,
             }
@@ -178,12 +179,12 @@ class SecurityAuditLogger:
 
             if success:
                 logger.info(
-                    f"Authentication successful for {_mask_email(email)}",
+                    f"Authentication successful for {masked_email}",
                     extra=log_data,
                 )
             else:
                 logger.warning(
-                    f"Authentication failed for {_mask_email(email)}: {error_reason or 'invalid credentials'}",
+                    f"Authentication failed for {masked_email}: {error_reason or 'invalid credentials'}",
                     extra=log_data,
                 )
         except Exception:
@@ -406,10 +407,11 @@ class SecurityAuditLogger:
                 stage, SecurityEventType.PASSWORD_RESET_FAILED
             )
 
+            masked_email = _mask_email(email)
             log_data = {
                 "event_type": event_type.value,
                 "client_ip": ip,
-                "user_identifier": _mask_email(email),
+                "user_identifier": masked_email,
                 "stage": stage,
                 "success": success,
             }
@@ -420,7 +422,7 @@ class SecurityAuditLogger:
                 log_data["request_id"] = request_id
 
             logger.info(
-                f"Password reset {stage} for {_mask_email(email)}: {'success' if success else 'failed'}",
+                f"Password reset {stage} for {masked_email}: {'success' if success else 'failed'}",
                 extra=log_data,
             )
         except Exception:

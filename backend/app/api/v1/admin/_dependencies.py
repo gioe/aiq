@@ -54,19 +54,18 @@ def _verify_secret_header(
     if not expected_secret:
         raise_not_configured(not_configured_detail)
 
-    if not secrets.compare_digest(header_value, expected_secret):
-        # Log failed authentication attempt
-        if is_admin:
-            security_logger.log_admin_auth_attempt(success=False, ip=client_ip)
-        else:
-            security_logger.log_service_auth_attempt(success=False, ip=client_ip)
-        raise_unauthorized(invalid_detail, include_www_authenticate=False)
+    # Perform constant-time comparison first, before any conditional operations
+    is_valid = secrets.compare_digest(header_value, expected_secret)
 
-    # Log successful authentication
+    # Log after timing-sensitive operation completes (avoids timing side channel)
     if is_admin:
-        security_logger.log_admin_auth_attempt(success=True, ip=client_ip)
+        security_logger.log_admin_auth_attempt(success=is_valid, ip=client_ip)
     else:
-        security_logger.log_service_auth_attempt(success=True, ip=client_ip)
+        security_logger.log_service_auth_attempt(success=is_valid, ip=client_ip)
+
+    # Now act on the result
+    if not is_valid:
+        raise_unauthorized(invalid_detail, include_www_authenticate=False)
 
     return True
 
