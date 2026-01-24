@@ -118,35 +118,18 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     ```
 
     **Step 12a: Poll for Claude's review**
-    ```bash
-    # Extract PR number from URL (e.g., 540 from https://github.com/gioe/aiq/pull/540)
-    PR_NUMBER=<extracted_pr_number>
 
-    # Poll for Claude's review (check every 30 seconds, timeout after 10 minutes)
-    # IMPORTANT: Use `gh pr view --comments` to fetch ALL comment types (issue comments,
-    # PR reviews, and inline review comments). Do NOT use the API endpoint
-    # `/issues/{number}/comments` as it only returns issue comments and misses PR reviews.
-    # NOTE: `gh pr view --comments` shows author as "claude" (not "claude[bot]")
-    for i in {1..20}; do
-      COMMENTS=$(gh pr view $PR_NUMBER --comments 2>/dev/null)
-      if echo "$COMMENTS" | grep -q "^author:.*claude"; then
-        echo "Claude review found!"
-        break
-      fi
-      echo "Waiting for Claude review... (attempt $i/20)"
-      sleep 30
-    done
+    Use the `/poll-claude-review` skill to wait for Claude's review:
+    ```
+    /poll-claude-review <pr_number>
     ```
 
-    Then fetch the actual review content:
-    ```bash
-    gh pr view $PR_NUMBER --comments | grep -A 500 "^author:.*claude"
+    For subsequent reviews after pushing fixes, use follow-up mode:
+    ```
+    /poll-claude-review <pr_number> follow-up
     ```
 
-    Alternatively, for more structured access to review content:
-    ```bash
-    gh api repos/gioe/aiq/issues/$PR_NUMBER/comments --jq '.[] | select(.user.login == "claude[bot]") | .body'
-    ```
+    The skill handles polling, timeout, and returns the full review content.
 
     **Step 12b: Check if Claude approved**
     Parse the review to determine if Claude has approved the PR. Look for approval signals:
@@ -193,7 +176,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     ```bash
     git push origin feature/TASK-<id>-description
     ```
-    Update `LAST_REVIEW_TIME` to the current review's timestamp, then loop back to step 12a to wait for Claude's next review.
+    Then use `/poll-claude-review <pr_number> follow-up` to wait for Claude's next review. Loop back to step 12b.
 
 13. **PR approved - finalize and merge**:
     Once Claude approves, automatically perform ALL of these steps:
