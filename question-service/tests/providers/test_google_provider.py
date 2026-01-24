@@ -234,10 +234,10 @@ class TestGoogleProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
-        # Latest Gemini 3 models
-        assert "gemini-3-pro" in models
-        assert "gemini-3-flash" in models
-        # Gemini 2.5 models
+        # Gemini 3 preview models
+        assert "gemini-3-pro-preview" in models
+        assert "gemini-3-flash-preview" in models
+        # Gemini 2.5 stable model
         assert "gemini-2.5-pro" in models
         # Legacy Gemini 1.x models
         assert "gemini-1.5-pro" in models
