@@ -826,6 +826,41 @@ class BaseLLMProvider(ABC):
         """
         return self.__class__.__name__.replace("Provider", "").lower()
 
+    @abstractmethod
+    def get_available_models(self) -> list[str]:
+        """
+        Get list of available models for this provider.
+
+        Returns:
+            List of model identifiers that are valid for API calls
+        """
+        pass
+
+    def validate_model(self, model: str) -> bool:
+        """
+        Validate that a model identifier is recognized.
+
+        Args:
+            model: The model identifier to validate
+
+        Returns:
+            True if the model is in the available models list, False otherwise
+
+        Note:
+            Logs a warning if the model is not recognized but does not raise
+            an exception, as new models may be available before the code is updated.
+        """
+        available = self.get_available_models()
+        if model not in available:
+            logger.warning(
+                f"Model '{model}' is not in the known models list for {self.get_provider_name()}. "
+                f"Available models: {available}. "
+                f"The API call may fail or use a different model. "
+                f"Consider updating the provider's get_available_models() if this is a valid model."
+            )
+            return False
+        return True
+
     async def cleanup(self) -> None:
         """Clean up async resources.
 

@@ -488,6 +488,7 @@ class OpenAIProvider(BaseLLMProvider):
             # GPT-4 series
             "gpt-4o",
             "gpt-4o-mini",
+            "gpt-4-turbo",
             "gpt-4-turbo-preview",
             "gpt-4",
             "gpt-4-0125-preview",

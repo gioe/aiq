@@ -8,14 +8,24 @@
 # Configuration Structure:
 #   question_type:
 #     provider: Provider name ("openai", "anthropic", "google", "xai")
+#     model: Exact API model identifier (must match provider SDK expectations)
 #     rationale: Explanation of why this provider was chosen
 #     fallback: Fallback provider if primary is unavailable
+#
+# IMPORTANT - Model Naming Convention:
+#   Model identifiers MUST match the exact strings used by each provider's API:
+#   - Anthropic: claude-opus-4-5-20251101, claude-sonnet-4-5-20250929, etc.
+#   - Google: gemini-3-pro, gemini-3-flash, gemini-2.5-pro, etc.
+#   - OpenAI: gpt-5.2, gpt-4-turbo, o4-mini, etc.
+#   - xAI: grok-4, grok-3, grok-beta
+#   See each provider's get_available_models() for the full list.
 
 version: "1.0"
 
 generators:
   math:
     provider: "xai"
+    model: "grok-4"
     rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning."
     fallback: "anthropic"
 
@@ -45,12 +55,14 @@ generators:
 
   memory:
     provider: "anthropic"
+    model: "claude-sonnet-4-5-20250929"
     rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89% with 200K token context. Strong knowledge benchmarks with massive context for memory tasks."
     fallback: "openai"
 
 # Default generator (fallback for unknown question types)
 default_generator:
   provider: "openai"
+  model: "gpt-4-turbo"
   rationale: "General-purpose fallback generator"
 
 # Enable/disable specialist routing
