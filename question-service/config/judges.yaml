@@ -26,48 +26,48 @@ judges:
     enabled: true
 
   logic:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
-    rationale: "Best-in-class logical reasoning: HumanEval (93.7%), GPQA (67.2%). Claude 3.5 Sonnet demonstrates superior performance on coding logic and graduate-level reasoning tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet with superior logical reasoning and coding capabilities."
     benchmark_data:
-      HumanEval: "93.7%"
-      GPQA: "67.2%"
-      MMLU: "90.4%"
+      HumanEval: ">95%"
+      GPQA_Diamond: "83.4%"
+      SWE_bench: "77-82%"
     enabled: true
 
   pattern:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
-    rationale: "Superior abstract reasoning: GPQA (67.2%), MMLU (90.4%). Claude 3.5 Sonnet excels at identifying patterns in complex reasoning tasks, significantly outperforming alternatives."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. Exceptional abstract reasoning and pattern recognition capabilities for complex cognitive tasks."
     benchmark_data:
-      GPQA: "67.2%"
-      MMLU: "90.4%"
+      GPQA_Diamond: "83.4%"
+      MMLU: "89%"
     enabled: true
 
   spatial:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
-    rationale: "Strong general reasoning capabilities with GPQA (67.2%) and MMLU (90.4%) scores. While spatial-specific benchmarks are limited, Claude 3.5 Sonnet's reasoning strength makes it ideal for spatial tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. While spatial-specific benchmarks are limited, Sonnet 4.5's superior reasoning capabilities make it ideal for spatial reasoning tasks."
     benchmark_data:
-      GPQA: "67.2%"
-      MMLU: "90.4%"
+      GPQA_Diamond: "83.4%"
+      MMLU: "89%"
     enabled: true
 
   verbal:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
-    rationale: "Exceptional language understanding: MMLU (90.4%), strong performance on HellaSwag and WinoGrande. Claude 3.5 Sonnet leads in natural language reasoning and comprehension tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior performance on natural language reasoning tasks."
     benchmark_data:
-      MMLU: "90.4%"
-      HellaSwag: "~90%"
+      MMLU: "89%"
+      HellaSwag: "~95%"
     enabled: true
 
   memory:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
-    rationale: "Outstanding recall and knowledge retention: MMLU (90.4%) with 200K token context window. Claude 3.5 Sonnet combines strong knowledge benchmarks with massive context for memory-intensive evaluation."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89% with 200K token context window. Combines strong knowledge benchmarks with massive context for memory-intensive evaluation tasks."
     benchmark_data:
-      MMLU: "90.4%"
+      MMLU: "89%"
       context_window: "200,000 tokens"
     enabled: true
 
