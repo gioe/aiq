@@ -201,6 +201,61 @@ class GeneratorConfigLoader:
 
         raise ValueError(f"No providers available for question type '{question_type}'")
 
+    def get_provider_and_model_for_question_type(
+        self, question_type: str, available_providers: list[str]
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Get the preferred provider and model for a specific question type.
+
+        Args:
+            question_type: Type of question (e.g., "math", "logic", "pattern")
+            available_providers: List of currently available provider names
+
+        Returns:
+            Tuple of (provider_name, model_override). Model may be None if not specified.
+
+        Raises:
+            RuntimeError: If configuration hasn't been loaded
+            ValueError: If no suitable provider is available
+        """
+        config = self.config  # Ensures config is loaded
+
+        # If specialist routing is disabled, return first available with no model override
+        if not config.use_specialist_routing:
+            provider = available_providers[0] if available_providers else None
+            return (provider, None)
+
+        # Get assignment for this question type
+        if question_type in config.generators:
+            assignment = config.generators[question_type]
+        else:
+            logger.info(f"No generator assignment for '{question_type}', using default")
+            assignment = config.default_generator
+
+        # Check if primary provider is available
+        if assignment.provider in available_providers:
+            return (assignment.provider, assignment.model)
+
+        # Try fallback provider (model override doesn't apply to fallback)
+        if assignment.fallback and assignment.fallback in available_providers:
+            logger.warning(
+                f"Primary provider '{assignment.provider}' unavailable for "
+                f"'{question_type}', using fallback '{assignment.fallback}' "
+                f"(model override '{assignment.model}' not applied)"
+            )
+            return (assignment.fallback, None)
+
+        # Fall back to any available provider (no model override)
+        if available_providers:
+            fallback = available_providers[0]
+            logger.warning(
+                f"Neither primary '{assignment.provider}' nor fallback "
+                f"'{assignment.fallback}' available for '{question_type}', "
+                f"using '{fallback}' (no model override)"
+            )
+            return (fallback, None)
+
+        raise ValueError(f"No providers available for question type '{question_type}'")
+
     def is_specialist_routing_enabled(self) -> bool:
         """Check if specialist routing is enabled.
 
