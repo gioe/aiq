@@ -572,3 +572,32 @@ class TestXAIProvider:
         assert "not in the known models list" in caplog.text
         assert "unknown-model" in caplog.text
         assert "xai" in caplog.text
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_once_deduplication(
+        self, mock_openai_class, mock_xai_api_key, caplog
+    ):
+        """Test that _validate_model_once only logs warning once per model."""
+        import logging
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with caplog.at_level(logging.WARNING):
+            # Call validate_model_once multiple times with the same unknown model
+            provider._validate_model_once("unknown-model-test")
+            provider._validate_model_once("unknown-model-test")
+            provider._validate_model_once("unknown-model-test")
+
+        # Should only have one warning for "unknown-model-test"
+        warning_count = caplog.text.count("unknown-model-test")
+        assert warning_count == 1, f"Expected 1 warning, got {warning_count}"
+
+        # But a different model should also get one warning
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            provider._validate_model_once("another-unknown-model")
+
+        assert "another-unknown-model" in caplog.text

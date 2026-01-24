@@ -340,9 +340,6 @@ class BaseLLMProvider(ABC):
         """
         self.api_key = api_key
         self.model = model
-        self._validated_models: set[
-            str
-        ] = set()  # Track validated models to avoid repeated warnings
 
     @abstractmethod
     def generate_completion(
@@ -671,7 +668,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         token_usage = TokenUsage(
             input_tokens=self.count_tokens(prompt),
             output_tokens=self.count_tokens(content),
@@ -723,7 +719,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         # For structured completion, the prompt includes the schema
         full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
         token_usage = TokenUsage(
@@ -772,7 +767,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         token_usage = TokenUsage(
             input_tokens=self.count_tokens(prompt),
             output_tokens=self.count_tokens(content),
@@ -824,7 +818,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         # For structured completion, the prompt includes the schema
         full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
         token_usage = TokenUsage(
