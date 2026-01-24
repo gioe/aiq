@@ -51,7 +51,7 @@ The service supports four LLM providers for question generation:
 | Provider | Model | SDK |
 |----------|-------|-----|
 | OpenAI | gpt-4-turbo-preview | `openai` |
-| Anthropic | claude-sonnet-4-5 | `anthropic` |
+| Anthropic | claude-sonnet-4-5-20250929 | `anthropic` |
 | Google | gemini-pro | `google-generativeai` |
 | xAI | grok-4 | Custom via `httpx` |
 
@@ -144,7 +144,7 @@ judges:
     enabled: true
 
   logical_reasoning:
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-4-5-20250929"
     provider: "anthropic"
     rationale: "Excellent on HumanEval and GPQA benchmarks"
     enabled: true
