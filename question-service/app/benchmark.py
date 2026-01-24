@@ -10,6 +10,9 @@ Usage:
     # All providers benchmark
     python -m app.benchmark --all --questions 50
 
+    # Parallel provider benchmark (runs all providers concurrently)
+    python -m app.benchmark --all --questions 50 --parallel
+
     # Custom configuration
     python -m app.benchmark \
         --providers openai,anthropic \
@@ -295,6 +298,7 @@ async def run_benchmarks(
     providers: List[str],
     num_questions: int,
     dry_run: bool = False,
+    parallel: bool = False,
 ) -> Dict[str, BenchmarkResult]:
     """Run benchmarks for multiple providers.
 
@@ -302,29 +306,74 @@ async def run_benchmarks(
         providers: List of provider names to benchmark
         num_questions: Number of questions per provider
         dry_run: If True, simulate without actual API calls
+        parallel: If True, run provider benchmarks concurrently
 
     Returns:
         Dictionary mapping provider names to BenchmarkResults
     """
     results = {}
 
-    for provider in providers:
+    if parallel and len(providers) > 1:
         print(f"\n{'='*60}", file=sys.stderr)
-        print(f"Benchmarking: {provider}", file=sys.stderr)
+        print(
+            f"Running parallel benchmarks for: {', '.join(providers)}", file=sys.stderr
+        )
         print(f"{'='*60}", file=sys.stderr)
 
-        result = await benchmark_provider(provider, num_questions, dry_run=dry_run)
-        results[provider] = result
+        # Run all provider benchmarks concurrently
+        benchmark_tasks = [
+            benchmark_provider(provider, num_questions, dry_run=dry_run)
+            for provider in providers
+        ]
+        benchmark_results = await asyncio.gather(
+            *benchmark_tasks, return_exceptions=True
+        )
 
-        # Print summary
-        summary = result.get_summary()
-        print(f"\nResults for {provider}:", file=sys.stderr)
-        print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
-        print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
-        print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
-        print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
-        print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
-        print(f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr)
+        # Process results
+        for provider, benchmark_result in zip(providers, benchmark_results):
+            if isinstance(benchmark_result, BaseException):
+                logger.error(f"Benchmark failed for {provider}: {benchmark_result}")
+                # Create a failed result
+                failed_result = BenchmarkResult(provider)
+                failed_result.questions_failed = num_questions
+                results[provider] = failed_result
+            else:
+                results[provider] = benchmark_result
+
+        # Print all summaries after parallel execution completes
+        for provider in providers:
+            result = results[provider]
+            summary = result.get_summary()
+            print(f"\nResults for {provider}:", file=sys.stderr)
+            print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
+            print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
+            print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
+            print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
+            print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
+            print(
+                f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr
+            )
+    else:
+        # Sequential execution (original behavior)
+        for provider in providers:
+            print(f"\n{'='*60}", file=sys.stderr)
+            print(f"Benchmarking: {provider}", file=sys.stderr)
+            print(f"{'='*60}", file=sys.stderr)
+
+            result = await benchmark_provider(provider, num_questions, dry_run=dry_run)
+            results[provider] = result
+
+            # Print summary
+            summary = result.get_summary()
+            print(f"\nResults for {provider}:", file=sys.stderr)
+            print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
+            print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
+            print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
+            print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
+            print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
+            print(
+                f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr
+            )
 
     return results
 
@@ -333,6 +382,7 @@ def generate_output(
     providers: List[str],
     num_questions: int,
     results: Dict[str, BenchmarkResult],
+    parallel: bool = False,
 ) -> Dict[str, Any]:
     """Generate JSON output from benchmark results.
 
@@ -340,6 +390,7 @@ def generate_output(
         providers: List of providers benchmarked
         num_questions: Number of questions per provider
         results: Benchmark results
+        parallel: Whether parallel mode was used
 
     Returns:
         Dictionary formatted for JSON output
@@ -353,6 +404,7 @@ def generate_output(
         "configuration": {
             "questions_per_provider": num_questions,
             "providers": providers,
+            "parallel": parallel,
         },
         "results": results_dict,
     }
@@ -374,6 +426,9 @@ Examples:
 
   # All providers benchmark
   python -m app.benchmark --all --questions 50
+
+  # Parallel provider benchmark (runs concurrently for faster results)
+  python -m app.benchmark --all --questions 50 --parallel
 
   # Custom configuration
   python -m app.benchmark \\
@@ -419,6 +474,11 @@ Examples:
         "--dry-run",
         action="store_true",
         help="Test without actual API calls (simulated latencies)",
+    )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Run provider benchmarks in parallel (reduces total time but may affect accuracy due to resource contention)",
     )
 
     # Logging
@@ -476,6 +536,8 @@ async def main_async() -> int:
     print("\nBenchmark Configuration:", file=sys.stderr)
     print(f"  Providers: {', '.join(providers)}", file=sys.stderr)
     print(f"  Questions per provider: {args.questions}", file=sys.stderr)
+    if args.parallel:
+        print("  Execution: PARALLEL", file=sys.stderr)
     if args.dry_run:
         print("  Mode: DRY RUN (simulated)", file=sys.stderr)
     if args.output:
@@ -488,6 +550,7 @@ async def main_async() -> int:
             providers=providers,
             num_questions=args.questions,
             dry_run=args.dry_run,
+            parallel=args.parallel,
         )
     except Exception as e:
         print(f"\nError running benchmarks: {str(e)}", file=sys.stderr)
@@ -495,7 +558,7 @@ async def main_async() -> int:
         return 1
 
     # Generate output
-    output = generate_output(providers, args.questions, results)
+    output = generate_output(providers, args.questions, results, parallel=args.parallel)
 
     # Write to file or stdout
     if args.output:
