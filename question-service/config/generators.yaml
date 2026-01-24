@@ -27,13 +27,13 @@ generators:
 
   pattern:
     provider: "google"
-    model: "gemini-3-pro"
+    model: "gemini-3-pro-preview"
     rationale: "ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%. Superior abstract pattern recognition. Updated Jan 2026."
     fallback: "anthropic"
 
   spatial:
     provider: "google"
-    model: "gemini-3-pro"
+    model: "gemini-3-pro-preview"
     rationale: "ARC-AGI-2: 31.1% (45.1% Deep Think), breakthrough spatial reasoning. Updated Jan 2026."
     fallback: "anthropic"
 
