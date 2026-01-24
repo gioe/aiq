@@ -36,7 +36,7 @@ judges:
     enabled: true
 
   pattern:
-    model: "gemini-3-pro"
+    model: "gemini-3-pro-preview"
     provider: "google"
     rationale: "Superior abstract reasoning: ARC-AGI-2 (31.1%), GPQA Diamond (91.9%). Updated Jan 2026."
     benchmark_data:
@@ -46,7 +46,7 @@ judges:
     enabled: true
 
   spatial:
-    model: "gemini-3-pro"
+    model: "gemini-3-pro-preview"
     provider: "google"
     rationale: "Breakthrough spatial reasoning: ARC-AGI-2 (31.1%, 45.1% Deep Think), MMMU-Pro (81.0%). 6x improvement over previous models. Updated Jan 2026."
     benchmark_data:
