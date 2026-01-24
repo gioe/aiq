@@ -1,6 +1,7 @@
 """
 Admin authentication for the dashboard.
 """
+import logging
 import secrets
 
 from sqladmin.authentication import AuthenticationBackend
@@ -8,6 +9,8 @@ from starlette.requests import Request
 
 from app.core.config import settings
 from app.core.security import verify_password
+
+logger = logging.getLogger(__name__)
 
 
 class AdminAuth(AuthenticationBackend):
@@ -34,21 +37,33 @@ class AdminAuth(AuthenticationBackend):
         username = form.get("username")
         password = form.get("password")
 
-        # Early return if credentials are missing or username doesn't match
-        if not username or not password or username != settings.ADMIN_USERNAME:
+        # Early return if credentials are missing, non-string, or username doesn't match
+        if (
+            not username
+            or not password
+            or not isinstance(username, str)
+            or not isinstance(password, str)
+            or username != settings.ADMIN_USERNAME
+        ):
+            logger.warning(
+                "Admin login failed: invalid username or missing credentials"
+            )
             return False
 
         # Verify password hash is configured
         if not settings.ADMIN_PASSWORD_HASH:
+            logger.error("Admin login failed: ADMIN_PASSWORD_HASH not configured")
             return False
 
         # Verify password against bcrypt hash
-        if verify_password(str(password), settings.ADMIN_PASSWORD_HASH):
+        if verify_password(password, settings.ADMIN_PASSWORD_HASH):
+            logger.info("Admin login successful")
             # Generate secure session token
             token = secrets.token_urlsafe(32)
             request.session.update({"token": token})
             return True
 
+        logger.warning("Admin login failed: incorrect password")
         return False
 
     async def logout(self, request: Request) -> bool:
