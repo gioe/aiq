@@ -30,32 +30,42 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 
 ## Current Configuration
 
-**Last Updated**: January 2025
-**Configuration Version**: 1.0
-**Based on**: 2024 benchmark data
+**Last Updated**: January 2026
+**Configuration Version**: 2.0
+**Based on**: January 2026 benchmark data
 
 ### Question Type Assignments
 
 | Question Type | Judge Model | Provider | Key Benchmarks |
 |--------------|---------------|----------|----------------|
-| **mathematical** | gpt-4-turbo | OpenAI | GSM8K: 95.0%, MATH: 60.1% |
-| **logical_reasoning** | claude-3-5-sonnet-20241022 | Anthropic | HumanEval: 93.7%, GPQA: 67.2% |
-| **pattern_recognition** | claude-3-5-sonnet-20241022 | Anthropic | GPQA: 67.2%, MMLU: 90.4% |
-| **spatial_reasoning** | claude-3-5-sonnet-20241022 | Anthropic | GPQA: 67.2%, MMLU: 90.4% |
-| **verbal_reasoning** | claude-3-5-sonnet-20241022 | Anthropic | MMLU: 90.4%, HellaSwag: ~90% |
-| **memory** | claude-3-5-sonnet-20241022 | Anthropic | MMLU: 90.4%, 200K context |
+| **mathematical** | grok-4 | xAI | GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9% |
+| **logical_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82% |
+| **pattern_recognition** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0% |
+| **spatial_reasoning** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0% |
+| **verbal_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, HellaSwag: ~95% |
+| **memory** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, 200K context |
 | **default** | gpt-4-turbo | OpenAI | General-purpose fallback |
 
-### Key Findings
+### Key Findings (January 2026)
 
-**Claude 3.5 Sonnet dominates** most question types due to:
-- Exceptional reasoning performance (GPQA: 67.2%, far exceeding GPT-4's 35.7%)
-- Strong knowledge retention (MMLU: 90.4%)
-- Superior coding/logical reasoning (HumanEval: 93.7%)
+**Claude Sonnet 4.5** leads logical/verbal/memory question types:
+- Major upgrade from Claude 3.5 Sonnet with SWE-bench improving from 49% to 77-82%
+- Exceptional reasoning performance (GPQA Diamond: 83.4%, HumanEval: >95%)
+- Strong knowledge retention (MMLU: 89%)
 - Massive context window (200K tokens) beneficial for memory tasks
 
+**Gemini 3 Pro** breakthrough for pattern/spatial reasoning:
+- ARC-AGI-2: 31.1% (6x improvement over previous models)
+- Deep Think mode achieves 45.1% on ARC-AGI-2
+- MMMU-Pro: 81.0% multimodal reasoning
+- GPQA Diamond: 91.9% (highest among all models)
+
+**Grok 4 (xAI)** dominates mathematical reasoning:
+- Perfect score on AIME 2024 (100%)
+- USAMO 2025: 61.9% (competition-level mathematics)
+- GSM8K: 95.2% (slightly above GPT-4 Turbo's 95.0%)
+
 **GPT-4 Turbo retained** for:
-- Mathematical questions (strong GSM8K: 95.0% performance)
 - Default fallback (broad competence across tasks)
 
 ---
@@ -69,41 +79,43 @@ Each question type was mapped to relevant public benchmarks:
 #### 1. Mathematical
 **Relevant Benchmarks**:
 - **GSM8K** (Grade School Math 8K): Elementary to middle-school level math word problems
-- **MATH**: Competition-level mathematics from AMC, AIME, and other contests
+- **MATH 500**: Competition-level mathematics subset
+- **AIME 2024/2025**: American Invitational Mathematics Examination
+- **USAMO 2025**: USA Mathematical Olympiad
 
-**Decision Logic**: Mathematical questions require strong quantitative reasoning. GSM8K tests basic problem-solving, while MATH evaluates advanced mathematical thinking.
+**Decision Logic**: Mathematical questions require strong quantitative reasoning. GSM8K tests basic problem-solving, while AIME/USAMO evaluate competition-level mathematical thinking.
 
-**Winner**: GPT-4 Turbo (95.0% GSM8K, 60.1% MATH)
+**Winner**: Grok 4 (xAI) - GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9%
 
 #### 2. Logical Reasoning
 **Relevant Benchmarks**:
 - **HumanEval**: Coding problems requiring logical decomposition
-- **GPQA** (Graduate-Level Google-Proof Q&A): Complex reasoning tasks
-- **ARC** (AI2 Reasoning Challenge): Science reasoning questions
+- **GPQA Diamond**: Graduate-Level Google-Proof Q&A (hardest subset)
+- **SWE-bench Verified**: Real-world software engineering tasks
 
 **Decision Logic**: Logical reasoning requires systematic thinking, inference, and deductive capabilities tested by coding and graduate-level problems.
 
-**Winner**: Claude 3.5 Sonnet (HumanEval: 93.7%, GPQA: 67.2%)
+**Winner**: Claude Sonnet 4.5 - HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82%
 
 #### 3. Pattern Recognition
 **Relevant Benchmarks**:
-- **GPQA**: Abstract reasoning patterns
-- **MMLU**: Pattern identification across domains
-- **ARC**: Pattern-based science reasoning
+- **ARC-AGI-2**: Abstract Reasoning Corpus (next-generation, harder than original)
+- **GPQA Diamond**: Abstract reasoning patterns (hardest subset)
+- **MMMU-Pro**: Multimodal understanding with pattern recognition
 
-**Decision Logic**: Pattern recognition requires identifying abstract relationships and structures. GPQA's high difficulty makes it ideal for testing sophisticated pattern detection.
+**Decision Logic**: Pattern recognition requires identifying abstract relationships and structures. ARC-AGI-2 specifically tests novel pattern completion, making it the gold standard for this domain.
 
-**Winner**: Claude 3.5 Sonnet (GPQA: 67.2%, MMLU: 90.4%)
+**Winner**: Gemini 3 Pro - ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0%
 
 #### 4. Spatial Reasoning
 **Relevant Benchmarks**:
-- **GPQA**: Contains spatial reasoning components
-- **MMLU**: Includes geometry and spatial tasks
-- **Spatial-specific benchmarks**: Limited public data available
+- **ARC-AGI-2**: Abstract visual-spatial reasoning tasks
+- **ARC-AGI-2 Deep Think**: Extended reasoning mode for complex spatial tasks
+- **MMMU-Pro**: Multimodal understanding including spatial components
 
-**Decision Logic**: While spatial-specific benchmarks are limited in public data, general reasoning strength (GPQA) correlates with spatial reasoning ability.
+**Decision Logic**: ARC-AGI-2 provides the first rigorous benchmark for spatial reasoning. Gemini 3 Pro's breakthrough 31.1% score (45.1% with Deep Think) represents 6x improvement over previous models.
 
-**Winner**: Claude 3.5 Sonnet (GPQA: 67.2%, strong general reasoning)
+**Winner**: Gemini 3 Pro - ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0%
 
 #### 5. Verbal Reasoning
 **Relevant Benchmarks**:
@@ -113,7 +125,7 @@ Each question type was mapped to relevant public benchmarks:
 
 **Decision Logic**: Verbal reasoning requires nuanced language understanding, vocabulary, and comprehension across diverse contexts.
 
-**Winner**: Claude 3.5 Sonnet (MMLU: 90.4%, HellaSwag: ~90%)
+**Winner**: Claude Sonnet 4.5 - MMLU: 89%, HellaSwag: ~95%
 
 #### 6. Memory
 **Relevant Benchmarks**:
@@ -122,7 +134,7 @@ Each question type was mapped to relevant public benchmarks:
 
 **Decision Logic**: Memory questions test recall and retention. MMLU measures factual knowledge, while large context windows indicate better information management.
 
-**Winner**: Claude 3.5 Sonnet (MMLU: 90.4%, 200K token context window)
+**Winner**: Claude Sonnet 4.5 - MMLU: 89%, 200K token context window
 
 ---
 
@@ -150,10 +162,39 @@ Each question type was mapped to relevant public benchmarks:
 - **Format**: Function implementation tasks
 - **Link**: https://github.com/openai/human-eval
 
-#### GPQA (Graduate-Level Google-Proof Q&A)
-- **Description**: Graduate-level reasoning questions resistant to search
-- **Difficulty**: PhD-level across multiple domains
-- **Link**: Research benchmark (published 2023)
+#### GPQA Diamond (Graduate-Level Google-Proof Q&A)
+- **Description**: Hardest subset of GPQA - graduate-level reasoning questions resistant to search
+- **Difficulty**: PhD-level across biology, physics, chemistry
+- **Link**: Research benchmark (published 2023, Diamond subset most commonly referenced)
+
+#### ARC-AGI-2 (Abstract Reasoning Corpus - Next Generation)
+- **Description**: Next-generation abstract reasoning benchmark testing novel pattern completion
+- **Format**: Visual grid-based pattern completion tasks
+- **Difficulty**: Designed to test general intelligence, not just memorized patterns
+- **Link**: https://arcprize.org/
+
+#### SWE-bench Verified
+- **Description**: Real-world software engineering tasks from GitHub issues
+- **Format**: Fixing actual bugs and implementing features in real codebases
+- **Difficulty**: Professional-level software engineering
+- **Link**: https://www.swebench.com/
+
+#### MMMU-Pro (Massive Multi-discipline Multimodal Understanding - Pro)
+- **Description**: Harder multimodal reasoning across diverse academic disciplines
+- **Format**: Vision-language tasks requiring deep understanding
+- **Link**: Research benchmark (2024-2025)
+
+#### AIME (American Invitational Mathematics Examination)
+- **Description**: Competition mathematics for advanced high school students
+- **Difficulty**: Top 2.5% of AMC participants
+- **Format**: 15 problems, answers are integers 000-999
+- **Link**: https://artofproblemsolving.com/
+
+#### USAMO (USA Mathematical Olympiad)
+- **Description**: Most prestigious US high school math competition
+- **Difficulty**: Proof-based problems requiring deep mathematical insight
+- **Format**: 6 problems over 2 days, 9 hours total
+- **Link**: https://artofproblemsolving.com/
 
 #### HellaSwag
 - **Description**: Commonsense natural language inference
@@ -173,12 +214,52 @@ Each question type was mapped to relevant public benchmarks:
 - **Official model announcements**: OpenAI, Anthropic, Google blogs
 - **Academic papers**: Model technical reports and research publications
 
-### 2024 Benchmark Scores (Reference)
+### January 2026 Benchmark Scores (Reference)
+
+**Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)**:
+- MMLU: 89%
+- HumanEval: >95%
+- GPQA Diamond: 83.4%
+- SWE-bench Verified: 77-82%
+- HellaSwag: ~95%
+- Context Window: 200K tokens
+
+**Claude Opus 4.5 (claude-opus-4-5-20251101)**:
+- GPQA Diamond: ~87%
+- SWE-bench Verified: 82-85%
+- HumanEval: >95%
+- MMLU: ~91%
+
+**Grok 4 (xAI)**:
+- GSM8K: 95.2%
+- AIME 2024: 100%
+- USAMO 2025: 61.9%
+- MMLU: 92.1%
+
+**Gemini 3 Pro (gemini-3-pro-preview)**:
+- ARC-AGI-2: 31.1% (45.1% Deep Think)
+- GPQA Diamond: 91.9%
+- MMMU-Pro: 81.0%
+- MMLU: ~92%
+
+**GPT-5.2 (OpenAI)**:
+- GSM8K: ~96%
+- MATH 500: ~92%
+- AIME 2025: ~85%
+- HumanEval: ~95%
+
+**o4-mini (OpenAI)**:
+- AIME 2024: 93.4%
+- MATH 500: 97.3%
+- Cost-effective for math evaluation
+
+### Previous Benchmark Scores (2024 Reference)
 
 **Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)**:
 - MMLU: 90.4%
 - HumanEval: 93.7%
 - GPQA: 67.2%
+- SWE-bench: 49%
 - GSM8K: ~95%
 
 **GPT-4 Turbo**:
@@ -186,11 +267,6 @@ Each question type was mapped to relevant public benchmarks:
 - GSM8K: 95.0%
 - MATH: 60.1%
 - HumanEval: ~90%
-
-**GPT-4o**:
-- MMLU: 88.7%
-- MATH: 76.6%
-- HumanEval: 90.2%
 
 **Gemini 1.5 Pro**:
 - MMLU: ~88.6%
@@ -356,15 +432,24 @@ Use the following criteria to decide if an judge change is warranted:
 
 #### Special Cases
 
-**Gemini Models**: Currently not selected as primary judges despite competitive benchmarks due to:
-- Smaller context window options in some variants
-- Less consistent performance across diverse tasks
-- May reconsider if Gemini 2.0+ shows sustained superiority
+**Gemini 3 Pro**: Now selected for pattern and spatial reasoning due to:
+- Breakthrough ARC-AGI-2 performance (31.1%, 6x improvement over previous models)
+- Highest GPQA Diamond score (91.9%) among all models
+- Deep Think mode provides additional reasoning power (45.1% on ARC-AGI-2)
 
-**GPT-4o vs GPT-4 Turbo**:
-- GPT-4o shows better MATH scores (76.6% vs 60.1%)
-- Consider switching mathematical judge to GPT-4o if API costs are acceptable
-- Currently retaining GPT-4 Turbo due to strong GSM8K performance and established reliability
+**Grok 4 (xAI)**: Selected for mathematical reasoning due to:
+- Perfect AIME 2024 score (100%)
+- Strong USAMO 2025 performance (61.9%)
+- Competitive GSM8K (95.2%, slightly above GPT-4 Turbo)
+
+**Claude Sonnet 4.5 vs Opus 4.5**:
+- Opus 4.5 shows higher scores on some benchmarks (GPQA Diamond ~87% vs 83.4%)
+- Sonnet 4.5 selected for cost-efficiency with excellent performance
+- Consider Opus 4.5 for mission-critical evaluations if budget allows
+
+**GPT-5.2 Consideration**:
+- Strong math performance but Grok 4's AIME/USAMO scores are more impressive
+- Retaining GPT-4 Turbo as default fallback for broad competence
 
 #### Risk Assessment
 
@@ -397,6 +482,68 @@ Use this checklist when evaluating judge changes:
 
 ## Change History
 
+### 2026-01-24 - January 2026 Quarterly Review (v2.0)
+
+**Review Type**: Quarterly review (Q1 2026) - Missed April 2025 review, now 12+ months since last update
+
+**Major Model Changes**:
+
+1. **mathematical**: gpt-4-turbo → grok-4 (xAI)
+   - Reason: Grok 4 achieves perfect AIME 2024 (100%), USAMO 2025 (61.9%)
+   - Previous: GPT-4 Turbo (GSM8K: 95.0%, MATH: 60.1%)
+   - New: Grok 4 (GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9%)
+   - Improvement: Competition-level math performance far exceeds previous judge
+
+2. **logical_reasoning**: claude-3-5-sonnet-20241022 → claude-sonnet-4-5-20250929
+   - Reason: Major Claude upgrade with SWE-bench improving from 49% to 77-82%
+   - Previous: Claude 3.5 Sonnet (HumanEval: 93.7%, GPQA: 67.2%, SWE-bench: 49%)
+   - New: Claude Sonnet 4.5 (HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82%)
+   - Improvement: +16 points on GPQA Diamond, +28-33 points on SWE-bench
+
+3. **pattern_recognition**: claude-3-5-sonnet-20241022 → gemini-3-pro-preview
+   - Reason: Gemini 3 Pro breakthrough on ARC-AGI-2 (31.1%, 6x improvement)
+   - Previous: Claude 3.5 Sonnet (GPQA: 67.2%, MMLU: 90.4%)
+   - New: Gemini 3 Pro (ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0%)
+   - Improvement: First model to significantly advance on abstract reasoning benchmarks
+
+4. **spatial_reasoning**: claude-3-5-sonnet-20241022 → gemini-3-pro-preview
+   - Reason: ARC-AGI-2 provides first rigorous spatial reasoning benchmark
+   - Previous: Claude 3.5 Sonnet (no dedicated spatial benchmark available)
+   - New: Gemini 3 Pro (ARC-AGI-2: 31.1%, Deep Think: 45.1%)
+   - Improvement: Now using purpose-built spatial reasoning evaluation
+
+5. **verbal_reasoning**: claude-3-5-sonnet-20241022 → claude-sonnet-4-5-20250929
+   - Reason: Claude Sonnet 4.5 upgrade with improved language understanding
+   - Previous: Claude 3.5 Sonnet (MMLU: 90.4%, HellaSwag: ~90%)
+   - New: Claude Sonnet 4.5 (MMLU: 89%, HellaSwag: ~95%)
+   - Note: Slight MMLU decrease but improved HellaSwag and overall capability
+
+6. **memory**: claude-3-5-sonnet-20241022 → claude-sonnet-4-5-20250929
+   - Reason: Claude Sonnet 4.5 upgrade, retains 200K context window
+   - Previous: Claude 3.5 Sonnet (MMLU: 90.4%)
+   - New: Claude Sonnet 4.5 (MMLU: 89%, 200K context)
+
+**New Benchmarks Added**:
+- ARC-AGI-2: Abstract reasoning (replaces limited spatial-specific benchmarks)
+- SWE-bench Verified: Real-world software engineering
+- AIME 2024/2025: Competition mathematics
+- USAMO 2025: Olympiad-level mathematics
+- MMMU-Pro: Multimodal understanding
+
+**Configuration Files Updated**:
+- `config/judges.yaml`: All judge assignments updated
+- `config/generators.yaml`: Generator assignments aligned with judges
+
+**Research Sources**:
+- Official model announcements (Anthropic, Google, xAI, OpenAI)
+- ARC Prize 2025 leaderboard
+- SWE-bench official results
+- Academic benchmark publications
+
+**Next Review**: April 2026 (Q2 2026 quarterly review)
+
+---
+
 ### 2025-01-11 - Initial Configuration (v1.0)
 
 **Created**: Evidence-based judge configuration based on 2024 benchmark research
@@ -423,7 +570,7 @@ Use this checklist when evaluating judge changes:
 - Official model documentation (OpenAI, Anthropic, Google)
 - Academic benchmark publications (GPQA, MMLU, GSM8K, MATH, HumanEval)
 
-**Next Review**: April 2025 (Q2 2025 quarterly review)
+**Next Review**: ~~April 2025 (Q2 2025 quarterly review)~~ *Missed - completed January 2026*
 
 ---
 
@@ -484,4 +631,4 @@ For questions about judge configuration or to report issues:
 - **Benchmark Questions**: Refer to benchmark documentation linked in this guide
 
 **Maintainers**: Question generation service team
-**Last Updated**: January 11, 2025
+**Last Updated**: January 24, 2026
