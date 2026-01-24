@@ -39,7 +39,7 @@ class TestGoogleProvider:
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
 
-        assert provider.model == "gemini-1.5-pro"
+        assert provider.model == "gemini-2.5-pro"
 
     @patch("app.providers.google_provider.genai.configure")
     @patch("app.providers.google_provider.genai.GenerativeModel")
@@ -234,6 +234,12 @@ class TestGoogleProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
+        # Latest Gemini 3 models
+        assert "gemini-3-pro" in models
+        assert "gemini-3-flash" in models
+        # Gemini 2.5 models
+        assert "gemini-2.5-pro" in models
+        # Legacy Gemini 1.x models
         assert "gemini-1.5-pro" in models
         assert "gemini-1.5-flash" in models
         assert "gemini-1.0-pro" in models
