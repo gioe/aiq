@@ -4,7 +4,7 @@ FastAPI authentication dependencies.
 import logging
 from typing import Literal, Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -13,8 +13,10 @@ from app.models import get_db, User
 from .security import decode_token, verify_token_type
 from .error_responses import ErrorMessages, raise_unauthorized
 from .token_blacklist import get_token_blacklist
+from .security_audit import SecurityAuditLogger, get_client_ip_from_request
 
 logger = logging.getLogger(__name__)
+security_logger = SecurityAuditLogger()
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -25,13 +27,18 @@ security_optional = HTTPBearer(auto_error=False)
 TokenType = Literal["access", "refresh"]
 
 
-def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
+def _decode_and_validate_token(
+    token: str,
+    expected_type: TokenType,
+    request: Optional[Request] = None,
+) -> int:
     """
     Decode and validate a JWT token, returning the user_id.
 
     Args:
         token: The JWT token string
         expected_type: Expected token type ("access" or "refresh")
+        request: Optional request object for IP extraction in security logging
 
     Returns:
         The user_id from the token payload
@@ -49,10 +56,27 @@ def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
     # Decode and verify token
     payload = decode_token(token)
     if payload is None:
+        # Log token validation failure
+        if request:
+            client_ip = get_client_ip_from_request(request)
+            security_logger.log_token_validation_failure(
+                reason="invalid_signature_or_format",
+                ip=client_ip,
+                token_jti=None,
+            )
         raise_unauthorized(invalid_token_msg)
 
     # Verify token type
     if not verify_token_type(payload, expected_type):
+        # Log token validation failure
+        if request:
+            client_ip = get_client_ip_from_request(request)
+            jti = payload.get("jti")
+            security_logger.log_token_validation_failure(
+                reason="invalid_token_type",
+                ip=client_ip,
+                token_jti=jti,
+            )
         raise_unauthorized(ErrorMessages.INVALID_TOKEN_TYPE)
 
     # Check if token is blacklisted (revoked)
@@ -62,6 +86,14 @@ def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
             blacklist = get_token_blacklist()
             if blacklist.is_revoked(jti):
                 logger.warning(f"Attempt to use revoked token {jti[:8]}...")
+                # Log token validation failure for revoked token
+                if request:
+                    client_ip = get_client_ip_from_request(request)
+                    security_logger.log_token_validation_failure(
+                        reason="token_revoked",
+                        ip=client_ip,
+                        token_jti=jti,
+                    )
                 raise_unauthorized(ErrorMessages.TOKEN_REVOKED)
         except RuntimeError:
             # Blacklist not initialized - log warning but allow request
@@ -71,6 +103,14 @@ def _decode_and_validate_token(token: str, expected_type: TokenType) -> int:
     # Extract user_id from payload
     user_id = payload.get("user_id")
     if user_id is None:
+        # Log token validation failure
+        if request:
+            client_ip = get_client_ip_from_request(request)
+            security_logger.log_token_validation_failure(
+                reason="missing_user_id",
+                ip=client_ip,
+                token_jti=jti,
+            )
         raise_unauthorized(ErrorMessages.INVALID_TOKEN_PAYLOAD)
 
     return user_id
@@ -97,6 +137,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -104,6 +145,7 @@ async def get_current_user(
     Get the current authenticated user from JWT token.
 
     Args:
+        request: Request object for IP extraction in security logging
         credentials: HTTP Bearer token credentials from request header
         db: Database session
 
@@ -113,11 +155,12 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(credentials.credentials, "access")
+    user_id = _decode_and_validate_token(credentials.credentials, "access", request)
     return _get_user_or_401(db, user_id)
 
 
 async def get_current_user_from_refresh_token(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -127,6 +170,7 @@ async def get_current_user_from_refresh_token(
     This is used for the token refresh endpoint.
 
     Args:
+        request: Request object for IP extraction in security logging
         credentials: HTTP Bearer token credentials from request header
         db: Database session
 
@@ -136,11 +180,12 @@ async def get_current_user_from_refresh_token(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(credentials.credentials, "refresh")
+    user_id = _decode_and_validate_token(credentials.credentials, "refresh", request)
     return _get_user_or_401(db, user_id)
 
 
 async def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
@@ -154,6 +199,7 @@ async def get_current_user_optional(
     such as analytics event submission.
 
     Args:
+        request: Request object for IP extraction in security logging
         credentials: Optional HTTP Bearer token credentials from request header
         db: Database session
 
@@ -164,7 +210,7 @@ async def get_current_user_optional(
         return None
 
     try:
-        user_id = _decode_and_validate_token(credentials.credentials, "access")
+        user_id = _decode_and_validate_token(credentials.credentials, "access", request)
         user = db.query(User).filter(User.id == user_id).first()
         return user
     except HTTPException:
