@@ -13,13 +13,13 @@ from .base import BaseLLMProvider
 class GoogleProvider(BaseLLMProvider):
     """Google Generative AI integration for question generation and evaluation."""
 
-    def __init__(self, api_key: str, model: str = "gemini-1.5-pro"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-pro"):
         """
         Initialize Google provider.
 
         Args:
             api_key: Google API key
-            model: Model to use (default: gemini-1.5-pro)
+            model: Model to use (default: gemini-2.5-pro)
         """
         super().__init__(api_key, model)
         genai.configure(api_key=api_key)
@@ -582,11 +582,17 @@ class GoogleProvider(BaseLLMProvider):
 
         Note:
             Common Gemini models:
-            - gemini-1.5-pro (most capable, best for complex reasoning)
+            - gemini-3-pro-preview (Gemini 3 Pro - advanced reasoning, 1M context)
+            - gemini-3-flash-preview (Gemini 3 Flash - faster variant)
+            - gemini-2.5-pro (stable, enhanced reasoning with 1M context)
+            - gemini-1.5-pro (capable, best for complex reasoning)
             - gemini-1.5-flash (faster, optimized for speed)
             - gemini-1.0-pro (earlier version, still capable)
         """
         return [
+            "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
+            "gemini-2.5-pro",
             "gemini-1.5-pro",
             "gemini-1.5-flash",
             "gemini-1.0-pro",
