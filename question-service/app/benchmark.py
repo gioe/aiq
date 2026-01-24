@@ -319,6 +319,8 @@ async def run_benchmarks(
     """
     results = {}
 
+    # Only use parallel execution when benchmarking multiple providers.
+    # Single provider doesn't benefit from parallelization.
     if parallel and len(providers) > 1:
         print(f"\n{'='*60}", file=sys.stderr)
         print(
@@ -326,8 +328,10 @@ async def run_benchmarks(
         )
         print(f"{'='*60}", file=sys.stderr)
 
-        # Reset cost tracker once before all parallel providers start
-        # Each provider will skip its own reset to avoid race conditions
+        # Reset cost tracker once before all parallel providers start.
+        # The CostTracker class is thread-safe (uses threading.Lock) and tracks
+        # costs by provider, so concurrent providers can safely record their usage.
+        # Each provider only retrieves its own cost data via by_provider[provider_name].
         reset_cost_tracker()
 
         # Calculate overall timeout: individual timeout * questions * buffer

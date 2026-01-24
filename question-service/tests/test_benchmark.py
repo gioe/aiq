@@ -156,7 +156,7 @@ class TestRunBenchmarks:
         ) -> BenchmarkResult:
             if provider == "anthropic":
                 raise ValueError("Simulated API error")
-            return await original_func(provider, num, dry_run=True)
+            return await original_func(provider, num, dry_run=dry_run)
 
         with patch("app.benchmark.benchmark_provider", mock_benchmark_provider):
             results = await run_benchmarks(
