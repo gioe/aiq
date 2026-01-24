@@ -1,0 +1,95 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python dependencies for backend service
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+      - "backend"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
+
+  # Python dependencies for question-service
+  - package-ecosystem: "pip"
+    directory: "/question-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+      - "question-service"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
+
+  # Swift Package Manager dependencies for iOS (API Client package)
+  - package-ecosystem: "swift"
+    directory: "/ios/Packages/AIQAPIClient"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "swift"
+      - "ios"
+      - "api-client"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
+
+  # Swift Package Manager dependencies for iOS (Main Xcode project)
+  - package-ecosystem: "swift"
+    directory: "/ios"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "swift"
+      - "ios"
+      - "xcode-project"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
