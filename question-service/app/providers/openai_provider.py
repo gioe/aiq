@@ -471,6 +471,7 @@ class OpenAIProvider(BaseLLMProvider):
             - o4-mini (latest reasoning model, efficient)
             - o3, o3-mini (reasoning models)
             - o1 (original reasoning model)
+            - gpt-4o, gpt-4o-mini (GPT-4o series)
             - gpt-4-turbo-preview, gpt-4 (GPT-4 series)
             - gpt-3.5-turbo (faster, cheaper, legacy)
         """
@@ -485,6 +486,8 @@ class OpenAIProvider(BaseLLMProvider):
             "o3-mini",
             "o1",
             # GPT-4 series
+            "gpt-4o",
+            "gpt-4o-mini",
             "gpt-4-turbo-preview",
             "gpt-4",
             "gpt-4-0125-preview",

@@ -129,6 +129,8 @@ class TestModelPricing:
         assert "o1" in MODEL_PRICING
 
         # OpenAI GPT-4 series
+        assert "gpt-4o" in MODEL_PRICING
+        assert "gpt-4o-mini" in MODEL_PRICING
         assert "gpt-4" in MODEL_PRICING
         assert "gpt-3.5-turbo" in MODEL_PRICING
 

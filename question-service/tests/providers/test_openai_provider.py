@@ -257,14 +257,16 @@ class TestOpenAIProvider:
         assert "o3-mini" in models
         assert "o1" in models
         # GPT-4 series (legacy)
+        assert "gpt-4o" in models
+        assert "gpt-4o-mini" in models
         assert "gpt-4-turbo-preview" in models
         assert "gpt-4" in models
         # GPT-3.5 series (legacy)
         assert "gpt-3.5-turbo" in models
         # Verify ordering: GPT-5 -> o-series -> GPT-4 -> GPT-3.5
         assert models.index("gpt-5.2") < models.index("o4-mini")
-        assert models.index("o4-mini") < models.index("gpt-4")
-        assert models.index("gpt-4") < models.index("gpt-3.5-turbo")
+        assert models.index("o4-mini") < models.index("gpt-4o")
+        assert models.index("gpt-4o") < models.index("gpt-3.5-turbo")
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_empty_completion_response(
