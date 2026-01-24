@@ -22,28 +22,28 @@ generators:
   logic:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 67.2%, HumanEval 93.7%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks."
     fallback: "openai"
 
   pattern:
     provider: "anthropic"
-    rationale: "Superior abstract reasoning: GPQA (67.2%), MMLU (90.4%). Claude excels at identifying patterns in complex reasoning tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. Exceptional abstract reasoning and pattern recognition capabilities."
     fallback: "openai"
 
   spatial:
     provider: "anthropic"
-    rationale: "Strong general reasoning with GPQA (67.2%) and MMLU (90.4%). Claude's reasoning strength makes it ideal for spatial tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. Superior reasoning capabilities make it ideal for spatial tasks."
     fallback: "openai"
 
   verbal:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 90.4% (+2-3% over Claude 3.5 Sonnet), strong HellaSwag and WinoGrande performance. Enhanced language understanding and generation."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance."
     fallback: "openai"
 
   memory:
     provider: "anthropic"
-    rationale: "Outstanding recall: MMLU (90.4%) with 200K token context. Claude combines strong knowledge benchmarks with massive context."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89% with 200K token context. Strong knowledge benchmarks with massive context for memory tasks."
     fallback: "openai"
 
 # Default generator (fallback for unknown question types)
