@@ -70,12 +70,12 @@ Type-specific judge models evaluate questions against five weighted criteria:
 
 | Question Type | Provider | Model | Rationale |
 |---------------|----------|-------|-----------|
-| Math | xAI | grok-4 | GSM8K 95.2%, AIME 2024 100% |
-| Logic | Anthropic | claude-sonnet-4-5 | HumanEval 93.7%, GPQA 67.2% |
-| Pattern | Anthropic | claude-sonnet-4-5 | Strong abstract reasoning |
-| Spatial | Anthropic | claude-sonnet-4-5 | MMLU 90.4% |
-| Verbal | Anthropic | claude-sonnet-4-5 | Language comprehension |
-| Memory | Anthropic | claude-sonnet-4-5 | 200K context window |
+| Math | xAI | grok-4 | GSM8K 95.2%, AIME 2024 100%, USAMO 2025 61.9% |
+| Logic | Anthropic | claude-sonnet-4-5-20250929 | HumanEval >95%, GPQA Diamond 83.4%, SWE-bench 77-82% |
+| Pattern | Google | gemini-3-pro | ARC-AGI-2 31.1%, GPQA Diamond 91.9%, MMMU-Pro 81.0% |
+| Spatial | Google | gemini-3-pro | ARC-AGI-2 31.1% (45.1% Deep Think), MMMU-Pro 81.0% |
+| Verbal | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, HellaSwag ~95% |
+| Memory | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, 200K context window |
 
 **Evaluation Parameters:**
 - Temperature: 0.3 (lower for consistency)
@@ -343,5 +343,5 @@ python -m app.benchmark \
 
 ---
 
-*Last updated: 2026-01-21*
-*Document version: 1.0*
+*Last updated: 2026-01-24*
+*Document version: 1.1*
