@@ -44,6 +44,7 @@ AVAILABLE_PROVIDERS = ["openai", "anthropic", "google", "xai"]
 
 # Benchmark configuration constants
 BENCHMARK_TIMEOUT_SECONDS = 60.0
+PARALLEL_TIMEOUT_MULTIPLIER = 1.5  # Extra buffer for parallel execution overhead
 PROGRESS_REPORT_INTERVAL = 5
 MIN_SIMULATED_LATENCY_MS = 100  # Minimum latency for dry-run simulation
 
@@ -329,21 +330,39 @@ async def run_benchmarks(
         # Each provider will skip its own reset to avoid race conditions
         reset_cost_tracker()
 
-        # Run all provider benchmarks concurrently
+        # Calculate overall timeout: individual timeout * questions * buffer
+        # This ensures we don't hang indefinitely if a provider gets stuck
+        parallel_timeout = (
+            BENCHMARK_TIMEOUT_SECONDS * num_questions * PARALLEL_TIMEOUT_MULTIPLIER
+        )
+
+        # Run all provider benchmarks concurrently with overall timeout
         benchmark_tasks = [
             benchmark_provider(
                 provider, num_questions, dry_run=dry_run, skip_cost_reset=True
             )
             for provider in providers
         ]
-        benchmark_results = await asyncio.gather(
-            *benchmark_tasks, return_exceptions=True
-        )
+        try:
+            benchmark_results = await asyncio.wait_for(
+                asyncio.gather(*benchmark_tasks, return_exceptions=True),
+                timeout=parallel_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Parallel benchmark timed out after {parallel_timeout:.0f}s")
+            # Create failed results for all providers
+            for provider in providers:
+                failed_result = BenchmarkResult(provider)
+                failed_result.questions_failed = num_questions
+                results[provider] = failed_result
+            return results
 
         # Process results
         for provider, benchmark_result in zip(providers, benchmark_results):
             if isinstance(benchmark_result, BaseException):
-                logger.error(f"Benchmark failed for {provider}: {benchmark_result}")
+                logger.exception(
+                    f"Benchmark failed for {provider}", exc_info=benchmark_result
+                )
                 # Create a failed result
                 failed_result = BenchmarkResult(provider)
                 failed_result.questions_failed = num_questions

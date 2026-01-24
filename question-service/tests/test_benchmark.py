@@ -174,6 +174,41 @@ class TestRunBenchmarks:
             assert results["anthropic"].questions_failed == 3
             assert results["anthropic"].questions_generated == 0
 
+    @pytest.mark.asyncio
+    async def test_parallel_timeout_handling(self) -> None:
+        """Test that parallel mode handles overall timeout gracefully."""
+        import asyncio
+
+        # Mock benchmark_provider to hang indefinitely for one provider
+        original_func = benchmark_provider
+
+        async def mock_slow_benchmark_provider(
+            provider: str,
+            num: int,
+            dry_run: bool = False,
+            skip_cost_reset: bool = False,
+        ) -> BenchmarkResult:
+            if provider == "anthropic":
+                # Simulate a hanging provider by waiting longer than the timeout
+                await asyncio.sleep(10000)  # This will be cancelled by timeout
+            return await original_func(provider, num, dry_run=True)
+
+        # Temporarily reduce timeout for faster test
+        with patch("app.benchmark.BENCHMARK_TIMEOUT_SECONDS", 0.1), patch(
+            "app.benchmark.PARALLEL_TIMEOUT_MULTIPLIER", 1.0
+        ), patch("app.benchmark.benchmark_provider", mock_slow_benchmark_provider):
+            results = await run_benchmarks(
+                providers=["openai", "anthropic"],
+                num_questions=1,
+                dry_run=True,
+                parallel=True,
+            )
+
+            # Both providers should have failed results due to timeout
+            assert len(results) == 2
+            assert results["openai"].questions_failed == 1
+            assert results["anthropic"].questions_failed == 1
+
 
 class TestGenerateOutput:
     """Tests for generate_output function."""
