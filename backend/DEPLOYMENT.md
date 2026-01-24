@@ -68,12 +68,14 @@ RATE_LIMIT_DEFAULT_WINDOW=60
 # Admin Dashboard (optional)
 ADMIN_ENABLED=False
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your-secure-admin-password
+# Generate password hash locally: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))"
+ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
 ```
 
 **Important**:
 - Click Railway's **"Generate"** button for `SECRET_KEY` and `JWT_SECRET_KEY`
 - Or generate locally: `python -c "import secrets; print(secrets.token_urlsafe(64))"`
+- For `ADMIN_PASSWORD_HASH`, generate locally with bcrypt (do not use Railway's generate button)
 
 ### Step 4: Deploy
 
@@ -433,7 +435,7 @@ Railway dashboard → Project → **"Usage"** tab
 ## Security Checklist
 
 - [ ] Generated strong `SECRET_KEY` and `JWT_SECRET_KEY`
-- [ ] Changed `ADMIN_PASSWORD` from default
+- [ ] Generated secure bcrypt hash for `ADMIN_PASSWORD_HASH`
 - [ ] Set `ENV=production` and `DEBUG=False`
 - [ ] Configured appropriate `CORS_ORIGINS` (not `*` in production)
 - [ ] **Enabled rate limiting** (`RATE_LIMIT_ENABLED=True`) - see [Step 6: Verify Rate Limiting](#step-6-verify-rate-limiting)
