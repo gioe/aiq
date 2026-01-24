@@ -62,14 +62,14 @@ class TestMetricsTracker:
     def test_get_duration_seconds(self, tracker):
         """Test duration calculation."""
         # Before start/end
-        assert tracker.get_duration_seconds() == 0.0
+        assert tracker.get_duration_seconds() == pytest.approx(0.0)
 
         # After start/end
         tracker.start_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         tracker.end_time = datetime(2024, 1, 1, 12, 5, 30, tzinfo=timezone.utc)
 
         duration = tracker.get_duration_seconds()
-        assert duration == 330.0  # 5 minutes 30 seconds
+        assert duration == pytest.approx(330.0)  # 5 minutes 30 seconds
 
     def test_record_generation_request(self, tracker):
         """Test recording generation requests."""
@@ -267,10 +267,10 @@ class TestMetricsTracker:
         summary = tracker.get_summary()
 
         # Check success rates
-        assert summary["generation"]["success_rate"] == 0.8
-        assert summary["evaluation"]["approval_rate"] == 0.75
-        assert summary["database"]["success_rate"] == 1.0
-        assert summary["overall"]["overall_success_rate"] == 0.6
+        assert summary["generation"]["success_rate"] == pytest.approx(0.8)
+        assert summary["evaluation"]["approval_rate"] == pytest.approx(0.75)
+        assert summary["database"]["success_rate"] == pytest.approx(1.0)
+        assert summary["overall"]["overall_success_rate"] == pytest.approx(0.6)
 
     def test_get_summary_with_evaluation_scores(self, tracker):
         """Test summary with evaluation score statistics."""
@@ -282,8 +282,8 @@ class TestMetricsTracker:
 
         eval_stats = summary["evaluation"]
         assert eval_stats["average_score"] == pytest.approx(0.8, rel=0.01)
-        assert eval_stats["min_score"] == 0.7
-        assert eval_stats["max_score"] == 0.9
+        assert eval_stats["min_score"] == pytest.approx(0.7)
+        assert eval_stats["max_score"] == pytest.approx(0.9)
 
     def test_get_summary_api_usage(self, tracker):
         """Test API usage tracking in summary."""
@@ -419,11 +419,11 @@ class TestMetricsIntegration:
         assert summary["generation"]["requested"] == 20
         assert summary["generation"]["generated"] == 18
         assert summary["generation"]["failed"] == 2
-        assert summary["generation"]["success_rate"] == 0.9
+        assert summary["generation"]["success_rate"] == pytest.approx(0.9)
 
         assert summary["evaluation"]["evaluated"] == 18
         assert summary["evaluation"]["approved"] == 18
-        assert summary["evaluation"]["approval_rate"] == 1.0
+        assert summary["evaluation"]["approval_rate"] == pytest.approx(1.0)
 
         assert summary["deduplication"]["checked"] == 18
         assert summary["deduplication"]["duplicates_found"] == 3
@@ -431,8 +431,210 @@ class TestMetricsIntegration:
         assert summary["deduplication"]["semantic_duplicates"] == 1
 
         assert summary["database"]["inserted"] == 15
-        assert summary["database"]["success_rate"] == 1.0
+        assert summary["database"]["success_rate"] == pytest.approx(1.0)
 
         assert summary["overall"]["questions_requested"] == 20
         assert summary["overall"]["questions_final_output"] == 15
-        assert summary["overall"]["overall_success_rate"] == 0.75
+        assert summary["overall"]["overall_success_rate"] == pytest.approx(0.75)
+
+
+class TestStageTimingMetrics:
+    """Tests for per-stage timing metrics (TASK-472)."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create a fresh metrics tracker for each test."""
+        tracker = MetricsTracker()
+        tracker.reset()
+        return tracker
+
+    def test_start_and_end_stage(self, tracker):
+        """Test basic stage timing start/end."""
+        tracker.start_stage("generation")
+        import time
+
+        time.sleep(0.05)  # Sleep for 50ms
+        duration = tracker.end_stage()
+
+        assert duration >= 0.05
+        assert tracker._stage_durations["generation"] >= 0.05
+
+    def test_end_stage_with_explicit_name(self, tracker):
+        """Test ending a stage with explicit name."""
+        tracker.start_stage("evaluation")
+        import time
+
+        time.sleep(0.02)
+        duration = tracker.end_stage("evaluation")
+
+        assert duration >= 0.02
+
+    def test_end_stage_without_start(self, tracker):
+        """Test ending a stage that wasn't started."""
+        duration = tracker.end_stage("generation")
+        assert duration == pytest.approx(0.0)
+
+    def test_time_stage_context_manager(self, tracker):
+        """Test the time_stage context manager."""
+        import time
+
+        with tracker.time_stage("deduplication"):
+            time.sleep(0.03)
+
+        durations = tracker.get_stage_durations()
+        assert durations["deduplication"] >= 0.03
+
+    def test_time_stage_context_manager_with_exception(self, tracker):
+        """Test that time_stage records duration even if exception occurs."""
+        import time
+
+        try:
+            with tracker.time_stage("storage"):
+                time.sleep(0.02)
+                raise ValueError("Test error")
+        except ValueError:
+            pass
+
+        durations = tracker.get_stage_durations()
+        assert durations["storage"] >= 0.02
+
+    def test_get_stage_durations(self, tracker):
+        """Test getting all stage durations."""
+        tracker._stage_durations = {
+            "generation": 5.123,
+            "evaluation": 3.456,
+            "deduplication": 1.234,
+            "storage": 0.567,
+        }
+
+        durations = tracker.get_stage_durations()
+
+        assert durations["generation"] == pytest.approx(5.123)
+        assert durations["evaluation"] == pytest.approx(3.456)
+        assert durations["deduplication"] == pytest.approx(1.234)
+        assert durations["storage"] == pytest.approx(0.567)
+
+    def test_stage_durations_accumulate(self, tracker):
+        """Test that multiple starts/ends accumulate duration."""
+        import time
+
+        # First generation stage
+        with tracker.time_stage("generation"):
+            time.sleep(0.02)
+
+        # Second generation stage
+        with tracker.time_stage("generation"):
+            time.sleep(0.02)
+
+        durations = tracker.get_stage_durations()
+        assert durations["generation"] >= 0.04
+
+    def test_unknown_stage_warning(self, tracker, caplog):
+        """Test that unknown stage logs warning."""
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            tracker.start_stage("unknown_stage")
+
+        assert "Unknown stage: unknown_stage" in caplog.text
+
+    def test_stage_durations_in_summary(self, tracker):
+        """Test that stage durations appear in summary."""
+        tracker._stage_durations["generation"] = 5.0
+        tracker._stage_durations["evaluation"] = 3.0
+
+        summary = tracker.get_summary()
+
+        assert "stage_durations" in summary
+        assert summary["stage_durations"]["generation"] == pytest.approx(5.0)
+        assert summary["stage_durations"]["evaluation"] == pytest.approx(3.0)
+
+    def test_reset_clears_stage_durations(self, tracker):
+        """Test that reset clears stage durations."""
+        tracker._stage_durations["generation"] = 5.0
+
+        tracker.reset()
+
+        assert tracker._stage_durations["generation"] == pytest.approx(0.0)
+        assert tracker._stage_durations["evaluation"] == pytest.approx(0.0)
+
+
+class TestEmbeddingCacheMetrics:
+    """Tests for embedding cache performance metrics (TASK-472)."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create a fresh metrics tracker for each test."""
+        tracker = MetricsTracker()
+        tracker.reset()
+        return tracker
+
+    def test_record_embedding_cache_stats(self, tracker):
+        """Test recording embedding cache stats."""
+        tracker.record_embedding_cache_stats(hits=100, misses=20, size=50)
+
+        stats = tracker.get_embedding_cache_stats()
+
+        assert stats["hits"] == 100
+        assert stats["misses"] == 20
+        assert stats["size"] == 50
+        assert stats["hit_rate"] == pytest.approx(100 / 120, rel=0.01)
+
+    def test_embedding_cache_hit_rate_calculation(self, tracker):
+        """Test hit rate calculation with various values."""
+        # 75% hit rate
+        tracker.record_embedding_cache_stats(hits=75, misses=25, size=100)
+        stats = tracker.get_embedding_cache_stats()
+        assert stats["hit_rate"] == pytest.approx(0.75)
+
+    def test_embedding_cache_hit_rate_zero_when_no_requests(self, tracker):
+        """Test hit rate is 0 when no requests made."""
+        tracker.record_embedding_cache_stats(hits=0, misses=0, size=0)
+        stats = tracker.get_embedding_cache_stats()
+        assert stats["hit_rate"] == pytest.approx(0.0)
+
+    def test_embedding_cache_stats_in_summary(self, tracker):
+        """Test that embedding cache stats appear in summary."""
+        tracker.record_embedding_cache_stats(hits=50, misses=10, size=30)
+
+        summary = tracker.get_summary()
+
+        assert "embedding_cache" in summary
+        assert summary["embedding_cache"]["hits"] == 50
+        assert summary["embedding_cache"]["misses"] == 10
+        assert summary["embedding_cache"]["size"] == 30
+        assert summary["embedding_cache"]["hit_rate"] == pytest.approx(
+            50 / 60, rel=0.01
+        )
+
+    def test_reset_clears_embedding_cache_stats(self, tracker):
+        """Test that reset clears embedding cache stats."""
+        tracker.record_embedding_cache_stats(hits=100, misses=50, size=75)
+
+        tracker.reset()
+
+        stats = tracker.get_embedding_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["size"] == 0
+
+    def test_print_summary_includes_embedding_cache(self, tracker, capsys):
+        """Test that print_summary includes embedding cache stats."""
+        tracker.record_embedding_cache_stats(hits=80, misses=20, size=50)
+
+        tracker.print_summary()
+
+        captured = capsys.readouterr()
+        assert "Embedding Cache:" in captured.out
+        assert "Hits:     80" in captured.out
+        assert "Misses:   20" in captured.out
+
+    def test_print_summary_includes_stage_durations(self, tracker, capsys):
+        """Test that print_summary includes stage durations."""
+        tracker._stage_durations["generation"] = 5.123
+
+        tracker.print_summary()
+
+        captured = capsys.readouterr()
+        assert "Stage Durations:" in captured.out
+        assert "Generation: 5.123s" in captured.out
