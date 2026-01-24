@@ -26,14 +26,16 @@ generators:
     fallback: "openai"
 
   pattern:
-    provider: "anthropic"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. Exceptional abstract reasoning and pattern recognition capabilities."
-    fallback: "openai"
+    provider: "google"
+    model: "gemini-3-pro-preview"
+    rationale: "ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%. Superior abstract pattern recognition. Updated Jan 2026."
+    fallback: "anthropic"
 
   spatial:
-    provider: "anthropic"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): GPQA Diamond 83.4%, MMLU 89%. Superior reasoning capabilities make it ideal for spatial tasks."
-    fallback: "openai"
+    provider: "google"
+    model: "gemini-3-pro-preview"
+    rationale: "ARC-AGI-2: 31.1% (45.1% Deep Think), breakthrough spatial reasoning. Updated Jan 2026."
+    fallback: "anthropic"
 
   verbal:
     provider: "anthropic"
