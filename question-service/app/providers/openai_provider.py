@@ -462,18 +462,33 @@ class OpenAIProvider(BaseLLMProvider):
         Get list of available OpenAI models.
 
         Returns:
-            List of model identifiers
+            List of model identifiers (ordered newest to oldest)
 
         Note:
-            Common models:
-            - gpt-4-turbo-preview (latest GPT-4 Turbo)
-            - gpt-4 (standard GPT-4)
-            - gpt-3.5-turbo (faster, cheaper)
+            Current models (as of January 2026):
+            - gpt-5.2 (latest GPT-5 series)
+            - gpt-5.1, gpt-5 (GPT-5 series)
+            - o4-mini (latest reasoning model, efficient)
+            - o3, o3-mini (reasoning models)
+            - o1 (original reasoning model)
+            - gpt-4-turbo-preview, gpt-4 (GPT-4 series)
+            - gpt-3.5-turbo (faster, cheaper, legacy)
         """
         return [
+            # GPT-5 series (newest)
+            "gpt-5.2",
+            "gpt-5.1",
+            "gpt-5",
+            # Reasoning models (o-series)
+            "o4-mini",
+            "o3",
+            "o3-mini",
+            "o1",
+            # GPT-4 series
             "gpt-4-turbo-preview",
             "gpt-4",
             "gpt-4-0125-preview",
+            # GPT-3.5 series (legacy)
             "gpt-3.5-turbo",
             "gpt-3.5-turbo-16k",
         ]

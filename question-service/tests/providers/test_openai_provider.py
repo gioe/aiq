@@ -247,9 +247,22 @@ class TestOpenAIProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
+        # GPT-5 series
+        assert "gpt-5.2" in models
+        assert "gpt-5.1" in models
+        assert "gpt-5" in models
+        # Reasoning models (o-series)
+        assert "o4-mini" in models
+        assert "o3" in models
+        assert "o3-mini" in models
+        assert "o1" in models
+        # GPT-4 series (legacy)
         assert "gpt-4-turbo-preview" in models
         assert "gpt-4" in models
+        # GPT-3.5 series (legacy)
         assert "gpt-3.5-turbo" in models
+        # Verify newest models are listed first
+        assert models.index("gpt-5.2") < models.index("gpt-4")
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_empty_completion_response(
