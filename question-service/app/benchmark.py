@@ -149,6 +149,7 @@ async def benchmark_provider(
     provider_name: str,
     num_questions: int,
     dry_run: bool = False,
+    skip_cost_reset: bool = False,
 ) -> BenchmarkResult:
     """Benchmark a single provider.
 
@@ -156,6 +157,8 @@ async def benchmark_provider(
         provider_name: Provider to benchmark
         num_questions: Number of questions to generate
         dry_run: If True, simulate without actual API calls
+        skip_cost_reset: If True, skip resetting the cost tracker (used in parallel mode
+            where the tracker is reset once before all providers start)
 
     Returns:
         BenchmarkResult with metrics
@@ -191,7 +194,9 @@ async def benchmark_provider(
         return result
 
     # Reset cost tracker to measure only this provider's costs
-    reset_cost_tracker()
+    # Skip reset in parallel mode where the tracker is reset once before all providers start
+    if not skip_cost_reset:
+        reset_cost_tracker()
     cost_tracker = get_cost_tracker()
 
     # Generate questions with timing
@@ -320,9 +325,15 @@ async def run_benchmarks(
         )
         print(f"{'='*60}", file=sys.stderr)
 
+        # Reset cost tracker once before all parallel providers start
+        # Each provider will skip its own reset to avoid race conditions
+        reset_cost_tracker()
+
         # Run all provider benchmarks concurrently
         benchmark_tasks = [
-            benchmark_provider(provider, num_questions, dry_run=dry_run)
+            benchmark_provider(
+                provider, num_questions, dry_run=dry_run, skip_cost_reset=True
+            )
             for provider in providers
         ]
         benchmark_results = await asyncio.gather(

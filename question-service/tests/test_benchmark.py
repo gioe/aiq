@@ -149,7 +149,10 @@ class TestRunBenchmarks:
         original_func = benchmark_provider
 
         async def mock_benchmark_provider(
-            provider: str, num: int, dry_run: bool = False
+            provider: str,
+            num: int,
+            dry_run: bool = False,
+            skip_cost_reset: bool = False,
         ) -> BenchmarkResult:
             if provider == "anthropic":
                 raise ValueError("Simulated API error")
