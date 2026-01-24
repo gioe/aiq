@@ -85,9 +85,10 @@ class Settings(BaseSettings):
     # Admin Dashboard
     ADMIN_ENABLED: bool = False  # Set to True to enable admin dashboard
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = Field(
+    ADMIN_PASSWORD_HASH: str = Field(
         default="",
-        description="Admin dashboard password (required when ADMIN_ENABLED=True)",
+        description="Bcrypt-hashed admin dashboard password (required when ADMIN_ENABLED=True). "
+        "Generate with: python -c \"from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))\"",
     )
     ADMIN_TOKEN: str = Field(
         default="",

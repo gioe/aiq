@@ -7,6 +7,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
 from app.core.config import settings
+from app.core.security import verify_password
 
 
 class AdminAuth(AuthenticationBackend):
@@ -21,6 +22,8 @@ class AdminAuth(AuthenticationBackend):
         """
         Authenticate admin user with username and password.
 
+        Password is verified against a bcrypt hash stored in ADMIN_PASSWORD_HASH.
+
         Args:
             request: Starlette request object with form data
 
@@ -31,8 +34,16 @@ class AdminAuth(AuthenticationBackend):
         username = form.get("username")
         password = form.get("password")
 
-        # Validate credentials against environment variables
-        if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
+        # Early return if credentials are missing or username doesn't match
+        if not username or not password or username != settings.ADMIN_USERNAME:
+            return False
+
+        # Verify password hash is configured
+        if not settings.ADMIN_PASSWORD_HASH:
+            return False
+
+        # Verify password against bcrypt hash
+        if verify_password(str(password), settings.ADMIN_PASSWORD_HASH):
             # Generate secure session token
             token = secrets.token_urlsafe(32)
             request.session.update({"token": token})
