@@ -10,7 +10,8 @@ The AIQ admin dashboard provides a comprehensive view of question performance st
    ```bash
    ADMIN_ENABLED=True
    ADMIN_USERNAME=admin
-   ADMIN_PASSWORD=your-secure-password
+   # Generate password hash: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-password'))"
+   ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
    ```
 
 2. Start the backend server:
@@ -248,6 +249,31 @@ The question quality dashboard is built using:
 - Ensure backend is restarted after code changes
 - Check database for updated empirical_difficulty and discrimination values
 - Verify analytics pipeline is executing (check logs during test submission)
+
+## Password Rotation
+
+To rotate the admin password:
+
+1. **Generate a new bcrypt hash** locally:
+   ```bash
+   python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-new-secure-password'))"
+   ```
+
+2. **Update the environment variable** with the new hash:
+   - For Railway: Update `ADMIN_PASSWORD_HASH` in the Railway dashboard
+   - For local development: Update `ADMIN_PASSWORD_HASH` in your `.env` file
+
+3. **Restart the service** to apply the change:
+   - Railway will auto-restart on env var change
+   - Local: restart the uvicorn server
+
+4. **Verify login** with the new password at `/admin`
+
+**Security Notes:**
+- Never commit plaintext passwords or password hashes to version control
+- Use a strong, unique password (16+ characters, mixed case, numbers, symbols)
+- Rotate passwords periodically (recommended: every 90 days)
+- The bcrypt hash is one-way; if you lose the password, generate a new hash
 
 ## Support
 
