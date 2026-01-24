@@ -51,16 +51,26 @@ class CompletionResult:
 # Pricing per 1M tokens (in USD) as of January 2026
 # These are approximate and should be updated periodically
 MODEL_PRICING: Dict[str, Dict[str, float]] = {
-    # OpenAI pricing (per 1M tokens)
+    # OpenAI GPT-5 series (per 1M tokens) - pricing based on current OpenAI rates
+    "gpt-5.2": {"input": 5.00, "output": 15.00},
+    "gpt-5.1": {"input": 5.00, "output": 15.00},
+    "gpt-5": {"input": 5.00, "output": 15.00},
+    # OpenAI o-series reasoning models (per 1M tokens) - pricing based on current OpenAI rates
+    "o4-mini": {"input": 1.10, "output": 4.40},
+    "o3": {"input": 10.00, "output": 40.00},
+    "o3-mini": {"input": 1.10, "output": 4.40},
+    "o1": {"input": 15.00, "output": 60.00},
+    # OpenAI GPT-4 series (per 1M tokens)
     "gpt-4-turbo-preview": {"input": 10.00, "output": 30.00},
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
     "gpt-4-0125-preview": {"input": 10.00, "output": 30.00},
     "gpt-4": {"input": 30.00, "output": 60.00},
     "gpt-4-32k": {"input": 60.00, "output": 120.00},
-    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    "gpt-3.5-turbo-16k": {"input": 3.00, "output": 4.00},
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    # OpenAI GPT-3.5 series (per 1M tokens)
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    "gpt-3.5-turbo-16k": {"input": 3.00, "output": 4.00},
     # Anthropic pricing (per 1M tokens)
     # Claude 4 family models
     "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
