@@ -118,6 +118,7 @@ class QuestionGenerator:
         question_type: QuestionType,
         difficulty: DifficultyLevel,
         provider_name: Optional[str] = None,
+        model_override: Optional[str] = None,
         temperature: float = 0.8,
         max_tokens: int = 1500,
     ) -> GeneratedQuestion:
@@ -127,6 +128,7 @@ class QuestionGenerator:
             question_type: Type of question to generate
             difficulty: Difficulty level
             provider_name: Specific provider to use (None = first available)
+            model_override: Specific model to use (overrides provider default)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
 
@@ -159,9 +161,13 @@ class QuestionGenerator:
         # Get circuit breaker for this provider
         circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
 
+        # Determine actual model being used (for logging and metadata)
+        actual_model = model_override or provider.model
+
         logger.info(
             f"Generating {question_type.value} question at {difficulty.value} "
             f"difficulty using {provider_name}"
+            + (f" with model {model_override}" if model_override else "")
         )
 
         # Build prompt
@@ -174,6 +180,7 @@ class QuestionGenerator:
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
+                model_override=model_override,
             )
             return result.content
 
@@ -186,7 +193,7 @@ class QuestionGenerator:
                 question_type=question_type,
                 difficulty=difficulty,
                 provider_name=provider_name,
-                model=provider.model,
+                model=actual_model,
             )
 
             logger.info(
@@ -238,8 +245,10 @@ class QuestionGenerator:
                 available.append(provider_name)
         return available
 
-    def _get_specialist_provider(self, question_type: QuestionType) -> Optional[str]:
-        """Get the specialist provider for a question type based on configuration.
+    def _get_specialist_provider(
+        self, question_type: QuestionType
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Get the specialist provider and model for a question type based on configuration.
 
         Uses the generator configuration to determine the best provider for
         generating questions of a specific type. Falls back to any available
@@ -249,11 +258,11 @@ class QuestionGenerator:
             question_type: Type of question to generate
 
         Returns:
-            Provider name to use, or None if no providers available
+            Tuple of (provider_name, model_override). Model may be None if not specified.
         """
         available_providers = self._get_available_providers()
         if not available_providers:
-            return None
+            return (None, None)
 
         # Check if generator config is initialized
         if not is_generator_config_initialized():
@@ -261,7 +270,7 @@ class QuestionGenerator:
             logger.debug(
                 "Generator config not initialized, using first available provider"
             )
-            return available_providers[0]
+            return (available_providers[0], None)
 
         try:
             config = get_generator_config()
@@ -269,13 +278,15 @@ class QuestionGenerator:
             type_key = question_type.value.replace("_recognition", "").replace(
                 "_reasoning", ""
             )
-            return config.get_provider_for_question_type(type_key, available_providers)
+            return config.get_provider_and_model_for_question_type(
+                type_key, available_providers
+            )
         except Exception as e:
             logger.warning(
                 f"Failed to get specialist provider for {question_type.value}: {e}. "
                 f"Using first available provider."
             )
-            return available_providers[0]
+            return (available_providers[0], None)
 
     def generate_batch(
         self,
@@ -312,12 +323,16 @@ class QuestionGenerator:
         """
         # Determine provider selection strategy
         specialist_provider = None
+        specialist_model: Optional[str] = None
         if use_specialist_routing:
-            specialist_provider = self._get_specialist_provider(question_type)
+            specialist_provider, specialist_model = self._get_specialist_provider(
+                question_type
+            )
             if specialist_provider:
                 logger.info(
                     f"Using specialist provider '{specialist_provider}' for "
                     f"{question_type.value} questions"
+                    + (f" with model {specialist_model}" if specialist_model else "")
                 )
 
         logger.info(
@@ -332,6 +347,7 @@ class QuestionGenerator:
         # If specialist routing is enabled and we have a specialist, use it exclusively
         if specialist_provider:
             current_provider: Optional[str] = specialist_provider
+            current_model: Optional[str] = specialist_model
 
             for i in range(count):
                 if current_provider is None:
@@ -343,6 +359,7 @@ class QuestionGenerator:
                         question_type=question_type,
                         difficulty=difficulty,
                         provider_name=current_provider,
+                        model_override=current_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
                     )
@@ -356,7 +373,9 @@ class QuestionGenerator:
                         skipped_providers.get(current_provider, 0) + 1
                     )
                     # Try to find fallback provider from config
-                    current_provider = self._get_specialist_provider(question_type)
+                    current_provider, current_model = self._get_specialist_provider(
+                        question_type
+                    )
                     if current_provider is None:
                         failed_questions += 1
                 except Exception as e:
@@ -511,6 +530,7 @@ class QuestionGenerator:
         question_type: QuestionType,
         difficulty: DifficultyLevel,
         provider_name: Optional[str] = None,
+        model_override: Optional[str] = None,
         temperature: float = 0.8,
         max_tokens: int = 1500,
         timeout: Optional[float] = None,
@@ -524,6 +544,7 @@ class QuestionGenerator:
             question_type: Type of question to generate
             difficulty: Difficulty level
             provider_name: Specific provider to use (None = round-robin)
+            model_override: Specific model to use (overrides provider default)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
             timeout: Timeout in seconds (uses instance default if not specified)
@@ -558,9 +579,13 @@ class QuestionGenerator:
         # Get circuit breaker for this provider
         circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
 
+        # Determine actual model being used (for logging and metadata)
+        actual_model = model_override or provider.model
+
         logger.info(
             f"Generating {question_type.value} question at {difficulty.value} "
             f"difficulty using {provider_name} (async)"
+            + (f" with model {model_override}" if model_override else "")
         )
 
         # Build prompt
@@ -578,6 +603,7 @@ class QuestionGenerator:
                         response_format={},  # Provider will handle JSON mode
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        model_override=model_override,
                     ),
                     timeout=effective_timeout,
                 )
@@ -593,7 +619,7 @@ class QuestionGenerator:
                 question_type=question_type,
                 difficulty=difficulty,
                 provider_name=provider_name,
-                model=provider.model,
+                model=actual_model,
             )
 
             logger.info(
@@ -658,12 +684,16 @@ class QuestionGenerator:
         """
         # Determine provider selection strategy
         specialist_provider = None
+        specialist_model: Optional[str] = None
         if use_specialist_routing:
-            specialist_provider = self._get_specialist_provider(question_type)
+            specialist_provider, specialist_model = self._get_specialist_provider(
+                question_type
+            )
             if specialist_provider:
                 logger.info(
                     f"Using specialist provider '{specialist_provider}' for "
                     f"{question_type.value} questions (async)"
+                    + (f" with model {specialist_model}" if specialist_model else "")
                 )
 
         logger.info(
@@ -673,11 +703,11 @@ class QuestionGenerator:
 
         # Prepare list of generation tasks
         tasks = []
-        provider_assignments = []
+        provider_assignments: List[tuple[str, Optional[str]]] = []
 
         if specialist_provider:
-            # Use specialist provider for all questions
-            provider_assignments = [specialist_provider] * count
+            # Use specialist provider and model for all questions
+            provider_assignments = [(specialist_provider, specialist_model)] * count
         elif distribute_across_providers and len(self.providers) > 1:
             available_providers = self._get_available_providers()
             if not available_providers:
@@ -687,7 +717,7 @@ class QuestionGenerator:
                 )
             for i in range(count):
                 provider_name = available_providers[i % len(available_providers)]
-                provider_assignments.append(provider_name)
+                provider_assignments.append((provider_name, None))
         else:
             selected_provider = self._get_available_provider()
             if selected_provider is None:
@@ -695,15 +725,16 @@ class QuestionGenerator:
                     "No providers available (all circuits are open). "
                     f"Configured providers: {list(self.providers.keys())}"
                 )
-            provider_assignments = [selected_provider] * count
+            provider_assignments = [(selected_provider, None)] * count
 
         # Create async tasks for all questions
-        for i, provider_name in enumerate(provider_assignments):
+        for i, (provider_name, model_override) in enumerate(provider_assignments):
             task = self._generate_question_task(
                 task_index=i,
                 question_type=question_type,
                 difficulty=difficulty,
                 provider_name=provider_name,
+                model_override=model_override,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
@@ -718,19 +749,21 @@ class QuestionGenerator:
         skipped_providers: Dict[str, int] = {}
 
         for i, result in enumerate(results):
-            provider = provider_assignments[i]
+            provider_name, _ = provider_assignments[i]
             if isinstance(result, CircuitBreakerOpen):
                 # Track skipped due to circuit breaker
-                skipped_providers[provider] = skipped_providers.get(provider, 0) + 1
+                skipped_providers[provider_name] = (
+                    skipped_providers.get(provider_name, 0) + 1
+                )
                 failed_questions += 1
                 logger.warning(
-                    f"Skipped question {i+1}/{count} with {provider} (circuit breaker open)"
+                    f"Skipped question {i+1}/{count} with {provider_name} (circuit breaker open)"
                 )
             elif isinstance(result, BaseException):
                 failed_questions += 1
                 logger.error(
                     f"Failed to generate question {i+1}/{count} with "
-                    f"{provider}: {str(result)}"
+                    f"{provider_name}: {str(result)}"
                 )
             elif isinstance(result, GeneratedQuestion):
                 questions.append(result)
@@ -773,6 +806,7 @@ class QuestionGenerator:
         question_type: QuestionType,
         difficulty: DifficultyLevel,
         provider_name: str,
+        model_override: Optional[str],
         temperature: float,
         max_tokens: int,
     ) -> GeneratedQuestion:
@@ -785,6 +819,7 @@ class QuestionGenerator:
             question_type: Type of question to generate
             difficulty: Difficulty level
             provider_name: Provider to use
+            model_override: Optional model override
             temperature: Sampling temperature
             max_tokens: Maximum tokens
 
@@ -795,6 +830,7 @@ class QuestionGenerator:
             question_type=question_type,
             difficulty=difficulty,
             provider_name=provider_name,
+            model_override=model_override,
             temperature=temperature,
             max_tokens=max_tokens,
         )

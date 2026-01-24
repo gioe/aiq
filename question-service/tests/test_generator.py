@@ -209,6 +209,74 @@ class TestQuestionGenerator:
         assert "model" in stats["openai"]
         assert stats["openai"]["model"] == "gpt-4"
 
+    def test_generate_question_with_model_override(self, mock_openai_provider):
+        """Test generating a question with a model override."""
+        generator = QuestionGenerator(openai_api_key="test-key")
+        provider = mock_openai_provider.return_value
+
+        question = generator.generate_question(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            model_override="gpt-4-turbo",
+        )
+
+        # Verify the model override was passed to the provider
+        call_kwargs = provider.generate_structured_completion_with_usage.call_args
+        assert call_kwargs.kwargs.get("model_override") == "gpt-4-turbo"
+
+        # Verify the question has the correct model in metadata
+        assert question.source_model == "gpt-4-turbo"
+
+
+class TestGeneratorConfigModelOverride:
+    """Tests for generator config model override functionality."""
+
+    def test_get_provider_and_model_for_question_type(self):
+        """Test getting provider and model for a question type with model specified."""
+        from app.generator_config import GeneratorConfigLoader
+
+        loader = GeneratorConfigLoader("config/generators.yaml")
+        loader.load()
+
+        # Logic should have a model specified in the config
+        provider, model = loader.get_provider_and_model_for_question_type(
+            "logic", ["anthropic", "openai"]
+        )
+
+        assert provider == "anthropic"
+        assert model == "claude-sonnet-4-5-20250929"
+
+    def test_get_provider_and_model_without_model_specified(self):
+        """Test getting provider and model for a question type without model specified."""
+        from app.generator_config import GeneratorConfigLoader
+
+        loader = GeneratorConfigLoader("config/generators.yaml")
+        loader.load()
+
+        # Math doesn't have a model specified in the config
+        provider, model = loader.get_provider_and_model_for_question_type(
+            "math", ["xai", "anthropic", "openai"]
+        )
+
+        assert provider == "xai"
+        assert model is None
+
+    def test_model_not_applied_to_fallback_provider(self):
+        """Test that model override is not applied when using fallback provider."""
+        from app.generator_config import GeneratorConfigLoader
+
+        loader = GeneratorConfigLoader("config/generators.yaml")
+        loader.load()
+
+        # Logic has anthropic with a model, but if anthropic is unavailable,
+        # the model should not be applied to the fallback
+        provider, model = loader.get_provider_and_model_for_question_type(
+            "logic", ["openai"]  # anthropic not available
+        )
+
+        assert provider == "openai"
+        assert model is None  # Model override not applied to fallback
+
 
 class TestQuestionGeneratorIntegration:
     """Integration-style tests for QuestionGenerator (with mocked API calls)."""
