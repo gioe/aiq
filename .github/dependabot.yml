@@ -39,7 +39,7 @@ updates:
     reviewers:
       - "gioe"
 
-  # Swift Package Manager dependencies for iOS
+  # Swift Package Manager dependencies for iOS (API Client package)
   - package-ecosystem: "swift"
     directory: "/ios/Packages/AIQAPIClient"
     schedule:
@@ -52,6 +52,26 @@ updates:
       - "dependencies"
       - "swift"
       - "ios"
+      - "api-client"
+    commit-message:
+      prefix: "[deps]"
+    reviewers:
+      - "gioe"
+
+  # Swift Package Manager dependencies for iOS (Main Xcode project)
+  - package-ecosystem: "swift"
+    directory: "/ios"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "swift"
+      - "ios"
+      - "xcode-project"
     commit-message:
       prefix: "[deps]"
     reviewers:
