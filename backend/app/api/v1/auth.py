@@ -6,7 +6,7 @@ import secrets
 from datetime import timedelta
 from app.core.datetime_utils import utc_now
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -45,9 +45,16 @@ from app.core.error_responses import (
     raise_server_error,
     raise_bad_request,
 )
+from app.core.security_audit import (
+    SecurityAuditLogger,
+    SecurityEventType,
+    get_client_ip_from_request,
+    get_user_agent_from_request,
+)
 from app.services.email_service import send_password_reset_email
 
 logger = logging.getLogger(__name__)
+security_logger = SecurityAuditLogger()
 
 router = APIRouter()
 
@@ -69,12 +76,17 @@ def _create_auth_tokens(user: User) -> tuple[str, str]:
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
+def register_user(
+    user_data: UserRegister,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """
     Register a new user account.
 
     Args:
         user_data: User registration data
+        request: FastAPI request object for IP extraction
         db: Database session
 
     Returns:
@@ -110,6 +122,14 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
         logger.error(f"Database error during user registration: {e}")
         raise_server_error(ErrorMessages.ACCOUNT_CREATION_FAILED)
 
+    # Log security event for account creation
+    client_ip = get_client_ip_from_request(request)
+    security_logger.log_account_event(
+        user_id=str(new_user.id),
+        event_type=SecurityEventType.ACCOUNT_CREATED,
+        ip=client_ip,
+    )
+
     # Track analytics event
     AnalyticsTracker.track_user_registered(
         user_id=int(new_user.id),
@@ -131,12 +151,17 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
+def login_user(
+    credentials: UserLogin,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """
     Authenticate user and return access + refresh tokens.
 
     Args:
         credentials: User login credentials
+        request: FastAPI request object for IP extraction
         db: Database session
 
     Returns:
@@ -145,11 +170,22 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     Raises:
         HTTPException: 401 if credentials are invalid
     """
+    client_ip = get_client_ip_from_request(request)
+    user_agent = get_user_agent_from_request(request)
+
     # Find user by email
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
         logger.warning(
             f"Login attempt failed: user not found for email={credentials.email}"
+        )
+        # Log failed login attempt
+        security_logger.log_auth_attempt(
+            email=credentials.email,
+            success=False,
+            ip=client_ip,
+            user_agent=user_agent,
+            error_reason="user_not_found",
         )
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
@@ -157,6 +193,14 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     if not verify_password(credentials.password, user.password_hash):
         logger.warning(
             f"Login attempt failed: invalid password for email={credentials.email}"
+        )
+        # Log failed login attempt
+        security_logger.log_auth_attempt(
+            email=credentials.email,
+            success=False,
+            ip=client_ip,
+            user_agent=user_agent,
+            error_reason="invalid_password",
         )
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
@@ -171,6 +215,15 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
             f"Database error during login timestamp update for user {user.id}: {e}"
         )
         raise_server_error(ErrorMessages.LOGIN_FAILED)
+
+    # Log successful login
+    security_logger.log_auth_attempt(
+        email=credentials.email,
+        success=True,
+        ip=client_ip,
+        user_agent=user_agent,
+        error_reason=None,
+    )
 
     # Track analytics event
     AnalyticsTracker.track_user_login(
@@ -237,6 +290,7 @@ def refresh_access_token(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout_user(
+    request: Request,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -247,6 +301,7 @@ def logout_user(
     The client should also discard tokens locally.
 
     Args:
+        request: FastAPI request object for IP extraction
         current_user: Current authenticated user
         credentials: Token credentials for blacklisting
 
@@ -271,6 +326,14 @@ def logout_user(
                 # Add token to blacklist
                 blacklist = get_token_blacklist()
                 blacklist.revoke_token(jti, expires_at)
+
+                # Log token revocation
+                client_ip = get_client_ip_from_request(request)
+                security_logger.log_token_revoked(
+                    ip=client_ip,
+                    token_jti=jti,
+                    user_id=str(current_user.id),
+                )
 
                 logger.info(f"Token revoked for user_id={current_user.id}")
             except RuntimeError:
@@ -307,6 +370,7 @@ TOKEN_INVALIDATION_BATCH_SIZE = 100  # Batch size for invalidating old tokens
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
 def request_password_reset(
     request_data: PasswordResetRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
@@ -323,6 +387,7 @@ def request_password_reset(
 
     Args:
         request_data: Password reset request containing email
+        request: FastAPI request object for IP extraction
         db: Database session
 
     Returns:
@@ -336,6 +401,7 @@ def request_password_reset(
         "If an account exists with that email, you will receive password reset instructions."
     """
     email = request_data.email
+    client_ip = get_client_ip_from_request(request)
 
     # Always return generic message to prevent email enumeration
     generic_message = "If an account exists with that email, you will receive password reset instructions."
@@ -408,6 +474,14 @@ def request_password_reset(
                 reset_token=reset_token,
             )
 
+            # Log security event
+            security_logger.log_password_reset(
+                email=email,
+                stage="initiated",
+                success=email_sent,
+                ip=client_ip,
+            )
+
             # Track analytics event
             AnalyticsTracker.track_event(
                 EventType.PASSWORD_RESET_REQUESTED,
@@ -446,6 +520,7 @@ def request_password_reset(
 @router.post("/reset-password", response_model=PasswordResetConfirmResponse)
 def reset_password(
     reset_data: PasswordResetConfirm,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
@@ -456,6 +531,7 @@ def reset_password(
 
     Args:
         reset_data: Password reset confirmation with token and new password
+        request: FastAPI request object for IP extraction
         db: Database session
 
     Returns:
@@ -476,6 +552,7 @@ def reset_password(
     """
     token = reset_data.token
     new_password = reset_data.new_password
+    client_ip = get_client_ip_from_request(request)
 
     try:
         # Use constant-time comparison to prevent timing attacks
@@ -500,6 +577,13 @@ def reset_password(
         if not token_record:
             logger.warning(
                 f"Password reset attempted with invalid token (length={len(token)})"
+            )
+            # Log security event for failed password reset
+            security_logger.log_password_reset(
+                email="unknown",
+                stage="failed",
+                success=False,
+                ip=client_ip,
             )
             AnalyticsTracker.track_event(
                 EventType.PASSWORD_RESET_FAILED,
@@ -547,6 +631,14 @@ def reset_password(
 
         # Commit changes
         db.commit()
+
+        # Log security event for successful password reset
+        security_logger.log_password_reset(
+            email=user.email,
+            stage="completed",
+            success=True,
+            ip=client_ip,
+        )
 
         # Track analytics event
         AnalyticsTracker.track_event(
