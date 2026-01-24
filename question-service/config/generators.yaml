@@ -1,0 +1,59 @@
+# Generator Model Configuration
+# Maps question types to specific LLM providers for question generation
+#
+# Each question type is assigned to the provider that performs best
+# on relevant benchmarks for that cognitive domain. This is the same
+# mapping used for judging (Option A: specialists do both).
+#
+# Configuration Structure:
+#   question_type:
+#     provider: Provider name ("openai", "anthropic", "google", "xai")
+#     rationale: Explanation of why this provider was chosen
+#     fallback: Fallback provider if primary is unavailable
+
+version: "1.0"
+
+generators:
+  math:
+    provider: "xai"
+    rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning."
+    fallback: "anthropic"
+
+  logic:
+    provider: "anthropic"
+    rationale: "Best-in-class logical reasoning: HumanEval (93.7%), GPQA (67.2%). Claude excels at coding logic and graduate-level reasoning."
+    fallback: "openai"
+
+  pattern:
+    provider: "anthropic"
+    rationale: "Superior abstract reasoning: GPQA (67.2%), MMLU (90.4%). Claude excels at identifying patterns in complex reasoning tasks."
+    fallback: "openai"
+
+  spatial:
+    provider: "anthropic"
+    rationale: "Strong general reasoning with GPQA (67.2%) and MMLU (90.4%). Claude's reasoning strength makes it ideal for spatial tasks."
+    fallback: "openai"
+
+  verbal:
+    provider: "anthropic"
+    rationale: "Exceptional language understanding: MMLU (90.4%), strong HellaSwag and WinoGrande performance. Claude leads in NLP tasks."
+    fallback: "openai"
+
+  memory:
+    provider: "anthropic"
+    rationale: "Outstanding recall: MMLU (90.4%) with 200K token context. Claude combines strong knowledge benchmarks with massive context."
+    fallback: "openai"
+
+# Default generator (fallback for unknown question types)
+default_generator:
+  provider: "openai"
+  rationale: "General-purpose fallback generator"
+
+# Enable/disable specialist routing
+# When false, falls back to round-robin distribution
+use_specialist_routing: true
+
+# Notes:
+# - Provider names must match: "openai", "anthropic", "google", or "xai"
+# - Fallback is used when primary provider's circuit breaker is open
+# - This config aligns with judges.yaml for Option A (specialists do both)

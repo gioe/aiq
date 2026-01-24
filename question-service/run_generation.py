@@ -448,6 +448,20 @@ def main() -> int:
         judge_loader.load()  # Load the config into the loader
         logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
 
+        # Load generator configuration (specialist routing)
+        from app.generator_config import initialize_generator_config
+
+        try:
+            initialize_generator_config(settings.generator_config_path)
+            logger.info(
+                f"✓ Generator config loaded from {settings.generator_config_path}"
+            )
+        except FileNotFoundError:
+            logger.warning(
+                f"Generator config not found at {settings.generator_config_path}. "
+                "Using round-robin distribution instead of specialist routing."
+            )
+
         # Initialize judge (pass the loader, not the config)
         judge = QuestionJudge(
             judge_config=judge_loader,

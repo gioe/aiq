@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Judge Configuration
     judge_config_path: str = "./config/judges.yaml"
 
+    # Generator Configuration (specialist routing)
+    generator_config_path: str = "./config/generators.yaml"
+
     # Alert Configuration
     enable_email_alerts: bool = False
     smtp_host: Optional[str] = None

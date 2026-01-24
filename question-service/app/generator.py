@@ -15,6 +15,7 @@ from .circuit_breaker import (
     CircuitBreakerRegistry,
     get_circuit_breaker_registry,
 )
+from .generator_config import get_generator_config, is_generator_config_initialized
 from .models import (
     DifficultyLevel,
     GeneratedQuestion,
@@ -237,12 +238,52 @@ class QuestionGenerator:
                 available.append(provider_name)
         return available
 
+    def _get_specialist_provider(self, question_type: QuestionType) -> Optional[str]:
+        """Get the specialist provider for a question type based on configuration.
+
+        Uses the generator configuration to determine the best provider for
+        generating questions of a specific type. Falls back to any available
+        provider if the specialist is unavailable.
+
+        Args:
+            question_type: Type of question to generate
+
+        Returns:
+            Provider name to use, or None if no providers available
+        """
+        available_providers = self._get_available_providers()
+        if not available_providers:
+            return None
+
+        # Check if generator config is initialized
+        if not is_generator_config_initialized():
+            # Fall back to first available provider if config not loaded
+            logger.debug(
+                "Generator config not initialized, using first available provider"
+            )
+            return available_providers[0]
+
+        try:
+            config = get_generator_config()
+            # Convert QuestionType enum to string key (e.g., PATTERN_RECOGNITION -> pattern)
+            type_key = question_type.value.replace("_recognition", "").replace(
+                "_reasoning", ""
+            )
+            return config.get_provider_for_question_type(type_key, available_providers)
+        except Exception as e:
+            logger.warning(
+                f"Failed to get specialist provider for {question_type.value}: {e}. "
+                f"Using first available provider."
+            )
+            return available_providers[0]
+
     def generate_batch(
         self,
         question_type: QuestionType,
         difficulty: DifficultyLevel,
         count: int,
         distribute_across_providers: bool = True,
+        use_specialist_routing: bool = True,
         temperature: float = 0.8,
         max_tokens: int = 1500,
     ) -> GenerationBatch:
@@ -255,7 +296,11 @@ class QuestionGenerator:
             question_type: Type of questions to generate
             difficulty: Difficulty level
             count: Number of questions to generate
-            distribute_across_providers: If True, distribute across all providers
+            distribute_across_providers: If True and specialist routing disabled,
+                distribute across all providers (round-robin)
+            use_specialist_routing: If True, use the specialist provider for this
+                question type based on generators.yaml config (overrides
+                distribute_across_providers)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
 
@@ -265,6 +310,16 @@ class QuestionGenerator:
         Raises:
             ValueError: If no providers are available
         """
+        # Determine provider selection strategy
+        specialist_provider = None
+        if use_specialist_routing:
+            specialist_provider = self._get_specialist_provider(question_type)
+            if specialist_provider:
+                logger.info(
+                    f"Using specialist provider '{specialist_provider}' for "
+                    f"{question_type.value} questions"
+                )
+
         logger.info(
             f"Generating batch of {count} {question_type.value} questions "
             f"at {difficulty.value} difficulty"
@@ -274,8 +329,46 @@ class QuestionGenerator:
         skipped_providers: Dict[str, int] = {}
         failed_questions: int = 0  # Track questions that couldn't be generated
 
-        if distribute_across_providers and len(self.providers) > 1:
-            # Distribute generation across available providers
+        # If specialist routing is enabled and we have a specialist, use it exclusively
+        if specialist_provider:
+            current_provider: Optional[str] = specialist_provider
+
+            for i in range(count):
+                if current_provider is None:
+                    logger.warning("No more providers available, stopping batch")
+                    failed_questions += count - i
+                    break
+                try:
+                    question = self.generate_question(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        provider_name=current_provider,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    questions.append(question)
+                except CircuitBreakerOpen:
+                    logger.warning(
+                        f"Circuit opened for specialist {current_provider} during batch "
+                        f"generation ({len(questions)}/{count} completed)"
+                    )
+                    skipped_providers[current_provider] = (
+                        skipped_providers.get(current_provider, 0) + 1
+                    )
+                    # Try to find fallback provider from config
+                    current_provider = self._get_specialist_provider(question_type)
+                    if current_provider is None:
+                        failed_questions += 1
+                except Exception as e:
+                    logger.error(
+                        f"Failed to generate question {i+1}/{count} with "
+                        f"specialist {current_provider}: {str(e)}"
+                    )
+                    failed_questions += 1
+                    continue
+
+        elif distribute_across_providers and len(self.providers) > 1:
+            # Round-robin distribution across available providers
             available_providers = self._get_available_providers()
 
             if not available_providers:
@@ -345,7 +438,7 @@ class QuestionGenerator:
                     continue
         else:
             # Use single provider for all questions
-            current_provider: Optional[str] = self._get_available_provider()
+            current_provider = self._get_available_provider()
 
             if current_provider is None:
                 raise ValueError(
@@ -401,6 +494,8 @@ class QuestionGenerator:
                     name: stats["state"]
                     for name, stats in circuit_breaker_stats.items()
                 },
+                "specialist_routing": specialist_provider is not None,
+                "specialist_provider": specialist_provider,
             },
         )
 
@@ -535,6 +630,7 @@ class QuestionGenerator:
         difficulty: DifficultyLevel,
         count: int,
         distribute_across_providers: bool = True,
+        use_specialist_routing: bool = True,
         temperature: float = 0.8,
         max_tokens: int = 1500,
     ) -> GenerationBatch:
@@ -547,7 +643,10 @@ class QuestionGenerator:
             question_type: Type of questions to generate
             difficulty: Difficulty level
             count: Number of questions to generate
-            distribute_across_providers: If True, distribute across all providers
+            distribute_across_providers: If True and specialist routing disabled,
+                distribute across all providers (round-robin)
+            use_specialist_routing: If True, use the specialist provider for this
+                question type based on generators.yaml config
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
 
@@ -557,6 +656,16 @@ class QuestionGenerator:
         Raises:
             Exception: If generation fails
         """
+        # Determine provider selection strategy
+        specialist_provider = None
+        if use_specialist_routing:
+            specialist_provider = self._get_specialist_provider(question_type)
+            if specialist_provider:
+                logger.info(
+                    f"Using specialist provider '{specialist_provider}' for "
+                    f"{question_type.value} questions (async)"
+                )
+
         logger.info(
             f"Generating batch of {count} {question_type.value} questions "
             f"at {difficulty.value} difficulty (async parallel)"
@@ -566,7 +675,10 @@ class QuestionGenerator:
         tasks = []
         provider_assignments = []
 
-        if distribute_across_providers and len(self.providers) > 1:
+        if specialist_provider:
+            # Use specialist provider for all questions
+            provider_assignments = [specialist_provider] * count
+        elif distribute_across_providers and len(self.providers) > 1:
             available_providers = self._get_available_providers()
             if not available_providers:
                 raise ValueError(
@@ -643,6 +755,8 @@ class QuestionGenerator:
                     for name, stats in circuit_breaker_stats.items()
                 },
                 "async": True,
+                "specialist_routing": specialist_provider is not None,
+                "specialist_provider": specialist_provider,
             },
         )
 
