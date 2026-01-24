@@ -38,6 +38,7 @@ class AdminAuth(AuthenticationBackend):
         password = form.get("password")
 
         # Early return if credentials are missing, non-string, or username doesn't match
+        # Note: Generic error messages prevent username enumeration attacks
         if (
             not username
             or not password
@@ -45,12 +46,11 @@ class AdminAuth(AuthenticationBackend):
             or not isinstance(password, str)
             or username != settings.ADMIN_USERNAME
         ):
-            logger.warning(
-                "Admin login failed: invalid username or missing credentials"
-            )
+            logger.warning("Admin login failed: invalid credentials")
             return False
 
-        # Verify password hash is configured
+        # Verify password hash is configured (startup validation should catch this,
+        # but check here for defense-in-depth)
         if not settings.ADMIN_PASSWORD_HASH:
             logger.error("Admin login failed: ADMIN_PASSWORD_HASH not configured")
             return False
@@ -63,7 +63,7 @@ class AdminAuth(AuthenticationBackend):
             request.session.update({"token": token})
             return True
 
-        logger.warning("Admin login failed: incorrect password")
+        logger.warning("Admin login failed: invalid credentials")
         return False
 
     async def logout(self, request: Request) -> bool:

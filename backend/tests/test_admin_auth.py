@@ -177,3 +177,56 @@ class TestAdminAuth:
 
         # If we got here without timing issues, the test passes
         assert True
+
+
+class TestAdminConfigValidation:
+    """Tests for admin configuration validation at startup."""
+
+    def test_admin_enabled_without_password_hash_raises_error(self):
+        """Test that enabling admin without password hash raises ValueError."""
+        import pytest
+        from pydantic import ValidationError
+        from app.core.config import Settings
+
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(
+                SECRET_KEY="test-secret",
+                JWT_SECRET_KEY="test-jwt-secret",
+                ADMIN_ENABLED=True,
+                ADMIN_PASSWORD_HASH="",
+            )
+
+        assert "ADMIN_PASSWORD_HASH must be set when ADMIN_ENABLED=True" in str(
+            exc_info.value
+        )
+
+    def test_admin_enabled_with_password_hash_succeeds(self):
+        """Test that enabling admin with password hash succeeds."""
+        from app.core.config import Settings
+
+        password_hash = hash_password("test-password")
+
+        # Should not raise
+        settings = Settings(
+            SECRET_KEY="test-secret",
+            JWT_SECRET_KEY="test-jwt-secret",
+            ADMIN_ENABLED=True,
+            ADMIN_PASSWORD_HASH=password_hash,
+        )
+
+        assert settings.ADMIN_ENABLED is True
+        assert settings.ADMIN_PASSWORD_HASH == password_hash
+
+    def test_admin_disabled_without_password_hash_succeeds(self):
+        """Test that disabling admin without password hash succeeds."""
+        from app.core.config import Settings
+
+        # Should not raise - admin is disabled
+        settings = Settings(
+            SECRET_KEY="test-secret",
+            JWT_SECRET_KEY="test-jwt-secret",
+            ADMIN_ENABLED=False,
+            ADMIN_PASSWORD_HASH="",
+        )
+
+        assert settings.ADMIN_ENABLED is False

@@ -1,9 +1,9 @@
 """
 Application configuration settings.
 """
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Literal
+from typing import List, Literal, Self
 
 
 class Settings(BaseSettings):
@@ -138,6 +138,17 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore",  # Ignore extra fields from .env not defined in Settings
     )
+
+    @model_validator(mode="after")
+    def validate_admin_config(self) -> Self:
+        """Validate admin dashboard configuration at startup."""
+        if self.ADMIN_ENABLED and not self.ADMIN_PASSWORD_HASH:
+            raise ValueError(
+                "ADMIN_PASSWORD_HASH must be set when ADMIN_ENABLED=True. "
+                'Generate with: python -c "from passlib.hash import bcrypt; '
+                "print(bcrypt.hash('your_password'))\""
+            )
+        return self
 
 
 # mypy doesn't understand that pydantic_settings loads required fields from env vars
