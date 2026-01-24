@@ -166,14 +166,15 @@ class QuestionGenerator:
         # Build prompt
         prompt = build_generation_prompt(question_type, difficulty, count=1)
 
-        # Generate question with circuit breaker protection
+        # Generate question with circuit breaker protection and cost tracking
         def _do_generation() -> Dict[str, Any]:
-            return provider.generate_structured_completion(
+            result = provider.generate_structured_completion_with_usage(
                 prompt=prompt,
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            return result.content
 
         try:
             response = circuit_breaker.execute(_do_generation)
@@ -473,11 +474,11 @@ class QuestionGenerator:
         # Use provided timeout or instance default
         effective_timeout = timeout if timeout is not None else self._async_timeout
 
-        # Define the async API call
+        # Define the async API call with cost tracking
         async def _do_async_generation() -> Dict[str, Any]:
             async with self._rate_limiter:
-                return await asyncio.wait_for(
-                    provider.generate_structured_completion_async(
+                result = await asyncio.wait_for(
+                    provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
                         response_format={},  # Provider will handle JSON mode
                         temperature=temperature,
@@ -485,6 +486,7 @@ class QuestionGenerator:
                     ),
                     timeout=effective_timeout,
                 )
+                return result.content
 
         # Generate question asynchronously with circuit breaker protection
         try:

@@ -21,6 +21,9 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
+from app.cost_tracking import CompletionResult
+from app.database import DatabaseService
+from app.deduplicator import QuestionDeduplicator
 from app.judge import QuestionJudge
 from app.judge_config import (
     JudgeConfig,
@@ -28,8 +31,6 @@ from app.judge_config import (
     JudgeModel,
     EvaluationCriteria,
 )
-from app.database import DatabaseService
-from app.deduplicator import QuestionDeduplicator
 from app.models import (
     DifficultyLevel,
     EvaluatedQuestion,
@@ -39,6 +40,11 @@ from app.models import (
     QuestionType,
 )
 from app.pipeline import QuestionGenerationPipeline
+
+
+def make_completion_result(content):
+    """Helper to create a CompletionResult from content."""
+    return CompletionResult(content=content, token_usage=None)
 
 
 # ============================================================================
@@ -329,8 +335,8 @@ class TestGenerationToJudgeFlow:
         # Setup mock judge provider
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -397,8 +403,8 @@ class TestGenerationToJudgeFlow:
         # Setup mock provider
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -450,8 +456,8 @@ class TestGenerationToJudgeFlow:
         # Setup mock provider with low scores
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            low_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(low_score_evaluation_response)
         )
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -492,9 +498,9 @@ class TestGenerationToJudgeFlow:
         # Setup mock provider to return alternating scores
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.side_effect = [
-            high_score_evaluation_response,
-            low_score_evaluation_response,
+        mock_openai_instance.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(high_score_evaluation_response),
+            make_completion_result(low_score_evaluation_response),
         ]
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -546,8 +552,8 @@ class TestJudgeToDeduplicationFlow:
         # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -607,8 +613,8 @@ class TestJudgeToDeduplicationFlow:
         # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -661,8 +667,8 @@ class TestJudgeToDeduplicationFlow:
         # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -732,8 +738,8 @@ class TestJudgeToDeduplicationFlow:
         # Setup judge
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -1038,8 +1044,8 @@ class TestFullPipelineIntegration:
         # Stage 2: Judge Evaluation Setup
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -1151,10 +1157,12 @@ class TestFullPipelineIntegration:
         # Stage 2: Judge - reject middle question (PATTERN)
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.side_effect = [
-            high_score_evaluation_response,
-            low_score_evaluation_response,  # PATTERN question rejected
-            high_score_evaluation_response,
+        mock_openai_instance.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(high_score_evaluation_response),
+            make_completion_result(
+                low_score_evaluation_response
+            ),  # PATTERN question rejected
+            make_completion_result(high_score_evaluation_response),
         ]
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -1262,8 +1270,8 @@ class TestFullPipelineIntegration:
         # Stage 2: Judge (both pass)
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -1362,8 +1370,8 @@ class TestFailurePaths:
         """Test judge handles evaluation failures for single questions."""
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.side_effect = Exception(
-            "Judge API Error"
+        mock_openai_instance.generate_structured_completion_with_usage.side_effect = (
+            Exception("Judge API Error")
         )
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -1392,10 +1400,10 @@ class TestFailurePaths:
         """
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.side_effect = [
-            high_score_evaluation_response,
+        mock_openai_instance.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(high_score_evaluation_response),
             Exception("API Error"),
-            high_score_evaluation_response,
+            make_completion_result(high_score_evaluation_response),
         ]
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -1500,8 +1508,8 @@ class TestFailurePaths:
         # Setup successful judge evaluation
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            high_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(high_score_evaluation_response)
         )
         mock_judge_provider.return_value = mock_openai_instance
 
@@ -1601,8 +1609,8 @@ class TestEdgeCases:
 
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            low_score_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(low_score_evaluation_response)
         )
         mock_openai_provider.return_value = mock_openai_instance
 
@@ -1693,8 +1701,8 @@ class TestEdgeCases:
 
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            borderline_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(borderline_response)
         )
         mock_openai_provider.return_value = mock_openai_instance
 

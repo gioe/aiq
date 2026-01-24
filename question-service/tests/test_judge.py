@@ -4,6 +4,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
+from app.cost_tracking import CompletionResult
 from app.judge import QuestionJudge
 from app.judge_config import (
     JudgeConfig,
@@ -19,6 +20,11 @@ from app.models import (
     GenerationBatch,
     QuestionType,
 )
+
+
+def make_completion_result(content):
+    """Helper to create a CompletionResult from content."""
+    return CompletionResult(content=content, token_usage=None)
 
 
 @pytest.fixture
@@ -272,8 +278,8 @@ class TestQuestionJudge:
         # Setup mock provider
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion.return_value = (
-            sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -294,7 +300,7 @@ class TestQuestionJudge:
         assert evaluated.approved is True  # Score 0.84 > threshold 0.7
 
         # Verify provider was called
-        mock_provider.generate_structured_completion.assert_called_once()
+        mock_provider.generate_structured_completion_with_usage.assert_called_once()
 
     @patch("app.judge.OpenAIProvider")
     def test_evaluate_question_below_threshold(
@@ -315,7 +321,9 @@ class TestQuestionJudge:
             "creativity_score": 0.4,
             "feedback": "Below average quality.",
         }
-        mock_provider.generate_structured_completion.return_value = low_score_response
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(low_score_response)
+        )
         mock_provider_class.return_value = mock_provider
 
         judge = QuestionJudge(
@@ -361,8 +369,8 @@ class TestQuestionJudge:
         # Setup mock provider
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion.return_value = (
-            sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -400,10 +408,10 @@ class TestQuestionJudge:
         # Setup mock provider that fails on second call
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion.side_effect = [
-            sample_evaluation_response,
+        mock_provider.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(sample_evaluation_response),
             Exception("API error"),
-            sample_evaluation_response,
+            make_completion_result(sample_evaluation_response),
         ]
         mock_provider_class.return_value = mock_provider
 
@@ -438,14 +446,16 @@ class TestQuestionJudge:
         # Setup mock provider that fails on second call
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion.side_effect = [
-            {
-                "clarity_score": 0.9,
-                "difficulty_score": 0.8,
-                "validity_score": 0.85,
-                "formatting_score": 0.95,
-                "creativity_score": 0.7,
-            },
+        mock_provider.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(
+                {
+                    "clarity_score": 0.9,
+                    "difficulty_score": 0.8,
+                    "validity_score": 0.85,
+                    "formatting_score": 0.95,
+                    "creativity_score": 0.7,
+                }
+            ),
             Exception("API error"),
         ]
         mock_provider_class.return_value = mock_provider
@@ -480,8 +490,8 @@ class TestQuestionJudge:
         # Setup mock provider
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion.return_value = (
-            sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -585,14 +595,14 @@ class TestJudgeIntegration:
         # Setup mock providers
         mock_openai_instance = Mock()
         mock_openai_instance.model = "gpt-4"
-        mock_openai_instance.generate_structured_completion.return_value = (
-            sample_evaluation_response
+        mock_openai_instance.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
         )
         mock_openai.return_value = mock_openai_instance
 
         mock_anthropic_instance = Mock()
         mock_anthropic_instance.model = "claude-3-5-sonnet-20241022"
-        mock_anthropic_instance.generate_structured_completion.return_value = (
+        mock_anthropic_instance.generate_structured_completion_with_usage.return_value = make_completion_result(
             sample_evaluation_response
         )
         mock_anthropic.return_value = mock_anthropic_instance
@@ -631,8 +641,8 @@ class TestJudgeIntegration:
         # Setup mock provider with a different default model than judge config
         mock_provider = Mock()
         mock_provider.model = "gpt-4-turbo-preview"  # Default model
-        mock_provider.generate_structured_completion.return_value = (
-            sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -655,10 +665,12 @@ class TestJudgeIntegration:
         )
 
         # Verify model_override was passed to the completion call
-        call_kwargs = mock_provider.generate_structured_completion.call_args.kwargs
+        call_kwargs = (
+            mock_provider.generate_structured_completion_with_usage.call_args.kwargs
+        )
         assert (
             "model_override" in call_kwargs
-        ), "model_override should be passed to generate_structured_completion"
+        ), "model_override should be passed to generate_structured_completion_with_usage"
         assert (
             call_kwargs["model_override"] == "gpt-4"
         ), f"model_override should be 'gpt-4', got {call_kwargs['model_override']}"
@@ -693,8 +705,8 @@ class TestQuestionJudgeAsync:
         # Setup mock provider with async method
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion_async = AsyncMock(
-            return_value=sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -715,7 +727,7 @@ class TestQuestionJudgeAsync:
         assert evaluated.approved is True  # Score 0.84 > threshold 0.7
 
         # Verify provider async method was called
-        mock_provider.generate_structured_completion_async.assert_called_once()
+        mock_provider.generate_structured_completion_with_usage_async.assert_called_once()
 
     @pytest.mark.asyncio
     @patch("app.judge.OpenAIProvider")
@@ -732,9 +744,9 @@ class TestQuestionJudgeAsync:
 
         async def slow_completion(*args, **kwargs):
             await asyncio.sleep(10)  # Simulate slow response
-            return {}
+            return make_completion_result({})
 
-        mock_provider.generate_structured_completion_async = AsyncMock(
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=slow_completion
         )
         mock_provider_class.return_value = mock_provider
@@ -785,8 +797,8 @@ class TestQuestionJudgeAsync:
         # Setup mock provider
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion_async = AsyncMock(
-            return_value=sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
         )
         mock_provider_class.return_value = mock_provider
 
@@ -808,7 +820,10 @@ class TestQuestionJudgeAsync:
         assert all(eq.approved for eq in evaluated_questions)
 
         # Verify provider was called 5 times
-        assert mock_provider.generate_structured_completion_async.call_count == 5
+        assert (
+            mock_provider.generate_structured_completion_with_usage_async.call_count
+            == 5
+        )
 
     @pytest.mark.asyncio
     @patch("app.judge.OpenAIProvider")
@@ -832,9 +847,9 @@ class TestQuestionJudgeAsync:
             call_count += 1
             if call_count % 2 == 0:
                 raise Exception("API error")
-            return sample_evaluation_response
+            return make_completion_result(sample_evaluation_response)
 
-        mock_provider.generate_structured_completion_async = AsyncMock(
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=alternating_response
         )
         mock_provider_class.return_value = mock_provider
@@ -897,9 +912,9 @@ class TestQuestionJudgeAsync:
             max_concurrent = max(max_concurrent, concurrent_count)
             await asyncio.sleep(0.1)  # Simulate API latency
             concurrent_count -= 1
-            return sample_evaluation_response
+            return make_completion_result(sample_evaluation_response)
 
-        mock_provider.generate_structured_completion_async = AsyncMock(
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=tracked_completion
         )
         mock_provider_class.return_value = mock_provider
@@ -960,8 +975,8 @@ class TestQuestionJudgeAsync:
         """Test judge works as async context manager."""
         mock_provider = Mock()
         mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion_async = AsyncMock(
-            return_value=sample_evaluation_response
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
         )
         mock_provider.cleanup = AsyncMock()
         mock_provider_class.return_value = mock_provider
