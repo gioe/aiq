@@ -41,7 +41,7 @@ class TestAnthropicProvider:
 
         provider = AnthropicProvider(api_key=mock_anthropic_api_key)
 
-        assert provider.model == "claude-3-5-sonnet-20241022"
+        assert provider.model == "claude-sonnet-4-5-20250929"
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_generate_completion_success(
@@ -73,7 +73,7 @@ class TestAnthropicProvider:
 
         assert result == mock_completion_response
         mock_client.messages.create.assert_called_once_with(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": sample_prompt}],
             temperature=0.7,
             max_tokens=1000,
@@ -101,7 +101,7 @@ class TestAnthropicProvider:
         )
 
         mock_client.messages.create.assert_called_once_with(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": sample_prompt}],
             temperature=0.5,
             max_tokens=500,
@@ -242,9 +242,9 @@ class TestAnthropicProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
+        assert "claude-sonnet-4-5-20250929" in models
+        assert "claude-haiku-4-5-20251001" in models
         assert "claude-3-5-sonnet-20241022" in models
-        assert "claude-3-opus-20240229" in models
-        assert "claude-3-haiku-20240307" in models
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_empty_completion_response(

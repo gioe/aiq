@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 class AnthropicProvider(BaseLLMProvider):
     """Anthropic API integration for question generation and evaluation."""
 
-    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022"):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-5-20250929"):
         """
         Initialize Anthropic provider.
 
         Args:
             api_key: Anthropic API key
-            model: Model to use (default: claude-3-5-sonnet-20241022)
+            model: Model to use (default: claude-sonnet-4-5-20250929)
         """
         super().__init__(api_key, model)
         self.client = Anthropic(api_key=api_key)
@@ -573,17 +573,18 @@ class AnthropicProvider(BaseLLMProvider):
 
         Note:
             Common Claude models:
-            - claude-3-5-sonnet-20241022 (latest Claude 3.5 Sonnet)
-            - claude-3-opus-20240229 (Claude 3 Opus - most capable)
-            - claude-3-sonnet-20240229 (Claude 3 Sonnet - balanced)
-            - claude-3-haiku-20240307 (Claude 3 Haiku - fast and affordable)
+            - claude-sonnet-4-5-20250929 (Claude Sonnet 4.5 - most intelligent)
+            - claude-haiku-4-5-20251001 (Claude Haiku 4.5 - fast with near-frontier performance)
+            - claude-sonnet-4-20250514 (Claude Sonnet 4)
+            - claude-opus-4-5-20251101 (Claude Opus 4.5 - maximum capability)
+            - claude-3-5-sonnet-20241022 (Claude 3.5 Sonnet - legacy)
         """
         return [
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5-20251001",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-5-20251101",
             "claude-3-5-sonnet-20241022",
-            "claude-3-5-sonnet-20240620",
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307",
         ]
 
     async def cleanup(self) -> None:
