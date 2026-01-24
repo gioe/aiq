@@ -68,7 +68,8 @@ for i in {1..20}; do
   if [ "$CURRENT_COUNT" -gt "$INITIAL_COUNT" ]; then
     echo "New Claude review found!"
     # Get the latest review (last claude comment block)
-    gh pr view $PR_NUMBER --comments | tac | grep -B 1000 -m 1 "^author:.*claude" | tac
+    # Use tail -r on macOS (tac is not available)
+    gh pr view $PR_NUMBER --comments | tail -r | grep -B 1000 -m 1 "^author:.*claude" | tail -r
     exit 0
   fi
   echo "Waiting for new Claude review... (attempt $i/20)"
@@ -117,3 +118,4 @@ This skill is used in the PR review loop of `/next-task`:
 - Claude's author name appears as `claude` (not `claude[bot]`) in `gh pr view` output
 - Polling interval is 30 seconds to balance responsiveness with API rate limits
 - 10-minute timeout is configurable by modifying the loop count
+- Uses `tail -r` instead of `tac` for macOS compatibility (tac is Linux-only)
