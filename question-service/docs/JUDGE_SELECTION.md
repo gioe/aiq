@@ -40,8 +40,8 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 |--------------|---------------|----------|----------------|
 | **mathematical** | grok-4 | xAI | GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9% |
 | **logical_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82% |
-| **pattern_recognition** | gemini-3-pro | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0% |
-| **spatial_reasoning** | gemini-3-pro | Google | ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0% |
+| **pattern_recognition** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0% |
+| **spatial_reasoning** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0% |
 | **verbal_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, HellaSwag: ~95% |
 | **memory** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, 200K context |
 | **default** | gpt-4-turbo | OpenAI | General-purpose fallback |
@@ -236,7 +236,7 @@ Each question type was mapped to relevant public benchmarks:
 - USAMO 2025: 61.9%
 - MMLU: 92.1%
 
-**Gemini 3 Pro (gemini-3-pro)**:
+**Gemini 3 Pro (gemini-3-pro-preview)**:
 - ARC-AGI-2: 31.1% (45.1% Deep Think)
 - GPQA Diamond: 91.9%
 - MMMU-Pro: 81.0%
@@ -482,6 +482,30 @@ Use this checklist when evaluating judge changes:
 
 ## Change History
 
+### 2026-01-24 - Fix Gemini 3 Model Identifier (TASK-571)
+
+**Review Type**: API identifier correction
+
+**Outcome**: Updated `gemini-3-pro` → `gemini-3-pro-preview` across all configurations
+
+**Issue Identified**:
+The previous configuration update (TASK-550) correctly identified Gemini 3 Pro as the best model for pattern_recognition and spatial_reasoning judging based on ARC-AGI-2 benchmarks. However, the model identifier used (`gemini-3-pro`) does not match the actual Google API identifier.
+
+**Root Cause**:
+According to Google's official API documentation, Gemini 3 is still in Preview stage. The correct API model identifier is `gemini-3-pro-preview`, not `gemini-3-pro`. There is no stable `gemini-3-pro` identifier available yet.
+
+**Files Updated**:
+- `config/judges.yaml`: pattern and spatial judges
+- `config/generators.yaml`: pattern and spatial generators
+- `app/providers/google_provider.py`: get_available_models() list
+- `docs/PERFORMANCE.md`: Judge model table
+- `docs/JUDGE_SELECTION.md`: All references
+
+**Sources**:
+- Google AI Gemini API docs: https://ai.google.dev/gemini-api/docs/models
+
+---
+
 ### 2026-01-24 - Grok 4 Heavy Evaluation (TASK-554)
 
 **Review Type**: Targeted evaluation of Grok 4 Heavy as potential upgrade for math judging
@@ -532,13 +556,13 @@ Grok 4 Heavy was evaluated as a potential upgrade for math judging based on repo
    - New: Claude Sonnet 4.5 (HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82%)
    - Improvement: +16 points on GPQA Diamond, +28-33 points on SWE-bench
 
-3. **pattern_recognition**: claude-3-5-sonnet-20241022 → gemini-3-pro
+3. **pattern_recognition**: claude-3-5-sonnet-20241022 → gemini-3-pro-preview
    - Reason: Gemini 3 Pro breakthrough on ARC-AGI-2 (31.1%, 6x improvement)
    - Previous: Claude 3.5 Sonnet (GPQA: 67.2%, MMLU: 90.4%)
    - New: Gemini 3 Pro (ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0%)
    - Improvement: First model to significantly advance on abstract reasoning benchmarks
 
-4. **spatial_reasoning**: claude-3-5-sonnet-20241022 → gemini-3-pro
+4. **spatial_reasoning**: claude-3-5-sonnet-20241022 → gemini-3-pro-preview
    - Reason: ARC-AGI-2 provides first rigorous spatial reasoning benchmark
    - Previous: Claude 3.5 Sonnet (no dedicated spatial benchmark available)
    - New: Gemini 3 Pro (ARC-AGI-2: 31.1%, Deep Think: 45.1%)

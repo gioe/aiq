@@ -15,7 +15,7 @@
 # IMPORTANT - Model Naming Convention:
 #   Model identifiers MUST match the exact strings used by each provider's API:
 #   - Anthropic: claude-opus-4-5-20251101, claude-sonnet-4-5-20250929, etc.
-#   - Google: gemini-3-pro, gemini-3-flash, gemini-2.5-pro, etc.
+#   - Google: gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, etc.
 #   - OpenAI: gpt-5.2, gpt-4-turbo, o4-mini, etc.
 #   - xAI: grok-4, grok-3, grok-beta
 #   See each provider's get_available_models() for the full list.
@@ -37,14 +37,14 @@ generators:
 
   pattern:
     provider: "google"
-    model: "gemini-3-pro"
-    rationale: "ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%. Superior abstract pattern recognition. Updated Jan 2026."
+    model: "gemini-3-pro-preview"
+    rationale: "ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%. Superior abstract pattern recognition. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
 
   spatial:
     provider: "google"
-    model: "gemini-3-pro"
-    rationale: "ARC-AGI-2: 31.1% (45.1% Deep Think), breakthrough spatial reasoning. Updated Jan 2026."
+    model: "gemini-3-pro-preview"
+    rationale: "ARC-AGI-2: 31.1% (45.1% Deep Think), breakthrough spatial reasoning. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
 
   verbal:

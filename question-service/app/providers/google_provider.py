@@ -582,16 +582,16 @@ class GoogleProvider(BaseLLMProvider):
 
         Note:
             Common Gemini models:
-            - gemini-3-pro (Gemini 3 Pro - advanced reasoning, 1M context)
-            - gemini-3-flash (Gemini 3 Flash - faster variant)
+            - gemini-3-pro-preview (Gemini 3 Pro Preview - advanced reasoning, 1M context)
+            - gemini-3-flash-preview (Gemini 3 Flash Preview - faster variant)
             - gemini-2.5-pro (stable, enhanced reasoning with 1M context)
             - gemini-1.5-pro (capable, best for complex reasoning)
             - gemini-1.5-flash (faster, optimized for speed)
             - gemini-1.0-pro (earlier version, still capable)
         """
         return [
-            "gemini-3-pro",
-            "gemini-3-flash",
+            "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
             "gemini-2.5-pro",
             "gemini-1.5-pro",
             "gemini-1.5-flash",

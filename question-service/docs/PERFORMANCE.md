@@ -72,8 +72,8 @@ Type-specific judge models evaluate questions against five weighted criteria:
 |---------------|----------|-------|-----------|
 | Math | xAI | grok-4 | GSM8K 95.2%, AIME 2024 100%, USAMO 2025 61.9% |
 | Logic | Anthropic | claude-sonnet-4-5-20250929 | HumanEval >95%, GPQA Diamond 83.4%, SWE-bench 77-82% |
-| Pattern | Google | gemini-3-pro | ARC-AGI-2 31.1%, GPQA Diamond 91.9%, MMMU-Pro 81.0% |
-| Spatial | Google | gemini-3-pro | ARC-AGI-2 31.1% (45.1% Deep Think), MMMU-Pro 81.0% |
+| Pattern | Google | gemini-3-pro-preview | ARC-AGI-2 31.1%, GPQA Diamond 91.9%, MMMU-Pro 81.0% |
+| Spatial | Google | gemini-3-pro-preview | ARC-AGI-2 31.1% (45.1% Deep Think), MMMU-Pro 81.0% |
 | Verbal | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, HellaSwag ~95% |
 | Memory | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, 200K context window |
 

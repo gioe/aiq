@@ -52,7 +52,7 @@ The service supports four LLM providers for question generation:
 |----------|-------|-----|
 | OpenAI | gpt-4-turbo-preview | `openai` |
 | Anthropic | claude-sonnet-4-5-20250929 | `anthropic` |
-| Google | gemini-pro | `google-generativeai` |
+| Google | gemini-3-pro-preview | `google-generativeai` |
 | xAI | grok-4 | Custom via `httpx` |
 
 Provider implementations are in `app/providers/`.
