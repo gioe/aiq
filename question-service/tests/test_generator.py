@@ -246,20 +246,20 @@ class TestGeneratorConfigModelOverride:
         assert provider == "anthropic"
         assert model == "claude-sonnet-4-5-20250929"
 
-    def test_get_provider_and_model_without_model_specified(self):
-        """Test getting provider and model for a question type without model specified."""
+    def test_get_provider_and_model_with_explicit_model(self):
+        """Test that provider and model are returned when both are explicitly specified in config."""
         from app.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Math doesn't have a model specified in the config
+        # Math has xai with grok-4 model explicitly specified in the config
         provider, model = loader.get_provider_and_model_for_question_type(
             "math", ["xai", "anthropic", "openai"]
         )
 
         assert provider == "xai"
-        assert model is None
+        assert model == "grok-4"
 
     def test_model_not_applied_to_fallback_provider(self):
         """Test that model override is not applied when using fallback provider."""
@@ -324,11 +324,14 @@ class TestQuestionGeneratorIntegration:
 
     def test_distribute_across_providers(self, multi_provider_generator):
         """Test that questions are distributed across providers."""
+        # Disable specialist routing to enable distribution across providers
+        # With specialist routing enabled, the primary provider is always used
         batch = multi_provider_generator.generate_batch(
-            question_type=QuestionType.MATH,
+            question_type=QuestionType.VERBAL,
             difficulty=DifficultyLevel.MEDIUM,
             count=4,
             distribute_across_providers=True,
+            use_specialist_routing=False,  # Disable to test distribution
         )
 
         # Should have questions from both providers
@@ -521,11 +524,14 @@ class TestAsyncMultiProviderGenerator:
         self, multi_provider_async_generator
     ):
         """Test that async questions are distributed across providers."""
+        # Disable specialist routing to enable distribution across providers
+        # With specialist routing enabled, the primary provider is always used
         batch = await multi_provider_async_generator.generate_batch_async(
-            question_type=QuestionType.MATH,
+            question_type=QuestionType.VERBAL,
             difficulty=DifficultyLevel.MEDIUM,
             count=4,
             distribute_across_providers=True,
+            use_specialist_routing=False,  # Disable to test distribution
         )
 
         # Should have questions from both providers

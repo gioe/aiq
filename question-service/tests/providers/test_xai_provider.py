@@ -513,3 +513,91 @@ class TestXAIProvider:
 
         with pytest.raises(Exception, match="Failed to parse JSON response"):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_get_available_models(self, mock_openai_class, mock_xai_api_key):
+        """Test that get_available_models returns expected xAI models."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+        models = provider.get_available_models()
+
+        assert isinstance(models, list)
+        assert len(models) > 0
+        assert "grok-4" in models
+        assert "grok-3" in models
+        assert "grok-beta" in models
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_known(self, mock_openai_class, mock_xai_api_key):
+        """Test that validate_model returns True for known models."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        assert provider.validate_model("grok-4") is True
+        assert provider.validate_model("grok-3") is True
+        assert provider.validate_model("grok-beta") is True
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_unknown(self, mock_openai_class, mock_xai_api_key):
+        """Test that validate_model returns False and logs warning for unknown models."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        # Unknown model should return False
+        assert provider.validate_model("unknown-model") is False
+        assert provider.validate_model("grok-99") is False
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_logs_warning(
+        self, mock_openai_class, mock_xai_api_key, caplog
+    ):
+        """Test that validate_model logs a warning for unknown models."""
+        import logging
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with caplog.at_level(logging.WARNING):
+            result = provider.validate_model("unknown-model")
+
+        assert result is False
+        assert "not in the known models list" in caplog.text
+        assert "unknown-model" in caplog.text
+        assert "xai" in caplog.text
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_validate_model_once_deduplication(
+        self, mock_openai_class, mock_xai_api_key, caplog
+    ):
+        """Test that _validate_model_once only logs warning once per model."""
+        import logging
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with caplog.at_level(logging.WARNING):
+            # Call validate_model_once multiple times with the same unknown model
+            provider._validate_model_once("unknown-model-test")
+            provider._validate_model_once("unknown-model-test")
+            provider._validate_model_once("unknown-model-test")
+
+        # Should only have one warning for "unknown-model-test"
+        warning_count = caplog.text.count("unknown-model-test")
+        assert warning_count == 1, f"Expected 1 warning, got {warning_count}"
+
+        # But a different model should also get one warning
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            provider._validate_model_once("another-unknown-model")
+
+        assert "another-unknown-model" in caplog.text

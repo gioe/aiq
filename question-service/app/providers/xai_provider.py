@@ -571,6 +571,25 @@ class XAIProvider(BaseLLMProvider):
 
         return await self._execute_with_retry_async(_make_request)
 
+    def get_available_models(self) -> list[str]:
+        """
+        Get list of available xAI models.
+
+        Returns:
+            List of model identifiers
+
+        Note:
+            Current xAI models (as of January 2026):
+            - grok-4: Latest flagship model with exceptional math performance
+            - grok-3: Previous generation flagship
+            - grok-beta: Beta model for early access features
+        """
+        return [
+            "grok-4",
+            "grok-3",
+            "grok-beta",
+        ]
+
     async def cleanup(self) -> None:
         """Clean up async resources.
 

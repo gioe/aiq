@@ -655,6 +655,10 @@ class BaseLLMProvider(ABC):
         Returns:
             CompletionResult with content and token usage (may be estimated)
         """
+        # Validate model on first use to provide early warning for unrecognized models
+        model = model_override or self.model
+        self._validate_model_once(model)
+
         content = self.generate_completion(
             prompt=prompt,
             temperature=temperature,
@@ -664,7 +668,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         token_usage = TokenUsage(
             input_tokens=self.count_tokens(prompt),
             output_tokens=self.count_tokens(content),
@@ -702,6 +705,10 @@ class BaseLLMProvider(ABC):
         """
         import json
 
+        # Validate model on first use to provide early warning for unrecognized models
+        model = model_override or self.model
+        self._validate_model_once(model)
+
         content = self.generate_structured_completion(
             prompt=prompt,
             response_format=response_format,
@@ -712,7 +719,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         # For structured completion, the prompt includes the schema
         full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
         token_usage = TokenUsage(
@@ -748,6 +754,10 @@ class BaseLLMProvider(ABC):
         Returns:
             CompletionResult with content and token usage (may be estimated)
         """
+        # Validate model on first use to provide early warning for unrecognized models
+        model = model_override or self.model
+        self._validate_model_once(model)
+
         content = await self.generate_completion_async(
             prompt=prompt,
             temperature=temperature,
@@ -757,7 +767,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         token_usage = TokenUsage(
             input_tokens=self.count_tokens(prompt),
             output_tokens=self.count_tokens(content),
@@ -795,6 +804,10 @@ class BaseLLMProvider(ABC):
         """
         import json
 
+        # Validate model on first use to provide early warning for unrecognized models
+        model = model_override or self.model
+        self._validate_model_once(model)
+
         content = await self.generate_structured_completion_async(
             prompt=prompt,
             response_format=response_format,
@@ -805,7 +818,6 @@ class BaseLLMProvider(ABC):
         )
 
         # Estimate token usage if not provided by subclass
-        model = model_override or self.model
         # For structured completion, the prompt includes the schema
         full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
         token_usage = TokenUsage(
@@ -825,6 +837,59 @@ class BaseLLMProvider(ABC):
             Provider name (e.g., "openai", "anthropic", "google")
         """
         return self.__class__.__name__.replace("Provider", "").lower()
+
+    @abstractmethod
+    def get_available_models(self) -> list[str]:
+        """
+        Get list of available models for this provider.
+
+        Returns:
+            List of model identifiers that are valid for API calls
+        """
+        pass
+
+    def validate_model(self, model: str) -> bool:
+        """
+        Validate that a model identifier is recognized.
+
+        Args:
+            model: The model identifier to validate
+
+        Returns:
+            True if the model is in the available models list, False otherwise
+
+        Note:
+            Logs a warning if the model is not recognized but does not raise
+            an exception, as new models may be available before the code is updated.
+        """
+        available = self.get_available_models()
+        if model not in available:
+            logger.warning(
+                f"Model '{model}' is not in the known models list for {self.get_provider_name()}. "
+                f"Available models: {available}. "
+                f"The API call may fail or use a different model. "
+                f"Consider updating the provider's get_available_models() if this is a valid model."
+            )
+            return False
+        return True
+
+    def _validate_model_once(self, model: str) -> None:
+        """
+        Validate a model on first use (subsequent calls are no-ops).
+
+        This is called by internal methods to provide warnings for unrecognized
+        models without spamming logs on every API call.
+
+        Args:
+            model: The model identifier to validate
+        """
+        # Lazy initialization for providers that don't call super().__init__()
+        if not hasattr(self, "_validated_models"):
+            object.__setattr__(self, "_validated_models", set())
+
+        if model not in self._validated_models:
+            self.validate_model(model)
+            self._validated_models.add(model)
 
     async def cleanup(self) -> None:
         """Clean up async resources.
