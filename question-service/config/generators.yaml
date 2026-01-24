@@ -21,7 +21,8 @@ generators:
 
   logic:
     provider: "anthropic"
-    rationale: "Best-in-class logical reasoning: HumanEval (93.7%), GPQA (67.2%). Claude excels at coding logic and graduate-level reasoning."
+    model: "claude-sonnet-4-5-20250929"
+    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 67.2%, HumanEval 93.7%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks."
     fallback: "openai"
 
   pattern:
@@ -36,7 +37,8 @@ generators:
 
   verbal:
     provider: "anthropic"
-    rationale: "Exceptional language understanding: MMLU (90.4%), strong HellaSwag and WinoGrande performance. Claude leads in NLP tasks."
+    model: "claude-sonnet-4-5-20250929"
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 90.4% (+2-3% over Claude 3.5 Sonnet), strong HellaSwag and WinoGrande performance. Enhanced language understanding and generation."
     fallback: "openai"
 
   memory:

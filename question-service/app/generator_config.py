@@ -20,11 +20,15 @@ class GeneratorAssignment(BaseModel):
 
     Attributes:
         provider: Provider name ("openai", "anthropic", "google", or "xai")
+        model: Optional specific model to use (overrides provider default)
         rationale: Explanation of why this provider was chosen
         fallback: Fallback provider if primary is unavailable
     """
 
     provider: str = Field(..., pattern="^(openai|anthropic|google|xai)$")
+    model: Optional[str] = Field(
+        None, description="Specific model to use for this question type"
+    )
     rationale: str = Field(..., min_length=1)
     fallback: Optional[str] = Field(None, pattern="^(openai|anthropic|google|xai)$")
 
