@@ -381,10 +381,20 @@ Railway dashboard → Your service → **"Metrics"** tab
 - Request count
 
 ### Set Up Alerts
+
+Railway can send alerts to email (default) or to team communication channels via webhooks.
+
+**Email Alerts (default):**
 Railway dashboard → Project → **"Settings"** → **"Notifications"**
 - Deployment failures
 - Service crashes
 - Resource limits
+
+**Discord/Slack Webhook Alerts (recommended):**
+For real-time alerts in your team's communication channel, see the comprehensive setup guide:
+→ [Railway Webhook Alerts to Discord](../docs/operations/RAILWAY_WEBHOOK_ALERTS.md)
+
+This enables instant notifications for deployment failures, service crashes, and health check failures.
 
 ## Scaling
 
