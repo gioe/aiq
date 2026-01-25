@@ -38,7 +38,11 @@ from app import (  # noqa: E402
     QuestionGenerationPipeline,
     InventoryAnalyzer,
 )
-from app.alerting import AlertManager  # noqa: E402
+from app.alerting import (  # noqa: E402
+    AlertManager,
+    AlertingConfig,
+    InventoryAlertManager,
+)
 from app.config import settings  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
@@ -310,6 +314,19 @@ Examples:
         type=int,
         default=20,
         help="Minimum count for warning inventory status (default: 20)",
+    )
+
+    parser.add_argument(
+        "--alerting-config",
+        type=str,
+        default="./config/alerting.yaml",
+        help="Path to alerting configuration file (default: ./config/alerting.yaml)",
+    )
+
+    parser.add_argument(
+        "--skip-inventory-alerts",
+        action="store_true",
+        help="Skip inventory alerting even when using --auto-balance",
     )
 
     return parser.parse_args()
@@ -601,6 +618,34 @@ def main() -> int:
             )
 
             logger.info("\n" + generation_plan.to_log_summary())
+
+            # Check inventory levels and send alerts if needed
+            if not args.skip_inventory_alerts:
+                logger.info("\nChecking inventory levels for alerting...")
+                alerting_config = AlertingConfig.from_yaml(args.alerting_config)
+                inventory_alerter = InventoryAlertManager(
+                    alert_manager=alert_manager,
+                    config=alerting_config,
+                )
+
+                alert_result = inventory_alerter.check_and_alert(analysis.strata)
+
+                if alert_result.alerts_sent > 0:
+                    logger.warning(
+                        f"Inventory alerts sent: {alert_result.alerts_sent} strata below threshold"
+                    )
+                if alert_result.critical_strata:
+                    logger.warning(
+                        f"CRITICAL: {len(alert_result.critical_strata)} strata have "
+                        f"critically low inventory (< {alerting_config.critical_min})"
+                    )
+                if alert_result.warning_strata:
+                    logger.info(
+                        f"WARNING: {len(alert_result.warning_strata)} strata have "
+                        f"low inventory (< {alerting_config.warning_min})"
+                    )
+            else:
+                logger.info("Inventory alerting skipped (--skip-inventory-alerts)")
 
             # If no questions needed (all strata are at target), exit early
             if generation_plan.total_questions == 0:

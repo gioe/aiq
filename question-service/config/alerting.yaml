@@ -1,0 +1,55 @@
+# Alerting Configuration for Question Service
+# This file defines thresholds and behavior for inventory alerts
+
+inventory:
+  # Threshold levels for inventory health assessment
+  thresholds:
+    # Healthy: No alerts, inventory is sufficient
+    healthy_min: 50
+
+    # Warning: Alert when stratum drops below this level
+    # Severity: HIGH (non-critical but should be addressed)
+    warning_min: 20
+
+    # Critical: Urgent alert when stratum drops below this level
+    # Severity: CRITICAL (requires immediate attention)
+    critical_min: 5
+
+  # Cooldown settings to prevent alert spam
+  cooldown:
+    # Minimum time (in minutes) between alerts for the same stratum
+    per_stratum_minutes: 60
+
+    # Minimum time (in minutes) between any inventory alerts
+    global_minutes: 15
+
+    # Maximum alerts per hour across all strata
+    max_alerts_per_hour: 10
+
+  # Alert content settings
+  content:
+    # Include list of affected strata in alert
+    include_affected_strata: true
+
+    # Maximum number of strata to list in detail (rest are summarized)
+    max_strata_detail: 5
+
+    # Include recommended actions in alert
+    include_recommendations: true
+
+# Email-specific settings for inventory alerts
+email:
+  # Subject line prefixes
+  subject_prefix_warning: "[AIQ] Inventory Warning"
+  subject_prefix_critical: "[AIQ] CRITICAL: Inventory Alert"
+
+  # Include summary statistics in email
+  include_summary_stats: true
+
+# File logging settings for inventory alerts
+file_logging:
+  # Separate log file for inventory alerts (in addition to main alert log)
+  inventory_alert_file: "./logs/inventory_alerts.log"
+
+  # Log all inventory checks (not just alerts)
+  log_all_checks: false
