@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
     dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
 
+    # Runtime Model Validation Configuration
+    provider_model_cache_ttl: int = 3600  # Cache duration in seconds (default: 1 hour)
+    enable_runtime_model_validation: bool = (
+        True  # Enable/disable runtime model validation
+    )
+
     @model_validator(mode="after")
     def load_secrets_and_validate(self) -> Self:
         """Load secrets from secrets management backend and validate configuration.

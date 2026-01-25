@@ -575,7 +575,9 @@ class GoogleProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of available Google Generative AI models.
+        Get list of known Google Generative AI models (static list).
+
+        For runtime validation against the API, use get_validated_models().
 
         Returns:
             List of model identifiers
@@ -601,6 +603,56 @@ class GoogleProvider(BaseLLMProvider):
             "gemini-2.5-flash",
             "gemini-2.0-flash",
         ]
+
+    def fetch_available_models(self) -> list[str]:
+        """
+        Fetch available models from the Google Generative AI API.
+
+        Queries the genai.list_models() endpoint to get the current list
+        of available Gemini models. Filters to only include generative models.
+
+        Returns:
+            List of model identifiers from the API
+
+        Raises:
+            Exception: If the API call fails
+        """
+        try:
+            api_models = list(genai.list_models())
+            model_names = []
+            for model in api_models:
+                # Google model names come as "models/gemini-2.5-pro" etc.
+                # Extract just the model name
+                name = model.name
+                if name.startswith("models/"):
+                    name = name[7:]  # Remove "models/" prefix
+                # Only include generative models (gemini-*)
+                if name.startswith("gemini-"):
+                    model_names.append(name)
+            return sorted(model_names)
+        except Exception:
+            raise
+
+    async def fetch_available_models_async(self) -> list[str]:
+        """
+        Fetch available models from the Google Generative AI API asynchronously.
+
+        Note:
+            The Google generativeai SDK's list_models() is synchronous.
+            This method wraps the sync call for API consistency.
+
+        Returns:
+            List of model identifiers from the API
+
+        Raises:
+            Exception: If the API call fails
+        """
+        import asyncio
+
+        # Run the sync method in a thread pool since genai.list_models() is sync
+        return await asyncio.get_event_loop().run_in_executor(
+            None, self.fetch_available_models
+        )
 
     async def cleanup(self) -> None:
         """Clean up async resources.
