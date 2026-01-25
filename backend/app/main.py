@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Union
 from urllib.parse import urlparse
 
+import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
 from app.core.process_registry import process_registry
@@ -41,6 +43,20 @@ from app.ratelimit import (
 setup_logging()
 
 logger = logging.getLogger(__name__)
+
+# Initialize Sentry for error tracking (only if DSN is configured)
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        environment=settings.ENV,
+        release=settings.APP_VERSION,
+        send_default_pii=False,
+    )
+    logger.info(
+        f"Sentry initialized for environment '{settings.ENV}' "
+        f"with {settings.SENTRY_TRACES_SAMPLE_RATE * 100:.0f}% trace sampling"
+    )
 
 
 def _sanitize_redis_url(url: str) -> str:

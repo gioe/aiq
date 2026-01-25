@@ -101,6 +101,16 @@ class Settings(BaseSettings):
         description="API key for service-to-service authentication (e.g., question-service)",
     )
 
+    # Sentry Error Tracking
+    SENTRY_DSN: str = Field(
+        default="",
+        description="Sentry DSN for error tracking (leave empty to disable)",
+    )
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(
+        default=0.1,
+        description="Sentry traces sample rate (0.0-1.0, 0.1 = 10% of transactions)",
+    )
+
     # Email/SMTP Settings (for feedback notifications)
     # NOTE: Email functionality is not yet implemented - these are placeholder settings
     SMTP_HOST: str = Field(
