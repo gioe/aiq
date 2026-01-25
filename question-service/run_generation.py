@@ -547,8 +547,11 @@ def main() -> int:
                     openai_api_key=settings.openai_api_key,
                     similarity_threshold=settings.dedup_similarity_threshold,
                     embedding_model=settings.dedup_embedding_model,
+                    redis_url=settings.redis_url,
+                    embedding_cache_ttl=settings.embedding_cache_ttl,
                 )
-                logger.info("✓ Deduplicator initialized")
+                cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
+                logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
             except Exception as e:
                 logger.error(f"Failed to connect to database: {e}")
 

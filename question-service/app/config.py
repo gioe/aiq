@@ -100,6 +100,14 @@ class Settings(BaseSettings):
     dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
     dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
 
+    # Redis Embedding Cache Configuration
+    redis_url: Optional[
+        str
+    ] = None  # Redis connection URL (e.g., redis://localhost:6379/0)
+    embedding_cache_ttl: Optional[
+        int
+    ] = None  # TTL for cached embeddings in seconds (None = no expiration)
+
     # Runtime Model Validation Configuration
     provider_model_cache_ttl: int = 3600  # Cache duration in seconds (default: 1 hour)
     enable_runtime_model_validation: bool = (
