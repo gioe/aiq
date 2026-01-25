@@ -480,6 +480,56 @@ The trigger service uses a fixed-window rate limiting algorithm:
 - Automatic cleanup of expired entries prevents memory leaks
 - Thread-safe with proper locking for concurrent requests
 
+## Initial Inventory Bootstrap
+
+Before production launch, use the bootstrap script to generate initial question inventory across all strata (question type x difficulty combinations).
+
+### Quick Start
+
+```bash
+# From project root - generate full inventory (900 questions target)
+./scripts/bootstrap_inventory.sh
+
+# Dry run to test without database writes
+./scripts/bootstrap_inventory.sh --dry-run --count 15 --types math
+
+# Generate specific types only
+./scripts/bootstrap_inventory.sh --types math,logic,pattern
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--count N` | Questions per type (default: 150, distributed across 3 difficulties) |
+| `--types TYPE,...` | Comma-separated types: pattern, logic, spatial, math, verbal, memory |
+| `--dry-run` | Generate without database insertion |
+| `--no-async` | Disable async mode for troubleshooting |
+| `--max-retries N` | Max retries per type (default: 3) |
+
+### Target Inventory
+
+The script targets 50 questions per stratum (type x difficulty):
+
+| Dimension | Values | Count |
+|-----------|--------|-------|
+| Types | pattern, logic, spatial, math, verbal, memory | 6 |
+| Difficulties | easy, medium, hard | 3 |
+| **Strata** | 6 x 3 | **18** |
+| **Target per stratum** | | 50 |
+| **Total target** | 18 x 50 | **900** |
+
+**Note:** Actual inserted questions will be lower than target due to:
+- Judge evaluation filtering (min score: 0.7)
+- Deduplication against existing questions
+
+### Idempotency
+
+The script is safe to re-run:
+- Deduplication prevents duplicate questions from being inserted
+- Progress is logged to `logs/bootstrap_YYYYMMDD_HHMMSS.log`
+- Check inventory health via `GET /v1/admin/inventory-health`
+
 ## Deployment
 
 ### Docker
