@@ -143,7 +143,7 @@ The `run_generation.py` script returns exit codes that indicate the result. **Ha
 | 1 | Partial failure | Some questions were generated but others failed. Report the count of successful insertions and warn the user to check logs at `question-service/logs/` for details on failures. Suggest retrying with a smaller count if many failures occurred. |
 | 2 | Complete failure | No questions were generated. Check the error output for the cause. Common causes: API rate limits, network issues, or invalid prompts. Suggest the user wait and retry, or check API quotas. |
 | 3 | Configuration error | Environment or argument configuration is invalid. Check that `.env` file exists with valid API keys. Verify all required environment variables are set. |
-| 4 | Database error | Cannot connect to or write to the database. Verify database connectivity and check that the `question-service/questions.db` file exists and is writable. |
+| 4 | Database error | Cannot connect to or write to the database. Verify database connectivity and check database configuration (`DATABASE_URL`). For local SQLite, ensure `question-service/questions.db` exists and is writable. |
 
 **Example handling:**
 
