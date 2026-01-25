@@ -31,6 +31,21 @@ Generate IQ test questions of a specific type using the local question-service.
 - `verbal` - Verbal reasoning and language
 - `memory` - Memory and recall tasks
 
+## Prerequisites
+
+Before using this skill, ensure the following requirements are met:
+
+1. **Working Directory**: This skill must be invoked from the **repository root** (the directory containing the `question-service` subdirectory). The `cd question-service` commands assume this directory structure.
+
+2. **Virtual Environment**: The question-service virtual environment must be set up:
+   ```bash
+   cd question-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+   ```
+
+3. **Environment Variables**: Required API keys must be configured in `question-service/.env`:
+   - `OPENAI_API_KEY` - For question generation
+   - `ANTHROPIC_API_KEY` - For question judging
+
 ## Implementation
 
 When this skill is invoked, follow these steps:
