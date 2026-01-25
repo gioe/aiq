@@ -12,7 +12,6 @@ enum DeepLinkError: LocalizedError {
     case invalidSessionID(identifier: String, url: String)
     case nonPositiveSessionID(id: Int, url: String)
     case unrecognizedTestAction(action: String, url: String)
-    case settingsSubPathNotAllowed(url: String)
 
     var errorDescription: String? {
         switch self {
@@ -34,8 +33,6 @@ enum DeepLinkError: LocalizedError {
             String(format: NSLocalizedString("error.deeplink.non.positive.session.id", comment: ""), id, url)
         case let .unrecognizedTestAction(action, url):
             String(format: NSLocalizedString("error.deeplink.unrecognized.test.action", comment: ""), action, url)
-        case let .settingsSubPathNotAllowed(url):
-            String(format: NSLocalizedString("error.deeplink.settings.subpath.not.allowed", comment: ""), url)
         }
     }
 }
@@ -297,11 +294,25 @@ struct DeepLinkHandler {
     ///
     /// Supported pattern:
     /// - settings
+    ///
+    /// Note: Extra path components beyond "settings" are tolerated but logged as warnings.
+    /// For example, `settings/notifications` will parse as `.settings` but log
+    /// a warning about the unexpected components. This lenient behavior allows forward
+    /// compatibility if the URL structure evolves (e.g., future settings subpaths),
+    /// while still alerting developers to potentially malformed links.
     private func parseSettingsRoute(pathComponents: [String], originalURL: URL) -> DeepLink {
-        // Settings route should have no additional path components
-        guard pathComponents.isEmpty else {
-            recordInvalidDeepLink(.settingsSubPathNotAllowed(url: originalURL.absoluteString))
-            return .invalid
+        // Log warning if extra path components are present beyond "settings".
+        // Expected format: [] (no additional components)
+        // Extra components are ignored but may indicate a malformed URL or future URL pattern.
+        if !pathComponents.isEmpty {
+            // Use .auto privacy to allow full details during development while
+            // redacting potentially sensitive URL data on user devices.
+            Self.logger.warning(
+                """
+                Deep link has extra path components that will be ignored: \
+                \(pathComponents, privacy: .auto) in URL: \(originalURL, privacy: .auto)
+                """
+            )
         }
         return .settings
     }
@@ -469,8 +480,6 @@ extension DeepLinkHandler {
             "non_positive_session_id"
         case .unrecognizedTestAction:
             "unrecognized_test_action"
-        case .settingsSubPathNotAllowed:
-            "settings_subpath_not_allowed"
         }
     }
 }
