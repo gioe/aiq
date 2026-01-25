@@ -135,6 +135,24 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Validate --count parameter bounds
+if ! [[ "$QUESTIONS_PER_TYPE" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: --count must be a positive integer${NC}"
+    exit 2
+fi
+
+if [ "$QUESTIONS_PER_TYPE" -lt 1 ] || [ "$QUESTIONS_PER_TYPE" -gt 10000 ]; then
+    echo -e "${RED}Error: --count must be between 1 and 10000 (got: $QUESTIONS_PER_TYPE)${NC}"
+    exit 2
+fi
+
+# Warn if count is too low to distribute across difficulties
+if [ "$QUESTIONS_PER_TYPE" -lt 3 ]; then
+    echo -e "${YELLOW}Warning: --count $QUESTIONS_PER_TYPE is less than 3. Some difficulty levels will receive 0 questions.${NC}"
+    echo -e "${YELLOW}         Questions are distributed across 3 difficulties (easy/medium/hard).${NC}"
+    echo ""
+fi
+
 # Use filter or defaults, convert comma-separated to space-separated
 if [ -n "$TYPES_FILTER" ]; then
     TYPES=$(echo "$TYPES_FILTER" | tr ',' ' ')
@@ -178,6 +196,21 @@ elif command -v python3 >/dev/null 2>&1; then
     echo "For best results, create venv: cd $QUESTION_SERVICE_DIR && python -m venv venv && pip install -r requirements.txt"
 else
     echo -e "${RED}Error: No Python 3 found${NC}"
+    exit 2
+fi
+
+# Pre-flight API key check
+# The question service requires at least one LLM provider API key
+if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GOOGLE_API_KEY:-}" ] && [ -z "${XAI_API_KEY:-}" ]; then
+    echo -e "${RED}Error: No LLM API key found${NC}"
+    echo ""
+    echo "The question service requires at least one of the following environment variables:"
+    echo "  - OPENAI_API_KEY"
+    echo "  - ANTHROPIC_API_KEY"
+    echo "  - GOOGLE_API_KEY"
+    echo "  - XAI_API_KEY"
+    echo ""
+    echo "Set one of these before running this script."
     exit 2
 fi
 
