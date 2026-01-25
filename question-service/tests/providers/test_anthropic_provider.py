@@ -232,7 +232,13 @@ class TestAnthropicProvider:
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_get_available_models(self, mock_anthropic_class, mock_anthropic_api_key):
-        """Test getting list of available models."""
+        """Test getting list of available models.
+
+        Validates:
+        - Complete list of all 9 expected models
+        - Correct ordering from newest to oldest
+        - No extra or outdated models included
+        """
         mock_client = MagicMock()
         mock_anthropic_class.return_value = mock_client
 
@@ -240,11 +246,29 @@ class TestAnthropicProvider:
 
         models = provider.get_available_models()
 
-        assert isinstance(models, list)
-        assert len(models) > 0
-        assert "claude-sonnet-4-5-20250929" in models
-        assert "claude-haiku-4-5-20251001" in models
-        assert "claude-3-5-sonnet-20241022" in models
+        # Expected models in order from newest to oldest
+        expected_models = [
+            # Claude 4.5 models (latest)
+            "claude-opus-4-5-20251101",
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5-20251001",
+            # Claude 4.x models
+            "claude-opus-4-1-20250805",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
+            # Claude 3.x models (legacy)
+            "claude-3-7-sonnet-20250219",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-haiku-20240307",
+        ]
+
+        # Validate complete list matches exactly (order and content)
+        assert models == expected_models, (
+            f"Model list mismatch.\n" f"Expected: {expected_models}\n" f"Got: {models}"
+        )
+
+        # Explicit count check for clarity
+        assert len(models) == 9, f"Expected 9 models, got {len(models)}"
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_empty_completion_response(
