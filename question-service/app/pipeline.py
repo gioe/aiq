@@ -7,7 +7,7 @@ coordinating the generator, judge, and other components.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import settings
 from .generator import QuestionGenerator
@@ -277,7 +277,9 @@ class QuestionGenerationPipeline:
             "target_questions": questions_per_run,
             "questions_generated": len(all_questions),
             "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / questions_per_run,
+            "success_rate": len(all_questions) / questions_per_run
+            if questions_per_run > 0
+            else 0,
             "providers_used": list(set(q.source_llm for q in all_questions)),
             "questions_by_type": {
                 qt.value: len([q for q in all_questions if q.question_type == qt])
@@ -429,7 +431,7 @@ class QuestionGenerationPipeline:
 
     def run_balanced_generation_job(
         self,
-        stratum_allocations: Dict[tuple, int],
+        stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
     ) -> Dict[str, Any]:
         """Run a balanced question generation job with specific allocations per stratum.
 
@@ -525,7 +527,7 @@ class QuestionGenerationPipeline:
 
     async def run_balanced_generation_job_async(
         self,
-        stratum_allocations: Dict[tuple, int],
+        stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
     ) -> Dict[str, Any]:
         """Run a balanced question generation job asynchronously with parallel generation.
 
