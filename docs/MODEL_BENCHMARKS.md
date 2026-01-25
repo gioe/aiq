@@ -217,26 +217,30 @@ All benchmark data is sourced from official provider announcements, research pap
 
 ### Anthropic (Claude)
 
-- [Claude 4.5 Release Announcement](https://www.anthropic.com/news/claude-4-5) - Official benchmark figures for Claude 4.5 Opus and Sonnet
+- [Claude Opus 4.5 Release Announcement](https://www.anthropic.com/news/claude-opus-4-5) - Official benchmark figures for Claude 4.5 Opus
+- [Claude Sonnet 4.5 Release Announcement](https://www.anthropic.com/news/claude-sonnet-4-5) - Official benchmark figures for Claude 4.5 Sonnet
 - [Anthropic Model Card](https://www.anthropic.com/claude) - Technical specifications and capabilities
 - [GPQA Benchmark Paper](https://arxiv.org/abs/2311.12022) - Graduate-level science questions benchmark
 - [SWE-bench](https://www.swebench.com/) - Real-world software engineering benchmark
 
 ### Google (Gemini)
 
-- [Gemini 3.0 Technical Report](https://blog.google/technology/ai/google-gemini-ai/) - Official Gemini 3 announcement with benchmarks
+- [Gemini 3 Release Announcement](https://blog.google/products/gemini/gemini-3/) - Official Gemini 3 announcement with benchmarks
 - [ARC-AGI-2 Leaderboard](https://arcprize.org/leaderboard) - Abstract reasoning benchmark results
 - [MMMU-Pro Benchmark](https://mmmu-benchmark.github.io/) - Multimodal understanding benchmark
 
 ### OpenAI (GPT)
 
 - [GPT-4 Technical Report](https://arxiv.org/abs/2303.08774) - Original GPT-4 benchmark data
-- [GPT-5 Release Blog](https://openai.com/blog) - Latest model announcements
+- [GPT-5 Release Announcement](https://openai.com/index/introducing-gpt-5/) - Official GPT-5 announcement with benchmarks
+- [GPT-5.2 Release Announcement](https://openai.com/index/introducing-gpt-5-2/) - GPT-5.2 series announcement
+- [GPT-5.2-Codex Release Announcement](https://openai.com/index/introducing-gpt-5-2-codex/) - GPT-5.2-Codex announcement
 - [HumanEval Benchmark](https://github.com/openai/human-eval) - Code generation benchmark
 
 ### xAI (Grok)
 
-- [Grok 4 Announcement](https://x.ai/blog) - Official Grok 4 release with AIME/USAMO scores
+- [Grok 4 Announcement](https://x.ai/news/grok-4) - Official Grok 4 release with benchmarks
+- [xAI Release Notes](https://docs.x.ai/docs/release-notes) - Model release notes and updates
 - [GSM8K Benchmark](https://github.com/openai/grade-school-math) - Grade school math reasoning
 - [AIME Competition Results](https://artofproblemsolving.com/wiki/index.php/AIME_Problems_and_Solutions) - American Invitational Mathematics Examination
 
@@ -248,5 +252,5 @@ All benchmark data is sourced from official provider announcements, research pap
 
 ---
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-25*
 *See also: [question-service/docs/PERFORMANCE.md](../question-service/docs/PERFORMANCE.md) for operational performance metrics*
