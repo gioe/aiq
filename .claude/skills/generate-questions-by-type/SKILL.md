@@ -144,8 +144,6 @@ The `run_generation.py` script returns exit codes that indicate the result. **Ha
 | 2 | Complete failure | No questions were generated. Check the error output for the cause. Common causes: API rate limits, network issues, or invalid prompts. Suggest the user wait and retry, or check API quotas. |
 | 3 | Configuration error | Environment or argument configuration is invalid. Check that `.env` file exists with valid API keys. Verify all required environment variables are set. |
 | 4 | Database error | Cannot connect to or write to the database. Verify database connectivity and check that the `question-service/questions.db` file exists and is writable. |
-| 5 | Billing error | API billing or quota issue (e.g., OpenAI credit exhausted). Inform the user to check their API provider billing dashboard and add credits or upgrade their plan. |
-| 6 | Authentication error | API key is invalid or revoked. Instruct the user to verify their `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in `question-service/.env` are correct and not expired. |
 
 **Example handling:**
 
@@ -159,8 +157,6 @@ case $EXIT_CODE in
   2) echo "Complete failure. Check API quotas and retry." ;;
   3) echo "Configuration error. Verify .env file and environment variables." ;;
   4) echo "Database error. Check database file permissions and connectivity." ;;
-  5) echo "Billing error. Check API provider billing dashboard." ;;
-  6) echo "Auth error. Verify API keys in .env are valid." ;;
 esac
 ```
 
