@@ -77,6 +77,62 @@ class TestModelCache:
         # All operations should have completed without error
         assert len(results) == 10
 
+    def test_get_valid_models_returns_none_when_empty(self):
+        """Test that get_valid_models returns None for empty cache."""
+        cache = ModelCache()
+        assert cache.get_valid_models() is None
+
+    def test_get_valid_models_returns_none_when_expired(self):
+        """Test that get_valid_models returns None for expired cache."""
+        cache = ModelCache(ttl=1)
+        cache.update(["model-a"])
+
+        # Wait for expiration
+        time.sleep(1.1)
+
+        assert cache.get_valid_models() is None
+        # get_models() still returns stale data
+        assert cache.get_models() == ["model-a"]
+
+    def test_get_valid_models_returns_models_when_valid(self):
+        """Test that get_valid_models returns models when cache is valid."""
+        cache = ModelCache(ttl=60)
+        models = ["model-a", "model-b"]
+        cache.update(models)
+
+        result = cache.get_valid_models()
+        assert result == models
+
+    def test_get_valid_models_is_atomic(self):
+        """Test that get_valid_models is atomic (no TOCTOU race)."""
+        cache = ModelCache(ttl=60)
+        import threading
+
+        results = []
+        errors = []
+
+        def concurrent_access():
+            try:
+                for _ in range(100):
+                    cache.update(["model-a"])
+                    result = cache.get_valid_models()
+                    # Should never get None when we just updated
+                    if result is None:
+                        errors.append("Got None immediately after update")
+                    else:
+                        results.append(result)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=concurrent_access) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Errors occurred: {errors}"
+        assert len(results) == 500  # 5 threads * 100 iterations
+
 
 class ConcreteProvider(BaseLLMProvider):
     """Concrete implementation of BaseLLMProvider for testing."""

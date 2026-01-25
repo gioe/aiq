@@ -23,6 +23,11 @@ class ModelCache:
     This cache stores the list of models fetched from the provider's API,
     allowing us to avoid repeated API calls while still ensuring model
     lists stay reasonably up-to-date.
+
+    Thread Safety:
+        All public methods acquire a lock before accessing internal state.
+        Use get_valid_models() for atomic check-and-get operations to avoid
+        TOCTOU (time-of-check-to-time-of-use) race conditions.
     """
 
     models: List[str] = field(default_factory=list)
@@ -33,12 +38,15 @@ class ModelCache:
     def is_valid(self) -> bool:
         """Check if the cache is still valid based on TTL.
 
+        Thread-safe: acquires lock before checking state.
+
         Returns:
             True if cache is valid, False if expired or empty
         """
-        if not self.models:
-            return False
-        return (time.time() - self.last_fetched) < self.ttl
+        with self._lock:
+            if not self.models:
+                return False
+            return (time.time() - self.last_fetched) < self.ttl
 
     def update(self, models: List[str]) -> None:
         """Update the cache with new model data.
@@ -51,12 +59,28 @@ class ModelCache:
             self.last_fetched = time.time()
 
     def get_models(self) -> List[str]:
-        """Get cached models.
+        """Get cached models regardless of validity.
 
         Returns:
-            List of cached model identifiers
+            List of cached model identifiers (may be stale or empty)
         """
         with self._lock:
+            return list(self.models)
+
+    def get_valid_models(self) -> Optional[List[str]]:
+        """Get cached models only if the cache is valid (atomic operation).
+
+        This method atomically checks validity and returns models, avoiding
+        TOCTOU race conditions between is_valid() and get_models().
+
+        Returns:
+            List of cached model identifiers if cache is valid, None otherwise
+        """
+        with self._lock:
+            if not self.models:
+                return None
+            if (time.time() - self.last_fetched) >= self.ttl:
+                return None
             return list(self.models)
 
     def clear(self) -> None:
@@ -958,9 +982,11 @@ class BaseLLMProvider(ABC):
         if not settings.enable_runtime_model_validation:
             return self.get_available_models()
 
-        # Check cache first if enabled
-        if use_cache and self._model_cache.is_valid():
-            return self._model_cache.get_models()
+        # Check cache first if enabled (atomic check-and-get to avoid TOCTOU race)
+        if use_cache:
+            cached_models = self._model_cache.get_valid_models()
+            if cached_models is not None:
+                return cached_models
 
         try:
             api_models = self.fetch_available_models()
@@ -1009,9 +1035,11 @@ class BaseLLMProvider(ABC):
         if not settings.enable_runtime_model_validation:
             return self.get_available_models()
 
-        # Check cache first if enabled
-        if use_cache and self._model_cache.is_valid():
-            return self._model_cache.get_models()
+        # Check cache first if enabled (atomic check-and-get to avoid TOCTOU race)
+        if use_cache:
+            cached_models = self._model_cache.get_valid_models()
+            if cached_models is not None:
+                return cached_models
 
         try:
             api_models = await self.fetch_available_models_async()
