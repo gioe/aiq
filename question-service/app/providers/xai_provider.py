@@ -573,7 +573,9 @@ class XAIProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of available xAI models.
+        Get list of known xAI models (static list).
+
+        For runtime validation against the API, use get_validated_models().
 
         Returns:
             List of model identifiers
@@ -589,6 +591,50 @@ class XAIProvider(BaseLLMProvider):
             "grok-3",
             "grok-beta",
         ]
+
+    def fetch_available_models(self) -> list[str]:
+        """
+        Fetch available models from the xAI API.
+
+        Queries the xAI models.list() endpoint (OpenAI-compatible) to get
+        the current list of available Grok models.
+
+        Returns:
+            List of model identifiers from the API
+
+        Raises:
+            Exception: If the API call fails
+        """
+        try:
+            models = self.client.models.list()
+            # Filter to grok models
+            return sorted(
+                [model.id for model in models.data if model.id.startswith("grok")]
+            )
+        except Exception:
+            raise
+
+    async def fetch_available_models_async(self) -> list[str]:
+        """
+        Fetch available models from the xAI API asynchronously.
+
+        Queries the xAI models.list() endpoint (OpenAI-compatible) to get
+        the current list of available Grok models.
+
+        Returns:
+            List of model identifiers from the API
+
+        Raises:
+            Exception: If the API call fails
+        """
+        try:
+            models = await self.async_client.models.list()
+            # Filter to grok models
+            return sorted(
+                [model.id for model in models.data if model.id.startswith("grok")]
+            )
+        except Exception:
+            raise
 
     async def cleanup(self) -> None:
         """Clean up async resources.

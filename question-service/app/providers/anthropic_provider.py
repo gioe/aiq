@@ -566,7 +566,12 @@ class AnthropicProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of available Anthropic models.
+        Get list of known Anthropic models (static list).
+
+        For runtime validation against the API, use get_validated_models().
+        Note that Anthropic does not provide a public models list endpoint,
+        so fetch_available_models() returns an empty list and validation
+        falls back to this static list.
 
         Returns:
             List of model identifiers ordered from newest to oldest
@@ -603,6 +608,48 @@ class AnthropicProvider(BaseLLMProvider):
             "claude-3-5-sonnet-20241022",
             "claude-3-haiku-20240307",
         ]
+
+    def fetch_available_models(self) -> list[str]:
+        """
+        Fetch available models from the Anthropic API.
+
+        Note:
+            Anthropic does not provide a public models list endpoint.
+            This method returns an empty list, which causes get_validated_models()
+            to fall back to the static list from get_available_models().
+
+            To validate individual models, run the integration tests which make
+            minimal API calls to check each model's availability.
+
+        Returns:
+            Empty list (Anthropic does not support model listing)
+        """
+        # Anthropic does not provide a models list endpoint
+        # Return empty list to signal that runtime validation is not available
+        logger.debug(
+            "Anthropic does not provide a models list API. "
+            "Using static model list for validation."
+        )
+        return []
+
+    async def fetch_available_models_async(self) -> list[str]:
+        """
+        Fetch available models from the Anthropic API asynchronously.
+
+        Note:
+            Anthropic does not provide a public models list endpoint.
+            This method returns an empty list, which causes get_validated_models_async()
+            to fall back to the static list from get_available_models().
+
+        Returns:
+            Empty list (Anthropic does not support model listing)
+        """
+        # Anthropic does not provide a models list endpoint
+        logger.debug(
+            "Anthropic does not provide a models list API. "
+            "Using static model list for validation."
+        )
+        return []
 
     async def cleanup(self) -> None:
         """Clean up async resources.
