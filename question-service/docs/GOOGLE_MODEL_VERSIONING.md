@@ -86,7 +86,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - name: Install dependencies
         run: |
           cd question-service
@@ -155,7 +155,7 @@ Integration tests (`test_google_integration.py`) will fail when models become un
 
 When a model version transition is detected (either through monitoring or test failures), follow this playbook:
 
-### Step 1: Assess the Situation (15 minutes)
+### Step 1: Assess the Situation
 
 1. Check Google's changelog for announcements
 2. Run `fetch_available_models()` to see current API state
@@ -164,7 +164,7 @@ When a model version transition is detected (either through monitoring or test f
    - **Sunset:** Model family being retired entirely
    - **Temporary outage:** Check Google Cloud status page
 
-### Step 2: Update Configuration (30 minutes)
+### Step 2: Update Configuration
 
 If stable version is available:
 
@@ -191,7 +191,7 @@ If stable version is available:
        ]
    ```
 
-### Step 3: Update Tests (30 minutes)
+### Step 3: Update Tests
 
 1. Update test files to use new model identifiers
 2. Run integration tests to verify:
@@ -200,18 +200,18 @@ If stable version is available:
    pytest tests/integration/test_google_integration.py -m integration --run-integration
    ```
 
-### Step 4: Deploy and Verify (15 minutes)
+### Step 4: Deploy and Verify
 
 1. Create PR with all changes
 2. Verify CI passes
 3. Deploy to production
 4. Monitor generation runs for errors
 
-### Step 5: Documentation Update (10 minutes)
+### Step 5: Documentation Update
 
 1. Update this document with new model versions
 2. Update `PERFORMANCE.md` if benchmark data changes
-3. Update `docs/MODEL_BENCHMARKS.md` if applicable
+3. Update `../../docs/MODEL_BENCHMARKS.md` if applicable (located in repo root)
 
 ## Test Maintenance
 
@@ -255,7 +255,7 @@ When updating model versions:
 
 ### Integration with Existing Alerting
 
-See `docs/ALERTING.md` for integration with the existing alerting infrastructure. Add Google model-specific alerts to the provider health monitoring section.
+See `ALERTING.md` for integration with the existing alerting infrastructure.
 
 ---
 
