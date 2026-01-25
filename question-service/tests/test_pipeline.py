@@ -196,6 +196,121 @@ class TestQuestionGenerationPipeline:
         assert info["generator_providers"] == ["openai"]
 
 
+class TestBalancedGenerationJob:
+    """Tests for balanced generation job methods."""
+
+    @pytest.fixture
+    def mock_generator(self):
+        """Mock QuestionGenerator."""
+        with patch("app.pipeline.QuestionGenerator") as mock:
+            generator = Mock()
+            mock.return_value = generator
+            yield generator
+
+    @pytest.fixture
+    def pipeline(self, mock_generator):
+        """Create pipeline with mocked generator."""
+        return QuestionGenerationPipeline(openai_api_key="test-key")
+
+    def test_run_balanced_generation_job(self, pipeline, mock_generator):
+        """Test running a balanced generation job with stratum allocations."""
+        # Mock successful batch generation
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_question = Mock()
+        mock_question.source_llm = "openai"
+        mock_question.question_type = QuestionType.MATH
+        mock_question.difficulty_level = DifficultyLevel.EASY
+        mock_batch.questions = [mock_question] * 5
+
+        mock_generator.generate_batch.return_value = mock_batch
+
+        allocations = {
+            (QuestionType.MATH, DifficultyLevel.EASY): 10,
+            (QuestionType.MATH, DifficultyLevel.HARD): 15,
+            (QuestionType.LOGIC, DifficultyLevel.MEDIUM): 5,
+        }
+
+        result = pipeline.run_balanced_generation_job(stratum_allocations=allocations)
+
+        # Verify result structure
+        assert "statistics" in result
+        assert "batches" in result
+        assert "questions" in result
+        assert result["statistics"]["balanced"] is True
+
+        # Generator should be called for each allocation
+        assert mock_generator.generate_batch.call_count == 3
+
+    def test_run_balanced_generation_job_skips_zero_allocations(
+        self, pipeline, mock_generator
+    ):
+        """Test that zero allocations are skipped."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = [Mock()]
+        mock_generator.generate_batch.return_value = mock_batch
+
+        allocations = {
+            (QuestionType.MATH, DifficultyLevel.EASY): 10,
+            (QuestionType.MATH, DifficultyLevel.MEDIUM): 0,
+            (QuestionType.MATH, DifficultyLevel.HARD): 5,
+        }
+
+        result = pipeline.run_balanced_generation_job(stratum_allocations=allocations)
+
+        # Generator should only be called for non-zero allocations
+        assert mock_generator.generate_batch.call_count == 2
+        # Verify result contains expected batches
+        assert len(result["batches"]) == 2
+
+    def test_run_balanced_generation_job_handles_failures(
+        self, pipeline, mock_generator
+    ):
+        """Test that failures are handled gracefully."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = [Mock()]
+
+        # First call succeeds, second fails
+        mock_generator.generate_batch.side_effect = [
+            mock_batch,
+            Exception("API Error"),
+        ]
+
+        allocations = {
+            (QuestionType.MATH, DifficultyLevel.EASY): 10,
+            (QuestionType.MATH, DifficultyLevel.HARD): 5,
+        }
+
+        result = pipeline.run_balanced_generation_job(stratum_allocations=allocations)
+
+        # Should still return partial results
+        assert len(result["batches"]) == 1
+        assert len(result["questions"]) == 1
+
+    def test_run_balanced_generation_job_statistics(self, pipeline, mock_generator):
+        """Test that statistics are correctly computed."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_question = Mock()
+        mock_question.source_llm = "openai"
+        mock_question.question_type = QuestionType.MATH
+        mock_question.difficulty_level = DifficultyLevel.EASY
+        mock_batch.questions = [mock_question] * 5
+
+        mock_generator.generate_batch.return_value = mock_batch
+
+        allocations = {
+            (QuestionType.MATH, DifficultyLevel.EASY): 10,
+            (QuestionType.LOGIC, DifficultyLevel.HARD): 10,
+        }
+
+        result = pipeline.run_balanced_generation_job(stratum_allocations=allocations)
+
+        stats = result["statistics"]
+        assert stats["target_questions"] == 20
+        assert stats["batches_created"] == 2
+        assert "questions_by_type" in stats
+        assert "questions_by_difficulty" in stats
+
+
 class TestCreatePipeline:
     """Tests for create_pipeline factory function."""
 

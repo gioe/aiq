@@ -7,7 +7,7 @@ coordinating the generator, judge, and other components.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import settings
 from .generator import QuestionGenerator
@@ -277,7 +277,9 @@ class QuestionGenerationPipeline:
             "target_questions": questions_per_run,
             "questions_generated": len(all_questions),
             "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / questions_per_run,
+            "success_rate": len(all_questions) / questions_per_run
+            if questions_per_run > 0
+            else 0,
             "providers_used": list(set(q.source_llm for q in all_questions)),
             "questions_by_type": {
                 qt.value: len([q for q in all_questions if q.question_type == qt])
@@ -419,6 +421,216 @@ class QuestionGenerationPipeline:
         logger.info(
             f"Job (async) complete: Generated {len(all_questions)}/{questions_per_run} "
             f"questions in {duration:.1f}s"
+        )
+
+        return {
+            "statistics": stats,
+            "batches": all_batches,
+            "questions": all_questions,
+        }
+
+    def run_balanced_generation_job(
+        self,
+        stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
+    ) -> Dict[str, Any]:
+        """Run a balanced question generation job with specific allocations per stratum.
+
+        This method generates questions according to pre-computed allocations
+        for each (question_type, difficulty) stratum, typically determined by
+        inventory analysis.
+
+        Args:
+            stratum_allocations: Dictionary mapping (QuestionType, DifficultyLevel)
+                tuples to the number of questions to generate for that stratum.
+
+        Returns:
+            Dictionary with job statistics and results
+
+        Raises:
+            Exception: If job fails
+        """
+        start_time = datetime.now(timezone.utc)
+        total_to_generate = sum(stratum_allocations.values())
+
+        logger.info(
+            f"Starting balanced generation job: {total_to_generate} questions "
+            f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
+        )
+
+        all_batches = []
+        all_questions = []
+
+        for (question_type, difficulty), count in stratum_allocations.items():
+            if count <= 0:
+                continue
+
+            logger.info(
+                f"Job: Generating {count} questions for "
+                f"{question_type.value}/{difficulty.value}"
+            )
+
+            try:
+                batch = self.generate_questions(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    distribute_providers=True,
+                )
+                all_batches.append(batch)
+                all_questions.extend(batch.questions)
+
+            except Exception as e:
+                logger.error(
+                    f"Job: Failed to generate {question_type.value} - "
+                    f"{difficulty.value}: {str(e)}"
+                )
+                continue
+
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+
+        # Compile statistics
+        stats = {
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "target_questions": total_to_generate,
+            "questions_generated": len(all_questions),
+            "batches_created": len(all_batches),
+            "success_rate": len(all_questions) / total_to_generate
+            if total_to_generate > 0
+            else 0,
+            "providers_used": list(set(q.source_llm for q in all_questions)),
+            "questions_by_type": {
+                qt.value: len([q for q in all_questions if q.question_type == qt])
+                for qt in QuestionType
+            },
+            "questions_by_difficulty": {
+                diff.value: len(
+                    [q for q in all_questions if q.difficulty_level == diff]
+                )
+                for diff in DifficultyLevel
+            },
+            "balanced": True,
+        }
+
+        logger.info(
+            f"Balanced job complete: Generated {len(all_questions)}/{total_to_generate} "
+            f"questions in {duration:.1f}s"
+        )
+
+        return {
+            "statistics": stats,
+            "batches": all_batches,
+            "questions": all_questions,
+        }
+
+    async def run_balanced_generation_job_async(
+        self,
+        stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
+    ) -> Dict[str, Any]:
+        """Run a balanced question generation job asynchronously with parallel generation.
+
+        This method generates questions according to pre-computed allocations
+        for each (question_type, difficulty) stratum, with all generations
+        running in parallel.
+
+        Args:
+            stratum_allocations: Dictionary mapping (QuestionType, DifficultyLevel)
+                tuples to the number of questions to generate for that stratum.
+
+        Returns:
+            Dictionary with job statistics and results
+
+        Raises:
+            Exception: If job fails
+        """
+        start_time = datetime.now(timezone.utc)
+        total_to_generate = sum(stratum_allocations.values())
+
+        logger.info(
+            f"Starting async balanced generation job: {total_to_generate} questions "
+            f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
+        )
+
+        # Create tasks for all allocations
+        tasks = []
+        task_metadata = []
+
+        for (question_type, difficulty), count in stratum_allocations.items():
+            if count <= 0:
+                continue
+
+            task = self.generate_questions_async(
+                question_type=question_type,
+                difficulty=difficulty,
+                count=count,
+                distribute_providers=True,
+            )
+            tasks.append(task)
+            task_metadata.append(
+                {
+                    "question_type": question_type,
+                    "difficulty": difficulty,
+                    "count": count,
+                }
+            )
+
+        logger.info(
+            f"Balanced job (async): Executing {len(tasks)} generation tasks in parallel"
+        )
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        all_batches: List[GenerationBatch] = []
+        all_questions = []
+
+        for i, result in enumerate(results):
+            metadata = task_metadata[i]
+            if isinstance(result, BaseException):
+                logger.error(
+                    f"Balanced job (async): Failed to generate "
+                    f"{metadata['question_type'].value} - "
+                    f"{metadata['difficulty'].value}: {str(result)}"
+                )
+            elif isinstance(result, GenerationBatch):
+                all_batches.append(result)
+                all_questions.extend(result.questions)
+
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+
+        # Compile statistics
+        stats = {
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "target_questions": total_to_generate,
+            "questions_generated": len(all_questions),
+            "batches_created": len(all_batches),
+            "success_rate": len(all_questions) / total_to_generate
+            if total_to_generate > 0
+            else 0,
+            "providers_used": list(set(q.source_llm for q in all_questions)),
+            "questions_by_type": {
+                qt.value: len([q for q in all_questions if q.question_type == qt])
+                for qt in QuestionType
+            },
+            "questions_by_difficulty": {
+                diff.value: len(
+                    [q for q in all_questions if q.difficulty_level == diff]
+                )
+                for diff in DifficultyLevel
+            },
+            "async": True,
+            "balanced": True,
+        }
+
+        logger.info(
+            f"Balanced job (async) complete: Generated "
+            f"{len(all_questions)}/{total_to_generate} questions in {duration:.1f}s"
         )
 
         return {
