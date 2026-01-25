@@ -76,9 +76,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run integration tests
-        if: env.GOOGLE_API_KEY != ''
+        # Check if secret exists before running (secrets context not available in step if)
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
+          if [ -z "$GOOGLE_API_KEY" ]; then
+            echo "GOOGLE_API_KEY secret not configured, skipping integration tests"
+            exit 0
+          fi
           cd question-service
           pytest tests/integration/ --run-integration -v

@@ -13,9 +13,23 @@ import pytest
 from app.providers.google_provider import GoogleProvider
 
 # Token limits for different test scenarios
-MAX_TOKENS_SIMPLE_ANSWER = 10  # Sufficient for single-digit numeric responses
+# Using generous limits to handle model output variations (e.g., "The answer is 4")
+MAX_TOKENS_SIMPLE_ANSWER = 30  # Sufficient for numeric responses with context
 MAX_TOKENS_SHORT_TEXT = 50  # Sufficient for brief text responses
 MAX_TOKENS_STRUCTURED = 100  # Sufficient for small JSON objects
+
+
+def _extract_number(text: str) -> str | None:
+    """Extract the first number from a text response.
+
+    Handles various model output formats like "4", "The answer is 4", "4.0", etc.
+    """
+    import re
+
+    # Look for integers or simple decimals
+    match = re.search(r"\b(\d+)(?:\.\d+)?\b", text)
+    return match.group(1) if match else None
+
 
 # Skip all tests in this module if GOOGLE_API_KEY is not set
 pytestmark = [
@@ -52,7 +66,8 @@ class TestGoogleProviderIntegration:
 
         assert result is not None
         assert len(result) > 0
-        assert "4" in result
+        extracted = _extract_number(result)
+        assert extracted == "4", f"Expected '4' but got '{extracted}' from: {result}"
 
     def test_gemini_3_flash_preview_text_completion(self, google_api_key: str) -> None:
         """Test text completion with Gemini 3 Flash Preview model."""
@@ -68,7 +83,8 @@ class TestGoogleProviderIntegration:
 
         assert result is not None
         assert len(result) > 0
-        assert "6" in result
+        extracted = _extract_number(result)
+        assert extracted == "6", f"Expected '6' but got '{extracted}' from: {result}"
 
     def test_gemini_3_pro_preview_structured_completion(
         self, google_api_key: str
@@ -96,8 +112,13 @@ class TestGoogleProviderIntegration:
         assert isinstance(result, dict)
         assert "name" in result
         assert "age" in result
-        assert result["name"] == "Alice"
-        assert result["age"] == 30
+        assert isinstance(result["name"], str)
+        assert isinstance(result["age"], int)
+        # Case-insensitive check for name, exact check for age
+        assert (
+            result["name"].lower() == "alice"
+        ), f"Expected 'Alice' but got: {result['name']}"
+        assert result["age"] == 30, f"Expected 30 but got: {result['age']}"
 
     def test_gemini_3_flash_preview_structured_completion(
         self, google_api_key: str
@@ -127,8 +148,13 @@ class TestGoogleProviderIntegration:
         assert isinstance(result, dict)
         assert "color" in result
         assert "count" in result
-        assert result["color"] == "blue"
-        assert result["count"] == 5
+        assert isinstance(result["color"], str)
+        assert isinstance(result["count"], int)
+        # Case-insensitive check for color, exact check for count
+        assert (
+            result["color"].lower() == "blue"
+        ), f"Expected 'blue' but got: {result['color']}"
+        assert result["count"] == 5, f"Expected 5 but got: {result['count']}"
 
     def test_gemini_3_pro_preview_token_usage(self, google_api_key: str) -> None:
         """Test that token usage is tracked with Gemini 3 Pro Preview model.
@@ -197,7 +223,8 @@ class TestGoogleProviderIntegration:
 
         assert result is not None
         assert len(result) > 0
-        assert "10" in result
+        extracted = _extract_number(result)
+        assert extracted == "10", f"Expected '10' but got '{extracted}' from: {result}"
 
     @pytest.mark.asyncio
     async def test_gemini_3_flash_preview_async_completion(
@@ -216,7 +243,8 @@ class TestGoogleProviderIntegration:
 
         assert result is not None
         assert len(result) > 0
-        assert "14" in result
+        extracted = _extract_number(result)
+        assert extracted == "14", f"Expected '14' but got '{extracted}' from: {result}"
 
 
 class TestGemini3ModelComparison:
@@ -267,7 +295,10 @@ class TestGemini3ModelComparison:
         )
 
         assert result is not None
-        assert "2" in result
+        extracted = _extract_number(result)
+        assert (
+            extracted == "2"
+        ), f"Pro Preview: Expected '2' but got '{extracted}' from: {result}"
 
         # Use model_override to call Gemini 3 Flash Preview
         result = provider.generate_completion(
@@ -278,4 +309,7 @@ class TestGemini3ModelComparison:
         )
 
         assert result is not None
-        assert "2" in result
+        extracted = _extract_number(result)
+        assert (
+            extracted == "2"
+        ), f"Flash Preview: Expected '2' but got '{extracted}' from: {result}"
