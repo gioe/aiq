@@ -2,15 +2,19 @@
 
 This module provides functionality to detect duplicate questions using both
 exact match checking and semantic similarity analysis via embeddings.
+
+TASK-629: Added Redis caching support via HybridEmbeddingCache for distributed
+embedding caching across workers, with automatic fallback to in-memory caching.
 """
 
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from openai import OpenAI
 
+from .embedding_cache import HybridEmbeddingCache
 from .models import GeneratedQuestion
 
 logger = logging.getLogger(__name__)
@@ -168,6 +172,10 @@ class QuestionDeduplicator:
     This class provides methods to detect duplicate questions by comparing
     question text using both exact string matching and semantic similarity
     via embeddings.
+
+    TASK-629: Updated to support Redis-backed embedding cache via HybridEmbeddingCache.
+    When redis_url is provided, embeddings are cached in Redis for distributed access
+    across workers. Falls back to in-memory caching when Redis is unavailable.
     """
 
     def __init__(
@@ -175,6 +183,9 @@ class QuestionDeduplicator:
         openai_api_key: str,
         similarity_threshold: float = 0.85,
         embedding_model: str = "text-embedding-3-small",
+        embedding_cache: Optional[Union[EmbeddingCache, HybridEmbeddingCache]] = None,
+        redis_url: Optional[str] = None,
+        embedding_cache_ttl: Optional[int] = None,
     ):
         """Initialize the question deduplicator.
 
@@ -182,6 +193,11 @@ class QuestionDeduplicator:
             openai_api_key: OpenAI API key for embeddings
             similarity_threshold: Threshold for semantic similarity (0.0-1.0)
             embedding_model: OpenAI embedding model to use
+            embedding_cache: Optional pre-configured embedding cache. If provided,
+                            redis_url and embedding_cache_ttl are ignored.
+            redis_url: Redis connection URL for distributed caching. If None and
+                      embedding_cache is None, uses in-memory cache.
+            embedding_cache_ttl: TTL for cached embeddings in seconds (None = no expiration)
 
         Raises:
             ValueError: If similarity_threshold is not between 0 and 1
@@ -194,11 +210,29 @@ class QuestionDeduplicator:
         self.openai_client = OpenAI(api_key=openai_api_key)
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
-        self._embedding_cache = EmbeddingCache()
+
+        # TASK-629: Support external cache injection or create HybridEmbeddingCache
+        if embedding_cache is not None:
+            self._embedding_cache: Union[
+                EmbeddingCache, HybridEmbeddingCache
+            ] = embedding_cache
+            cache_type = (
+                "hybrid (Redis)"
+                if isinstance(embedding_cache, HybridEmbeddingCache)
+                and embedding_cache.using_redis
+                else "in-memory"
+            )
+        else:
+            # Create HybridEmbeddingCache which handles Redis/in-memory fallback
+            self._embedding_cache = HybridEmbeddingCache(
+                redis_url=redis_url,
+                default_ttl=embedding_cache_ttl,
+            )
+            cache_type = "Redis" if self._embedding_cache.using_redis else "in-memory"
 
         logger.info(
             f"QuestionDeduplicator initialized with threshold={similarity_threshold}, "
-            f"model={embedding_model}"
+            f"model={embedding_model}, cache={cache_type}"
         )
 
     def check_duplicate(
@@ -382,6 +416,7 @@ class QuestionDeduplicator:
             response = self.openai_client.embeddings.create(
                 input=text,
                 model=self.embedding_model,
+                timeout=30.0,  # TASK-629: Prevent indefinite blocking on API calls
             )
             embedding = response.data[0].embedding
             embedding_array = np.array(embedding)
@@ -463,10 +498,16 @@ class QuestionDeduplicator:
         Returns:
             Dictionary with configuration and cache information
         """
+        # Handle both EmbeddingCache (stats property) and HybridEmbeddingCache (get_stats method)
+        if hasattr(self._embedding_cache, "get_stats"):
+            cache_stats = self._embedding_cache.get_stats()
+        else:
+            cache_stats = self._embedding_cache.stats
+
         return {
             "similarity_threshold": self.similarity_threshold,
             "embedding_model": self.embedding_model,
-            "cache": self._embedding_cache.stats,
+            "cache": cache_stats,
         }
 
     def clear_cache(self) -> None:

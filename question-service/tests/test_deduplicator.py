@@ -736,7 +736,7 @@ class TestDeduplicatorCacheIntegration:
 
         call_count = [0]
 
-        def mock_embeddings_create(input, model):
+        def mock_embeddings_create(input, model, timeout=None):
             call_count[0] += 1
             mock_response = Mock()
             if model == "text-embedding-3-small":
