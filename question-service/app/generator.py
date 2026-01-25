@@ -7,6 +7,7 @@ LLM providers to generate candidate IQ test questions.
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -15,7 +16,9 @@ from .circuit_breaker import (
     CircuitBreakerRegistry,
     get_circuit_breaker_registry,
 )
+from .cost_tracking import calculate_cost
 from .generator_config import get_generator_config, is_generator_config_initialized
+from .metrics import get_metrics_tracker
 from .models import (
     DifficultyLevel,
     GeneratedQuestion,
@@ -173,19 +176,35 @@ class QuestionGenerator:
         # Build prompt
         prompt = build_generation_prompt(question_type, difficulty, count=1)
 
+        # Track timing for latency metrics (TASK-575)
+        start_time = time.perf_counter()
+        completion_result = None
+
         # Generate question with circuit breaker protection and cost tracking
         def _do_generation() -> Dict[str, Any]:
-            result = provider.generate_structured_completion_with_usage(
+            nonlocal completion_result
+            completion_result = provider.generate_structured_completion_with_usage(
                 prompt=prompt,
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
                 model_override=model_override,
             )
-            return result.content
+            return completion_result.content
 
         try:
             response = circuit_breaker.execute(_do_generation)
+            latency = time.perf_counter() - start_time
+
+            # Record routing and latency metrics (TASK-575)
+            metrics = get_metrics_tracker()
+            question_type_str = question_type.value
+            metrics.record_question_latency(question_type_str, latency)
+
+            # Record cost per question type if token usage is available
+            if completion_result and completion_result.token_usage:
+                cost = calculate_cost(completion_result.token_usage)
+                metrics.record_question_cost(question_type_str, cost)
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -324,6 +343,9 @@ class QuestionGenerator:
         # Determine provider selection strategy
         specialist_provider = None
         specialist_model: Optional[str] = None
+        metrics = get_metrics_tracker()
+        question_type_str = question_type.value
+
         if use_specialist_routing:
             specialist_provider, specialist_model = self._get_specialist_provider(
                 question_type
@@ -333,6 +355,13 @@ class QuestionGenerator:
                     f"Using specialist provider '{specialist_provider}' for "
                     f"{question_type.value} questions"
                     + (f" with model {specialist_model}" if specialist_model else "")
+                )
+                # Record routing decision (TASK-575)
+                metrics.record_routing_decision(
+                    question_type=question_type_str,
+                    provider=specialist_provider,
+                    model=specialist_model,
+                    is_specialist=True,
                 )
 
         logger.info(
@@ -348,6 +377,7 @@ class QuestionGenerator:
         if specialist_provider:
             current_provider: Optional[str] = specialist_provider
             current_model: Optional[str] = specialist_model
+            original_provider: str = specialist_provider  # Track for fallback metrics
 
             for i in range(count):
                 if current_provider is None:
@@ -372,12 +402,21 @@ class QuestionGenerator:
                     skipped_providers[current_provider] = (
                         skipped_providers.get(current_provider, 0) + 1
                     )
+                    previous_provider = current_provider
                     # Try to find fallback provider from config
                     current_provider, current_model = self._get_specialist_provider(
                         question_type
                     )
                     if current_provider is None:
                         failed_questions += 1
+                    elif current_provider != previous_provider:
+                        # Record fallback (TASK-575)
+                        metrics.record_provider_fallback(
+                            question_type=question_type_str,
+                            primary_provider=original_provider,
+                            fallback_provider=current_provider,
+                            reason="circuit_breaker_open",
+                        )
                 except Exception as e:
                     logger.error(
                         f"Failed to generate question {i+1}/{count} with "
@@ -594,10 +633,15 @@ class QuestionGenerator:
         # Use provided timeout or instance default
         effective_timeout = timeout if timeout is not None else self._async_timeout
 
+        # Track timing for latency metrics (TASK-575)
+        start_time = time.perf_counter()
+        completion_result = None
+
         # Define the async API call with cost tracking
         async def _do_async_generation() -> Dict[str, Any]:
+            nonlocal completion_result
             async with self._rate_limiter:
-                result = await asyncio.wait_for(
+                completion_result = await asyncio.wait_for(
                     provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
                         response_format={},  # Provider will handle JSON mode
@@ -607,11 +651,22 @@ class QuestionGenerator:
                     ),
                     timeout=effective_timeout,
                 )
-                return result.content
+                return completion_result.content
 
         # Generate question asynchronously with circuit breaker protection
         try:
             response = await circuit_breaker.execute_async(_do_async_generation)
+            latency = time.perf_counter() - start_time
+
+            # Record routing and latency metrics (TASK-575)
+            metrics = get_metrics_tracker()
+            question_type_str = question_type.value
+            metrics.record_question_latency(question_type_str, latency)
+
+            # Record cost per question type if token usage is available
+            if completion_result and completion_result.token_usage:
+                cost = calculate_cost(completion_result.token_usage)
+                metrics.record_question_cost(question_type_str, cost)
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -685,6 +740,9 @@ class QuestionGenerator:
         # Determine provider selection strategy
         specialist_provider = None
         specialist_model: Optional[str] = None
+        metrics = get_metrics_tracker()
+        question_type_str = question_type.value
+
         if use_specialist_routing:
             specialist_provider, specialist_model = self._get_specialist_provider(
                 question_type
@@ -694,6 +752,13 @@ class QuestionGenerator:
                     f"Using specialist provider '{specialist_provider}' for "
                     f"{question_type.value} questions (async)"
                     + (f" with model {specialist_model}" if specialist_model else "")
+                )
+                # Record routing decision (TASK-575)
+                metrics.record_routing_decision(
+                    question_type=question_type_str,
+                    provider=specialist_provider,
+                    model=specialist_model,
+                    is_specialist=True,
                 )
 
         logger.info(

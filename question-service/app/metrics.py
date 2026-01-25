@@ -102,6 +102,21 @@ class MetricsTracker:
             "size": 0,
         }
 
+        # Specialist routing metrics (TASK-575)
+        self._routing_decisions: List[Dict[str, Any]] = []
+        self._latencies_by_question_type: Dict[str, List[float]] = defaultdict(list)
+        self._cost_by_question_type: Dict[str, float] = defaultdict(float)
+        self._provider_fallbacks: List[Dict[str, Any]] = []
+        self._questions_by_provider_and_type: Dict[str, Dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+
+        # Constants for latency percentile thresholds (TASK-575)
+        # Minimum samples needed for reliable p95 calculation
+        self._min_samples_for_p95 = 20
+        # Minimum samples needed for reliable p99 calculation
+        self._min_samples_for_p99 = 100
+
         logger.debug("Metrics reset")
 
     def start_run(self) -> None:
@@ -225,6 +240,145 @@ class MetricsTracker:
             "misses": misses,
             "size": self._embedding_cache_stats["size"],
             "hit_rate": round(hits / total, 4) if total > 0 else 0.0,
+        }
+
+    def record_routing_decision(
+        self,
+        question_type: str,
+        provider: str,
+        model: Optional[str] = None,
+        is_specialist: bool = False,
+    ) -> None:
+        """Record a specialist routing decision (TASK-575).
+
+        Args:
+            question_type: Type of question being generated
+            provider: Provider selected for generation
+            model: Model override if any
+            is_specialist: Whether specialist routing was used
+        """
+        decision = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "question_type": question_type,
+            "provider": provider,
+            "model": model,
+            "is_specialist": is_specialist,
+        }
+        self._routing_decisions.append(decision)
+        self._questions_by_provider_and_type[provider][question_type] += 1
+
+        logger.debug(
+            f"Routing decision: {question_type} -> {provider}"
+            + (" (specialist)" if is_specialist else "")
+        )
+
+    def record_provider_fallback(
+        self,
+        question_type: str,
+        primary_provider: str,
+        fallback_provider: str,
+        reason: str,
+    ) -> None:
+        """Record when a specialist provider falls back (TASK-575).
+
+        Args:
+            question_type: Type of question being generated
+            primary_provider: Original specialist provider
+            fallback_provider: Fallback provider used
+            reason: Reason for the fallback
+        """
+        fallback = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "question_type": question_type,
+            "primary_provider": primary_provider,
+            "fallback_provider": fallback_provider,
+            "reason": reason,
+        }
+        self._provider_fallbacks.append(fallback)
+
+        logger.info(
+            f"Provider fallback for {question_type}: {primary_provider} -> "
+            f"{fallback_provider} ({reason})"
+        )
+
+    def record_question_latency(
+        self,
+        question_type: str,
+        latency_seconds: float,
+    ) -> None:
+        """Record generation latency for a question type (TASK-575).
+
+        Args:
+            question_type: Type of question generated
+            latency_seconds: Generation time in seconds
+        """
+        self._latencies_by_question_type[question_type].append(latency_seconds)
+        logger.debug(f"Latency for {question_type}: {latency_seconds:.3f}s")
+
+    def record_question_cost(
+        self,
+        question_type: str,
+        cost_usd: float,
+    ) -> None:
+        """Record cost for a question type (TASK-575).
+
+        Args:
+            question_type: Type of question generated
+            cost_usd: Cost in USD
+        """
+        self._cost_by_question_type[question_type] += cost_usd
+        logger.debug(f"Cost for {question_type}: ${cost_usd:.6f}")
+
+    def get_routing_metrics(self) -> Dict[str, Any]:
+        """Get specialist routing metrics (TASK-575).
+
+        Returns:
+            Dictionary with routing decisions, latencies, costs, and fallbacks
+        """
+        # Calculate latency percentiles per question type
+        latencies_summary = {}
+        for qtype, latencies in self._latencies_by_question_type.items():
+            if latencies:
+                sorted_latencies = sorted(latencies)
+                n = len(sorted_latencies)
+                latencies_summary[qtype] = {
+                    "count": n,
+                    "avg": round(sum(latencies) / n, 3),
+                    "min": round(min(latencies), 3),
+                    "max": round(max(latencies), 3),
+                    "p50": round(sorted_latencies[int(n * 0.5)], 3),
+                    "p95": round(sorted_latencies[int(n * 0.95)], 3)
+                    if n >= self._min_samples_for_p95
+                    else None,
+                    "p99": round(sorted_latencies[int(n * 0.99)], 3)
+                    if n >= self._min_samples_for_p99
+                    else None,
+                }
+
+        # Calculate success rates per question type
+        success_rates = {}
+        for qtype in self._latencies_by_question_type.keys():
+            generated = dict(self.questions_by_type).get(qtype, 0)
+            # We can infer failures from the difference, but for now track successes
+            success_rates[qtype] = {
+                "generated": generated,
+                "latency_records": len(self._latencies_by_question_type.get(qtype, [])),
+            }
+
+        return {
+            "routing_decisions_count": len(self._routing_decisions),
+            "routing_decisions_recent": self._routing_decisions[-10:],
+            "latencies_by_type": latencies_summary,
+            "cost_by_type": {
+                k: round(v, 6) for k, v in self._cost_by_question_type.items()
+            },
+            "provider_fallbacks_count": len(self._provider_fallbacks),
+            "provider_fallbacks": self._provider_fallbacks[-10:],
+            "questions_by_provider_and_type": {
+                provider: dict(types)
+                for provider, types in self._questions_by_provider_and_type.items()
+            },
+            "success_rates_by_type": success_rates,
         }
 
     def record_generation_request(self, count: int) -> None:
@@ -535,6 +689,8 @@ class MetricsTracker:
             "stage_durations": self.get_stage_durations(),
             # TASK-472: Embedding cache performance metrics
             "embedding_cache": self.get_embedding_cache_stats(),
+            # TASK-575: Specialist routing metrics
+            "routing": self.get_routing_metrics(),
         }
 
         return summary
@@ -670,6 +826,38 @@ class MetricsTracker:
             print(f"  Misses:   {embedding_cache['misses']}")
             print(f"  Size:     {embedding_cache['size']}")
             print(f"  Hit Rate: {embedding_cache['hit_rate']:.1%}")
+
+        # Specialist Routing Metrics (TASK-575)
+        routing = summary.get("routing", {})
+        if routing.get("routing_decisions_count", 0) > 0:
+            print("\nSpecialist Routing:")
+            print(f"  Total Routing Decisions: {routing['routing_decisions_count']}")
+            print(f"  Provider Fallbacks:      {routing['provider_fallbacks_count']}")
+
+            # Cost by question type
+            cost_by_type = routing.get("cost_by_type", {})
+            if cost_by_type:
+                print("  Cost by Question Type:")
+                for qtype, cost in cost_by_type.items():
+                    print(f"    {qtype}: ${cost:.4f}")
+
+            # Latencies by question type
+            latencies = routing.get("latencies_by_type", {})
+            if latencies:
+                print("  Latencies by Question Type:")
+                for qtype, stats in latencies.items():
+                    print(
+                        f"    {qtype}: avg={stats['avg']:.2f}s, "
+                        f"p50={stats['p50']:.2f}s, count={stats['count']}"
+                    )
+
+            # Questions by provider and type
+            by_provider_type = routing.get("questions_by_provider_and_type", {})
+            if by_provider_type:
+                print("  Questions by Provider and Type:")
+                for provider, types in by_provider_type.items():
+                    type_list = ", ".join(f"{t}={c}" for t, c in types.items())
+                    print(f"    {provider}: {type_list}")
 
         print("=" * 80 + "\n")
 
