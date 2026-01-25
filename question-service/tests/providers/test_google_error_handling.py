@@ -1,0 +1,547 @@
+"""Tests for Google provider error handling and retry behavior.
+
+These tests verify that the Google provider correctly handles various
+error scenarios including rate limits, authentication failures, server
+errors, and network issues. The tests ensure proper error classification
+and retry behavior.
+
+The tests use mocking to simulate API errors since real integration tests
+cannot reliably trigger error conditions like rate limits on demand.
+"""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from app.error_classifier import ErrorCategory, ErrorSeverity
+from app.providers.base import (
+    LLMProviderError,
+    RetryConfig,
+    get_retry_metrics,
+    reset_retry_metrics,
+)
+from app.providers.google_provider import GoogleProvider
+
+
+class TestGoogleProviderErrorClassification:
+    """Tests for error classification in GoogleProvider."""
+
+    @pytest.fixture(autouse=True)
+    def reset_metrics(self):
+        """Reset retry metrics before and after each test."""
+        reset_retry_metrics()
+        yield
+        reset_retry_metrics()
+
+    @pytest.fixture
+    def provider(self, mock_openai_api_key):
+        """Create a GoogleProvider with mocked initialization."""
+        with patch("app.providers.google_provider.genai.configure"):
+            with patch("app.providers.google_provider.genai.GenerativeModel"):
+                return GoogleProvider(api_key=mock_openai_api_key)
+
+    def test_rate_limit_error_classification(self, provider):
+        """Test that rate limit errors (429) are correctly classified as retryable."""
+        # Simulate a 429 rate limit error
+        rate_limit_error = Exception("429 Too Many Requests: Rate limit exceeded")
+
+        llm_error = provider._handle_api_error(rate_limit_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.RATE_LIMIT
+        assert llm_error.classified_error.severity == ErrorSeverity.HIGH
+        assert llm_error.classified_error.is_retryable is True
+        assert llm_error.classified_error.provider == "google"
+
+    def test_authentication_error_classification(self, provider):
+        """Test that authentication errors (401) are correctly classified as non-retryable."""
+        # Simulate an authentication error
+        auth_error = Exception("401 Unauthorized: Invalid API key")
+
+        llm_error = provider._handle_api_error(auth_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.AUTHENTICATION
+        assert llm_error.classified_error.severity == ErrorSeverity.CRITICAL
+        assert llm_error.classified_error.is_retryable is False
+        assert llm_error.classified_error.provider == "google"
+
+    def test_invalid_api_key_error_classification(self, provider):
+        """Test that invalid API key errors are classified as authentication errors.
+
+        Note: Google's actual error message format may vary. This test uses
+        a format that matches the error classifier's patterns. If Google's
+        API returns a different format (e.g., "API key not valid"), the
+        classifier may need to be updated with additional patterns.
+        """
+        # Simulate an invalid API key error with a format the classifier recognizes
+        api_key_error = Exception("Invalid API key provided")
+
+        llm_error = provider._handle_api_error(api_key_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.AUTHENTICATION
+        assert llm_error.classified_error.severity == ErrorSeverity.CRITICAL
+        assert llm_error.classified_error.is_retryable is False
+
+    def test_server_error_classification(self, provider):
+        """Test that server errors (5xx) are correctly classified as retryable."""
+        # Simulate a 500 server error
+        server_error = Exception("500 Internal Server Error")
+
+        llm_error = provider._handle_api_error(server_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.SERVER_ERROR
+        assert llm_error.classified_error.severity == ErrorSeverity.MEDIUM
+        assert llm_error.classified_error.is_retryable is True
+
+    def test_service_unavailable_error_classification(self, provider):
+        """Test that service unavailable errors are classified as server errors."""
+        # Simulate a 503 service unavailable error
+        unavailable_error = Exception(
+            "503 Service Unavailable: The service is overloaded"
+        )
+
+        llm_error = provider._handle_api_error(unavailable_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.SERVER_ERROR
+        assert llm_error.classified_error.is_retryable is True
+
+    def test_network_timeout_error_classification(self, provider):
+        """Test that timeout errors are correctly classified as retryable."""
+        # Simulate a timeout error
+        timeout_error = Exception("Connection timeout while calling the API")
+
+        llm_error = provider._handle_api_error(timeout_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.NETWORK_ERROR
+        assert llm_error.classified_error.severity == ErrorSeverity.LOW
+        assert llm_error.classified_error.is_retryable is True
+
+    def test_connection_error_classification(self, provider):
+        """Test that connection errors are correctly classified as retryable."""
+        # Simulate a connection refused error
+        connection_error = Exception("Connection refused to the API server")
+
+        llm_error = provider._handle_api_error(connection_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.NETWORK_ERROR
+        assert llm_error.classified_error.is_retryable is True
+
+    def test_quota_exceeded_error_classification(self, provider):
+        """Test that quota exceeded errors are classified as billing errors."""
+        # Simulate a quota exceeded error
+        quota_error = Exception(
+            "Quota exceeded for project. Please increase your quota."
+        )
+
+        llm_error = provider._handle_api_error(quota_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert llm_error.classified_error.severity == ErrorSeverity.CRITICAL
+        assert llm_error.classified_error.is_retryable is False
+
+    def test_model_not_found_error_classification(self, provider):
+        """Test that model not found errors are correctly classified."""
+        # Simulate a model not found error
+        model_error = Exception("Model not found: gemini-nonexistent-model")
+
+        llm_error = provider._handle_api_error(model_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.MODEL_ERROR
+        assert llm_error.classified_error.severity == ErrorSeverity.MEDIUM
+        assert llm_error.classified_error.is_retryable is False
+
+    def test_invalid_request_error_classification(self, provider):
+        """Test that invalid request errors are correctly classified."""
+        # Simulate a 400 bad request error
+        bad_request_error = Exception("400 Bad Request: Invalid parameter value")
+
+        llm_error = provider._handle_api_error(bad_request_error)
+
+        assert isinstance(llm_error, LLMProviderError)
+        assert llm_error.classified_error.category == ErrorCategory.INVALID_REQUEST
+        assert llm_error.classified_error.is_retryable is False
+
+
+class TestGoogleProviderRetryBehavior:
+    """Tests for retry behavior with different error types."""
+
+    @pytest.fixture(autouse=True)
+    def reset_metrics(self):
+        """Reset retry metrics before and after each test."""
+        reset_retry_metrics()
+        yield
+        reset_retry_metrics()
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_retries_on_rate_limit_error(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that rate limit errors trigger retries with eventual success."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # First two calls fail with rate limit, third succeeds
+        rate_limit_error = Exception("429 Too Many Requests")
+        mock_response = MagicMock()
+        mock_response.text = "Success response"
+        mock_model.generate_content.side_effect = [
+            rate_limit_error,
+            rate_limit_error,
+            mock_response,
+        ]
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = provider.generate_completion("Test prompt")
+
+        assert result == "Success response"
+        assert mock_model.generate_content.call_count == 3
+        # Sleep called twice (after first and second failures)
+        assert mock_sleep.call_count == 2
+
+        metrics = get_retry_metrics()
+        assert metrics.successful_retries == 1  # Final success after retries
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_no_retry_on_authentication_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that authentication errors raise immediately without retry."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # Authentication error should not retry
+        auth_error = Exception("401 Unauthorized: Invalid API key")
+        mock_model.generate_content.side_effect = auth_error
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            provider.generate_completion("Test prompt")
+
+        assert exc_info.value.classified_error.category == ErrorCategory.AUTHENTICATION
+        # Only called once - no retries for auth errors
+        assert mock_model.generate_content.call_count == 1
+
+        metrics = get_retry_metrics()
+        assert metrics.total_retries == 0
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_retries_exhausted_on_server_error(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that retries are eventually exhausted on persistent server errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # All calls fail with server error
+        server_error = Exception("503 Service Unavailable")
+        mock_model.generate_content.side_effect = server_error
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        # Use a small retry config for faster tests
+        with patch.object(provider, "_execute_with_retry") as mock_execute:
+            # Re-implement retry behavior with custom config
+            from app.providers.base import with_retry
+
+            def execute_with_custom_retry(api_call, retry_config=None):
+                config = RetryConfig(max_retries=2, base_delay=0.01, max_delay=0.1)
+                return with_retry(api_call, provider.get_provider_name(), config)
+
+            mock_execute.side_effect = execute_with_custom_retry
+
+            with pytest.raises(LLMProviderError) as exc_info:
+                provider.generate_completion("Test prompt")
+
+            assert (
+                exc_info.value.classified_error.category == ErrorCategory.SERVER_ERROR
+            )
+
+        metrics = get_retry_metrics()
+        assert metrics.exhausted_retries == 1
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_retries_on_network_error(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that network errors trigger retries."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # First call fails with network error, second succeeds
+        network_error = Exception("Connection timeout")
+        mock_response = MagicMock()
+        mock_response.text = "Success after network recovery"
+        mock_model.generate_content.side_effect = [network_error, mock_response]
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = provider.generate_completion("Test prompt")
+
+        assert result == "Success after network recovery"
+        assert mock_model.generate_content.call_count == 2
+        assert mock_sleep.call_count == 1
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_no_retry_on_quota_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that quota/billing errors raise immediately without retry."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # Quota exceeded error should not retry
+        quota_error = Exception("Quota exceeded for the project")
+        mock_model.generate_content.side_effect = quota_error
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            provider.generate_completion("Test prompt")
+
+        assert exc_info.value.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert mock_model.generate_content.call_count == 1
+
+
+class TestGoogleProviderStructuredCompletionErrors:
+    """Tests for error handling in structured completion methods."""
+
+    @pytest.fixture(autouse=True)
+    def reset_metrics(self):
+        """Reset retry metrics before and after each test."""
+        reset_retry_metrics()
+        yield
+        reset_retry_metrics()
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_structured_completion_retries_on_rate_limit(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that structured completion retries on rate limit errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # First call fails, second succeeds
+        rate_limit_error = Exception("429 Rate limit exceeded")
+        mock_response = MagicMock()
+        mock_response.text = '{"key": "value"}'
+        mock_model.generate_content.side_effect = [rate_limit_error, mock_response]
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = provider.generate_structured_completion(
+            "Generate JSON",
+            {"type": "object", "properties": {"key": {"type": "string"}}},
+        )
+
+        assert result == {"key": "value"}
+        assert mock_model.generate_content.call_count == 2
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_structured_completion_no_retry_on_auth_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that structured completion doesn't retry on auth errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        auth_error = Exception("403 Forbidden: API key lacks permission")
+        mock_model.generate_content.side_effect = auth_error
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            provider.generate_structured_completion(
+                "Generate JSON",
+                {"type": "object"},
+            )
+
+        assert exc_info.value.classified_error.category == ErrorCategory.AUTHENTICATION
+        assert mock_model.generate_content.call_count == 1
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_structured_completion_json_parse_error_not_retried(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that JSON parse errors are not retried (they're not API errors)."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # Return invalid JSON that will fail to parse
+        mock_response = MagicMock()
+        mock_response.text = "This is not valid JSON"
+        mock_model.generate_content.return_value = mock_response
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(Exception, match="Failed to parse JSON response"):
+            provider.generate_structured_completion(
+                "Generate JSON",
+                {"type": "object"},
+            )
+
+        # JSON decode errors happen after the API call succeeds,
+        # so there's only one API call
+        assert mock_model.generate_content.call_count == 1
+
+
+class TestGoogleProviderAsyncErrorHandling:
+    """Tests for async error handling in GoogleProvider."""
+
+    @pytest.fixture(autouse=True)
+    def reset_metrics(self):
+        """Reset retry metrics before and after each test."""
+        reset_retry_metrics()
+        yield
+        reset_retry_metrics()
+
+    @pytest.mark.asyncio
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.asyncio.sleep")
+    async def test_async_completion_retries_on_rate_limit(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that async completion retries on rate limit errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        # Set up async mock
+        rate_limit_error = Exception("429 Too Many Requests")
+        mock_response = MagicMock()
+        mock_response.text = "Async success"
+
+        async def mock_generate_content_async(*args, **kwargs):
+            # Track call count via side effects
+            if mock_model.generate_content_async.call_count <= 1:
+                raise rate_limit_error
+            return mock_response
+
+        mock_model.generate_content_async = MagicMock(
+            side_effect=mock_generate_content_async
+        )
+        mock_model.generate_content_async.call_count = 0
+
+        # Make call_count work
+        original_side_effect = mock_model.generate_content_async.side_effect
+
+        async def counting_side_effect(*args, **kwargs):
+            mock_model.generate_content_async.call_count += 1
+            return await original_side_effect(*args, **kwargs)
+
+        mock_model.generate_content_async.side_effect = counting_side_effect
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = await provider.generate_completion_async("Test prompt")
+
+        assert result == "Async success"
+
+    @pytest.mark.asyncio
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    async def test_async_completion_no_retry_on_auth_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that async completion doesn't retry on auth errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        auth_error = Exception("401 Unauthorized")
+
+        async def mock_generate_content_async(*args, **kwargs):
+            raise auth_error
+
+        mock_model.generate_content_async = MagicMock(
+            side_effect=mock_generate_content_async
+        )
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            await provider.generate_completion_async("Test prompt")
+
+        assert exc_info.value.classified_error.category == ErrorCategory.AUTHENTICATION
+
+
+class TestGoogleProviderErrorMessages:
+    """Tests for error message content and formatting."""
+
+    @pytest.fixture
+    def provider(self, mock_openai_api_key):
+        """Create a GoogleProvider with mocked initialization."""
+        with patch("app.providers.google_provider.genai.configure"):
+            with patch("app.providers.google_provider.genai.GenerativeModel"):
+                return GoogleProvider(api_key=mock_openai_api_key)
+
+    def test_rate_limit_error_message_includes_provider(self, provider):
+        """Test that rate limit error messages identify the provider."""
+        error = Exception("Rate limit exceeded")
+        llm_error = provider._handle_api_error(error)
+
+        assert "google" in llm_error.classified_error.message.lower()
+        assert "rate" in llm_error.classified_error.message.lower()
+
+    def test_auth_error_message_includes_guidance(self, provider):
+        """Test that authentication error messages include helpful guidance."""
+        error = Exception("Invalid API key")
+        llm_error = provider._handle_api_error(error)
+
+        message = llm_error.classified_error.message.lower()
+        assert "api key" in message
+        assert "google" in message
+
+    def test_billing_error_message_includes_account_reference(self, provider):
+        """Test that billing errors reference account issues."""
+        error = Exception("Quota exceeded")
+        llm_error = provider._handle_api_error(error)
+
+        message = llm_error.classified_error.message.lower()
+        assert "google" in message
+        # Should mention account, balance, or usage
+        assert any(word in message for word in ["account", "balance", "limit", "usage"])
+
+    def test_error_preserves_original_exception(self, provider):
+        """Test that the original exception is preserved in the error."""
+        original_error = Exception("Original error message")
+        llm_error = provider._handle_api_error(original_error)
+
+        assert llm_error.original_exception is original_error
+        assert "Original error message" in str(llm_error.original_exception)
