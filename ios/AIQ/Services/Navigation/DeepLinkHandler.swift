@@ -250,10 +250,12 @@ struct DeepLinkHandler {
         // Extra components are ignored but may indicate a malformed URL or future URL pattern.
         if pathComponents.count > 2 {
             let extraComponents = Array(pathComponents.dropFirst(2))
+            // Use .auto privacy to allow full details during development while
+            // redacting potentially sensitive URL data on user devices.
             Self.logger.warning(
                 """
                 Deep link has extra path components that will be ignored: \
-                \(extraComponents, privacy: .public) in URL: \(originalURL, privacy: .public)
+                \(extraComponents, privacy: .auto) in URL: \(originalURL, privacy: .auto)
                 """
             )
         }
