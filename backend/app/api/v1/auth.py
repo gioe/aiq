@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from app.core.datetime_utils import utc_now
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -352,7 +352,7 @@ def _revoke_token(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout_user(
     request: Request,
-    logout_data: LogoutRequest = None,
+    logout_data: LogoutRequest = Body(None),
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
