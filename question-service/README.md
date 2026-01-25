@@ -511,4 +511,5 @@ See [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) for Railway-specifi
 - **[docs/SCHEDULING.md](docs/SCHEDULING.md)** - Scheduling options
 - **[docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)** - Railway deployment guide
 - **[docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md)** - Model selection rationale
+- **[docs/GOOGLE_MODEL_VERSIONING.md](docs/GOOGLE_MODEL_VERSIONING.md)** - Gemini model version monitoring strategy
 - **[config/README.md](config/README.md)** - Judge configuration reference
