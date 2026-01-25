@@ -57,6 +57,7 @@ class TestOpenAIProviderModelAvailability:
             pytest.fail(
                 f"The following models are listed in get_available_models() "
                 f"but not found in OpenAI API: {missing_models}\n"
+                f"Available models: {sorted(api_model_ids)}\n"
                 f"Consider updating the model list in openai_provider.py"
             )
 
@@ -70,6 +71,7 @@ class TestOpenAIProviderModelAvailability:
 
         assert provider.model in api_model_ids, (
             f"Default model '{provider.model}' not found in OpenAI API. "
+            f"Available models: {sorted(api_model_ids)}\n"
             f"Consider updating the default model in OpenAIProvider.__init__()"
         )
 
@@ -99,8 +101,16 @@ class TestAnthropicProviderModelAvailability:
     def test_can_make_completion_with_each_model(self, provider):
         """Verify each listed model can be used for completions.
 
-        Note: Anthropic doesn't provide a models.list() endpoint like OpenAI,
-        so we test by attempting a minimal completion with each model.
+        Testing Strategy:
+        Anthropic doesn't provide a public models.list() endpoint like OpenAI,
+        so we validate models by attempting a minimal completion with each one.
+        This approach has trade-offs:
+        - Pro: Validates model actually works end-to-end
+        - Con: Costs ~9 API calls (one per model) with minimal tokens
+        - Con: Error message matching is heuristic-based
+
+        We use max_tokens=1 to minimize cost and capture any model-related
+        errors that indicate the model doesn't exist or is unavailable.
         """
         listed_models = provider.get_available_models()
         failed_models = []
@@ -110,18 +120,28 @@ class TestAnthropicProviderModelAvailability:
                 result = provider.generate_completion(
                     "Say 'ok'",
                     temperature=0,
-                    max_tokens=5,
+                    max_tokens=1,  # Minimize token cost
                     model_override=model,
                 )
                 assert result is not None
             except Exception as e:
-                # Check if it's a "model not found" type error
+                # Check if it's a model-related error
+                # Anthropic errors may include: "model not found", "invalid model",
+                # "unknown model", "unavailable", "does not exist", etc.
                 error_str = str(e).lower()
-                if "model" in error_str and (
-                    "not found" in error_str
-                    or "invalid" in error_str
-                    or "unknown" in error_str
-                ):
+                model_error_indicators = [
+                    "not found",
+                    "invalid",
+                    "unknown",
+                    "unavailable",
+                    "does not exist",
+                    "not supported",
+                    "not available",
+                ]
+                is_model_error = "model" in error_str and any(
+                    indicator in error_str for indicator in model_error_indicators
+                )
+                if is_model_error:
                     failed_models.append((model, str(e)))
 
         if failed_models:
