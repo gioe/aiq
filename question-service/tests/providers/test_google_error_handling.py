@@ -9,14 +9,13 @@ The tests use mocking to simulate API errors since real integration tests
 cannot reliably trigger error conditions like rate limits on demand.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.error_classifier import ErrorCategory, ErrorSeverity
 from app.providers.base import (
     LLMProviderError,
-    RetryConfig,
     get_retry_metrics,
     reset_retry_metrics,
 )
@@ -250,33 +249,31 @@ class TestGoogleProviderRetryBehavior:
         mock_configure,
         mock_openai_api_key,
     ):
-        """Test that retries are eventually exhausted on persistent server errors."""
+        """Test that retries are eventually exhausted on persistent server errors.
+
+        This test verifies the actual retry behavior by letting the provider
+        execute with the default retry config. The sleep is mocked to speed
+        up test execution.
+        """
         mock_model = MagicMock()
         mock_generative_model_class.return_value = mock_model
 
-        # All calls fail with server error
+        # All calls fail with server error - provider will retry until exhausted
         server_error = Exception("503 Service Unavailable")
         mock_model.generate_content.side_effect = server_error
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
 
-        # Use a small retry config for faster tests
-        with patch.object(provider, "_execute_with_retry") as mock_execute:
-            # Re-implement retry behavior with custom config
-            from app.providers.base import with_retry
+        with pytest.raises(LLMProviderError) as exc_info:
+            provider.generate_completion("Test prompt")
 
-            def execute_with_custom_retry(api_call, retry_config=None):
-                config = RetryConfig(max_retries=2, base_delay=0.01, max_delay=0.1)
-                return with_retry(api_call, provider.get_provider_name(), config)
+        assert exc_info.value.classified_error.category == ErrorCategory.SERVER_ERROR
 
-            mock_execute.side_effect = execute_with_custom_retry
-
-            with pytest.raises(LLMProviderError) as exc_info:
-                provider.generate_completion("Test prompt")
-
-            assert (
-                exc_info.value.classified_error.category == ErrorCategory.SERVER_ERROR
-            )
+        # With default config (3 retries), we should have 4 total calls
+        # (1 initial + 3 retries)
+        assert mock_model.generate_content.call_count == 4
+        # Sleep should be called 3 times (once before each retry)
+        assert mock_sleep.call_count == 3
 
         metrics = get_retry_metrics()
         assert metrics.exhausted_retries == 1
@@ -444,35 +441,22 @@ class TestGoogleProviderAsyncErrorHandling:
         mock_model = MagicMock()
         mock_generative_model_class.return_value = mock_model
 
-        # Set up async mock
+        # Set up async mock using AsyncMock with side_effect list
         rate_limit_error = Exception("429 Too Many Requests")
         mock_response = MagicMock()
         mock_response.text = "Async success"
 
-        async def mock_generate_content_async(*args, **kwargs):
-            # Track call count via side effects
-            if mock_model.generate_content_async.call_count <= 1:
-                raise rate_limit_error
-            return mock_response
-
-        mock_model.generate_content_async = MagicMock(
-            side_effect=mock_generate_content_async
+        # AsyncMock handles async/await automatically and tracks call_count
+        mock_model.generate_content_async = AsyncMock(
+            side_effect=[rate_limit_error, mock_response]
         )
-        mock_model.generate_content_async.call_count = 0
-
-        # Make call_count work
-        original_side_effect = mock_model.generate_content_async.side_effect
-
-        async def counting_side_effect(*args, **kwargs):
-            mock_model.generate_content_async.call_count += 1
-            return await original_side_effect(*args, **kwargs)
-
-        mock_model.generate_content_async.side_effect = counting_side_effect
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
         result = await provider.generate_completion_async("Test prompt")
 
         assert result == "Async success"
+        assert mock_model.generate_content_async.call_count == 2
+        assert mock_sleep.call_count == 1  # One sleep between retry
 
     @pytest.mark.asyncio
     @patch("app.providers.google_provider.genai.configure")
@@ -486,12 +470,8 @@ class TestGoogleProviderAsyncErrorHandling:
 
         auth_error = Exception("401 Unauthorized")
 
-        async def mock_generate_content_async(*args, **kwargs):
-            raise auth_error
-
-        mock_model.generate_content_async = MagicMock(
-            side_effect=mock_generate_content_async
-        )
+        # AsyncMock with side_effect for raising exceptions
+        mock_model.generate_content_async = AsyncMock(side_effect=auth_error)
 
         provider = GoogleProvider(api_key=mock_openai_api_key)
 
@@ -499,6 +479,7 @@ class TestGoogleProviderAsyncErrorHandling:
             await provider.generate_completion_async("Test prompt")
 
         assert exc_info.value.classified_error.category == ErrorCategory.AUTHENTICATION
+        assert mock_model.generate_content_async.call_count == 1  # No retries
 
 
 class TestGoogleProviderErrorMessages:
@@ -545,3 +526,180 @@ class TestGoogleProviderErrorMessages:
 
         assert llm_error.original_exception is original_error
         assert "Original error message" in str(llm_error.original_exception)
+
+
+class TestGoogleProviderInternalMethodsErrorHandling:
+    """Tests for error handling in _generate_*_internal methods.
+
+    These methods are used by the *_with_usage methods for token tracking
+    and have their own error handling paths that need testing.
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_metrics(self):
+        """Reset retry metrics before and after each test."""
+        reset_retry_metrics()
+        yield
+        reset_retry_metrics()
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_internal_completion_retries_on_rate_limit(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that _generate_completion_internal retries on rate limit errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        rate_limit_error = Exception("429 Too Many Requests")
+        mock_response = MagicMock()
+        mock_response.text = "Success with token tracking"
+        mock_response.usage_metadata = MagicMock()
+        mock_response.usage_metadata.prompt_token_count = 10
+        mock_response.usage_metadata.candidates_token_count = 5
+
+        mock_model.generate_content.side_effect = [rate_limit_error, mock_response]
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = provider._generate_completion_internal("Test prompt")
+
+        assert result.content == "Success with token tracking"
+        assert result.token_usage is not None
+        assert result.token_usage.input_tokens == 10
+        assert result.token_usage.output_tokens == 5
+        assert mock_model.generate_content.call_count == 2
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_internal_completion_no_retry_on_auth_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that _generate_completion_internal doesn't retry on auth errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        auth_error = Exception("401 Unauthorized")
+        mock_model.generate_content.side_effect = auth_error
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            provider._generate_completion_internal("Test prompt")
+
+        assert exc_info.value.classified_error.category == ErrorCategory.AUTHENTICATION
+        assert mock_model.generate_content.call_count == 1
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.time.sleep")
+    def test_internal_structured_completion_retries_on_server_error(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that _generate_structured_completion_internal retries on server errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        server_error = Exception("500 Internal Server Error")
+        mock_response = MagicMock()
+        mock_response.text = '{"result": "success"}'
+        mock_response.usage_metadata = MagicMock()
+        mock_response.usage_metadata.prompt_token_count = 20
+        mock_response.usage_metadata.candidates_token_count = 10
+
+        mock_model.generate_content.side_effect = [server_error, mock_response]
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = provider._generate_structured_completion_internal(
+            "Generate JSON", {"type": "object"}
+        )
+
+        assert result.content == {"result": "success"}
+        assert result.token_usage is not None
+        assert mock_model.generate_content.call_count == 2
+
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    def test_internal_structured_completion_json_parse_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that _generate_structured_completion_internal handles JSON parse errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        mock_response = MagicMock()
+        mock_response.text = "Not valid JSON"
+        mock_model.generate_content.return_value = mock_response
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(Exception, match="Failed to parse JSON response"):
+            provider._generate_structured_completion_internal(
+                "Generate JSON", {"type": "object"}
+            )
+
+    @pytest.mark.asyncio
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    @patch("app.providers.base.asyncio.sleep")
+    async def test_internal_async_completion_retries_on_network_error(
+        self,
+        mock_sleep,
+        mock_generative_model_class,
+        mock_configure,
+        mock_openai_api_key,
+    ):
+        """Test that _generate_completion_internal_async retries on network errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        network_error = Exception("Connection timeout")
+        mock_response = MagicMock()
+        mock_response.text = "Async success with tracking"
+        mock_response.usage_metadata = MagicMock()
+        mock_response.usage_metadata.prompt_token_count = 15
+        mock_response.usage_metadata.candidates_token_count = 8
+
+        mock_model.generate_content_async = AsyncMock(
+            side_effect=[network_error, mock_response]
+        )
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+        result = await provider._generate_completion_internal_async("Test prompt")
+
+        assert result.content == "Async success with tracking"
+        assert result.token_usage is not None
+        assert result.token_usage.input_tokens == 15
+        assert result.token_usage.output_tokens == 8
+        assert mock_model.generate_content_async.call_count == 2
+
+    @pytest.mark.asyncio
+    @patch("app.providers.google_provider.genai.configure")
+    @patch("app.providers.google_provider.genai.GenerativeModel")
+    async def test_internal_async_structured_completion_no_retry_on_quota_error(
+        self, mock_generative_model_class, mock_configure, mock_openai_api_key
+    ):
+        """Test that _generate_structured_completion_internal_async doesn't retry on quota errors."""
+        mock_model = MagicMock()
+        mock_generative_model_class.return_value = mock_model
+
+        quota_error = Exception("Quota exceeded for the project")
+        mock_model.generate_content_async = AsyncMock(side_effect=quota_error)
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(LLMProviderError) as exc_info:
+            await provider._generate_structured_completion_internal_async(
+                "Generate JSON", {"type": "object"}
+            )
+
+        assert exc_info.value.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert mock_model.generate_content_async.call_count == 1
