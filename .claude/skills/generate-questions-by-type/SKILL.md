@@ -133,15 +133,32 @@ Error: Question service virtual environment not found.
 Please run: cd question-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
-### Generation Failures
-The script has built-in error handling and exit codes:
-- Exit 0: Success
-- Exit 1: Partial failure (some questions generated)
-- Exit 2: Complete failure (no questions generated)
-- Exit 3: Configuration error
-- Exit 4: Database error
+### Exit Code Handling
 
-Report the exit code and any error messages to the user.
+The `run_generation.py` script returns exit codes that indicate the result. **Handle each exit code as follows:**
+
+| Exit Code | Meaning | Action |
+|-----------|---------|--------|
+| 0 | Success | Report the number of questions generated and inserted. No action needed. |
+| 1 | Partial failure | Some questions were generated but others failed. Report the count of successful insertions and warn the user to check logs at `question-service/logs/` for details on failures. Suggest retrying with a smaller count if many failures occurred. |
+| 2 | Complete failure | No questions were generated. Check the error output for the cause. Common causes: API rate limits, network issues, or invalid prompts. Suggest the user wait and retry, or check API quotas. |
+| 3 | Configuration error | Environment or argument configuration is invalid. Check that `.env` file exists with valid API keys. Verify all required environment variables are set. |
+| 4 | Database error | Cannot connect to or write to the database. Verify database connectivity and check database configuration (`DATABASE_URL`). For local SQLite, ensure `question-service/questions.db` exists and is writable. |
+
+**Example handling:**
+
+```bash
+cd question-service && source venv/bin/activate && python run_generation.py --types math --count 50 --async --async-judge --verbose
+EXIT_CODE=$?
+
+case $EXIT_CODE in
+  0) echo "Generation completed successfully." ;;
+  1) echo "Partial failure. Check logs at question-service/logs/ for details." ;;
+  2) echo "Complete failure. Check API quotas and retry." ;;
+  3) echo "Configuration error. Verify .env file and environment variables." ;;
+  4) echo "Database error. Check database file permissions and connectivity." ;;
+esac
+```
 
 ## Notes
 
