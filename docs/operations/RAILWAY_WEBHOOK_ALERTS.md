@@ -33,6 +33,8 @@ The webhook URL format is:
 https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
 ```
 
+> **Security Note**: Treat the webhook URL as a secret. Anyone with this URL can post messages to your Discord channel. If accidentally exposed, delete and recreate the webhook in Discord.
+
 ## Step 2: Configure Railway Webhook
 
 1. **Open Railway Dashboard**: [railway.app/dashboard](https://railway.app/dashboard)
