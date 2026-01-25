@@ -41,7 +41,7 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 | **mathematical** | grok-4 | xAI | GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9% |
 | **logical_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82% |
 | **pattern_recognition** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0% |
-| **spatial_reasoning** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0% |
+| **spatial_reasoning** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1% standard mode (Deep Think 45.1% not enabled), MMMU-Pro: 81.0% |
 | **verbal_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, HellaSwag: ~95% |
 | **memory** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, 200K context |
 | **default** | gpt-4-turbo | OpenAI | General-purpose fallback |
@@ -55,8 +55,8 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 - Massive context window (200K tokens) beneficial for memory tasks
 
 **Gemini 3 Pro** breakthrough for pattern/spatial reasoning:
-- ARC-AGI-2: 31.1% (6x improvement over previous models)
-- Deep Think mode achieves 45.1% on ARC-AGI-2
+- ARC-AGI-2: 31.1% standard mode (6x improvement over previous models)
+- Deep Think mode achieves 45.1% on ARC-AGI-2 (not currently enabled in our implementation)
 - MMMU-Pro: 81.0% multimodal reasoning
 - GPQA Diamond: 91.9% (highest among all models)
 
@@ -110,12 +110,12 @@ Each question type was mapped to relevant public benchmarks:
 #### 4. Spatial Reasoning
 **Relevant Benchmarks**:
 - **ARC-AGI-2**: Abstract visual-spatial reasoning tasks
-- **ARC-AGI-2 Deep Think**: Extended reasoning mode for complex spatial tasks
+- **ARC-AGI-2 Deep Think**: Extended reasoning mode for complex spatial tasks (not currently enabled)
 - **MMMU-Pro**: Multimodal understanding including spatial components
 
-**Decision Logic**: ARC-AGI-2 provides the first rigorous benchmark for spatial reasoning. Gemini 3 Pro's breakthrough 31.1% score (45.1% with Deep Think) represents 6x improvement over previous models.
+**Decision Logic**: ARC-AGI-2 provides the first rigorous benchmark for spatial reasoning. Gemini 3 Pro's breakthrough 31.1% score (45.1% with Deep Think, not enabled) represents 6x improvement over previous models. We expect 31.1% performance with standard mode.
 
-**Winner**: Gemini 3 Pro - ARC-AGI-2: 31.1% (45.1% Deep Think), MMMU-Pro: 81.0%
+**Winner**: Gemini 3 Pro - ARC-AGI-2: 31.1% standard mode (Deep Think 45.1% not enabled), MMMU-Pro: 81.0%
 
 #### 5. Verbal Reasoning
 **Relevant Benchmarks**:
@@ -237,7 +237,7 @@ Each question type was mapped to relevant public benchmarks:
 - MMLU: 92.1%
 
 **Gemini 3 Pro (gemini-3-pro-preview)**:
-- ARC-AGI-2: 31.1% (45.1% Deep Think)
+- ARC-AGI-2: 31.1% standard mode (45.1% with Deep Think, not currently enabled)
 - GPQA Diamond: 91.9%
 - MMMU-Pro: 81.0%
 - MMLU: ~92%
@@ -433,9 +433,9 @@ Use the following criteria to decide if an judge change is warranted:
 #### Special Cases
 
 **Gemini 3 Pro**: Now selected for pattern and spatial reasoning due to:
-- Breakthrough ARC-AGI-2 performance (31.1%, 6x improvement over previous models)
+- Breakthrough ARC-AGI-2 performance (31.1% standard mode, 6x improvement over previous models)
 - Highest GPQA Diamond score (91.9%) among all models
-- Deep Think mode provides additional reasoning power (45.1% on ARC-AGI-2)
+- Deep Think mode can achieve 45.1% on ARC-AGI-2 (not currently enabled, future enhancement)
 
 **Grok 4 (xAI)**: Selected for mathematical reasoning due to:
 - Perfect AIME 2024 score (100%)
@@ -565,7 +565,7 @@ Grok 4 Heavy was evaluated as a potential upgrade for math judging based on repo
 4. **spatial_reasoning**: claude-3-5-sonnet-20241022 → gemini-3-pro-preview
    - Reason: ARC-AGI-2 provides first rigorous spatial reasoning benchmark
    - Previous: Claude 3.5 Sonnet (no dedicated spatial benchmark available)
-   - New: Gemini 3 Pro (ARC-AGI-2: 31.1%, Deep Think: 45.1%)
+   - New: Gemini 3 Pro (ARC-AGI-2: 31.1% standard mode; Deep Think 45.1% not enabled)
    - Improvement: Now using purpose-built spatial reasoning evaluation
 
 5. **verbal_reasoning**: claude-3-5-sonnet-20241022 → claude-sonnet-4-5-20250929

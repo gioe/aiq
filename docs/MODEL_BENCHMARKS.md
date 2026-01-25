@@ -92,9 +92,11 @@ The following table shows which models excel at each cognitive task type used in
 | **Math** | grok-4 | xAI | AIME 2024 | 100% |
 | **Logic** | claude-sonnet-4-5 | Anthropic | SWE-bench | 77-82% |
 | **Pattern** | gemini-3-pro-preview | Google | ARC-AGI-2 | 31.1% |
-| **Spatial** | gemini-3-pro-preview | Google | ARC-AGI-2 Deep Think | 45.1% |
+| **Spatial** | gemini-3-pro-preview | Google | ARC-AGI-2 | 31.1%* |
 | **Verbal** | claude-sonnet-4-5 | Anthropic | HellaSwag | ~95% |
 | **Memory** | claude-sonnet-4-5 | Anthropic | MMLU | 89% |
+
+*Uses standard mode. Deep Think mode (45.1%) is not currently enabled.
 
 ## Detailed Benchmark Data
 
@@ -134,16 +136,18 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 
 Pattern recognition benchmarks measure abstract reasoning and the ability to identify underlying structures.
 
-| Model | ARC-AGI-2 | ARC-AGI-2 (Deep Think) | MMMU-Pro | Visual Reasoning |
-|-------|-----------|------------------------|----------|------------------|
-| **gemini-3-pro-preview** | **31.1%** | **45.1%** | 81.0% | 62% |
+| Model | ARC-AGI-2 | ARC-AGI-2 (Deep Think)* | MMMU-Pro | Visual Reasoning |
+|-------|-----------|-------------------------|----------|------------------|
+| **gemini-3-pro-preview** | **31.1%** | 45.1% | 81.0% | 62% |
 | claude-sonnet-4-5 | - | - | - | - |
 | gpt-4-turbo | - | - | - | - |
 | grok-4 | - | - | - | - |
 
+*Deep Think mode is not currently enabled in our implementation.
+
 **Selected for Pattern Evaluation:** `gemini-3-pro-preview` (Google)
 
-**Rationale:** Gemini 3 Pro achieves breakthrough performance on ARC-AGI-2 (31.1%), the gold-standard benchmark for abstract pattern reasoning. This represents a 6x improvement over previous models and makes it the clear choice for evaluating pattern recognition questions.
+**Rationale:** Gemini 3 Pro achieves breakthrough performance on ARC-AGI-2 (31.1% standard mode), the gold-standard benchmark for abstract pattern reasoning. This represents a 6x improvement over previous models and makes it the clear choice for evaluating pattern recognition questions.
 
 ### Spatial Reasoning
 
@@ -157,7 +161,7 @@ Spatial reasoning benchmarks evaluate the ability to mentally manipulate objects
 
 **Selected for Spatial Evaluation:** `gemini-3-pro-preview` (Google)
 
-**Rationale:** Gemini 3 Pro's MMMU-Pro score (81.0%) and visual reasoning capabilities (62%) demonstrate strong spatial understanding. The ARC-AGI-2 benchmark, which tests abstract spatial manipulation, shows exceptional performance (31.1%, or 45.1% with Deep Think mode).
+**Rationale:** Gemini 3 Pro's MMMU-Pro score (81.0%) and visual reasoning capabilities (62%) demonstrate strong spatial understanding. The ARC-AGI-2 benchmark, which tests abstract spatial manipulation, shows exceptional performance (31.1% standard mode). Deep Think mode (45.1%) is not currently enabled but could be a future enhancement.
 
 ### Verbal Reasoning
 
