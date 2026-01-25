@@ -4,6 +4,7 @@ Integration tests for JWT token revocation via /auth/logout endpoint.
 import pytest
 from fastapi.testclient import TestClient
 from datetime import timedelta
+from unittest.mock import patch
 
 from app.main import app
 from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
@@ -544,3 +545,35 @@ class TestRefreshTokenRevocation:
         # Access token should be revoked
         response = client.get("/v1/user/profile", headers=headers)
         assert response.status_code == 401
+
+    def test_logout_with_access_token_as_refresh_token_logs_warning(
+        self, client, test_user
+    ):
+        """Test that a warning is logged when access token is passed as refresh_token."""
+        # Login to get fresh tokens
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        access_token = tokens["access_token"]
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Try to revoke using access token in refresh_token field (wrong token type)
+        with patch("app.api.v1.auth.logger") as mock_logger:
+            response = client.post(
+                "/v1/auth/logout",
+                headers=headers,
+                json={"refresh_token": access_token},
+            )
+            assert response.status_code == 204
+
+            # Verify warning was logged about wrong token type
+            assert mock_logger.warning.call_count >= 1
+            warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+            assert any(
+                "not a refresh token" in call for call in warning_calls
+            ), f"Expected warning about token type, got: {warning_calls}"
