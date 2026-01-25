@@ -48,7 +48,7 @@ Parse the arguments to extract type, count, and difficulty:
 
 Verify the question-service environment is ready:
 ```bash
-cd /Users/mattgioe/aiq/question-service && test -d venv && echo "venv exists" || echo "venv missing"
+cd question-service && test -d venv && echo "venv exists" || echo "venv missing"
 ```
 
 If venv is missing, inform the user they need to set up the question-service first.
@@ -58,7 +58,7 @@ If venv is missing, inform the user they need to set up the question-service fir
 Run the generation script with the validated parameters:
 
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python run_generation.py --types <type> --count <count> --async --async-judge --verbose
+cd question-service && source venv/bin/activate && python run_generation.py --types <type> --count <count> --async --async-judge --verbose
 ```
 
 If difficulty is specified, note that the current `run_generation.py` script does not support a `--difficulty` flag. Inform the user that difficulty filtering is not yet implemented and proceed with generation of all difficulty levels.
@@ -78,7 +78,7 @@ After execution:
 ```
 Executes:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python run_generation.py --types math --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && python run_generation.py --types math --count 50 --async --async-judge --verbose
 ```
 
 ### Generate 100 logic questions
@@ -87,7 +87,7 @@ cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python ru
 ```
 Executes:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python run_generation.py --types logic --count 100 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && python run_generation.py --types logic --count 100 --async --async-judge --verbose
 ```
 
 ### Generate 25 spatial questions (difficulty not yet supported)
@@ -96,7 +96,7 @@ cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python ru
 ```
 Notes that difficulty filtering is not yet supported, then executes:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && python run_generation.py --types spatial --count 25 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && python run_generation.py --types spatial --count 25 --async --async-judge --verbose
 ```
 
 ## Error Handling
@@ -115,7 +115,7 @@ Error: Count must be a positive integer. Got: 'abc'
 ### Missing venv
 ```
 Error: Question service virtual environment not found.
-Please run: cd /Users/mattgioe/aiq/question-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+Please run: cd question-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
 ### Generation Failures
