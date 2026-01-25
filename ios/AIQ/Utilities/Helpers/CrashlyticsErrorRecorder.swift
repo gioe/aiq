@@ -84,9 +84,9 @@ enum CrashlyticsErrorRecorder {
 
         #if DEBUG
             // In debug builds, print detailed error info
-            print("🔴 [\(context.rawValue)] Error: \(error)")
+            print("[ERROR] [\(context.rawValue)] \(error)")
             if let additionalInfo {
-                print("   Additional info: \(additionalInfo)")
+                print("       Additional info: \(additionalInfo)")
             }
         #else
             // In release builds, record to Crashlytics
@@ -135,7 +135,7 @@ enum CrashlyticsErrorRecorder {
     ///   - value: The value to log
     static func log(key: String, value: String) {
         #if DEBUG
-            print("📊 Crashlytics Log: \(key) = \(value)")
+            print("[CRASHLYTICS] Log: \(key) = \(value)")
         #else
             Crashlytics.crashlytics().setCustomValue(value, forKey: key)
         #endif
@@ -147,7 +147,7 @@ enum CrashlyticsErrorRecorder {
     /// - Parameter message: The breadcrumb message
     static func logBreadcrumb(_ message: String) {
         #if DEBUG
-            print("🍞 Breadcrumb: \(message)")
+            print("[CRASHLYTICS] Breadcrumb: \(message)")
         #else
             Crashlytics.crashlytics().log(message)
         #endif
