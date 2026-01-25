@@ -916,3 +916,121 @@ class TestSpecialistRoutingMetrics:
         # Check that 400 of batch1 remain (1000 - 600 = 400)
         batch1_count = sum(1 for d in decisions_list if d["provider"] == "google")
         assert batch1_count == 400
+
+    def test_routing_decisions_under_limit(self, tracker):
+        """Test deque behavior when under maxlen limit (TASK-592)."""
+        for i in range(500):
+            tracker.record_routing_decision(f"type_{i}", "google", None, True)
+
+        assert len(tracker._routing_decisions) == 500
+
+        routing = tracker.get_routing_metrics()
+        assert routing["routing_decisions_count"] == 500
+
+        # Reset should clear the deque
+        tracker.reset()
+        assert len(tracker._routing_decisions) == 0
+
+    def test_routing_decisions_at_exact_limit(self, tracker):
+        """Test deque behavior at exactly maxlen limit (TASK-592)."""
+        for i in range(1000):
+            tracker.record_routing_decision(f"type_{i}", "google", None, True)
+
+        assert len(tracker._routing_decisions) == 1000
+
+        routing = tracker.get_routing_metrics()
+        assert routing["routing_decisions_count"] == 1000
+
+        # First and last items should be present
+        decisions_list = list(tracker._routing_decisions)
+        assert decisions_list[0]["question_type"] == "type_0"
+        assert decisions_list[-1]["question_type"] == "type_999"
+
+
+class TestAllDequeCollections:
+    """Tests for all deque-based collections (TASK-592)."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create a fresh metrics tracker for each test."""
+        tracker = MetricsTracker()
+        tracker.reset()
+        return tracker
+
+    def test_generation_errors_bounded(self, tracker):
+        """Test that generation_errors is bounded at METRICS_HISTORY_LIMIT."""
+        for i in range(1100):
+            tracker.record_generation_failure("provider", f"error_{i}")
+
+        assert len(tracker.generation_errors) == 1000
+        # Oldest errors evicted, newest preserved
+        errors_list = list(tracker.generation_errors)
+        assert errors_list[0]["error"] == "error_100"
+        assert errors_list[-1]["error"] == "error_1099"
+
+    def test_evaluation_scores_bounded(self, tracker):
+        """Test that evaluation_scores is bounded at METRICS_HISTORY_LIMIT."""
+        for i in range(1100):
+            tracker.record_evaluation_success(
+                score=i / 1000.0, approved=True, judge_model="test/model"
+            )
+
+        assert len(tracker.evaluation_scores) == 1000
+        # Oldest scores evicted, newest preserved
+        scores_list = list(tracker.evaluation_scores)
+        assert scores_list[0] == pytest.approx(0.1)  # score 100/1000
+        assert scores_list[-1] == pytest.approx(1.099)  # score 1099/1000
+
+    def test_evaluation_errors_bounded(self, tracker):
+        """Test that evaluation_errors is bounded at METRICS_HISTORY_LIMIT."""
+        for i in range(1100):
+            tracker.record_evaluation_failure(f"error_{i}")
+
+        assert len(tracker.evaluation_errors) == 1000
+        errors_list = list(tracker.evaluation_errors)
+        assert errors_list[0]["error"] == "error_100"
+        assert errors_list[-1]["error"] == "error_1099"
+
+    def test_deduplication_errors_bounded(self, tracker):
+        """Test that deduplication_errors is bounded at METRICS_HISTORY_LIMIT."""
+        for i in range(1100):
+            tracker.record_deduplication_failure(f"error_{i}")
+
+        assert len(tracker.deduplication_errors) == 1000
+        errors_list = list(tracker.deduplication_errors)
+        assert errors_list[0]["error"] == "error_100"
+        assert errors_list[-1]["error"] == "error_1099"
+
+    def test_insertion_errors_bounded(self, tracker):
+        """Test that insertion_errors is bounded at METRICS_HISTORY_LIMIT."""
+        for i in range(1100):
+            tracker.record_insertion_failure(f"error_{i}")
+
+        assert len(tracker.insertion_errors) == 1000
+        errors_list = list(tracker.insertion_errors)
+        assert errors_list[0]["error"] == "error_100"
+        assert errors_list[-1]["error"] == "error_1099"
+
+    def test_reset_clears_all_deques(self, tracker):
+        """Test that reset clears all deque-based collections."""
+        # Add items to all deques
+        tracker.record_generation_failure("provider", "error")
+        tracker.record_evaluation_success(0.8, True, "test/model")
+        tracker.record_evaluation_failure("error")
+        tracker.record_deduplication_failure("error")
+        tracker.record_insertion_failure("error")
+        tracker.record_routing_decision("type", "provider", None, True)
+        tracker.record_provider_fallback("type", "primary", "fallback", "reason")
+
+        # Reset and verify all are cleared
+        tracker.reset()
+
+        assert len(tracker.generation_errors) == 0
+        assert len(tracker.evaluation_scores) == 0
+        assert len(tracker.evaluation_errors) == 0
+        assert len(tracker.deduplication_errors) == 0
+        assert len(tracker.insertion_errors) == 0
+        assert len(tracker.critical_errors) == 0
+        assert len(tracker.classified_errors) == 0
+        assert len(tracker._routing_decisions) == 0
+        assert len(tracker._provider_fallbacks) == 0
