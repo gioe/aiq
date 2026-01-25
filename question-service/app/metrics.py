@@ -7,11 +7,11 @@ question generation, evaluation, deduplication, and database operations.
 import json
 import logging
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Deque, Dict, Generator, List, Optional
 
 from .circuit_breaker import (
     get_circuit_breaker_registry,
@@ -22,6 +22,10 @@ from .error_classifier import ClassifiedError
 from .providers.base import get_retry_metrics, reset_retry_metrics
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of items to retain in unbounded metrics collections.
+# Prevents memory leaks in long-running processes by evicting oldest entries.
+METRICS_HISTORY_LIMIT = 1000
 
 
 class MetricsTracker:
@@ -53,27 +57,36 @@ class MetricsTracker:
         self.questions_by_provider: Dict[str, int] = defaultdict(int)
         self.questions_by_type: Dict[str, int] = defaultdict(int)
         self.questions_by_difficulty: Dict[str, int] = defaultdict(int)
-        self.generation_errors: List[Dict[str, Any]] = []
+        # Using deque with maxlen to prevent memory leaks in long-running processes
+        self.generation_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
 
         # Evaluation metrics
         self.questions_evaluated = 0
         self.questions_approved = 0
         self.questions_rejected = 0
         self.evaluation_failures = 0
-        self.evaluation_scores: List[float] = []
-        self.evaluation_errors: List[Dict[str, Any]] = []
+        self.evaluation_scores: Deque[float] = deque(maxlen=METRICS_HISTORY_LIMIT)
+        self.evaluation_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
 
         # Deduplication metrics
         self.questions_checked_for_duplicates = 0
         self.duplicates_found = 0
         self.exact_duplicates = 0
         self.semantic_duplicates = 0
-        self.deduplication_errors: List[Dict[str, Any]] = []
+        self.deduplication_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
 
         # Database metrics
         self.questions_inserted = 0
         self.insertion_failures = 0
-        self.insertion_errors: List[Dict[str, Any]] = []
+        self.insertion_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
 
         # API metrics (costs)
         self.api_calls_by_provider: Dict[str, int] = defaultdict(int)
@@ -82,8 +95,12 @@ class MetricsTracker:
         # Error categorization metrics
         self.errors_by_category: Dict[str, int] = defaultdict(int)
         self.errors_by_severity: Dict[str, int] = defaultdict(int)
-        self.critical_errors: List[Dict[str, Any]] = []
-        self.classified_errors: List[Dict[str, Any]] = []
+        self.critical_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
+        self.classified_errors: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
 
         # Per-stage timing metrics (TASK-472)
         self._stage_durations: Dict[str, float] = {
@@ -103,10 +120,14 @@ class MetricsTracker:
         }
 
         # Specialist routing metrics (TASK-575)
-        self._routing_decisions: List[Dict[str, Any]] = []
+        self._routing_decisions: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
         self._latencies_by_question_type: Dict[str, List[float]] = defaultdict(list)
         self._cost_by_question_type: Dict[str, float] = defaultdict(float)
-        self._provider_fallbacks: List[Dict[str, Any]] = []
+        self._provider_fallbacks: Deque[Dict[str, Any]] = deque(
+            maxlen=METRICS_HISTORY_LIMIT
+        )
         self._questions_by_provider_and_type: Dict[str, Dict[str, int]] = defaultdict(
             lambda: defaultdict(int)
         )
@@ -367,13 +388,13 @@ class MetricsTracker:
 
         return {
             "routing_decisions_count": len(self._routing_decisions),
-            "routing_decisions_recent": self._routing_decisions[-10:],
+            "routing_decisions_recent": list(self._routing_decisions)[-10:],
             "latencies_by_type": latencies_summary,
             "cost_by_type": {
                 k: round(v, 6) for k, v in self._cost_by_question_type.items()
             },
             "provider_fallbacks_count": len(self._provider_fallbacks),
-            "provider_fallbacks": self._provider_fallbacks[-10:],
+            "provider_fallbacks": list(self._provider_fallbacks)[-10:],
             "questions_by_provider_and_type": {
                 provider: dict(types)
                 for provider, types in self._questions_by_provider_and_type.items()
@@ -609,7 +630,7 @@ class MetricsTracker:
                 "by_provider": dict(self.questions_by_provider),
                 "by_type": dict(self.questions_by_type),
                 "by_difficulty": dict(self.questions_by_difficulty),
-                "errors": self.generation_errors[-10:],  # Last 10 errors
+                "errors": list(self.generation_errors)[-10:],  # Last 10 errors
             },
             "evaluation": {
                 "evaluated": self.questions_evaluated,
@@ -632,7 +653,7 @@ class MetricsTracker:
                 "max_score": max(self.evaluation_scores)
                 if self.evaluation_scores
                 else 0.0,
-                "errors": self.evaluation_errors[-10:],  # Last 10 errors
+                "errors": list(self.evaluation_errors)[-10:],  # Last 10 errors
             },
             "deduplication": {
                 "checked": self.questions_checked_for_duplicates,
@@ -644,7 +665,7 @@ class MetricsTracker:
                     if self.questions_checked_for_duplicates > 0
                     else 0.0
                 ),
-                "errors": self.deduplication_errors[-10:],  # Last 10 errors
+                "errors": list(self.deduplication_errors)[-10:],  # Last 10 errors
             },
             "database": {
                 "inserted": self.questions_inserted,
@@ -655,7 +676,7 @@ class MetricsTracker:
                     if (self.questions_inserted + self.insertion_failures) > 0
                     else 0.0
                 ),
-                "errors": self.insertion_errors[-10:],  # Last 10 errors
+                "errors": list(self.insertion_errors)[-10:],  # Last 10 errors
             },
             "api": {
                 "total_calls": self.total_api_calls,
@@ -666,7 +687,7 @@ class MetricsTracker:
                 "by_category": dict(self.errors_by_category),
                 "by_severity": dict(self.errors_by_severity),
                 "critical_errors": len(self.critical_errors),
-                "critical_error_details": self.critical_errors,
+                "critical_error_details": list(self.critical_errors),
                 "total_classified_errors": len(self.classified_errors),
             },
             "overall": {
