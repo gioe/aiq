@@ -18,6 +18,12 @@
 #   - OpenAI: gpt-5.2, gpt-4-turbo, o4-mini, etc.
 #   - xAI: grok-4, grok-3, grok-beta
 #   See each provider's get_available_models() for the full list.
+#
+# Google Model Naming (Preview vs Stable):
+#   Google uses "-preview" suffix for new models in preview phase (e.g., gemini-3-pro-preview).
+#   Once a model graduates to stable, the suffix is removed (e.g., gemini-2.5-pro).
+#   Preview models may have API changes; stable models have frozen APIs.
+#   Always check Google's release notes when updating model identifiers.
 
 version: "1.0"
 
