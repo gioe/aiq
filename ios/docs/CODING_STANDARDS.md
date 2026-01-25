@@ -2880,7 +2880,12 @@ swiftformat --config .swiftformat AIQ/
 
 ### Pre-commit Hooks
 
-Formatting tools run automatically via pre-commit hooks. Ensure they pass before committing.
+Pre-commit hooks run automatically on commit. They include:
+- **SwiftLint/SwiftFormat**: Code style enforcement for Swift
+- **Black/Flake8/MyPy**: Python linting and formatting
+- **detect-secrets**: Prevents committing API keys, passwords, and tokens
+
+Ensure all hooks pass before committing.
 
 ---
 

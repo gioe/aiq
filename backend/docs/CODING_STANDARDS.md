@@ -520,12 +520,20 @@ The repository uses pre-commit hooks for code quality:
 - **Linting**: `flake8` for Python code
 - **Formatting**: `black` for code formatting
 - **Type checking**: `mypy` for type validation
+- **Secret detection**: `detect-secrets` prevents committing API keys, passwords, and tokens
 
 If a commit fails due to hooks:
 1. Review the error message
 2. Fix the issue
 3. Stage the fixes
 4. Commit again (create a NEW commit, don't amend)
+
+**Secret Detection False Positives:**
+
+If `detect-secrets` flags a legitimate value (not an actual secret):
+1. Add `# pragma: allowlist secret` to the line
+2. Or update the baseline: `detect-secrets scan --baseline .secrets.baseline`
+3. Verify the flagged value is truly not a secret before allowlisting
 
 ### Git Safety Rules
 
