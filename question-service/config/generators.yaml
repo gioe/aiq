@@ -52,6 +52,9 @@ generators:
     model: "gemini-3-pro-preview"
     rationale: "ARC-AGI-2: 31.1% (standard mode), breakthrough spatial reasoning. Deep Think mode (45.1%) not currently enabled. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
+    # TODO: Evaluate enabling Deep Think mode for spatial question generation once
+    # API support is available. Deep Think achieves 45.1% on ARC-AGI-2 vs 31.1%
+    # standard mode. Considerations: latency impact, cost implications, API availability.
 
   verbal:
     provider: "anthropic"
