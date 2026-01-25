@@ -143,7 +143,7 @@ class HistoryViewModel: BaseViewModel {
         setLoading(false)
 
         #if DEBUG
-            print("✅ Loaded \(cached.count) test results from cache")
+            print("[CACHE HIT] Loaded \(cached.count) test results from cache")
         #endif
     }
 
@@ -157,7 +157,7 @@ class HistoryViewModel: BaseViewModel {
         setLoading(false)
 
         #if DEBUG
-            print("✅ Fetched \(response.results.count) of \(totalCount) from API (hasMore: \(hasMore))")
+            print("[SUCCESS] Fetched \(response.results.count) of \(totalCount) from API (hasMore: \(hasMore))")
         #endif
     }
 
@@ -199,7 +199,7 @@ class HistoryViewModel: BaseViewModel {
 
             #if DEBUG
                 let loaded = allTestHistory.count
-                print("✅ Loaded \(newResults.count) more results (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
+                print("[SUCCESS] Loaded \(newResults.count) more (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
             #endif
         } catch {
             isLoadingMore = false

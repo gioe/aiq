@@ -8,7 +8,7 @@ struct NetworkLogger {
 
     func logRequest(_ request: URLRequest) {
         #if DEBUG
-            print("🌐 [REQUEST] \(request.httpMethod ?? "UNKNOWN") \(request.url?.absoluteString ?? "NO URL")")
+            print("[REQUEST] \(request.httpMethod ?? "UNKNOWN") \(request.url?.absoluteString ?? "NO URL")")
 
             if let headers = request.allHTTPHeaderFields, !headers.isEmpty {
                 print("  Headers:")
@@ -34,8 +34,9 @@ struct NetworkLogger {
 
     func logResponse(_ response: HTTPURLResponse, data: Data?) {
         #if DEBUG
-            let statusEmoji = response.statusCode >= 200 && response.statusCode < 300 ? "✅" : "❌"
-            print("\(statusEmoji) [RESPONSE] \(response.statusCode) \(response.url?.absoluteString ?? "NO URL")")
+            let isSuccess = response.statusCode >= 200 && response.statusCode < 300
+            let statusPrefix = isSuccess ? "[RESPONSE]" : "[RESPONSE ERROR]"
+            print("\(statusPrefix) \(response.statusCode) \(response.url?.absoluteString ?? "NO URL")")
 
             if let data,
                let jsonObject = try? JSONSerialization.jsonObject(with: data),
@@ -49,7 +50,7 @@ struct NetworkLogger {
 
     func logError(_ error: Error, for url: URL?) {
         #if DEBUG
-            print("⚠️ [ERROR] \(url?.absoluteString ?? "NO URL")")
+            print("[ERROR] \(url?.absoluteString ?? "NO URL")")
             print("  \(error.localizedDescription)")
         #endif
     }

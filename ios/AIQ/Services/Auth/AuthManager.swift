@@ -134,7 +134,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         } catch {
             // Log error but don't fail logout - silently continue
             #if DEBUG
-                print("⚠️ Logout error: \(error.localizedDescription)")
+                print("[WARN] Logout error: \(error.localizedDescription)")
             #endif
         }
 

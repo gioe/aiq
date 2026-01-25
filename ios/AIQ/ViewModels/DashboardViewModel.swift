@@ -68,7 +68,7 @@ class DashboardViewModel: BaseViewModel {
     func abandonActiveTest() async {
         guard let sessionId = activeTestSession?.id else {
             #if DEBUG
-                print("⚠️ No active test session to abandon")
+                print("[WARN] No active test session to abandon")
             #endif
             return
         }
@@ -91,7 +91,7 @@ class DashboardViewModel: BaseViewModel {
             )
 
             #if DEBUG
-                print("✅ Test abandoned: \(response.message)")
+                print("[SUCCESS] Test abandoned: \(response.message)")
                 print("   Responses saved: \(response.responsesSaved)")
             #endif
 

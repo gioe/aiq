@@ -314,7 +314,7 @@ class APIClient: APIClientProtocol {
         if let cacheKey, !forceRefresh {
             if let cached: T = await DataCache.shared.get(forKey: cacheKey) {
                 #if DEBUG
-                    print("✅ Loaded response from cache (key: \(cacheKey))")
+                    print("[CACHE HIT] Loaded response from cache (key: \(cacheKey))")
                 #endif
                 return cached
             }
@@ -340,7 +340,7 @@ class APIClient: APIClientProtocol {
             )
             #if DEBUG
                 let durationText = cacheDuration.map { "\($0)s" } ?? "default"
-                print("✅ Cached response (key: \(cacheKey), duration: \(durationText))")
+                print("[CACHE SET] Cached response (key: \(cacheKey), duration: \(durationText))")
             #endif
         }
 
