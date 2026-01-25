@@ -10,6 +10,7 @@ from app.models import Base, get_db, User, Question, UserQuestion
 from app.models.models import QuestionType, DifficultyLevel
 from app.main import app
 from app.core.security import hash_password, create_access_token
+from app.core.config import settings
 
 # Use SQLite in-memory database for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -161,6 +162,14 @@ def test_questions(db_session):
         db_session.refresh(question)
 
     return questions
+
+
+@pytest.fixture
+def admin_headers():
+    """
+    Create headers with valid admin token for admin endpoints.
+    """
+    return {"X-Admin-Token": settings.ADMIN_TOKEN}
 
 
 @pytest.fixture

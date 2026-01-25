@@ -25,6 +25,7 @@ from . import (
     discrimination,
     distractors,
     generation,
+    inventory,
     notifications,
     reliability,
     validity,
@@ -78,4 +79,9 @@ router.include_router(
 router.include_router(
     notifications.router,
     tags=["Admin - Notifications"],
+)
+
+router.include_router(
+    inventory.router,
+    tags=["Admin - Inventory"],
 )
