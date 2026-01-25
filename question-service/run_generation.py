@@ -36,6 +36,7 @@ from app import (  # noqa: E402
     QuestionDatabase,
     QuestionDeduplicator,
     QuestionGenerationPipeline,
+    InventoryAnalyzer,
 )
 from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
@@ -170,6 +171,12 @@ Examples:
 
   # Use both async generation and async judge evaluation
   python run_generation.py --async --async-judge
+
+  # Auto-balance generation based on inventory gaps
+  python run_generation.py --auto-balance
+
+  # Auto-balance with custom target per stratum
+  python run_generation.py --auto-balance --target-per-stratum 100
         """,
     )
 
@@ -275,6 +282,34 @@ Examples:
         type=int,
         default=60,
         help="Timeout in seconds for async judge API calls (default: 60)",
+    )
+
+    parser.add_argument(
+        "--auto-balance",
+        action="store_true",
+        help="Automatically balance generation based on inventory gaps. "
+        "Prioritizes strata with fewer questions to maintain even coverage.",
+    )
+
+    parser.add_argument(
+        "--target-per-stratum",
+        type=int,
+        default=50,
+        help="Target number of questions per stratum when using --auto-balance (default: 50)",
+    )
+
+    parser.add_argument(
+        "--healthy-threshold",
+        type=int,
+        default=50,
+        help="Minimum count for healthy inventory status (default: 50)",
+    )
+
+    parser.add_argument(
+        "--warning-threshold",
+        type=int,
+        default=20,
+        help="Minimum count for warning inventory status (default: 20)",
     )
 
     return parser.parse_args()
@@ -528,12 +563,91 @@ def main() -> int:
                 )
                 return EXIT_DATABASE_ERROR
 
+        # Auto-balance inventory analysis (if enabled)
+        generation_plan = None
+        if args.auto_balance:
+            logger.info("\n" + "=" * 80)
+            logger.info("PHASE 0: Inventory Analysis (Auto-Balance)")
+            logger.info("=" * 80)
+
+            if not db:
+                logger.error(
+                    "Auto-balance requires database connection (cannot use --dry-run)"
+                )
+                write_heartbeat(
+                    status="failed",
+                    exit_code=EXIT_CONFIG_ERROR,
+                    error_message="Auto-balance requires database connection",
+                )
+                return EXIT_CONFIG_ERROR
+
+            # Initialize inventory analyzer
+            analyzer = InventoryAnalyzer(
+                database_service=db,
+                healthy_threshold=args.healthy_threshold,
+                warning_threshold=args.warning_threshold,
+                target_per_stratum=args.target_per_stratum,
+            )
+
+            # Analyze current inventory
+            analysis = analyzer.analyze_inventory()
+            analyzer.log_inventory_summary(analysis)
+
+            # Compute generation plan
+            target_count = args.count or settings.questions_per_run
+            generation_plan = analyzer.compute_generation_plan(
+                target_total=target_count,
+                analysis=analysis,
+            )
+
+            logger.info("\n" + generation_plan.to_log_summary())
+
+            # If no questions needed (all strata are at target), exit early
+            if generation_plan.total_questions == 0:
+                logger.info("All strata are at or above target - no generation needed")
+                write_heartbeat(
+                    status="completed",
+                    exit_code=EXIT_SUCCESS,
+                    stats={"questions_generated": 0, "reason": "inventory_balanced"},
+                )
+                return EXIT_SUCCESS
+
         # Run generation job
         logger.info("\n" + "=" * 80)
         logger.info("PHASE 1: Question Generation")
         logger.info("=" * 80)
 
-        if args.use_async:
+        # Choose generation mode based on auto-balance flag
+        if args.auto_balance and generation_plan:
+            # Use balanced generation with pre-computed allocations
+            logger.info("Using auto-balanced generation mode")
+
+            if args.use_async:
+                logger.info(
+                    f"Using async parallel generation mode "
+                    f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
+                )
+
+                # Reconfigure generator with CLI-specified async parameters
+                pipeline.generator._rate_limiter = asyncio.Semaphore(
+                    args.max_concurrent
+                )
+                pipeline.generator._async_timeout = args.timeout
+
+                async def run_balanced_async_with_cleanup() -> dict:
+                    try:
+                        return await pipeline.run_balanced_generation_job_async(
+                            stratum_allocations=generation_plan.allocations,
+                        )
+                    finally:
+                        await pipeline.cleanup()
+
+                job_result = asyncio.run(run_balanced_async_with_cleanup())
+            else:
+                job_result = pipeline.run_balanced_generation_job(
+                    stratum_allocations=generation_plan.allocations,
+                )
+        elif args.use_async:
             logger.info(
                 f"Using async parallel generation mode "
                 f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
