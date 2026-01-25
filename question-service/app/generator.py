@@ -307,6 +307,27 @@ class QuestionGenerator:
             )
             return (available_providers[0], None)
 
+    def _try_fallback_provider(
+        self,
+        current_provider: str,
+        question_type: QuestionType,
+    ) -> tuple[Optional[str], Optional[str], bool]:
+        """Attempt to find a fallback provider when the current one fails.
+
+        Args:
+            current_provider: The provider that just failed
+            question_type: Type of question being generated (for specialist routing)
+
+        Returns:
+            Tuple of (new_provider, new_model, is_fallback) where:
+            - new_provider: The fallback provider name, or None if no fallback available
+            - new_model: Model override for the fallback provider, or None
+            - is_fallback: True if new_provider differs from current_provider
+        """
+        new_provider, new_model = self._get_specialist_provider(question_type)
+        is_fallback = new_provider is not None and new_provider != current_provider
+        return (new_provider, new_model, is_fallback)
+
     def generate_batch(
         self,
         question_type: QuestionType,
@@ -402,21 +423,22 @@ class QuestionGenerator:
                     skipped_providers[current_provider] = (
                         skipped_providers.get(current_provider, 0) + 1
                     )
-                    previous_provider = current_provider
                     # Try to find fallback provider from config
-                    current_provider, current_model = self._get_specialist_provider(
-                        question_type
+                    new_provider, new_model, is_fallback = self._try_fallback_provider(
+                        current_provider, question_type
                     )
-                    if current_provider is None:
+                    if new_provider is None:
                         failed_questions += 1
-                    elif current_provider != previous_provider:
+                    elif is_fallback:
                         # Record fallback (TASK-575)
                         metrics.record_provider_fallback(
                             question_type=question_type_str,
                             primary_provider=original_provider,
-                            fallback_provider=current_provider,
+                            fallback_provider=new_provider,
                             reason="circuit_breaker_open",
                         )
+                    current_provider = new_provider
+                    current_model = new_model
                 except Exception as e:
                     logger.error(
                         f"Failed to generate question {i+1}/{count} with "

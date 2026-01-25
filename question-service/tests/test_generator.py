@@ -228,6 +228,102 @@ class TestQuestionGenerator:
         assert question.source_model == "gpt-4-turbo"
 
 
+class TestTryFallbackProvider:
+    """Tests for _try_fallback_provider helper method."""
+
+    @pytest.fixture
+    def multi_provider_generator(self):
+        """Create generator with multiple mocked providers."""
+        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generator.AnthropicProvider"
+        ) as mock_anthropic:
+            openai_provider = Mock()
+            openai_provider.model = "gpt-4"
+            mock_openai.return_value = openai_provider
+
+            anthropic_provider = Mock()
+            anthropic_provider.model = "claude-3-5-sonnet"
+            mock_anthropic.return_value = anthropic_provider
+
+            generator = QuestionGenerator(
+                openai_api_key="test-key",
+                anthropic_api_key="test-key",
+            )
+            yield generator
+
+    def test_try_fallback_returns_different_provider(self, multi_provider_generator):
+        """Test that _try_fallback_provider returns is_fallback=True when provider changes."""
+        generator = multi_provider_generator
+
+        # Mock _get_specialist_provider to return a different provider
+        with patch.object(
+            generator, "_get_specialist_provider", return_value=("anthropic", None)
+        ):
+            new_provider, new_model, is_fallback = generator._try_fallback_provider(
+                current_provider="openai",
+                question_type=QuestionType.MATH,
+            )
+
+            assert new_provider == "anthropic"
+            assert new_model is None
+            assert is_fallback is True
+
+    def test_try_fallback_returns_same_provider(self, multi_provider_generator):
+        """Test that _try_fallback_provider returns is_fallback=False when provider is the same."""
+        generator = multi_provider_generator
+
+        # Mock _get_specialist_provider to return the same provider
+        with patch.object(
+            generator, "_get_specialist_provider", return_value=("openai", None)
+        ):
+            new_provider, new_model, is_fallback = generator._try_fallback_provider(
+                current_provider="openai",
+                question_type=QuestionType.MATH,
+            )
+
+            assert new_provider == "openai"
+            assert new_model is None
+            assert is_fallback is False
+
+    def test_try_fallback_returns_none_when_no_providers_available(
+        self, multi_provider_generator
+    ):
+        """Test that _try_fallback_provider returns (None, None, False) when no providers available."""
+        generator = multi_provider_generator
+
+        # Mock _get_specialist_provider to return None
+        with patch.object(
+            generator, "_get_specialist_provider", return_value=(None, None)
+        ):
+            new_provider, new_model, is_fallback = generator._try_fallback_provider(
+                current_provider="openai",
+                question_type=QuestionType.MATH,
+            )
+
+            assert new_provider is None
+            assert new_model is None
+            assert is_fallback is False
+
+    def test_try_fallback_preserves_model_override(self, multi_provider_generator):
+        """Test that _try_fallback_provider preserves model override from specialist provider."""
+        generator = multi_provider_generator
+
+        # Mock _get_specialist_provider to return a provider with model override
+        with patch.object(
+            generator,
+            "_get_specialist_provider",
+            return_value=("anthropic", "claude-sonnet-4-5-20250929"),
+        ):
+            new_provider, new_model, is_fallback = generator._try_fallback_provider(
+                current_provider="openai",
+                question_type=QuestionType.LOGIC,
+            )
+
+            assert new_provider == "anthropic"
+            assert new_model == "claude-sonnet-4-5-20250929"
+            assert is_fallback is True
+
+
 class TestGeneratorConfigModelOverride:
     """Tests for generator config model override functionality."""
 
