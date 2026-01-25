@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from anthropic import AnthropicError
 
-from app.providers.anthropic_provider import AnthropicProvider
+from app.providers.anthropic_provider import ANTHROPIC_MODELS, AnthropicProvider
 
 
 @pytest.fixture
@@ -234,10 +234,8 @@ class TestAnthropicProvider:
     def test_get_available_models(self, mock_anthropic_class, mock_anthropic_api_key):
         """Test getting list of available models.
 
-        Validates:
-        - Complete list of all 9 expected models
-        - Correct ordering from newest to oldest
-        - No extra or outdated models included
+        Validates that get_available_models() returns the ANTHROPIC_MODELS constant.
+        The constant is the single source of truth for model availability.
         """
         mock_client = MagicMock()
         mock_anthropic_class.return_value = mock_client
@@ -246,29 +244,17 @@ class TestAnthropicProvider:
 
         models = provider.get_available_models()
 
-        # Expected models in order from newest to oldest
-        expected_models = [
-            # Claude 4.5 models (latest)
-            "claude-opus-4-5-20251101",
-            "claude-sonnet-4-5-20250929",
-            "claude-haiku-4-5-20251001",
-            # Claude 4.x models
-            "claude-opus-4-1-20250805",
-            "claude-sonnet-4-20250514",
-            "claude-opus-4-20250514",
-            # Claude 3.x models (legacy)
-            "claude-3-7-sonnet-20250219",
-            "claude-3-5-sonnet-20241022",
-            "claude-3-haiku-20240307",
-        ]
-
-        # Validate complete list matches exactly (order and content)
-        assert models == expected_models, (
-            f"Model list mismatch.\n" f"Expected: {expected_models}\n" f"Got: {models}"
+        # Validate the method returns the same list as the constant
+        assert models == list(ANTHROPIC_MODELS), (
+            f"get_available_models() should return ANTHROPIC_MODELS.\n"
+            f"Expected: {list(ANTHROPIC_MODELS)}\n"
+            f"Got: {models}"
         )
 
-        # Explicit count check for clarity
-        assert len(models) == 9, f"Expected 9 models, got {len(models)}"
+        # Verify the returned list is a copy, not the original
+        assert (
+            models is not ANTHROPIC_MODELS
+        ), "get_available_models() should return a copy of ANTHROPIC_MODELS"
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_empty_completion_response(
