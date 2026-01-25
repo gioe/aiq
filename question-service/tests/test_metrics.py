@@ -638,3 +638,217 @@ class TestEmbeddingCacheMetrics:
         captured = capsys.readouterr()
         assert "Stage Durations:" in captured.out
         assert "Generation: 5.123s" in captured.out
+
+
+class TestSpecialistRoutingMetrics:
+    """Tests for specialist routing metrics (TASK-575)."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create a fresh metrics tracker for each test."""
+        tracker = MetricsTracker()
+        tracker.reset()
+        return tracker
+
+    def test_record_routing_decision(self, tracker):
+        """Test recording a routing decision."""
+        tracker.record_routing_decision(
+            question_type="pattern_recognition",
+            provider="google",
+            model="gemini-3-pro-preview",
+            is_specialist=True,
+        )
+
+        routing = tracker.get_routing_metrics()
+        assert routing["routing_decisions_count"] == 1
+        assert len(routing["routing_decisions_recent"]) == 1
+
+        decision = routing["routing_decisions_recent"][0]
+        assert decision["question_type"] == "pattern_recognition"
+        assert decision["provider"] == "google"
+        assert decision["model"] == "gemini-3-pro-preview"
+        assert decision["is_specialist"] is True
+        assert "timestamp" in decision
+
+    def test_record_routing_decision_non_specialist(self, tracker):
+        """Test recording a non-specialist routing decision."""
+        tracker.record_routing_decision(
+            question_type="math",
+            provider="anthropic",
+            model=None,
+            is_specialist=False,
+        )
+
+        routing = tracker.get_routing_metrics()
+        decision = routing["routing_decisions_recent"][0]
+        assert decision["is_specialist"] is False
+        assert decision["model"] is None
+
+    def test_record_provider_fallback(self, tracker):
+        """Test recording a provider fallback."""
+        tracker.record_provider_fallback(
+            question_type="spatial_reasoning",
+            primary_provider="google",
+            fallback_provider="anthropic",
+            reason="circuit_breaker_open",
+        )
+
+        routing = tracker.get_routing_metrics()
+        assert routing["provider_fallbacks_count"] == 1
+        assert len(routing["provider_fallbacks"]) == 1
+
+        fallback = routing["provider_fallbacks"][0]
+        assert fallback["question_type"] == "spatial_reasoning"
+        assert fallback["primary_provider"] == "google"
+        assert fallback["fallback_provider"] == "anthropic"
+        assert fallback["reason"] == "circuit_breaker_open"
+        assert "timestamp" in fallback
+
+    def test_record_question_latency(self, tracker):
+        """Test recording question generation latency."""
+        tracker.record_question_latency("pattern_recognition", 2.5)
+        tracker.record_question_latency("pattern_recognition", 3.0)
+        tracker.record_question_latency("pattern_recognition", 2.0)
+
+        routing = tracker.get_routing_metrics()
+        latencies = routing["latencies_by_type"]["pattern_recognition"]
+
+        assert latencies["count"] == 3
+        assert latencies["avg"] == pytest.approx(2.5)
+        assert latencies["min"] == pytest.approx(2.0)
+        assert latencies["max"] == pytest.approx(3.0)
+        assert latencies["p50"] == pytest.approx(2.5)
+
+    def test_record_question_latency_multiple_types(self, tracker):
+        """Test recording latencies for multiple question types."""
+        tracker.record_question_latency("pattern_recognition", 2.5)
+        tracker.record_question_latency("spatial_reasoning", 3.5)
+
+        routing = tracker.get_routing_metrics()
+
+        assert "pattern_recognition" in routing["latencies_by_type"]
+        assert "spatial_reasoning" in routing["latencies_by_type"]
+        assert routing["latencies_by_type"]["pattern_recognition"][
+            "avg"
+        ] == pytest.approx(2.5)
+        assert routing["latencies_by_type"]["spatial_reasoning"][
+            "avg"
+        ] == pytest.approx(3.5)
+
+    def test_record_question_cost(self, tracker):
+        """Test recording question generation cost."""
+        tracker.record_question_cost("pattern_recognition", 0.001)
+        tracker.record_question_cost("pattern_recognition", 0.002)
+        tracker.record_question_cost("spatial_reasoning", 0.0015)
+
+        routing = tracker.get_routing_metrics()
+        cost_by_type = routing["cost_by_type"]
+
+        assert cost_by_type["pattern_recognition"] == pytest.approx(0.003)
+        assert cost_by_type["spatial_reasoning"] == pytest.approx(0.0015)
+
+    def test_questions_by_provider_and_type(self, tracker):
+        """Test tracking questions by provider and type."""
+        tracker.record_routing_decision("pattern_recognition", "google", None, True)
+        tracker.record_routing_decision("pattern_recognition", "google", None, True)
+        tracker.record_routing_decision("spatial_reasoning", "google", None, True)
+        tracker.record_routing_decision("math", "anthropic", None, False)
+
+        routing = tracker.get_routing_metrics()
+        by_provider_type = routing["questions_by_provider_and_type"]
+
+        assert by_provider_type["google"]["pattern_recognition"] == 2
+        assert by_provider_type["google"]["spatial_reasoning"] == 1
+        assert by_provider_type["anthropic"]["math"] == 1
+
+    def test_routing_metrics_in_summary(self, tracker):
+        """Test that routing metrics appear in summary."""
+        tracker.record_routing_decision("pattern_recognition", "google", None, True)
+        tracker.record_question_latency("pattern_recognition", 2.0)
+        tracker.record_question_cost("pattern_recognition", 0.001)
+
+        summary = tracker.get_summary()
+
+        assert "routing" in summary
+        assert summary["routing"]["routing_decisions_count"] == 1
+        assert "pattern_recognition" in summary["routing"]["latencies_by_type"]
+        assert "pattern_recognition" in summary["routing"]["cost_by_type"]
+
+    def test_reset_clears_routing_metrics(self, tracker):
+        """Test that reset clears routing metrics."""
+        tracker.record_routing_decision("pattern_recognition", "google", None, True)
+        tracker.record_question_latency("pattern_recognition", 2.0)
+        tracker.record_question_cost("pattern_recognition", 0.001)
+        tracker.record_provider_fallback("pattern", "google", "anthropic", "test")
+
+        tracker.reset()
+
+        routing = tracker.get_routing_metrics()
+        assert routing["routing_decisions_count"] == 0
+        assert routing["provider_fallbacks_count"] == 0
+        assert len(routing["latencies_by_type"]) == 0
+        assert len(routing["cost_by_type"]) == 0
+
+    def test_print_summary_includes_routing_metrics(self, tracker, capsys):
+        """Test that print_summary includes routing metrics."""
+        tracker.record_routing_decision("pattern_recognition", "google", None, True)
+        tracker.record_question_latency("pattern_recognition", 2.5)
+        tracker.record_question_cost("pattern_recognition", 0.001)
+
+        tracker.print_summary()
+
+        captured = capsys.readouterr()
+        assert "Specialist Routing:" in captured.out
+        assert "Total Routing Decisions: 1" in captured.out
+        assert "Cost by Question Type:" in captured.out
+        assert "Latencies by Question Type:" in captured.out
+
+    def test_latency_percentiles_with_many_samples(self, tracker):
+        """Test latency percentiles with enough samples for p95/p99."""
+        # Record 100 samples
+        for i in range(100):
+            tracker.record_question_latency("pattern_recognition", 1.0 + (i * 0.01))
+
+        routing = tracker.get_routing_metrics()
+        latencies = routing["latencies_by_type"]["pattern_recognition"]
+
+        assert latencies["count"] == 100
+        assert latencies["p95"] is not None
+        assert latencies["p99"] is not None
+
+    def test_latency_percentiles_with_few_samples(self, tracker):
+        """Test that p95/p99 are None with insufficient samples."""
+        # Record only 5 samples
+        for i in range(5):
+            tracker.record_question_latency("pattern_recognition", 1.0 + i)
+
+        routing = tracker.get_routing_metrics()
+        latencies = routing["latencies_by_type"]["pattern_recognition"]
+
+        assert latencies["count"] == 5
+        assert latencies["p95"] is None
+        assert latencies["p99"] is None
+
+    def test_routing_decisions_limited_to_recent(self, tracker):
+        """Test that only recent routing decisions are returned."""
+        # Record more than 10 decisions
+        for i in range(15):
+            tracker.record_routing_decision(f"type_{i}", "google", None, True)
+
+        routing = tracker.get_routing_metrics()
+
+        # Should only return last 10
+        assert len(routing["routing_decisions_recent"]) == 10
+        assert routing["routing_decisions_count"] == 15
+
+    def test_provider_fallbacks_limited_to_recent(self, tracker):
+        """Test that only recent provider fallbacks are returned."""
+        # Record more than 10 fallbacks
+        for i in range(15):
+            tracker.record_provider_fallback(f"type_{i}", "google", "anthropic", "test")
+
+        routing = tracker.get_routing_metrics()
+
+        # Should only return last 10
+        assert len(routing["provider_fallbacks"]) == 10
+        assert routing["provider_fallbacks_count"] == 15
