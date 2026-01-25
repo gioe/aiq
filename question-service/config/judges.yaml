@@ -74,6 +74,9 @@ judges:
       MMMU_Pro: "81.0%"
       Visual_Reasoning: "62%"
     enabled: true
+    # TODO: Evaluate enabling Deep Think mode for spatial judging once API support
+    # is available. Deep Think achieves 45.1% on ARC-AGI-2 vs 31.1% standard mode.
+    # Considerations: latency impact, cost implications, API availability.
 
   verbal:
     model: "claude-sonnet-4-5-20250929"
