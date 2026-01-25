@@ -35,7 +35,7 @@ actor DataCache {
         cache[key] = entry
 
         #if DEBUG
-            print("📦 Cache SET: \(key)")
+            print("[CACHE SET] \(key)")
         #endif
     }
 
@@ -48,13 +48,13 @@ actor DataCache {
         if entry.isExpired {
             cache.removeValue(forKey: key)
             #if DEBUG
-                print("⏰ Cache EXPIRED: \(key)")
+                print("[CACHE EXPIRED] \(key)")
             #endif
             return nil
         }
 
         #if DEBUG
-            print("✅ Cache HIT: \(key)")
+            print("[CACHE HIT] \(key)")
         #endif
         return entry.value
     }
@@ -63,7 +63,7 @@ actor DataCache {
     func remove(forKey key: String) {
         cache.removeValue(forKey: key)
         #if DEBUG
-            print("🗑️ Cache REMOVE: \(key)")
+            print("[CACHE REMOVE] \(key)")
         #endif
     }
 
@@ -71,7 +71,7 @@ actor DataCache {
     func clearAll() {
         cache.removeAll()
         #if DEBUG
-            print("🧹 Cache CLEARED")
+            print("[CACHE CLEARED]")
         #endif
     }
 
@@ -92,7 +92,7 @@ actor DataCache {
 
         #if DEBUG
             if !expiredKeys.isEmpty {
-                print("🧹 Cache CLEARED \(expiredKeys.count) expired entries")
+                print("[CACHE CLEARED] \(expiredKeys.count) expired entries")
             }
         #endif
     }

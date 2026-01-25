@@ -92,9 +92,9 @@ class TestTimerManager: ObservableObject {
         let remaining = Self.totalTimeSeconds - elapsedSeconds
 
         #if DEBUG
-            print("⏱️ Session started at: \(sessionStartedAt)")
-            print("⏱️ Elapsed since start: \(elapsedSeconds)s")
-            print("⏱️ Remaining time: \(remaining)s")
+            print("[TIMER] Session started at: \(sessionStartedAt)")
+            print("[TIMER] Elapsed since start: \(elapsedSeconds)s")
+            print("[TIMER] Remaining time: \(remaining)s")
         #endif
 
         // Check if time has already expired
@@ -103,7 +103,7 @@ class TestTimerManager: ObservableObject {
             hasExpired = true
             showWarning = true
             #if DEBUG
-                print("🚨 Test time already expired! Elapsed: \(elapsedSeconds)s")
+                print("[ERROR] Test time already expired! Elapsed: \(elapsedSeconds)s")
             #endif
             return false
         }
@@ -145,7 +145,7 @@ class TestTimerManager: ObservableObject {
         }
 
         #if DEBUG
-            print("⏱️ Test timer started: \(formattedTime) remaining")
+            print("[TIMER] Test timer started: \(formattedTime) remaining")
         #endif
     }
 
@@ -161,7 +161,7 @@ class TestTimerManager: ObservableObject {
         timer = nil
 
         #if DEBUG
-            print("⏸️ Test timer paused: \(formattedTime) remaining")
+            print("[TIMER] Test timer paused: \(formattedTime) remaining")
         #endif
     }
 
@@ -171,7 +171,7 @@ class TestTimerManager: ObservableObject {
         start()
 
         #if DEBUG
-            print("▶️ Test timer resumed: \(formattedTime) remaining")
+            print("[TIMER] Test timer resumed: \(formattedTime) remaining")
         #endif
     }
 
@@ -182,7 +182,7 @@ class TestTimerManager: ObservableObject {
         hasExpired = false
 
         #if DEBUG
-            print("⏹️ Test timer stopped")
+            print("[TIMER] Test timer stopped")
         #endif
     }
 
@@ -197,7 +197,7 @@ class TestTimerManager: ObservableObject {
         currentSegmentStartTime = nil
 
         #if DEBUG
-            print("🔄 Test timer reset to \(formattedTime)")
+            print("[TIMER] Test timer reset to \(formattedTime)")
         #endif
     }
 
@@ -228,7 +228,7 @@ class TestTimerManager: ObservableObject {
         if previousRemaining > Self.warningThresholdSeconds && remainingSeconds <= Self.warningThresholdSeconds {
             showWarning = true
             #if DEBUG
-                print("⚠️ 5 minutes remaining warning triggered")
+                print("[TIMER] 5 minutes remaining warning triggered")
             #endif
         }
 
@@ -244,7 +244,7 @@ class TestTimerManager: ObservableObject {
         hasExpired = true
 
         #if DEBUG
-            print("🚨 Test timer expired!")
+            print("[TIMER] Test timer expired!")
         #endif
     }
 
@@ -276,7 +276,7 @@ class TestTimerManager: ObservableObject {
         }
 
         #if DEBUG
-            print("📱 App backgrounded - timer was \(wasRunningBeforeBackground ? "running" : "stopped")")
+            print("[APP] App backgrounded - timer was \(wasRunningBeforeBackground ? "running" : "stopped")")
         #endif
     }
 
@@ -308,7 +308,7 @@ class TestTimerManager: ObservableObject {
         }
 
         #if DEBUG
-            print("📱 App foregrounded - \(formattedTime) remaining")
+            print("[APP] App foregrounded - \(formattedTime) remaining")
         #endif
     }
 }

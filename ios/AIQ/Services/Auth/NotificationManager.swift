@@ -153,7 +153,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
                 ]
             )
             #if DEBUG
-                print("❌ [NotificationManager] Authorization request failed: \(error.localizedDescription)")
+                print("[ERROR] [NotificationManager] Authorization request failed: \(error.localizedDescription)")
             #endif
             return false
         }
@@ -216,7 +216,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     func didReceiveDeviceToken(_ deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         #if DEBUG
-            print("📱 [NotificationManager] Received device token: \(tokenString)")
+            print("[NOTIFICATION] Received device token: \(tokenString)")
         #endif
 
         // Cache the token
@@ -231,7 +231,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Handle device token registration failure
     /// - Parameter error: The error that occurred
     func didFailToRegisterForRemoteNotifications(error: Error) {
-        print("❌ [NotificationManager] Failed to register for remote notifications: \(error.localizedDescription)")
+        let message = error.localizedDescription
+        print("[ERROR] [NotificationManager] Failed to register for remote notifications: \(message)")
 
         // Clear cached token on failure
         clearCachedDeviceToken()
@@ -241,19 +242,19 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Unregister device token from backend (called on logout)
     func unregisterDeviceToken() async {
         guard isDeviceTokenRegistered else {
-            print("ℹ️ [NotificationManager] No device token to unregister")
+            print("[INFO] [NotificationManager] No device token to unregister")
             return
         }
 
         do {
             let response = try await notificationService.unregisterDeviceToken()
-            print("✅ [NotificationManager] Device token unregistered: \(response.message)")
+            print("[SUCCESS] [NotificationManager] Device token unregistered: \(response.message)")
 
             isDeviceTokenRegistered = false
             clearCachedDeviceToken()
 
         } catch {
-            print("❌ [NotificationManager] Failed to unregister device token: \(error.localizedDescription)")
+            print("[ERROR] [NotificationManager] Failed to unregister device token: \(error.localizedDescription)")
             // Even if backend fails, clear local state
             isDeviceTokenRegistered = false
             clearCachedDeviceToken()
@@ -263,7 +264,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Retry registration with cached device token (useful after failed attempts)
     func retryDeviceTokenRegistration() async {
         guard let token = pendingDeviceToken ?? getCachedDeviceToken() else {
-            print("ℹ️ [NotificationManager] No device token available to retry")
+            print("[INFO] [NotificationManager] No device token available to retry")
             return
         }
 
@@ -296,20 +297,20 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private func registerDeviceTokenIfPossible(_ token: String) async {
         // Guard against concurrent registration attempts
         guard !isRegisteringToken else {
-            print("ℹ️ [NotificationManager] Registration already in progress")
+            print("[INFO] [NotificationManager] Registration already in progress")
             return
         }
 
         // Check if user is authenticated
         guard authManager.isAuthenticated else {
-            print("ℹ️ [NotificationManager] User not authenticated, caching token for later")
+            print("[INFO] [NotificationManager] User not authenticated, caching token for later")
             pendingDeviceToken = token
             return
         }
 
         // Check if already registered
         guard !isDeviceTokenRegistered else {
-            print("ℹ️ [NotificationManager] Device token already registered")
+            print("[INFO] [NotificationManager] Device token already registered")
             return
         }
 
@@ -317,13 +318,13 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
         do {
             let response = try await notificationService.registerDeviceToken(token)
-            print("✅ [NotificationManager] Device token registered: \(response.message)")
+            print("[SUCCESS] [NotificationManager] Device token registered: \(response.message)")
 
             isDeviceTokenRegistered = true
             pendingDeviceToken = nil
 
         } catch {
-            print("❌ [NotificationManager] Failed to register device token: \(error.localizedDescription)")
+            print("[ERROR] [NotificationManager] Failed to register device token: \(error.localizedDescription)")
             // Keep token cached for retry
             pendingDeviceToken = token
             isDeviceTokenRegistered = false

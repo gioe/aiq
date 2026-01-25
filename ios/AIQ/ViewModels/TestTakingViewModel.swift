@@ -275,7 +275,7 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         private func fallbackToMockData(error: Error, questionCount: Int) {
-            print("🚨 [TestTakingViewModel] API FAILURE - Falling back to mock data!")
+            print("[ERROR] [TestTakingViewModel] API FAILURE - Falling back to mock data!")
             print("   Error type: \(type(of: error))")
             print("   Error details: \(error)")
             if !isRunningTests {
@@ -308,7 +308,7 @@ class TestTakingViewModel: BaseViewModel {
             // This is a safe fallback - we'd rather skip showing the prompt than show it incorrectly
             testCountAtStart = 1
             #if DEBUG
-                print("⚠️ [TestTakingViewModel] Failed to fetch test count: \(error.localizedDescription)")
+                print("[WARN] [TestTakingViewModel] Failed to fetch test count: \(error.localizedDescription)")
             #endif
         }
     }
@@ -364,7 +364,7 @@ class TestTakingViewModel: BaseViewModel {
             setLoading(false)
 
             #if DEBUG
-                print("✅ Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
+                print("[SUCCESS] Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
                 if userAnswers.isEmpty {
                     print("   Starting fresh - no saved progress found")
                 } else {
@@ -412,7 +412,7 @@ class TestTakingViewModel: BaseViewModel {
         handleError(contextualError, context: .resumeTest)
 
         #if DEBUG
-            print("❌ Failed to resume session \(sessionId): \(error)")
+            print("[ERROR] Failed to resume session \(sessionId): \(error)")
         #endif
     }
 
@@ -435,7 +435,7 @@ class TestTakingViewModel: BaseViewModel {
             )
 
             #if DEBUG
-                print("✅ Abandoned session \(sessionId), starting new test")
+                print("[SUCCESS] Abandoned session \(sessionId), starting new test")
             #endif
 
             // Track successful error recovery via abandon
@@ -456,7 +456,7 @@ class TestTakingViewModel: BaseViewModel {
             handleError(contextualError, context: .abandonTest)
 
             #if DEBUG
-                print("❌ Failed to abandon session \(sessionId): \(error)")
+                print("[ERROR] Failed to abandon session \(sessionId): \(error)")
             #endif
         }
     }
@@ -482,7 +482,7 @@ class TestTakingViewModel: BaseViewModel {
     func lockAnswers() {
         isLocked = true
         #if DEBUG
-            print("🔒 Test answers locked - no further modifications allowed")
+            print("[LOCK] Test answers locked - no further modifications allowed")
         #endif
     }
 
@@ -545,7 +545,7 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
         #if DEBUG
-            print("⏰ Auto-submitting test due to timeout: \(answeredCount)/\(questions.count) answered")
+            print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(questions.count) answered")
         #endif
         await performSubmission(timeLimitExceeded: true)
     }
@@ -567,7 +567,7 @@ class TestTakingViewModel: BaseViewModel {
                 // Log validation error - negative timeSpent shouldn't happen in production
                 #if DEBUG
                     // swiftlint:disable:next line_length
-                    print("⚠️ Failed to create QuestionResponse for question \(question.id): \(error.localizedDescription)")
+                    print("[WARN] Failed to create QuestionResponse for question \(question.id): \(error.localizedDescription)")
                 #endif
                 // Return response without time data rather than losing the answer entirely
                 return try? QuestionResponse.validated(
@@ -601,9 +601,9 @@ class TestTakingViewModel: BaseViewModel {
 
         #if DEBUG
             if isTimeoutSubmission {
-                print("⏰ Test auto-submitted due to timeout! IQ Score: \(response.result.iqScore)")
+                print("[TIMEOUT] Test auto-submitted due to timeout! IQ Score: \(response.result.iqScore)")
             } else {
-                print("✅ Test submitted successfully! IQ Score: \(response.result.iqScore)")
+                print("[SUCCESS] Test submitted successfully! IQ Score: \(response.result.iqScore)")
             }
         #endif
     }
@@ -619,14 +619,14 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         #if DEBUG
-            print("❌ Failed to submit test: \(error)")
+            print("[ERROR] Failed to submit test: \(error)")
         #endif
     }
 
     func abandonTest() async {
         guard let session = testSession else {
             #if DEBUG
-                print("⚠️ No active session to abandon")
+                print("[WARN] No active session to abandon")
             #endif
             return
         }
@@ -660,7 +660,7 @@ class TestTakingViewModel: BaseViewModel {
             setLoading(false)
 
             #if DEBUG
-                print("✅ Test abandoned successfully. Responses saved: \(response.responsesSaved)")
+                print("[SUCCESS] Test abandoned successfully. Responses saved: \(response.responsesSaved)")
             #endif
         } catch {
             setLoading(false)
@@ -675,7 +675,7 @@ class TestTakingViewModel: BaseViewModel {
             }
 
             #if DEBUG
-                print("❌ Failed to abandon test: \(error)")
+                print("[ERROR] Failed to abandon test: \(error)")
             #endif
         }
     }
@@ -731,7 +731,7 @@ class TestTakingViewModel: BaseViewModel {
         do {
             try answerStorage.saveProgress(progress)
             #if DEBUG
-                print("✅ Auto-saved test progress: \(userAnswers.count) answers")
+                print("[AUTOSAVE] Auto-saved test progress: \(userAnswers.count) answers")
             #endif
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
@@ -787,7 +787,7 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         #if DEBUG
-            print("⏸️ Time tracking paused - app backgrounded")
+            print("[TIMING] Time tracking paused - app backgrounded")
         #endif
     }
 
@@ -801,7 +801,7 @@ class TestTakingViewModel: BaseViewModel {
         }
 
         #if DEBUG
-            print("▶️ Time tracking resumed - app foregrounded")
+            print("[TIMING] Time tracking resumed - app foregrounded")
         #endif
     }
 
@@ -820,7 +820,7 @@ class TestTakingViewModel: BaseViewModel {
         currentQuestionStartTime = nil
 
         #if DEBUG
-            print("⏱️ Question \(question.id): +\(elapsed)s (total: \(questionTimeSpent[question.id] ?? 0)s)")
+            print("[TIMING] Question \(question.id): +\(elapsed)s (total: \(questionTimeSpent[question.id] ?? 0)s)")
         #endif
     }
 
