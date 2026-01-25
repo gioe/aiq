@@ -246,6 +246,78 @@ class TestGoogleProviderIntegration:
         extracted = _extract_number(result)
         assert extracted == "14", f"Expected '14' but got '{extracted}' from: {result}"
 
+    @pytest.mark.asyncio
+    async def test_gemini_3_pro_preview_async_structured_completion(
+        self, google_api_key: str
+    ) -> None:
+        """Test async structured JSON completion with Gemini 3 Pro Preview model."""
+        provider = GoogleProvider(api_key=google_api_key, model="gemini-3-pro-preview")
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string"},
+                "population": {"type": "integer"},
+            },
+            "required": ["city", "population"],
+        }
+
+        result = await provider.generate_structured_completion_async(
+            prompt="Generate a JSON object with city 'Tokyo' and population 14000000.",
+            response_format=schema,
+            temperature=0.0,
+            max_tokens=MAX_TOKENS_STRUCTURED,
+        )
+
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "city" in result
+        assert "population" in result
+        assert isinstance(result["city"], str)
+        assert isinstance(result["population"], int)
+        assert (
+            result["city"].lower() == "tokyo"
+        ), f"Expected 'Tokyo' but got: {result['city']}"
+        assert (
+            result["population"] == 14000000
+        ), f"Expected 14000000 but got: {result['population']}"
+
+    @pytest.mark.asyncio
+    async def test_gemini_3_flash_preview_async_structured_completion(
+        self, google_api_key: str
+    ) -> None:
+        """Test async structured JSON completion with Gemini 3 Flash Preview model."""
+        provider = GoogleProvider(
+            api_key=google_api_key, model="gemini-3-flash-preview"
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "fruit": {"type": "string"},
+                "quantity": {"type": "integer"},
+            },
+            "required": ["fruit", "quantity"],
+        }
+
+        result = await provider.generate_structured_completion_async(
+            prompt="Generate a JSON object with fruit 'apple' and quantity 12.",
+            response_format=schema,
+            temperature=0.0,
+            max_tokens=MAX_TOKENS_STRUCTURED,
+        )
+
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "fruit" in result
+        assert "quantity" in result
+        assert isinstance(result["fruit"], str)
+        assert isinstance(result["quantity"], int)
+        assert (
+            result["fruit"].lower() == "apple"
+        ), f"Expected 'apple' but got: {result['fruit']}"
+        assert result["quantity"] == 12, f"Expected 12 but got: {result['quantity']}"
+
 
 class TestGemini3ModelComparison:
     """Compare behavior between Gemini 3 Pro and Flash Preview models."""
