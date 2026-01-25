@@ -516,3 +516,19 @@ class QuestionDeduplicator:
         Useful for long-running processes or when memory needs to be freed.
         """
         self._embedding_cache.clear()
+
+    @property
+    def using_redis_cache(self) -> bool:
+        """Return whether Redis is being used for embedding cache.
+
+        Returns:
+            True if Redis cache is active, False if using in-memory cache
+        """
+        if hasattr(self._embedding_cache, "using_redis"):
+            return self._embedding_cache.using_redis
+        return False
+
+    def close(self) -> None:
+        """Close cache connections and release resources."""
+        if hasattr(self._embedding_cache, "close"):
+            self._embedding_cache.close()

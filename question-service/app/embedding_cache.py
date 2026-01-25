@@ -152,7 +152,9 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
                 f"socket_connect_timeout must be > 0, got {socket_connect_timeout}"
             )
         if default_ttl is not None and default_ttl <= 0:
-            raise ValueError(f"default_ttl must be > 0 or None, got {default_ttl}")
+            raise ValueError(
+                f"default_ttl must be positive or None (for no expiration), got {default_ttl}"
+            )
 
         import redis  # type: ignore[import-untyped]
 

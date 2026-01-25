@@ -550,11 +550,7 @@ def main() -> int:
                     redis_url=settings.redis_url,
                     embedding_cache_ttl=settings.embedding_cache_ttl,
                 )
-                cache_type = (
-                    "Redis"
-                    if deduplicator._embedding_cache.using_redis
-                    else "in-memory"
-                )
+                cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
                 logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
             except Exception as e:
                 logger.error(f"Failed to connect to database: {e}")
