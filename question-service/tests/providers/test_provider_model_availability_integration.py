@@ -235,6 +235,142 @@ class TestGoogleProviderModelAvailability:
         assert len(result) > 0
 
 
+class TestGooglePreviewModelIdentifiers:
+    """Integration tests specifically for Google preview model identifiers.
+
+    These tests verify that models with the '-preview' suffix are correctly
+    recognized and available through the Google API. Preview models are
+    experimental versions that require the suffix for API access.
+
+    Context: Google's Gemini 3 models are currently in Preview stage and
+    require the '-preview' suffix (e.g., 'gemini-3-pro-preview').
+    """
+
+    @pytest.fixture
+    def provider(self):
+        """Create Google provider with real API key."""
+        from app.providers.google_provider import GoogleProvider
+
+        api_key = get_env_or_skip("GOOGLE_API_KEY")
+        return GoogleProvider(api_key=api_key)
+
+    def test_preview_models_in_static_list(self, provider):
+        """Verify preview models are included in get_available_models()."""
+        listed_models = provider.get_available_models()
+
+        # Get all models with -preview suffix
+        preview_models = [m for m in listed_models if m.endswith("-preview")]
+
+        assert len(preview_models) > 0, (
+            "Expected at least one preview model in get_available_models(), "
+            f"but found none. Available models: {listed_models}"
+        )
+
+        # Verify specific Gemini 3 preview models are included
+        expected_preview_models = ["gemini-3-pro-preview", "gemini-3-flash-preview"]
+        for expected in expected_preview_models:
+            assert expected in listed_models, (
+                f"Expected preview model '{expected}' not found in "
+                f"get_available_models(). Available: {listed_models}"
+            )
+
+    def test_preview_models_exist_in_api(self, provider):
+        """Verify preview models from static list exist in Google's API.
+
+        This test specifically validates that preview model identifiers
+        (with the '-preview' suffix) are correctly named and available.
+        """
+        import google.generativeai as genai
+
+        # Get available models from the API
+        api_models = list(genai.list_models())
+        api_model_names = set()
+        for model in api_models:
+            name = model.name
+            if name.startswith("models/"):
+                name = name[7:]
+            api_model_names.add(name)
+
+        # Get preview models from our static list
+        listed_models = provider.get_available_models()
+        preview_models = [m for m in listed_models if m.endswith("-preview")]
+
+        # Verify each preview model exists in the API
+        missing_preview_models = []
+        for model in preview_models:
+            if model not in api_model_names:
+                missing_preview_models.append(model)
+
+        if missing_preview_models:
+            pytest.fail(
+                f"The following preview models are listed but not found in "
+                f"Google API: {missing_preview_models}\n"
+                f"This may indicate the preview suffix has changed or models "
+                f"have graduated to stable versions.\n"
+                f"Available models in API: {sorted(api_model_names)}\n"
+                f"Consider updating the model list in google_provider.py"
+            )
+
+    def test_fetch_available_models_includes_preview(self, provider):
+        """Verify fetch_available_models() returns preview models from API."""
+        api_models = provider.fetch_available_models()
+
+        # Check that at least one preview model is returned
+        preview_models = [m for m in api_models if m.endswith("-preview")]
+
+        assert len(preview_models) > 0, (
+            "fetch_available_models() did not return any preview models. "
+            f"Returned models: {api_models}"
+        )
+
+    def test_preview_models_usable_for_completion(self, provider):
+        """Verify preview models can be used for actual API completions.
+
+        This validates the full round-trip: the identifier is correct,
+        the API accepts it, and we get a valid response.
+        """
+        listed_models = provider.get_available_models()
+        preview_models = [m for m in listed_models if m.endswith("-preview")]
+
+        failed_models = []
+        for model in preview_models:
+            try:
+                result = provider.generate_completion(
+                    "Say 'ok'",
+                    temperature=0,
+                    max_tokens=5,
+                    model_override=model,
+                )
+                assert result is not None
+            except Exception as e:
+                error_str = str(e).lower()
+                # Check if it's a model-related error
+                model_error_indicators = [
+                    "not found",
+                    "invalid",
+                    "unknown",
+                    "unavailable",
+                    "does not exist",
+                    "not supported",
+                ]
+                is_model_error = "model" in error_str and any(
+                    indicator in error_str for indicator in model_error_indicators
+                )
+                if is_model_error:
+                    failed_models.append((model, str(e)))
+
+        if failed_models:
+            error_msg = "The following preview models failed API validation:\n"
+            for model, error in failed_models:
+                error_msg += f"  - {model}: {error}\n"
+            error_msg += (
+                "This may indicate the preview suffix has changed or "
+                "models have graduated to stable versions.\n"
+                "Consider updating the model list in google_provider.py"
+            )
+            pytest.fail(error_msg)
+
+
 class TestXAIProviderModelAvailability:
     """Integration tests for xAI provider model availability."""
 
