@@ -234,15 +234,13 @@ class TestGoogleProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
-        # Gemini 3 preview models (stable versions not yet available)
+        # Gemini 3 preview models
         assert "gemini-3-pro-preview" in models
         assert "gemini-3-flash-preview" in models
-        # Gemini 2.5 stable model
+        # Gemini 2.x models
         assert "gemini-2.5-pro" in models
-        # Legacy Gemini 1.x models
-        assert "gemini-1.5-pro" in models
-        assert "gemini-1.5-flash" in models
-        assert "gemini-1.0-pro" in models
+        assert "gemini-2.5-flash" in models
+        assert "gemini-2.0-flash" in models
 
     @patch("app.providers.google_provider.genai.configure")
     @patch("app.providers.google_provider.genai.GenerativeModel")

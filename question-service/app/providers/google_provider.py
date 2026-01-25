@@ -581,21 +581,25 @@ class GoogleProvider(BaseLLMProvider):
             List of model identifiers
 
         Note:
-            Common Gemini models:
-            - gemini-3-pro-preview (Gemini 3 Pro Preview - advanced reasoning, 1M context)
+            Common Gemini models (as of January 2026):
+            - gemini-3-pro-preview (Gemini 3 Pro Preview - advanced reasoning)
             - gemini-3-flash-preview (Gemini 3 Flash Preview - faster variant)
             - gemini-2.5-pro (stable, enhanced reasoning with 1M context)
-            - gemini-1.5-pro (capable, best for complex reasoning)
-            - gemini-1.5-flash (faster, optimized for speed)
-            - gemini-1.0-pro (earlier version, still capable)
+            - gemini-2.5-flash (fast, cost-effective)
+            - gemini-2.0-flash (previous generation flash model)
+
+        Maintenance:
+            Update this list when new Gemini models are released. Check the official
+            Google AI documentation for current model IDs.
+            Run integration tests to verify model availability:
+            pytest tests/providers/test_provider_model_availability_integration.py --run-integration
         """
         return [
             "gemini-3-pro-preview",
             "gemini-3-flash-preview",
             "gemini-2.5-pro",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-            "gemini-1.0-pro",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
         ]
 
     async def cleanup(self) -> None:
