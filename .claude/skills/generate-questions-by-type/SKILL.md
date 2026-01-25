@@ -35,7 +35,7 @@ Generate IQ test questions of a specific type using the local question-service.
 
 Before using this skill, ensure the following requirements are met:
 
-1. **Working Directory**: This skill must be invoked from the **repository root** (`/Users/mattgioe/aiq` or equivalent). The `cd question-service` commands assume the current directory contains the `question-service` subdirectory.
+1. **Working Directory**: This skill must be invoked from the **repository root** (the directory containing the `question-service` subdirectory). The `cd question-service` commands assume this directory structure.
 
 2. **Virtual Environment**: The question-service virtual environment must be set up:
    ```bash
