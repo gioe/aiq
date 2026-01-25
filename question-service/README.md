@@ -300,7 +300,7 @@ File-based alerts are written to `ALERT_FILE_PATH` (default: `logs/alerts.jsonl`
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (unit tests only, integration tests are skipped by default)
 pytest
 
 # Run with coverage
@@ -309,6 +309,29 @@ pytest --cov=app
 # Run specific test file
 pytest tests/test_generator.py -v
 ```
+
+### Running Integration Tests
+
+Integration tests make actual API calls to external LLM services and require valid API keys.
+
+```bash
+# Run all integration tests (requires API keys set as environment variables)
+GOOGLE_API_KEY=your-key pytest tests/integration/ --run-integration
+
+# Run only Google/Gemini integration tests
+GOOGLE_API_KEY=your-key pytest tests/integration/test_google_integration.py --run-integration -v
+
+# Run integration tests with specific markers
+pytest tests/integration/ --run-integration -m "integration and not slow"
+```
+
+**Required environment variables for integration tests:**
+
+| Test File | Required Variables |
+|-----------|-------------------|
+| `test_google_integration.py` | `GOOGLE_API_KEY` |
+
+**Note:** Integration tests are marked with `@pytest.mark.integration` and `@pytest.mark.slow`. They are automatically skipped unless `--run-integration` is passed.
 
 ### Code Quality
 
