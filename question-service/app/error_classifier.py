@@ -19,6 +19,7 @@ class ErrorCategory(Enum):
     SERVER_ERROR = "server_error"  # Provider server errors (5xx)
     NETWORK_ERROR = "network_error"  # Connection/timeout errors
     MODEL_ERROR = "model_error"  # Model not found or unavailable
+    INVENTORY_LOW = "inventory_low"  # Question inventory below threshold
     UNKNOWN = "unknown"  # Unclassified errors
 
 
