@@ -44,7 +44,7 @@ generators:
   spatial:
     provider: "google"
     model: "gemini-3-pro-preview"
-    rationale: "ARC-AGI-2: 31.1% (45.1% Deep Think), breakthrough spatial reasoning. Updated Jan 2026. Using preview identifier per Google API docs."
+    rationale: "ARC-AGI-2: 31.1% (standard mode), breakthrough spatial reasoning. Deep Think mode (45.1%) not currently enabled. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
 
   verbal:

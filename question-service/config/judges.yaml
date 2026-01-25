@@ -61,9 +61,10 @@ judges:
   spatial:
     model: "gemini-3-pro-preview"
     provider: "google"
-    rationale: "Breakthrough spatial reasoning: ARC-AGI-2 (31.1%, 45.1% Deep Think), MMMU-Pro (81.0%). 6x improvement over previous models. Updated Jan 2026. Using preview identifier per Google API docs."
+    rationale: "Breakthrough spatial reasoning: ARC-AGI-2 (31.1% standard mode). Deep Think mode (45.1%) not currently enabled. MMMU-Pro (81.0%). 6x improvement over previous models. Updated Jan 2026. Using preview identifier per Google API docs."
     benchmark_data:
       ARC_AGI_2: "31.1%"
+      ARC_AGI_2_Deep_Think: "45.1% (not enabled)"
       MMMU_Pro: "81.0%"
       Visual_Reasoning: "62%"
     enabled: true
