@@ -70,9 +70,34 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = sut.parse(url)
 
         // Then
-        // Note: Current implementation allows extra path components
-        // This test documents the current behavior
-        XCTAssertEqual(result, .testResults(id: 123), "should parse ID even with extra components")
+        // Extra path components are tolerated but logged as warnings.
+        // This lenient behavior allows forward compatibility while alerting developers
+        // to potentially malformed links via os_log warnings.
+        XCTAssertEqual(result, .testResults(id: 123), "should parse ID even with extra components (warning logged)")
+    }
+
+    func testParseURLScheme_TestResults_MultipleExtraPathComponents() {
+        // Given
+        let url = URL(string: "aiq://test/results/456/extra/path/components")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Multiple extra components should also be tolerated with a warning logged
+        XCTAssertEqual(result, .testResults(id: 456), "should parse ID with multiple extra components (warning logged)")
+    }
+
+    func testParseURLScheme_ResumeTest_ExtraPathComponents() {
+        // Given
+        let url = URL(string: "aiq://test/resume/789/extra")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Extra path components on resume test should also be tolerated with warning
+        XCTAssertEqual(result, .resumeTest(sessionId: 789), "should parse session ID even with extra components (warning logged)")
     }
 
     // MARK: - URL Scheme Tests - Resume Test
@@ -248,6 +273,18 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(result, .invalid, "should return invalid when ID is missing in universal link")
     }
 
+    func testParseUniversalLink_TestResults_ExtraPathComponents() {
+        // Given
+        let url = URL(string: "https://aiq.app/test/results/123/extra/path")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Extra path components on universal links should also be tolerated with warning
+        XCTAssertEqual(result, .testResults(id: 123), "should parse ID with extra components in universal link (warning logged)")
+    }
+
     // MARK: - Universal Link Tests - Resume Test
 
     func testParseUniversalLink_ResumeTest_ValidSessionID() {
@@ -292,6 +329,18 @@ final class DeepLinkHandlerTests: XCTestCase {
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid when session ID is missing in universal link")
+    }
+
+    func testParseUniversalLink_ResumeTest_ExtraPathComponents() {
+        // Given
+        let url = URL(string: "https://aiq.app/test/resume/456/extra")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Extra path components on universal link resume should also be tolerated with warning
+        XCTAssertEqual(result, .resumeTest(sessionId: 456), "should parse session ID with extra components in universal link (warning logged)")
     }
 
     // MARK: - Universal Link Tests - Settings

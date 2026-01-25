@@ -108,6 +108,12 @@ enum DeepLinkSource: String {
 /// - `https://dev.aiq.app/test/resume/{sessionId}` - Resume a test session (development)
 /// - `https://dev.aiq.app/settings` - Open settings (development)
 ///
+/// ## Extra Path Component Handling
+/// Extra path components beyond the expected pattern are tolerated but logged as warnings.
+/// For example, `aiq://test/results/123/extra` parses successfully as `testResults(id: 123)`
+/// but logs a warning. This lenient behavior allows forward compatibility while alerting
+/// developers to potentially malformed links.
+///
 /// Usage:
 /// ```swift
 /// let handler = DeepLinkHandler()
@@ -225,6 +231,11 @@ struct DeepLinkHandler {
     /// Supported patterns:
     /// - test/results/{id}
     /// - test/resume/{sessionId}
+    ///
+    /// Note: Extra path components beyond the expected pattern are tolerated but logged as warnings.
+    /// For example, `test/results/123/extra/path` will parse as `testResults(id: 123)` but log
+    /// a warning about the unexpected components. This lenient behavior allows forward compatibility
+    /// if the URL structure evolves, while still alerting developers to potentially malformed links.
     private func parseTestRoute(pathComponents: [String], originalURL: URL) -> DeepLink {
         guard pathComponents.count >= 2 else {
             recordInvalidDeepLink(.missingTestActionOrID(url: originalURL.absoluteString))
@@ -233,6 +244,21 @@ struct DeepLinkHandler {
 
         let action = pathComponents[0]
         let identifier = pathComponents[1]
+
+        // Log warning if extra path components are present beyond action and identifier.
+        // Expected format: [action, identifier] (e.g., ["results", "123"])
+        // Extra components are ignored but may indicate a malformed URL or future URL pattern.
+        if pathComponents.count > 2 {
+            let extraComponents = Array(pathComponents.dropFirst(2))
+            // Use .auto privacy to allow full details during development while
+            // redacting potentially sensitive URL data on user devices.
+            Self.logger.warning(
+                """
+                Deep link has extra path components that will be ignored: \
+                \(extraComponents, privacy: .auto) in URL: \(originalURL, privacy: .auto)
+                """
+            )
+        }
 
         switch action {
         case "results":
