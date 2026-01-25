@@ -77,6 +77,8 @@ Type-specific judge models evaluate questions against five weighted criteria:
 | Verbal | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, HellaSwag ~95% |
 | Memory | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, 200K context window |
 
+> **Note:** For comprehensive benchmark data and model selection rationale, see [MODEL_BENCHMARKS.md](../../docs/MODEL_BENCHMARKS.md). That document serves as the authoritative source of truth for all model benchmarks used in AIQ.
+
 **Evaluation Parameters:**
 - Temperature: 0.3 (lower for consistency)
 - Max tokens: 500
