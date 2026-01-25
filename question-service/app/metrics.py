@@ -7,7 +7,7 @@ question generation, evaluation, deduplication, and database operations.
 import json
 import logging
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,10 +103,11 @@ class MetricsTracker:
         }
 
         # Specialist routing metrics (TASK-575)
-        self._routing_decisions: List[Dict[str, Any]] = []
+        # Using deque with maxlen to prevent memory leaks in long-running processes
+        self._routing_decisions: deque = deque(maxlen=1000)
         self._latencies_by_question_type: Dict[str, List[float]] = defaultdict(list)
         self._cost_by_question_type: Dict[str, float] = defaultdict(float)
-        self._provider_fallbacks: List[Dict[str, Any]] = []
+        self._provider_fallbacks: deque = deque(maxlen=1000)
         self._questions_by_provider_and_type: Dict[str, Dict[str, int]] = defaultdict(
             lambda: defaultdict(int)
         )
@@ -367,13 +368,13 @@ class MetricsTracker:
 
         return {
             "routing_decisions_count": len(self._routing_decisions),
-            "routing_decisions_recent": self._routing_decisions[-10:],
+            "routing_decisions_recent": list(self._routing_decisions)[-10:],
             "latencies_by_type": latencies_summary,
             "cost_by_type": {
                 k: round(v, 6) for k, v in self._cost_by_question_type.items()
             },
             "provider_fallbacks_count": len(self._provider_fallbacks),
-            "provider_fallbacks": self._provider_fallbacks[-10:],
+            "provider_fallbacks": list(self._provider_fallbacks)[-10:],
             "questions_by_provider_and_type": {
                 provider: dict(types)
                 for provider, types in self._questions_by_provider_and_type.items()

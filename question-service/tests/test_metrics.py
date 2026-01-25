@@ -852,3 +852,67 @@ class TestSpecialistRoutingMetrics:
         # Should only return last 10
         assert len(routing["provider_fallbacks"]) == 10
         assert routing["provider_fallbacks_count"] == 15
+
+    def test_routing_decisions_bounded_by_deque_maxlen(self, tracker):
+        """Test that routing decisions deque is bounded at 1000 items (TASK-592)."""
+        # Record more than 1000 decisions to test memory bounding
+        for i in range(1100):
+            tracker.record_routing_decision(f"type_{i}", "google", None, True)
+
+        # Deque should be bounded at 1000
+        assert len(tracker._routing_decisions) == 1000
+
+        # Count should reflect total, but deque only keeps last 1000
+        routing = tracker.get_routing_metrics()
+        # Count comes from len of deque, so it's also bounded
+        assert routing["routing_decisions_count"] == 1000
+
+        # Verify oldest items were evicted (first 100 items should be gone)
+        decisions_list = list(tracker._routing_decisions)
+        # The first item in deque should be type_100 (items 0-99 were evicted)
+        assert decisions_list[0]["question_type"] == "type_100"
+        # The last item should be type_1099
+        assert decisions_list[-1]["question_type"] == "type_1099"
+
+    def test_provider_fallbacks_bounded_by_deque_maxlen(self, tracker):
+        """Test that provider fallbacks deque is bounded at 1000 items (TASK-592)."""
+        # Record more than 1000 fallbacks to test memory bounding
+        for i in range(1100):
+            tracker.record_provider_fallback(
+                f"type_{i}", "google", "anthropic", f"reason_{i}"
+            )
+
+        # Deque should be bounded at 1000
+        assert len(tracker._provider_fallbacks) == 1000
+
+        # Count should reflect the bounded deque length
+        routing = tracker.get_routing_metrics()
+        assert routing["provider_fallbacks_count"] == 1000
+
+        # Verify oldest items were evicted (first 100 items should be gone)
+        fallbacks_list = list(tracker._provider_fallbacks)
+        # The first item in deque should be type_100 (items 0-99 were evicted)
+        assert fallbacks_list[0]["question_type"] == "type_100"
+        # The last item should be type_1099
+        assert fallbacks_list[-1]["question_type"] == "type_1099"
+
+    def test_deque_eviction_preserves_recent_items(self, tracker):
+        """Test that deque eviction keeps most recent items (TASK-592)."""
+        # Add 500 items
+        for i in range(500):
+            tracker.record_routing_decision(f"batch1_{i}", "google", None, True)
+
+        # Add another 600 items (total 1100, but only 1000 kept)
+        for i in range(600):
+            tracker.record_routing_decision(f"batch2_{i}", "anthropic", None, False)
+
+        assert len(tracker._routing_decisions) == 1000
+
+        # Check that all of batch2 is present (600 items)
+        decisions_list = list(tracker._routing_decisions)
+        batch2_count = sum(1 for d in decisions_list if d["provider"] == "anthropic")
+        assert batch2_count == 600
+
+        # Check that 400 of batch1 remain (1000 - 600 = 400)
+        batch1_count = sum(1 for d in decisions_list if d["provider"] == "google")
+        assert batch1_count == 400
