@@ -316,22 +316,26 @@ Integration tests make actual API calls to external LLM services and require val
 
 ```bash
 # Run all integration tests (requires API keys set as environment variables)
-GOOGLE_API_KEY=your-key pytest tests/integration/ --run-integration
+pytest --run-integration
+
+# Run provider model availability tests (verifies models in get_available_models() exist in APIs)
+pytest tests/providers/test_provider_model_availability_integration.py --run-integration -v
 
 # Run only Google/Gemini integration tests
 GOOGLE_API_KEY=your-key pytest tests/integration/test_google_integration.py --run-integration -v
 
 # Run integration tests with specific markers
-pytest tests/integration/ --run-integration -m "integration and not slow"
+pytest --run-integration -m "integration and not slow"
 ```
 
 **Required environment variables for integration tests:**
 
 | Test File | Required Variables |
 |-----------|-------------------|
+| `test_provider_model_availability_integration.py` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY` |
 | `test_google_integration.py` | `GOOGLE_API_KEY` |
 
-**Note:** Integration tests are marked with `@pytest.mark.integration` and `@pytest.mark.slow`. They are automatically skipped unless `--run-integration` is passed.
+**Note:** Integration tests are marked with `@pytest.mark.integration`. They are automatically skipped unless `--run-integration` is passed. Individual tests will be skipped if the required API key environment variable is not set.
 
 ### Code Quality
 
