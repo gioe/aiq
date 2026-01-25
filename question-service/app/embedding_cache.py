@@ -220,8 +220,10 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
 
         except self._redis_module.RedisError as e:
             logger.warning(f"Redis error during set: {e}")
+            self._errors += 1
         except (TypeError, ValueError) as e:
             logger.warning(f"Failed to serialize embedding: {e}")
+            self._errors += 1
 
     def clear(self) -> None:
         """Clear all embedding cache keys."""
@@ -233,8 +235,12 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
                 result = self._redis.scan(cursor, match=pattern, count=100)
                 cursor, keys = result
                 if keys:
-                    self._redis.delete(*keys)
-                    deleted_count += len(keys)
+                    try:
+                        self._redis.delete(*keys)
+                        deleted_count += len(keys)
+                    except self._redis_module.RedisError as e:
+                        # Keys may have expired between scan and delete; continue
+                        logger.warning(f"Failed to delete some keys during clear: {e}")
                 if cursor == 0:
                     break
 
