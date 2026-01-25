@@ -31,6 +31,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    verify_token_type,
 )
 from app.core.auth import (
     get_current_user,
@@ -389,12 +390,19 @@ def logout_user(
         # Validate refresh token belongs to current user before revoking
         refresh_payload = decode_token(logout_data.refresh_token)
         if refresh_payload and refresh_payload.get("user_id") == current_user.id:
-            _revoke_token(
-                token=logout_data.refresh_token,
-                token_type="refresh",
-                user_id=current_user.id,
-                client_ip=client_ip,
-            )
+            # Verify the token is actually a refresh token
+            if not verify_token_type(refresh_payload, "refresh"):
+                logger.warning(
+                    f"Token passed as refresh_token is not a refresh token "
+                    f"(type={refresh_payload.get('type')}) for user_id={current_user.id}"
+                )
+            else:
+                _revoke_token(
+                    token=logout_data.refresh_token,
+                    token_type="refresh",
+                    user_id=current_user.id,
+                    client_ip=client_ip,
+                )
         else:
             logger.warning(
                 f"Attempted to revoke refresh token not owned by user_id={current_user.id}"
