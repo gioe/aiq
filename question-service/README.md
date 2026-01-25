@@ -48,9 +48,9 @@ python run_generation.py --count 50
 
 The service supports four LLM providers for question generation:
 
-| Provider | Model | SDK |
-|----------|-------|-----|
-| OpenAI | gpt-4-turbo-preview | `openai` |
+| Provider | Example Models | SDK |
+|----------|----------------|-----|
+| OpenAI | gpt-5.2, gpt-5, o4-mini, o3, gpt-4o | `openai` |
 | Anthropic | claude-sonnet-4-5-20250929 | `anthropic` |
 | Google | gemini-3-pro-preview | `google-generativeai` |
 | xAI | grok-4 | Custom via `httpx` |
