@@ -35,9 +35,13 @@ The AIQ question service uses Google Gemini models for pattern recognition and s
 
 | File | Purpose |
 |------|---------|
-| `app/providers/google_provider.py` | Provider implementation with `get_available_models()` |
+| `app/providers/google_provider.py` | Provider implementation with `fetch_available_models()` for API queries |
 | `tests/integration/test_google_integration.py` | Integration tests using preview models |
 | `tests/providers/test_provider_model_availability_integration.py` | Model availability validation |
+
+**Note:** `GoogleProvider` has two model-related methods:
+- `get_available_models()` - Returns a static hardcoded list of known models
+- `fetch_available_models()` - Queries the Google API for currently available models (use this for monitoring)
 
 ## Preview vs Stable Models
 
