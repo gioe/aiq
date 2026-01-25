@@ -582,6 +582,13 @@ class GoogleProvider(BaseLLMProvider):
         Returns:
             List of model identifiers
 
+        Warning:
+            This list is hardcoded and may not reflect current API availability.
+            Using an incorrect or deprecated model identifier will fail at runtime
+            when making API calls. Use fetch_available_models() to query the API
+            for currently available models, or get_validated_models() for a
+            validated intersection of known and available models.
+
         Note:
             Common Gemini models (as of January 2026):
             - gemini-3-pro-preview (Gemini 3 Pro Preview - advanced reasoning)
