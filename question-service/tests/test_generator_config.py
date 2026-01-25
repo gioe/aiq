@@ -333,13 +333,21 @@ class TestGeneratorConfigLoader:
 class TestGlobalConfiguration:
     """Tests for global configuration functions."""
 
-    def test_initialize_and_get(self, valid_config_file):
-        """Test initializing and getting global configuration."""
-        # Reset global loader
+    @pytest.fixture(autouse=True)
+    def reset_global_config(self):
+        """Reset global config state before and after each test.
+
+        This prevents test pollution from global state changes.
+        """
         import app.generator_config as config_module
 
+        original = config_module._loader
         config_module._loader = None
+        yield
+        config_module._loader = original
 
+    def test_initialize_and_get(self, valid_config_file):
+        """Test initializing and getting global configuration."""
         # Initialize
         initialize_generator_config(valid_config_file)
 
@@ -352,21 +360,13 @@ class TestGlobalConfiguration:
 
     def test_get_before_initialize(self):
         """Test that getting config before initialize raises error."""
-        # Reset global loader
-        import app.generator_config as config_module
-
-        config_module._loader = None
-
         with pytest.raises(RuntimeError) as exc_info:
             get_generator_config()
         assert "not initialized" in str(exc_info.value).lower()
 
     def test_is_generator_config_initialized(self, valid_config_file):
         """Test checking if generator config is initialized."""
-        import app.generator_config as config_module
-
-        # Reset and check not initialized
-        config_module._loader = None
+        # Check not initialized (fixture reset it)
         assert is_generator_config_initialized() is False
 
         # Initialize and check
@@ -379,6 +379,12 @@ class TestProductionGeneratorsYaml:
 
     These tests validate that the actual generators.yaml file in config/
     loads successfully and contains expected values.
+
+    NOTE: Tests that assert specific provider/model assignments (e.g.,
+    test_generators_yaml_pattern_uses_google) are intentionally strict.
+    These tests SHOULD fail when the production config is updated - this
+    ensures config changes are intentional and reviewed. When updating
+    generators.yaml, update these tests to match the new expected values.
     """
 
     @pytest.fixture
