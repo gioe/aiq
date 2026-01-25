@@ -43,8 +43,8 @@ Before using this skill, ensure the following requirements are met:
    ```
 
 3. **Environment Variables**: Required API keys must be configured in `question-service/.env`:
-   - `OPENAI_API_KEY` - For question generation
-   - `ANTHROPIC_API_KEY` - For question judging
+   - `OPENAI_API_KEY` - For question generation ([Get an API key](https://platform.openai.com/api-keys))
+   - `ANTHROPIC_API_KEY` - For question judging ([Get an API key](https://console.anthropic.com/settings/keys))
 
 ## Implementation
 
