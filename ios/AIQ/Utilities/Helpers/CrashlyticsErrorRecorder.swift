@@ -86,7 +86,7 @@ enum CrashlyticsErrorRecorder {
             // In debug builds, print detailed error info
             print("[ERROR] [\(context.rawValue)] \(error)")
             if let additionalInfo {
-                print("  Additional info: \(additionalInfo)")
+                print("       Additional info: \(additionalInfo)")
             }
         #else
             // In release builds, record to Crashlytics
