@@ -8,6 +8,8 @@ from typing import AsyncGenerator, Union
 from urllib.parse import urlparse
 
 import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +54,10 @@ if settings.SENTRY_DSN:
         environment=settings.ENV,
         release=settings.APP_VERSION,
         send_default_pii=False,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
     )
     logger.info(
         f"Sentry initialized for environment '{settings.ENV}' "
