@@ -582,6 +582,12 @@ class AnthropicProvider(BaseLLMProvider):
             - claude-3-7-sonnet-20250219 (Claude 3.7 Sonnet - legacy)
             - claude-3-5-sonnet-20241022 (Claude 3.5 Sonnet - legacy)
             - claude-3-haiku-20240307 (Claude 3 Haiku - legacy, fast/low-cost)
+
+        Maintenance:
+            Update this list when new Claude models are released. Check the official
+            Anthropic documentation for current model IDs: https://docs.anthropic.com/en/docs/about-claude/models
+            Add new models at the top of the appropriate section (4.5, 4.x, or 3.x)
+            and update the "as of" date in the Note above.
         """
         return [
             # Claude 4.5 models (latest)
