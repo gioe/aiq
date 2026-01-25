@@ -287,3 +287,16 @@ class PasswordResetConfirmResponse(BaseModel):
         ...,
         description="Success message",
     )
+
+
+class LogoutRequest(BaseModel):
+    """Schema for logout request with optional refresh token revocation (TASK-525)."""
+
+    refresh_token: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=2000,  # JWTs are typically under 2KB
+        description="Refresh token to revoke. When provided, both the access token "
+        "(from Authorization header) and this refresh token will be blacklisted. "
+        "Must belong to the same user as the access token.",
+    )

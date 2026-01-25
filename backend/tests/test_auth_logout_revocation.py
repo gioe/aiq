@@ -253,17 +253,19 @@ class TestTokenRevocationEdgeCases:
         response = client.post("/v1/auth/logout", headers=headers)
         assert response.status_code == 401
 
-    def test_refresh_token_not_affected_by_access_token_logout(self, client, test_user):
-        """Test that logging out access token doesn't affect refresh token."""
+    def test_refresh_token_not_affected_by_access_token_only_logout(
+        self, client, test_user
+    ):
+        """Test that logout without refresh_token only revokes access token."""
         access_token = test_user["tokens"]["access_token"]
         refresh_token = test_user["tokens"]["refresh_token"]
 
-        # Logout with access token
+        # Logout with access token only (no refresh_token in body)
         headers = {"Authorization": f"Bearer {access_token}"}
         response = client.post("/v1/auth/logout", headers=headers)
         assert response.status_code == 204
 
-        # Refresh token should still work
+        # Refresh token should still work since we didn't provide it
         headers = {"Authorization": f"Bearer {refresh_token}"}
         response = client.post("/v1/auth/refresh", headers=headers)
         assert response.status_code == 200
@@ -340,3 +342,205 @@ class TestTokenBlacklistSecurity:
 
         # All JTIs should be unique
         assert len(jtis) == len(set(jtis)), "JTIs should be unique"
+
+
+class TestRefreshTokenRevocation:
+    """Tests for refresh token revocation on logout (TASK-525)."""
+
+    def test_logout_revokes_both_tokens(self, client, test_user):
+        """Test that logout with refresh_token in body revokes both tokens."""
+        access_token = test_user["tokens"]["access_token"]
+        refresh_token = test_user["tokens"]["refresh_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Verify both tokens work before logout
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 200
+
+        refresh_headers = {"Authorization": f"Bearer {refresh_token}"}
+        response = client.post("/v1/auth/refresh", headers=refresh_headers)
+        assert response.status_code == 200
+        new_tokens = response.json()
+
+        # Now logout with the new access token and provide refresh token in body
+        headers = {"Authorization": f"Bearer {new_tokens['access_token']}"}
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers,
+            json={"refresh_token": new_tokens["refresh_token"]},
+        )
+        assert response.status_code == 204
+
+        # Access token should be revoked
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+        assert "revoked" in response.json()["detail"].lower()
+
+        # Refresh token should also be revoked
+        refresh_headers = {"Authorization": f"Bearer {new_tokens['refresh_token']}"}
+        response = client.post("/v1/auth/refresh", headers=refresh_headers)
+        assert response.status_code == 401
+        assert "revoked" in response.json()["detail"].lower()
+
+    def test_logout_with_empty_refresh_token(self, client, test_user):
+        """Test that logout with null refresh_token only revokes access token."""
+        access_token = test_user["tokens"]["access_token"]
+        refresh_token = test_user["tokens"]["refresh_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Logout with explicit null refresh_token
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers,
+            json={"refresh_token": None},
+        )
+        assert response.status_code == 204
+
+        # Access token should be revoked
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+
+        # Refresh token should still work
+        refresh_headers = {"Authorization": f"Bearer {refresh_token}"}
+        response = client.post("/v1/auth/refresh", headers=refresh_headers)
+        assert response.status_code == 200
+
+    def test_logout_with_invalid_refresh_token(self, client, test_user):
+        """Test that logout succeeds even with invalid refresh token in body."""
+        access_token = test_user["tokens"]["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Logout with invalid refresh token
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers,
+            json={"refresh_token": "invalid.refresh.token"},
+        )
+        # Should still succeed (graceful degradation)
+        assert response.status_code == 204
+
+        # Access token should be revoked regardless
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+
+    def test_logout_with_someone_elses_refresh_token(self, client, test_user):
+        """Test that users cannot revoke other users' refresh tokens."""
+        # Create a second user
+        import uuid
+
+        email2 = f"test_user2_{uuid.uuid4().hex}@example.com"
+        register_data = {
+            "email": email2,
+            "password": "TestPassword123!",
+            "first_name": "Test",
+            "last_name": "User2",
+        }
+        response = client.post("/v1/auth/register", json=register_data)
+        assert response.status_code == 201
+        user2_refresh_token = response.json()["refresh_token"]
+
+        # User1 tries to logout and revoke user2's refresh token
+        access_token = test_user["tokens"]["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers,
+            json={"refresh_token": user2_refresh_token},
+        )
+        # Should succeed (user1's access token revoked, user2's refresh token ignored)
+        assert response.status_code == 204
+
+        # User2's refresh token should still work (not revoked - ownership mismatch)
+        refresh_headers = {"Authorization": f"Bearer {user2_refresh_token}"}
+        response = client.post("/v1/auth/refresh", headers=refresh_headers)
+        assert response.status_code == 200  # User2 unaffected
+
+    def test_multiple_session_logout_with_refresh_tokens(self, client, test_user):
+        """Test logout across multiple sessions with refresh token revocation."""
+        # Login twice to get two different token pairs
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+
+        response1 = client.post("/v1/auth/login", json=login_data)
+        assert response1.status_code == 200
+        session1 = response1.json()
+
+        response2 = client.post("/v1/auth/login", json=login_data)
+        assert response2.status_code == 200
+        session2 = response2.json()
+
+        # Both sessions should work
+        for session in [session1, session2]:
+            headers = {"Authorization": f"Bearer {session['access_token']}"}
+            assert client.get("/v1/user/profile", headers=headers).status_code == 200
+
+        # Logout session1 with its refresh token
+        headers1 = {"Authorization": f"Bearer {session1['access_token']}"}
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers1,
+            json={"refresh_token": session1["refresh_token"]},
+        )
+        assert response.status_code == 204
+
+        # Session1 tokens should be revoked
+        headers1 = {"Authorization": f"Bearer {session1['access_token']}"}
+        assert client.get("/v1/user/profile", headers=headers1).status_code == 401
+
+        refresh_headers1 = {"Authorization": f"Bearer {session1['refresh_token']}"}
+        assert (
+            client.post("/v1/auth/refresh", headers=refresh_headers1).status_code == 401
+        )
+
+        # Session2 should still work
+        headers2 = {"Authorization": f"Bearer {session2['access_token']}"}
+        assert client.get("/v1/user/profile", headers=headers2).status_code == 200
+
+        refresh_headers2 = {"Authorization": f"Bearer {session2['refresh_token']}"}
+        assert (
+            client.post("/v1/auth/refresh", headers=refresh_headers2).status_code == 200
+        )
+
+    def test_logout_without_body_backward_compatible(self, client, test_user):
+        """Test that logout still works without request body (backward compatible)."""
+        access_token = test_user["tokens"]["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Logout without any body
+        response = client.post("/v1/auth/logout", headers=headers)
+        assert response.status_code == 204
+
+        # Access token should be revoked
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 401
+
+    def test_logout_with_access_token_as_refresh_token(self, client, test_user):
+        """Test that passing access token as refresh_token is handled gracefully."""
+        # Login to get fresh tokens
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        access_token = tokens["access_token"]
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Try to revoke using access token in refresh_token field (wrong token type)
+        response = client.post(
+            "/v1/auth/logout",
+            headers=headers,
+            json={"refresh_token": access_token},
+        )
+        # Should succeed - access token revoked, the "refresh" token is ignored
+        # because it's an access token (different user_id encoding or token type)
+        assert response.status_code == 204
+
+        # Access token should be revoked
+        response = client.get("/v1/user/profile", headers=headers)
+        assert response.status_code == 401

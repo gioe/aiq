@@ -3,7 +3,7 @@ Authentication endpoints for user registration and login.
 """
 import logging
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.datetime_utils import utc_now
 
 from fastapi import APIRouter, Depends, Request, status
@@ -23,6 +23,7 @@ from app.schemas.auth import (
     PasswordResetConfirm,
     PasswordResetResponse,
     PasswordResetConfirmResponse,
+    LogoutRequest,
 )
 from app.core.security import (
     hash_password,
@@ -288,67 +289,115 @@ def refresh_access_token(
     }
 
 
+def _revoke_token(
+    token: str,
+    token_type: str,
+    user_id: int,
+    client_ip: str,
+) -> None:
+    """
+    Revoke a token by adding it to the blacklist.
+
+    Args:
+        token: The JWT token string to revoke
+        token_type: Type of token ("access" or "refresh") for logging
+        user_id: User ID for logging
+        client_ip: Client IP for security logging
+    """
+    payload = decode_token(token)
+    if not payload:
+        logger.warning(
+            f"Cannot decode {token_type} token for user_id={user_id}. "
+            "Token may be invalid or malformed."
+        )
+        return
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+
+    if not jti or not exp:
+        logger.warning(
+            f"{token_type.capitalize()} token missing JTI or exp for user_id={user_id}. "
+            "Cannot blacklist."
+        )
+        return
+
+    try:
+        # Convert exp (Unix timestamp) to UTC datetime
+        expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+
+        # Add token to blacklist
+        blacklist = get_token_blacklist()
+        blacklist.revoke_token(jti, expires_at)
+
+        # Log token revocation
+        security_logger.log_token_revoked(
+            ip=client_ip,
+            token_jti=jti,
+            user_id=str(user_id),
+        )
+
+        logger.info(f"{token_type.capitalize()} token revoked for user_id={user_id}")
+    except RuntimeError:
+        # Blacklist not initialized - log warning but allow logout
+        logger.warning(
+            f"Token blacklist not initialized. "
+            f"{token_type.capitalize()} token not revoked (client-side only logout)."
+        )
+    except Exception as e:
+        # Log error but don't fail logout request
+        logger.error(f"Failed to blacklist {token_type} token on logout: {e}")
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout_user(
     request: Request,
+    logout_data: LogoutRequest = None,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """
-    Logout user by blacklisting their current access token.
+    Logout user by blacklisting their current access token and optionally refresh token.
 
-    This immediately revokes the token, preventing further use even before expiration.
+    This immediately revokes the token(s), preventing further use even before expiration.
     The client should also discard tokens locally.
+
+    When a refresh_token is provided in the request body, it will also be blacklisted,
+    ensuring the user cannot use it to obtain new access tokens.
 
     Args:
         request: FastAPI request object for IP extraction
+        logout_data: Optional request body with refresh_token to revoke
         current_user: Current authenticated user
         credentials: Token credentials for blacklisting
 
     Returns:
         No content (204)
     """
-    # Decode token to get JTI and expiration
-    token = credentials.credentials
-    payload = decode_token(token)
+    client_ip = get_client_ip_from_request(request)
 
-    if payload:
-        jti = payload.get("jti")
-        exp = payload.get("exp")
+    # Revoke access token (from Authorization header)
+    _revoke_token(
+        token=credentials.credentials,
+        token_type="access",
+        user_id=current_user.id,
+        client_ip=client_ip,
+    )
 
-        if jti and exp:
-            try:
-                from datetime import datetime, timezone
-
-                # Convert exp (Unix timestamp) to UTC datetime
-                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-
-                # Add token to blacklist
-                blacklist = get_token_blacklist()
-                blacklist.revoke_token(jti, expires_at)
-
-                # Log token revocation
-                client_ip = get_client_ip_from_request(request)
-                security_logger.log_token_revoked(
-                    ip=client_ip,
-                    token_jti=jti,
-                    user_id=str(current_user.id),
-                )
-
-                logger.info(f"Token revoked for user_id={current_user.id}")
-            except RuntimeError:
-                # Blacklist not initialized - log warning but allow logout
-                logger.warning(
-                    "Token blacklist not initialized. "
-                    "Token not revoked (client-side only logout)."
-                )
-            except Exception as e:
-                # Log error but don't fail logout request
-                logger.error(f"Failed to blacklist token on logout: {e}")
+    # Revoke refresh token if provided in request body
+    if logout_data and logout_data.refresh_token:
+        # Validate refresh token belongs to current user before revoking
+        refresh_payload = decode_token(logout_data.refresh_token)
+        if refresh_payload and refresh_payload.get("user_id") == current_user.id:
+            _revoke_token(
+                token=logout_data.refresh_token,
+                token_type="refresh",
+                user_id=current_user.id,
+                client_ip=client_ip,
+            )
         else:
             logger.warning(
-                f"Token missing JTI or exp for user_id={current_user.id}. "
-                "Cannot blacklist (client-side only logout)."
+                f"Attempted to revoke refresh token not owned by user_id={current_user.id}"
             )
 
     # Track analytics event
