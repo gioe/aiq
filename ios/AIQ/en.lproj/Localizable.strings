@@ -623,7 +623,6 @@
 "error.deeplink.invalid.session.id" = "Test resume requires numeric sessionId, got '%@': %@";
 "error.deeplink.non.positive.session.id" = "Session ID must be positive, got '%d': %@";
 "error.deeplink.unrecognized.test.action" = "Unrecognized test action '%@': %@";
-"error.deeplink.settings.subpath.not.allowed" = "Settings route does not accept sub-paths: %@";
 
 // MARK: - Service Errors - Auth
 "error.auth.operation.in.progress" = "Another operation is in progress";

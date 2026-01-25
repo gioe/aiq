@@ -178,7 +178,22 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = sut.parse(url)
 
         // Then
-        XCTAssertEqual(result, .invalid, "should return invalid for settings with extra path")
+        // Extra path components are tolerated but logged as warnings.
+        // This lenient behavior allows forward compatibility while alerting developers
+        // to potentially malformed links via os_log warnings.
+        XCTAssertEqual(result, .settings, "should parse settings even with extra components (warning logged)")
+    }
+
+    func testParseURLScheme_Settings_MultipleExtraPathComponents() {
+        // Given
+        let url = URL(string: "aiq://settings/notifications/email/preferences")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Multiple extra components should also be tolerated with a warning logged
+        XCTAssertEqual(result, .settings, "should parse settings with multiple extra components (warning logged)")
     }
 
     // MARK: - URL Scheme Tests - Invalid Routes
@@ -375,7 +390,20 @@ final class DeepLinkHandlerTests: XCTestCase {
         let result = sut.parse(url)
 
         // Then
-        XCTAssertEqual(result, .invalid, "should return invalid for settings with extra path in universal link")
+        // Extra path components on universal links should also be tolerated with warning
+        XCTAssertEqual(result, .settings, "should parse settings with extra components in universal link (warning logged)")
+    }
+
+    func testParseUniversalLink_Settings_MultipleExtraPathComponents() {
+        // Given
+        let url = URL(string: "https://aiq.app/settings/notifications/email")!
+
+        // When
+        let result = sut.parse(url)
+
+        // Then
+        // Multiple extra components on universal links should also be tolerated with warning
+        XCTAssertEqual(result, .settings, "should parse settings with multiple extra components in universal link (warning logged)")
     }
 
     // MARK: - Universal Link Tests - Invalid Routes
