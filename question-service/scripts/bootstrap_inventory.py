@@ -45,19 +45,28 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict, Tuple
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
+from app.database import DatabaseService as QuestionDatabase  # noqa: E402
+from app.deduplicator import QuestionDeduplicator  # noqa: E402
 from app.error_classifier import (  # noqa: E402
     ClassifiedError,
     ErrorCategory,
     ErrorSeverity,
 )
-from app.models import DifficultyLevel, QuestionType  # noqa: E402
+from app.judge import QuestionJudge  # noqa: E402
+from app.judge_config import JudgeConfigLoader  # noqa: E402
+from app.models import (  # noqa: E402
+    DifficultyLevel,
+    EvaluatedQuestion,
+    GeneratedQuestion,
+    QuestionType,
+)
 from app.pipeline import QuestionGenerationPipeline  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.prompts import build_generation_prompt  # noqa: E402
@@ -207,6 +216,9 @@ class BootstrapConfig:
     quiet: bool = False
     parallel: bool = False
     max_parallel: int = 2
+    # Judge and deduplication settings
+    min_score: Optional[float] = None  # None means use settings.min_judge_score
+    skip_deduplication: bool = False
 
 
 class ProgressReporter:
@@ -392,6 +404,76 @@ class ProgressReporter:
             f"  {self.GREEN}[PROGRESS]{self.RESET} Inserted {count} questions into database"
         )
 
+    def evaluation_start(self, count: int) -> None:
+        """Print evaluation start message.
+
+        Args:
+            count: Number of questions to evaluate
+        """
+        self._print(
+            f"  {self.BLUE}[EVAL]{self.RESET} Evaluating {count} questions with judge..."
+        )
+
+    def evaluation_complete(self, approved: int, rejected: int, rate: float) -> None:
+        """Print evaluation completion message.
+
+        Args:
+            approved: Number of approved questions
+            rejected: Number of rejected questions
+            rate: Approval rate percentage
+        """
+        self._print(
+            f"  {self.GREEN}[EVAL]{self.RESET} Approved: {approved}, "
+            f"Rejected: {rejected} ({rate:.1f}% approval rate)"
+        )
+
+    def dedup_start(self, count: int) -> None:
+        """Print deduplication start message.
+
+        Args:
+            count: Number of questions to deduplicate
+        """
+        self._print(
+            f"  {self.BLUE}[DEDUP]{self.RESET} Checking {count} questions for duplicates..."
+        )
+
+    def dedup_complete(self, unique: int, duplicates: int) -> None:
+        """Print deduplication completion message.
+
+        Args:
+            unique: Number of unique questions
+            duplicates: Number of duplicates found
+        """
+        self._print(
+            f"  {self.GREEN}[DEDUP]{self.RESET} Unique: {unique}, Duplicates: {duplicates}"
+        )
+
+    def insertion_start(self, count: int) -> None:
+        """Print insertion start message.
+
+        Args:
+            count: Number of questions to insert
+        """
+        self._print(
+            f"  {self.BLUE}[INSERT]{self.RESET} Inserting {count} questions to database..."
+        )
+
+    def insertion_complete(self, inserted: int, failed: int) -> None:
+        """Print insertion completion message.
+
+        Args:
+            inserted: Number of questions inserted
+            failed: Number of insertions that failed
+        """
+        if failed > 0:
+            self._print(
+                f"  {self.YELLOW}[INSERT]{self.RESET} Inserted: {inserted}, Failed: {failed}"
+            )
+        else:
+            self._print(
+                f"  {self.GREEN}[INSERT]{self.RESET} Inserted: {inserted} questions"
+            )
+
     def retry_warning(
         self, attempt: int, max_retries: int, question_type: str, delay: float
     ) -> None:
@@ -474,6 +556,14 @@ class ProgressReporter:
         self._print(f"  Successful types: {successful_types} / {total_types}")
         self._print(f"  Failed types: {failed_types}")
         self._print(f"  Total duration: {total_minutes}m {total_seconds}s")
+        # Calculate totals
+        total_generated = sum(r.generated for r in results if r.success)
+        total_inserted = sum(r.inserted for r in results if r.success)
+
+        self._print("")
+        self._print("Totals:")
+        self._print(f"  Generated: {total_generated}")
+        self._print(f"  Inserted: {total_inserted}")
         self._print("")
         self._print("Type Details:")
 
@@ -481,7 +571,8 @@ class ProgressReporter:
             if result.success:
                 self._print(
                     f"  {self.GREEN}[OK]{self.RESET} {result.question_type} - "
-                    f"{result.generated} questions"
+                    f"generated: {result.generated}, inserted: {result.inserted}, "
+                    f"approval: {result.approval_rate:.1f}%"
                 )
             else:
                 self._print(f"  {self.RED}[FAILED]{self.RESET} {result.question_type}")
@@ -786,6 +877,12 @@ class BootstrapInventory:
         self.alerter = alerter
         self.pipeline: Optional[QuestionGenerationPipeline] = None
         self.results: List[TypeResult] = []
+        # Judge, deduplicator, and database will be initialized in run()
+        self.judge: Optional[QuestionJudge] = None
+        self.deduplicator: Optional[QuestionDeduplicator] = None
+        self.database: Optional[QuestionDatabase] = None
+        self.existing_questions: List[Dict[str, Any]] = []
+        self.min_score: float = self.config.min_score or settings.min_judge_score
 
     def _initialize_pipeline(self) -> QuestionGenerationPipeline:
         """Initialize the question generation pipeline.
@@ -809,6 +906,318 @@ class BootstrapInventory:
         self.logger.info(f"Pipeline initialized with providers: {providers}")
 
         return pipeline
+
+    def _initialize_judge(self) -> QuestionJudge:
+        """Initialize the question judge.
+
+        Returns:
+            Initialized QuestionJudge
+
+        Raises:
+            ValueError: If judge configuration cannot be loaded
+        """
+        self.logger.info("Initializing question judge...")
+
+        # Load judge configuration
+        judge_loader = JudgeConfigLoader(settings.judge_config_path)
+        judge_loader.load()
+        self.logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
+
+        judge = QuestionJudge(
+            judge_config=judge_loader,
+            openai_api_key=settings.openai_api_key,
+            anthropic_api_key=settings.anthropic_api_key,
+            google_api_key=settings.google_api_key,
+            xai_api_key=settings.xai_api_key,
+        )
+        self.logger.info("✓ Judge initialized")
+
+        return judge
+
+    def _initialize_database(self) -> QuestionDatabase:
+        """Initialize the database service.
+
+        Returns:
+            Initialized QuestionDatabase
+
+        Raises:
+            Exception: If database connection fails
+        """
+        self.logger.info("Initializing database connection...")
+
+        db = QuestionDatabase(
+            database_url=settings.database_url,
+            openai_api_key=settings.openai_api_key,
+        )
+        self.logger.info("✓ Database connected")
+
+        return db
+
+    def _initialize_deduplicator(self) -> QuestionDeduplicator:
+        """Initialize the question deduplicator.
+
+        Returns:
+            Initialized QuestionDeduplicator
+
+        Raises:
+            ValueError: If OpenAI API key is not configured
+        """
+        self.logger.info("Initializing deduplicator...")
+
+        if not settings.openai_api_key:
+            raise ValueError("OpenAI API key required for deduplication")
+
+        deduplicator = QuestionDeduplicator(
+            openai_api_key=settings.openai_api_key,
+            similarity_threshold=settings.dedup_similarity_threshold,
+            embedding_model=settings.dedup_embedding_model,
+            redis_url=settings.redis_url,
+            embedding_cache_ttl=settings.embedding_cache_ttl,
+        )
+        cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
+        self.logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
+
+        return deduplicator
+
+    def _load_existing_questions(self) -> List[Dict[str, Any]]:
+        """Load existing questions from database for deduplication.
+
+        Returns:
+            List of existing question dictionaries
+        """
+        if self.database is None:
+            return []
+
+        try:
+            questions = self.database.get_all_questions()
+            self.logger.info(
+                f"Loaded {len(questions)} existing questions for deduplication"
+            )
+            return questions
+        except Exception as e:
+            self.logger.error(f"Failed to load existing questions: {e}")
+            return []
+
+    async def _evaluate_questions(
+        self,
+        questions: List[Any],
+        question_type: str,
+    ) -> Tuple[List[EvaluatedQuestion], List[EvaluatedQuestion]]:
+        """Evaluate generated questions with the judge.
+
+        Args:
+            questions: List of generated questions (may be GeneratedQuestion or dict)
+            question_type: Question type for logging
+
+        Returns:
+            Tuple of (approved_questions, rejected_questions)
+        """
+        if self.judge is None:
+            self.logger.warning("Judge not initialized, skipping evaluation")
+            return [], []
+
+        # Convert dict-style questions from batch API to GeneratedQuestion objects
+        generated_questions: List[GeneratedQuestion] = []
+        for q in questions:
+            if isinstance(q, GeneratedQuestion):
+                generated_questions.append(q)
+            elif isinstance(q, dict):
+                # Handle batch API results which return dicts
+                try:
+                    gq = GeneratedQuestion(
+                        question_text=q["question_text"],
+                        question_type=q["question_type"],
+                        difficulty_level=q.get("difficulty") or DifficultyLevel.MEDIUM,
+                        correct_answer=q["correct_answer"],
+                        answer_options=q.get("answer_options"),
+                        explanation=q.get("explanation"),
+                        metadata=q.get("metadata", {}),
+                        source_llm=q.get("source_llm", "unknown"),
+                        source_model=q.get("source_model", "unknown"),
+                    )
+                    generated_questions.append(gq)
+                except Exception as e:
+                    self.logger.warning(f"Failed to convert question dict: {e}")
+                    continue
+
+        if not generated_questions:
+            return [], []
+
+        self.progress.evaluation_start(len(generated_questions))
+
+        approved_questions: List[EvaluatedQuestion] = []
+        rejected_questions: List[EvaluatedQuestion] = []
+
+        # Use async evaluation if available
+        try:
+            all_evaluated = await self.judge.evaluate_questions_list_async(
+                questions=generated_questions,
+            )
+
+            for evaluated_question in all_evaluated:
+                if evaluated_question.evaluation.overall_score >= self.min_score:
+                    approved_questions.append(evaluated_question)
+                else:
+                    rejected_questions.append(evaluated_question)
+
+        except Exception as e:
+            self.logger.error(f"Async judge evaluation failed: {e}")
+            # Fall back to sequential evaluation
+            for question in generated_questions:
+                try:
+                    evaluated_question = self.judge.evaluate_question(question)
+                    if evaluated_question.evaluation.overall_score >= self.min_score:
+                        approved_questions.append(evaluated_question)
+                    else:
+                        rejected_questions.append(evaluated_question)
+                except Exception as eval_error:
+                    self.logger.error(f"Evaluation failed for question: {eval_error}")
+                    continue
+
+        approval_rate = (
+            len(approved_questions) / len(generated_questions) * 100
+            if generated_questions
+            else 0
+        )
+        self.progress.evaluation_complete(
+            approved=len(approved_questions),
+            rejected=len(rejected_questions),
+            rate=approval_rate,
+        )
+
+        self.logger.info(
+            f"[{question_type}] Judge evaluation complete: "
+            f"{len(approved_questions)} approved, {len(rejected_questions)} rejected "
+            f"({approval_rate:.1f}% approval rate)"
+        )
+
+        return approved_questions, rejected_questions
+
+    def _deduplicate_questions(
+        self,
+        approved_questions: List[EvaluatedQuestion],
+        question_type: str,
+    ) -> List[EvaluatedQuestion]:
+        """Deduplicate approved questions against existing database.
+
+        Args:
+            approved_questions: List of approved evaluated questions
+            question_type: Question type for logging
+
+        Returns:
+            List of unique questions (not duplicates)
+        """
+        if self.config.skip_deduplication:
+            self.logger.info(
+                f"[{question_type}] Skipping deduplication (--skip-deduplication)"
+            )
+            return approved_questions
+
+        if self.deduplicator is None:
+            self.logger.warning("Deduplicator not initialized, skipping deduplication")
+            return approved_questions
+
+        if not approved_questions:
+            return []
+
+        self.progress.dedup_start(len(approved_questions))
+
+        unique_questions: List[EvaluatedQuestion] = []
+        duplicate_count = 0
+
+        for evaluated_question in approved_questions:
+            try:
+                result = self.deduplicator.check_duplicate(
+                    evaluated_question.question, self.existing_questions
+                )
+
+                if not result.is_duplicate:
+                    unique_questions.append(evaluated_question)
+                else:
+                    duplicate_count += 1
+                    self.logger.debug(
+                        f"Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
+                        f"{evaluated_question.question.question_text[:60]}..."
+                    )
+            except Exception as e:
+                self.logger.error(f"Deduplication check failed: {e}")
+                # Include question if deduplication check fails (fail open)
+                unique_questions.append(evaluated_question)
+
+        self.progress.dedup_complete(
+            unique=len(unique_questions), duplicates=duplicate_count
+        )
+
+        self.logger.info(
+            f"[{question_type}] Deduplication complete: "
+            f"{len(unique_questions)} unique, {duplicate_count} duplicates removed"
+        )
+
+        return unique_questions
+
+    def _insert_questions(
+        self,
+        unique_questions: List[EvaluatedQuestion],
+        question_type: str,
+    ) -> int:
+        """Insert unique questions into the database.
+
+        Args:
+            unique_questions: List of unique evaluated questions
+            question_type: Question type for logging
+
+        Returns:
+            Number of successfully inserted questions
+        """
+        if self.config.dry_run:
+            self.logger.info(
+                f"[{question_type}] DRY RUN: Would insert {len(unique_questions)} questions"
+            )
+            return 0
+
+        if self.database is None:
+            self.logger.warning("Database not initialized, skipping insertion")
+            return 0
+
+        if not unique_questions:
+            return 0
+
+        self.progress.insertion_start(len(unique_questions))
+
+        inserted_count = 0
+        failed_count = 0
+
+        for evaluated_question in unique_questions:
+            try:
+                question_id = self.database.insert_evaluated_question(
+                    evaluated_question
+                )
+                inserted_count += 1
+                self.logger.debug(
+                    f"Inserted question ID {question_id} "
+                    f"(score: {evaluated_question.evaluation.overall_score:.2f})"
+                )
+
+                # Add to existing questions to prevent inserting duplicates within batch
+                self.existing_questions.append(
+                    {
+                        "id": question_id,
+                        "question_text": evaluated_question.question.question_text,
+                    }
+                )
+
+            except Exception as e:
+                failed_count += 1
+                self.logger.error(f"Failed to insert question: {e}")
+
+        self.progress.insertion_complete(inserted=inserted_count, failed=failed_count)
+
+        self.logger.info(
+            f"[{question_type}] Insertion complete: "
+            f"{inserted_count} inserted, {failed_count} failed"
+        )
+
+        return inserted_count
 
     def _supports_batch_api(self) -> bool:
         """Check if the current provider configuration supports batch API.
@@ -1328,11 +1737,42 @@ class BootstrapInventory:
                         qt, self.config.questions_per_type
                     )
 
-                duration = time.time() - start_time
                 generated = result["generated"]
-                approval_rate = (
-                    (generated / result["target"]) * 100 if result["target"] > 0 else 0
+                questions = result.get("questions", [])
+
+                # Phase 2: Judge Evaluation
+                self.progress.phase_transition("EVALUATION", f"{generated} questions")
+                approved_questions, rejected_questions = await self._evaluate_questions(
+                    questions, question_type
                 )
+
+                # Calculate approval rate from judge evaluation
+                approval_rate = (
+                    len(approved_questions) / generated * 100 if generated > 0 else 0
+                )
+
+                # Phase 3: Deduplication (skip in dry-run mode only for DB operations)
+                self.progress.phase_transition(
+                    "DEDUPLICATION", f"{len(approved_questions)} approved questions"
+                )
+                unique_questions = self._deduplicate_questions(
+                    approved_questions, question_type
+                )
+
+                # Phase 4: Database Insertion (skip in dry-run mode)
+                inserted = 0
+                if not self.config.dry_run and unique_questions:
+                    self.progress.phase_transition(
+                        "INSERTION", f"{len(unique_questions)} unique questions"
+                    )
+                    inserted = self._insert_questions(unique_questions, question_type)
+                elif self.config.dry_run and unique_questions:
+                    self.logger.info(
+                        f"[{question_type}] DRY RUN: Would insert "
+                        f"{len(unique_questions)} questions"
+                    )
+
+                duration = time.time() - start_time
 
                 self.event_logger.log_event(
                     "type_end",
@@ -1341,6 +1781,10 @@ class BootstrapInventory:
                     attempt=attempt,
                     duration_seconds=round(duration, 2),
                     generated=generated,
+                    approved=len(approved_questions),
+                    rejected=len(rejected_questions),
+                    unique=len(unique_questions),
+                    inserted=inserted,
                     target=result["target"],
                 )
 
@@ -1349,6 +1793,7 @@ class BootstrapInventory:
                     success=True,
                     attempt_count=attempt,
                     generated=generated,
+                    inserted=inserted,
                     approval_rate=approval_rate,
                     duration_seconds=duration,
                 )
@@ -1518,6 +1963,57 @@ class BootstrapInventory:
         else:
             self.progress.batch_mode_status(False, "--no-batch flag")
 
+        # Initialize judge for question evaluation
+        try:
+            self.judge = self._initialize_judge()
+        except Exception as e:
+            self.logger.error(f"Failed to initialize judge: {e}")
+            self.event_logger.log_event(
+                "script_end",
+                "failed",
+                error=_truncate_error(e),
+                exit_code=EXIT_CONFIG_ERROR,
+            )
+            return EXIT_CONFIG_ERROR
+
+        # Initialize database and deduplicator (only if not dry-run)
+        if not self.config.dry_run:
+            try:
+                self.database = self._initialize_database()
+            except Exception as e:
+                self.logger.error(f"Failed to initialize database: {e}")
+                self.event_logger.log_event(
+                    "script_end",
+                    "failed",
+                    error=_truncate_error(e),
+                    exit_code=EXIT_CONFIG_ERROR,
+                )
+                return EXIT_CONFIG_ERROR
+
+            # Initialize deduplicator (requires OpenAI API key)
+            if not self.config.skip_deduplication:
+                try:
+                    self.deduplicator = self._initialize_deduplicator()
+                    # Load existing questions for deduplication
+                    self.existing_questions = self._load_existing_questions()
+                except Exception as e:
+                    self.logger.error(f"Failed to initialize deduplicator: {e}")
+                    self.event_logger.log_event(
+                        "script_end",
+                        "failed",
+                        error=_truncate_error(e),
+                        exit_code=EXIT_CONFIG_ERROR,
+                    )
+                    return EXIT_CONFIG_ERROR
+        else:
+            self.logger.info(
+                "DRY RUN mode: Skipping database and deduplicator initialization"
+            )
+
+        # Log configuration for judge evaluation
+        self.logger.info(f"Minimum judge score for approval: {self.min_score}")
+        self.logger.info(f"Skip deduplication: {self.config.skip_deduplication}")
+
         # Use try-finally to ensure pipeline cleanup
         try:
             # Process types (parallel or sequential based on config)
@@ -1622,6 +2118,9 @@ class BootstrapInventory:
             # Always cleanup pipeline resources
             if self.pipeline:
                 await self.pipeline.cleanup()
+            # Cleanup judge resources
+            if self.judge:
+                await self.judge.cleanup()
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -1726,6 +2225,19 @@ Examples:
         type=int,
         default=2,
         help="Maximum concurrent type generations when --parallel is enabled (default: 2)",
+    )
+
+    parser.add_argument(
+        "--min-score",
+        type=float,
+        default=None,
+        help=f"Minimum judge score for approval (default: {settings.min_judge_score})",
+    )
+
+    parser.add_argument(
+        "--skip-deduplication",
+        action="store_true",
+        help="Skip deduplication check (use with caution)",
     )
 
     return parser.parse_args()
@@ -1835,6 +2347,8 @@ async def main() -> int:
         quiet=args.quiet,
         parallel=args.parallel,
         max_parallel=args.max_parallel,
+        min_score=args.min_score,
+        skip_deduplication=args.skip_deduplication,
     )
 
     # Create event logger
