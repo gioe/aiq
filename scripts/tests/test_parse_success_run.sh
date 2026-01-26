@@ -75,7 +75,7 @@ parse_success_run_line() {
             if [ "$(echo "$duration > 60" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
                 local minutes seconds
                 minutes=$(echo "$duration / 60" | bc 2>/dev/null || echo "")
-                seconds=$(echo "$duration % 60" | bc 2>/dev/null || printf "%.0f" "$duration")
+                seconds=$(printf "%.0f" "$(echo "$duration % 60" | bc 2>/dev/null)" 2>/dev/null || printf "%.0f" "$duration")
                 if [ -n "$minutes" ]; then
                     echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Duration: ${minutes}m ${seconds}s"
                 else
@@ -269,6 +269,29 @@ line='SUCCESS_RUN: {"questions_generated":150,"questions_inserted":120,"duration
 output=$(parse_success_run_line "$line")
 
 assert_contains "Duration: 3m" "$output" "Duration shows minutes for > 60s" || true
+
+echo ""
+
+# Test 7b: Parse SUCCESS_RUN with fractional duration over 60 seconds
+echo "Test: Parse SUCCESS_RUN with fractional duration over 60 seconds"
+LAST_SUCCESS_GENERATED=""
+LAST_SUCCESS_INSERTED=""
+LAST_SUCCESS_APPROVAL_RATE=""
+
+line='SUCCESS_RUN: {"questions_generated":50,"questions_inserted":42,"duration_seconds":124.5}'
+output=$(parse_success_run_line "$line")
+
+# Should format as "2m 4s" or "2m 5s" (rounded), not "2m 4.5s"
+assert_contains "Duration: 2m" "$output" "Duration shows minutes for fractional > 60s" || true
+# Ensure no decimal in seconds portion
+TESTS_RUN=$((TESTS_RUN + 1))
+if echo "$output" | grep -q "Duration: 2m [0-9]*\.[0-9]*s"; then
+    echo -e "  ${RED}✗${NC} Seconds should be rounded, not fractional"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+else
+    echo -e "  ${GREEN}✓${NC} Seconds are rounded (no decimal)"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+fi
 
 echo ""
 
