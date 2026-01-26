@@ -39,6 +39,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -82,6 +83,59 @@ BATCH_PARSE_ERROR_THRESHOLD = 0.25  # Fail if >25% of responses fail to parse
 BATCH_TIMEOUT_BUFFER_RATIO = 0.10  # Add 10% buffer to batch timeout
 BATCH_TIMEOUT_BUFFER_MIN_SECONDS = 60  # Minimum timeout buffer in seconds
 
+# Sensitive data patterns for sanitization
+# These patterns match common API key and credential formats that could leak in error messages
+SENSITIVE_PATTERNS = [
+    # OpenAI API keys (sk-...)
+    (re.compile(r"sk-[a-zA-Z0-9]{20,}"), "[REDACTED_OPENAI_KEY]"),
+    # Anthropic API keys (sk-ant-...)
+    (re.compile(r"sk-ant-[a-zA-Z0-9\-]{20,}"), "[REDACTED_ANTHROPIC_KEY]"),
+    # Google API keys (AIza...)
+    (re.compile(r"AIza[a-zA-Z0-9\-_]{30,}"), "[REDACTED_GOOGLE_KEY]"),
+    # xAI API keys (xai-...)
+    (re.compile(r"xai-[a-zA-Z0-9]{20,}"), "[REDACTED_XAI_KEY]"),
+    # Bearer tokens in headers
+    (
+        re.compile(r"Bearer\s+[a-zA-Z0-9\-_.]+", re.IGNORECASE),
+        "Bearer [REDACTED_TOKEN]",
+    ),
+    # Basic auth in URLs (user:pass@host)
+    (re.compile(r"://[^:]+:[^@]+@"), "://[REDACTED_CREDENTIALS]@"),
+    # Generic API key patterns in query strings (?key=... or &key=...)
+    (
+        re.compile(r"[?&](api[_-]?key|apikey|key|token|secret)=[^&\s]+", re.IGNORECASE),
+        r"?\1=[REDACTED]",
+    ),
+    # Authorization headers
+    (
+        re.compile(r"(Authorization|X-Api-Key|X-API-Key):\s*\S+", re.IGNORECASE),
+        r"\1: [REDACTED]",
+    ),
+]
+
+
+def _sanitize_error(error: Any) -> str:
+    """Sanitize error message by redacting sensitive information.
+
+    This function removes potentially sensitive data from error messages
+    before they are logged or displayed. It handles API keys, tokens,
+    credentials, and other sensitive patterns that might appear in
+    API error responses.
+
+    Args:
+        error: Error object or string to sanitize
+
+    Returns:
+        Sanitized error string with sensitive data redacted
+    """
+    error_str = str(error)
+
+    # Apply all sanitization patterns
+    for pattern, replacement in SENSITIVE_PATTERNS:
+        error_str = pattern.sub(replacement, error_str)
+
+    return error_str
+
 
 class GenerationResult(TypedDict):
     """Result of generating questions for a single type."""
@@ -92,15 +146,21 @@ class GenerationResult(TypedDict):
 
 
 def _truncate_error(error: Any) -> str:
-    """Safely truncate error message with ellipsis indicator.
+    """Safely sanitize and truncate error message with ellipsis indicator.
+
+    This function first sanitizes the error to remove sensitive information
+    (API keys, tokens, credentials), then truncates if needed.
 
     Args:
         error: Error object or string to truncate
 
     Returns:
-        Truncated error string with indicator if truncated
+        Sanitized and truncated error string with indicator if truncated
     """
-    error_str = str(error)
+    # First sanitize to remove sensitive data
+    error_str = _sanitize_error(error)
+
+    # Then truncate if needed
     if len(error_str) <= MAX_ERROR_MESSAGE_LENGTH:
         return error_str
     return error_str[: MAX_ERROR_MESSAGE_LENGTH - 3] + "..."
@@ -170,18 +230,24 @@ class ProgressReporter:
             print(message)
 
     def _truncate(self, message: str, max_length: int = 200) -> str:
-        """Truncate message with ellipsis indicator if too long.
+        """Sanitize and truncate message with ellipsis indicator if too long.
+
+        This method sanitizes the message to remove sensitive information
+        (API keys, tokens, credentials) before truncating.
 
         Args:
             message: Message to truncate
             max_length: Maximum length before truncation (default: 200)
 
         Returns:
-            Truncated message with ellipsis if truncated, original otherwise
+            Sanitized and truncated message with ellipsis if truncated
         """
-        if len(message) <= max_length:
-            return message
-        return message[:max_length] + "..."
+        # Sanitize first to remove sensitive data
+        sanitized = _sanitize_error(message)
+
+        if len(sanitized) <= max_length:
+            return sanitized
+        return sanitized[:max_length] + "..."
 
     def banner(
         self,
@@ -545,12 +611,13 @@ class BootstrapAlerter:
         failed_types = [r.question_type for r in failed_results]
         failed_types_str = ",".join(failed_types)
 
-        # Collect first error message for context
+        # Collect first error message for context (sanitized for safety)
         error_details = None
         for result in failed_results:
             if result.error_message:
-                # Truncate to 200 chars like bash script
-                error_details = result.error_message[:200]
+                # Sanitize and truncate to 200 chars like bash script
+                sanitized = _sanitize_error(result.error_message)
+                error_details = sanitized[:200]
                 break
 
         self.logger.warning(
@@ -1301,7 +1368,8 @@ class BootstrapInventory:
                 )
 
             except Exception as e:
-                last_error = str(e)
+                # Sanitize error message to prevent leaking sensitive info
+                last_error = _sanitize_error(e)
                 attempt_duration = time.time() - attempt_start
 
                 if attempt < self.config.max_retries:
@@ -1364,15 +1432,17 @@ class BootstrapInventory:
             if isinstance(result, Exception):
                 # Task raised an exception - create a failed TypeResult
                 question_type = self.config.types[i]
+                # Sanitize error to prevent leaking sensitive info
+                sanitized_error = _sanitize_error(result)
                 self.logger.error(
-                    f"Unexpected error processing {question_type}: {result}"
+                    f"Unexpected error processing {question_type}: {sanitized_error}"
                 )
                 processed_results.append(
                     TypeResult(
                         question_type=question_type,
                         success=False,
                         attempt_count=0,
-                        error_message=f"Unexpected error: {str(result)}",
+                        error_message=f"Unexpected error: {sanitized_error}",
                     )
                 )
             else:
