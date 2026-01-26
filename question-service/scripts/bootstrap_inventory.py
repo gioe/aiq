@@ -273,15 +273,18 @@ class BootstrapInventory:
         if not isinstance(google_provider, GoogleProvider):
             raise ValueError("Google provider is not a GoogleProvider instance")
 
-        # Calculate questions per difficulty
-        questions_per_difficulty = count // 3
-        remainder = count % 3
+        # Calculate questions per difficulty (dynamic based on enum size)
+        difficulty_levels = list(DifficultyLevel)
+        num_difficulties = len(difficulty_levels)
+        questions_per_difficulty = count // num_difficulties
+        remainder = count % num_difficulties
 
         # Build all prompts upfront
         prompts: List[str] = []
-        prompt_metadata: List[tuple[DifficultyLevel, int]] = []
+        # Map prompt index to difficulty for response parsing
+        prompt_to_difficulty: dict[int, DifficultyLevel] = {}
 
-        for i, difficulty in enumerate(DifficultyLevel):
+        for i, difficulty in enumerate(difficulty_levels):
             # Distribute remainder across first few difficulties
             diff_count = questions_per_difficulty + (1 if i < remainder else 0)
             if diff_count == 0:
@@ -294,12 +297,20 @@ class BootstrapInventory:
             # Build prompts for this difficulty level
             for _ in range(diff_count):
                 prompt = build_generation_prompt(question_type, difficulty, count=1)
+                prompt_to_difficulty[len(prompts)] = difficulty
                 prompts.append(prompt)
-                prompt_metadata.append((difficulty, len(prompts) - 1))
 
         if not prompts:
             self.logger.warning(f"No prompts built for {question_type.value}")
             return GenerationResult(questions=[], generated=0, target=count)
+
+        # Validate batch size doesn't exceed limit
+        batch_size_limit = settings.batch_generation_size
+        if len(prompts) > batch_size_limit:
+            self.logger.warning(
+                f"Prompt count ({len(prompts)}) exceeds batch size limit "
+                f"({batch_size_limit}). Processing in chunks."
+            )
 
         self.logger.info(
             f"Submitting batch job with {len(prompts)} prompts for {question_type.value}"
@@ -313,118 +324,158 @@ class BootstrapInventory:
             total_prompts=len(prompts),
         )
 
-        # Submit batch job and wait for completion
-        try:
-            batch_result = await google_provider.generate_batch_completions_async(
-                prompts=prompts,
-                display_name=f"bootstrap-{question_type.value}-{int(time.time())}",
-                temperature=0.8,
-                max_tokens=1500,
-                poll_interval=30.0,
-                timeout=settings.batch_generation_timeout,
-            )
-
-            self.logger.info(
-                f"Batch job completed: {batch_result.successful_requests}/{batch_result.total_requests} successful"
-            )
-
-            # Log batch generation completion event
-            self.event_logger.log_event(
-                "batch_generation_complete",
-                "success",
-                type=question_type.value,
-                total_requests=batch_result.total_requests,
-                successful_requests=batch_result.successful_requests,
-                failed_requests=batch_result.failed_requests,
-                job_name=batch_result.job_name,
-            )
-
-        except TimeoutError as e:
-            self.logger.error(f"Batch job timed out: {e}")
-            self.event_logger.log_event(
-                "batch_generation_complete",
-                "failed",
-                type=question_type.value,
-                error=str(e),
-            )
-            raise
-        except Exception as e:
-            self.logger.error(f"Batch job failed: {e}")
-            self.event_logger.log_event(
-                "batch_generation_complete",
-                "failed",
-                type=question_type.value,
-                error=_truncate_error(e),
-            )
-            raise
-
-        # Parse responses into questions
+        # Process prompts in chunks if needed (respecting batch size limit)
         all_questions: List[Any] = []
-        parse_errors = 0
+        total_parse_errors = 0
+        total_successful = 0
+        total_failed = 0
 
-        for response_dict in batch_result.responses:
+        chunk_size = settings.batch_generation_size
+        for chunk_start in range(0, len(prompts), chunk_size):
+            chunk_end = min(chunk_start + chunk_size, len(prompts))
+            chunk_prompts = prompts[chunk_start:chunk_end]
+            chunk_num = (chunk_start // chunk_size) + 1
+            total_chunks = (len(prompts) + chunk_size - 1) // chunk_size
+
+            if total_chunks > 1:
+                self.logger.info(
+                    f"Processing batch chunk {chunk_num}/{total_chunks} "
+                    f"({len(chunk_prompts)} prompts)"
+                )
+
+            # Submit batch job and wait for completion
             try:
-                # Extract key to get original index
-                key = response_dict.get("key", "")
-                # Parse text response as JSON
-                text = response_dict.get("text", "")
-                if not text:
-                    parse_errors += 1
-                    continue
-
-                # Parse the JSON response
-                parsed = json.loads(text)
-
-                # The response should be a single question object
-                # Extract question data
-                question_data = {
-                    "question_text": parsed.get("question_text", ""),
-                    "correct_answer": parsed.get("correct_answer", ""),
-                    "answer_options": parsed.get("answer_options", []),
-                    "explanation": parsed.get("explanation", ""),
-                }
-
-                # Validate required fields
-                if not all(
-                    [
-                        question_data["question_text"],
-                        question_data["correct_answer"],
-                        question_data["answer_options"],
-                    ]
-                ):
-                    parse_errors += 1
-                    self.logger.warning(
-                        f"Incomplete question data in response {key}: {question_data}"
-                    )
-                    continue
-
-                # Create a GeneratedQuestion-like object
-                # Note: We're creating a simple dict since we're in the bootstrap script
-                # and don't need full GeneratedQuestion objects
-                question = {
-                    "question_type": question_type,
-                    "question_text": question_data["question_text"],
-                    "correct_answer": question_data["correct_answer"],
-                    "answer_options": question_data["answer_options"],
-                    "explanation": question_data["explanation"],
-                    "source_llm": "google",
-                }
-                all_questions.append(question)
-
-            except json.JSONDecodeError as e:
-                parse_errors += 1
-                self.logger.warning(
-                    f"Failed to parse JSON response for key {response_dict.get('key', 'unknown')}: {e}"
+                batch_result = await google_provider.generate_batch_completions_async(
+                    prompts=chunk_prompts,
+                    display_name=f"bootstrap-{question_type.value}-{int(time.time())}-{chunk_num}",
+                    temperature=0.8,
+                    max_tokens=1500,
+                    poll_interval=30.0,
+                    timeout=settings.batch_generation_timeout,
                 )
+
+                self.logger.info(
+                    f"Batch chunk {chunk_num} completed: "
+                    f"{batch_result.successful_requests}/{batch_result.total_requests} successful"
+                )
+                total_successful += batch_result.successful_requests
+                total_failed += batch_result.failed_requests
+
+            except TimeoutError as e:
+                self.logger.error(f"Batch job timed out: {e}")
+                self.event_logger.log_event(
+                    "batch_generation_complete",
+                    "failed",
+                    type=question_type.value,
+                    error=_truncate_error(e),
+                )
+                raise
             except Exception as e:
-                parse_errors += 1
-                self.logger.warning(
-                    f"Failed to process response for key {response_dict.get('key', 'unknown')}: {e}"
+                self.logger.error(f"Batch job failed: {e}")
+                self.event_logger.log_event(
+                    "batch_generation_complete",
+                    "failed",
+                    type=question_type.value,
+                    error=_truncate_error(e),
                 )
+                raise
 
-        if parse_errors > 0:
+            # Parse responses into questions
+            for response_dict in batch_result.responses:
+                try:
+                    # Extract key to get original index (format: "request-N")
+                    key = response_dict.get("key", "")
+                    # Parse index from key to map back to difficulty
+                    prompt_idx = chunk_start  # Default to chunk start
+                    if key and "-" in key:
+                        try:
+                            relative_idx = int(key.split("-")[-1])
+                            prompt_idx = chunk_start + relative_idx
+                        except ValueError:
+                            pass
+
+                    # Get difficulty from our mapping
+                    difficulty = prompt_to_difficulty.get(prompt_idx)
+
+                    # Parse text response as JSON
+                    text = response_dict.get("text", "")
+                    if not text:
+                        total_parse_errors += 1
+                        continue
+
+                    # Parse the JSON response
+                    try:
+                        parsed = json.loads(text)
+                    except json.JSONDecodeError as e:
+                        total_parse_errors += 1
+                        self.logger.warning(f"Invalid JSON in response {key}: {e}")
+                        continue
+
+                    # Validate response is a dict (not array or other type)
+                    if not isinstance(parsed, dict):
+                        total_parse_errors += 1
+                        self.logger.warning(
+                            f"Response {key} is not a dict: {type(parsed).__name__}"
+                        )
+                        continue
+
+                    # Extract question data
+                    question_data = {
+                        "question_text": parsed.get("question_text", ""),
+                        "correct_answer": parsed.get("correct_answer", ""),
+                        "answer_options": parsed.get("answer_options", []),
+                        "explanation": parsed.get("explanation", ""),
+                    }
+
+                    # Validate required fields
+                    if not all(
+                        [
+                            question_data["question_text"],
+                            question_data["correct_answer"],
+                            question_data["answer_options"],
+                        ]
+                    ):
+                        total_parse_errors += 1
+                        self.logger.warning(
+                            f"Incomplete question data in response {key}"
+                        )
+                        continue
+
+                    # Create a GeneratedQuestion-like object with difficulty
+                    question = {
+                        "question_type": question_type,
+                        "difficulty": difficulty,
+                        "question_text": question_data["question_text"],
+                        "correct_answer": question_data["correct_answer"],
+                        "answer_options": question_data["answer_options"],
+                        "explanation": question_data["explanation"],
+                        "source_llm": "google",
+                    }
+                    all_questions.append(question)
+
+                except Exception as e:
+                    total_parse_errors += 1
+                    self.logger.warning(
+                        f"Failed to process response for key "
+                        f"{response_dict.get('key', 'unknown')}: {e}"
+                    )
+
+        # Log batch generation completion event
+        self.event_logger.log_event(
+            "batch_generation_complete",
+            "success",
+            type=question_type.value,
+            total_requests=len(prompts),
+            successful_requests=total_successful,
+            failed_requests=total_failed,
+            parse_errors=total_parse_errors,
+            questions_generated=len(all_questions),
+        )
+
+        if total_parse_errors > 0:
             self.logger.warning(
-                f"Encountered {parse_errors} parse errors out of {len(batch_result.responses)} responses"
+                f"Encountered {total_parse_errors} parse errors out of "
+                f"{total_successful} responses"
             )
 
         return GenerationResult(
@@ -613,7 +664,9 @@ class BootstrapInventory:
                         self._generate_type_with_batch_api(
                             qt, self.config.questions_per_type
                         ),
-                        timeout=settings.batch_generation_timeout + 60,  # Add buffer
+                        # Use 10% buffer with minimum of 60s
+                        timeout=settings.batch_generation_timeout
+                        + max(60, int(settings.batch_generation_timeout * 0.1)),
                     )
                 elif self.config.use_async:
                     # Add timeout protection for async generation
