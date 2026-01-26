@@ -320,10 +320,11 @@ generate_type() {
         echo "Running: $PYTHON_CMD run_generation.py $cmd_args" >> "$BOOTSTRAP_LOG"
         echo "Started: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
 
-        # Run generation
+        # Run generation with unbuffered output to both terminal and log file
+        # Python's -u flag ensures unbuffered stdout/stderr for real-time display
         cd "$QUESTION_SERVICE_DIR"
 
-        if $PYTHON_CMD run_generation.py $cmd_args >> "$BOOTSTRAP_LOG" 2>&1; then
+        if $PYTHON_CMD -u run_generation.py $cmd_args 2>&1 | tee -a "$BOOTSTRAP_LOG"; then
             success=true
             exit_code=0
             echo "Completed successfully: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
@@ -349,20 +350,24 @@ CURRENT_TYPE=0
 for type in $TYPES; do
     CURRENT_TYPE=$((CURRENT_TYPE + 1))
 
-    echo -n "[$CURRENT_TYPE/$TOTAL_TYPES] Generating $type ($QUESTIONS_PER_TYPE questions)... "
+    echo ""
+    echo -e "${CYAN}[$CURRENT_TYPE/$TOTAL_TYPES] Generating $type ($QUESTIONS_PER_TYPE questions)${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     type_start=$(date +%s)
 
     if generate_type "$type"; then
         type_end=$(date +%s)
         duration=$((type_end - type_start))
-        echo -e "${GREEN}done${NC} (${duration}s)"
+        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+        echo -e "${GREEN}✓ $type completed successfully${NC} (${duration}s)"
         echo "success" > "$RESULTS_DIR/$type"
         SUCCESSFUL_TYPES=$((SUCCESSFUL_TYPES + 1))
     else
         type_end=$(date +%s)
         duration=$((type_end - type_start))
-        echo -e "${RED}FAILED${NC} (${duration}s)"
+        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+        echo -e "${RED}✗ $type FAILED${NC} (${duration}s)"
         echo "failed" > "$RESULTS_DIR/$type"
         FAILED_TYPES=$((FAILED_TYPES + 1))
     fi
