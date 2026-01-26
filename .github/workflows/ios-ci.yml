@@ -119,7 +119,7 @@ jobs:
             CODE_SIGN_IDENTITY=""
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: ios-unit-test-results
@@ -178,7 +178,7 @@ jobs:
             -resultBundlePath TestResults/UITests.xcresult
 
       - name: Upload UI test results (on failure)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: ui-test-results-failure
@@ -187,7 +187,7 @@ jobs:
           retention-days: 7
 
       - name: Upload UI test results (on success)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: success()
         with:
           name: ui-test-results-success
