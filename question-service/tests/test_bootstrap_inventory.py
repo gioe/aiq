@@ -16,6 +16,7 @@ from bootstrap_inventory import (  # noqa: E402
     BootstrapConfig,
     BootstrapInventory,
     EventLogger,
+    ProgressReporter,
     TypeResult,
     parse_arguments,
     validate_count,
@@ -620,3 +621,358 @@ class TestDistributionAcrossDifficulties:
 
         # Only 2 questions, distributed to first 2 difficulties
         assert counts == [1, 1]
+
+
+class TestProgressReporter:
+    """Tests for ProgressReporter class."""
+
+    def test_quiet_mode_suppresses_output(self, capsys):
+        """Test that quiet mode suppresses all output."""
+        reporter = ProgressReporter(quiet=True)
+
+        reporter.banner(
+            questions_per_type=150,
+            types=["math", "logic"],
+            max_retries=3,
+            use_async=True,
+            use_batch=True,
+            dry_run=False,
+        )
+        reporter.batch_mode_status(True, "Google provider detected")
+        reporter.type_start(1, 2, "math", 150)
+        reporter.phase_transition("GENERATION", "Starting")
+        reporter.progress("Test message")
+        reporter.approval_rate(100, 150)
+        reporter.inserted(100)
+        reporter.retry_warning(2, 3, "math", 5.0)
+        reporter.type_complete("math", True, 60.0, 100)
+        reporter.type_error("Test error")
+        reporter.summary(1, 1, 2, 120.0, [])
+        reporter.final_status(True)
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_normal_mode_prints_banner(self, capsys):
+        """Test that normal mode prints banner."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.banner(
+            questions_per_type=150,
+            types=["math", "logic"],
+            max_retries=3,
+            use_async=True,
+            use_batch=True,
+            dry_run=False,
+        )
+
+        captured = capsys.readouterr()
+        assert "AIQ Question Inventory Bootstrap Script" in captured.out
+        assert "Questions per type: 150" in captured.out
+        assert "math, logic" in captured.out
+
+    def test_batch_mode_status(self, capsys):
+        """Test batch mode status output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.batch_mode_status(True, "Google provider detected")
+
+        captured = capsys.readouterr()
+        assert "ENABLED" in captured.out
+        assert "Google provider detected" in captured.out
+
+    def test_batch_mode_status_disabled(self, capsys):
+        """Test batch mode status output when disabled."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.batch_mode_status(False, "--no-batch flag")
+
+        captured = capsys.readouterr()
+        assert "DISABLED" in captured.out
+        assert "--no-batch flag" in captured.out
+
+    def test_type_start(self, capsys):
+        """Test type start output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_start(1, 3, "math", 150)
+
+        captured = capsys.readouterr()
+        assert "[1/3]" in captured.out
+        assert "math" in captured.out
+        assert "150 questions" in captured.out
+
+    def test_phase_transition(self, capsys):
+        """Test phase transition output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.phase_transition("GENERATION", "Starting batch job")
+
+        captured = capsys.readouterr()
+        assert "[PHASE]" in captured.out
+        assert "GENERATION" in captured.out
+        assert "Starting batch job" in captured.out
+
+    def test_phase_transition_no_detail(self, capsys):
+        """Test phase transition output without detail."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.phase_transition("VALIDATION")
+
+        captured = capsys.readouterr()
+        assert "[PHASE]" in captured.out
+        assert "VALIDATION" in captured.out
+
+    def test_progress_message(self, capsys):
+        """Test progress message output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.progress("Processing 50/150 questions")
+
+        captured = capsys.readouterr()
+        assert "[PROGRESS]" in captured.out
+        assert "Processing 50/150 questions" in captured.out
+
+    def test_approval_rate(self, capsys):
+        """Test approval rate output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.approval_rate(120, 150)
+
+        captured = capsys.readouterr()
+        assert "[PROGRESS]" in captured.out
+        assert "Approved: 120/150" in captured.out
+        assert "80.0%" in captured.out
+
+    def test_approval_rate_zero_total(self, capsys):
+        """Test approval rate with zero total."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.approval_rate(0, 0)
+
+        captured = capsys.readouterr()
+        assert "0.0%" in captured.out
+
+    def test_inserted(self, capsys):
+        """Test inserted count output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.inserted(118)
+
+        captured = capsys.readouterr()
+        assert "[PROGRESS]" in captured.out
+        assert "Inserted 118 questions" in captured.out
+
+    def test_retry_warning(self, capsys):
+        """Test retry warning output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.retry_warning(2, 3, "math", 10.5)
+
+        captured = capsys.readouterr()
+        assert "[RETRY]" in captured.out
+        assert "2/3" in captured.out
+        assert "math" in captured.out
+        assert "10.5s" in captured.out
+
+    def test_type_complete_success(self, capsys):
+        """Test type complete output for success."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_complete("math", True, 45.5, 148)
+
+        captured = capsys.readouterr()
+        assert "math" in captured.out
+        assert "completed successfully" in captured.out
+        assert "45.5s" in captured.out
+        assert "148" in captured.out
+
+    def test_type_complete_failure(self, capsys):
+        """Test type complete output for failure."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_complete("verbal", False, 30.2)
+
+        captured = capsys.readouterr()
+        assert "verbal" in captured.out
+        assert "FAILED" in captured.out
+        assert "30.2s" in captured.out
+
+    def test_type_error(self, capsys):
+        """Test type error output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_error("API rate limit exceeded")
+
+        captured = capsys.readouterr()
+        assert "Error:" in captured.out
+        assert "API rate limit exceeded" in captured.out
+
+    def test_type_error_truncation(self, capsys):
+        """Test that long error messages are truncated."""
+        reporter = ProgressReporter(quiet=False)
+
+        long_error = "x" * 300
+        reporter.type_error(long_error)
+
+        captured = capsys.readouterr()
+        # Should be truncated to 200 chars
+        assert len(captured.out.split("Error: ")[1].strip()) == 200
+
+    def test_summary(self, capsys):
+        """Test summary output."""
+        reporter = ProgressReporter(quiet=False)
+
+        results = [
+            TypeResult("math", True, 1, 150, 148),
+            TypeResult("logic", False, 3, error_message="API timeout"),
+        ]
+        reporter.summary(1, 1, 2, 120.5, results)
+
+        captured = capsys.readouterr()
+        assert "BOOTSTRAP SUMMARY" in captured.out
+        assert "Successful types: 1 / 2" in captured.out
+        assert "Failed types: 1" in captured.out
+        assert "2m 0s" in captured.out
+        assert "[OK]" in captured.out
+        assert "math" in captured.out
+        assert "[FAILED]" in captured.out
+        assert "logic" in captured.out
+
+    def test_final_status_success(self, capsys):
+        """Test final status for success."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.final_status(True)
+
+        captured = capsys.readouterr()
+        assert "completed successfully" in captured.out
+
+    def test_final_status_failure(self, capsys):
+        """Test final status for failure."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.final_status(False)
+
+        captured = capsys.readouterr()
+        assert "completed with failures" in captured.out
+
+
+class TestQuietFlagParsing:
+    """Tests for --quiet flag argument parsing."""
+
+    def test_quiet_flag_short(self):
+        """Test parsing -q flag."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "-q"]):
+            args = parse_arguments()
+
+        assert args.quiet is True
+
+    def test_quiet_flag_long(self):
+        """Test parsing --quiet flag."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--quiet"]):
+            args = parse_arguments()
+
+        assert args.quiet is True
+
+    def test_quiet_flag_default(self):
+        """Test quiet defaults to False."""
+        with patch("sys.argv", ["bootstrap_inventory.py"]):
+            args = parse_arguments()
+
+        assert args.quiet is False
+
+    def test_quiet_with_other_flags(self):
+        """Test --quiet combined with other flags."""
+        with patch(
+            "sys.argv",
+            ["bootstrap_inventory.py", "--quiet", "--verbose", "--dry-run"],
+        ):
+            args = parse_arguments()
+
+        assert args.quiet is True
+        assert args.verbose is True
+        assert args.dry_run is True
+
+
+class TestBootstrapConfigQuiet:
+    """Tests for quiet mode in BootstrapConfig."""
+
+    def test_quiet_default(self):
+        """Test quiet defaults to False."""
+        config = BootstrapConfig()
+        assert config.quiet is False
+
+    def test_quiet_enabled(self):
+        """Test quiet can be enabled."""
+        config = BootstrapConfig(quiet=True)
+        assert config.quiet is True
+
+
+class TestBootstrapInventoryWithProgressReporter:
+    """Tests for BootstrapInventory with ProgressReporter integration."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test")
+
+    def test_creates_progress_reporter_from_config(self, event_logger, logger):
+        """Test that BootstrapInventory creates ProgressReporter from config."""
+        config = BootstrapConfig(quiet=True)
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        assert bootstrap.progress is not None
+        assert bootstrap.progress.quiet is True
+
+    def test_uses_provided_progress_reporter(self, event_logger, logger):
+        """Test that BootstrapInventory uses provided ProgressReporter."""
+        config = BootstrapConfig(quiet=False)
+        custom_reporter = ProgressReporter(quiet=True)
+
+        bootstrap = BootstrapInventory(
+            config, event_logger, logger, progress_reporter=custom_reporter
+        )
+
+        # Should use provided reporter, not create from config
+        assert bootstrap.progress is custom_reporter
+        assert bootstrap.progress.quiet is True
+
+    @pytest.mark.asyncio
+    async def test_run_quiet_mode(self, event_logger, logger, capsys):
+        """Test that run() respects quiet mode."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+            quiet=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        with patch.object(bootstrap, "_initialize_pipeline") as mock_init:
+            mock_pipeline = Mock()
+            mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+            mock_pipeline.cleanup = AsyncMock()
+            mock_init.return_value = mock_pipeline
+
+            with patch.object(bootstrap, "_process_type_with_retries") as mock_process:
+                mock_process.return_value = TypeResult(
+                    question_type="math",
+                    success=True,
+                    attempt_count=1,
+                    generated=15,
+                )
+
+                await bootstrap.run()
+
+        captured = capsys.readouterr()
+        # Quiet mode should suppress all terminal output
+        assert captured.out == ""
