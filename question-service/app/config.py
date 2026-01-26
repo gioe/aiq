@@ -114,6 +114,13 @@ class Settings(BaseSettings):
         True  # Enable/disable runtime model validation
     )
 
+    # Batch Generation Configuration (for providers that support it)
+    enable_batch_generation: bool = True  # Enable/disable batch API generation
+    batch_generation_size: int = 100  # Maximum prompts per batch (Google limit: 1000)
+    batch_generation_timeout: float = (
+        3600.0  # Timeout for batch job completion (seconds)
+    )
+
     @model_validator(mode="after")
     def load_secrets_and_validate(self) -> Self:
         """Load secrets from secrets management backend and validate configuration.
