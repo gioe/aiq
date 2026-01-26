@@ -381,11 +381,14 @@ class BootstrapInventory:
                 raise
 
             # Parse responses into questions
+            # Note: Each batch job submission uses keys "request-0" to "request-N"
+            # where N is relative to that chunk. We add chunk_start to get the
+            # global prompt index for difficulty mapping.
             for response_dict in batch_result.responses:
                 try:
-                    # Extract key to get original index (format: "request-N")
+                    # Extract key to get chunk-relative index (format: "request-N")
                     key = response_dict.get("key", "")
-                    # Parse index from key to map back to difficulty
+                    # Calculate global prompt index: chunk_start + relative index
                     prompt_idx = chunk_start  # Default to chunk start
                     if key and "-" in key:
                         try:
@@ -477,6 +480,16 @@ class BootstrapInventory:
                 f"Encountered {total_parse_errors} parse errors out of "
                 f"{total_successful} responses"
             )
+
+        # Fail if parse error rate exceeds 25% threshold
+        # This prevents silently returning partial data when most responses fail
+        if total_successful > 0:
+            parse_error_rate = total_parse_errors / total_successful
+            if parse_error_rate > 0.25:
+                raise ValueError(
+                    f"Parse error rate {parse_error_rate:.1%} exceeds 25% threshold. "
+                    f"{total_parse_errors} of {total_successful} responses failed to parse."
+                )
 
         return GenerationResult(
             questions=all_questions,

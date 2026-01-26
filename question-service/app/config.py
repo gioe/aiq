@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -120,6 +120,16 @@ class Settings(BaseSettings):
     batch_generation_timeout: float = (
         3600.0  # Timeout for batch job completion (seconds)
     )
+
+    @field_validator("batch_generation_size")
+    @classmethod
+    def validate_batch_generation_size(cls, v: int) -> int:
+        """Validate batch_generation_size is within Google's API limits."""
+        if v < 1 or v > 1000:
+            raise ValueError(
+                f"batch_generation_size must be between 1 and 1000, got {v}"
+            )
+        return v
 
     @model_validator(mode="after")
     def load_secrets_and_validate(self) -> Self:
