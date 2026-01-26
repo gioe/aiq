@@ -360,6 +360,14 @@ echo -e "${BLUE}Logging to: $BOOTSTRAP_LOG${NC}"
 echo -e "${BLUE}Events JSONL: $EVENTS_JSONL_FILE${NC}"
 echo ""
 
+# Emit script_start event with configuration details
+log_event "script_start" "started" \
+    "total_types=$TOTAL_TYPES" \
+    "target_per_type=$QUESTIONS_PER_TYPE" \
+    "types=$TYPES" \
+    "async_mode=$ASYNC_DISPLAY" \
+    "dry_run=$DRY_RUN_DISPLAY"
+
 # Function to parse and display heartbeat information
 # Extracts progress signals from HEARTBEAT: JSON lines emitted by run_generation.py
 parse_heartbeat_line() {
@@ -505,6 +513,15 @@ generate_type() {
 
     while [ $attempt -lt $MAX_RETRIES ] && [ "$success" = "false" ]; do
         attempt=$((attempt + 1))
+        local attempt_start_time
+        attempt_start_time=$(date +%s)
+
+        # Emit type_start event for this attempt
+        log_event "type_start" "started" \
+            "type=$type" \
+            "attempt=$attempt" \
+            "max_retries=$MAX_RETRIES" \
+            "target_per_type=$QUESTIONS_PER_TYPE"
 
         if [ $attempt -gt 1 ]; then
             echo -e "  ${YELLOW}Retry $attempt/$MAX_RETRIES${NC}"
@@ -553,9 +570,21 @@ generate_type() {
         rm -f "$exit_code_file"
         set -e  # Re-enable exit on error
 
+        # Calculate attempt duration
+        local attempt_end_time attempt_duration
+        attempt_end_time=$(date +%s)
+        attempt_duration=$((attempt_end_time - attempt_start_time))
+
         if [ $exit_code -eq 0 ]; then
             success=true
             echo "Completed successfully: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
+
+            # Emit type_end event for successful attempt
+            log_event "type_end" "success" \
+                "type=$type" \
+                "attempt=$attempt" \
+                "duration_seconds=$attempt_duration" \
+                "target_per_type=$QUESTIONS_PER_TYPE"
         else
             echo "Failed with exit code $exit_code: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
             echo -e "  ${RED}Attempt $attempt failed (exit code: $exit_code)${NC}"
@@ -579,6 +608,21 @@ generate_type() {
                 done
                 echo ""
             fi
+
+            # Determine if this is a retry failure or final failure
+            local attempt_status="retry_failed"
+            if [ $attempt -ge $MAX_RETRIES ]; then
+                attempt_status="failed"
+            fi
+
+            # Emit type_end event for failed attempt
+            # Note: Error is passed as a separate parameter to avoid = parsing issues
+            log_event "type_end" "$attempt_status" \
+                "type=$type" \
+                "attempt=$attempt" \
+                "duration_seconds=$attempt_duration" \
+                "target_per_type=$QUESTIONS_PER_TYPE" \
+                "exit_code=$exit_code"
         fi
 
         echo "" >> "$BOOTSTRAP_LOG"
@@ -695,10 +739,22 @@ echo ""
 
 # Exit with appropriate code
 if [ $FAILED_TYPES -gt 0 ]; then
+    # Emit script_end event for failed completion
+    log_event "script_end" "failed" \
+        "successful_types=$SUCCESSFUL_TYPES" \
+        "failed_types=$FAILED_TYPES" \
+        "total_duration_seconds=$TOTAL_DURATION"
+
     echo -e "${RED}Bootstrap completed with failures.${NC}"
     echo "Check the log file for details: $BOOTSTRAP_LOG"
     exit 1
 else
+    # Emit script_end event for successful completion
+    log_event "script_end" "success" \
+        "successful_types=$SUCCESSFUL_TYPES" \
+        "failed_types=$FAILED_TYPES" \
+        "total_duration_seconds=$TOTAL_DURATION"
+
     echo -e "${GREEN}Bootstrap completed successfully!${NC}"
     exit 0
 fi
