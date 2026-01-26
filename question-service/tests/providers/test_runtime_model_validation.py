@@ -361,10 +361,13 @@ class TestAnthropicProviderFetchModels:
 class TestGoogleProviderFetchModels:
     """Test suite for Google provider fetch_available_models."""
 
-    @patch("app.providers.google_provider.genai")
-    def test_fetch_available_models(self, mock_genai):
+    @patch("app.providers.google_provider.genai.Client")
+    def test_fetch_available_models(self, mock_client_class):
         """Test fetching models from Google API."""
         from app.providers.google_provider import GoogleProvider
+
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
 
         # Mock models list response
         mock_model_1 = Mock()
@@ -374,8 +377,11 @@ class TestGoogleProviderFetchModels:
         mock_model_3 = Mock()
         mock_model_3.name = "models/embedding-001"  # Should be filtered out
 
-        mock_genai.list_models.return_value = [mock_model_1, mock_model_2, mock_model_3]
-        mock_genai.GenerativeModel.return_value = MagicMock()
+        mock_client.models.list.return_value = [
+            mock_model_1,
+            mock_model_2,
+            mock_model_3,
+        ]
 
         provider = GoogleProvider(api_key="test-key")
         models = provider.fetch_available_models()
