@@ -2768,6 +2768,18 @@ class TestSanitizeError:
         result = _sanitize_error(error)
         assert "secret123" not in result
         assert "[REDACTED]" in result
+        # Verify the separator is preserved correctly
+        assert "?api_key=[REDACTED]" in result
+
+    def test_sanitize_api_key_in_query_string_with_ampersand(self):
+        """Test that API keys with & separator are properly redacted."""
+        error = "Request to https://api.example.com/endpoint?foo=bar&api_key=secret123&other=val"
+        result = _sanitize_error(error)
+        assert "secret123" not in result
+        # Verify the & separator is preserved and URL structure is intact
+        assert "&api_key=[REDACTED]" in result
+        assert "?foo=bar" in result
+        assert "&other=val" in result
 
     def test_sanitize_authorization_header(self):
         """Test that Authorization headers are redacted."""

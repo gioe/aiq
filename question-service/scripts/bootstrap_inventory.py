@@ -103,8 +103,10 @@ SENSITIVE_PATTERNS = [
     (re.compile(r"://[^:]+:[^@]+@"), "://[REDACTED_CREDENTIALS]@"),
     # Generic API key patterns in query strings (?key=... or &key=...)
     (
-        re.compile(r"[?&](api[_-]?key|apikey|key|token|secret)=[^&\s]+", re.IGNORECASE),
-        r"?\1=[REDACTED]",
+        re.compile(
+            r"([?&])(api[_-]?key|apikey|key|token|secret)=[^&\s]+", re.IGNORECASE
+        ),
+        r"\1\2=[REDACTED]",
     ),
     # Authorization headers
     (
