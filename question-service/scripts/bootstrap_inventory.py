@@ -169,6 +169,20 @@ class ProgressReporter:
         if not self.quiet:
             print(message)
 
+    def _truncate(self, message: str, max_length: int = 200) -> str:
+        """Truncate message with ellipsis indicator if too long.
+
+        Args:
+            message: Message to truncate
+            max_length: Maximum length before truncation (default: 200)
+
+        Returns:
+            Truncated message with ellipsis if truncated, original otherwise
+        """
+        if len(message) <= max_length:
+            return message
+        return message[:max_length] + "..."
+
     def banner(
         self,
         questions_per_type: int,
@@ -351,9 +365,7 @@ class ProgressReporter:
         Args:
             error_message: Error message to display
         """
-        # Truncate long error messages
-        truncated = error_message[:200] if len(error_message) > 200 else error_message
-        self._print(f"  Error: {truncated}")
+        self._print(f"  Error: {self._truncate(error_message)}")
 
     def summary(
         self,
@@ -396,10 +408,7 @@ class ProgressReporter:
             else:
                 self._print(f"  {self.RED}[FAILED]{self.RESET} {result.question_type}")
                 if result.error_message:
-                    error_preview = result.error_message[:100]
-                    if len(result.error_message) > 100:
-                        error_preview += "..."
-                    self._print(f"    Error: {error_preview}")
+                    self._print(f"    Error: {self._truncate(result.error_message)}")
 
         self._print("")
 

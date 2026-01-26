@@ -812,15 +812,17 @@ class TestProgressReporter:
         assert "API rate limit exceeded" in captured.out
 
     def test_type_error_truncation(self, capsys):
-        """Test that long error messages are truncated."""
+        """Test that long error messages are truncated with ellipsis."""
         reporter = ProgressReporter(quiet=False)
 
         long_error = "x" * 300
         reporter.type_error(long_error)
 
         captured = capsys.readouterr()
-        # Should be truncated to 200 chars
-        assert len(captured.out.split("Error: ")[1].strip()) == 200
+        # Should be truncated to 200 chars + "..." ellipsis = 203 total
+        output = captured.out.split("Error: ")[1].strip()
+        assert len(output) == 203
+        assert output.endswith("...")
 
     def test_summary(self, capsys):
         """Test summary output."""
@@ -859,6 +861,49 @@ class TestProgressReporter:
 
         captured = capsys.readouterr()
         assert "completed with failures" in captured.out
+
+    def test_truncate_short_message(self):
+        """Test _truncate returns short messages unchanged."""
+        reporter = ProgressReporter(quiet=False)
+
+        result = reporter._truncate("Short message")
+
+        assert result == "Short message"
+
+    def test_truncate_exact_length_message(self):
+        """Test _truncate returns message at exact limit unchanged."""
+        reporter = ProgressReporter(quiet=False)
+
+        # Exactly 200 characters
+        message = "x" * 200
+        result = reporter._truncate(message)
+
+        assert result == message
+        assert len(result) == 200
+
+    def test_truncate_long_message(self):
+        """Test _truncate truncates long messages with ellipsis."""
+        reporter = ProgressReporter(quiet=False)
+
+        message = "x" * 300
+        result = reporter._truncate(message)
+
+        # Should be 200 chars + "..." = 203 total
+        assert len(result) == 203
+        assert result.endswith("...")
+        assert result == "x" * 200 + "..."
+
+    def test_truncate_custom_max_length(self):
+        """Test _truncate with custom max_length parameter."""
+        reporter = ProgressReporter(quiet=False)
+
+        message = "x" * 200
+        result = reporter._truncate(message, max_length=100)
+
+        # Should be 100 chars + "..." = 103 total
+        assert len(result) == 103
+        assert result.endswith("...")
+        assert result == "x" * 100 + "..."
 
 
 class TestQuietFlagParsing:
