@@ -10,6 +10,7 @@ Features:
 - Per-type error isolation (one type failing doesn't stop others)
 - JSONL event logging for monitoring integration
 - Graceful degradation on provider failures
+- Parallel type generation with asyncio and semaphore-based rate limiting
 
 Usage:
     python scripts/bootstrap_inventory.py [OPTIONS]
@@ -20,7 +21,11 @@ Options:
     --types TYPE,...    Comma-separated list of types to generate (default: all)
     --dry-run           Generate without database insertion
     --no-async          Disable async generation
+    --no-batch          Disable batch API generation
     --max-retries N     Maximum retries per type (default: 3)
+    --parallel          Enable parallel generation across types
+    --max-parallel N    Maximum concurrent types (default: 2)
+    --quiet             Suppress terminal progress output
     --help              Show this help message
 
 Exit codes:
@@ -128,6 +133,8 @@ class BootstrapConfig:
     retry_base_delay: float = 5.0
     retry_max_delay: float = 60.0
     quiet: bool = False
+    parallel: bool = False
+    max_parallel: int = 2
 
 
 class ProgressReporter:
@@ -170,6 +177,8 @@ class ProgressReporter:
         use_async: bool,
         use_batch: bool,
         dry_run: bool,
+        parallel: bool = False,
+        max_parallel: int = 2,
     ) -> None:
         """Print the startup banner with configuration.
 
@@ -180,6 +189,8 @@ class ProgressReporter:
             use_async: Whether async mode is enabled
             use_batch: Whether batch mode is enabled
             dry_run: Whether running in dry-run mode
+            parallel: Whether parallel mode is enabled
+            max_parallel: Maximum concurrent type generations
         """
         self._print("")
         self._print("=" * 64)
@@ -196,6 +207,12 @@ class ProgressReporter:
         self._print(f"  Target total questions: {len(types) * questions_per_type}")
         self._print(f"  Max retries per type: {max_retries}")
         self._print(f"  Async mode: {'enabled' if use_async else 'disabled'}")
+        if parallel:
+            self._print(
+                f"  Parallel mode: enabled (max {max_parallel} concurrent types)"
+            )
+        else:
+            self._print("  Parallel mode: disabled")
         self._print(f"  Dry run: {'yes' if dry_run else 'no'}")
         self._print("")
         self._print("=" * 64)
@@ -213,7 +230,12 @@ class ProgressReporter:
         self._print("")
 
     def type_start(
-        self, type_index: int, total_types: int, question_type: str, count: int
+        self,
+        type_index: int,
+        total_types: int,
+        question_type: str,
+        count: int,
+        parallel: bool = False,
     ) -> None:
         """Print type generation start message.
 
@@ -222,12 +244,17 @@ class ProgressReporter:
             total_types: Total number of types
             question_type: Name of the question type
             count: Number of questions to generate
+            parallel: Whether running in parallel mode
         """
-        self._print("")
-        self._print(
-            f"[{type_index}/{total_types}] Generating {question_type} ({count} questions)"
-        )
-        self._print("-" * 60)
+        if parallel:
+            # In parallel mode, add type prefix for clarity
+            self._print(f"[{question_type}] Starting generation ({count} questions)")
+        else:
+            self._print("")
+            self._print(
+                f"[{type_index}/{total_types}] Generating {question_type} ({count} questions)"
+            )
+            self._print("-" * 60)
 
     def phase_transition(self, phase: str, detail: str = "") -> None:
         """Print phase transition message.
@@ -239,13 +266,17 @@ class ProgressReporter:
         detail_str = f" - {detail}" if detail else ""
         self._print(f"  {self.BLUE}[PHASE]{self.RESET} {phase}{detail_str}")
 
-    def progress(self, message: str) -> None:
+    def progress(self, message: str, question_type: Optional[str] = None) -> None:
         """Print progress message.
 
         Args:
             message: Progress message
+            question_type: Optional type prefix for parallel mode
         """
-        self._print(f"  {self.GREEN}[PROGRESS]{self.RESET} {message}")
+        if question_type:
+            self._print(f"  {self.GREEN}[{question_type}]{self.RESET} {message}")
+        else:
+            self._print(f"  {self.GREEN}[PROGRESS]{self.RESET} {message}")
 
     def approval_rate(self, approved: int, total: int) -> None:
         """Print approval rate message.
@@ -286,7 +317,12 @@ class ProgressReporter:
         )
 
     def type_complete(
-        self, question_type: str, success: bool, duration: float, generated: int = 0
+        self,
+        question_type: str,
+        success: bool,
+        duration: float,
+        generated: int = 0,
+        parallel: bool = False,
     ) -> None:
         """Print type completion message.
 
@@ -295,14 +331,15 @@ class ProgressReporter:
             success: Whether generation succeeded
             duration: Duration in seconds
             generated: Number of questions generated (for success)
+            parallel: Whether running in parallel mode
         """
-        self._print("-" * 60)
+        if not parallel:
+            self._print("-" * 60)
         if success:
             self._print(
                 f"{self.GREEN}✓{self.RESET} {question_type} completed successfully "
-                f"({duration:.1f}s)"
+                f"({duration:.1f}s, {generated} questions)"
             )
-            self._print(f"  Generated: {generated} questions")
         else:
             self._print(
                 f"{self.RED}✗{self.RESET} {question_type} FAILED ({duration:.1f}s)"
@@ -1094,6 +1131,35 @@ class BootstrapInventory:
             target=count,
         )
 
+    async def _process_type_with_semaphore(
+        self,
+        question_type: str,
+        semaphore: asyncio.Semaphore,
+        type_index: int,
+    ) -> TypeResult:
+        """Process a single question type with semaphore-based rate limiting.
+
+        This wrapper acquires the semaphore before processing to limit
+        concurrent type generations.
+
+        Args:
+            question_type: Question type to process
+            semaphore: Semaphore to limit concurrent operations
+            type_index: Index of this type in the list (1-based)
+
+        Returns:
+            TypeResult with generation results
+        """
+        async with semaphore:
+            self.progress.type_start(
+                type_index,
+                len(self.config.types),
+                question_type,
+                self.config.questions_per_type,
+                parallel=True,
+            )
+            return await self._process_type_with_retries(question_type)
+
     async def _process_type_with_retries(
         self,
         question_type: str,
@@ -1262,6 +1328,50 @@ class BootstrapInventory:
             error_message=last_error,
         )
 
+    async def _process_types_parallel(self) -> List[TypeResult]:
+        """Process all types in parallel with semaphore-based rate limiting.
+
+        Creates tasks for all types and uses asyncio.gather with
+        return_exceptions=True to handle partial failures gracefully.
+
+        Returns:
+            List of TypeResult objects (one per type)
+        """
+        # Create semaphore to limit concurrency
+        semaphore = asyncio.Semaphore(self.config.max_parallel)
+
+        # Create tasks for all types
+        tasks = []
+        for i, question_type in enumerate(self.config.types, 1):
+            task = self._process_type_with_semaphore(question_type, semaphore, i)
+            tasks.append(task)
+
+        # Execute all tasks concurrently with exception handling
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results and handle exceptions
+        processed_results: List[TypeResult] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                # Task raised an exception - create a failed TypeResult
+                question_type = self.config.types[i]
+                self.logger.error(
+                    f"Unexpected error processing {question_type}: {result}"
+                )
+                processed_results.append(
+                    TypeResult(
+                        question_type=question_type,
+                        success=False,
+                        attempt_count=0,
+                        error_message=f"Unexpected error: {str(result)}",
+                    )
+                )
+            else:
+                # Task succeeded, add the result
+                processed_results.append(result)
+
+        return processed_results
+
     async def run(self) -> int:
         """Run the bootstrap process.
 
@@ -1279,6 +1389,8 @@ class BootstrapInventory:
             types=",".join(self.config.types),
             async_mode="enabled" if self.config.use_async else "disabled",
             batch_mode="enabled" if self.config.use_batch else "disabled",
+            parallel_mode="enabled" if self.config.parallel else "disabled",
+            max_parallel=self.config.max_parallel if self.config.parallel else None,
             dry_run="yes" if self.config.dry_run else "no",
         )
 
@@ -1290,6 +1402,8 @@ class BootstrapInventory:
             use_async=self.config.use_async,
             use_batch=self.config.use_batch,
             dry_run=self.config.dry_run,
+            parallel=self.config.parallel,
+            max_parallel=self.config.max_parallel,
         )
 
         # Initialize pipeline
@@ -1315,34 +1429,65 @@ class BootstrapInventory:
 
         # Use try-finally to ensure pipeline cleanup
         try:
-            # Process each type
+            # Process types (parallel or sequential based on config)
             successful_types = 0
             failed_types = 0
 
-            for i, question_type in enumerate(self.config.types, 1):
-                self.progress.type_start(
-                    i,
-                    len(self.config.types),
-                    question_type,
-                    self.config.questions_per_type,
+            if self.config.parallel:
+                # Parallel mode: process all types concurrently
+                self.logger.info(
+                    f"Processing {len(self.config.types)} types in parallel "
+                    f"(max {self.config.max_parallel} concurrent)"
                 )
+                self.results = await self._process_types_parallel()
 
-                type_start = time.time()
-                result = await self._process_type_with_retries(question_type)
-                self.results.append(result)
-
-                type_duration = time.time() - type_start
-
-                self.progress.type_complete(
-                    question_type, result.success, type_duration, result.generated
-                )
-
-                if result.success:
-                    successful_types += 1
-                else:
-                    if result.error_message:
+                # Print completion messages for each result
+                for result in self.results:
+                    self.progress.type_complete(
+                        result.question_type,
+                        result.success,
+                        result.duration_seconds,
+                        result.generated,
+                        parallel=True,
+                    )
+                    if not result.success and result.error_message:
                         self.progress.type_error(result.error_message)
-                    failed_types += 1
+
+                # Count successes and failures
+                successful_types = sum(1 for r in self.results if r.success)
+                failed_types = sum(1 for r in self.results if not r.success)
+
+            else:
+                # Sequential mode: process types one at a time
+                for i, question_type in enumerate(self.config.types, 1):
+                    self.progress.type_start(
+                        i,
+                        len(self.config.types),
+                        question_type,
+                        self.config.questions_per_type,
+                        parallel=False,
+                    )
+
+                    type_start = time.time()
+                    result = await self._process_type_with_retries(question_type)
+                    self.results.append(result)
+
+                    type_duration = time.time() - type_start
+
+                    self.progress.type_complete(
+                        question_type,
+                        result.success,
+                        type_duration,
+                        result.generated,
+                        parallel=False,
+                    )
+
+                    if result.success:
+                        successful_types += 1
+                    else:
+                        if result.error_message:
+                            self.progress.type_error(result.error_message)
+                        failed_types += 1
 
             # Calculate final stats
             total_duration = time.time() - start_time
@@ -1411,6 +1556,12 @@ Examples:
   # Generate more questions per type (300 = 100 per difficulty)
   python scripts/bootstrap_inventory.py --count 300
 
+  # Parallel generation with default concurrency (2 types at once)
+  python scripts/bootstrap_inventory.py --parallel
+
+  # Parallel generation with higher concurrency (4 types at once)
+  python scripts/bootstrap_inventory.py --parallel --max-parallel 4
+
   # Dry run to test without database writes
   python scripts/bootstrap_inventory.py --dry-run --count 15 --types math
 
@@ -1471,6 +1622,19 @@ Examples:
         "-q",
         action="store_true",
         help="Suppress terminal progress output (JSONL events still logged)",
+    )
+
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel generation across question types",
+    )
+
+    parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=2,
+        help="Maximum concurrent type generations when --parallel is enabled (default: 2)",
     )
 
     return parser.parse_args()
@@ -1578,6 +1742,8 @@ async def main() -> int:
         use_batch=not args.no_batch,
         max_retries=args.max_retries,
         quiet=args.quiet,
+        parallel=args.parallel,
+        max_parallel=args.max_parallel,
     )
 
     # Create event logger
