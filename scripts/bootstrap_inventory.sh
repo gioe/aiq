@@ -546,19 +546,20 @@ write_per_type_metrics() {
 
     # Calculate approved count from generated and approval_rate
     # approved = generated * (approval_rate / 100)
+    # Use awk's -v flag to safely pass variables (prevents shell injection)
     local approved=0
     if [ -n "$LAST_SUCCESS_APPROVAL_RATE" ] && [ "$LAST_SUCCESS_APPROVAL_RATE" != "0" ]; then
-        # Use awk for floating point calculation, round to nearest integer
-        approved=$(awk "BEGIN {printf \"%.0f\", $LAST_SUCCESS_GENERATED * $LAST_SUCCESS_APPROVAL_RATE / 100}")
+        approved=$(awk -v gen="$LAST_SUCCESS_GENERATED" -v rate="$LAST_SUCCESS_APPROVAL_RATE" \
+            'BEGIN {printf "%.0f", gen * rate / 100}')
     fi
 
     # Get ISO 8601 timestamp in UTC
     local timestamp
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     # Build JSON object with metrics
     local metrics_json
-    metrics_json=$(jq -n \
+    if ! metrics_json=$(jq -n \
         --arg type "$question_type" \
         --arg ts "$timestamp" \
         --argjson generated "${LAST_SUCCESS_GENERATED:-0}" \
@@ -574,7 +575,16 @@ write_per_type_metrics() {
             inserted: $inserted,
             approval_rate: $approval_rate,
             duration_seconds: $duration
-        }')
+        }' 2>/dev/null); then
+        echo -e "  ${RED}[METRICS]${NC} Failed to build metrics JSON for $question_type"
+        return 1
+    fi
+
+    # Verify we got valid JSON before writing
+    if [ -z "$metrics_json" ]; then
+        echo -e "  ${RED}[METRICS]${NC} Empty metrics JSON for $question_type"
+        return 1
+    fi
 
     # Write to per-type metrics file
     local metrics_file="$RESULTS_DIR/${question_type}_metrics.json"
