@@ -591,7 +591,7 @@ class GoogleProvider(BaseLLMProvider):
         and can handle longer processing times.
 
         Args:
-            prompts: List of prompts to process
+            prompts: List of prompts to process (max 1000 prompts)
             model_override: Optional model to use instead of the provider's default
             display_name: Optional display name for the batch job
             temperature: Sampling temperature for generation
@@ -601,8 +601,19 @@ class GoogleProvider(BaseLLMProvider):
             The batch job name/ID for tracking
 
         Raises:
+            ValueError: If prompts list is empty or exceeds maximum size
             Exception: If batch job creation fails
         """
+        # Validate inputs
+        if not prompts:
+            raise ValueError("Prompts list cannot be empty")
+
+        max_batch_size = 1000  # Google's batch API limit
+        if len(prompts) > max_batch_size:
+            raise ValueError(
+                f"Batch size {len(prompts)} exceeds maximum of {max_batch_size}"
+            )
+
         model = model_override or self.model
 
         inline_requests: List[Dict[str, Any]] = []
@@ -825,8 +836,12 @@ class GoogleProvider(BaseLLMProvider):
             "JOB_STATE_EXPIRED",
         }
 
+        def _get_batch_job() -> Any:
+            return self._client.batches.get(name=job_name)
+
+        loop = asyncio.get_event_loop()
         start_time = time.time()
-        batch_job = self._client.batches.get(name=job_name)
+        batch_job = await loop.run_in_executor(None, _get_batch_job)
         current_state = batch_job.state.name if batch_job.state else "UNKNOWN"
 
         while current_state not in completed_states:
@@ -841,7 +856,7 @@ class GoogleProvider(BaseLLMProvider):
                 f"elapsed: {elapsed:.1f}s"
             )
             await asyncio.sleep(poll_interval)
-            batch_job = self._client.batches.get(name=job_name)
+            batch_job = await loop.run_in_executor(None, _get_batch_job)
             current_state = batch_job.state.name if batch_job.state else "UNKNOWN"
 
         return self._extract_batch_results(batch_job)
@@ -979,6 +994,7 @@ class GoogleProvider(BaseLLMProvider):
         """Clean up async resources.
 
         The google-genai SDK manages connections internally.
-        Call client.close() to clean up resources.
+        Call client.close() to clean up resources if available.
         """
-        self._client.close()
+        if hasattr(self._client, "close"):
+            self._client.close()

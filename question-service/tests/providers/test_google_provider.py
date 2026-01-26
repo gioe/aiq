@@ -254,6 +254,32 @@ class TestBatchAPI:
         mock_client.batches.create.assert_called_once()
 
     @patch("app.providers.google_provider.genai.Client")
+    def test_create_batch_job_empty_prompts(
+        self, mock_client_class, mock_openai_api_key
+    ):
+        """Test creating a batch job with empty prompts raises ValueError."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(ValueError, match="cannot be empty"):
+            provider.create_batch_job(prompts=[])
+
+    @patch("app.providers.google_provider.genai.Client")
+    def test_create_batch_job_exceeds_max_size(
+        self, mock_client_class, mock_openai_api_key
+    ):
+        """Test creating a batch job exceeding max size raises ValueError."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        provider = GoogleProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            provider.create_batch_job(prompts=["prompt"] * 1001)
+
+    @patch("app.providers.google_provider.genai.Client")
     def test_get_batch_job_status(self, mock_client_class, mock_openai_api_key):
         """Test getting batch job status."""
         mock_client = MagicMock()
