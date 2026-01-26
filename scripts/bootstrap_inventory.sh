@@ -339,6 +339,44 @@ parse_heartbeat_line() {
     fi
 }
 
+# Function to extract structured error from the last heartbeat JSON in a log file
+# This provides more reliable error messages when run_generation.py wrote them to heartbeat
+# Returns the error_message on stdout, or empty if not found
+#
+# Args:
+#   $1 - Path to the log file to search
+#
+# Usage:
+#   error_msg=$(extract_heartbeat_error "$BOOTSTRAP_LOG")
+#   if [ -n "$error_msg" ]; then
+#       echo "Found structured error: $error_msg"
+#   fi
+extract_heartbeat_error() {
+    local log_file="$1"
+
+    if [ ! -f "$log_file" ]; then
+        return 0
+    fi
+
+    # Search for HEARTBEAT lines with status "failed" or "completed" with error_message
+    # Use grep to find heartbeat lines, then extract the last one with an error_message
+    # The grep -o extracts just the JSON portion after "HEARTBEAT: "
+    local heartbeat_json
+    heartbeat_json=$(grep -o 'HEARTBEAT: {.*}' "$log_file" 2>/dev/null | tail -1 | sed 's/^HEARTBEAT: //')
+
+    if [ -z "$heartbeat_json" ]; then
+        return 0
+    fi
+
+    # Check if this heartbeat has an error_message field
+    local error_msg
+    error_msg=$(echo "$heartbeat_json" | jq -r '.error_message // empty' 2>/dev/null)
+
+    if [ -n "$error_msg" ]; then
+        echo "$error_msg"
+    fi
+}
+
 # Function to parse and display phase transitions
 # Detects PHASE lines from run_generation.py logger output
 parse_phase_line() {
@@ -453,9 +491,17 @@ generate_type() {
             echo "Failed with exit code $exit_code: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
             echo -e "  ${RED}Attempt $attempt failed (exit code: $exit_code)${NC}"
 
-            # Extract and display the actual error from the log file
+            # Extract and display the actual error
+            # First, try to get structured error from heartbeat JSON (more reliable)
+            # Then fall back to log parsing if no structured error is available
             local extracted_error
-            extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+            extracted_error=$(extract_heartbeat_error "$BOOTSTRAP_LOG")
+
+            if [ -z "$extracted_error" ]; then
+                # Fall back to log parsing
+                extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+            fi
+
             if [ -n "$extracted_error" ]; then
                 echo ""
                 echo -e "  ${RED}Error details:${NC}"
@@ -504,7 +550,11 @@ for type in $TYPES; do
         FAILED_TYPES=$((FAILED_TYPES + 1))
 
         # Extract and save error details for summary
-        extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+        # First, try structured error from heartbeat JSON, then fall back to log parsing
+        extracted_error=$(extract_heartbeat_error "$BOOTSTRAP_LOG")
+        if [ -z "$extracted_error" ]; then
+            extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+        fi
         if [ -n "$extracted_error" ]; then
             echo "$extracted_error" > "$RESULTS_DIR/${type}_error"
         fi
