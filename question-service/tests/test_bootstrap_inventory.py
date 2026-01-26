@@ -20,7 +20,9 @@ from bootstrap_inventory import (  # noqa: E402
     CRITICAL_FAILURE_THRESHOLD,
     EventLogger,
     ProgressReporter,
+    SENSITIVE_PATTERNS,
     TypeResult,
+    _sanitize_error,
     parse_arguments,
     validate_count,
     validate_types,
@@ -2689,3 +2691,163 @@ class TestTruncateError:
         result = _truncate_error(exact_error)
         assert result == exact_error
         assert "..." not in result
+
+    def test_truncate_sanitizes_before_truncating(self):
+        """Test that _truncate_error sanitizes sensitive data before truncating."""
+        from bootstrap_inventory import _truncate_error
+
+        # Error with API key should be sanitized
+        error_with_key = "API call failed with key sk-1234567890abcdefghijklmnop"
+        result = _truncate_error(error_with_key)
+        assert "sk-1234567890" not in result
+        assert "[REDACTED_OPENAI_KEY]" in result
+
+    def test_truncate_sanitizes_then_truncates_long_error(self):
+        """Test that long errors with sensitive data are sanitized then truncated."""
+        from bootstrap_inventory import _truncate_error, MAX_ERROR_MESSAGE_LENGTH
+
+        # Long error with API key
+        long_error = f"Error: {'x' * 400} with key sk-1234567890abcdefghijklmnop"
+        result = _truncate_error(long_error)
+
+        # Should be truncated
+        assert len(result) <= MAX_ERROR_MESSAGE_LENGTH
+        # Should not contain the API key
+        assert "sk-1234567890" not in result
+
+
+class TestSanitizeError:
+    """Tests for error message sanitization utility."""
+
+    def test_sanitize_openai_api_key(self):
+        """Test that OpenAI API keys are redacted."""
+        error = "Authentication failed for API key sk-1234567890abcdefghijklmnopqrst"
+        result = _sanitize_error(error)
+        assert "sk-1234567890" not in result
+        assert "[REDACTED_OPENAI_KEY]" in result
+
+    def test_sanitize_anthropic_api_key(self):
+        """Test that Anthropic API keys are redacted."""
+        error = "Invalid API key: sk-ant-api03-abcdefghijklmnopqrstuvwxyz"
+        result = _sanitize_error(error)
+        assert "sk-ant-api03" not in result
+        assert "[REDACTED_ANTHROPIC_KEY]" in result
+
+    def test_sanitize_google_api_key(self):
+        """Test that Google API keys are redacted."""
+        error = "Request failed with key AIzaSyC-1234567890abcdefghijklmnopqrs"
+        result = _sanitize_error(error)
+        assert "AIzaSyC-1234567890" not in result
+        assert "[REDACTED_GOOGLE_KEY]" in result
+
+    def test_sanitize_xai_api_key(self):
+        """Test that xAI API keys are redacted."""
+        error = "Authentication error: xai-1234567890abcdefghijklmnop"
+        result = _sanitize_error(error)
+        assert "xai-1234567890" not in result
+        assert "[REDACTED_XAI_KEY]" in result
+
+    def test_sanitize_bearer_token(self):
+        """Test that Bearer tokens are redacted."""
+        error = "Request failed: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxx"
+        result = _sanitize_error(error)
+        # The JWT token should be redacted
+        assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result
+        assert "[REDACTED_TOKEN]" in result
+
+    def test_sanitize_basic_auth_in_url(self):
+        """Test that basic auth credentials in URLs are redacted."""
+        error = "Failed to connect to https://user:password123@api.example.com/v1"  # pragma: allowlist secret
+        result = _sanitize_error(error)
+        assert "user:password123" not in result
+        assert "[REDACTED_CREDENTIALS]@" in result
+
+    def test_sanitize_api_key_in_query_string(self):
+        """Test that API keys in query strings are redacted."""
+        error = "Request to https://api.example.com?api_key=secret123 failed"
+        result = _sanitize_error(error)
+        assert "secret123" not in result
+        assert "[REDACTED]" in result
+        # Verify the separator is preserved correctly
+        assert "?api_key=[REDACTED]" in result
+
+    def test_sanitize_api_key_in_query_string_with_ampersand(self):
+        """Test that API keys with & separator are properly redacted."""
+        error = "Request to https://api.example.com/endpoint?foo=bar&api_key=secret123&other=val"
+        result = _sanitize_error(error)
+        assert "secret123" not in result
+        # Verify the & separator is preserved and URL structure is intact
+        assert "&api_key=[REDACTED]" in result
+        assert "?foo=bar" in result
+        assert "&other=val" in result
+
+    def test_sanitize_authorization_header(self):
+        """Test that Authorization headers are redacted."""
+        error = "Request headers: X-Api-Key: super_secret_key_12345"
+        result = _sanitize_error(error)
+        assert "super_secret_key_12345" not in result
+        assert "[REDACTED]" in result
+
+    def test_sanitize_preserves_non_sensitive_content(self):
+        """Test that non-sensitive error content is preserved."""
+        error = "Connection timeout after 30 seconds to api.example.com"
+        result = _sanitize_error(error)
+        assert result == error  # Should be unchanged
+
+    def test_sanitize_multiple_keys_in_one_error(self):
+        """Test that multiple sensitive items are all redacted."""
+        error = (
+            "Failed with OpenAI key sk-1234567890abcdefghijklmnop "
+            "and Google key AIzaSyC-1234567890abcdefghijklmnopqrs"
+        )
+        result = _sanitize_error(error)
+        assert "sk-1234567890" not in result
+        assert "AIzaSyC-1234567890" not in result
+        assert "[REDACTED_OPENAI_KEY]" in result
+        assert "[REDACTED_GOOGLE_KEY]" in result
+
+    def test_sanitize_handles_exception_object(self):
+        """Test that _sanitize_error can handle Exception objects."""
+        exc = Exception("API key sk-1234567890abcdefghijklmnop is invalid")
+        result = _sanitize_error(exc)
+        assert "sk-1234567890" not in result
+        assert "[REDACTED_OPENAI_KEY]" in result
+
+    def test_sanitize_handles_none_like_values(self):
+        """Test that _sanitize_error handles edge cases gracefully."""
+        assert _sanitize_error("") == ""
+        assert _sanitize_error(None) == "None"
+
+    def test_sensitive_patterns_are_defined(self):
+        """Test that SENSITIVE_PATTERNS constant has expected patterns."""
+        # Verify we have patterns for all major providers
+        assert (
+            len(SENSITIVE_PATTERNS) >= 5
+        )  # At minimum: OpenAI, Anthropic, Google, xAI, Bearer
+        # Verify patterns are tuples of (regex, replacement)
+        for pattern, replacement in SENSITIVE_PATTERNS:
+            assert hasattr(pattern, "sub")  # Is a compiled regex
+            assert isinstance(replacement, str)
+
+
+class TestProgressReporterSanitization:
+    """Tests for ProgressReporter error sanitization."""
+
+    def test_truncate_sanitizes_api_keys(self):
+        """Test that ProgressReporter._truncate sanitizes API keys."""
+        reporter = ProgressReporter(quiet=True)
+        error = "Failed with key sk-1234567890abcdefghijklmnop"
+        result = reporter._truncate(error)
+        assert "sk-1234567890" not in result
+        assert "[REDACTED_OPENAI_KEY]" in result
+
+    def test_truncate_sanitizes_before_truncating(self):
+        """Test that ProgressReporter sanitizes then truncates."""
+        reporter = ProgressReporter(quiet=True)
+        # Create a long error with sensitive data
+        error = f"Error: {'x' * 150} with key sk-1234567890abcdefghijklmnop"
+        result = reporter._truncate(error, max_length=100)
+        # Should be truncated
+        assert len(result) <= 103  # 100 + "..."
+        # Should not contain the API key
+        assert "sk-1234567890" not in result
