@@ -454,6 +454,60 @@ extract_heartbeat_error() {
     fi
 }
 
+# Function to parse and display SUCCESS_RUN information
+# Extracts run metrics from SUCCESS_RUN: JSON lines emitted by run_generation.py
+# Returns:
+#   Sets global variables for use by calling code:
+#     LAST_SUCCESS_GENERATED - questions generated count
+#     LAST_SUCCESS_INSERTED - questions inserted count
+#     LAST_SUCCESS_APPROVAL_RATE - approval rate percentage
+parse_success_run_line() {
+    local line="$1"
+    local json_data
+
+    # Extract JSON from "SUCCESS_RUN: {...}" format
+    json_data="${line#SUCCESS_RUN: }"
+
+    # Parse key metrics using jq
+    local generated inserted approval_rate duration providers
+    generated=$(echo "$json_data" | jq -r '.questions_generated // empty' 2>/dev/null)
+    inserted=$(echo "$json_data" | jq -r '.questions_inserted // empty' 2>/dev/null)
+    approval_rate=$(echo "$json_data" | jq -r '.approval_rate // empty' 2>/dev/null)
+    duration=$(echo "$json_data" | jq -r '.duration_seconds // empty' 2>/dev/null)
+    providers=$(echo "$json_data" | jq -r '.providers_used // [] | join(", ")' 2>/dev/null)
+
+    # Set global variables for downstream use (e.g., log_event calls)
+    LAST_SUCCESS_GENERATED="${generated:-0}"
+    LAST_SUCCESS_INSERTED="${inserted:-0}"
+    LAST_SUCCESS_APPROVAL_RATE="${approval_rate:-0}"
+
+    # Display the success run information
+    if [ -n "$generated" ] && [ -n "$inserted" ]; then
+        echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Generated: ${generated}, Inserted: ${inserted}"
+        if [ -n "$approval_rate" ]; then
+            echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Approval rate: ${approval_rate}%"
+        fi
+        if [ -n "$duration" ]; then
+            # Format duration: if > 60 seconds, show minutes too
+            if [ "$(echo "$duration > 60" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
+                local minutes seconds
+                minutes=$(echo "$duration / 60" | bc 2>/dev/null || echo "")
+                seconds=$(echo "$duration % 60" | bc 2>/dev/null || printf "%.0f" "$duration")
+                if [ -n "$minutes" ]; then
+                    echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Duration: ${minutes}m ${seconds}s"
+                else
+                    echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Duration: ${duration}s"
+                fi
+            else
+                echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Duration: ${duration}s"
+            fi
+        fi
+        if [ -n "$providers" ]; then
+            echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Providers: ${providers}"
+        fi
+    fi
+}
+
 # Function to parse and display phase transitions
 # Detects PHASE lines from run_generation.py logger output
 parse_phase_line() {
@@ -475,6 +529,12 @@ process_output_line() {
     # Check for HEARTBEAT lines
     if [[ "$line" == HEARTBEAT:* ]]; then
         parse_heartbeat_line "$line"
+        return
+    fi
+
+    # Check for SUCCESS_RUN lines (final run metrics)
+    if [[ "$line" == SUCCESS_RUN:* ]]; then
+        parse_success_run_line "$line"
         return
     fi
 
