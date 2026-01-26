@@ -42,6 +42,62 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# JSONL event log file path (set after LOG_DIR is created)
+EVENTS_JSONL_FILE=""
+
+# Function to emit structured events to JSONL file for monitoring tool integration
+#
+# Args:
+#   $1 - event_type: The type of event (e.g., "bootstrap_started", "type_completed")
+#   $2 - status: The status of the event (e.g., "started", "success", "failed")
+#   Remaining args are key=value pairs for additional fields
+#
+# Usage:
+#   log_event "bootstrap_started" "started"
+#   log_event "type_completed" "success" "type=math" "duration=120" "questions=150"
+#   log_event "type_failed" "failed" "type=verbal" "error=Connection timeout"
+#
+# Output format (JSONL):
+#   {"timestamp":"2026-01-25T12:00:00Z","event_type":"bootstrap_started","status":"started"}
+log_event() {
+    local event_type="$1"
+    local status="$2"
+    shift 2
+
+    # Skip if EVENTS_JSONL_FILE is not set yet
+    if [ -z "$EVENTS_JSONL_FILE" ]; then
+        return 0
+    fi
+
+    # Get ISO 8601 timestamp
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')
+
+    # Build JSON object with required fields
+    local json="{\"timestamp\":\"$timestamp\",\"event_type\":\"$event_type\",\"status\":\"$status\""
+
+    # Process optional key=value pairs
+    for arg in "$@"; do
+        local key="${arg%%=*}"
+        local value="${arg#*=}"
+
+        # Escape special characters in value for JSON
+        value=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
+
+        # Determine if value is numeric (integer or float)
+        if [[ "$value" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
+            json="$json,\"$key\":$value"
+        else
+            json="$json,\"$key\":\"$value\""
+        fi
+    done
+
+    json="$json}"
+
+    # Append to JSONL file (atomic append via >>)
+    echo "$json" >> "$EVENTS_JSONL_FILE"
+}
+
 # Configuration defaults
 # 150 per type = 50 per difficulty (easy/medium/hard), matching target of 50 per stratum
 DEFAULT_QUESTIONS_PER_TYPE=150
@@ -288,7 +344,13 @@ LOG_DIR="$QUESTION_SERVICE_DIR/logs"
 mkdir -p "$LOG_DIR"
 BOOTSTRAP_LOG="$LOG_DIR/bootstrap_$(date +%Y%m%d_%H%M%S).log"
 
+# Create project-level logs directory for JSONL events (for monitoring tool integration)
+PROJECT_LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$PROJECT_LOG_DIR"
+EVENTS_JSONL_FILE="$PROJECT_LOG_DIR/bootstrap_events.jsonl"
+
 echo -e "${BLUE}Logging to: $BOOTSTRAP_LOG${NC}"
+echo -e "${BLUE}Events JSONL: $EVENTS_JSONL_FILE${NC}"
 echo ""
 
 # Function to parse and display heartbeat information
