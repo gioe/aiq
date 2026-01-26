@@ -2747,6 +2747,40 @@ class TestSanitizeError:
         assert "xai-1234567890" not in result
         assert "[REDACTED_XAI_KEY]" in result
 
+    def test_sanitize_aws_access_key_id(self):
+        """Test that AWS Access Key IDs are redacted."""
+        # Standard AKIA key (pragma: allowlist secret)
+        error = "AWS error with key AKIAIOSFODNN7EXAMPLE"  # pragma: allowlist secret
+        result = _sanitize_error(error)
+        assert "AKIAIOSFODNN7EXAMPLE" not in result  # pragma: allowlist secret
+        assert "[REDACTED_AWS_KEY_ID]" in result
+
+    def test_sanitize_aws_access_key_id_variants(self):
+        """Test that AWS temporary credential key IDs (ASIA) are redacted."""
+        # ASIA prefix for temp credentials (pragma: allowlist secret)
+        error = "Temporary credential: ASIAJEXAMPLEKEY12345"  # pragma: allowlist secret
+        result = _sanitize_error(error)
+        assert "ASIAJEXAMPLEKEY12345" not in result  # pragma: allowlist secret
+        assert "[REDACTED_AWS_KEY_ID]" in result
+
+    def test_sanitize_aws_secret_access_key(self):
+        """Test that AWS Secret Access Keys are redacted."""
+        # 40-char base64-like secret after = sign (pragma: allowlist secret)
+        secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # pragma: allowlist secret
+        error = f"aws_secret_access_key={secret}"
+        result = _sanitize_error(error)
+        assert secret not in result
+        assert "[REDACTED_AWS_SECRET]" in result
+
+    def test_sanitize_aws_secret_access_key_after_colon(self):
+        """Test that AWS Secret Access Keys after colon are redacted."""
+        # pragma: allowlist secret (example AWS key from AWS docs)
+        secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # pragma: allowlist secret
+        error = f"secret: {secret},"
+        result = _sanitize_error(error)
+        assert secret not in result
+        assert "[REDACTED_AWS_SECRET]" in result
+
     def test_sanitize_bearer_token(self):
         """Test that Bearer tokens are redacted."""
         error = "Request failed: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxx"
