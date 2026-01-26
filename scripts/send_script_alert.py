@@ -67,6 +67,11 @@ def build_alert_message(
     if error_details:
         lines.extend([f"Error Details: {error_details}", ""])
 
+    # NOTE: These recommended actions are intentionally duplicated from
+    # question-service/app/alerting.py (AlertManager._build_alert_message, SCRIPT_FAILURE case).
+    # This script is standalone to avoid importing the full question-service app module
+    # (which requires API keys and other config). If updating these actions, also update
+    # the corresponding section in alerting.py.
     lines.extend(
         [
             "Recommended Actions:",

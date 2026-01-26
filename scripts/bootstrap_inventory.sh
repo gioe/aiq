@@ -621,6 +621,12 @@ send_multi_type_failure_alert() {
         return 0
     fi
 
+    # Validate types parameter
+    if [ -z "$types" ]; then
+        echo -e "${YELLOW}[ALERT]${NC} No types provided, skipping alert"
+        return 0
+    fi
+
     echo ""
     echo -e "${RED}[ALERT]${NC} Critical failure: $failed_count types failed (threshold: $CRITICAL_FAILURE_THRESHOLD)"
 
@@ -636,6 +642,12 @@ send_multi_type_failure_alert() {
             fi
         fi
     done
+
+    # Validate we found failed types
+    if [ -z "$failed_types" ]; then
+        echo -e "${YELLOW}[ALERT]${NC} No failed type result files found, skipping alert"
+        return 0
+    fi
 
     # Collect error details from first failed type (for context)
     local error_details=""
@@ -655,20 +667,29 @@ send_multi_type_failure_alert() {
         "threshold=$CRITICAL_FAILURE_THRESHOLD"
 
     # Call Python alerting script
+    # Note: Pass arguments directly with proper quoting to avoid word splitting issues
     local alert_script="$SCRIPT_DIR/send_script_alert.py"
     if [ -f "$alert_script" ]; then
         echo -e "${BLUE}[ALERT]${NC} Sending script-level failure alert..."
 
-        local alert_args="--failed-count $failed_count --failed-types $failed_types"
+        # Use proper quoting for all arguments to prevent word splitting
         if [ -n "$error_details" ]; then
-            # Use printf to safely quote the error details
-            alert_args="$alert_args --error-details $(printf '%q' "$error_details")"
-        fi
-
-        if $PYTHON_CMD "$alert_script" $alert_args 2>/dev/null; then
-            echo -e "${GREEN}[ALERT]${NC} Alert sent successfully"
+            if "$PYTHON_CMD" "$alert_script" \
+                --failed-count "$failed_count" \
+                --failed-types "$failed_types" \
+                --error-details "$error_details" 2>"$LOG_DIR/script_alert_stderr.log"; then
+                echo -e "${GREEN}[ALERT]${NC} Alert sent successfully"
+            else
+                echo -e "${YELLOW}[ALERT]${NC} Alert script completed (check logs for delivery status)"
+            fi
         else
-            echo -e "${YELLOW}[ALERT]${NC} Alert script completed (check logs for delivery status)"
+            if "$PYTHON_CMD" "$alert_script" \
+                --failed-count "$failed_count" \
+                --failed-types "$failed_types" 2>"$LOG_DIR/script_alert_stderr.log"; then
+                echo -e "${GREEN}[ALERT]${NC} Alert sent successfully"
+            else
+                echo -e "${YELLOW}[ALERT]${NC} Alert script completed (check logs for delivery status)"
+            fi
         fi
     else
         echo -e "${YELLOW}[ALERT]${NC} Alert script not found: $alert_script"

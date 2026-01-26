@@ -210,6 +210,11 @@ class AlertManager:
                 ]
             )
         elif classified_error.category == ErrorCategory.SCRIPT_FAILURE:
+            # NOTE: These recommended actions are intentionally duplicated in
+            # scripts/send_script_alert.py (build_alert_message function).
+            # That script is standalone to avoid importing this module (which requires
+            # API keys and other config). If updating these actions, also update
+            # the corresponding section in send_script_alert.py.
             lines.extend(
                 [
                     "1. Check bootstrap script logs for detailed error messages",
