@@ -504,7 +504,7 @@ parse_success_run_line() {
             if [ "$(echo "$duration > 60" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
                 local minutes seconds
                 minutes=$(echo "$duration / 60" | bc 2>/dev/null || echo "")
-                seconds=$(echo "$duration % 60" | bc 2>/dev/null || printf "%.0f" "$duration")
+                seconds=$(printf "%.0f" "$(echo "$duration % 60" | bc 2>/dev/null)" 2>/dev/null || printf "%.0f" "$duration")
                 if [ -n "$minutes" ]; then
                     echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Duration: ${minutes}m ${seconds}s"
                 else
