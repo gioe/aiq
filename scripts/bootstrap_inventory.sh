@@ -64,37 +64,44 @@ log_event() {
     local status="$2"
     shift 2
 
+    # Validate required arguments
+    if [ -z "$event_type" ] || [ -z "$status" ]; then
+        echo "log_event: event_type and status are required" >&2
+        return 1
+    fi
+
     # Skip if EVENTS_JSONL_FILE is not set yet
     if [ -z "$EVENTS_JSONL_FILE" ]; then
         return 0
     fi
 
-    # Get ISO 8601 timestamp
+    # Get ISO 8601 timestamp in UTC
     local timestamp
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+    # Use jq to safely encode event_type and status (handles all special characters)
+    local encoded_event_type encoded_status
+    encoded_event_type=$(printf '%s' "$event_type" | jq -Rs '.')
+    encoded_status=$(printf '%s' "$status" | jq -Rs '.')
 
     # Build JSON object with required fields
-    local json="{\"timestamp\":\"$timestamp\",\"event_type\":\"$event_type\",\"status\":\"$status\""
+    local json="{\"timestamp\":\"$timestamp\",\"event_type\":$encoded_event_type,\"status\":$encoded_status"
 
     # Process optional key=value pairs
     for arg in "$@"; do
         local key="${arg%%=*}"
         local value="${arg#*=}"
 
-        # Escape special characters in value for JSON
-        value=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
+        # Use jq to safely encode the value (handles newlines, quotes, control chars)
+        local encoded_value
+        encoded_value=$(printf '%s' "$value" | jq -Rs '.')
 
-        # Determine if value is numeric (integer or float)
-        if [[ "$value" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
-            json="$json,\"$key\":$value"
-        else
-            json="$json,\"$key\":\"$value\""
-        fi
+        json="$json,\"$key\":$encoded_value"
     done
 
     json="$json}"
 
-    # Append to JSONL file (atomic append via >>)
+    # Append to JSONL file
     echo "$json" >> "$EVENTS_JSONL_FILE"
 }
 
