@@ -346,6 +346,13 @@ SUCCESSFUL_TYPES=0
 FAILED_TYPES=0
 START_TIME=$(date +%s)
 
+# Initialize global variables for per-type metrics (set by parse_success_run_line)
+LAST_SUCCESS_GENERATED=""
+LAST_SUCCESS_INSERTED=""
+LAST_SUCCESS_APPROVAL_RATE=""
+LAST_SUCCESS_DURATION=""
+LAST_SUCCESS_RAW_JSON=""
+
 # Create logs directory if needed
 LOG_DIR="$QUESTION_SERVICE_DIR/logs"
 mkdir -p "$LOG_DIR"
@@ -476,10 +483,12 @@ parse_success_run_line() {
     duration=$(echo "$json_data" | jq -r '.duration_seconds // empty' 2>/dev/null)
     providers=$(echo "$json_data" | jq -r '.providers_used // [] | join(", ")' 2>/dev/null)
 
-    # Set global variables for downstream use (e.g., log_event calls)
+    # Set global variables for downstream use (e.g., log_event calls, per-type metrics)
     LAST_SUCCESS_GENERATED="${generated:-0}"
     LAST_SUCCESS_INSERTED="${inserted:-0}"
     LAST_SUCCESS_APPROVAL_RATE="${approval_rate:-0}"
+    LAST_SUCCESS_DURATION="${duration:-0}"
+    LAST_SUCCESS_RAW_JSON="$json_data"
 
     # Display the success run information
     if [ -n "$generated" ] && [ -n "$inserted" ]; then
@@ -506,6 +515,72 @@ parse_success_run_line() {
             echo -e "  ${GREEN}[SUCCESS_RUN]${NC} Providers: ${providers}"
         fi
     fi
+}
+
+# Function to write per-type metrics to a JSON file in RESULTS_DIR
+# Called after each type completes successfully to persist metrics for monitoring
+#
+# Args:
+#   $1 - question_type: The type that just completed (e.g., "math", "verbal")
+#
+# Uses global variables set by parse_success_run_line():
+#   LAST_SUCCESS_GENERATED - questions generated count
+#   LAST_SUCCESS_INSERTED - questions inserted count
+#   LAST_SUCCESS_APPROVAL_RATE - approval rate percentage
+#   LAST_SUCCESS_DURATION - duration in seconds
+#
+# Output file: $RESULTS_DIR/{type}_metrics.json
+# Contains: generated, approved, inserted counts plus metadata
+write_per_type_metrics() {
+    local question_type="$1"
+
+    # Skip if RESULTS_DIR is not set
+    if [ -z "$RESULTS_DIR" ]; then
+        return 0
+    fi
+
+    # Skip if no metrics were captured
+    if [ -z "$LAST_SUCCESS_GENERATED" ] || [ "$LAST_SUCCESS_GENERATED" = "0" ]; then
+        return 0
+    fi
+
+    # Calculate approved count from generated and approval_rate
+    # approved = generated * (approval_rate / 100)
+    local approved=0
+    if [ -n "$LAST_SUCCESS_APPROVAL_RATE" ] && [ "$LAST_SUCCESS_APPROVAL_RATE" != "0" ]; then
+        # Use awk for floating point calculation, round to nearest integer
+        approved=$(awk "BEGIN {printf \"%.0f\", $LAST_SUCCESS_GENERATED * $LAST_SUCCESS_APPROVAL_RATE / 100}")
+    fi
+
+    # Get ISO 8601 timestamp in UTC
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+    # Build JSON object with metrics
+    local metrics_json
+    metrics_json=$(jq -n \
+        --arg type "$question_type" \
+        --arg ts "$timestamp" \
+        --argjson generated "${LAST_SUCCESS_GENERATED:-0}" \
+        --argjson approved "$approved" \
+        --argjson inserted "${LAST_SUCCESS_INSERTED:-0}" \
+        --argjson approval_rate "${LAST_SUCCESS_APPROVAL_RATE:-0}" \
+        --argjson duration "${LAST_SUCCESS_DURATION:-0}" \
+        '{
+            type: $type,
+            timestamp: $ts,
+            generated: $generated,
+            approved: $approved,
+            inserted: $inserted,
+            approval_rate: $approval_rate,
+            duration_seconds: $duration
+        }')
+
+    # Write to per-type metrics file
+    local metrics_file="$RESULTS_DIR/${question_type}_metrics.json"
+    echo "$metrics_json" > "$metrics_file"
+
+    echo -e "  ${BLUE}[METRICS]${NC} Wrote metrics to ${question_type}_metrics.json"
 }
 
 # Function to parse and display phase transitions
@@ -713,6 +788,8 @@ for type in $TYPES; do
         echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
         echo -e "${GREEN}✓ $type completed successfully${NC} (${duration}s)"
         echo "success" > "$RESULTS_DIR/$type"
+        # Write per-type metrics to temp file for monitoring
+        write_per_type_metrics "$type"
         SUCCESSFUL_TYPES=$((SUCCESSFUL_TYPES + 1))
     else
         type_end=$(date +%s)
