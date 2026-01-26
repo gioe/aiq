@@ -44,7 +44,13 @@ from typing import Any, List, Optional, TypedDict
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.alerting import AlertManager  # noqa: E402
 from app.config import settings  # noqa: E402
+from app.error_classifier import (  # noqa: E402
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
 from app.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.pipeline import QuestionGenerationPipeline  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
@@ -58,6 +64,8 @@ EXIT_CONFIG_ERROR = 2
 
 # Constants
 MAX_ERROR_MESSAGE_LENGTH = 500
+# Threshold for critical failure alert - matches bash script
+CRITICAL_FAILURE_THRESHOLD = 3
 MAX_EVENT_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB limit before rotation
 GENERATION_TIMEOUT_SECONDS = 300  # 5 minutes per type generation
 # Maximum questions per type to prevent runaway resource usage
@@ -419,6 +427,213 @@ class EventLogger:
             f.write(json.dumps(event) + "\n")
 
 
+class BootstrapAlerter:
+    """Handles alerting for critical failures in the bootstrap script.
+
+    This class sends alerts when multiple question types fail during
+    bootstrap, matching the behavior of the bash script's
+    send_multi_type_failure_alert() function.
+
+    Alerts are sent only when the failure count meets or exceeds
+    CRITICAL_FAILURE_THRESHOLD (3 types).
+    """
+
+    # Sentinel file path for external monitoring
+    FAILURE_FLAG_PATH = "logs/bootstrap_failure.flag"
+
+    def __init__(
+        self,
+        alert_manager: Optional[AlertManager],
+        event_logger: EventLogger,
+        logger: logging.Logger,
+        log_dir: Path,
+    ):
+        """Initialize the bootstrap alerter.
+
+        Args:
+            alert_manager: AlertManager instance (can be None if alerts disabled)
+            event_logger: Event logger for structured logging
+            logger: Python logger for console/file logging
+            log_dir: Directory for log files
+        """
+        self.alert_manager = alert_manager
+        self.event_logger = event_logger
+        self.logger = logger
+        self.log_dir = log_dir
+        self._alert_sent = False
+
+    def check_and_alert(self, results: List["TypeResult"]) -> bool:
+        """Check results and send alert if critical failure threshold is met.
+
+        This method:
+        1. Counts failed types
+        2. Checks if failure count meets CRITICAL_FAILURE_THRESHOLD
+        3. Sends alert via AlertManager if threshold met
+        4. Writes sentinel file for external monitoring
+        5. Logs the alert event
+
+        Args:
+            results: List of TypeResult objects from the bootstrap run
+
+        Returns:
+            True if an alert was sent, False otherwise
+        """
+        # Count failed types
+        failed_results = [r for r in results if not r.success]
+        failed_count = len(failed_results)
+
+        # Only alert if threshold is met
+        if failed_count < CRITICAL_FAILURE_THRESHOLD:
+            self.logger.debug(
+                f"Failed count ({failed_count}) below threshold "
+                f"({CRITICAL_FAILURE_THRESHOLD}), no alert needed"
+            )
+            return False
+
+        # Avoid duplicate alerts
+        if self._alert_sent:
+            self.logger.debug("Alert already sent for this run, skipping")
+            return False
+
+        # Collect failed type names
+        failed_types = [r.question_type for r in failed_results]
+        failed_types_str = ",".join(failed_types)
+
+        # Collect first error message for context
+        error_details = None
+        for result in failed_results:
+            if result.error_message:
+                # Truncate to 200 chars like bash script
+                error_details = result.error_message[:200]
+                break
+
+        self.logger.warning(
+            f"Critical failure: {failed_count} types failed "
+            f"(threshold: {CRITICAL_FAILURE_THRESHOLD})"
+        )
+        self.logger.warning(f"Failed types: {failed_types_str}")
+
+        # Log the multi-type failure event
+        self.event_logger.log_event(
+            "multi_type_failure",
+            "critical",
+            failed_count=failed_count,
+            failed_types=failed_types_str,
+            threshold=CRITICAL_FAILURE_THRESHOLD,
+        )
+
+        # Write sentinel file for external monitoring
+        self._write_failure_flag(failed_count, failed_types, error_details)
+
+        # Send alert via AlertManager
+        if self.alert_manager:
+            success = self._send_alert(failed_count, failed_types, error_details)
+            if success:
+                self._alert_sent = True
+                self.logger.info("Critical failure alert sent successfully")
+            else:
+                self.logger.warning("Failed to send critical failure alert")
+            return success
+        else:
+            self.logger.info(
+                "AlertManager not configured, skipping alert "
+                "(failure logged to JSONL and sentinel file)"
+            )
+            self._alert_sent = True
+            return False
+
+    def _send_alert(
+        self,
+        failed_count: int,
+        failed_types: List[str],
+        error_details: Optional[str],
+    ) -> bool:
+        """Send alert via AlertManager.
+
+        Args:
+            failed_count: Number of failed types
+            failed_types: List of failed type names
+            error_details: First error message for context
+
+        Returns:
+            True if alert was sent successfully
+        """
+        if not self.alert_manager:
+            return False
+
+        # Build the classified error
+        failed_types_str = ", ".join(failed_types)
+        message = (
+            f"Bootstrap script critical failure: {failed_count} question types failed "
+            f"(threshold: {CRITICAL_FAILURE_THRESHOLD}). Failed types: {failed_types_str}. "
+            f"Question generation pipeline may be unable to maintain inventory levels."
+        )
+
+        classified_error = ClassifiedError(
+            category=ErrorCategory.SCRIPT_FAILURE,
+            severity=ErrorSeverity.CRITICAL,
+            provider="bootstrap_script",
+            original_error="MultiTypeFailure",
+            message=message,
+            is_retryable=True,  # Script can be re-run
+        )
+
+        # Build context with failed type details
+        context_lines = [
+            f"Failed types ({failed_count}):",
+        ]
+        for qtype in failed_types:
+            context_lines.append(f"  - {qtype}")
+
+        if error_details:
+            context_lines.extend(
+                [
+                    "",
+                    f"Sample error: {error_details}",
+                ]
+            )
+
+        context = "\n".join(context_lines)
+
+        return self.alert_manager.send_alert(classified_error, context)
+
+    def _write_failure_flag(
+        self,
+        failed_count: int,
+        failed_types: List[str],
+        error_details: Optional[str],
+    ) -> None:
+        """Write sentinel file for external monitoring.
+
+        This file can be checked by external monitoring tools to detect
+        bootstrap failures without parsing logs.
+
+        Args:
+            failed_count: Number of failed types
+            failed_types: List of failed type names
+            error_details: First error message for context
+        """
+        try:
+            flag_path = self.log_dir / "bootstrap_failure.flag"
+            flag_path.parent.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.now(timezone.utc).isoformat()
+            content = {
+                "timestamp": timestamp,
+                "failed_count": failed_count,
+                "failed_types": failed_types,
+                "threshold": CRITICAL_FAILURE_THRESHOLD,
+                "error_sample": error_details,
+            }
+
+            with open(flag_path, "w") as f:
+                json.dump(content, f, indent=2)
+
+            self.logger.info(f"Failure flag written to {flag_path}")
+        except (IOError, OSError) as e:
+            self.logger.error(f"Failed to write failure flag: {e}")
+
+
 class BootstrapInventory:
     """Orchestrates question generation across all types."""
 
@@ -428,6 +643,7 @@ class BootstrapInventory:
         event_logger: EventLogger,
         logger: logging.Logger,
         progress_reporter: Optional[ProgressReporter] = None,
+        alerter: Optional[BootstrapAlerter] = None,
     ):
         """Initialize the bootstrap process.
 
@@ -436,11 +652,13 @@ class BootstrapInventory:
             event_logger: Event logger for structured logging
             logger: Python logger for console/file logging
             progress_reporter: Optional progress reporter for terminal output
+            alerter: Optional alerter for critical failure notifications
         """
         self.config = config
         self.event_logger = event_logger
         self.logger = logger
         self.progress = progress_reporter or ProgressReporter(quiet=config.quiet)
+        self.alerter = alerter
         self.pipeline: Optional[QuestionGenerationPipeline] = None
         self.results: List[TypeResult] = []
 
@@ -1148,6 +1366,10 @@ class BootstrapInventory:
 
             self.progress.final_status(failed_types == 0)
 
+            # Check for critical failures and send alert if needed
+            if self.alerter and failed_types > 0:
+                self.alerter.check_and_alert(self.results)
+
             self.event_logger.log_event(
                 "script_end",
                 status,
@@ -1360,10 +1582,42 @@ async def main() -> int:
 
     # Create event logger
     project_root = Path(__file__).parent.parent.parent
-    event_logger = EventLogger(project_root / "logs")
+    log_dir = project_root / "logs"
+    event_logger = EventLogger(log_dir)
+
+    # Create alert manager if configured
+    alert_manager: Optional[AlertManager] = None
+    if settings.enable_email_alerts:
+        # Parse comma-separated email list
+        to_emails = (
+            [e.strip() for e in settings.alert_to_emails.split(",")]
+            if settings.alert_to_emails
+            else []
+        )
+        alert_manager = AlertManager(
+            email_enabled=settings.enable_email_alerts,
+            smtp_host=settings.smtp_host,
+            smtp_port=settings.smtp_port,
+            smtp_username=settings.smtp_username,
+            smtp_password=settings.smtp_password,
+            from_email=settings.alert_from_email,
+            to_emails=to_emails,
+            alert_file_path=str(log_dir / "bootstrap_alerts.log"),
+        )
+        logger.info("AlertManager configured for email alerts")
+    else:
+        logger.info("AlertManager not configured (email alerts disabled)")
+
+    # Create bootstrap alerter
+    alerter = BootstrapAlerter(
+        alert_manager=alert_manager,
+        event_logger=event_logger,
+        logger=logger,
+        log_dir=log_dir,
+    )
 
     # Run bootstrap
-    bootstrap = BootstrapInventory(config, event_logger, logger)
+    bootstrap = BootstrapInventory(config, event_logger, logger, alerter=alerter)
     return await bootstrap.run()
 
 

@@ -13,8 +13,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from bootstrap_inventory import (  # noqa: E402
+    BootstrapAlerter,
     BootstrapConfig,
     BootstrapInventory,
+    CRITICAL_FAILURE_THRESHOLD,
     EventLogger,
     ProgressReporter,
     TypeResult,
@@ -976,3 +978,411 @@ class TestBootstrapInventoryWithProgressReporter:
         captured = capsys.readouterr()
         # Quiet mode should suppress all terminal output
         assert captured.out == ""
+
+
+class TestBootstrapAlerter:
+    """Tests for BootstrapAlerter class."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def log_dir(self):
+        """Create temporary log directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_alerter")
+
+    def test_no_alert_below_threshold(self, event_logger, log_dir, logger):
+        """Test that no alert is sent when failures are below threshold."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        # Only 2 failures (below threshold of 3)
+        results = [
+            TypeResult("math", True, 1, 100),
+            TypeResult("logic", False, 3, error_message="Error 1"),
+            TypeResult("pattern", False, 3, error_message="Error 2"),
+            TypeResult("verbal", True, 1, 100),
+        ]
+
+        alert_sent = alerter.check_and_alert(results)
+
+        assert alert_sent is False
+        # No failure flag should be written
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert not flag_path.exists()
+
+    def test_alert_at_threshold(self, event_logger, log_dir, logger):
+        """Test that alert is sent when failures meet threshold."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,  # No email alerting configured
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        # Exactly CRITICAL_FAILURE_THRESHOLD failures
+        results = [
+            TypeResult("math", False, 3, error_message="Error 1"),
+            TypeResult("logic", False, 3, error_message="Error 2"),
+            TypeResult("pattern", False, 3, error_message="Error 3"),
+            TypeResult("verbal", True, 1, 100),
+        ]
+
+        alert_sent = alerter.check_and_alert(results)
+
+        # Even without AlertManager, should return False but write flag
+        assert alert_sent is False
+
+        # Failure flag should be written
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert flag_path.exists()
+
+        # Verify flag content
+        with open(flag_path) as f:
+            content = json.load(f)
+
+        assert content["failed_count"] == CRITICAL_FAILURE_THRESHOLD
+        assert set(content["failed_types"]) == {"math", "logic", "pattern"}
+        assert content["threshold"] == CRITICAL_FAILURE_THRESHOLD
+
+    def test_alert_above_threshold(self, event_logger, log_dir, logger):
+        """Test alert when failures exceed threshold."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        # 5 failures (above threshold of 3)
+        results = [
+            TypeResult("math", False, 3, error_message="Error 1"),
+            TypeResult("logic", False, 3, error_message="Error 2"),
+            TypeResult("pattern", False, 3, error_message="Error 3"),
+            TypeResult("verbal", False, 3, error_message="Error 4"),
+            TypeResult("spatial", False, 3, error_message="Error 5"),
+        ]
+
+        alerter.check_and_alert(results)
+
+        flag_path = log_dir / "bootstrap_failure.flag"
+        with open(flag_path) as f:
+            content = json.load(f)
+
+        assert content["failed_count"] == 5
+
+    def test_no_duplicate_alerts(self, event_logger, log_dir, logger):
+        """Test that duplicate alerts are prevented."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        results = [
+            TypeResult("math", False, 3, error_message="Error 1"),
+            TypeResult("logic", False, 3, error_message="Error 2"),
+            TypeResult("pattern", False, 3, error_message="Error 3"),
+        ]
+
+        # First call - should process
+        alerter.check_and_alert(results)
+        assert alerter._alert_sent is True
+
+        # Remove flag to verify second call doesn't recreate it
+        flag_path = log_dir / "bootstrap_failure.flag"
+        flag_path.unlink()
+
+        # Second call - should be skipped
+        result = alerter.check_and_alert(results)
+        assert result is False
+        assert not flag_path.exists()  # Should not be recreated
+
+    def test_alert_with_alert_manager(self, event_logger, log_dir, logger):
+        """Test alert is sent via AlertManager when configured."""
+        mock_alert_manager = Mock()
+        mock_alert_manager.send_alert.return_value = True
+
+        alerter = BootstrapAlerter(
+            alert_manager=mock_alert_manager,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        results = [
+            TypeResult("math", False, 3, error_message="API timeout"),
+            TypeResult("logic", False, 3, error_message="Rate limit"),
+            TypeResult("pattern", False, 3, error_message="Server error"),
+        ]
+
+        alert_sent = alerter.check_and_alert(results)
+
+        assert alert_sent is True
+        mock_alert_manager.send_alert.assert_called_once()
+
+        # Verify the ClassifiedError was created correctly
+        call_args = mock_alert_manager.send_alert.call_args
+        classified_error = call_args[0][0]
+        context = call_args[0][1]
+
+        assert "SCRIPT_FAILURE" in str(classified_error.category)
+        assert "CRITICAL" in str(classified_error.severity)
+        assert "3 question types failed" in classified_error.message
+        assert "math" in context
+        assert "logic" in context
+        assert "pattern" in context
+
+    def test_alert_manager_failure(self, event_logger, log_dir, logger):
+        """Test handling when AlertManager fails to send."""
+        mock_alert_manager = Mock()
+        mock_alert_manager.send_alert.return_value = False  # Simulate failure
+
+        alerter = BootstrapAlerter(
+            alert_manager=mock_alert_manager,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        results = [
+            TypeResult("math", False, 3, error_message="Error 1"),
+            TypeResult("logic", False, 3, error_message="Error 2"),
+            TypeResult("pattern", False, 3, error_message="Error 3"),
+        ]
+
+        alert_sent = alerter.check_and_alert(results)
+
+        assert alert_sent is False
+        # Flag should still be written even if email fails
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert flag_path.exists()
+
+    def test_failure_flag_contains_error_sample(self, event_logger, log_dir, logger):
+        """Test that failure flag includes error sample from first failure."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        results = [
+            TypeResult("math", False, 3, error_message="First error: API timeout"),
+            TypeResult("logic", False, 3, error_message="Second error: Rate limit"),
+            TypeResult("pattern", False, 3, error_message="Third error: Server down"),
+        ]
+
+        alerter.check_and_alert(results)
+
+        flag_path = log_dir / "bootstrap_failure.flag"
+        with open(flag_path) as f:
+            content = json.load(f)
+
+        assert content["error_sample"] == "First error: API timeout"
+
+    def test_failure_flag_truncates_long_error(self, event_logger, log_dir, logger):
+        """Test that long error messages are truncated in failure flag."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        long_error = "x" * 500
+        results = [
+            TypeResult("math", False, 3, error_message=long_error),
+            TypeResult("logic", False, 3, error_message="Error 2"),
+            TypeResult("pattern", False, 3, error_message="Error 3"),
+        ]
+
+        alerter.check_and_alert(results)
+
+        flag_path = log_dir / "bootstrap_failure.flag"
+        with open(flag_path) as f:
+            content = json.load(f)
+
+        # Should be truncated to 200 chars
+        assert len(content["error_sample"]) == 200
+
+    def test_event_logged_on_critical_failure(self, log_dir, logger):
+        """Test that multi_type_failure event is logged."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_log_dir = Path(tmpdir)
+            event_logger = EventLogger(event_log_dir)
+
+            alerter = BootstrapAlerter(
+                alert_manager=None,
+                event_logger=event_logger,
+                logger=logger,
+                log_dir=log_dir,
+            )
+
+            results = [
+                TypeResult("math", False, 3, error_message="Error 1"),
+                TypeResult("logic", False, 3, error_message="Error 2"),
+                TypeResult("pattern", False, 3, error_message="Error 3"),
+            ]
+
+            alerter.check_and_alert(results)
+
+            # Read the event log
+            with open(event_logger.events_file) as f:
+                events = [json.loads(line) for line in f]
+
+            # Find the multi_type_failure event
+            failure_events = [
+                e for e in events if e["event_type"] == "multi_type_failure"
+            ]
+            assert len(failure_events) == 1
+
+            event = failure_events[0]
+            assert event["status"] == "critical"
+            assert event["failed_count"] == 3
+            assert event["threshold"] == CRITICAL_FAILURE_THRESHOLD
+
+    def test_zero_failures_no_action(self, event_logger, log_dir, logger):
+        """Test that zero failures don't trigger any alerting."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        results = [
+            TypeResult("math", True, 1, 100),
+            TypeResult("logic", True, 1, 100),
+            TypeResult("pattern", True, 1, 100),
+        ]
+
+        alert_sent = alerter.check_and_alert(results)
+
+        assert alert_sent is False
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert not flag_path.exists()
+
+
+class TestCriticalFailureThreshold:
+    """Tests for CRITICAL_FAILURE_THRESHOLD constant."""
+
+    def test_threshold_value(self):
+        """Test that threshold is set to 3 (matching bash script)."""
+        assert CRITICAL_FAILURE_THRESHOLD == 3
+
+
+class TestBootstrapInventoryWithAlerter:
+    """Tests for BootstrapInventory integration with BootstrapAlerter."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def log_dir(self):
+        """Create temporary log directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test")
+
+    @pytest.mark.asyncio
+    async def test_alerter_called_on_failures(self, event_logger, log_dir, logger):
+        """Test that alerter is called when there are failures."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math", "logic", "pattern", "verbal"],
+            dry_run=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger, alerter=alerter)
+
+        with patch.object(bootstrap, "_initialize_pipeline") as mock_init:
+            mock_pipeline = Mock()
+            mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+            mock_pipeline.cleanup = AsyncMock()
+            mock_init.return_value = mock_pipeline
+
+            # Create results that exceed threshold
+            results = [
+                TypeResult("math", False, 3, error_message="Error 1"),
+                TypeResult("logic", False, 3, error_message="Error 2"),
+                TypeResult("pattern", False, 3, error_message="Error 3"),
+                TypeResult("verbal", True, 1, 100),
+            ]
+
+            with patch.object(
+                bootstrap, "_process_type_with_retries", side_effect=results
+            ):
+                await bootstrap.run()
+
+        # Alerter should have been triggered
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert flag_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_alerter_not_called_on_success(self, event_logger, log_dir, logger):
+        """Test that alerter is not called when all types succeed."""
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+        )
+
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger, alerter=alerter)
+
+        with patch.object(bootstrap, "_initialize_pipeline") as mock_init:
+            mock_pipeline = Mock()
+            mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+            mock_pipeline.cleanup = AsyncMock()
+            mock_init.return_value = mock_pipeline
+
+            with patch.object(bootstrap, "_process_type_with_retries") as mock_process:
+                mock_process.return_value = TypeResult(
+                    question_type="math",
+                    success=True,
+                    attempt_count=1,
+                    generated=15,
+                )
+
+                await bootstrap.run()
+
+        # No failure flag should exist
+        flag_path = log_dir / "bootstrap_failure.flag"
+        assert not flag_path.exists()
