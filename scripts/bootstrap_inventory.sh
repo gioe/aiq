@@ -743,7 +743,8 @@ if [ $FAILED_TYPES -gt 0 ]; then
     log_event "script_end" "failed" \
         "successful_types=$SUCCESSFUL_TYPES" \
         "failed_types=$FAILED_TYPES" \
-        "total_duration_seconds=$TOTAL_DURATION"
+        "total_duration_seconds=$TOTAL_DURATION" \
+        "types_processed=$TYPES"
 
     echo -e "${RED}Bootstrap completed with failures.${NC}"
     echo "Check the log file for details: $BOOTSTRAP_LOG"
@@ -753,7 +754,8 @@ else
     log_event "script_end" "success" \
         "successful_types=$SUCCESSFUL_TYPES" \
         "failed_types=$FAILED_TYPES" \
-        "total_duration_seconds=$TOTAL_DURATION"
+        "total_duration_seconds=$TOTAL_DURATION" \
+        "types_processed=$TYPES"
 
     echo -e "${GREEN}Bootstrap completed successfully!${NC}"
     exit 0
