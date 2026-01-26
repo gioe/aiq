@@ -199,6 +199,20 @@ else
     exit 2
 fi
 
+# Pre-flight jq check (required for JSON parsing in subsequent tasks)
+if ! command -v jq >/dev/null 2>&1; then
+    echo -e "${RED}Error: jq is not installed${NC}"
+    echo ""
+    echo "jq is required for JSON parsing in subsequent tasks."
+    echo ""
+    echo "Install jq:"
+    echo "  macOS:   brew install jq"
+    echo "  Ubuntu:  sudo apt-get install jq"
+    echo "  Fedora:  sudo dnf install jq"
+    echo "  Alpine:  apk add jq"
+    exit 2
+fi
+
 # Pre-flight API key check
 # The question service requires at least one LLM provider API key
 if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GOOGLE_API_KEY:-}" ] && [ -z "${XAI_API_KEY:-}" ]; then
