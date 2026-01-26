@@ -1,5 +1,6 @@
 """Tests for bootstrap inventory script."""
 
+import asyncio
 import json
 import tempfile
 from pathlib import Path
@@ -1386,3 +1387,352 @@ class TestBootstrapInventoryWithAlerter:
         # No failure flag should exist
         flag_path = log_dir / "bootstrap_failure.flag"
         assert not flag_path.exists()
+
+
+class TestParallelMode:
+    """Tests for parallel generation mode."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_parallel")
+
+    def test_parallel_config_defaults(self):
+        """Test default parallel config values."""
+        config = BootstrapConfig()
+
+        assert config.parallel is False
+        assert config.max_parallel == 2
+
+    def test_parallel_config_custom(self):
+        """Test custom parallel config values."""
+        config = BootstrapConfig(parallel=True, max_parallel=4)
+
+        assert config.parallel is True
+        assert config.max_parallel == 4
+
+    def test_parallel_flag_parsing(self):
+        """Test parsing --parallel flag."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--parallel"]):
+            args = parse_arguments()
+
+        assert args.parallel is True
+
+    def test_max_parallel_argument_parsing(self):
+        """Test parsing --max-parallel argument."""
+        with patch(
+            "sys.argv", ["bootstrap_inventory.py", "--parallel", "--max-parallel", "4"]
+        ):
+            args = parse_arguments()
+
+        assert args.parallel is True
+        assert args.max_parallel == 4
+
+    def test_max_parallel_default(self):
+        """Test that --max-parallel defaults to 2."""
+        with patch("sys.argv", ["bootstrap_inventory.py"]):
+            args = parse_arguments()
+
+        assert args.max_parallel == 2
+
+    @pytest.mark.asyncio
+    async def test_process_types_parallel_creates_semaphore(self, event_logger, logger):
+        """Test that parallel processing uses semaphore for rate limiting."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math", "logic", "pattern"],
+            dry_run=True,
+            parallel=True,
+            max_parallel=2,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Track concurrent operations
+        max_concurrent = 0
+        current_concurrent = 0
+        lock = asyncio.Lock()
+
+        async def mock_process(question_type):
+            nonlocal max_concurrent, current_concurrent
+
+            async with lock:
+                current_concurrent += 1
+                max_concurrent = max(max_concurrent, current_concurrent)
+
+            await asyncio.sleep(0.1)  # Simulate work
+
+            async with lock:
+                current_concurrent -= 1
+
+            return TypeResult(
+                question_type=question_type,
+                success=True,
+                attempt_count=1,
+                generated=15,
+            )
+
+        with patch.object(
+            bootstrap, "_process_type_with_retries", side_effect=mock_process
+        ):
+            results = await bootstrap._process_types_parallel()
+
+        # With max_parallel=2, we should never exceed 2 concurrent operations
+        assert max_concurrent <= 2
+        assert len(results) == 3
+        assert all(r.success for r in results)
+
+    @pytest.mark.asyncio
+    async def test_process_types_parallel_handles_failures(self, event_logger, logger):
+        """Test that parallel processing handles partial failures gracefully."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math", "logic", "pattern"],
+            dry_run=True,
+            parallel=True,
+            max_parallel=3,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        async def mock_process(question_type):
+            if question_type == "logic":
+                return TypeResult(
+                    question_type=question_type,
+                    success=False,
+                    attempt_count=3,
+                    error_message="API timeout",
+                )
+            return TypeResult(
+                question_type=question_type,
+                success=True,
+                attempt_count=1,
+                generated=15,
+            )
+
+        with patch.object(
+            bootstrap, "_process_type_with_retries", side_effect=mock_process
+        ):
+            results = await bootstrap._process_types_parallel()
+
+        # All types should have results
+        assert len(results) == 3
+
+        # Count successes and failures
+        successes = [r for r in results if r.success]
+        failures = [r for r in results if not r.success]
+
+        assert len(successes) == 2
+        assert len(failures) == 1
+        assert failures[0].question_type == "logic"
+
+    @pytest.mark.asyncio
+    async def test_process_types_parallel_handles_exceptions(
+        self, event_logger, logger
+    ):
+        """Test that parallel processing handles unexpected exceptions."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math", "logic"],
+            dry_run=True,
+            parallel=True,
+            max_parallel=2,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        async def mock_process(question_type):
+            if question_type == "logic":
+                raise RuntimeError("Unexpected error in processing")
+            return TypeResult(
+                question_type=question_type,
+                success=True,
+                attempt_count=1,
+                generated=15,
+            )
+
+        with patch.object(
+            bootstrap, "_process_type_with_retries", side_effect=mock_process
+        ):
+            results = await bootstrap._process_types_parallel()
+
+        # Both types should have results
+        assert len(results) == 2
+
+        # One should be success, one should be failed due to exception
+        math_result = next(r for r in results if r.question_type == "math")
+        logic_result = next(r for r in results if r.question_type == "logic")
+
+        assert math_result.success is True
+        assert logic_result.success is False
+        assert "Unexpected error" in logic_result.error_message
+
+    @pytest.mark.asyncio
+    async def test_run_uses_parallel_when_enabled(self, event_logger, logger):
+        """Test that run() uses parallel processing when parallel=True."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math", "logic"],
+            dry_run=True,
+            parallel=True,
+            max_parallel=2,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        with patch.object(bootstrap, "_initialize_pipeline") as mock_init:
+            mock_pipeline = Mock()
+            mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+            mock_pipeline.cleanup = AsyncMock()
+            mock_init.return_value = mock_pipeline
+
+            with patch.object(bootstrap, "_process_types_parallel") as mock_parallel:
+                mock_parallel.return_value = [
+                    TypeResult("math", True, 1, 15),
+                    TypeResult("logic", True, 1, 15),
+                ]
+
+                await bootstrap.run()
+
+            # Should have called parallel processing
+            mock_parallel.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_uses_sequential_when_disabled(self, event_logger, logger):
+        """Test that run() uses sequential processing when parallel=False."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+            parallel=False,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        with patch.object(bootstrap, "_initialize_pipeline") as mock_init:
+            mock_pipeline = Mock()
+            mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+            mock_pipeline.cleanup = AsyncMock()
+            mock_init.return_value = mock_pipeline
+
+            with patch.object(bootstrap, "_process_types_parallel") as mock_parallel:
+                with patch.object(
+                    bootstrap, "_process_type_with_retries"
+                ) as mock_sequential:
+                    mock_sequential.return_value = TypeResult("math", True, 1, 15)
+
+                    await bootstrap.run()
+
+                # Should have called sequential processing, not parallel
+                mock_parallel.assert_not_called()
+                mock_sequential.assert_called_once()
+
+
+class TestProgressReporterParallelMode:
+    """Tests for ProgressReporter in parallel mode."""
+
+    def test_banner_shows_parallel_disabled(self, capsys):
+        """Test banner shows parallel mode disabled."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.banner(
+            questions_per_type=150,
+            types=["math", "logic"],
+            max_retries=3,
+            use_async=True,
+            use_batch=True,
+            dry_run=False,
+            parallel=False,
+            max_parallel=2,
+        )
+
+        captured = capsys.readouterr()
+        assert "Parallel mode: disabled" in captured.out
+
+    def test_banner_shows_parallel_enabled(self, capsys):
+        """Test banner shows parallel mode enabled with concurrency."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.banner(
+            questions_per_type=150,
+            types=["math", "logic"],
+            max_retries=3,
+            use_async=True,
+            use_batch=True,
+            dry_run=False,
+            parallel=True,
+            max_parallel=3,
+        )
+
+        captured = capsys.readouterr()
+        assert "Parallel mode: enabled (max 3 concurrent types)" in captured.out
+
+    def test_type_start_parallel_mode(self, capsys):
+        """Test type_start output in parallel mode."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_start(1, 3, "math", 150, parallel=True)
+
+        captured = capsys.readouterr()
+        # In parallel mode, should just show type name without index
+        assert "[math]" in captured.out
+        assert "Starting generation" in captured.out
+        assert "[1/3]" not in captured.out  # Sequential format should not appear
+
+    def test_type_start_sequential_mode(self, capsys):
+        """Test type_start output in sequential mode."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_start(1, 3, "math", 150, parallel=False)
+
+        captured = capsys.readouterr()
+        # In sequential mode, should show index and type name
+        assert "[1/3]" in captured.out
+        assert "math" in captured.out
+
+    def test_type_complete_parallel_mode(self, capsys):
+        """Test type_complete output in parallel mode."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_complete("math", True, 45.5, 148, parallel=True)
+
+        captured = capsys.readouterr()
+        assert "math" in captured.out
+        assert "completed successfully" in captured.out
+        # Should not include separator line in parallel mode
+        assert "-" * 60 not in captured.out
+
+    def test_type_complete_sequential_mode(self, capsys):
+        """Test type_complete output in sequential mode."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.type_complete("math", True, 45.5, 148, parallel=False)
+
+        captured = capsys.readouterr()
+        assert "math" in captured.out
+        assert "completed successfully" in captured.out
+        # Should include separator line in sequential mode
+        assert "-" * 60 in captured.out
+
+    def test_progress_with_type_context(self, capsys):
+        """Test progress message with type context for parallel mode."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.progress("Generated 50/150 questions", question_type="math")
+
+        captured = capsys.readouterr()
+        assert "[math]" in captured.out
+        assert "Generated 50/150 questions" in captured.out
+
+    def test_progress_without_type_context(self, capsys):
+        """Test progress message without type context (sequential mode)."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.progress("Generated 50/150 questions")
+
+        captured = capsys.readouterr()
+        assert "[PROGRESS]" in captured.out
+        assert "Generated 50/150 questions" in captured.out
