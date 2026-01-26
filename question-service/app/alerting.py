@@ -209,6 +209,16 @@ class AlertManager:
                     "5. Monitor /v1/admin/inventory-health endpoint",
                 ]
             )
+        elif classified_error.category == ErrorCategory.SCRIPT_FAILURE:
+            lines.extend(
+                [
+                    "1. Check bootstrap script logs for detailed error messages",
+                    "2. Review LLM provider status pages for outages",
+                    "3. Verify API keys are valid and have sufficient quota",
+                    "4. Check network connectivity to LLM providers",
+                    "5. Re-run failed types individually: ./scripts/bootstrap_inventory.sh --types <type>",
+                ]
+            )
         else:
             lines.extend(
                 [

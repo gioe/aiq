@@ -137,6 +137,27 @@ class TestAlertManager:
         assert "INVENTORY_LOW" in message
         assert "Run question generation with --auto-balance flag" in message
 
+    def test_build_alert_message_script_failure(self):
+        """Test alert message building for script-level failures."""
+        manager = AlertManager()
+
+        error = ClassifiedError(
+            category=ErrorCategory.SCRIPT_FAILURE,
+            severity=ErrorSeverity.CRITICAL,
+            provider="bootstrap",
+            original_error="MultiTypeFailure",
+            message="3 question types failed: math, verbal, logic",
+            is_retryable=False,
+        )
+
+        message = manager._build_alert_message(error)
+
+        assert "SCRIPT_FAILURE" in message
+        assert "CRITICAL" in message
+        assert "bootstrap" in message
+        assert "Check bootstrap script logs" in message
+        assert "Re-run failed types individually" in message
+
     def test_get_alerts_summary_empty(self):
         """Test alerts summary when no alerts sent."""
         manager = AlertManager()

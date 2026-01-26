@@ -20,6 +20,7 @@ class ErrorCategory(Enum):
     NETWORK_ERROR = "network_error"  # Connection/timeout errors
     MODEL_ERROR = "model_error"  # Model not found or unavailable
     INVENTORY_LOW = "inventory_low"  # Question inventory below threshold
+    SCRIPT_FAILURE = "script_failure"  # Multiple question types failed in bootstrap
     UNKNOWN = "unknown"  # Unclassified errors
 
 
