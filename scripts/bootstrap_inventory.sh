@@ -291,6 +291,104 @@ BOOTSTRAP_LOG="$LOG_DIR/bootstrap_$(date +%Y%m%d_%H%M%S).log"
 echo -e "${BLUE}Logging to: $BOOTSTRAP_LOG${NC}"
 echo ""
 
+# Function to parse and display heartbeat information
+# Extracts progress signals from HEARTBEAT: JSON lines emitted by run_generation.py
+parse_heartbeat_line() {
+    local line="$1"
+    local json_data
+
+    # Extract JSON from "HEARTBEAT: {...}" format
+    json_data="${line#HEARTBEAT: }"
+
+    # Parse status
+    local status
+    status=$(echo "$json_data" | jq -r '.status // empty' 2>/dev/null)
+
+    if [ -n "$status" ]; then
+        case "$status" in
+            "started")
+                echo -e "  ${BLUE}[HEARTBEAT]${NC} Generation started"
+                ;;
+            "completed")
+                local exit_code stats_generated stats_inserted
+                exit_code=$(echo "$json_data" | jq -r '.exit_code // empty' 2>/dev/null)
+                stats_generated=$(echo "$json_data" | jq -r '.stats.questions_generated // empty' 2>/dev/null)
+                stats_inserted=$(echo "$json_data" | jq -r '.stats.questions_inserted // empty' 2>/dev/null)
+
+                if [ -n "$stats_generated" ] && [ -n "$stats_inserted" ]; then
+                    echo -e "  ${GREEN}[HEARTBEAT]${NC} Completed: ${stats_inserted}/${stats_generated} questions inserted"
+                elif [ -n "$exit_code" ] && [ "$exit_code" = "0" ]; then
+                    echo -e "  ${GREEN}[HEARTBEAT]${NC} Completed successfully"
+                else
+                    echo -e "  ${BLUE}[HEARTBEAT]${NC} Completed (exit code: ${exit_code:-unknown})"
+                fi
+                ;;
+            "failed")
+                local error_msg
+                error_msg=$(echo "$json_data" | jq -r '.error_message // empty' 2>/dev/null)
+                if [ -n "$error_msg" ]; then
+                    echo -e "  ${RED}[HEARTBEAT]${NC} Failed: $error_msg"
+                else
+                    echo -e "  ${RED}[HEARTBEAT]${NC} Failed"
+                fi
+                ;;
+            *)
+                echo -e "  ${BLUE}[HEARTBEAT]${NC} Status: $status"
+                ;;
+        esac
+    fi
+}
+
+# Function to parse and display phase transitions
+# Detects PHASE lines from run_generation.py logger output
+parse_phase_line() {
+    local line="$1"
+
+    # Match "PHASE N:" pattern in the line (appears after log prefix)
+    if [[ "$line" =~ PHASE[[:space:]]+([0-9]+):[[:space:]]*(.*) ]]; then
+        local phase_num="${BASH_REMATCH[1]}"
+        local phase_name="${BASH_REMATCH[2]}"
+        echo -e "  ${CYAN}[PHASE ${phase_num}]${NC} ${phase_name}"
+    fi
+}
+
+# Function to process a line and display progress information
+# Called for each line of output from run_generation.py
+process_output_line() {
+    local line="$1"
+
+    # Check for HEARTBEAT lines
+    if [[ "$line" == HEARTBEAT:* ]]; then
+        parse_heartbeat_line "$line"
+        return
+    fi
+
+    # Check for PHASE lines (they appear in logger output with various prefixes)
+    if [[ "$line" == *"PHASE "* ]]; then
+        parse_phase_line "$line"
+        return
+    fi
+
+    # Check for approval rate lines (key progress metric)
+    if [[ "$line" == *"Approved:"* ]] && [[ "$line" == *"/"* ]]; then
+        # Extract approval info, e.g., "Approved: 120/150 (80.0%)"
+        if [[ "$line" =~ Approved:[[:space:]]*([0-9]+)/([0-9]+)[[:space:]]*\(([0-9.]+)%\) ]]; then
+            local approved="${BASH_REMATCH[1]}"
+            local total="${BASH_REMATCH[2]}"
+            local rate="${BASH_REMATCH[3]}"
+            echo -e "  ${GREEN}[PROGRESS]${NC} Judge approved: ${approved}/${total} (${rate}%)"
+        fi
+    fi
+
+    # Check for insertion lines (final metric)
+    if [[ "$line" == *"Successfully inserted"* ]] && [[ "$line" == *"questions"* ]]; then
+        if [[ "$line" =~ Successfully[[:space:]]inserted[[:space:]]*([0-9]+)[[:space:]]questions ]]; then
+            local inserted="${BASH_REMATCH[1]}"
+            echo -e "  ${GREEN}[PROGRESS]${NC} Inserted ${inserted} questions into database"
+        fi
+    fi
+}
+
 # Function to generate questions for a single type
 generate_type() {
     local type=$1
@@ -322,14 +420,28 @@ generate_type() {
 
         # Run generation with unbuffered output to both terminal and log file
         # Python's -u flag ensures unbuffered stdout/stderr for real-time display
+        # The pipeline writes to log file while extracting progress signals for display
         cd "$QUESTION_SERVICE_DIR"
 
-        if $PYTHON_CMD -u run_generation.py $cmd_args 2>&1 | tee -a "$BOOTSTRAP_LOG"; then
+        # Use a subshell with pipefail to capture the Python exit code
+        # Process each line: write to log, and extract progress signals
+        set +e  # Temporarily disable exit on error to capture exit code
+        (
+            set -o pipefail
+            $PYTHON_CMD -u run_generation.py $cmd_args 2>&1 | while IFS= read -r line; do
+                # Write line to log file
+                echo "$line" >> "$BOOTSTRAP_LOG"
+                # Process line for progress signals (heartbeats, phases, etc.)
+                process_output_line "$line"
+            done
+        )
+        exit_code=$?
+        set -e  # Re-enable exit on error
+
+        if [ $exit_code -eq 0 ]; then
             success=true
-            exit_code=0
             echo "Completed successfully: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
         else
-            exit_code=$?
             echo "Failed with exit code $exit_code: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
             echo -e "  ${RED}Attempt $attempt failed (exit code: $exit_code)${NC}"
         fi
