@@ -521,7 +521,7 @@ generate_type() {
             "type=$type" \
             "attempt=$attempt" \
             "max_retries=$MAX_RETRIES" \
-            "target_count=$QUESTIONS_PER_TYPE"
+            "target_per_type=$QUESTIONS_PER_TYPE"
 
         if [ $attempt -gt 1 ]; then
             echo -e "  ${YELLOW}Retry $attempt/$MAX_RETRIES${NC}"
@@ -584,7 +584,7 @@ generate_type() {
                 "type=$type" \
                 "attempt=$attempt" \
                 "duration_seconds=$attempt_duration" \
-                "target_count=$QUESTIONS_PER_TYPE"
+                "target_per_type=$QUESTIONS_PER_TYPE"
         else
             echo "Failed with exit code $exit_code: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
             echo -e "  ${RED}Attempt $attempt failed (exit code: $exit_code)${NC}"
@@ -621,7 +621,7 @@ generate_type() {
                 "type=$type" \
                 "attempt=$attempt" \
                 "duration_seconds=$attempt_duration" \
-                "target_count=$QUESTIONS_PER_TYPE" \
+                "target_per_type=$QUESTIONS_PER_TYPE" \
                 "exit_code=$exit_code"
         fi
 
