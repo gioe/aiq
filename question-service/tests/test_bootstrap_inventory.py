@@ -1736,3 +1736,911 @@ class TestProgressReporterParallelMode:
         captured = capsys.readouterr()
         assert "[PROGRESS]" in captured.out
         assert "Generated 50/150 questions" in captured.out
+
+
+class TestBatchAPIFlow:
+    """Tests for batch API generation flow."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_batch_api")
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration with batch enabled."""
+        return BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+            use_async=True,
+            use_batch=True,
+            max_retries=2,
+        )
+
+    def test_supports_batch_api_without_pipeline(self, config, event_logger, logger):
+        """Test that _supports_batch_api returns False when pipeline not initialized."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        assert bootstrap._supports_batch_api() is False
+
+    def test_supports_batch_api_with_google_provider(
+        self, config, event_logger, logger
+    ):
+        """Test that _supports_batch_api returns True when Google provider available."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline with Google provider
+        mock_pipeline = Mock()
+        mock_pipeline.generator.get_available_providers.return_value = ["google"]
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.enable_batch_generation = True
+
+            result = bootstrap._supports_batch_api()
+
+        assert result is True
+
+    def test_supports_batch_api_without_google_provider(
+        self, config, event_logger, logger
+    ):
+        """Test that _supports_batch_api returns False when Google not available."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline without Google provider
+        mock_pipeline = Mock()
+        mock_pipeline.generator.get_available_providers.return_value = ["openai"]
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.enable_batch_generation = True
+
+            result = bootstrap._supports_batch_api()
+
+        assert result is False
+
+    def test_supports_batch_api_when_disabled_in_settings(
+        self, config, event_logger, logger
+    ):
+        """Test that _supports_batch_api returns False when batch disabled."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generator.get_available_providers.return_value = ["google"]
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.enable_batch_generation = False
+
+            result = bootstrap._supports_batch_api()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_success(
+        self, config, event_logger, logger
+    ):
+        """Test successful batch API generation."""
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider with spec to pass isinstance check
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_batch_result = Mock()
+        mock_batch_result.successful_requests = 15
+        mock_batch_result.failed_requests = 0
+        mock_batch_result.total_requests = 15
+        mock_batch_result.responses = [
+            {
+                "key": f"request-{i}",
+                "text": json.dumps(
+                    {
+                        "question_text": f"Question {i}",
+                        "correct_answer": "A",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": f"Explanation {i}",
+                    }
+                ),
+            }
+            for i in range(15)
+        ]
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            return_value=mock_batch_result
+        )
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        from app.models import QuestionType
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            result = await bootstrap._generate_type_with_batch_api(
+                QuestionType.MATH, 15
+            )
+
+        assert result["generated"] == 15
+        assert result["target"] == 15
+        assert len(result["questions"]) == 15
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_parse_errors(
+        self, config, event_logger, logger
+    ):
+        """Test batch API generation with some parse errors."""
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider with spec to pass isinstance check
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_batch_result = Mock()
+        mock_batch_result.successful_requests = 15
+        mock_batch_result.failed_requests = 0
+        mock_batch_result.total_requests = 15
+
+        # Mix of valid and invalid responses
+        responses = []
+        for i in range(12):
+            responses.append(
+                {
+                    "key": f"request-{i}",
+                    "text": json.dumps(
+                        {
+                            "question_text": f"Question {i}",
+                            "correct_answer": "A",
+                            "answer_options": ["A", "B", "C", "D"],
+                            "explanation": f"Explanation {i}",
+                        }
+                    ),
+                }
+            )
+        # Add 3 invalid responses (will cause parse errors)
+        responses.append({"key": "request-12", "text": "invalid json"})
+        responses.append({"key": "request-13", "text": ""})  # Empty
+        responses.append({"key": "request-14", "text": json.dumps([])})  # Not a dict
+
+        mock_batch_result.responses = responses
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            return_value=mock_batch_result
+        )
+
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        from app.models import QuestionType
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            result = await bootstrap._generate_type_with_batch_api(
+                QuestionType.MATH, 15
+            )
+
+        # Should have 12 valid questions (3 parse errors)
+        assert result["generated"] == 12
+        assert result["target"] == 15
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_exceeds_parse_threshold(
+        self, config, event_logger, logger
+    ):
+        """Test batch API fails when parse error rate exceeds threshold."""
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider with spec to pass isinstance check
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_batch_result = Mock()
+        mock_batch_result.successful_requests = 15
+        mock_batch_result.failed_requests = 0
+        mock_batch_result.total_requests = 15
+
+        # Only 5 valid, 10 invalid (66% parse error rate)
+        responses = []
+        for i in range(5):
+            responses.append(
+                {
+                    "key": f"request-{i}",
+                    "text": json.dumps(
+                        {
+                            "question_text": f"Question {i}",
+                            "correct_answer": "A",
+                            "answer_options": ["A", "B", "C", "D"],
+                            "explanation": f"Explanation {i}",
+                        }
+                    ),
+                }
+            )
+        for i in range(5, 15):
+            responses.append({"key": f"request-{i}", "text": "invalid"})
+
+        mock_batch_result.responses = responses
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            return_value=mock_batch_result
+        )
+
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        from app.models import QuestionType
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            with pytest.raises(ValueError) as exc_info:
+                await bootstrap._generate_type_with_batch_api(QuestionType.MATH, 15)
+
+            assert "Parse error rate" in str(exc_info.value)
+            assert "exceeds" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_timeout(
+        self, config, event_logger, logger
+    ):
+        """Test batch API handles timeout correctly."""
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider with spec to pass isinstance check
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            side_effect=TimeoutError("Batch job timed out")
+        )
+
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        from app.models import QuestionType
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            with pytest.raises(TimeoutError):
+                await bootstrap._generate_type_with_batch_api(QuestionType.MATH, 15)
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_no_google_provider(
+        self, config, event_logger, logger
+    ):
+        """Test batch API raises error when Google provider not available."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline without Google provider
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"openai": Mock()}
+        bootstrap.pipeline = mock_pipeline
+
+        from app.models import QuestionType
+
+        with pytest.raises(ValueError) as exc_info:
+            await bootstrap._generate_type_with_batch_api(QuestionType.MATH, 15)
+
+        assert "Google provider not available" in str(exc_info.value)
+
+
+class TestJSONLEventFormatParity:
+    """Tests to verify JSONL event format parity with bash script.
+
+    The Python bootstrap script must emit events in the same format as
+    the bash script for compatibility with monitoring tools.
+    """
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    def test_event_contains_required_fields(self, event_logger):
+        """Test that events contain timestamp, event_type, and status."""
+        event_logger.log_event("test_event", "started", custom="value")
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        # Required fields from bash script format
+        assert "timestamp" in event
+        assert "event_type" in event
+        assert "status" in event
+        # Custom fields should also be present
+        assert event["custom"] == "value"
+
+    def test_timestamp_is_iso8601_utc(self, event_logger):
+        """Test that timestamp is in ISO 8601 UTC format."""
+        event_logger.log_event("test_event", "started")
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        timestamp = event["timestamp"]
+        # Should be in format: 2026-01-25T12:00:00Z or 2026-01-25T12:00:00.123456+00:00
+        from datetime import datetime
+
+        # Try parsing - should not raise
+        try:
+            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            pytest.fail(f"Invalid timestamp format: {timestamp}")
+
+    def test_script_start_event_format(self, event_logger):
+        """Test script_start event matches bash script format."""
+        event_logger.log_event(
+            "script_start",
+            "started",
+            total_types=6,
+            target_per_type=150,
+            types="math,logic,pattern,verbal,spatial,memory",
+            async_mode="enabled",
+            dry_run="no",
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        # Verify fields match bash script's log_event call
+        assert event["event_type"] == "script_start"
+        assert event["status"] == "started"
+        assert event["total_types"] == 6
+        assert event["target_per_type"] == 150
+        assert "types" in event
+        assert event["async_mode"] == "enabled"
+        assert event["dry_run"] == "no"
+
+    def test_type_start_event_format(self, event_logger):
+        """Test type_start event matches bash script format."""
+        event_logger.log_event(
+            "type_start",
+            "started",
+            type="math",
+            attempt=1,
+            max_retries=3,
+            target_per_type=150,
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "type_start"
+        assert event["status"] == "started"
+        assert event["type"] == "math"
+        assert event["attempt"] == 1
+        assert event["max_retries"] == 3
+        assert event["target_per_type"] == 150
+
+    def test_type_end_success_event_format(self, event_logger):
+        """Test type_end success event matches bash script format."""
+        event_logger.log_event(
+            "type_end",
+            "success",
+            type="math",
+            attempt=1,
+            duration_seconds=120.5,
+            generated=150,
+            target=150,
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "type_end"
+        assert event["status"] == "success"
+        assert event["type"] == "math"
+        assert event["attempt"] == 1
+        assert event["duration_seconds"] == pytest.approx(120.5)
+        assert event["generated"] == 150
+        assert event["target"] == 150
+
+    def test_type_end_failed_event_format(self, event_logger):
+        """Test type_end failed event matches bash script format."""
+        event_logger.log_event(
+            "type_end",
+            "failed",
+            type="math",
+            attempt=3,
+            duration_seconds=45.0,
+            error="API timeout",
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "type_end"
+        assert event["status"] == "failed"
+        assert event["type"] == "math"
+        assert event["attempt"] == 3
+        assert "error" in event
+
+    def test_type_end_retry_failed_event_format(self, event_logger):
+        """Test type_end retry_failed event (intermediate failure)."""
+        event_logger.log_event(
+            "type_end",
+            "retry_failed",
+            type="math",
+            attempt=1,
+            duration_seconds=30.0,
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "type_end"
+        assert event["status"] == "retry_failed"
+
+    def test_script_end_success_event_format(self, event_logger):
+        """Test script_end success event matches bash script format."""
+        event_logger.log_event(
+            "script_end",
+            "success",
+            successful_types=6,
+            failed_types=0,
+            total_duration_seconds=720.5,
+            types_processed="math,logic,pattern,verbal,spatial,memory",
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "script_end"
+        assert event["status"] == "success"
+        assert event["successful_types"] == 6
+        assert event["failed_types"] == 0
+        assert event["total_duration_seconds"] == pytest.approx(720.5)
+
+    def test_script_end_failed_event_format(self, event_logger):
+        """Test script_end failed event matches bash script format."""
+        event_logger.log_event(
+            "script_end",
+            "failed",
+            successful_types=3,
+            failed_types=3,
+            total_duration_seconds=600.0,
+            types_processed="math,logic,pattern,verbal,spatial,memory",
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "script_end"
+        assert event["status"] == "failed"
+        assert event["successful_types"] == 3
+        assert event["failed_types"] == 3
+
+    def test_multi_type_failure_event_format(self, event_logger):
+        """Test multi_type_failure event matches bash script format."""
+        event_logger.log_event(
+            "multi_type_failure",
+            "critical",
+            failed_count=3,
+            failed_types="math,logic,pattern",
+            threshold=CRITICAL_FAILURE_THRESHOLD,
+        )
+
+        with open(event_logger.events_file) as f:
+            event = json.loads(f.readline())
+
+        assert event["event_type"] == "multi_type_failure"
+        assert event["status"] == "critical"
+        assert event["failed_count"] == 3
+        assert event["failed_types"] == "math,logic,pattern"
+        assert event["threshold"] == 3
+
+
+class TestAPIFailureScenarios:
+    """Mock-based tests for API failure scenarios."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_api_failures")
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+            use_async=True,
+            max_retries=2,
+            retry_base_delay=0.01,  # Fast retries for testing
+        )
+
+    @pytest.mark.asyncio
+    async def test_api_rate_limit_error(self, config, event_logger, logger):
+        """Test handling of API rate limit errors."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=Exception("Rate limit exceeded (429)")
+        )
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is False
+        assert "Rate limit" in result.error_message
+        assert result.attempt_count == 2  # Exhausted retries
+
+    @pytest.mark.asyncio
+    async def test_api_authentication_error(self, config, event_logger, logger):
+        """Test handling of API authentication errors."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=Exception("Invalid API key (401 Unauthorized)")
+        )
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is False
+        assert "401" in result.error_message or "API key" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_api_server_error(self, config, event_logger, logger):
+        """Test handling of API server errors (5xx)."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=Exception("Internal server error (500)")
+        )
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is False
+        assert "500" in result.error_message or "server error" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_api_timeout_error(self, config, event_logger, logger):
+        """Test handling of API timeout errors."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=asyncio.TimeoutError("Request timed out")
+        )
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is False
+        assert "timed out" in result.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_transient_error_with_recovery(self, config, event_logger, logger):
+        """Test that transient errors are retried and can recover."""
+        config.max_retries = 3
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_batch = Mock()
+        mock_batch.questions = [Mock() for _ in range(15)]
+
+        call_count = 0
+
+        async def mock_generate(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise Exception("Transient network error")
+            return mock_batch
+
+        mock_pipeline.generate_questions_async = mock_generate
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is True
+        assert result.attempt_count == 3  # Failed twice, succeeded on third
+
+    @pytest.mark.asyncio
+    async def test_empty_response_handling(self, config, event_logger, logger):
+        """Test handling of empty API response."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_batch = Mock()
+        mock_batch.questions = []  # Empty response
+        mock_pipeline.generate_questions_async = AsyncMock(return_value=mock_batch)
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is True  # Empty is not an error
+        assert result.generated == 0
+
+    @pytest.mark.asyncio
+    async def test_partial_response_handling(self, config, event_logger, logger):
+        """Test handling of partial API response (generation succeeds with fewer than target)."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock the _generate_type_async method directly since that's what returns the result dict
+        mock_result = {
+            "generated": 5,
+            "target": 15,
+            "questions": [Mock() for _ in range(5)],
+        }
+
+        with patch.object(
+            bootstrap, "_generate_type_async", new=AsyncMock(return_value=mock_result)
+        ):
+            mock_pipeline = Mock()
+            bootstrap.pipeline = mock_pipeline
+
+            result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is True
+        assert result.generated == 5  # Partial is acceptable
+
+    @pytest.mark.asyncio
+    async def test_connection_error(self, config, event_logger, logger):
+        """Test handling of connection errors."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=Exception("ConnectionError: Unable to reach server")
+        )
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        assert result.success is False
+        assert (
+            "ConnectionError" in result.error_message or "reach" in result.error_message
+        )
+
+
+class TestMigrationParity:
+    """Tests to verify feature parity with the bash bootstrap script.
+
+    These tests ensure the Python script behaves identically to the
+    bash script for important behaviors.
+    """
+
+    def test_exit_codes_match_bash_script(self):
+        """Test that exit codes match bash script definitions."""
+        # Bash script exit codes (from bootstrap_inventory.sh):
+        # 0 - All types completed successfully
+        # 1 - Some types failed after retries
+        # 2 - Configuration or setup error
+        from bootstrap_inventory import (
+            EXIT_SUCCESS,
+            EXIT_PARTIAL_FAILURE,
+            EXIT_CONFIG_ERROR,
+        )
+
+        assert EXIT_SUCCESS == 0
+        assert EXIT_PARTIAL_FAILURE == 1
+        assert EXIT_CONFIG_ERROR == 2
+
+    def test_critical_failure_threshold_matches_bash_script(self):
+        """Test that critical failure threshold matches bash script."""
+        # Bash script: CRITICAL_FAILURE_THRESHOLD=3
+        assert CRITICAL_FAILURE_THRESHOLD == 3
+
+    def test_default_questions_per_type_matches_bash_script(self):
+        """Test that default questions_per_type matches bash script."""
+        # Bash script: DEFAULT_QUESTIONS_PER_TYPE=150
+        config = BootstrapConfig()
+        assert config.questions_per_type == 150
+
+    def test_default_max_retries_matches_bash_script(self):
+        """Test that default max_retries matches bash script."""
+        # Bash script: DEFAULT_MAX_RETRIES=3
+        config = BootstrapConfig()
+        assert config.max_retries == 3
+
+    def test_all_question_types_supported(self):
+        """Test that all question types from bash script are supported."""
+        # Bash script: ALL_TYPES="pattern logic spatial math verbal memory"
+        config = BootstrapConfig()
+        bash_types = {"pattern", "logic", "spatial", "math", "verbal", "memory"}
+
+        assert set(config.types) == bash_types
+
+    def test_max_questions_limit_matches_bash_script(self):
+        """Test that max questions limit matches bash script validation."""
+        # Bash script validates: --count must be between 1 and 10000
+        from bootstrap_inventory import MAX_QUESTIONS_PER_TYPE
+
+        assert MAX_QUESTIONS_PER_TYPE == 10000
+
+    def test_validate_count_accepts_valid_range(self):
+        """Test count validation accepts 1-10000."""
+        # Should not raise for valid values
+        validate_count(1)
+        validate_count(150)
+        validate_count(10000)
+
+    def test_validate_count_rejects_zero(self):
+        """Test count validation rejects 0."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_count(0)
+        assert "between 1 and 10000" in str(exc_info.value)
+
+    def test_validate_count_rejects_over_max(self):
+        """Test count validation rejects values over 10000."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_count(10001)
+        assert "between 1 and 10000" in str(exc_info.value)
+
+    def test_validate_types_accepts_all_bash_types(self):
+        """Test that all bash script types are accepted."""
+        bash_types = ["pattern", "logic", "spatial", "math", "verbal", "memory"]
+
+        for qtype in bash_types:
+            result = validate_types(qtype)
+            assert qtype in result
+
+    def test_validate_types_rejects_invalid(self):
+        """Test that invalid types are rejected."""
+        with pytest.raises(ValueError) as exc_info:
+            validate_types("invalid_type")
+        assert "Invalid question type" in str(exc_info.value)
+
+    def test_validate_types_handles_comma_separated(self):
+        """Test that comma-separated types work like bash script."""
+        # Bash: TYPES=$(echo "$TYPES_FILTER" | tr ',' ' ')
+        result = validate_types("math,logic,pattern")
+        assert result == ["math", "logic", "pattern"]
+
+    def test_validate_types_handles_spaces(self):
+        """Test that spaces around types are handled."""
+        result = validate_types(" math , logic , pattern ")
+        assert result == ["math", "logic", "pattern"]
+
+    def test_questions_distributed_across_difficulties(self):
+        """Test that questions are distributed across 3 difficulty levels."""
+        # Bash script distributes across easy, medium, hard
+        config = BootstrapConfig(questions_per_type=30)
+
+        # 30 questions / 3 difficulties = 10 each
+        expected_per_difficulty = 10
+
+        # The distribution logic is tested indirectly through
+        # TestDistributionAcrossDifficulties, but we verify the intention here
+        assert config.questions_per_type % 3 == 0
+        assert expected_per_difficulty == config.questions_per_type // 3
+
+    def test_dry_run_default_matches_bash(self):
+        """Test that dry_run defaults to False like bash script."""
+        config = BootstrapConfig()
+        assert config.dry_run is False
+
+    def test_async_default_matches_bash(self):
+        """Test that async defaults to True like bash script."""
+        # Bash script: USE_ASYNC="--async --async-judge" (enabled by default)
+        config = BootstrapConfig()
+        assert config.use_async is True
+
+    def test_argument_parsing_count(self):
+        """Test --count argument parsing matches bash script."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--count", "300"]):
+            args = parse_arguments()
+        assert args.count == 300
+
+    def test_argument_parsing_types(self):
+        """Test --types argument parsing matches bash script."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--types", "math,logic"]):
+            args = parse_arguments()
+        assert args.types == "math,logic"
+
+    def test_argument_parsing_dry_run(self):
+        """Test --dry-run argument parsing matches bash script."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--dry-run"]):
+            args = parse_arguments()
+        assert args.dry_run is True
+
+    def test_argument_parsing_no_async(self):
+        """Test --no-async argument parsing matches bash script."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--no-async"]):
+            args = parse_arguments()
+        assert args.no_async is True
+
+    def test_argument_parsing_max_retries(self):
+        """Test --max-retries argument parsing matches bash script."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--max-retries", "5"]):
+            args = parse_arguments()
+        assert args.max_retries == 5
+
+
+class TestEventLogRotation:
+    """Tests for JSONL event log file rotation."""
+
+    def test_log_rotation_at_size_limit(self):
+        """Test that log file is rotated when it exceeds size limit."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            logger = EventLogger(log_dir)
+
+            # Create a large log file by writing directly
+            # MAX_EVENT_FILE_SIZE_BYTES = 10MB, use smaller for test
+            with patch("bootstrap_inventory.MAX_EVENT_FILE_SIZE_BYTES", 100):
+                # Write enough data to trigger rotation
+                with open(logger.events_file, "w") as f:
+                    f.write("x" * 150)
+
+                # This should trigger rotation
+                logger.log_event("test", "started")
+
+            # Check that rotation happened
+            rotated_files = list(log_dir.glob("bootstrap_events_*.jsonl"))
+            assert len(rotated_files) >= 1
+
+    def test_log_creates_parent_directories(self):
+        """Test that log directories are created if they don't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir) / "nested" / "deep" / "logs"
+            logger = EventLogger(log_dir)
+
+            logger.log_event("test", "started")
+
+            assert log_dir.exists()
+            assert logger.events_file.exists()
+
+
+class TestTruncateError:
+    """Tests for error message truncation utility."""
+
+    def test_truncate_short_error(self):
+        """Test that short errors are not truncated."""
+        from bootstrap_inventory import _truncate_error
+
+        short_error = "Short error message"
+        result = _truncate_error(short_error)
+        assert result == short_error
+
+    def test_truncate_long_error(self):
+        """Test that long errors are truncated with ellipsis."""
+        from bootstrap_inventory import _truncate_error, MAX_ERROR_MESSAGE_LENGTH
+
+        long_error = "x" * (MAX_ERROR_MESSAGE_LENGTH + 100)
+        result = _truncate_error(long_error)
+
+        assert len(result) == MAX_ERROR_MESSAGE_LENGTH
+        assert result.endswith("...")
+
+    def test_truncate_exact_limit_error(self):
+        """Test that error at exact limit is not truncated."""
+        from bootstrap_inventory import _truncate_error, MAX_ERROR_MESSAGE_LENGTH
+
+        exact_error = "x" * MAX_ERROR_MESSAGE_LENGTH
+        result = _truncate_error(exact_error)
+        assert result == exact_error
+        assert "..." not in result
