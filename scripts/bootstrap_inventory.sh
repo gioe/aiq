@@ -739,10 +739,22 @@ echo ""
 
 # Exit with appropriate code
 if [ $FAILED_TYPES -gt 0 ]; then
+    # Emit script_end event for failed completion
+    log_event "script_end" "failed" \
+        "successful_types=$SUCCESSFUL_TYPES" \
+        "failed_types=$FAILED_TYPES" \
+        "total_duration_seconds=$TOTAL_DURATION"
+
     echo -e "${RED}Bootstrap completed with failures.${NC}"
     echo "Check the log file for details: $BOOTSTRAP_LOG"
     exit 1
 else
+    # Emit script_end event for successful completion
+    log_event "script_end" "success" \
+        "successful_types=$SUCCESSFUL_TYPES" \
+        "failed_types=$FAILED_TYPES" \
+        "total_duration_seconds=$TOTAL_DURATION"
+
     echo -e "${GREEN}Bootstrap completed successfully!${NC}"
     exit 0
 fi
