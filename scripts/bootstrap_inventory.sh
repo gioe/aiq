@@ -423,19 +423,27 @@ generate_type() {
         # The pipeline writes to log file while extracting progress signals for display
         cd "$QUESTION_SERVICE_DIR"
 
-        # Use a subshell with pipefail to capture the Python exit code
-        # Process each line: write to log, and extract progress signals
+        # Create a temp file to capture the Python process exit code
+        # This avoids the pipe failure masking issue where the while loop's exit code
+        # could override the Python process exit code
+        local exit_code_file
+        exit_code_file=$(mktemp)
+        trap "rm -f '$exit_code_file'" RETURN
+
+        # Run Python command, capture exit code, and process output line by line
+        # Using curly braces to group commands while preserving the pipeline
         set +e  # Temporarily disable exit on error to capture exit code
-        (
-            set -o pipefail
-            $PYTHON_CMD -u run_generation.py $cmd_args 2>&1 | while IFS= read -r line; do
-                # Write line to log file
-                echo "$line" >> "$BOOTSTRAP_LOG"
-                # Process line for progress signals (heartbeats, phases, etc.)
-                process_output_line "$line"
-            done
-        )
-        exit_code=$?
+        {
+            $PYTHON_CMD -u run_generation.py $cmd_args 2>&1
+            echo $? > "$exit_code_file"
+        } | while IFS= read -r line; do
+            # Write line to log file
+            echo "$line" >> "$BOOTSTRAP_LOG"
+            # Process line for progress signals (heartbeats, phases, etc.)
+            process_output_line "$line"
+        done
+        exit_code=$(cat "$exit_code_file" 2>/dev/null || echo "1")
+        rm -f "$exit_code_file"
         set -e  # Re-enable exit on error
 
         if [ $exit_code -eq 0 ]; then
