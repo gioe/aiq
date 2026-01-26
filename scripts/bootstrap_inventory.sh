@@ -360,6 +360,14 @@ echo -e "${BLUE}Logging to: $BOOTSTRAP_LOG${NC}"
 echo -e "${BLUE}Events JSONL: $EVENTS_JSONL_FILE${NC}"
 echo ""
 
+# Emit script_start event with configuration details
+log_event "script_start" "started" \
+    "total_types=$TOTAL_TYPES" \
+    "target_per_type=$QUESTIONS_PER_TYPE" \
+    "types=$TYPES" \
+    "async_mode=$ASYNC_DISPLAY" \
+    "dry_run=$DRY_RUN_DISPLAY"
+
 # Function to parse and display heartbeat information
 # Extracts progress signals from HEARTBEAT: JSON lines emitted by run_generation.py
 parse_heartbeat_line() {
@@ -506,6 +514,13 @@ generate_type() {
     while [ $attempt -lt $MAX_RETRIES ] && [ "$success" = "false" ]; do
         attempt=$((attempt + 1))
 
+        # Emit type_start event for this attempt
+        log_event "type_start" "started" \
+            "type=$type" \
+            "attempt=$attempt" \
+            "max_retries=$MAX_RETRIES" \
+            "target_count=$QUESTIONS_PER_TYPE"
+
         if [ $attempt -gt 1 ]; then
             echo -e "  ${YELLOW}Retry $attempt/$MAX_RETRIES${NC}"
             sleep 5  # Brief pause before retry
@@ -610,6 +625,12 @@ for type in $TYPES; do
         echo -e "${GREEN}✓ $type completed successfully${NC} (${duration}s)"
         echo "success" > "$RESULTS_DIR/$type"
         SUCCESSFUL_TYPES=$((SUCCESSFUL_TYPES + 1))
+
+        # Emit type_end event for successful completion
+        log_event "type_end" "success" \
+            "type=$type" \
+            "duration_seconds=$duration" \
+            "target_count=$QUESTIONS_PER_TYPE"
     else
         type_end=$(date +%s)
         duration=$((type_end - type_start))
@@ -627,6 +648,13 @@ for type in $TYPES; do
         if [ -n "$extracted_error" ]; then
             echo "$extracted_error" > "$RESULTS_DIR/${type}_error"
         fi
+
+        # Emit type_end event for failed completion
+        log_event "type_end" "failed" \
+            "type=$type" \
+            "duration_seconds=$duration" \
+            "target_count=$QUESTIONS_PER_TYPE" \
+            "error=${extracted_error:-Unknown error}"
     fi
 done
 
