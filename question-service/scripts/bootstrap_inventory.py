@@ -48,6 +48,8 @@ from app.config import settings  # noqa: E402
 from app.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.pipeline import QuestionGenerationPipeline  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
+from app.prompts import build_generation_prompt  # noqa: E402
+from app.providers.google_provider import GoogleProvider  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -61,6 +63,11 @@ GENERATION_TIMEOUT_SECONDS = 300  # 5 minutes per type generation
 # Maximum questions per type to prevent runaway resource usage
 # ~3 API calls per question * 10000 = 30000 API calls max
 MAX_QUESTIONS_PER_TYPE = 10000
+
+# Batch API constants
+BATCH_PARSE_ERROR_THRESHOLD = 0.25  # Fail if >25% of responses fail to parse
+BATCH_TIMEOUT_BUFFER_RATIO = 0.10  # Add 10% buffer to batch timeout
+BATCH_TIMEOUT_BUFFER_MIN_SECONDS = 60  # Minimum timeout buffer in seconds
 
 
 class GenerationResult(TypedDict):
@@ -108,6 +115,7 @@ class BootstrapConfig:
     types: List[str] = field(default_factory=lambda: [qt.value for qt in QuestionType])
     dry_run: bool = False
     use_async: bool = True
+    use_batch: bool = True
     max_retries: int = 3
     retry_base_delay: float = 5.0
     retry_max_delay: float = 60.0
@@ -206,6 +214,294 @@ class BootstrapInventory:
         self.logger.info(f"Pipeline initialized with providers: {providers}")
 
         return pipeline
+
+    def _supports_batch_api(self) -> bool:
+        """Check if the current provider configuration supports batch API.
+
+        Currently only Google provider supports batch API. This method checks
+        if Google is available as a provider.
+
+        Returns:
+            True if batch API is supported and enabled, False otherwise
+        """
+        if not settings.enable_batch_generation:
+            return False
+
+        if self.pipeline is None:
+            return False
+
+        # Check if Google provider is available
+        try:
+            available_providers = self.pipeline.generator.get_available_providers()
+            # Handle case where mock or unexpected type is returned
+            if not isinstance(available_providers, (list, tuple, set)):
+                return False
+            return "google" in available_providers
+        except (AttributeError, TypeError):
+            # Handle cases where generator or get_available_providers doesn't exist
+            return False
+
+    async def _generate_type_with_batch_api(
+        self,
+        question_type: QuestionType,
+        count: int,
+    ) -> GenerationResult:
+        """Generate questions using batch API (for Google provider).
+
+        This method:
+        1. Gets the Google provider from the pipeline
+        2. Builds prompts for all questions across difficulties
+        3. Submits prompts as a batch job
+        4. Polls for completion
+        5. Parses responses back to question records
+
+        Args:
+            question_type: Type of questions to generate
+            count: Total number of questions to generate (distributed across difficulties)
+
+        Returns:
+            GenerationResult with generation results
+
+        Raises:
+            ValueError: If Google provider is not available
+            TimeoutError: If batch job doesn't complete within timeout
+            Exception: If batch job fails
+        """
+        if self.pipeline is None:
+            raise RuntimeError("Pipeline not initialized - cannot generate questions")
+
+        # Get Google provider
+        if "google" not in self.pipeline.generator.providers:
+            raise ValueError("Google provider not available for batch generation")
+
+        google_provider = self.pipeline.generator.providers["google"]
+        if not isinstance(google_provider, GoogleProvider):
+            raise ValueError("Google provider is not a GoogleProvider instance")
+
+        # Calculate questions per difficulty (dynamic based on enum size)
+        difficulty_levels = list(DifficultyLevel)
+        num_difficulties = len(difficulty_levels)
+        questions_per_difficulty = count // num_difficulties
+        remainder = count % num_difficulties
+
+        # Build all prompts upfront
+        prompts: List[str] = []
+        # Map prompt index to difficulty for response parsing
+        prompt_to_difficulty: dict[int, DifficultyLevel] = {}
+
+        for i, difficulty in enumerate(difficulty_levels):
+            # Distribute remainder across first few difficulties
+            diff_count = questions_per_difficulty + (1 if i < remainder else 0)
+            if diff_count == 0:
+                continue
+
+            self.logger.info(
+                f"Building {diff_count} prompts for {question_type.value}/{difficulty.value}"
+            )
+
+            # Build prompts for this difficulty level
+            for _ in range(diff_count):
+                prompt = build_generation_prompt(question_type, difficulty, count=1)
+                prompt_to_difficulty[len(prompts)] = difficulty
+                prompts.append(prompt)
+
+        if not prompts:
+            self.logger.warning(f"No prompts built for {question_type.value}")
+            return GenerationResult(questions=[], generated=0, target=count)
+
+        # Validate batch size doesn't exceed limit
+        batch_size_limit = settings.batch_generation_size
+        if len(prompts) > batch_size_limit:
+            self.logger.warning(
+                f"Prompt count ({len(prompts)}) exceeds batch size limit "
+                f"({batch_size_limit}). Processing in chunks."
+            )
+
+        self.logger.info(
+            f"Submitting batch job with {len(prompts)} prompts for {question_type.value}"
+        )
+
+        # Log batch generation start event
+        self.event_logger.log_event(
+            "batch_generation_start",
+            "started",
+            type=question_type.value,
+            total_prompts=len(prompts),
+        )
+
+        # Process prompts in chunks if needed (respecting batch size limit)
+        all_questions: List[Any] = []
+        total_parse_errors = 0
+        total_successful = 0
+        total_failed = 0
+
+        chunk_size = settings.batch_generation_size
+        for chunk_start in range(0, len(prompts), chunk_size):
+            chunk_end = min(chunk_start + chunk_size, len(prompts))
+            chunk_prompts = prompts[chunk_start:chunk_end]
+            chunk_num = (chunk_start // chunk_size) + 1
+            total_chunks = (len(prompts) + chunk_size - 1) // chunk_size
+
+            if total_chunks > 1:
+                self.logger.info(
+                    f"Processing batch chunk {chunk_num}/{total_chunks} "
+                    f"({len(chunk_prompts)} prompts)"
+                )
+
+            # Submit batch job and wait for completion
+            try:
+                batch_result = await google_provider.generate_batch_completions_async(
+                    prompts=chunk_prompts,
+                    display_name=f"bootstrap-{question_type.value}-{int(time.time())}-{chunk_num}",
+                    temperature=0.8,
+                    max_tokens=1500,
+                    poll_interval=30.0,
+                    timeout=settings.batch_generation_timeout,
+                )
+
+                self.logger.info(
+                    f"Batch chunk {chunk_num} completed: "
+                    f"{batch_result.successful_requests}/{batch_result.total_requests} successful"
+                )
+                total_successful += batch_result.successful_requests
+                total_failed += batch_result.failed_requests
+
+            except TimeoutError as e:
+                self.logger.error(f"Batch job timed out: {e}")
+                self.event_logger.log_event(
+                    "batch_generation_complete",
+                    "failed",
+                    type=question_type.value,
+                    error=_truncate_error(e),
+                )
+                raise
+            except Exception as e:
+                self.logger.error(f"Batch job failed: {e}")
+                self.event_logger.log_event(
+                    "batch_generation_complete",
+                    "failed",
+                    type=question_type.value,
+                    error=_truncate_error(e),
+                )
+                raise
+
+            # Parse responses into questions
+            # Note: Each batch job submission uses keys "request-0" to "request-N"
+            # where N is relative to that chunk. We add chunk_start to get the
+            # global prompt index for difficulty mapping.
+            for response_dict in batch_result.responses:
+                try:
+                    # Extract key to get chunk-relative index (format: "request-N")
+                    key = response_dict.get("key", "")
+                    # Calculate global prompt index: chunk_start + relative index
+                    prompt_idx = chunk_start  # Default to chunk start
+                    if key and "-" in key:
+                        try:
+                            relative_idx = int(key.split("-")[-1])
+                            prompt_idx = chunk_start + relative_idx
+                        except ValueError:
+                            pass
+
+                    # Get difficulty from our mapping
+                    difficulty = prompt_to_difficulty.get(prompt_idx)
+
+                    # Parse text response as JSON
+                    text = response_dict.get("text", "")
+                    if not text:
+                        total_parse_errors += 1
+                        continue
+
+                    # Parse the JSON response
+                    try:
+                        parsed = json.loads(text)
+                    except json.JSONDecodeError as e:
+                        total_parse_errors += 1
+                        self.logger.warning(f"Invalid JSON in response {key}: {e}")
+                        continue
+
+                    # Validate response is a dict (not array or other type)
+                    if not isinstance(parsed, dict):
+                        total_parse_errors += 1
+                        self.logger.warning(
+                            f"Response {key} is not a dict: {type(parsed).__name__}"
+                        )
+                        continue
+
+                    # Extract question data
+                    question_data = {
+                        "question_text": parsed.get("question_text", ""),
+                        "correct_answer": parsed.get("correct_answer", ""),
+                        "answer_options": parsed.get("answer_options", []),
+                        "explanation": parsed.get("explanation", ""),
+                    }
+
+                    # Validate required fields
+                    if not all(
+                        [
+                            question_data["question_text"],
+                            question_data["correct_answer"],
+                            question_data["answer_options"],
+                        ]
+                    ):
+                        total_parse_errors += 1
+                        self.logger.warning(
+                            f"Incomplete question data in response {key}"
+                        )
+                        continue
+
+                    # Create a GeneratedQuestion-like object with difficulty
+                    question = {
+                        "question_type": question_type,
+                        "difficulty": difficulty,
+                        "question_text": question_data["question_text"],
+                        "correct_answer": question_data["correct_answer"],
+                        "answer_options": question_data["answer_options"],
+                        "explanation": question_data["explanation"],
+                        "source_llm": "google",
+                    }
+                    all_questions.append(question)
+
+                except Exception as e:
+                    total_parse_errors += 1
+                    self.logger.warning(
+                        f"Failed to process response for key "
+                        f"{response_dict.get('key', 'unknown')}: {e}"
+                    )
+
+        # Log batch generation completion event
+        self.event_logger.log_event(
+            "batch_generation_complete",
+            "success",
+            type=question_type.value,
+            total_requests=len(prompts),
+            successful_requests=total_successful,
+            failed_requests=total_failed,
+            parse_errors=total_parse_errors,
+            questions_generated=len(all_questions),
+        )
+
+        if total_parse_errors > 0:
+            self.logger.warning(
+                f"Encountered {total_parse_errors} parse errors out of "
+                f"{total_successful} responses"
+            )
+
+        # Fail if parse error rate exceeds 25% threshold
+        # This prevents silently returning partial data when most responses fail
+        if total_successful > 0:
+            parse_error_rate = total_parse_errors / total_successful
+            if parse_error_rate > BATCH_PARSE_ERROR_THRESHOLD:
+                raise ValueError(
+                    f"Parse error rate {parse_error_rate:.1%} exceeds "
+                    f"{BATCH_PARSE_ERROR_THRESHOLD:.0%} threshold. "
+                    f"{total_parse_errors} of {total_successful} responses failed to parse."
+                )
+
+        return GenerationResult(
+            questions=all_questions,
+            generated=len(all_questions),
+            target=count,
+        )
 
     def _calculate_retry_delay(self, attempt: int) -> float:
         """Calculate delay before next retry using exponential backoff with jitter.
@@ -373,7 +669,31 @@ class BootstrapInventory:
                         "Pipeline not initialized - cannot generate questions"
                     )
 
-                if self.config.use_async:
+                # Check if batch API should be used
+                use_batch_api = (
+                    self.config.use_batch
+                    and self.config.use_async
+                    and self._supports_batch_api()
+                )
+
+                if use_batch_api:
+                    # Use batch API for generation (Google only)
+                    self.logger.info(f"Using batch API for {question_type} generation")
+                    result = await asyncio.wait_for(
+                        self._generate_type_with_batch_api(
+                            qt, self.config.questions_per_type
+                        ),
+                        # Use 10% buffer with minimum of 60s
+                        timeout=settings.batch_generation_timeout
+                        + max(
+                            BATCH_TIMEOUT_BUFFER_MIN_SECONDS,
+                            int(
+                                settings.batch_generation_timeout
+                                * BATCH_TIMEOUT_BUFFER_RATIO
+                            ),
+                        ),
+                    )
+                elif self.config.use_async:
                     # Add timeout protection for async generation
                     result = await asyncio.wait_for(
                         self._generate_type_async(qt, self.config.questions_per_type),
@@ -488,6 +808,7 @@ class BootstrapInventory:
             target_per_type=self.config.questions_per_type,
             types=",".join(self.config.types),
             async_mode="enabled" if self.config.use_async else "disabled",
+            batch_mode="enabled" if self.config.use_batch else "disabled",
             dry_run="yes" if self.config.dry_run else "no",
         )
 
@@ -526,6 +847,17 @@ class BootstrapInventory:
                 exit_code=EXIT_CONFIG_ERROR,
             )
             return EXIT_CONFIG_ERROR
+
+        # Check and log batch API availability
+        if self.config.use_batch and self._supports_batch_api():
+            print("Batch API mode: ENABLED (Google provider detected)")
+            print()
+        elif self.config.use_batch:
+            print("Batch API mode: DISABLED (Google provider not available)")
+            print()
+        else:
+            print("Batch API mode: DISABLED (--no-batch flag)")
+            print()
 
         # Use try-finally to ensure pipeline cleanup
         try:
@@ -681,6 +1013,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--no-batch",
+        action="store_true",
+        help="Disable batch API generation (use sequential calls)",
+    )
+
+    parser.add_argument(
         "--max-retries",
         type=int,
         default=3,
@@ -796,6 +1134,7 @@ async def main() -> int:
         types=types,
         dry_run=args.dry_run,
         use_async=not args.no_async,
+        use_batch=not args.no_batch,
         max_retries=args.max_retries,
     )
 
