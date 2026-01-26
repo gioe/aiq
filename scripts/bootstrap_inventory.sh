@@ -452,6 +452,18 @@ generate_type() {
         else
             echo "Failed with exit code $exit_code: $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')" >> "$BOOTSTRAP_LOG"
             echo -e "  ${RED}Attempt $attempt failed (exit code: $exit_code)${NC}"
+
+            # Extract and display the actual error from the log file
+            local extracted_error
+            extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+            if [ -n "$extracted_error" ]; then
+                echo ""
+                echo -e "  ${RED}Error details:${NC}"
+                echo "$extracted_error" | while IFS= read -r err_line; do
+                    echo -e "    ${YELLOW}$err_line${NC}"
+                done
+                echo ""
+            fi
         fi
 
         echo "" >> "$BOOTSTRAP_LOG"
@@ -490,6 +502,12 @@ for type in $TYPES; do
         echo -e "${RED}✗ $type FAILED${NC} (${duration}s)"
         echo "failed" > "$RESULTS_DIR/$type"
         FAILED_TYPES=$((FAILED_TYPES + 1))
+
+        # Extract and save error details for summary
+        extracted_error=$($PYTHON_CMD "$SCRIPT_DIR/log_utils.py" --clean --max-lines 3 "$BOOTSTRAP_LOG" 2>/dev/null)
+        if [ -n "$extracted_error" ]; then
+            echo "$extracted_error" > "$RESULTS_DIR/${type}_error"
+        fi
     fi
 done
 
@@ -527,6 +545,16 @@ for type in $TYPES; do
             ;;
         "failed")
             echo -e "  ${RED}[FAILED]${NC} $type"
+            # Show extracted error if available
+            error_file="$RESULTS_DIR/${type}_error"
+            if [ -f "$error_file" ]; then
+                echo ""
+                echo -e "    ${RED}Last error:${NC}"
+                while IFS= read -r err_line; do
+                    echo -e "      ${YELLOW}$err_line${NC}"
+                done < "$error_file"
+                echo ""
+            fi
             ;;
         *)
             echo -e "  ${YELLOW}[???]${NC} $type"
