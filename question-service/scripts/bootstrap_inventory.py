@@ -94,6 +94,16 @@ SENSITIVE_PATTERNS = [
     (re.compile(r"AIza[a-zA-Z0-9\-_]{30,}"), "[REDACTED_GOOGLE_KEY]"),
     # xAI API keys (xai-...)
     (re.compile(r"xai-[a-zA-Z0-9]{20,}"), "[REDACTED_XAI_KEY]"),
+    # AWS Access Key ID (AKIA... or ASIA... for temp credentials)
+    (
+        re.compile(r"(A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}"),
+        "[REDACTED_AWS_KEY_ID]",
+    ),
+    # AWS Secret Access Key (40 character base64-like string, commonly after = or :)
+    (
+        re.compile(r"(?<=[=:\s])[A-Za-z0-9/+=]{40}(?=[,\s\"\']|$)"),
+        "[REDACTED_AWS_SECRET]",
+    ),
     # Bearer tokens in headers
     (
         re.compile(r"Bearer\s+[a-zA-Z0-9\-_.]+", re.IGNORECASE),
