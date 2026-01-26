@@ -4,6 +4,12 @@
 import re
 from pathlib import Path
 
+# Maximum lines to include as context after an error line
+MAX_ERROR_CONTEXT_LINES = 20
+
+# Pattern to detect exception lines (e.g., "ValueError: bad input")
+EXCEPTION_LINE_PATTERN = re.compile(r"^\w+(?:Error|Exception):")
+
 
 def extract_last_error(
     log_path: str | Path,
@@ -95,18 +101,18 @@ def extract_last_error(
             if traceback_continuation_pattern.match(line_stripped) or line_stripped.startswith(" "):
                 current_block.append(line_stripped)
             elif line_stripped:
-                # Check if this is the final exception line
-                # (e.g., "ValueError: invalid literal")
-                if re.match(r"^\w+(?:Error|Exception)", line_stripped):
+                # Check if this is the final exception line (e.g., "ValueError: bad input")
+                if EXCEPTION_LINE_PATTERN.match(line_stripped):
                     current_block.append(line_stripped)
+                # Either way, we're done with this traceback
                 in_traceback = False
 
         # Also capture standalone exception lines that might follow ERROR logs
         elif current_block and line_stripped:
             # Continue adding context if we're still near an error
-            if len(current_block) < 20:  # Reasonable limit for context
+            if len(current_block) < MAX_ERROR_CONTEXT_LINES:
                 # Add lines that look like exception details
-                if re.match(r"^\w+(?:Error|Exception):", line_stripped):
+                if EXCEPTION_LINE_PATTERN.match(line_stripped):
                     current_block.append(line_stripped)
 
     # Don't forget the last block
