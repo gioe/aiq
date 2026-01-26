@@ -2885,3 +2885,244 @@ class TestProgressReporterSanitization:
         assert len(result) <= 103  # 100 + "..."
         # Should not contain the API key
         assert "sk-1234567890" not in result
+
+
+class TestJudgeDeduplicationConfig:
+    """Tests for judge and deduplication configuration options."""
+
+    def test_config_defaults_for_judge_dedup(self):
+        """Test default configuration values for judge and dedup settings."""
+        config = BootstrapConfig()
+
+        assert config.min_score is None  # Uses settings.min_judge_score
+        assert config.skip_deduplication is False
+
+    def test_config_custom_min_score(self):
+        """Test configuration with custom min_score."""
+        config = BootstrapConfig(min_score=0.75)
+
+        assert config.min_score == pytest.approx(0.75)
+
+    def test_config_skip_deduplication(self):
+        """Test configuration with skip_deduplication enabled."""
+        config = BootstrapConfig(skip_deduplication=True)
+
+        assert config.skip_deduplication is True
+
+    def test_config_combined_judge_dedup_settings(self):
+        """Test configuration with both judge and dedup settings."""
+        config = BootstrapConfig(
+            min_score=0.8,
+            skip_deduplication=True,
+            dry_run=True,
+        )
+
+        assert config.min_score == pytest.approx(0.8)
+        assert config.skip_deduplication is True
+        assert config.dry_run is True
+
+
+class TestMinScoreArgParsing:
+    """Tests for --min-score argument parsing."""
+
+    def test_min_score_argument(self):
+        """Test parsing --min-score argument."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--min-score", "0.75"]):
+            args = parse_arguments()
+
+        assert args.min_score == pytest.approx(0.75)
+
+    def test_min_score_default(self):
+        """Test that --min-score defaults to None."""
+        with patch("sys.argv", ["bootstrap_inventory.py"]):
+            args = parse_arguments()
+
+        assert args.min_score is None
+
+    def test_skip_deduplication_flag(self):
+        """Test parsing --skip-deduplication flag."""
+        with patch("sys.argv", ["bootstrap_inventory.py", "--skip-deduplication"]):
+            args = parse_arguments()
+
+        assert args.skip_deduplication is True
+
+    def test_skip_deduplication_default(self):
+        """Test that --skip-deduplication defaults to False."""
+        with patch("sys.argv", ["bootstrap_inventory.py"]):
+            args = parse_arguments()
+
+        assert args.skip_deduplication is False
+
+    def test_combined_judge_dedup_flags(self):
+        """Test parsing combined judge/dedup flags."""
+        with patch(
+            "sys.argv",
+            [
+                "bootstrap_inventory.py",
+                "--min-score",
+                "0.85",
+                "--skip-deduplication",
+                "--dry-run",
+            ],
+        ):
+            args = parse_arguments()
+
+        assert args.min_score == pytest.approx(0.85)
+        assert args.skip_deduplication is True
+        assert args.dry_run is True
+
+
+class TestProgressReporterNewMethods:
+    """Tests for new ProgressReporter methods for evaluation/dedup/insertion."""
+
+    def test_evaluation_start(self, capsys):
+        """Test evaluation start output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.evaluation_start(150)
+
+        captured = capsys.readouterr()
+        assert "[EVAL]" in captured.out
+        assert "150 questions" in captured.out
+
+    def test_evaluation_complete(self, capsys):
+        """Test evaluation complete output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.evaluation_complete(approved=120, rejected=30, rate=80.0)
+
+        captured = capsys.readouterr()
+        assert "[EVAL]" in captured.out
+        assert "Approved: 120" in captured.out
+        assert "Rejected: 30" in captured.out
+        assert "80.0%" in captured.out
+
+    def test_dedup_start(self, capsys):
+        """Test deduplication start output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.dedup_start(120)
+
+        captured = capsys.readouterr()
+        assert "[DEDUP]" in captured.out
+        assert "120 questions" in captured.out
+
+    def test_dedup_complete(self, capsys):
+        """Test deduplication complete output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.dedup_complete(unique=110, duplicates=10)
+
+        captured = capsys.readouterr()
+        assert "[DEDUP]" in captured.out
+        assert "Unique: 110" in captured.out
+        assert "Duplicates: 10" in captured.out
+
+    def test_insertion_start(self, capsys):
+        """Test insertion start output."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.insertion_start(110)
+
+        captured = capsys.readouterr()
+        assert "[INSERT]" in captured.out
+        assert "110 questions" in captured.out
+
+    def test_insertion_complete_success(self, capsys):
+        """Test insertion complete output with no failures."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.insertion_complete(inserted=110, failed=0)
+
+        captured = capsys.readouterr()
+        assert "[INSERT]" in captured.out
+        assert "Inserted: 110" in captured.out
+        assert "Failed" not in captured.out
+
+    def test_insertion_complete_with_failures(self, capsys):
+        """Test insertion complete output with some failures."""
+        reporter = ProgressReporter(quiet=False)
+
+        reporter.insertion_complete(inserted=105, failed=5)
+
+        captured = capsys.readouterr()
+        assert "[INSERT]" in captured.out
+        assert "Inserted: 105" in captured.out
+        assert "Failed: 5" in captured.out
+
+    def test_quiet_mode_suppresses_new_methods(self, capsys):
+        """Test that quiet mode suppresses new evaluation/dedup/insertion output."""
+        reporter = ProgressReporter(quiet=True)
+
+        reporter.evaluation_start(150)
+        reporter.evaluation_complete(120, 30, 80.0)
+        reporter.dedup_start(120)
+        reporter.dedup_complete(110, 10)
+        reporter.insertion_start(110)
+        reporter.insertion_complete(110, 0)
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+
+class TestTypeResultWithInserted:
+    """Tests for TypeResult with inserted field."""
+
+    def test_type_result_with_inserted(self):
+        """Test TypeResult with inserted count."""
+        result = TypeResult(
+            question_type="math",
+            success=True,
+            attempt_count=1,
+            generated=150,
+            inserted=120,
+            approval_rate=80.0,
+        )
+
+        assert result.generated == 150
+        assert result.inserted == 120
+        assert result.approval_rate == pytest.approx(80.0)
+
+    def test_type_result_default_inserted(self):
+        """Test TypeResult defaults inserted to 0."""
+        result = TypeResult(
+            question_type="math",
+            success=True,
+            attempt_count=1,
+            generated=150,
+        )
+
+        assert result.inserted == 0
+
+
+class TestSummaryWithInsertedTotals:
+    """Tests for summary output with inserted totals."""
+
+    def test_summary_shows_inserted_totals(self, capsys):
+        """Test that summary shows generated and inserted totals."""
+        reporter = ProgressReporter(quiet=False)
+
+        results = [
+            TypeResult("math", True, 1, 150, 120, 80.0),
+            TypeResult("logic", True, 1, 150, 130, 87.0),
+            TypeResult("pattern", True, 1, 150, 100, 67.0),
+        ]
+        reporter.summary(3, 0, 3, 120.0, results)
+
+        captured = capsys.readouterr()
+        assert "Generated: 450" in captured.out
+        assert "Inserted: 350" in captured.out
+
+    def test_summary_shows_individual_type_details(self, capsys):
+        """Test that summary shows per-type generated/inserted/approval."""
+        reporter = ProgressReporter(quiet=False)
+
+        results = [
+            TypeResult("math", True, 1, 150, 120, 80.0),
+        ]
+        reporter.summary(1, 0, 1, 60.0, results)
+
+        captured = capsys.readouterr()
+        assert "generated: 150" in captured.out
+        assert "inserted: 120" in captured.out
+        assert "approval: 80.0%" in captured.out
