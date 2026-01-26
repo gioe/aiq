@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     )
     SENTRY_TRACES_SAMPLE_RATE: float = Field(
         default=0.1,
+        ge=0.0,
+        le=1.0,
         description="Sentry traces sample rate (0.0-1.0, 0.1 = 10% of transactions)",
     )
 
