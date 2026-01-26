@@ -110,6 +110,9 @@ log_event() {
 DEFAULT_QUESTIONS_PER_TYPE=150
 DEFAULT_MAX_RETRIES=3
 
+# Script-level alerting threshold (3+ failed types = critical failure)
+CRITICAL_FAILURE_THRESHOLD=3
+
 # All question types (must match QuestionType enum in app/models.py)
 ALL_TYPES="pattern logic spatial math verbal memory"
 
@@ -593,6 +596,107 @@ write_per_type_metrics() {
     echo -e "  ${BLUE}[METRICS]${NC} Wrote metrics to ${question_type}_metrics.json"
 }
 
+# Function to send alert when multiple question types fail (script-level alerting)
+# This is separate from run_generation.py's per-generation alerts.
+# Only fires for critical failures (3+ types failed).
+#
+# Args:
+#   $1 - Number of failed types
+#   $2 - Space-separated list of all attempted types
+#
+# Environment:
+#   RESULTS_DIR - Directory containing per-type result files
+#   PYTHON_CMD - Python command to use
+#   SCRIPT_DIR - Directory containing this script
+#
+# Uses:
+#   - log_event() to emit JSONL event
+#   - send_script_alert.py to send alerts via AlertManager
+send_multi_type_failure_alert() {
+    local failed_count="$1"
+    local types="$2"
+
+    # Only alert for critical failures (3+ types failed)
+    if [ "$failed_count" -lt "$CRITICAL_FAILURE_THRESHOLD" ]; then
+        return 0
+    fi
+
+    # Validate types parameter
+    if [ -z "$types" ]; then
+        echo -e "${YELLOW}[ALERT]${NC} No types provided, skipping alert"
+        return 0
+    fi
+
+    echo ""
+    echo -e "${RED}[ALERT]${NC} Critical failure: $failed_count types failed (threshold: $CRITICAL_FAILURE_THRESHOLD)"
+
+    # Collect failed type names
+    local failed_types=""
+    for type in $types; do
+        local result_file="$RESULTS_DIR/$type"
+        if [ -f "$result_file" ] && [ "$(cat "$result_file")" = "failed" ]; then
+            if [ -n "$failed_types" ]; then
+                failed_types="$failed_types,$type"
+            else
+                failed_types="$type"
+            fi
+        fi
+    done
+
+    # Validate we found failed types
+    if [ -z "$failed_types" ]; then
+        echo -e "${YELLOW}[ALERT]${NC} No failed type result files found, skipping alert"
+        return 0
+    fi
+
+    # Collect error details from first failed type (for context)
+    local error_details=""
+    for type in $types; do
+        local error_file="$RESULTS_DIR/${type}_error"
+        if [ -f "$error_file" ]; then
+            # Get first line of error, truncate to 200 chars
+            error_details=$(head -1 "$error_file" | cut -c1-200)
+            break
+        fi
+    done
+
+    # Emit JSONL event for multi-type failure
+    log_event "multi_type_failure" "critical" \
+        "failed_count=$failed_count" \
+        "failed_types=$failed_types" \
+        "threshold=$CRITICAL_FAILURE_THRESHOLD"
+
+    # Call Python alerting script
+    # Note: Pass arguments directly with proper quoting to avoid word splitting issues
+    local alert_script="$SCRIPT_DIR/send_script_alert.py"
+    if [ -f "$alert_script" ]; then
+        echo -e "${BLUE}[ALERT]${NC} Sending script-level failure alert..."
+
+        # Use proper quoting for all arguments to prevent word splitting
+        if [ -n "$error_details" ]; then
+            if "$PYTHON_CMD" "$alert_script" \
+                --failed-count "$failed_count" \
+                --failed-types "$failed_types" \
+                --error-details "$error_details" 2>"$LOG_DIR/script_alert_stderr.log"; then
+                echo -e "${GREEN}[ALERT]${NC} Alert sent successfully"
+            else
+                echo -e "${YELLOW}[ALERT]${NC} Alert script completed (check logs for delivery status)"
+            fi
+        else
+            if "$PYTHON_CMD" "$alert_script" \
+                --failed-count "$failed_count" \
+                --failed-types "$failed_types" 2>"$LOG_DIR/script_alert_stderr.log"; then
+                echo -e "${GREEN}[ALERT]${NC} Alert sent successfully"
+            else
+                echo -e "${YELLOW}[ALERT]${NC} Alert script completed (check logs for delivery status)"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}[ALERT]${NC} Alert script not found: $alert_script"
+        echo -e "${YELLOW}[ALERT]${NC} Multi-type failure logged to JSONL only"
+    fi
+}
+
 # Function to parse and display phase transitions
 # Detects PHASE lines from run_generation.py logger output
 parse_phase_line() {
@@ -886,6 +990,10 @@ echo ""
 
 # Exit with appropriate code
 if [ $FAILED_TYPES -gt 0 ]; then
+    # Send script-level alert if critical failure threshold is met
+    # This is separate from run_generation.py's per-generation alerts
+    send_multi_type_failure_alert "$FAILED_TYPES" "$TYPES"
+
     # Emit script_end event for failed completion
     log_event "script_end" "failed" \
         "successful_types=$SUCCESSFUL_TYPES" \
