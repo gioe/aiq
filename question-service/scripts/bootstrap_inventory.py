@@ -119,6 +119,255 @@ class BootstrapConfig:
     max_retries: int = 3
     retry_base_delay: float = 5.0
     retry_max_delay: float = 60.0
+    quiet: bool = False
+
+
+class ProgressReporter:
+    """Real-time progress reporter for terminal output.
+
+    Provides formatted progress updates during question generation.
+    Can be silenced with quiet mode.
+    """
+
+    # ANSI color codes for terminal output
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BLUE = "\033[94m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
+    def __init__(self, quiet: bool = False):
+        """Initialize the progress reporter.
+
+        Args:
+            quiet: If True, suppress all terminal output
+        """
+        self.quiet = quiet
+
+    def _print(self, message: str) -> None:
+        """Print message if not in quiet mode.
+
+        Args:
+            message: Message to print
+        """
+        if not self.quiet:
+            print(message)
+
+    def banner(
+        self,
+        questions_per_type: int,
+        types: List[str],
+        max_retries: int,
+        use_async: bool,
+        use_batch: bool,
+        dry_run: bool,
+    ) -> None:
+        """Print the startup banner with configuration.
+
+        Args:
+            questions_per_type: Number of questions per type
+            types: List of question types to generate
+            max_retries: Maximum retry attempts per type
+            use_async: Whether async mode is enabled
+            use_batch: Whether batch mode is enabled
+            dry_run: Whether running in dry-run mode
+        """
+        self._print("")
+        self._print("=" * 64)
+        self._print("       AIQ Question Inventory Bootstrap Script (Python)")
+        self._print("=" * 64)
+        self._print("")
+        self._print("Configuration:")
+        self._print(f"  Questions per type: {questions_per_type}")
+        self._print(f"  Questions per difficulty: ~{questions_per_type // 3}")
+        self._print(f"  Types: {', '.join(types)}")
+        self._print("  Difficulties: easy, medium, hard (auto-distributed)")
+        self._print(f"  Total types: {len(types)}")
+        self._print(f"  Total strata: {len(types) * 3}")
+        self._print(f"  Target total questions: {len(types) * questions_per_type}")
+        self._print(f"  Max retries per type: {max_retries}")
+        self._print(f"  Async mode: {'enabled' if use_async else 'disabled'}")
+        self._print(f"  Dry run: {'yes' if dry_run else 'no'}")
+        self._print("")
+        self._print("=" * 64)
+        self._print("")
+
+    def batch_mode_status(self, enabled: bool, reason: str) -> None:
+        """Print batch API mode status.
+
+        Args:
+            enabled: Whether batch mode is enabled
+            reason: Reason for the status
+        """
+        status = "ENABLED" if enabled else "DISABLED"
+        self._print(f"Batch API mode: {status} ({reason})")
+        self._print("")
+
+    def type_start(
+        self, type_index: int, total_types: int, question_type: str, count: int
+    ) -> None:
+        """Print type generation start message.
+
+        Args:
+            type_index: Current type index (1-based)
+            total_types: Total number of types
+            question_type: Name of the question type
+            count: Number of questions to generate
+        """
+        self._print("")
+        self._print(
+            f"[{type_index}/{total_types}] Generating {question_type} ({count} questions)"
+        )
+        self._print("-" * 60)
+
+    def phase_transition(self, phase: str, detail: str = "") -> None:
+        """Print phase transition message.
+
+        Args:
+            phase: Phase name (e.g., "GENERATION", "VALIDATION", "INSERTION")
+            detail: Optional detail about the phase
+        """
+        detail_str = f" - {detail}" if detail else ""
+        self._print(f"  {self.BLUE}[PHASE]{self.RESET} {phase}{detail_str}")
+
+    def progress(self, message: str) -> None:
+        """Print progress message.
+
+        Args:
+            message: Progress message
+        """
+        self._print(f"  {self.GREEN}[PROGRESS]{self.RESET} {message}")
+
+    def approval_rate(self, approved: int, total: int) -> None:
+        """Print approval rate message.
+
+        Args:
+            approved: Number of approved questions
+            total: Total questions attempted
+        """
+        rate = (approved / total * 100) if total > 0 else 0.0
+        self._print(
+            f"  {self.GREEN}[PROGRESS]{self.RESET} Approved: {approved}/{total} ({rate:.1f}%)"
+        )
+
+    def inserted(self, count: int) -> None:
+        """Print insertion count message.
+
+        Args:
+            count: Number of questions inserted
+        """
+        self._print(
+            f"  {self.GREEN}[PROGRESS]{self.RESET} Inserted {count} questions into database"
+        )
+
+    def retry_warning(
+        self, attempt: int, max_retries: int, question_type: str, delay: float
+    ) -> None:
+        """Print retry warning message.
+
+        Args:
+            attempt: Current attempt number
+            max_retries: Maximum retry attempts
+            question_type: Name of the question type
+            delay: Delay before retry in seconds
+        """
+        self._print(
+            f"  {self.YELLOW}[RETRY]{self.RESET} Attempt {attempt}/{max_retries} "
+            f"for {question_type} (waiting {delay:.1f}s)"
+        )
+
+    def type_complete(
+        self, question_type: str, success: bool, duration: float, generated: int = 0
+    ) -> None:
+        """Print type completion message.
+
+        Args:
+            question_type: Name of the question type
+            success: Whether generation succeeded
+            duration: Duration in seconds
+            generated: Number of questions generated (for success)
+        """
+        self._print("-" * 60)
+        if success:
+            self._print(
+                f"{self.GREEN}✓{self.RESET} {question_type} completed successfully "
+                f"({duration:.1f}s)"
+            )
+            self._print(f"  Generated: {generated} questions")
+        else:
+            self._print(
+                f"{self.RED}✗{self.RESET} {question_type} FAILED ({duration:.1f}s)"
+            )
+
+    def type_error(self, error_message: str) -> None:
+        """Print type error message.
+
+        Args:
+            error_message: Error message to display
+        """
+        # Truncate long error messages
+        truncated = error_message[:200] if len(error_message) > 200 else error_message
+        self._print(f"  Error: {truncated}")
+
+    def summary(
+        self,
+        successful_types: int,
+        failed_types: int,
+        total_types: int,
+        total_duration: float,
+        results: List["TypeResult"],
+    ) -> None:
+        """Print final summary.
+
+        Args:
+            successful_types: Number of successful types
+            failed_types: Number of failed types
+            total_types: Total number of types
+            total_duration: Total duration in seconds
+            results: List of TypeResult objects
+        """
+        total_minutes = int(total_duration) // 60
+        total_seconds = int(total_duration) % 60
+
+        self._print("")
+        self._print("=" * 64)
+        self._print("                     BOOTSTRAP SUMMARY")
+        self._print("=" * 64)
+        self._print("")
+        self._print("Results:")
+        self._print(f"  Successful types: {successful_types} / {total_types}")
+        self._print(f"  Failed types: {failed_types}")
+        self._print(f"  Total duration: {total_minutes}m {total_seconds}s")
+        self._print("")
+        self._print("Type Details:")
+
+        for result in results:
+            if result.success:
+                self._print(
+                    f"  {self.GREEN}[OK]{self.RESET} {result.question_type} - "
+                    f"{result.generated} questions"
+                )
+            else:
+                self._print(f"  {self.RED}[FAILED]{self.RESET} {result.question_type}")
+                if result.error_message:
+                    error_preview = result.error_message[:100]
+                    if len(result.error_message) > 100:
+                        error_preview += "..."
+                    self._print(f"    Error: {error_preview}")
+
+        self._print("")
+
+    def final_status(self, success: bool) -> None:
+        """Print final status message.
+
+        Args:
+            success: Whether overall bootstrap succeeded
+        """
+        if success:
+            self._print(f"{self.GREEN}Bootstrap completed successfully!{self.RESET}")
+        else:
+            self._print(f"{self.YELLOW}Bootstrap completed with failures.{self.RESET}")
 
 
 class EventLogger:
@@ -178,6 +427,7 @@ class BootstrapInventory:
         config: BootstrapConfig,
         event_logger: EventLogger,
         logger: logging.Logger,
+        progress_reporter: Optional[ProgressReporter] = None,
     ):
         """Initialize the bootstrap process.
 
@@ -185,10 +435,12 @@ class BootstrapInventory:
             config: Bootstrap configuration
             event_logger: Event logger for structured logging
             logger: Python logger for console/file logging
+            progress_reporter: Optional progress reporter for terminal output
         """
         self.config = config
         self.event_logger = event_logger
         self.logger = logger
+        self.progress = progress_reporter or ProgressReporter(quiet=config.quiet)
         self.pipeline: Optional[QuestionGenerationPipeline] = None
         self.results: List[TypeResult] = []
 
@@ -812,28 +1064,15 @@ class BootstrapInventory:
             dry_run="yes" if self.config.dry_run else "no",
         )
 
-        # Print banner
-        print()
-        print("=" * 64)
-        print("       AIQ Question Inventory Bootstrap Script (Python)")
-        print("=" * 64)
-        print()
-        print("Configuration:")
-        print(f"  Questions per type: {self.config.questions_per_type}")
-        print(f"  Questions per difficulty: ~{self.config.questions_per_type // 3}")
-        print(f"  Types: {', '.join(self.config.types)}")
-        print("  Difficulties: easy, medium, hard (auto-distributed)")
-        print(f"  Total types: {len(self.config.types)}")
-        print(f"  Total strata: {len(self.config.types) * 3}")
-        print(
-            f"  Target total questions: {len(self.config.types) * self.config.questions_per_type}"
+        # Print banner via progress reporter
+        self.progress.banner(
+            questions_per_type=self.config.questions_per_type,
+            types=self.config.types,
+            max_retries=self.config.max_retries,
+            use_async=self.config.use_async,
+            use_batch=self.config.use_batch,
+            dry_run=self.config.dry_run,
         )
-        print(f"  Max retries per type: {self.config.max_retries}")
-        print(f"  Async mode: {'enabled' if self.config.use_async else 'disabled'}")
-        print(f"  Dry run: {'yes' if self.config.dry_run else 'no'}")
-        print()
-        print("=" * 64)
-        print()
 
         # Initialize pipeline
         try:
@@ -850,14 +1089,11 @@ class BootstrapInventory:
 
         # Check and log batch API availability
         if self.config.use_batch and self._supports_batch_api():
-            print("Batch API mode: ENABLED (Google provider detected)")
-            print()
+            self.progress.batch_mode_status(True, "Google provider detected")
         elif self.config.use_batch:
-            print("Batch API mode: DISABLED (Google provider not available)")
-            print()
+            self.progress.batch_mode_status(False, "Google provider not available")
         else:
-            print("Batch API mode: DISABLED (--no-batch flag)")
-            print()
+            self.progress.batch_mode_status(False, "--no-batch flag")
 
         # Use try-finally to ensure pipeline cleanup
         try:
@@ -866,75 +1102,51 @@ class BootstrapInventory:
             failed_types = 0
 
             for i, question_type in enumerate(self.config.types, 1):
-                print()
-                print(
-                    f"[{i}/{len(self.config.types)}] Generating {question_type} "
-                    f"({self.config.questions_per_type} questions)"
+                self.progress.type_start(
+                    i,
+                    len(self.config.types),
+                    question_type,
+                    self.config.questions_per_type,
                 )
-                print("-" * 60)
 
                 type_start = time.time()
                 result = await self._process_type_with_retries(question_type)
                 self.results.append(result)
 
                 type_duration = time.time() - type_start
-                print("-" * 60)
+
+                self.progress.type_complete(
+                    question_type, result.success, type_duration, result.generated
+                )
 
                 if result.success:
-                    print(
-                        f"✓ {question_type} completed successfully ({type_duration:.1f}s)"
-                    )
-                    print(f"  Generated: {result.generated} questions")
                     successful_types += 1
                 else:
-                    print(f"✗ {question_type} FAILED ({type_duration:.1f}s)")
                     if result.error_message:
-                        print(f"  Error: {result.error_message[:200]}")
+                        self.progress.type_error(result.error_message)
                     failed_types += 1
 
             # Calculate final stats
             total_duration = time.time() - start_time
-            total_minutes = int(total_duration) // 60
-            total_seconds = int(total_duration) % 60
 
-            # Print summary
-            print()
-            print("=" * 64)
-            print("                     BOOTSTRAP SUMMARY")
-            print("=" * 64)
-            print()
-            print("Results:")
-            print(f"  Successful types: {successful_types} / {len(self.config.types)}")
-            print(f"  Failed types: {failed_types}")
-            print(f"  Total duration: {total_minutes}m {total_seconds}s")
-            print()
-            print("Type Details:")
-
-            for result in self.results:
-                if result.success:
-                    print(
-                        f"  [OK] {result.question_type} - {result.generated} questions"
-                    )
-                else:
-                    print(f"  [FAILED] {result.question_type}")
-                    if result.error_message:
-                        # Truncate long error messages
-                        error_preview = result.error_message[:100]
-                        if len(result.error_message) > 100:
-                            error_preview += "..."
-                        print(f"    Error: {error_preview}")
-
-            print()
+            # Print summary via progress reporter
+            self.progress.summary(
+                successful_types=successful_types,
+                failed_types=failed_types,
+                total_types=len(self.config.types),
+                total_duration=total_duration,
+                results=self.results,
+            )
 
             # Determine exit code and log script end
             if failed_types > 0:
                 exit_code = EXIT_PARTIAL_FAILURE
                 status = "failed"
-                print("Bootstrap completed with failures.")
             else:
                 exit_code = EXIT_SUCCESS
                 status = "success"
-                print("Bootstrap completed successfully!")
+
+            self.progress.final_status(failed_types == 0)
 
             self.event_logger.log_event(
                 "script_end",
@@ -1030,6 +1242,13 @@ Examples:
         "-v",
         action="store_true",
         help="Enable verbose (DEBUG) logging",
+    )
+
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress terminal progress output (JSONL events still logged)",
     )
 
     return parser.parse_args()
@@ -1136,6 +1355,7 @@ async def main() -> int:
         use_async=not args.no_async,
         use_batch=not args.no_batch,
         max_retries=args.max_retries,
+        quiet=args.quiet,
     )
 
     # Create event logger
