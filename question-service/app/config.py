@@ -131,6 +131,19 @@ class Settings(BaseSettings):
             )
         return v
 
+    @field_validator("batch_generation_timeout")
+    @classmethod
+    def validate_batch_generation_timeout(cls, v: float) -> float:
+        """Validate batch_generation_timeout is within reasonable bounds."""
+        min_timeout = 60.0  # 1 minute minimum
+        max_timeout = 7200.0  # 2 hours maximum
+        if v < min_timeout or v > max_timeout:
+            raise ValueError(
+                f"batch_generation_timeout must be between {min_timeout} and "
+                f"{max_timeout} seconds, got {v}"
+            )
+        return v
+
     @model_validator(mode="after")
     def load_secrets_and_validate(self) -> Self:
         """Load secrets from secrets management backend and validate configuration.

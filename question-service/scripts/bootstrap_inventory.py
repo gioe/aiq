@@ -64,6 +64,11 @@ GENERATION_TIMEOUT_SECONDS = 300  # 5 minutes per type generation
 # ~3 API calls per question * 10000 = 30000 API calls max
 MAX_QUESTIONS_PER_TYPE = 10000
 
+# Batch API constants
+BATCH_PARSE_ERROR_THRESHOLD = 0.25  # Fail if >25% of responses fail to parse
+BATCH_TIMEOUT_BUFFER_RATIO = 0.10  # Add 10% buffer to batch timeout
+BATCH_TIMEOUT_BUFFER_MIN_SECONDS = 60  # Minimum timeout buffer in seconds
+
 
 class GenerationResult(TypedDict):
     """Result of generating questions for a single type."""
@@ -485,9 +490,10 @@ class BootstrapInventory:
         # This prevents silently returning partial data when most responses fail
         if total_successful > 0:
             parse_error_rate = total_parse_errors / total_successful
-            if parse_error_rate > 0.25:
+            if parse_error_rate > BATCH_PARSE_ERROR_THRESHOLD:
                 raise ValueError(
-                    f"Parse error rate {parse_error_rate:.1%} exceeds 25% threshold. "
+                    f"Parse error rate {parse_error_rate:.1%} exceeds "
+                    f"{BATCH_PARSE_ERROR_THRESHOLD:.0%} threshold. "
                     f"{total_parse_errors} of {total_successful} responses failed to parse."
                 )
 
@@ -679,7 +685,13 @@ class BootstrapInventory:
                         ),
                         # Use 10% buffer with minimum of 60s
                         timeout=settings.batch_generation_timeout
-                        + max(60, int(settings.batch_generation_timeout * 0.1)),
+                        + max(
+                            BATCH_TIMEOUT_BUFFER_MIN_SECONDS,
+                            int(
+                                settings.batch_generation_timeout
+                                * BATCH_TIMEOUT_BUFFER_RATIO
+                            ),
+                        ),
                     )
                 elif self.config.use_async:
                     # Add timeout protection for async generation
