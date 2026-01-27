@@ -156,6 +156,9 @@ class Question(Base):
     explanation: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
     )  # Optional explanation for the correct answer
+    stimulus: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )  # Content to memorize before answering (for memory questions)
     question_metadata: Mapped[Optional[Any]] = mapped_column(
         "metadata", JSON, nullable=True
     )  # Flexible field for additional data

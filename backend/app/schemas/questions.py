@@ -25,6 +25,9 @@ class QuestionResponse(BaseModel):
     explanation: Optional[str] = Field(
         None, description="Explanation for the correct answer (if available)"
     )
+    stimulus: Optional[str] = Field(
+        None, description="Content to memorize before answering (for memory questions)"
+    )
 
     @field_validator("id")
     @classmethod
