@@ -88,6 +88,9 @@ class QuestionModel(Base):
     question_embedding = Column(
         ARRAY(Float), nullable=True
     )  # TASK-433: Pre-computed embedding
+    stimulus = Column(
+        Text, nullable=True
+    )  # TASK-727: Content to memorize (memory questions)
 
 
 class DatabaseService:
@@ -225,6 +228,7 @@ class DatabaseService:
                 correct_answer=question.correct_answer,
                 answer_options=question.answer_options,
                 explanation=question.explanation,
+                stimulus=question.stimulus,  # TASK-727: Content to memorize
                 question_metadata=question.metadata,
                 source_llm=question.source_llm,
                 source_model=question.source_model,
@@ -296,6 +300,7 @@ class DatabaseService:
             correct_answer=question.correct_answer,
             answer_options=question.answer_options,
             explanation=question.explanation,
+            stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
             metadata=enriched_metadata,
             source_llm=question.source_llm,
             source_model=question.source_model,
@@ -351,6 +356,7 @@ class DatabaseService:
                     correct_answer=question.correct_answer,
                     answer_options=question.answer_options,
                     explanation=question.explanation,
+                    stimulus=question.stimulus,  # TASK-727: Content to memorize
                     question_metadata=question.metadata,
                     source_llm=question.source_llm,
                     source_model=question.source_model,
@@ -429,6 +435,7 @@ class DatabaseService:
                 correct_answer=question.correct_answer,
                 answer_options=question.answer_options,
                 explanation=question.explanation,
+                stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
                 metadata=enriched_metadata,
                 source_llm=question.source_llm,
                 source_model=question.source_model,
@@ -465,6 +472,7 @@ class DatabaseService:
                         "correct_answer": q.correct_answer,
                         "answer_options": q.answer_options,
                         "explanation": q.explanation,
+                        "stimulus": q.stimulus,  # TASK-727: Content to memorize
                         "metadata": q.question_metadata,  # TASK-445: Standardized key name
                         "source_llm": q.source_llm,
                         "source_model": q.source_model,
