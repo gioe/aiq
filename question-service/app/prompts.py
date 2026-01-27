@@ -181,20 +181,36 @@ Example types:
 """,
     QuestionType.MEMORY: """Generate a memory-based question that tests working memory and recall.
 
+CRITICAL: Memory questions MUST include a separate "stimulus" field containing the content to memorize.
+The app will display the stimulus first, then hide it before showing the question.
+
 Requirements:
-- Present information to be remembered (list, sequence, or passage)
-- Ask a question that requires recalling specific details
+- Provide a "stimulus" field with the content to memorize (list, sequence, passage, or pattern)
+- Provide a "question_text" field with the question to answer AFTER the stimulus is hidden
+- The question_text should NOT repeat the stimulus content
 - The memory load should be appropriate for the difficulty level
 - Provide 4-6 answer options
-- Include an explanation referencing the original information
+- Include an explanation referencing the original stimulus
+
+STRUCTURED FORMAT:
+- stimulus: The content the user must memorize (will be shown first, then hidden)
+- question_text: The question to answer after the stimulus is hidden (should NOT contain the stimulus)
 
 GOLD STANDARD EXAMPLE:
-Question: "MEMORIZE THIS LIST: maple, oak, dolphin, cherry, whale, birch, salmon. Which item from the list is a mammal that is NOT the fourth item?"
+stimulus: "maple, oak, dolphin, cherry, whale, birch, salmon"
+question_text: "Which item from the list is a mammal that is NOT the fourth item?"
 Options: ["dolphin", "whale", "salmon", "cherry", "oak"]
 Answer: "whale"
 Explanation: "The mammals in the list are dolphin and whale. The fourth item is cherry (not a mammal). Therefore, whale is the mammal that is not the fourth item."
 
-Quality notes: Tests both memory retention and logical reasoning, clear structure, appropriate cognitive load.
+Quality notes: Tests both memory retention and logical reasoning, stimulus is separate from question, appropriate cognitive load.
+
+ANOTHER EXAMPLE:
+stimulus: "The red house is next to the blue house. The green house is across from the yellow house. A doctor lives in the blue house."
+question_text: "Which house is next to the one where the doctor lives?"
+Options: ["red house", "green house", "yellow house", "blue house"]
+Answer: "red house"
+Explanation: "The doctor lives in the blue house, and the red house is next to the blue house."
 
 Example types:
 - List recall with logical constraint (remember items, then answer question requiring reasoning)
@@ -203,8 +219,9 @@ Example types:
 - Pattern memory (number/letter sequences to recall and identify)
 - Multi-step memory (remember, transform, recall)
 
-Note: For actual testing, there would be a delay between presentation and recall.
-For question generation, clearly separate the "presentation" and "question" parts.
+IMPORTANT: The stimulus field must contain ONLY the content to memorize.
+The question_text must be answerable only by someone who has memorized the stimulus.
+Do NOT embed the stimulus within the question_text.
 """,
 }
 
@@ -261,6 +278,10 @@ JSON_RESPONSE_FORMAT = {
             "type": "string",
             "description": "Detailed explanation of why the answer is correct",
         },
+        "stimulus": {
+            "type": "string",
+            "description": "Content to memorize before answering (required for memory questions only)",
+        },
     },
     "required": ["question_text", "correct_answer", "answer_options", "explanation"],
 }
@@ -297,6 +318,7 @@ For each question, provide:
 2. correct_answer: The correct answer (must be one of the answer_options)
 3. answer_options: An array of 4-6 options (must include correct_answer)
 4. explanation: A clear explanation of why the answer is correct
+{"5. stimulus: The content to memorize (REQUIRED for memory questions - this is shown first, then hidden before the question)" if question_type == QuestionType.MEMORY else ""}
 
 {"If generating multiple questions, return an array of question objects." if count > 1 else "Return a single question object."}
 """
@@ -466,7 +488,7 @@ Respond with valid JSON only:
     "question_text": "<your new question>",
     "correct_answer": "<the one correct answer>",
     "answer_options": ["<4-6 options including correct answer>"],
-    "explanation": "<clear explanation of why the answer is correct>"
+    "explanation": "<clear explanation of why the answer is correct>"{', "stimulus": "<content to memorize - REQUIRED for memory questions>"' if question_type == QuestionType.MEMORY else ""}
 }}
 """
 
