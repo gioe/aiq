@@ -43,6 +43,7 @@ class GeneratedQuestion(BaseModel):
         correct_answer: The correct answer
         answer_options: List of answer options for multiple choice (optional)
         explanation: Explanation of why the answer is correct (optional)
+        stimulus: Content to memorize before answering (for memory questions)
         metadata: Additional metadata about the question
         source_llm: Which LLM generated this question
         source_model: Specific model identifier
@@ -54,6 +55,7 @@ class GeneratedQuestion(BaseModel):
     correct_answer: str = Field(..., min_length=1)
     answer_options: Optional[List[str]] = None
     explanation: Optional[str] = None
+    stimulus: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
     source_llm: str = Field(..., min_length=1)  # "openai", "anthropic", "google"
     source_model: str = Field(..., min_length=1)  # Specific model name
@@ -83,6 +85,7 @@ class GeneratedQuestion(BaseModel):
             "correct_answer": self.correct_answer,
             "answer_options": self.answer_options,
             "explanation": self.explanation,
+            "stimulus": self.stimulus,
             "metadata": self.metadata,
             "source_llm": self.source_llm,
             "source_model": self.source_model,

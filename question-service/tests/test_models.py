@@ -92,6 +92,39 @@ class TestGeneratedQuestion:
         assert question.answer_options is None
         assert question.correct_answer == "Paris"
 
+    def test_memory_question_with_stimulus(self):
+        """Test creating a memory question with stimulus content."""
+        question = GeneratedQuestion(
+            question_text="What was the third word in the sequence?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="apple",
+            answer_options=["orange", "banana", "apple", "grape"],
+            stimulus="Remember this sequence: dog, cat, apple, house, tree",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        assert (
+            question.stimulus == "Remember this sequence: dog, cat, apple, house, tree"
+        )
+        assert question.question_type == QuestionType.MEMORY
+        assert question.correct_answer == "apple"
+
+    def test_question_without_stimulus(self):
+        """Test that stimulus is optional and defaults to None."""
+        question = GeneratedQuestion(
+            question_text="What is 2 + 2?",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="4",
+            answer_options=["2", "3", "4", "5"],
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        assert question.stimulus is None
+
     def test_to_dict(self):
         """Test converting question to dictionary."""
         question = GeneratedQuestion(
@@ -113,6 +146,25 @@ class TestGeneratedQuestion:
         assert result["difficulty_level"] == "easy"
         assert result["correct_answer"] == "4"
         assert len(result["answer_options"]) == 4
+        assert result["stimulus"] is None
+
+    def test_to_dict_with_stimulus(self):
+        """Test that to_dict includes stimulus field when present."""
+        question = GeneratedQuestion(
+            question_text="What was the second item in the list?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="banana",
+            answer_options=["apple", "banana", "cherry", "date"],
+            stimulus="Memorize: apple, banana, cherry",
+            source_llm="anthropic",
+            source_model="claude-3-5-sonnet",
+        )
+
+        result = question.to_dict()
+
+        assert result["stimulus"] == "Memorize: apple, banana, cherry"
+        assert result["question_type"] == "memory"
 
 
 class TestEvaluationScore:
@@ -130,8 +182,8 @@ class TestEvaluationScore:
             feedback="Good question overall",
         )
 
-        assert score.clarity_score == 0.9
-        assert score.overall_score == 0.84
+        assert score.clarity_score == pytest.approx(0.9)
+        assert score.overall_score == pytest.approx(0.84)
         assert score.feedback == "Good question overall"
 
     def test_score_bounds(self):
