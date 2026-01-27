@@ -496,3 +496,299 @@ class TestQuestionTypeMapping:
         MockQuestionModel.assert_called_once()
         call_kwargs = MockQuestionModel.call_args[1]
         assert call_kwargs["question_type"] == "pattern"
+
+
+class TestStimulusFieldHandling:
+    """Tests for stimulus field handling in database operations (TASK-728)."""
+
+    @pytest.fixture
+    def memory_question_with_stimulus(self):
+        """Create a memory question with stimulus content."""
+        return GeneratedQuestion(
+            question_text="What was the third item in the list?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="apple",
+            answer_options=["dog", "cat", "apple", "house"],
+            explanation="Apple was the third item in the memorized list.",
+            stimulus="Remember this sequence: dog, cat, apple, house, tree",
+            metadata={"memory_type": "sequence_recall"},
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+    @pytest.fixture
+    def question_without_stimulus(self):
+        """Create a question without stimulus (non-memory type)."""
+        return GeneratedQuestion(
+            question_text="What is 2 + 2?",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="4",
+            answer_options=["2", "3", "4", "5"],
+            explanation="Basic addition",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_insert_question_with_stimulus(
+        self, mock_sessionmaker, mock_create_engine, memory_question_with_stimulus
+    ):
+        """Test that stimulus field is properly inserted when present."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock()
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 100
+            MockQuestionModel.return_value = mock_instance
+
+            service.insert_question(memory_question_with_stimulus)
+
+            # Verify stimulus was passed to QuestionModel
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert (
+                call_kwargs["stimulus"]
+                == "Remember this sequence: dog, cat, apple, house, tree"
+            )
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_insert_question_without_stimulus(
+        self, mock_sessionmaker, mock_create_engine, question_without_stimulus
+    ):
+        """Test that stimulus field is None when not provided."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock()
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 101
+            MockQuestionModel.return_value = mock_instance
+
+            service.insert_question(question_without_stimulus)
+
+            # Verify stimulus is None
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert call_kwargs["stimulus"] is None
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_insert_evaluated_question_preserves_stimulus(
+        self, mock_sessionmaker, mock_create_engine, memory_question_with_stimulus
+    ):
+        """Test that stimulus is preserved when inserting evaluated questions."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        evaluation = EvaluationScore(
+            clarity_score=0.9,
+            difficulty_score=0.8,
+            validity_score=0.85,
+            formatting_score=0.95,
+            creativity_score=0.7,
+            overall_score=0.84,
+            feedback="Good memory question",
+        )
+
+        evaluated_question = EvaluatedQuestion(
+            question=memory_question_with_stimulus,
+            evaluation=evaluation,
+            judge_model="openai/gpt-4",
+            approved=True,
+        )
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock()
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 102
+            MockQuestionModel.return_value = mock_instance
+
+            service.insert_evaluated_question(evaluated_question)
+
+            # Verify stimulus was preserved through the evaluation pipeline
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert (
+                call_kwargs["stimulus"]
+                == "Remember this sequence: dog, cat, apple, house, tree"
+            )
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_insert_questions_batch_with_stimulus(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test batch insertion handles questions with and without stimulus."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        questions = [
+            GeneratedQuestion(
+                question_text="What was the second word?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="banana",
+                answer_options=["apple", "banana", "cherry", "date"],
+                explanation="Banana was second",
+                stimulus="Memorize: apple, banana, cherry",
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+            GeneratedQuestion(
+                question_text="What is 3 * 3?",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="9",
+                answer_options=["6", "9", "12", "15"],
+                explanation="3 times 3 equals 9",
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+        ]
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.new = []
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        captured_questions = []
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+
+            def capture_model_call(**kwargs):
+                captured_questions.append(kwargs)
+                mock_instance = Mock()
+                mock_instance.id = len(captured_questions)
+                return mock_instance
+
+            MockQuestionModel.side_effect = capture_model_call
+
+            service.insert_questions_batch(questions)
+
+            # Verify both questions were created with correct stimulus values
+            assert len(captured_questions) == 2
+            assert (
+                captured_questions[0]["stimulus"] == "Memorize: apple, banana, cherry"
+            )
+            assert captured_questions[1]["stimulus"] is None
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_insert_evaluated_questions_batch_preserves_stimulus(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test batch insertion of evaluated questions preserves stimulus."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        evaluated_questions = [
+            EvaluatedQuestion(
+                question=GeneratedQuestion(
+                    question_text="What was the first color?",
+                    question_type=QuestionType.MEMORY,
+                    difficulty_level=DifficultyLevel.EASY,
+                    correct_answer="red",
+                    answer_options=["red", "blue", "green", "yellow"],
+                    explanation="Red was first",
+                    stimulus="Colors: red, blue, green",
+                    source_llm="anthropic",
+                    source_model="claude-3-sonnet",
+                ),
+                evaluation=EvaluationScore(
+                    clarity_score=0.9,
+                    difficulty_score=0.7,
+                    validity_score=0.85,
+                    formatting_score=0.95,
+                    creativity_score=0.8,
+                    overall_score=0.85,
+                ),
+                judge_model="openai/gpt-4",
+                approved=True,
+            ),
+        ]
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.new = []
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 200
+            MockQuestionModel.return_value = mock_instance
+
+            service.insert_evaluated_questions_batch(evaluated_questions)
+
+            # Verify stimulus was preserved
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert call_kwargs["stimulus"] == "Colors: red, blue, green"
+
+    @patch("app.database.create_engine")
+    @patch("app.database.sessionmaker")
+    def test_get_all_questions_includes_stimulus(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test that get_all_questions returns stimulus field."""
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+
+        mock_session = Mock(spec=Session)
+        mock_query = Mock()
+
+        # Create mock question with stimulus
+        mock_questions = [
+            Mock(
+                id=1,
+                question_text="What was the third item?",
+                question_type="memory",
+                difficulty_level="medium",
+                correct_answer="apple",
+                answer_options=["dog", "cat", "apple", "house"],
+                explanation="Apple was third",
+                stimulus="Sequence: dog, cat, apple, house",
+                question_metadata={"memory_type": "sequence"},
+                source_llm="openai",
+                source_model="gpt-4",
+                judge_score=0.85,
+                prompt_version="2.0",
+                created_at="2024-01-01",
+                is_active=True,
+                question_embedding=None,
+            ),
+        ]
+
+        mock_query.all.return_value = mock_questions
+        mock_session.query.return_value = mock_query
+
+        service.get_session = Mock(return_value=mock_session)
+        service.close_session = Mock()
+
+        questions = service.get_all_questions()
+
+        assert len(questions) == 1
+        assert questions[0]["stimulus"] == "Sequence: dog, cat, apple, house"
