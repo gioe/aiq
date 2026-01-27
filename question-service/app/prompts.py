@@ -33,6 +33,8 @@ KEY REQUIREMENTS:
 ✓ Concise question text (ideally under 300 characters for mobile readability)
 ✓ High-quality distractors that test understanding, not just guessing
 ✓ Clear, pedagogical explanations
+✓ EXACTLY ONE correct answer in the answer_options - all other options must be definitively wrong
+✓ The correct_answer must appear exactly once in answer_options
 
 ANTI-PATTERNS TO AVOID:
 ✗ Ambiguous wording or multiple valid interpretations
@@ -42,6 +44,8 @@ ANTI-PATTERNS TO AVOID:
 ✗ Distractors that are obviously wrong or random numbers/letters
 ✗ Questions found in common IQ test prep materials
 ✗ Content that could be easily memorized and recognized on retesting
+✗ Multiple correct or arguably correct answers in the options
+✗ Answer options where more than one could be defended as correct
 """
 
 # Question type-specific generation prompts

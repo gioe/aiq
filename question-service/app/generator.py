@@ -54,7 +54,7 @@ class QuestionGenerator:
         xai_api_key: Optional[str] = None,
         openai_model: str = "gpt-4-turbo-preview",
         anthropic_model: str = "claude-sonnet-4-5",
-        google_model: str = "gemini-pro",
+        google_model: str = "gemini-3-pro-preview",
         xai_model: str = "grok-4",
         circuit_breaker_registry: Optional[CircuitBreakerRegistry] = None,
         max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS,
@@ -736,11 +736,17 @@ class QuestionGenerator:
         use_specialist_routing: bool = True,
         temperature: float = 0.8,
         max_tokens: int = 1500,
+        use_single_call: bool = True,
     ) -> GenerationBatch:
-        """Generate a batch of questions asynchronously in parallel.
+        """Generate a batch of questions asynchronously.
 
-        This method generates all questions concurrently using asyncio.gather,
-        significantly reducing total generation time compared to sequential calls.
+        When use_single_call=True and using a single provider (specialist or fallback),
+        this method makes one API call requesting multiple questions. This is more
+        efficient and produces more diverse questions than parallel calls with identical
+        prompts.
+
+        When distributing across multiple providers or use_single_call=False, it uses
+        parallel async calls.
 
         Args:
             question_type: Type of questions to generate
@@ -752,6 +758,8 @@ class QuestionGenerator:
                 question type based on generators.yaml config
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
+            use_single_call: If True and using single provider, request all questions
+                in one API call for better diversity (default: True)
 
         Returns:
             Batch of generated questions
@@ -783,6 +791,82 @@ class QuestionGenerator:
                     is_specialist=True,
                 )
 
+        # Determine if we should use single-call batch generation
+        # This is more efficient when all questions go to the same provider
+        use_single_call_batch = False
+        single_call_provider = None
+        single_call_model = None
+
+        if use_single_call:
+            if specialist_provider:
+                use_single_call_batch = True
+                single_call_provider = specialist_provider
+                single_call_model = specialist_model
+            elif not (distribute_across_providers and len(self.providers) > 1):
+                # Using single fallback provider
+                selected_provider = self._get_available_provider()
+                if selected_provider:
+                    use_single_call_batch = True
+                    single_call_provider = selected_provider
+
+        # Use single-call batch generation for better diversity
+        if use_single_call_batch and single_call_provider:
+            logger.info(
+                f"Generating batch of {count} {question_type.value} questions "
+                f"at {difficulty.value} difficulty (single-call mode)"
+            )
+
+            try:
+                batch_questions = await self.generate_batch_single_call_async(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    provider_name=single_call_provider,
+                    model_override=single_call_model,
+                    temperature=temperature,
+                    max_tokens=max_tokens * 2,  # More tokens for batch response
+                )
+
+                # Get circuit breaker states for metadata
+                circuit_breaker_stats = self._circuit_breaker_registry.get_all_stats()
+
+                batch = GenerationBatch(
+                    questions=batch_questions,
+                    question_type=question_type,
+                    batch_size=count,
+                    generation_timestamp=datetime.now(timezone.utc).isoformat(),
+                    metadata={
+                        "target_difficulty": difficulty.value,
+                        "providers_used": [single_call_provider],
+                        "success_rate": (
+                            len(batch_questions) / count if count > 0 else 0.0
+                        ),
+                        "failed_questions": count - len(batch_questions),
+                        "circuit_breaker_states": {
+                            name: stats["state"]
+                            for name, stats in circuit_breaker_stats.items()
+                        },
+                        "async": True,
+                        "single_call": True,
+                        "specialist_routing": specialist_provider is not None,
+                        "specialist_provider": specialist_provider,
+                    },
+                )
+
+                logger.info(
+                    f"Single-call batch generation complete: "
+                    f"{len(batch_questions)}/{count} questions successfully generated"
+                )
+
+                return batch
+
+            except Exception as e:
+                logger.warning(
+                    f"Single-call batch failed, falling back to parallel: {e}"
+                )
+                # Fall through to parallel generation
+
+        # Parallel generation (fallback or when distributing across providers)
         logger.info(
             f"Generating batch of {count} {question_type.value} questions "
             f"at {difficulty.value} difficulty (async parallel)"
@@ -1027,6 +1111,178 @@ class QuestionGenerator:
             logger.error(f"Failed to parse generated response: {str(e)}")
             logger.debug(f"Response was: {json.dumps(response, indent=2)}")
             raise ValueError(f"Invalid question response: {str(e)}") from e
+
+    def _parse_batch_response(
+        self,
+        response: Any,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        provider_name: str,
+        model: str,
+    ) -> List[GeneratedQuestion]:
+        """Parse LLM response containing multiple questions into list of GeneratedQuestion objects.
+
+        Args:
+            response: Raw JSON response from LLM (can be list or single object)
+            question_type: Type of question
+            difficulty: Difficulty level
+            provider_name: Provider name
+            model: Model identifier
+
+        Returns:
+            List of parsed GeneratedQuestion objects
+
+        Raises:
+            ValueError: If response is invalid or missing required fields
+        """
+        questions: List[GeneratedQuestion] = []
+
+        # Handle both single object and array responses
+        if isinstance(response, list):
+            items = response
+        elif isinstance(response, dict):
+            # Check if it's wrapped in a "questions" key
+            if "questions" in response and isinstance(response["questions"], list):
+                items = response["questions"]
+            else:
+                # Single question response
+                items = [response]
+        else:
+            raise ValueError(f"Unexpected response type: {type(response)}")
+
+        for i, item in enumerate(items):
+            try:
+                question = self._parse_generated_response(
+                    response=item,
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    provider_name=provider_name,
+                    model=model,
+                )
+                questions.append(question)
+            except ValueError as e:
+                logger.warning(f"Failed to parse question {i+1} in batch: {e}")
+                continue
+
+        return questions
+
+    async def generate_batch_single_call_async(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        count: int,
+        provider_name: str,
+        model_override: Optional[str] = None,
+        temperature: float = 0.8,
+        max_tokens: int = 3000,
+        timeout: Optional[float] = None,
+    ) -> List[GeneratedQuestion]:
+        """Generate multiple questions in a single API call.
+
+        This method is more efficient than parallel calls when using a single provider,
+        as it allows the model to generate diverse questions in one request.
+
+        Args:
+            question_type: Type of questions to generate
+            difficulty: Difficulty level
+            count: Number of questions to generate
+            provider_name: Provider to use
+            model_override: Optional model override
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens (should be higher for batch)
+            timeout: Timeout in seconds
+
+        Returns:
+            List of generated questions
+
+        Raises:
+            ValueError: If provider not available
+            CircuitBreakerOpen: If circuit breaker is open
+            asyncio.TimeoutError: If request times out
+        """
+        if provider_name not in self.providers:
+            raise ValueError(
+                f"Provider '{provider_name}' not available. "
+                f"Available: {list(self.providers.keys())}"
+            )
+
+        provider = self.providers[provider_name]
+        circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
+        actual_model = model_override or provider.model
+        effective_timeout = (
+            timeout if timeout is not None else self._async_timeout * 2
+        )  # More time for batch
+
+        logger.info(
+            f"Generating batch of {count} {question_type.value} questions "
+            f"in single call using {provider_name}"
+            + (f" with model {model_override}" if model_override else "")
+        )
+
+        # Build prompt requesting multiple questions
+        prompt = build_generation_prompt(question_type, difficulty, count=count)
+
+        start_time = time.perf_counter()
+        completion_result = None
+
+        async def _do_batch_generation() -> Any:
+            nonlocal completion_result
+            async with self._rate_limiter:
+                completion_result = await asyncio.wait_for(
+                    provider.generate_structured_completion_with_usage_async(
+                        prompt=prompt,
+                        response_format={},
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        model_override=model_override,
+                    ),
+                    timeout=effective_timeout,
+                )
+                return completion_result.content
+
+        try:
+            response = await circuit_breaker.execute_async(_do_batch_generation)
+            latency = time.perf_counter() - start_time
+
+            # Record metrics
+            metrics = get_metrics_tracker()
+            question_type_str = question_type.value
+            metrics.record_question_latency(question_type_str, latency)
+
+            if completion_result and completion_result.token_usage:
+                cost = calculate_cost(completion_result.token_usage)
+                metrics.record_question_cost(question_type_str, cost)
+
+            # Parse batch response
+            questions = self._parse_batch_response(
+                response=response,
+                question_type=question_type,
+                difficulty=difficulty,
+                provider_name=provider_name,
+                model=actual_model,
+            )
+
+            logger.info(
+                f"Single-call batch complete: {len(questions)}/{count} questions "
+                f"parsed successfully in {latency:.2f}s"
+            )
+            return questions
+
+        except CircuitBreakerOpen:
+            logger.warning(
+                f"Circuit breaker is open for {provider_name}, "
+                f"cannot generate batch (single call)"
+            )
+            raise
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Timeout generating batch with {provider_name} "
+                f"after {effective_timeout}s"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to generate batch with {provider_name}: {str(e)}")
+            raise
 
     def get_available_providers(self) -> List[str]:
         """Get list of available provider names.

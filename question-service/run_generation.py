@@ -46,7 +46,7 @@ from app.alerting import (  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
 from app.metrics import MetricsTracker  # noqa: E402
-from app.models import QuestionType  # noqa: E402
+from app.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporter import RunReporter  # noqa: E402
 
 # Exit codes
@@ -105,6 +105,283 @@ def write_heartbeat(
     print(f"HEARTBEAT: {json.dumps(data)}", flush=True)
 
 
+def log_rejection_details(
+    evaluated_question,
+    logger: logging.Logger,
+    index: Optional[int] = None,
+) -> None:
+    """Log detailed rejection information for a question.
+
+    Args:
+        evaluated_question: The EvaluatedQuestion that was rejected
+        logger: Logger instance to use
+        index: Optional question index for context
+    """
+    eval_scores = evaluated_question.evaluation
+    question = evaluated_question.question
+
+    # Truncate question text for display
+    question_text = question.question_text
+    if len(question_text) > 80:
+        question_text = question_text[:77] + "..."
+
+    prefix = f"[{index}] " if index is not None else ""
+
+    logger.info(
+        f"  {prefix}✗ REJECTED (score: {eval_scores.overall_score:.2f}) - "
+        f"{question.question_type.value}/{question.difficulty_level.value}"
+    )
+    logger.info(f"    Question: {question_text}")
+    logger.info(
+        f"    Scores: clarity={eval_scores.clarity_score:.2f}, "
+        f"difficulty={eval_scores.difficulty_score:.2f}, "
+        f"validity={eval_scores.validity_score:.2f}, "
+        f"formatting={eval_scores.formatting_score:.2f}, "
+        f"creativity={eval_scores.creativity_score:.2f}"
+    )
+    if eval_scores.feedback:
+        logger.info(f"    Feedback: {eval_scores.feedback}")
+
+
+def dedupe_within_batch(
+    questions: list,
+    similarity_threshold: float = 0.85,
+) -> list:
+    """Remove near-duplicate questions within a batch before judge evaluation.
+
+    Uses simple text similarity to identify questions that are too similar,
+    saving API calls to the judge for redundant questions.
+
+    Args:
+        questions: List of GeneratedQuestion objects
+        similarity_threshold: Similarity ratio above which questions are considered duplicates
+
+    Returns:
+        Filtered list with duplicates removed (keeps first occurrence)
+    """
+    from difflib import SequenceMatcher
+
+    if len(questions) <= 1:
+        return questions
+
+    unique_questions = []
+    seen_texts = []
+
+    for question in questions:
+        question_text = question.question_text.lower().strip()
+
+        # Check similarity against all previously seen questions
+        is_duplicate = False
+        for seen_text in seen_texts:
+            similarity = SequenceMatcher(None, question_text, seen_text).ratio()
+            if similarity >= similarity_threshold:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            unique_questions.append(question)
+            seen_texts.append(question_text)
+
+    return unique_questions
+
+
+def attempt_answer_repair(
+    evaluated_question,
+    logger: logging.Logger,
+) -> Optional[tuple]:
+    """Attempt to repair a question with an incorrect answer key.
+
+    Parses judge feedback to find the suggested correct answer and repairs
+    the question if possible.
+
+    Args:
+        evaluated_question: The EvaluatedQuestion that was rejected
+        logger: Logger instance
+
+    Returns:
+        Tuple of (repaired_question, repair_reason) if repairable, None otherwise
+    """
+    import re
+
+    feedback = evaluated_question.evaluation.feedback
+    if not feedback:
+        return None
+
+    question = evaluated_question.question
+    answer_options = question.answer_options
+
+    # Patterns that indicate wrong answer with suggested fix
+    patterns = [
+        r"answer should be ['\"]?([^'\",.]+)['\"]?",
+        r"correct answer should be ['\"]?([^'\",.]+)['\"]?",
+        r"actual answer should be ['\"]?([^'\",.]+)['\"]?",
+        r"should be ['\"]?([^'\",.]+)['\"]? \(?(?:not|instead)",
+        r"the actual answer is ['\"]?([^'\",.]+)['\"]?",
+        r"correct answer is ['\"]?([^'\",.]+)['\"]?[^I]",  # Avoid "correct answer is INCORRECT"
+        r"proper (?:answer|parallel)[^:]*[:is]+\s*['\"]?([^'\",.]+)['\"]?",
+        r"better answer (?:would be|is) ['\"]?([^'\",.]+)['\"]?",
+        r"more (?:valid|correct|appropriate) answer[^:]*[:is]+\s*['\"]?([^'\",.]+)['\"]?",
+    ]
+
+    suggested_answer = None
+    for pattern in patterns:
+        match = re.search(pattern, feedback, re.IGNORECASE)
+        if match:
+            suggested_answer = match.group(1).strip()
+            break
+
+    if not suggested_answer:
+        return None
+
+    # Check if suggested answer is in options (case-insensitive match)
+    matching_option = None
+    for option in answer_options:
+        if option.lower() == suggested_answer.lower():
+            matching_option = option
+            break
+        # Partial match for cases like "Horoscope" matching "Horoscope"
+        if (
+            suggested_answer.lower() in option.lower()
+            or option.lower() in suggested_answer.lower()
+        ):
+            matching_option = option
+            break
+
+    if not matching_option:
+        logger.debug(
+            f"Could not find suggested answer '{suggested_answer}' in options: {answer_options}"
+        )
+        return None
+
+    if matching_option == question.correct_answer:
+        # Already correct, nothing to fix
+        return None
+
+    # Create repaired question by updating correct_answer
+    from app.models import GeneratedQuestion
+
+    repaired = GeneratedQuestion(
+        question_text=question.question_text,
+        question_type=question.question_type,
+        difficulty_level=question.difficulty_level,
+        correct_answer=matching_option,
+        answer_options=question.answer_options,
+        explanation=question.explanation,
+        metadata={
+            **question.metadata,
+            "repaired": True,
+            "original_answer": question.correct_answer,
+        },
+        source_llm=question.source_llm,
+        source_model=question.source_model,
+    )
+
+    reason = f"Fixed answer from '{question.correct_answer}' to '{matching_option}'"
+    return (repaired, reason)
+
+
+def attempt_difficulty_reclassification(
+    evaluated_question,
+    logger: logging.Logger,
+) -> Optional[tuple]:
+    """Attempt to reclassify a question to a more appropriate difficulty.
+
+    If a question was rejected primarily for difficulty mismatch (too easy/hard),
+    reclassify it to the appropriate level instead of discarding.
+
+    Args:
+        evaluated_question: The EvaluatedQuestion that was rejected
+        logger: Logger instance
+
+    Returns:
+        Tuple of (reclassified_question, new_difficulty, reason) if reclassifiable, None otherwise
+    """
+    from app.models import DifficultyLevel, GeneratedQuestion
+
+    feedback = evaluated_question.evaluation.feedback
+    eval_scores = evaluated_question.evaluation
+    question = evaluated_question.question
+
+    if not feedback:
+        return None
+
+    # Only reclassify if other scores are acceptable (validity, clarity, formatting >= 0.6)
+    if eval_scores.validity_score < 0.6:
+        return None
+    if eval_scores.clarity_score < 0.6:
+        return None
+    if eval_scores.formatting_score < 0.6:
+        return None
+
+    feedback_lower = feedback.lower()
+    current_difficulty = question.difficulty_level
+
+    # Detect "too easy" patterns
+    too_easy_patterns = [
+        "too easy",
+        "easier than",
+        "success rate 70",
+        "success rate 80",
+        "easy range",
+        "straightforward",
+        "most test-takers will quickly",
+    ]
+
+    # Detect "too hard" patterns
+    too_hard_patterns = [
+        "too hard",
+        "too difficult",
+        "harder than",
+        "success rate 10",
+        "success rate 5",
+        "hard range",
+        "extremely challenging",
+    ]
+
+    new_difficulty = None
+    reason = None
+
+    # Check if too easy
+    if any(pattern in feedback_lower for pattern in too_easy_patterns):
+        if current_difficulty == DifficultyLevel.MEDIUM:
+            new_difficulty = DifficultyLevel.EASY
+            reason = "Reclassified from medium to easy (judge found it too easy)"
+        elif current_difficulty == DifficultyLevel.HARD:
+            new_difficulty = DifficultyLevel.MEDIUM
+            reason = "Reclassified from hard to medium (judge found it too easy)"
+
+    # Check if too hard
+    elif any(pattern in feedback_lower for pattern in too_hard_patterns):
+        if current_difficulty == DifficultyLevel.EASY:
+            new_difficulty = DifficultyLevel.MEDIUM
+            reason = "Reclassified from easy to medium (judge found it too hard)"
+        elif current_difficulty == DifficultyLevel.MEDIUM:
+            new_difficulty = DifficultyLevel.HARD
+            reason = "Reclassified from medium to hard (judge found it too hard)"
+
+    if not new_difficulty:
+        return None
+
+    # Create reclassified question
+    reclassified = GeneratedQuestion(
+        question_text=question.question_text,
+        question_type=question.question_type,
+        difficulty_level=new_difficulty,
+        correct_answer=question.correct_answer,
+        answer_options=question.answer_options,
+        explanation=question.explanation,
+        metadata={
+            **question.metadata,
+            "reclassified": True,
+            "original_difficulty": current_difficulty.value,
+        },
+        source_llm=question.source_llm,
+        source_model=question.source_model,
+    )
+
+    return (reclassified, new_difficulty, reason)
+
+
 def log_success_run(
     stats: dict,
     inserted_count: int,
@@ -161,6 +438,12 @@ Examples:
   # Generate only math and logic questions
   python run_generation.py --types math logic
 
+  # Generate only hard questions
+  python run_generation.py --difficulties hard
+
+  # Generate only easy and medium math questions
+  python run_generation.py --types math --difficulties easy medium
+
   # Dry run (generate but don't insert to database)
   python run_generation.py --dry-run
 
@@ -197,6 +480,14 @@ Examples:
         choices=[qt.value for qt in QuestionType],
         default=None,
         help="Question types to generate (default: all types)",
+    )
+
+    parser.add_argument(
+        "--difficulties",
+        nargs="+",
+        choices=[dl.value for dl in DifficultyLevel],
+        default=None,
+        help="Difficulty levels to generate (default: all levels)",
     )
 
     parser.add_argument(
@@ -401,7 +692,7 @@ def main() -> int:
     logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
     logger.info(
         f"Configuration: count={args.count or settings.questions_per_run}, "
-        f"types={args.types or 'all'}"
+        f"types={args.types or 'all'}, difficulties={args.difficulties or 'all'}"
     )
     logger.info(f"Dry run: {args.dry_run}")
     logger.info("=" * 80)
@@ -437,7 +728,18 @@ def main() -> int:
         question_types = None
         if args.types:
             question_types = [QuestionType(qt) for qt in args.types]
-            logger.info(f"Generating only: {[qt.value for qt in question_types]}")
+            logger.info(f"Generating only types: {[qt.value for qt in question_types]}")
+
+        # Parse difficulty levels
+        difficulty_distribution = None
+        if args.difficulties:
+            difficulties = [DifficultyLevel(d) for d in args.difficulties]
+            # Equal distribution across selected difficulties
+            weight = 1.0 / len(difficulties)
+            difficulty_distribution = {d: weight for d in difficulties}
+            logger.info(
+                f"Generating only difficulties: {[d.value for d in difficulties]}"
+            )
 
         # Initialize pipeline components
         logger.info("Initializing pipeline components...")
@@ -710,6 +1012,7 @@ def main() -> int:
                     return await pipeline.run_generation_job_async(
                         questions_per_run=args.count,
                         question_types=question_types,
+                        difficulty_distribution=difficulty_distribution,
                     )
                 finally:
                     await pipeline.cleanup()
@@ -719,6 +1022,7 @@ def main() -> int:
             job_result = pipeline.run_generation_job(
                 questions_per_run=args.count,
                 question_types=question_types,
+                difficulty_distribution=difficulty_distribution,
             )
 
         stats = job_result["statistics"]
@@ -731,6 +1035,17 @@ def main() -> int:
         logger.info(f"Duration: {stats['duration_seconds']:.1f}s")
 
         # Note: Generation metrics are already tracked by the pipeline internally
+
+        # Within-batch deduplication to remove near-identical questions before judge
+        if generated_questions and len(generated_questions) > 1:
+            original_count = len(generated_questions)
+            generated_questions = dedupe_within_batch(generated_questions)
+            dupes_removed = original_count - len(generated_questions)
+            if dupes_removed > 0:
+                logger.info(
+                    f"Within-batch dedup: Removed {dupes_removed} near-duplicate questions "
+                    f"({len(generated_questions)} unique remaining)"
+                )
 
         if not generated_questions:
             logger.error("No questions generated!")
@@ -801,9 +1116,7 @@ def main() -> int:
                     )
                 else:
                     rejected_questions.append(evaluated_question)
-                    logger.info(
-                        f"  ✗ REJECTED (score: {evaluated_question.evaluation.overall_score:.2f})"
-                    )
+                    log_rejection_details(evaluated_question, logger)
 
                 # Record evaluation metrics
                 metrics.record_evaluation_success(
@@ -827,12 +1140,8 @@ def main() -> int:
                             f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                         )
                     else:
-                        rejected_questions.append(
-                            evaluated_question
-                        )  # Also store rejected with scores for metrics
-                        logger.info(
-                            f"  ✗ REJECTED (score: {evaluated_question.evaluation.overall_score:.2f})"
-                        )
+                        rejected_questions.append(evaluated_question)
+                        log_rejection_details(evaluated_question, logger, index=i)
 
                     # Record evaluation metrics
                     metrics.record_evaluation_success(
@@ -853,6 +1162,77 @@ def main() -> int:
             f"({approval_rate:.1f}%)"
         )
         logger.info(f"Rejected: {len(rejected_questions)}")
+
+        # Salvage phase: attempt to repair or reclassify rejected questions
+        if rejected_questions:
+            logger.info("\n" + "-" * 40)
+            logger.info("SALVAGE PHASE: Attempting to recover rejected questions")
+            logger.info("-" * 40)
+
+            salvaged_questions = []
+            still_rejected = []
+
+            for rejected in rejected_questions:
+                # Try answer repair first
+                repair_result = attempt_answer_repair(rejected, logger)
+                if repair_result:
+                    repaired_question, reason = repair_result
+                    salvaged_questions.append(repaired_question)
+                    logger.info(f"  ✓ REPAIRED: {reason}")
+                    logger.info(
+                        f"    Question: {repaired_question.question_text[:60]}..."
+                    )
+                    continue
+
+                # Try difficulty reclassification
+                reclass_result = attempt_difficulty_reclassification(rejected, logger)
+                if reclass_result:
+                    reclassified_question, new_difficulty, reason = reclass_result
+                    salvaged_questions.append(reclassified_question)
+                    logger.info(f"  ✓ RECLASSIFIED: {reason}")
+                    logger.info(
+                        f"    Question: {reclassified_question.question_text[:60]}..."
+                    )
+                    continue
+
+                # Could not salvage
+                still_rejected.append(rejected)
+
+            if salvaged_questions:
+                logger.info(
+                    f"\nSalvaged: {len(salvaged_questions)} questions "
+                    f"(still rejected: {len(still_rejected)})"
+                )
+                # Add salvaged questions to approved list (as GeneratedQuestion, not EvaluatedQuestion)
+                # We wrap them in a simple container that has .question attribute for compatibility
+                for sq in salvaged_questions:
+                    # Create a minimal wrapper to match EvaluatedQuestion interface
+                    from app.models import EvaluatedQuestion, EvaluationScore
+
+                    salvaged_eval = EvaluatedQuestion(
+                        question=sq,
+                        evaluation=EvaluationScore(
+                            clarity_score=0.8,
+                            difficulty_score=0.8,
+                            validity_score=0.8,
+                            formatting_score=0.8,
+                            creativity_score=0.6,
+                            overall_score=0.75,
+                            feedback="Salvaged question (repaired or reclassified)",
+                        ),
+                        judge_model="salvage",
+                        approved=True,
+                    )
+                    approved_questions.append(salvaged_eval)
+
+                # Update stats
+                approval_rate = len(approved_questions) / len(generated_questions) * 100
+                logger.info(
+                    f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
+                    f"({approval_rate:.1f}%)"
+                )
+            else:
+                logger.info("No questions could be salvaged")
 
         if not approved_questions:
             logger.warning("No questions passed judge evaluation!")
