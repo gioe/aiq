@@ -727,15 +727,24 @@ class GoogleProvider(BaseLLMProvider):
             return result
 
         if batch_job.dest and batch_job.dest.inlined_responses:
-            for inline_response in batch_job.dest.inlined_responses:
+            for idx, inline_response in enumerate(batch_job.dest.inlined_responses):
                 result.total_requests += 1
                 if inline_response.response:
                     try:
                         text = inline_response.response.text
-                        result.responses.append(
-                            {"text": text, "key": inline_response.key}
-                        )
-                        result.successful_requests += 1
+                        # Use iteration index as key since Google's API doesn't return
+                        # the request key in the response. Responses are in request order.
+                        if text:
+                            result.responses.append(
+                                {"text": text, "key": f"request-{idx}"}
+                            )
+                            result.successful_requests += 1
+                        else:
+                            # Response exists but text is empty/None
+                            result.errors.append(
+                                f"Response {idx} has empty text (response exists but no content)"
+                            )
+                            result.failed_requests += 1
                     except Exception as e:
                         result.errors.append(f"Error extracting response: {str(e)}")
                         result.failed_requests += 1

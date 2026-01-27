@@ -1413,6 +1413,10 @@ class BootstrapInventory:
                     text = response_dict.get("text", "")
                     if not text:
                         total_parse_errors += 1
+                        self.logger.warning(
+                            f"Empty or None text in response {key}: "
+                            f"text={repr(text)}"
+                        )
                         continue
 
                     # Parse the JSON response
