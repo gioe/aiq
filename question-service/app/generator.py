@@ -1338,6 +1338,156 @@ class QuestionGenerator:
             self._circuit_breaker_registry.reset_all()
             logger.info("Reset all circuit breakers")
 
+    async def regenerate_question_with_feedback_async(
+        self,
+        original_question: GeneratedQuestion,
+        judge_feedback: str,
+        scores: Dict[str, float],
+        provider_name: Optional[str] = None,
+        model_override: Optional[str] = None,
+        temperature: float = 0.9,
+        max_tokens: int = 1500,
+        timeout: Optional[float] = None,
+    ) -> GeneratedQuestion:
+        """Regenerate a rejected question using judge feedback.
+
+        This method takes a question that was rejected by the judge along with
+        the feedback explaining why, and generates a new improved question
+        that addresses the identified issues.
+
+        Args:
+            original_question: The question that was rejected
+            judge_feedback: Detailed feedback from the judge
+            scores: Dictionary of scores from the judge evaluation
+            provider_name: Specific provider to use (None = first available)
+            model_override: Specific model to use
+            temperature: Sampling temperature (slightly higher for creativity)
+            max_tokens: Maximum tokens to generate
+            timeout: Timeout in seconds
+
+        Returns:
+            A new GeneratedQuestion that addresses the feedback
+
+        Raises:
+            ValueError: If provider not available
+            CircuitBreakerOpen: If circuit breaker is open
+            asyncio.TimeoutError: If request times out
+        """
+        from .prompts import build_regeneration_prompt
+
+        # Select provider
+        if provider_name:
+            if provider_name not in self.providers:
+                raise ValueError(
+                    f"Provider '{provider_name}' not available. "
+                    f"Available: {list(self.providers.keys())}"
+                )
+            provider = self.providers[provider_name]
+        else:
+            provider_name = self._get_available_provider()
+            if provider_name is None:
+                raise ValueError(
+                    "No providers available (all circuits are open). "
+                    f"Configured providers: {list(self.providers.keys())}"
+                )
+            provider = self.providers[provider_name]
+
+        circuit_breaker = self._circuit_breaker_registry.get_or_create(provider_name)
+        actual_model = model_override or provider.model
+        effective_timeout = timeout if timeout is not None else self._async_timeout
+
+        logger.info(
+            f"Regenerating rejected {original_question.question_type.value} question "
+            f"using {provider_name} (model: {actual_model}) with feedback"
+        )
+        logger.debug(
+            f"Regeneration context: original='{original_question.question_text[:50]}...', "
+            f"timeout={effective_timeout}s"
+        )
+
+        # Build regeneration prompt with feedback
+        prompt = build_regeneration_prompt(
+            original_question=original_question.question_text,
+            original_answer=original_question.correct_answer,
+            original_options=original_question.answer_options or [],
+            question_type=original_question.question_type,
+            difficulty=original_question.difficulty_level,
+            judge_feedback=judge_feedback,
+            scores=scores,
+        )
+
+        start_time = time.perf_counter()
+        completion_result = None
+
+        async def _do_regeneration() -> Dict[str, Any]:
+            nonlocal completion_result
+            async with self._rate_limiter:
+                completion_result = await asyncio.wait_for(
+                    provider.generate_structured_completion_with_usage_async(
+                        prompt=prompt,
+                        response_format={},
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        model_override=model_override,
+                    ),
+                    timeout=effective_timeout,
+                )
+                return completion_result.content
+
+        try:
+            response = await circuit_breaker.execute_async(_do_regeneration)
+            latency = time.perf_counter() - start_time
+
+            # Record metrics
+            metrics = get_metrics_tracker()
+            question_type_str = original_question.question_type.value
+            metrics.record_question_latency(question_type_str, latency)
+
+            if completion_result and completion_result.token_usage:
+                cost = calculate_cost(completion_result.token_usage)
+                metrics.record_question_cost(question_type_str, cost)
+
+            # Parse response into GeneratedQuestion
+            question = self._parse_generated_response(
+                response=response,
+                question_type=original_question.question_type,
+                difficulty=original_question.difficulty_level,
+                provider_name=provider_name,
+                model=actual_model,
+            )
+
+            # Add metadata indicating this was regenerated
+            question.metadata["regenerated"] = True
+            question.metadata["original_question"] = original_question.question_text[
+                :100
+            ]
+            question.metadata["regeneration_reason"] = "judge_feedback"
+
+            logger.info(
+                f"Successfully regenerated question: {question.question_text[:50]}..."
+            )
+            return question
+
+        except CircuitBreakerOpen:
+            logger.warning(
+                f"Circuit breaker is open for {provider_name}, cannot regenerate"
+            )
+            raise
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Timeout regenerating question with {provider_name} "
+                f"after {effective_timeout}s"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to regenerate question with {provider_name}: {str(e)}\n"
+                f"  Provider: {provider_name}, Model: {actual_model}\n"
+                f"  Original question type: {original_question.question_type.value}\n"
+                f"  Exception type: {type(e).__name__}"
+            )
+            raise
+
     async def cleanup(self) -> None:
         """Clean up all provider resources.
 

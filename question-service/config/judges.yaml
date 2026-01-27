@@ -104,19 +104,43 @@ default_judge:
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)
-# These determine how heavily each factor is weighted in the judge score
+# These determine how heavily each factor is weighted in the ACCEPTANCE score.
+# Difficulty is NOT included here - it determines PLACEMENT, not acceptance.
 evaluation_criteria:
-  clarity: 0.25              # Question is clear and unambiguous
-  difficulty: 0.20           # Appropriate difficulty for IQ testing
-  validity: 0.30             # Valid as an IQ test question
-  formatting: 0.15           # Properly formatted with correct answer
+  clarity: 0.30              # Question is clear and unambiguous
+  validity: 0.40             # Valid as an IQ test question
+  formatting: 0.20           # Properly formatted with correct answer
   creativity: 0.10           # Novel and interesting question
 
 # Minimum score threshold for question approval (0.0 to 1.0)
 min_judge_score: 0.7
 
+# Difficulty placement configuration
+# Difficulty score determines where a question is placed, not whether it's accepted.
+# A high-quality question that's "too easy for hard" will be accepted but placed at medium.
+difficulty_placement:
+  # Primary: Use numeric difficulty_score to determine placement
+  # If score is below threshold, downgrade one level; if above, upgrade one level
+  downgrade_threshold: 0.4   # Score below this → downgrade (e.g., hard → medium)
+  upgrade_threshold: 0.8     # Score above this → upgrade (e.g., easy → medium)
+
+  # Fallback: Pattern matching on judge feedback
+  # Used when numeric score is ambiguous (between thresholds)
+  too_easy_patterns:
+    - "too easy"
+    - "easier than"
+    - "success rate 70"
+    - "success rate 80"
+    - "straightforward"
+  too_hard_patterns:
+    - "too hard"
+    - "too difficult"
+    - "harder than"
+    - "success rate 10"
+    - "success rate 5"
+
 # Notes:
 # - Model identifiers should match the exact model names used by provider SDKs
 # - Provider names must match: "openai", "anthropic", "google", or "xai"
 # - Enabled flag can be used to temporarily disable specific judges
-# - Evaluation criteria weights should sum to 1.0
+# - Evaluation criteria weights should sum to 1.0 (difficulty excluded)

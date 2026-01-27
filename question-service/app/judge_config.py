@@ -14,6 +14,10 @@ from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
+# Tolerance bounds for floating point comparison when checking weights sum to 1.0
+WEIGHT_SUM_TOLERANCE_LOW = 0.99
+WEIGHT_SUM_TOLERANCE_HIGH = 1.01
+
 
 class JudgeModel(BaseModel):
     """Configuration for a single judge model.
@@ -41,18 +45,20 @@ class JudgeModel(BaseModel):
 
 
 class EvaluationCriteria(BaseModel):
-    """Weights for evaluation criteria (should sum to 1.0).
+    """Weights for ACCEPTANCE criteria (should sum to 1.0).
+
+    Note: Difficulty is NOT included here. Difficulty determines PLACEMENT,
+    not acceptance. A high-quality question that's "too easy for hard" will
+    be accepted but placed at the appropriate difficulty level.
 
     Attributes:
         clarity: Weight for question clarity and lack of ambiguity
-        difficulty: Weight for appropriate difficulty level
         validity: Weight for validity as an IQ test question
         formatting: Weight for proper formatting
         creativity: Weight for novelty and interest
     """
 
     clarity: float = Field(..., ge=0.0, le=1.0)
-    difficulty: float = Field(..., ge=0.0, le=1.0)
     validity: float = Field(..., ge=0.0, le=1.0)
     formatting: float = Field(..., ge=0.0, le=1.0)
     creativity: float = Field(..., ge=0.0, le=1.0)
@@ -64,16 +70,39 @@ class EvaluationCriteria(BaseModel):
         if info.data:
             total = (
                 info.data.get("clarity", 0.0)
-                + info.data.get("difficulty", 0.0)
                 + info.data.get("validity", 0.0)
                 + info.data.get("formatting", 0.0)
                 + v
             )
-            if not (0.99 <= total <= 1.01):  # Allow small floating point errors
+            if not (WEIGHT_SUM_TOLERANCE_LOW <= total <= WEIGHT_SUM_TOLERANCE_HIGH):
                 raise ValueError(
                     f"Evaluation criteria weights must sum to 1.0, got {total}"
                 )
         return v
+
+
+class DifficultyPlacement(BaseModel):
+    """Configuration for difficulty-based placement of questions.
+
+    The difficulty score from the judge determines where a question is placed,
+    not whether it's accepted. This allows high-quality questions that are
+    "too easy" or "too hard" for their target level to be reclassified.
+
+    Attributes:
+        downgrade_threshold: Score below which to downgrade one level
+        upgrade_threshold: Score above which to upgrade one level
+        too_easy_patterns: Feedback patterns indicating question is too easy
+        too_hard_patterns: Feedback patterns indicating question is too hard
+    """
+
+    downgrade_threshold: float = Field(default=0.4, ge=0.0, le=1.0)
+    upgrade_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+    too_easy_patterns: list[str] = Field(
+        default_factory=lambda: ["too easy", "straightforward"]
+    )
+    too_hard_patterns: list[str] = Field(
+        default_factory=lambda: ["too hard", "too difficult"]
+    )
 
 
 class JudgeConfig(BaseModel):
@@ -83,8 +112,9 @@ class JudgeConfig(BaseModel):
         version: Configuration version
         judges: Mapping of question types to judge models
         default_judge: Fallback judge for unknown question types
-        evaluation_criteria: Weights for evaluation criteria
+        evaluation_criteria: Weights for acceptance criteria (excludes difficulty)
         min_judge_score: Minimum score threshold for approval
+        difficulty_placement: Configuration for difficulty-based placement
     """
 
     version: str
@@ -92,6 +122,9 @@ class JudgeConfig(BaseModel):
     default_judge: JudgeModel
     evaluation_criteria: EvaluationCriteria
     min_judge_score: float = Field(..., ge=0.0, le=1.0)
+    difficulty_placement: DifficultyPlacement = Field(
+        default_factory=lambda: DifficultyPlacement()
+    )
 
     @field_validator("judges")
     @classmethod
@@ -242,6 +275,17 @@ class JudgeConfigLoader:
             RuntimeError: If configuration hasn't been loaded
         """
         return self.config.min_judge_score
+
+    def get_difficulty_placement(self) -> DifficultyPlacement:
+        """Get difficulty placement configuration.
+
+        Returns:
+            Difficulty placement configuration
+
+        Raises:
+            RuntimeError: If configuration hasn't been loaded
+        """
+        return self.config.difficulty_placement
 
 
 # Global loader instance (to be initialized on application startup)

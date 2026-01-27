@@ -8,6 +8,9 @@ from typing import Dict
 
 from .models import DifficultyLevel, QuestionType
 
+# Threshold below which a score is considered weak and needs improvement
+WEAK_SCORE_THRESHOLD = 0.7
+
 # Base system prompt for all question generation
 SYSTEM_PROMPT = """You are an expert psychometrician and IQ test designer with deep knowledge of cognitive assessment.
 Your task is to generate high-quality, scientifically valid IQ test questions that accurately measure cognitive abilities.
@@ -324,6 +327,8 @@ def build_judge_prompt(
 
 CONTEXT: These questions will be used for repeated testing every 3 months. They must be highly original, suitable for mobile display, and aligned with established IQ testing principles (Wechsler, Stanford-Binet, Raven's).
 
+IMPORTANT: Evaluate QUESTION CONTENT QUALITY only. Delivery mechanism concerns (e.g., screenshots, hiding sequences before recall, preventing cheating) are handled by the app UX - do NOT penalize validity for these concerns. For memory questions, assume the app will show the sequence, hide it, then present the question.
+
 Evaluate the following question across these criteria:
 
 1. CLARITY (0.0-1.0):
@@ -382,3 +387,87 @@ Respond with valid JSON matching this exact structure:
 Be rigorous in your evaluation. Questions must score above 0.7 in ALL categories to be acceptable.
 A question with even one weak dimension should be rejected.
 """
+
+
+def build_regeneration_prompt(
+    original_question: str,
+    original_answer: str,
+    original_options: list[str],
+    question_type: QuestionType,
+    difficulty: DifficultyLevel,
+    judge_feedback: str,
+    scores: dict[str, float],
+) -> str:
+    """Build a prompt for regenerating a rejected question with judge feedback.
+
+    This prompt instructs the LLM to create an improved version of a question
+    that addresses the specific issues identified by the judge.
+
+    Args:
+        original_question: The original question text that was rejected
+        original_answer: The original correct answer
+        original_options: The original answer options
+        question_type: Type of question
+        difficulty: Difficulty level
+        judge_feedback: Detailed feedback from the judge explaining why it was rejected
+        scores: Dictionary of scores (clarity, difficulty, validity, formatting, creativity)
+
+    Returns:
+        Complete prompt string for regeneration
+    """
+    type_prompt = QUESTION_TYPE_PROMPTS[question_type]
+    diff_instructions = DIFFICULTY_INSTRUCTIONS[difficulty]
+
+    # Identify the weakest areas to focus improvement
+    weak_areas = []
+    for score_name, score_value in scores.items():
+        if score_value < WEAK_SCORE_THRESHOLD:
+            weak_areas.append(f"- {score_name.upper()}: {score_value:.2f}")
+
+    weak_areas_text = (
+        "\n".join(weak_areas) if weak_areas else "- Multiple areas need improvement"
+    )
+
+    prompt = f"""{SYSTEM_PROMPT}
+
+{type_prompt}
+
+{diff_instructions}
+
+---
+
+REGENERATION TASK: A previous question was rejected by our quality judge. Your task is to create a NEW, IMPROVED question that addresses the identified issues while maintaining the same type and difficulty.
+
+ORIGINAL QUESTION (REJECTED):
+Question: {original_question}
+Correct Answer: {original_answer}
+Options: {original_options}
+
+JUDGE'S FEEDBACK:
+{judge_feedback}
+
+WEAK SCORES (below 0.7 threshold):
+{weak_areas_text}
+
+REGENERATION REQUIREMENTS:
+1. Create a COMPLETELY NEW question - do not simply rephrase the original
+2. Address ALL issues mentioned in the judge's feedback
+3. If the issue was "ambiguous answers" or "multiple valid answers", ensure your new question has ONE definitively correct answer
+4. If the issue was "low creativity", use a novel question format or content area
+5. If the issue was "too easy" or "wrong difficulty", calibrate appropriately for {difficulty.value} level
+6. If the issue was "tests knowledge not reasoning", focus on cognitive reasoning rather than factual recall
+7. Maintain the question type: {question_type.value}
+8. Ensure cultural neutrality and mobile-friendliness
+
+IMPORTANT: Generate a fresh, high-quality question that would pass rigorous evaluation. Do NOT attempt to "fix" the original - create something better.
+
+Respond with valid JSON only:
+{{
+    "question_text": "<your new question>",
+    "correct_answer": "<the one correct answer>",
+    "answer_options": ["<4-6 options including correct answer>"],
+    "explanation": "<clear explanation of why the answer is correct>"
+}}
+"""
+
+    return prompt.strip()

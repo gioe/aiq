@@ -65,10 +65,9 @@ def valid_config_dict():
             "enabled": True,
         },
         "evaluation_criteria": {
-            "clarity": 0.25,
-            "difficulty": 0.20,
-            "validity": 0.30,
-            "formatting": 0.15,
+            "clarity": 0.30,
+            "validity": 0.40,
+            "formatting": 0.20,
             "creativity": 0.10,
         },
         "min_judge_score": 0.7,
@@ -133,32 +132,34 @@ class TestJudgeModel:
 
 
 class TestEvaluationCriteria:
-    """Tests for EvaluationCriteria validation."""
+    """Tests for EvaluationCriteria validation.
+
+    Note: Difficulty is intentionally excluded from evaluation criteria.
+    Difficulty determines PLACEMENT (which level the question belongs to),
+    not ACCEPTANCE (whether the question is good enough to use).
+    """
 
     def test_valid_criteria(self):
         """Test creating valid evaluation criteria."""
         criteria = EvaluationCriteria(
-            clarity=0.25,
-            difficulty=0.20,
-            validity=0.30,
-            formatting=0.15,
+            clarity=0.30,
+            validity=0.40,
+            formatting=0.20,
             creativity=0.10,
         )
-        assert criteria.clarity == 0.25
-        assert criteria.difficulty == 0.20
-        assert criteria.validity == 0.30
-        assert criteria.formatting == 0.15
-        assert criteria.creativity == 0.10
+        assert criteria.clarity == pytest.approx(0.30)
+        assert criteria.validity == pytest.approx(0.40)
+        assert criteria.formatting == pytest.approx(0.20)
+        assert criteria.creativity == pytest.approx(0.10)
 
     def test_criteria_sum_not_one(self):
         """Test that criteria weights must sum to 1.0."""
         with pytest.raises(ValidationError) as exc_info:
             EvaluationCriteria(
                 clarity=0.25,
-                difficulty=0.25,
                 validity=0.25,
                 formatting=0.25,
-                creativity=0.25,  # Sum is 1.25, should fail
+                creativity=0.50,  # Sum is 1.25, should fail
             )
         assert "must sum to 1.0" in str(exc_info.value)
 
@@ -167,10 +168,9 @@ class TestEvaluationCriteria:
         with pytest.raises(ValidationError):
             EvaluationCriteria(
                 clarity=-0.1,
-                difficulty=0.30,
-                validity=0.30,
-                formatting=0.30,
-                creativity=0.20,
+                validity=0.40,
+                formatting=0.40,
+                creativity=0.30,
             )
 
     def test_weight_over_one(self):
@@ -178,7 +178,6 @@ class TestEvaluationCriteria:
         with pytest.raises(ValidationError):
             EvaluationCriteria(
                 clarity=1.5,
-                difficulty=0.0,
                 validity=0.0,
                 formatting=0.0,
                 creativity=0.0,
@@ -193,7 +192,7 @@ class TestJudgeConfig:
         config = JudgeConfig(**valid_config_dict)
         assert config.version == "1.0"
         assert len(config.judges) == 6
-        assert config.min_judge_score == 0.7
+        assert config.min_judge_score == pytest.approx(0.7)
 
     def test_missing_required_question_type(self, valid_config_dict):
         """Test that missing required question types raise error."""
@@ -296,11 +295,10 @@ class TestJudgeConfigLoader:
         loader.load()
 
         criteria = loader.get_evaluation_criteria()
-        assert criteria.clarity == 0.25
-        assert criteria.difficulty == 0.20
-        assert criteria.validity == 0.30
-        assert criteria.formatting == 0.15
-        assert criteria.creativity == 0.10
+        assert criteria.clarity == pytest.approx(0.30)
+        assert criteria.validity == pytest.approx(0.40)
+        assert criteria.formatting == pytest.approx(0.20)
+        assert criteria.creativity == pytest.approx(0.10)
 
     def test_get_min_judge_score(self, valid_config_file):
         """Test getting minimum judge score."""
@@ -308,7 +306,7 @@ class TestJudgeConfigLoader:
         loader.load()
 
         min_score = loader.get_min_judge_score()
-        assert min_score == 0.7
+        assert min_score == pytest.approx(0.7)
 
     def test_invalid_yaml(self):
         """Test that invalid YAML raises error."""

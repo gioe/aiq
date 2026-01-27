@@ -259,6 +259,9 @@ class DatabaseService:
     ) -> int:
         """Insert an evaluated question into the database.
 
+        Stores individual evaluation scores in metadata to enable future
+        recalculation without re-calling the judge API.
+
         Args:
             evaluated_question: Evaluated question with score
 
@@ -268,9 +271,39 @@ class DatabaseService:
         Raises:
             Exception: If insertion fails
         """
+        # Merge individual scores into question metadata for future recalculation
+        question = evaluated_question.question
+        evaluation = evaluated_question.evaluation
+
+        enriched_metadata = {
+            **(question.metadata or {}),
+            "evaluation_scores": {
+                "clarity_score": evaluation.clarity_score,
+                "difficulty_score": evaluation.difficulty_score,
+                "validity_score": evaluation.validity_score,
+                "formatting_score": evaluation.formatting_score,
+                "creativity_score": evaluation.creativity_score,
+                "feedback": evaluation.feedback,
+            },
+            "judge_model": evaluated_question.judge_model,
+        }
+
+        # Create a new question with enriched metadata
+        enriched_question = GeneratedQuestion(
+            question_text=question.question_text,
+            question_type=question.question_type,
+            difficulty_level=question.difficulty_level,
+            correct_answer=question.correct_answer,
+            answer_options=question.answer_options,
+            explanation=question.explanation,
+            metadata=enriched_metadata,
+            source_llm=question.source_llm,
+            source_model=question.source_model,
+        )
+
         return self.insert_question(
-            question=evaluated_question.question,
-            judge_score=evaluated_question.evaluation.overall_score,
+            question=enriched_question,
+            judge_score=evaluation.overall_score,
         )
 
     def insert_questions_batch(
@@ -356,6 +389,9 @@ class DatabaseService:
     ) -> List[int]:
         """Insert multiple evaluated questions in a batch.
 
+        Stores individual evaluation scores in metadata to enable future
+        recalculation without re-calling the judge API.
+
         Args:
             evaluated_questions: List of evaluated questions with scores
 
@@ -365,10 +401,45 @@ class DatabaseService:
         Raises:
             Exception: If insertion fails
         """
-        questions = [eq.question for eq in evaluated_questions]
-        scores = [eq.evaluation.overall_score for eq in evaluated_questions]
+        # Enrich each question with individual evaluation scores
+        enriched_questions = []
+        scores = []
 
-        return self.insert_questions_batch(questions=questions, judge_scores=scores)
+        for eq in evaluated_questions:
+            question = eq.question
+            evaluation = eq.evaluation
+
+            enriched_metadata = {
+                **(question.metadata or {}),
+                "evaluation_scores": {
+                    "clarity_score": evaluation.clarity_score,
+                    "difficulty_score": evaluation.difficulty_score,
+                    "validity_score": evaluation.validity_score,
+                    "formatting_score": evaluation.formatting_score,
+                    "creativity_score": evaluation.creativity_score,
+                    "feedback": evaluation.feedback,
+                },
+                "judge_model": eq.judge_model,
+            }
+
+            enriched_question = GeneratedQuestion(
+                question_text=question.question_text,
+                question_type=question.question_type,
+                difficulty_level=question.difficulty_level,
+                correct_answer=question.correct_answer,
+                answer_options=question.answer_options,
+                explanation=question.explanation,
+                metadata=enriched_metadata,
+                source_llm=question.source_llm,
+                source_model=question.source_model,
+            )
+
+            enriched_questions.append(enriched_question)
+            scores.append(evaluation.overall_score)
+
+        return self.insert_questions_batch(
+            questions=enriched_questions, judge_scores=scores
+        )
 
     def get_all_questions(self) -> List[Dict[str, Any]]:
         """Retrieve all questions from database.

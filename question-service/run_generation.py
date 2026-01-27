@@ -143,6 +143,71 @@ def log_rejection_details(
         logger.info(f"    Feedback: {eval_scores.feedback}")
 
 
+def apply_difficulty_placement(
+    evaluated_question,
+    judge,
+    logger: logging.Logger,
+):
+    """Apply difficulty placement adjustment to an approved question.
+
+    Uses the judge's difficulty score and feedback to determine if the question
+    should be placed at a different difficulty level than originally targeted.
+
+    Args:
+        evaluated_question: The approved EvaluatedQuestion
+        judge: The QuestionJudge instance
+        logger: Logger instance for logging adjustments
+
+    Returns:
+        EvaluatedQuestion with adjusted difficulty (or original if no change)
+    """
+    from app.models import EvaluatedQuestion, GeneratedQuestion
+
+    question = evaluated_question.question
+    evaluation = evaluated_question.evaluation
+
+    # Determine appropriate difficulty placement
+    new_difficulty, reason = judge.determine_difficulty_placement(
+        current_difficulty=question.difficulty_level,
+        difficulty_score=evaluation.difficulty_score,
+        feedback=evaluation.feedback,
+    )
+
+    # If no change needed, return original
+    if reason is None:
+        return evaluated_question
+
+    # Create new question with adjusted difficulty
+    adjusted_question = GeneratedQuestion(
+        question_text=question.question_text,
+        question_type=question.question_type,
+        difficulty_level=new_difficulty,
+        correct_answer=question.correct_answer,
+        answer_options=question.answer_options,
+        explanation=question.explanation,
+        metadata={
+            **question.metadata,
+            "difficulty_adjusted": True,
+            "original_difficulty": question.difficulty_level.value,
+            "adjustment_reason": reason,
+        },
+        source_llm=question.source_llm,
+        source_model=question.source_model,
+    )
+
+    # Create new EvaluatedQuestion with adjusted question
+    adjusted_eval = EvaluatedQuestion(
+        question=adjusted_question,
+        evaluation=evaluation,
+        judge_model=evaluated_question.judge_model,
+        approved=evaluated_question.approved,
+    )
+
+    logger.info(f"    ↳ {reason}")
+
+    return adjusted_eval
+
+
 def dedupe_within_batch(
     questions: list,
     similarity_threshold: float = 0.85,
@@ -380,6 +445,114 @@ def attempt_difficulty_reclassification(
     )
 
     return (reclassified, new_difficulty, reason)
+
+
+async def attempt_regeneration_with_feedback(
+    rejected_questions: list,
+    generator,
+    judge,
+    min_score: float,
+    logger: logging.Logger,
+    max_regenerations: int = 5,
+) -> tuple[list, list]:
+    """Attempt to regenerate rejected questions using judge feedback.
+
+    This function takes questions that were rejected by the judge and uses
+    the feedback to generate improved versions. The regenerated questions
+    are then re-evaluated by the judge.
+
+    Args:
+        rejected_questions: List of EvaluatedQuestion objects that were rejected
+        generator: QuestionGenerator instance
+        judge: QuestionJudge instance
+        min_score: Minimum score threshold for approval
+        logger: Logger instance
+        max_regenerations: Maximum number of questions to attempt regenerating
+
+    Returns:
+        Tuple of (regenerated_and_approved, still_rejected) lists
+    """
+    regenerated_approved = []
+    still_rejected = []
+
+    # Limit regeneration attempts to avoid excessive API costs
+    questions_to_regenerate = rejected_questions[:max_regenerations]
+    skipped_count = len(rejected_questions) - len(questions_to_regenerate)
+
+    if skipped_count > 0:
+        logger.info(
+            f"  Regenerating {len(questions_to_regenerate)} of {len(rejected_questions)} "
+            f"rejected questions (skipping {skipped_count} to limit costs)"
+        )
+
+    for rejected in questions_to_regenerate:
+        original_question = rejected.question
+        evaluation = rejected.evaluation
+
+        # Build scores dictionary
+        scores = {
+            "clarity": evaluation.clarity_score,
+            "difficulty": evaluation.difficulty_score,
+            "validity": evaluation.validity_score,
+            "formatting": evaluation.formatting_score,
+            "creativity": evaluation.creativity_score,
+        }
+
+        try:
+            # Regenerate the question with feedback
+            regenerated = await generator.regenerate_question_with_feedback_async(
+                original_question=original_question,
+                judge_feedback=evaluation.feedback or "No specific feedback provided",
+                scores=scores,
+            )
+
+            logger.debug(f"  Regenerated: {regenerated.question_text[:60]}...")
+
+            # Re-evaluate the regenerated question
+            eval_result = await judge.evaluate_question_async(
+                question=regenerated.question_text,
+                answer_options=regenerated.answer_options,
+                correct_answer=regenerated.correct_answer,
+                question_type=regenerated.question_type.value,
+                difficulty=regenerated.difficulty_level.value,
+            )
+
+            if eval_result.overall_score >= min_score:
+                from app.models import EvaluatedQuestion
+
+                approved_eval = EvaluatedQuestion(
+                    question=regenerated,
+                    evaluation=eval_result,
+                    judge_model=judge._get_available_provider() or "unknown",
+                    approved=True,
+                )
+                regenerated_approved.append(approved_eval)
+                logger.info(
+                    f"  ✓ REGENERATED (score: {eval_result.overall_score:.2f}): "
+                    f"{regenerated.question_text[:50]}..."
+                )
+            else:
+                logger.debug(
+                    f"  ✗ Regenerated question still rejected "
+                    f"(score: {eval_result.overall_score:.2f})"
+                )
+                still_rejected.append(rejected)
+
+        except Exception as e:
+            logger.warning(
+                f"  Failed to regenerate question: {e}\n"
+                f"    Original: {original_question.question_text[:60]}...\n"
+                f"    Type: {original_question.question_type.value}, "
+                f"Difficulty: {original_question.difficulty_level.value}\n"
+                f"    Scores: clarity={scores['clarity']:.2f}, validity={scores['validity']:.2f}, "
+                f"creativity={scores['creativity']:.2f}"
+            )
+            still_rejected.append(rejected)
+
+    # Add any questions that were skipped due to the limit
+    still_rejected.extend(rejected_questions[max_regenerations:])
+
+    return regenerated_approved, still_rejected
 
 
 def log_success_run(
@@ -1107,13 +1280,17 @@ def main() -> int:
 
             all_evaluated = asyncio.run(run_async_judge_with_cleanup())
 
-            # Separate approved and rejected, record metrics
+            # Separate approved and rejected, apply difficulty placement, record metrics
             for evaluated_question in all_evaluated:
                 if evaluated_question.evaluation.overall_score >= min_score:
-                    approved_questions.append(evaluated_question)
                     logger.info(
                         f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                     )
+                    # Apply difficulty placement adjustment if needed
+                    adjusted_question = apply_difficulty_placement(
+                        evaluated_question, judge, logger
+                    )
+                    approved_questions.append(adjusted_question)
                 else:
                     rejected_questions.append(evaluated_question)
                     log_rejection_details(evaluated_question, logger)
@@ -1133,12 +1310,14 @@ def main() -> int:
                     evaluated_question = judge.evaluate_question(question)
 
                     if evaluated_question.evaluation.overall_score >= min_score:
-                        approved_questions.append(
-                            evaluated_question
-                        )  # Store evaluated_question with score
                         logger.info(
                             f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                         )
+                        # Apply difficulty placement adjustment if needed
+                        adjusted_question = apply_difficulty_placement(
+                            evaluated_question, judge, logger
+                        )
+                        approved_questions.append(adjusted_question)
                     else:
                         rejected_questions.append(evaluated_question)
                         log_rejection_details(evaluated_question, logger, index=i)
@@ -1195,13 +1374,51 @@ def main() -> int:
                     )
                     continue
 
-                # Could not salvage
+                # Could not salvage with repair or reclassification
                 still_rejected.append(rejected)
 
-            if salvaged_questions:
+            # Attempt regeneration with feedback for remaining rejected questions
+            regenerated_count = 0
+            if still_rejected:
                 logger.info(
-                    f"\nSalvaged: {len(salvaged_questions)} questions "
-                    f"(still rejected: {len(still_rejected)})"
+                    f"\n  Attempting regeneration with feedback for {len(still_rejected)} "
+                    "remaining rejected questions..."
+                )
+
+                async def run_regeneration():
+                    return await attempt_regeneration_with_feedback(
+                        rejected_questions=still_rejected,
+                        generator=pipeline.generator,
+                        judge=judge,
+                        min_score=min_score,
+                        logger=logger,
+                        max_regenerations=min(len(still_rejected), 5),
+                    )
+
+                try:
+                    regenerated, final_rejected = asyncio.run(run_regeneration())
+
+                    # Add regenerated questions directly to approved list
+                    # (they're already EvaluatedQuestion objects with proper scores)
+                    for regen_eval in regenerated:
+                        approved_questions.append(regen_eval)
+
+                    regenerated_count = len(regenerated)
+                    still_rejected = final_rejected
+                    logger.info(
+                        f"  Regeneration complete: {regenerated_count} recovered, "
+                        f"{len(final_rejected)} still rejected"
+                    )
+                except Exception as e:
+                    logger.warning(f"  Regeneration phase failed: {e}")
+
+            total_salvaged = len(salvaged_questions) + regenerated_count
+            if total_salvaged > 0:
+                logger.info(
+                    f"\nSalvaged: {total_salvaged} questions "
+                    f"(repaired/reclassified: {len(salvaged_questions)}, "
+                    f"regenerated: {regenerated_count}, "
+                    f"still rejected: {len(still_rejected)})"
                 )
                 # Add salvaged questions to approved list (as GeneratedQuestion, not EvaluatedQuestion)
                 # We wrap them in a simple container that has .question attribute for compatibility
@@ -1225,13 +1442,13 @@ def main() -> int:
                     )
                     approved_questions.append(salvaged_eval)
 
-                # Update stats
-                approval_rate = len(approved_questions) / len(generated_questions) * 100
-                logger.info(
-                    f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
-                    f"({approval_rate:.1f}%)"
-                )
-            else:
+            # Update stats (accounts for both repaired/reclassified and regenerated)
+            approval_rate = len(approved_questions) / len(generated_questions) * 100
+            logger.info(
+                f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
+                f"({approval_rate:.1f}%)"
+            )
+            if total_salvaged == 0:
                 logger.info("No questions could be salvaged")
 
         if not approved_questions:

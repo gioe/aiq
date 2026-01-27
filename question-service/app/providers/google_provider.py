@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -15,6 +16,34 @@ from .base import BaseLLMProvider
 logger = logging.getLogger(__name__)
 
 
+def _strip_markdown_code_blocks(text: str) -> str:
+    """Strip markdown code blocks from text.
+
+    Gemini often wraps JSON responses in markdown code blocks like:
+    ```json
+    {...}
+    ```
+
+    This function extracts the content from such blocks.
+
+    Args:
+        text: Raw text that may contain markdown code blocks
+
+    Returns:
+        Text with markdown code blocks stripped, or original text if no blocks found
+    """
+    if not text:
+        return text
+
+    # Pattern matches ```json or ``` at start, content, then ``` at end
+    pattern = r"^```(?:json)?\s*\n?(.*?)\n?```$"
+    match = re.match(pattern, text.strip(), re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    return text
+
+
 @dataclass
 class BatchJobResult:
     """Result from a batch job execution."""
@@ -26,6 +55,13 @@ class BatchJobResult:
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
+
+
+# Minimum max_tokens for structured completions to prevent truncation.
+# Gemini 3 Pro Preview uses chain-of-thought reasoning which consumes tokens
+# from the output budget before generating the final response. Structured
+# completions need a higher limit to account for this internal reasoning.
+MIN_STRUCTURED_COMPLETION_TOKENS = 4000
 
 
 class GoogleProvider(BaseLLMProvider):
@@ -132,18 +168,26 @@ class GoogleProvider(BaseLLMProvider):
             instruct the model via the prompt and parse the response.
         """
         model = model_override or self.model
+        # Ensure minimum tokens for structured completions to avoid truncation
+        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
 
         def _make_request() -> Dict[str, Any]:
             try:
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                # Only add JSON schema instructions if a non-empty schema is provided.
+                # If response_format is empty, assume the prompt already contains
+                # JSON format instructions (e.g., judge prompts specify exact structure).
+                if response_format:
+                    json_prompt = (
+                        f"{prompt}\n\n"
+                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                        f"Your response must be only valid JSON with no additional text."
+                    )
+                else:
+                    json_prompt = prompt
 
                 config = types.GenerateContentConfig(
                     temperature=temperature,
-                    max_output_tokens=max_tokens,
+                    max_output_tokens=effective_max_tokens,
                     **kwargs,
                 )
 
@@ -154,7 +198,7 @@ class GoogleProvider(BaseLLMProvider):
                 )
 
                 if response.text:
-                    return json.loads(response.text)
+                    return json.loads(_strip_markdown_code_blocks(response.text))
 
                 return {}
 
@@ -257,18 +301,26 @@ class GoogleProvider(BaseLLMProvider):
             Exception: If the API call fails or response cannot be parsed as JSON
         """
         model = model_override or self.model
+        # Ensure minimum tokens for structured completions to avoid truncation
+        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
 
         async def _make_request() -> Dict[str, Any]:
             try:
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                # Only add JSON schema instructions if a non-empty schema is provided.
+                # If response_format is empty, assume the prompt already contains
+                # JSON format instructions (e.g., judge prompts specify exact structure).
+                if response_format:
+                    json_prompt = (
+                        f"{prompt}\n\n"
+                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                        f"Your response must be only valid JSON with no additional text."
+                    )
+                else:
+                    json_prompt = prompt
 
                 config = types.GenerateContentConfig(
                     temperature=temperature,
-                    max_output_tokens=max_tokens,
+                    max_output_tokens=effective_max_tokens,
                     **kwargs,
                 )
 
@@ -279,7 +331,7 @@ class GoogleProvider(BaseLLMProvider):
                 )
 
                 if response.text:
-                    return json.loads(response.text)
+                    return json.loads(_strip_markdown_code_blocks(response.text))
 
                 return {}
 
@@ -380,18 +432,26 @@ class GoogleProvider(BaseLLMProvider):
             CompletionResult with parsed JSON content and token usage
         """
         model = model_override or self.model
+        # Ensure minimum tokens for structured completions to avoid truncation
+        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
 
         def _make_request() -> CompletionResult:
             try:
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                # Only add JSON schema instructions if a non-empty schema is provided.
+                # If response_format is empty, assume the prompt already contains
+                # JSON format instructions (e.g., judge prompts specify exact structure).
+                if response_format:
+                    json_prompt = (
+                        f"{prompt}\n\n"
+                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                        f"Your response must be only valid JSON with no additional text."
+                    )
+                else:
+                    json_prompt = prompt
 
                 config = types.GenerateContentConfig(
                     temperature=temperature,
-                    max_output_tokens=max_tokens,
+                    max_output_tokens=effective_max_tokens,
                     **kwargs,
                 )
 
@@ -404,7 +464,7 @@ class GoogleProvider(BaseLLMProvider):
                 content: Dict[str, Any] = {}
                 raw_content = response.text if response.text else ""
                 if raw_content:
-                    content = json.loads(raw_content)
+                    content = json.loads(_strip_markdown_code_blocks(raw_content))
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -519,18 +579,26 @@ class GoogleProvider(BaseLLMProvider):
             CompletionResult with parsed JSON content and token usage
         """
         model = model_override or self.model
+        # Ensure minimum tokens for structured completions to avoid truncation
+        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
 
         async def _make_request() -> CompletionResult:
             try:
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                # Only add JSON schema instructions if a non-empty schema is provided.
+                # If response_format is empty, assume the prompt already contains
+                # JSON format instructions (e.g., judge prompts specify exact structure).
+                if response_format:
+                    json_prompt = (
+                        f"{prompt}\n\n"
+                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+                        f"Your response must be only valid JSON with no additional text."
+                    )
+                else:
+                    json_prompt = prompt
 
                 config = types.GenerateContentConfig(
                     temperature=temperature,
-                    max_output_tokens=max_tokens,
+                    max_output_tokens=effective_max_tokens,
                     **kwargs,
                 )
 
@@ -543,7 +611,7 @@ class GoogleProvider(BaseLLMProvider):
                 content: Dict[str, Any] = {}
                 raw_content = response.text if response.text else ""
                 if raw_content:
-                    content = json.loads(raw_content)
+                    content = json.loads(_strip_markdown_code_blocks(raw_content))
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:

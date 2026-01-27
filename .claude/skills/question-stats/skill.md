@@ -6,7 +6,7 @@ allowed-tools: Bash
 
 # Question Statistics Skill
 
-Displays a breakdown of questions in the AIQ database by type and difficulty.
+Displays a breakdown of questions in the AIQ database by type and difficulty, including the configured provider and model for each question type.
 
 ## Usage
 
@@ -21,6 +21,7 @@ Run this Python script to query the database and display the results:
 ```bash
 cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python -c "
 import os
+import yaml
 from sqlalchemy import create_engine, text
 
 db_url = os.environ.get('DATABASE_URL')
@@ -30,6 +31,13 @@ if not db_url:
 
 engine = create_engine(db_url)
 
+# Load generator config
+with open('config/generators.yaml', 'r') as f:
+    gen_config = yaml.safe_load(f)
+
+generators = gen_config.get('generators', {})
+
+# Query for type/difficulty breakdown
 query = text('''
     SELECT
         question_type,
@@ -44,7 +52,7 @@ query = text('''
 with engine.connect() as conn:
     results = conn.execute(query).fetchall()
 
-# Build the data structure
+# Build the data structure for type/difficulty
 types = ['pattern', 'logic', 'spatial', 'math', 'verbal', 'memory']
 difficulties = ['easy', 'medium', 'hard']
 data = {t: {d: 0 for d in difficulties} for t in types}
@@ -62,21 +70,24 @@ for row in results:
 
 grand_total = sum(totals_by_type.values())
 
-# Print table
+# Print type/difficulty table with provider/model
 print()
 print('Question Inventory by Type and Difficulty')
-print('=' * 60)
+print('=' * 100)
 print()
-print(f\"{'Type':<12} | {'Easy':>8} | {'Medium':>8} | {'Hard':>8} | {'Total':>8}\")
-print('-' * 60)
+print(f\"{'Type':<12} | {'Provider':<12} | {'Model':<30} | {'Easy':>6} | {'Medium':>6} | {'Hard':>6} | {'Total':>6}\")
+print('-' * 100)
 for t in types:
     e = data[t]['easy']
     m = data[t]['medium']
     h = data[t]['hard']
     total = totals_by_type[t]
-    print(f'{t:<12} | {e:>8} | {m:>8} | {h:>8} | {total:>8}')
-print('-' * 60)
-print(f\"{'TOTAL':<12} | {totals_by_diff['easy']:>8} | {totals_by_diff['medium']:>8} | {totals_by_diff['hard']:>8} | {grand_total:>8}\")
+    gen = generators.get(t, {})
+    provider = gen.get('provider', '-')
+    model = gen.get('model', '-')
+    print(f'{t:<12} | {provider:<12} | {model:<30} | {e:>6} | {m:>6} | {h:>6} | {total:>6}')
+print('-' * 100)
+print(f\"{'TOTAL':<12} | {'':<12} | {'':<30} | {totals_by_diff['easy']:>6} | {totals_by_diff['medium']:>6} | {totals_by_diff['hard']:>6} | {grand_total:>6}\")
 print()
 "
 ```
@@ -87,21 +98,22 @@ The skill displays a table like this:
 
 ```
 Question Inventory by Type and Difficulty
-============================================================
+====================================================================================================
 
-Type         |     Easy |   Medium |     Hard |    Total
-------------------------------------------------------------
-pattern      |       10 |       15 |        5 |       30
-logic        |       12 |       18 |        8 |       38
-spatial      |        8 |       12 |        4 |       24
-math         |       15 |       20 |       10 |       45
-verbal       |       11 |       16 |        6 |       33
-memory       |        9 |       14 |        5 |       28
-------------------------------------------------------------
-TOTAL        |       65 |       95 |       38 |      198
+Type         | Provider     | Model                          |   Easy | Medium |   Hard |  Total
+----------------------------------------------------------------------------------------------------
+pattern      | google       | gemini-3-pro-preview           |     10 |     15 |      5 |     30
+logic        | anthropic    | claude-sonnet-4-5-20250929     |     12 |     18 |      8 |     38
+spatial      | google       | gemini-3-pro-preview           |      8 |     12 |      4 |     24
+math         | xai          | grok-4                         |     15 |     20 |     10 |     45
+verbal       | anthropic    | claude-sonnet-4-5-20250929     |     11 |     16 |      6 |     33
+memory       | anthropic    | claude-sonnet-4-5-20250929     |      9 |     14 |      5 |     28
+----------------------------------------------------------------------------------------------------
+TOTAL        |              |                                |     65 |     95 |     38 |    198
 ```
 
 ## Requirements
 
 - The `question-service/.env` file must contain the `DATABASE_URL` PostgreSQL connection string
-- The `question-service` virtual environment must be set up with SQLAlchemy installed
+- The `question-service` virtual environment must be set up with SQLAlchemy and PyYAML installed
+- The `config/generators.yaml` file must exist with provider/model configuration

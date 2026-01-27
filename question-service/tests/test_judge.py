@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from app.cost_tracking import CompletionResult
 from app.judge import QuestionJudge
 from app.judge_config import (
+    DifficultyPlacement,
     JudgeConfig,
     JudgeConfigLoader,
     JudgeModel,
@@ -78,13 +79,16 @@ def mock_judge_config():
             enabled=True,
         ),
         evaluation_criteria=EvaluationCriteria(
-            clarity=0.25,
-            difficulty=0.20,
-            validity=0.30,
-            formatting=0.10,
+            clarity=0.30,
+            validity=0.40,
+            formatting=0.15,
             creativity=0.15,
         ),
         min_judge_score=0.7,
+        difficulty_placement=DifficultyPlacement(
+            downgrade_threshold=0.4,
+            upgrade_threshold=0.8,
+        ),
     )
 
     # Create loader mock
@@ -95,6 +99,7 @@ def mock_judge_config():
     )
     loader.get_evaluation_criteria.return_value = config.evaluation_criteria
     loader.get_min_judge_score.return_value = config.min_judge_score
+    loader.get_difficulty_placement.return_value = config.difficulty_placement
 
     return loader
 
@@ -209,7 +214,11 @@ class TestQuestionJudge:
     def test_calculate_overall_score(
         self, mock_openai, mock_judge_config, sample_evaluation_response
     ):
-        """Test calculation of weighted overall score."""
+        """Test calculation of weighted overall score.
+
+        Note: Difficulty is excluded from acceptance criteria.
+        It determines placement, not acceptance.
+        """
         judge = QuestionJudge(
             judge_config=mock_judge_config,
             openai_api_key="test-key",
@@ -218,9 +227,9 @@ class TestQuestionJudge:
         evaluation = judge._parse_evaluation_response(sample_evaluation_response)
         overall = judge._calculate_overall_score(evaluation)
 
-        # Expected: 0.9*0.25 + 0.8*0.20 + 0.85*0.30 + 0.95*0.10 + 0.7*0.15
-        # = 0.225 + 0.16 + 0.255 + 0.095 + 0.105 = 0.84
-        assert pytest.approx(overall, abs=0.01) == 0.84
+        # Expected (difficulty excluded): 0.9*0.30 + 0.85*0.40 + 0.95*0.15 + 0.7*0.15
+        # = 0.27 + 0.34 + 0.1425 + 0.105 = 0.8575
+        assert pytest.approx(overall, abs=0.01) == 0.8575
 
     @patch("app.judge.OpenAIProvider")
     def test_calculate_overall_score_with_perfect_scores(
@@ -528,19 +537,25 @@ class TestQuestionJudge:
         assert "min_judge_score" in stats
         assert "available_providers" in stats
         assert "evaluation_criteria" in stats
+        assert "difficulty_placement" in stats
         assert "judges" in stats
 
         assert stats["config_version"] == "1.0.0"
         assert stats["min_judge_score"] == pytest.approx(0.7)
         assert set(stats["available_providers"]) == {"openai", "anthropic"}
 
-        # Check evaluation criteria
+        # Check evaluation criteria (difficulty excluded - it's used for placement, not acceptance)
         criteria = stats["evaluation_criteria"]
-        assert criteria["clarity"] == pytest.approx(0.25)
-        assert criteria["difficulty"] == pytest.approx(0.20)
-        assert criteria["validity"] == pytest.approx(0.30)
-        assert criteria["formatting"] == pytest.approx(0.10)
+        assert criteria["clarity"] == pytest.approx(0.30)
+        assert criteria["validity"] == pytest.approx(0.40)
+        assert criteria["formatting"] == pytest.approx(0.15)
         assert criteria["creativity"] == pytest.approx(0.15)
+        assert "difficulty" not in criteria
+
+        # Check difficulty placement config
+        placement = stats["difficulty_placement"]
+        assert "downgrade_threshold" in placement
+        assert "upgrade_threshold" in placement
 
         # Check judges
         assert "math" in stats["judges"]

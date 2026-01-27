@@ -32,7 +32,7 @@ class TokenUsage:
     @property
     def total_tokens(self) -> int:
         """Get total tokens used."""
-        return self.input_tokens + self.output_tokens
+        return (self.input_tokens or 0) + (self.output_tokens or 0)
 
 
 @dataclass
@@ -119,8 +119,12 @@ def calculate_cost(token_usage: TokenUsage) -> float:
     """
     pricing = get_model_pricing(token_usage.model)
 
-    input_cost = (token_usage.input_tokens / 1_000_000) * pricing["input"]
-    output_cost = (token_usage.output_tokens / 1_000_000) * pricing["output"]
+    # Handle None token counts (can happen with some providers)
+    input_tokens = token_usage.input_tokens or 0
+    output_tokens = token_usage.output_tokens or 0
+
+    input_cost = (input_tokens / 1_000_000) * pricing["input"]
+    output_cost = (output_tokens / 1_000_000) * pricing["output"]
 
     return input_cost + output_cost
 
@@ -193,10 +197,10 @@ class CostTracker:
             }
             self._usage_records.append(record)
 
-            # Update totals
+            # Update totals (handle None token counts)
             self._total_cost += cost
-            self._total_input_tokens += token_usage.input_tokens
-            self._total_output_tokens += token_usage.output_tokens
+            self._total_input_tokens += token_usage.input_tokens or 0
+            self._total_output_tokens += token_usage.output_tokens or 0
 
             # Update provider summary
             if token_usage.provider not in self._by_provider:
@@ -206,8 +210,8 @@ class CostTracker:
 
             summary = self._by_provider[token_usage.provider]
             summary.total_calls += 1
-            summary.total_input_tokens += token_usage.input_tokens
-            summary.total_output_tokens += token_usage.output_tokens
+            summary.total_input_tokens += token_usage.input_tokens or 0
+            summary.total_output_tokens += token_usage.output_tokens or 0
             summary.total_cost += cost
 
             # Update model breakdown
@@ -218,12 +222,12 @@ class CostTracker:
                     "output": 0,
                 }
             summary.cost_by_model[token_usage.model] += cost
-            summary.tokens_by_model[token_usage.model][
-                "input"
-            ] += token_usage.input_tokens
-            summary.tokens_by_model[token_usage.model][
-                "output"
-            ] += token_usage.output_tokens
+            summary.tokens_by_model[token_usage.model]["input"] += (
+                token_usage.input_tokens or 0
+            )
+            summary.tokens_by_model[token_usage.model]["output"] += (
+                token_usage.output_tokens or 0
+            )
 
         logger.debug(
             f"Recorded usage: {token_usage.provider}/{token_usage.model} - "

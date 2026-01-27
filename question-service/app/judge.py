@@ -16,6 +16,7 @@ from .circuit_breaker import (
     get_circuit_breaker_registry,
 )
 from .models import (
+    DifficultyLevel,
     EvaluatedQuestion,
     EvaluationScore,
     GeneratedQuestion,
@@ -597,6 +598,10 @@ class QuestionJudge:
     def _calculate_overall_score(self, evaluation: EvaluationScore) -> float:
         """Calculate weighted overall score from individual scores.
 
+        Note: Difficulty is intentionally excluded from acceptance criteria.
+        Difficulty determines PLACEMENT (which level the question belongs to),
+        not ACCEPTANCE (whether the question is good enough to use).
+
         Args:
             evaluation: Evaluation with individual scores
 
@@ -607,7 +612,6 @@ class QuestionJudge:
 
         overall = (
             evaluation.clarity_score * criteria.clarity
-            + evaluation.difficulty_score * criteria.difficulty
             + evaluation.validity_score * criteria.validity
             + evaluation.formatting_score * criteria.formatting
             + evaluation.creativity_score * criteria.creativity
@@ -615,6 +619,90 @@ class QuestionJudge:
 
         # Ensure score is in valid range (handle floating point errors)
         return max(0.0, min(1.0, overall))
+
+    def determine_difficulty_placement(
+        self,
+        current_difficulty: DifficultyLevel,
+        difficulty_score: float,
+        feedback: Optional[str] = None,
+    ) -> tuple[DifficultyLevel, Optional[str]]:
+        """Determine the appropriate difficulty level for a question.
+
+        Uses the difficulty score and feedback patterns to decide if a question
+        should be placed at a different difficulty level than originally targeted.
+
+        Args:
+            current_difficulty: The originally targeted difficulty level
+            difficulty_score: The judge's difficulty score (0.0-1.0)
+            feedback: Optional feedback text from the judge
+
+        Returns:
+            Tuple of (final_difficulty, reason) where reason is None if unchanged
+        """
+        placement = self.judge_config.get_difficulty_placement()
+        feedback_lower = feedback.lower() if feedback else ""
+
+        # Primary: Check numeric score thresholds
+        if difficulty_score < placement.downgrade_threshold:
+            # Question is too easy for current level
+            if current_difficulty == DifficultyLevel.HARD:
+                return (
+                    DifficultyLevel.MEDIUM,
+                    f"Downgraded from hard to medium (difficulty_score={difficulty_score:.2f} < {placement.downgrade_threshold})",
+                )
+            elif current_difficulty == DifficultyLevel.MEDIUM:
+                return (
+                    DifficultyLevel.EASY,
+                    f"Downgraded from medium to easy (difficulty_score={difficulty_score:.2f} < {placement.downgrade_threshold})",
+                )
+
+        elif difficulty_score > placement.upgrade_threshold:
+            # Question is too hard for current level
+            if current_difficulty == DifficultyLevel.EASY:
+                return (
+                    DifficultyLevel.MEDIUM,
+                    f"Upgraded from easy to medium (difficulty_score={difficulty_score:.2f} > {placement.upgrade_threshold})",
+                )
+            elif current_difficulty == DifficultyLevel.MEDIUM:
+                return (
+                    DifficultyLevel.HARD,
+                    f"Upgraded from medium to hard (difficulty_score={difficulty_score:.2f} > {placement.upgrade_threshold})",
+                )
+
+        # Fallback: Check feedback patterns if score is ambiguous
+        elif feedback_lower:
+            # Check for "too easy" patterns
+            if any(
+                pattern in feedback_lower for pattern in placement.too_easy_patterns
+            ):
+                if current_difficulty == DifficultyLevel.HARD:
+                    return (
+                        DifficultyLevel.MEDIUM,
+                        "Downgraded from hard to medium (feedback indicates too easy)",
+                    )
+                elif current_difficulty == DifficultyLevel.MEDIUM:
+                    return (
+                        DifficultyLevel.EASY,
+                        "Downgraded from medium to easy (feedback indicates too easy)",
+                    )
+
+            # Check for "too hard" patterns
+            elif any(
+                pattern in feedback_lower for pattern in placement.too_hard_patterns
+            ):
+                if current_difficulty == DifficultyLevel.EASY:
+                    return (
+                        DifficultyLevel.MEDIUM,
+                        "Upgraded from easy to medium (feedback indicates too hard)",
+                    )
+                elif current_difficulty == DifficultyLevel.MEDIUM:
+                    return (
+                        DifficultyLevel.HARD,
+                        "Upgraded from medium to hard (feedback indicates too hard)",
+                    )
+
+        # No adjustment needed
+        return (current_difficulty, None)
 
     def get_judge_stats(self) -> Dict[str, Any]:
         """Get statistics about judge configuration.
@@ -624,6 +712,7 @@ class QuestionJudge:
         """
         config = self.judge_config.config
         criteria = config.evaluation_criteria
+        placement = config.difficulty_placement
 
         return {
             "config_version": config.version,
@@ -631,10 +720,13 @@ class QuestionJudge:
             "available_providers": list(self.providers.keys()),
             "evaluation_criteria": {
                 "clarity": criteria.clarity,
-                "difficulty": criteria.difficulty,
                 "validity": criteria.validity,
                 "formatting": criteria.formatting,
                 "creativity": criteria.creativity,
+            },
+            "difficulty_placement": {
+                "downgrade_threshold": placement.downgrade_threshold,
+                "upgrade_threshold": placement.upgrade_threshold,
             },
             "judges": {
                 qt: {

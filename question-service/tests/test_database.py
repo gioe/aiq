@@ -183,6 +183,50 @@ class TestDatabaseService:
 
         assert question_id == 789
 
+    def test_insert_evaluated_question_stores_individual_scores(
+        self, mock_database_service, sample_evaluated_question
+    ):
+        """Test that individual evaluation scores are stored in metadata."""
+        mock_session = Mock(spec=Session)
+        mock_db_question = Mock()
+        mock_db_question.id = 999
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 999))
+
+        captured_question = None
+
+        def capture_question(q):
+            nonlocal captured_question
+            captured_question = q
+
+        mock_session.add.side_effect = capture_question
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 999
+            MockQuestionModel.return_value = mock_instance
+
+            mock_database_service.insert_evaluated_question(sample_evaluated_question)
+
+            # Verify the metadata contains individual scores
+            call_kwargs = MockQuestionModel.call_args[1]
+            metadata = call_kwargs["question_metadata"]
+
+            assert "evaluation_scores" in metadata
+            scores = metadata["evaluation_scores"]
+            assert scores["clarity_score"] == pytest.approx(0.9)
+            assert scores["difficulty_score"] == pytest.approx(0.8)
+            assert scores["validity_score"] == pytest.approx(0.85)
+            assert scores["formatting_score"] == pytest.approx(0.95)
+            assert scores["creativity_score"] == pytest.approx(0.7)
+            assert scores["feedback"] == "Good question"
+            assert metadata["judge_model"] == "openai/gpt-4"
+
     def test_insert_questions_batch(self, mock_database_service):
         """Test batch question insertion."""
         questions = [
