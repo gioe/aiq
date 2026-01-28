@@ -120,6 +120,16 @@ enum AccessibilityIdentifiers {
         }
     }
 
+    // MARK: - Memory Question View
+
+    enum MemoryQuestionView {
+        static let container = "memoryQuestionView.container"
+        static let stimulusCard = "memoryQuestionView.stimulusCard"
+        static let stimulusText = "memoryQuestionView.stimulusText"
+        static let continueButton = "memoryQuestionView.continueButton"
+        static let questionPhase = "memoryQuestionView.questionPhase"
+    }
+
     // MARK: - Test Results View
 
     enum TestResultsView {

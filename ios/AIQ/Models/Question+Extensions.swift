@@ -25,7 +25,8 @@ extension Components.Schemas.QuestionResponse: Equatable {
             lhs.questionType == rhs.questionType &&
             lhs.difficultyLevel == rhs.difficultyLevel &&
             lhs.answerOptions == rhs.answerOptions &&
-            lhs.explanation == rhs.explanation
+            lhs.explanation == rhs.explanation &&
+            lhs.stimulus == rhs.stimulus
     }
 }
 
@@ -54,6 +55,17 @@ extension Components.Schemas.QuestionResponse {
     /// The generated type uses a String for questionType, but we want type-safe enum usage.
     var questionTypeEnum: QuestionType? {
         QuestionType(rawValue: questionType)
+    }
+
+    /// Indicates if this is a memory question with a stimulus to memorize
+    ///
+    /// Memory questions have a two-phase flow:
+    /// 1. Show stimulus content for memorization
+    /// 2. Hide stimulus and show the question
+    ///
+    /// - Returns: `true` if this is a memory question with non-empty stimulus content
+    var isMemoryQuestion: Bool {
+        questionTypeEnum == .memory && stimulus != nil && !(stimulus?.isEmpty ?? true)
     }
 }
 
