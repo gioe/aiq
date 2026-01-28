@@ -9,8 +9,8 @@ Context:
 - The stimulus field was added to support memory-type questions (TASK-737)
 - Existing questions in production have stimulus=NULL
 - The QuestionResponse schema has stimulus as Optional[str] with default None
-- The question_to_response() utility doesn't include stimulus in its output
-- This means stimulus will always be None in API responses, ensuring backward compatibility
+- TASK-744 updated question_to_response() to include stimulus in API responses
+- Questions without stimulus return stimulus=None, while memory questions return their stimulus content
 """
 
 from app.models import Question, TestSession
@@ -146,8 +146,9 @@ class TestQuestionUtilityBackwardCompatibility:
         assert response.difficulty_level == question.difficulty_level.value
         assert response.answer_options is not None
         assert response.explanation is None  # Not included
-        # Note: stimulus field is not included in question_to_response() output
-        # but QuestionResponse schema will default it to None
+        # TASK-744: stimulus field is now included in question_to_response() output
+        # Questions without stimulus return stimulus=None
+        assert response.stimulus is None
 
     def test_question_to_response_preserves_none_stimulus(self, db_session):
         """Test that QuestionResponse schema correctly handles missing stimulus field."""
@@ -378,14 +379,10 @@ class TestAPIEndpointBackwardCompatibility:
         q_without = questions_by_text["Question without stimulus"]
         assert q_without["stimulus"] is None
 
-        # NOTE: As of this writing, question_to_response() in question_utils.py doesn't
-        # include the stimulus field in API responses. This is intentional for backward
-        # compatibility - TASK-744 will add stimulus to API responses once the iOS client
-        # is ready to handle it. Until then, all questions return stimulus=None.
+        # TASK-744: question_to_response() now includes stimulus in API responses.
+        # Memory questions return their stimulus content; non-memory questions return None.
         q_with = questions_by_text["What was the first item?"]
-        assert (
-            q_with["stimulus"] is None
-        )  # Stimulus not yet exposed in API (see TASK-744)
+        assert q_with["stimulus"] == "Remember these items: apple, banana, cherry."
 
 
 class TestEndToEndBackwardCompatibility:

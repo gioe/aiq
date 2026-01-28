@@ -36,5 +36,6 @@ def question_to_response(
             "difficulty_level": question.difficulty_level.value,
             "answer_options": answer_options,
             "explanation": question.explanation if include_explanation else None,
+            "stimulus": question.stimulus,
         }
     )
