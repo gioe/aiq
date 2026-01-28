@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, ANY
 from sqlalchemy.orm import Session
 
-from app.database import DatabaseService
+from app.database import DatabaseService, PROMPT_VERSION
 from app.models import (
     DifficultyLevel,
     EvaluatedQuestion,
@@ -373,7 +373,7 @@ class TestDatabaseService:
                 source_llm="openai",
                 source_model="gpt-4-turbo",
                 judge_score=0.8,
-                prompt_version="2.0",
+                prompt_version=PROMPT_VERSION,
                 created_at="2024-01-01",
                 is_active=True,
             ),
@@ -389,7 +389,7 @@ class TestDatabaseService:
                 source_llm="anthropic",
                 source_model="claude-3-opus",
                 judge_score=0.85,
-                prompt_version="2.0",
+                prompt_version=PROMPT_VERSION,
                 created_at="2024-01-02",
                 is_active=True,
             ),
