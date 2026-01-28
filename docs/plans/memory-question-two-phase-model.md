@@ -1,5 +1,9 @@
 # Memory Questions: Two-Phase Model Implementation
 
+> **Project Status: ARCHIVED - COMPLETED**
+> **Completion Date**: January 28, 2026
+> **Outcome**: Success - All success criteria exceeded
+
 ## Overview
 
 This plan outlines the implementation of a two-phase data model for memory questions in the AIQ system. Currently, memory questions combine stimulus (data to memorize) and question (what to recall) in a single `question_text` field, causing a 50% judge rejection rate because the stimulus remains visible when answering.
@@ -307,6 +311,65 @@ The TASK-755 fix (stimulus field validation) has successfully resolved the memor
 - **Consistency**: 89 consecutive questions approved post-fix
 
 Memory questions now perform at parity with other high-performing question types (LOGIC, PATTERN, MATH all at 99-100% approval rates).
+
+## Lessons Learned
+
+### What Worked Well
+
+1. **Proper data modeling solved the root cause**: Adding a dedicated `stimulus` field instead of trying to work around the combined text format was the right architectural decision. The judge could then properly evaluate memory questions knowing the stimulus would be hidden during answering.
+
+2. **Backward compatibility approach**: Making the stimulus field optional allowed incremental rollout without breaking existing questions or requiring immediate data migration. Old questions continue to work while new questions benefit from the improved structure.
+
+3. **Judge prompt clarity**: Updating the judge prompt to explicitly understand two-phase memory question delivery eliminated false rejections. The judge no longer penalizes questions for having visible stimulus since it knows the app handles phase separation.
+
+4. **End-to-end validation**: Testing the full pipeline from generation → evaluation → storage → API → iOS rendering caught integration issues early and built confidence in the solution.
+
+5. **Phased implementation**: Breaking the work into 6 clear phases with explicit dependencies enabled parallel work and clear progress tracking across 35 tasks.
+
+### What Could Be Improved
+
+1. **Earlier baseline measurement**: The original estimate of ~50% baseline approval rate was based on limited data. The actual measured baseline was 26.7%, meaning the problem was more severe than anticipated. More rigorous baseline measurement before implementation would have better quantified the impact.
+
+2. **Stimulus validation in generator**: Adding validation that memory questions must have a non-null stimulus field caught questions that were structured incorrectly. This validation should have been part of the initial generator update rather than added later.
+
+3. **iOS testing coverage**: The MemoryQuestionView component would benefit from more comprehensive UI tests covering edge cases like very long stimuli or rapid phase transitions.
+
+### Key Technical Insights
+
+- **Schema changes propagate through entire stack**: A single field addition required changes to question-service models, database schema, backend models, API schemas, OpenAPI spec, iOS client, and iOS views. Plan for this propagation time.
+
+- **Judge prompts are critical for question quality**: The judge's understanding of question delivery mechanics directly impacts what gets approved. Prompt engineering for the judge is as important as generator prompt engineering.
+
+- **Nullable fields enable gradual migration**: Optional fields allow deploying changes without forcing immediate data migration or breaking API contracts.
+
+## Project Completion Summary
+
+### Tasks Completed
+- **Total tasks**: 35 implementation tasks (TASK-725 through TASK-758)
+- **All phases completed**: Data Model, Generation/Evaluation, Testing, Backend Deployment, iOS Client, Validation & Monitoring
+- **Final documentation**: TASK-759 (this update)
+
+### Deliverables
+1. `stimulus` field added throughout the stack (question-service → backend → iOS)
+2. Updated generator prompt producing structured memory questions
+3. Updated judge prompt properly evaluating two-phase memory questions
+4. MemoryQuestionView component in iOS with phase transitions
+5. Production database migration completed
+6. 89 production memory questions generated with 100% approval rate
+
+### Success Metrics Achieved
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Memory question approval rate | ≥70% | **100%** | Exceeded |
+| Average judge score | ≥0.85 | **0.92** | Exceeded |
+| Zero API errors in production | 0 | **0** | Met |
+| Backward compatibility | No breaking changes | **No breaking changes** | Met |
+
+### Recommendations for Future Work
+1. Consider backfilling existing memory questions with proper stimulus separation
+2. Add stimulus length-based reading time recommendations in iOS
+3. Track user engagement metrics on memory questions vs other types
+4. Explore rich formatting (markdown) for stimulus content if complex data presentation is needed
 
 ## Appendix
 
