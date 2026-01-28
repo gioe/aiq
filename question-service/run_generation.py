@@ -509,32 +509,18 @@ async def attempt_regeneration_with_feedback(
             logger.debug(f"  Regenerated: {regenerated.question_text[:60]}...")
 
             # Re-evaluate the regenerated question
-            eval_result = await judge.evaluate_question_async(
-                question=regenerated.question_text,
-                answer_options=regenerated.answer_options,
-                correct_answer=regenerated.correct_answer,
-                question_type=regenerated.question_type.value,
-                difficulty=regenerated.difficulty_level.value,
-            )
+            eval_result = await judge.evaluate_question_async(question=regenerated)
 
-            if eval_result.overall_score >= min_score:
-                from app.models import EvaluatedQuestion
-
-                approved_eval = EvaluatedQuestion(
-                    question=regenerated,
-                    evaluation=eval_result,
-                    judge_model=judge._get_available_provider() or "unknown",
-                    approved=True,
-                )
-                regenerated_approved.append(approved_eval)
+            if eval_result.approved:
+                regenerated_approved.append(eval_result)
                 logger.info(
-                    f"  ✓ REGENERATED (score: {eval_result.overall_score:.2f}): "
+                    f"  ✓ REGENERATED (score: {eval_result.evaluation.overall_score:.2f}): "
                     f"{regenerated.question_text[:50]}..."
                 )
             else:
                 logger.debug(
                     f"  ✗ Regenerated question still rejected "
-                    f"(score: {eval_result.overall_score:.2f})"
+                    f"(score: {eval_result.evaluation.overall_score:.2f})"
                 )
                 still_rejected.append(rejected)
 

@@ -203,6 +203,65 @@ class TestQuestionGenerator:
         assert question.question_type == QuestionType.MEMORY
         assert question.source_llm == "openai"
 
+    def test_memory_question_missing_stimulus_rejected(self, generator_with_openai):
+        """Test that memory questions without stimulus are rejected (TASK-755)."""
+        response = {
+            "question_text": "What was the third item?",
+            "correct_answer": "dolphin",
+            "answer_options": ["maple", "oak", "dolphin", "whale"],
+            "explanation": "Test explanation.",
+            # Missing stimulus field
+        }
+
+        with pytest.raises(ValueError, match="Memory questions require.*stimulus"):
+            generator_with_openai._parse_generated_response(
+                response=response,
+                question_type=QuestionType.MEMORY,
+                difficulty=DifficultyLevel.MEDIUM,
+                provider_name="openai",
+                model="gpt-4",
+            )
+
+    def test_memory_question_empty_stimulus_rejected(self, generator_with_openai):
+        """Test that memory questions with empty/whitespace stimulus are rejected (TASK-755)."""
+        response = {
+            "question_text": "What was the third item?",
+            "correct_answer": "dolphin",
+            "answer_options": ["maple", "oak", "dolphin", "whale"],
+            "explanation": "Test explanation.",
+            "stimulus": "   ",  # Whitespace-only
+        }
+
+        with pytest.raises(ValueError, match="Memory questions require.*stimulus"):
+            generator_with_openai._parse_generated_response(
+                response=response,
+                question_type=QuestionType.MEMORY,
+                difficulty=DifficultyLevel.MEDIUM,
+                provider_name="openai",
+                model="gpt-4",
+            )
+
+    def test_non_memory_question_without_stimulus_allowed(self, generator_with_openai):
+        """Test that non-memory questions still work without stimulus (TASK-755)."""
+        response = {
+            "question_text": "What comes next: 2, 4, 8, 16, ?",
+            "correct_answer": "32",
+            "answer_options": ["24", "32", "48", "64"],
+            "explanation": "Each number doubles the previous.",
+            # No stimulus field - should be fine for non-memory questions
+        }
+
+        question = generator_with_openai._parse_generated_response(
+            response=response,
+            question_type=QuestionType.PATTERN,  # Not MEMORY
+            difficulty=DifficultyLevel.EASY,
+            provider_name="openai",
+            model="gpt-4",
+        )
+
+        assert question.question_text == "What comes next: 2, 4, 8, 16, ?"
+        assert question.stimulus is None
+
     def test_parse_response_missing_fields(self, generator_with_openai):
         """Test that parsing fails with missing required fields."""
         response = {
