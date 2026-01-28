@@ -280,7 +280,7 @@ JSON_RESPONSE_FORMAT = {
         },
         "stimulus": {
             "type": "string",
-            "description": "Content to memorize before answering (required for memory questions only)",
+            "description": "Optional. Content to memorize before answering. Required for memory questions only - the app will display this first, then hide it before showing the question.",
         },
     },
     "required": ["question_text", "correct_answer", "answer_options", "explanation"],
