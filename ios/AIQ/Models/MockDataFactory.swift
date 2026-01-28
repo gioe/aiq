@@ -86,13 +86,15 @@ enum MockDataFactory {
     ///   - difficultyLevel: Difficulty level (easy, medium, hard)
     ///   - answerOptions: Optional array of answer options for multiple choice questions
     ///   - explanation: Optional explanation for the correct answer
+    ///   - stimulus: Optional stimulus content for memory questions
     static func makeQuestion(
         id: Int,
         questionText: String,
         questionType: String,
         difficultyLevel: String,
         answerOptions: [String]? = nil,
-        explanation: String? = nil
+        explanation: String? = nil,
+        stimulus: String? = nil
     ) -> Question {
         Components.Schemas.QuestionResponse(
             answerOptions: answerOptions,
@@ -100,7 +102,39 @@ enum MockDataFactory {
             explanation: explanation,
             id: id,
             questionText: questionText,
-            questionType: questionType
+            questionType: questionType,
+            stimulus: stimulus
+        )
+    }
+
+    /// Creates a mock memory Question for previews.
+    ///
+    /// Memory questions have a stimulus field that contains content to memorize
+    /// before answering the question.
+    ///
+    /// - Parameters:
+    ///   - id: Question ID
+    ///   - stimulus: Content to memorize before answering
+    ///   - questionText: The question text (asked after hiding stimulus)
+    ///   - difficultyLevel: Difficulty level (easy, medium, hard)
+    ///   - answerOptions: Optional array of answer options for multiple choice questions
+    ///   - explanation: Optional explanation for the correct answer
+    static func makeMemoryQuestion(
+        id: Int,
+        stimulus: String,
+        questionText: String,
+        difficultyLevel: String,
+        answerOptions: [String]? = nil,
+        explanation: String? = nil
+    ) -> Question {
+        makeQuestion(
+            id: id,
+            questionText: questionText,
+            questionType: "memory",
+            difficultyLevel: difficultyLevel,
+            answerOptions: answerOptions,
+            explanation: explanation,
+            stimulus: stimulus
         )
     }
 

@@ -524,6 +524,12 @@
 "answer.input.option.selected" = "Currently selected";
 "answer.input.option.select" = "Double tap to select this answer";
 
+// MARK: - Memory Question
+"memory.question.memorize" = "Memorize";
+"memory.question.remember.content" = "Remember the following content:";
+"memory.question.continue" = "Continue";
+"memory.question.stimulus.accessibility" = "Memory stimulus. %@. Press Continue when you are ready to answer the question.";
+
 // MARK: - Test Results
 "results.test.results" = "Test Results";
 "results.done" = "Done";
