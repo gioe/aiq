@@ -446,6 +446,7 @@ def build_regeneration_prompt(
     difficulty: DifficultyLevel,
     judge_feedback: str,
     scores: dict[str, float],
+    original_stimulus: str | None = None,
 ) -> str:
     """Build a prompt for regenerating a rejected question with judge feedback.
 
@@ -460,6 +461,7 @@ def build_regeneration_prompt(
         difficulty: Difficulty level
         judge_feedback: Detailed feedback from the judge explaining why it was rejected
         scores: Dictionary of scores (clarity, difficulty, validity, formatting, creativity)
+        original_stimulus: The original stimulus content for memory questions (optional)
 
     Returns:
         Complete prompt string for regeneration
@@ -477,6 +479,20 @@ def build_regeneration_prompt(
         "\n".join(weak_areas) if weak_areas else "- Multiple areas need improvement"
     )
 
+    # Build stimulus section for memory questions
+    stimulus_section = ""
+    if original_stimulus:
+        stimulus_section = f"\nStimulus (content to memorize): {original_stimulus}"
+
+    # Build memory-specific requirements if this is a memory question
+    memory_requirements = ""
+    if question_type == QuestionType.MEMORY:
+        memory_requirements = """
+9. MEMORY QUESTION SPECIFIC: Include a "stimulus" field with content to memorize
+   - The stimulus is shown first, then hidden before the question appears
+   - The question_text should NOT repeat the stimulus content
+   - Ensure the question is only answerable by someone who memorized the stimulus"""
+
     prompt = f"""{SYSTEM_PROMPT}
 
 {type_prompt}
@@ -488,7 +504,7 @@ def build_regeneration_prompt(
 REGENERATION TASK: A previous question was rejected by our quality judge. Your task is to create a NEW, IMPROVED question that addresses the identified issues while maintaining the same type and difficulty.
 
 ORIGINAL QUESTION (REJECTED):
-Question: {original_question}
+Question: {original_question}{stimulus_section}
 Correct Answer: {original_answer}
 Options: {original_options}
 
@@ -506,7 +522,7 @@ REGENERATION REQUIREMENTS:
 5. If the issue was "too easy" or "wrong difficulty", calibrate appropriately for {difficulty.value} level
 6. If the issue was "tests knowledge not reasoning", focus on cognitive reasoning rather than factual recall
 7. Maintain the question type: {question_type.value}
-8. Ensure cultural neutrality and mobile-friendliness
+8. Ensure cultural neutrality and mobile-friendliness{memory_requirements}
 
 IMPORTANT: Generate a fresh, high-quality question that would pass rigorous evaluation. Do NOT attempt to "fix" the original - create something better.
 

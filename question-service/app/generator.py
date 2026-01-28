@@ -1415,6 +1415,7 @@ class QuestionGenerator:
             difficulty=original_question.difficulty_level,
             judge_feedback=judge_feedback,
             scores=scores,
+            original_stimulus=original_question.stimulus,
         )
 
         start_time = time.perf_counter()

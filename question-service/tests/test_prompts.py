@@ -4,6 +4,7 @@ from app.models import DifficultyLevel, QuestionType
 from app.prompts import (
     build_generation_prompt,
     build_judge_prompt,
+    build_regeneration_prompt,
     QUESTION_TYPE_PROMPTS,
     DIFFICULTY_INSTRUCTIONS,
 )
@@ -191,3 +192,179 @@ class TestBuildJudgePrompt:
         )
 
         assert "Stimulus (shown first, then hidden" not in prompt
+
+
+class TestBuildRegenerationPrompt:
+    """Tests for build_regeneration_prompt function."""
+
+    def test_build_regeneration_prompt_basic(self):
+        """Test building a basic regeneration prompt."""
+        prompt = build_regeneration_prompt(
+            original_question="What is 2 + 2?",
+            original_answer="4",
+            original_options=["2", "3", "4", "5"],
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            judge_feedback="The question is too simple and tests calculation, not reasoning.",
+            scores={"clarity": 0.9, "difficulty": 0.5, "validity": 0.8},
+        )
+
+        assert "What is 2 + 2?" in prompt
+        assert "4" in prompt
+        assert "REGENERATION TASK" in prompt
+        assert "too simple" in prompt
+        assert "DIFFICULTY" in prompt  # Weak score should be highlighted
+
+    def test_regeneration_prompt_contains_type_and_difficulty(self):
+        """Test that regeneration prompt contains type and difficulty instructions."""
+        prompt = build_regeneration_prompt(
+            original_question="Test question",
+            original_answer="Answer",
+            original_options=["A", "B", "C", "D"],
+            question_type=QuestionType.LOGIC,
+            difficulty=DifficultyLevel.HARD,
+            judge_feedback="Needs improvement",
+            scores={"clarity": 0.5},
+        )
+
+        assert "logic" in prompt.lower()
+        assert "hard" in prompt.lower()
+        assert QuestionType.LOGIC.value in prompt.lower()
+
+    def test_regeneration_prompt_highlights_weak_scores(self):
+        """Test that weak scores (below 0.7) are highlighted."""
+        prompt = build_regeneration_prompt(
+            original_question="Test question",
+            original_answer="Answer",
+            original_options=["A", "B", "C", "D"],
+            question_type=QuestionType.PATTERN,
+            difficulty=DifficultyLevel.MEDIUM,
+            judge_feedback="Multiple issues found",
+            scores={
+                "clarity": 0.5,
+                "difficulty": 0.4,
+                "validity": 0.9,
+                "formatting": 0.8,
+                "creativity": 0.3,
+            },
+        )
+
+        # Weak scores should be highlighted
+        assert "CLARITY" in prompt
+        assert "DIFFICULTY" in prompt
+        assert "CREATIVITY" in prompt
+        # Strong scores should not be in weak areas section
+        assert "VALIDITY" not in prompt.split("WEAK SCORES")[1].split("REGENERATION")[0]
+        assert (
+            "FORMATTING" not in prompt.split("WEAK SCORES")[1].split("REGENERATION")[0]
+        )
+
+    def test_regeneration_prompt_memory_question_without_stimulus(self):
+        """Test regeneration prompt for memory question without original stimulus."""
+        prompt = build_regeneration_prompt(
+            original_question="What color was mentioned first?",
+            original_answer="red",
+            original_options=["red", "blue", "green", "yellow"],
+            question_type=QuestionType.MEMORY,
+            difficulty=DifficultyLevel.EASY,
+            judge_feedback="Question cannot be answered without stimulus",
+            scores={"validity": 0.3},
+        )
+
+        # Should include memory-specific requirements
+        assert "MEMORY QUESTION SPECIFIC" in prompt
+        assert '"stimulus"' in prompt
+        assert "shown first, then hidden" in prompt.lower()
+        # Should not have stimulus section since none was provided
+        assert "Stimulus (content to memorize):" not in prompt
+
+    def test_regeneration_prompt_memory_question_with_stimulus(self):
+        """Test regeneration prompt for memory question with original stimulus."""
+        stimulus = "maple, oak, dolphin, cherry, whale, birch, salmon"
+        prompt = build_regeneration_prompt(
+            original_question="Which item was a mammal?",
+            original_answer="whale",
+            original_options=["whale", "maple", "oak", "birch"],
+            question_type=QuestionType.MEMORY,
+            difficulty=DifficultyLevel.MEDIUM,
+            judge_feedback="Question too easy, doesn't test enough recall",
+            scores={"difficulty": 0.4, "validity": 0.8},
+            original_stimulus=stimulus,
+        )
+
+        # Should include the original stimulus
+        assert stimulus in prompt
+        assert "Stimulus (content to memorize):" in prompt
+        # Should include memory-specific requirements
+        assert "MEMORY QUESTION SPECIFIC" in prompt
+        assert '"stimulus"' in prompt
+
+    def test_regeneration_prompt_non_memory_no_memory_requirements(self):
+        """Test that non-memory questions don't include memory-specific requirements."""
+        prompt = build_regeneration_prompt(
+            original_question="What comes next: 2, 4, 6, ?",
+            original_answer="8",
+            original_options=["7", "8", "9", "10"],
+            question_type=QuestionType.PATTERN,
+            difficulty=DifficultyLevel.EASY,
+            judge_feedback="Pattern too obvious",
+            scores={"creativity": 0.4},
+        )
+
+        assert "MEMORY QUESTION SPECIFIC" not in prompt
+        assert "Stimulus (content to memorize):" not in prompt
+
+    def test_regeneration_prompt_includes_original_options(self):
+        """Test that original options are included in the prompt."""
+        options = ["Option 1", "Option 2", "Option 3", "Option 4"]
+        prompt = build_regeneration_prompt(
+            original_question="Test question",
+            original_answer="Option 2",
+            original_options=options,
+            question_type=QuestionType.VERBAL,
+            difficulty=DifficultyLevel.MEDIUM,
+            judge_feedback="Distractors not plausible",
+            scores={"formatting": 0.5},
+        )
+
+        # Options should be in the prompt (as a list representation)
+        for option in options:
+            assert option in prompt
+
+    def test_regeneration_prompt_json_format(self):
+        """Test that regeneration prompt specifies JSON output format."""
+        prompt = build_regeneration_prompt(
+            original_question="Test",
+            original_answer="Answer",
+            original_options=["A", "B"],
+            question_type=QuestionType.SPATIAL,
+            difficulty=DifficultyLevel.HARD,
+            judge_feedback="Needs work",
+            scores={"clarity": 0.6},
+        )
+
+        assert "JSON" in prompt
+        assert '"question_text"' in prompt
+        assert '"correct_answer"' in prompt
+        assert '"answer_options"' in prompt
+        assert '"explanation"' in prompt
+
+    def test_regeneration_prompt_all_scores_above_threshold(self):
+        """Test prompt when all scores are above threshold shows default message."""
+        prompt = build_regeneration_prompt(
+            original_question="Test",
+            original_answer="Answer",
+            original_options=["A", "B", "C"],
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            judge_feedback="Minor issues only",
+            scores={
+                "clarity": 0.8,
+                "difficulty": 0.75,
+                "validity": 0.9,
+                "formatting": 0.85,
+                "creativity": 0.7,
+            },
+        )
+
+        assert "Multiple areas need improvement" in prompt
