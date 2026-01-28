@@ -223,6 +223,9 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case .noContent:
             await clearTokens()
 
+        case .unprocessableContent:
+            throw APIError.unprocessableEntity(message: "Validation failed")
+
         case let .undocumented(statusCode, payload):
             throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
         }
