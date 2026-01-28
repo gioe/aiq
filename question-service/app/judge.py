@@ -156,6 +156,7 @@ class QuestionJudge:
             correct_answer=question.correct_answer,
             question_type=question_type,
             difficulty=question.difficulty_level.value,
+            stimulus=question.stimulus,
         )
 
         logger.debug(f"Using judge model: {judge_model.model} ({judge_model.provider})")
@@ -258,6 +259,7 @@ class QuestionJudge:
             correct_answer=question.correct_answer,
             question_type=question_type,
             difficulty=question.difficulty_level.value,
+            stimulus=question.stimulus,
         )
 
         logger.debug(

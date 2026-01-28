@@ -136,3 +136,58 @@ class TestBuildJudgePrompt:
         )
 
         assert "0.0-1.0" in prompt or "0.0 to 1.0" in prompt
+
+    def test_judge_prompt_memory_question_includes_stimulus(self):
+        """Test that memory question judge prompt includes stimulus content."""
+        stimulus = "maple, oak, dolphin, cherry, whale, birch, salmon"
+        prompt = build_judge_prompt(
+            question="Which item from the list is a mammal that is NOT the fourth item?",
+            answer_options=["dolphin", "whale", "salmon", "cherry", "oak"],
+            correct_answer="whale",
+            question_type="memory",
+            difficulty="medium",
+            stimulus=stimulus,
+        )
+
+        assert stimulus in prompt
+        assert "Stimulus (shown first, then hidden before question appears)" in prompt
+
+    def test_judge_prompt_memory_question_includes_guidance(self):
+        """Test that memory question judge prompt includes memory-specific guidance."""
+        prompt = build_judge_prompt(
+            question="Which color was mentioned second?",
+            answer_options=["red", "blue", "green", "yellow"],
+            correct_answer="blue",
+            question_type="memory",
+            difficulty="easy",
+            stimulus="red, blue, green, yellow",
+        )
+
+        assert "MEMORY QUESTION EVALUATION GUIDELINES" in prompt
+        assert "two-phase delivery" in prompt
+        assert "stimulus is shown first, then hidden" in prompt
+
+    def test_judge_prompt_non_memory_question_no_memory_guidance(self):
+        """Test that non-memory questions do not include memory-specific guidance."""
+        prompt = build_judge_prompt(
+            question="What comes next: 2, 4, 6, ?",
+            answer_options=["7", "8", "9", "10"],
+            correct_answer="8",
+            question_type="pattern",
+            difficulty="easy",
+        )
+
+        assert "MEMORY QUESTION EVALUATION GUIDELINES" not in prompt
+        assert "two-phase delivery" not in prompt
+
+    def test_judge_prompt_without_stimulus_no_stimulus_section(self):
+        """Test that prompt without stimulus does not include stimulus section."""
+        prompt = build_judge_prompt(
+            question="What is 2 + 2?",
+            answer_options=["2", "3", "4", "5"],
+            correct_answer="4",
+            question_type="math",
+            difficulty="easy",
+        )
+
+        assert "Stimulus (shown first, then hidden" not in prompt
