@@ -238,6 +238,53 @@ enum MockDataFactory {
                 questionType: "pattern",
                 difficultyLevel: "medium",
                 explanation: "Each number doubles the previous one. 16 × 2 = 32"
+            ),
+            makeMemoryQuestion(
+                id: 4,
+                stimulus: "The sequence is: Red, Blue, Green, Yellow, Purple",
+                questionText: "What was the third color in the sequence?",
+                difficultyLevel: "easy",
+                answerOptions: ["Blue", "Green", "Yellow", "Red"],
+                explanation: "The third color in the sequence was Green."
+            )
+        ]
+    }
+
+    /// Sample memory questions for memory question previews and tests.
+    static var sampleMemoryQuestions: [Question] {
+        [
+            makeMemoryQuestion(
+                id: 101,
+                stimulus: "The sequence is: Red, Blue, Green, Yellow, Purple",
+                questionText: "What was the third color in the sequence?",
+                difficultyLevel: "easy",
+                answerOptions: ["Blue", "Green", "Yellow", "Red"],
+                explanation: "The third color in the sequence was Green."
+            ),
+            makeMemoryQuestion(
+                id: 102,
+                stimulus: "Remember these numbers: 7, 3, 9, 2, 5, 8",
+                questionText: "What was the fourth number in the list?",
+                difficultyLevel: "medium",
+                answerOptions: ["3", "9", "2", "5"],
+                explanation: "The fourth number in the list was 2."
+            ),
+            makeMemoryQuestion(
+                id: 103,
+                // swiftlint:disable:next line_length
+                stimulus: "The meeting schedule:\n• Monday: Team sync at 9am\n• Tuesday: Design review at 2pm\n• Wednesday: Sprint planning at 10am\n• Thursday: Client call at 3pm",
+                questionText: "What day was the Design review scheduled?",
+                difficultyLevel: "medium",
+                answerOptions: ["Monday", "Tuesday", "Wednesday", "Thursday"],
+                explanation: "The Design review was scheduled for Tuesday at 2pm."
+            ),
+            makeMemoryQuestion(
+                id: 104,
+                stimulus: "The code sequence is: A5-B2-C9-D1-E7-F4-G8-H3",
+                questionText: "What letter was paired with the number 7?",
+                difficultyLevel: "hard",
+                answerOptions: ["D", "E", "F", "G"],
+                explanation: "E was paired with 7 in the sequence E7."
             )
         ]
     }
