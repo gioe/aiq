@@ -378,13 +378,14 @@ class TestAPIEndpointBackwardCompatibility:
         q_without = questions_by_text["Question without stimulus"]
         assert q_without["stimulus"] is None
 
-        # IMPORTANT: Currently question_to_response() doesn't include stimulus field,
-        # so even questions WITH stimulus in the DB will return stimulus=None
-        # This is the current backward-compatible behavior
+        # NOTE: As of this writing, question_to_response() in question_utils.py doesn't
+        # include the stimulus field in API responses. This is intentional for backward
+        # compatibility - TASK-744 will add stimulus to API responses once the iOS client
+        # is ready to handle it. Until then, all questions return stimulus=None.
         q_with = questions_by_text["What was the first item?"]
         assert (
             q_with["stimulus"] is None
-        )  # Current behavior: stimulus not included in response
+        )  # Stimulus not yet exposed in API (see TASK-744)
 
 
 class TestEndToEndBackwardCompatibility:
@@ -453,10 +454,17 @@ class TestEndToEndBackwardCompatibility:
         assert session is not None
         assert session.status == TestStatus.COMPLETED
 
-    def test_question_explanations_shown_after_submit_regardless_of_stimulus(
+    def test_submit_response_works_for_questions_without_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
-        """Test that explanations are shown after submit for questions without stimulus."""
+        """Test that submitting responses works correctly for questions without stimulus.
+
+        This test verifies that:
+        1. Questions without stimulus can be retrieved in a test session
+        2. The stimulus field is correctly returned as None
+        3. Test submission succeeds for questions without stimulus
+        4. The response scoring works correctly regardless of stimulus value
+        """
         # Create a question without stimulus but with explanation
         question = Question(
             question_text="Logic question without stimulus",
@@ -481,7 +489,7 @@ class TestEndToEndBackwardCompatibility:
         session_id = start_response.json()["session"]["id"]
         question_id = start_response.json()["questions"][0]["id"]
 
-        # Verify explanation is None before submit
+        # Verify stimulus is None in response (explanation is hidden before submit)
         assert start_response.json()["questions"][0]["explanation"] is None
         assert start_response.json()["questions"][0]["stimulus"] is None
 
@@ -496,8 +504,8 @@ class TestEndToEndBackwardCompatibility:
         )
         assert submit_response.status_code == 200
 
-        # After submission, verify the test result includes correct data
-        # Note: The submit response itself contains the test result and doesn't include
-        # question details with explanations. This is expected behavior.
-        # The test has verified that questions without stimulus work correctly through
-        # the entire flow from start to submit.
+        # Verify submission succeeded and scored correctly
+        result_data = submit_response.json()
+        assert "result" in result_data
+        assert result_data["result"]["correct_answers"] == 1
+        assert result_data["result"]["total_questions"] == 1
