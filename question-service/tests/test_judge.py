@@ -121,6 +121,28 @@ def sample_question():
 
 
 @pytest.fixture
+def sample_memory_question():
+    """Create a sample memory question with two-phase structure for testing.
+
+    Memory questions have:
+    - stimulus: Content shown first, then hidden before the question appears
+    - question_text: The question shown after stimulus is hidden
+    """
+    return GeneratedQuestion(
+        question_text="Which item from the list is a mammal that is NOT the fourth item?",
+        question_type=QuestionType.MEMORY,
+        difficulty_level=DifficultyLevel.MEDIUM,
+        correct_answer="whale",
+        answer_options=["dolphin", "whale", "salmon", "cherry", "oak"],
+        explanation="The mammals in the list are dolphin and whale. The fourth item is cherry (not a mammal). Therefore, whale is the mammal that is not the fourth item.",
+        stimulus="maple, oak, dolphin, cherry, whale, birch, salmon",
+        metadata={},
+        source_llm="openai",
+        source_model="gpt-4",
+    )
+
+
+@pytest.fixture
 def sample_evaluation_response():
     """Create a sample evaluation response from an LLM."""
     return {
@@ -689,6 +711,291 @@ class TestJudgeIntegration:
         assert (
             call_kwargs["model_override"] == "gpt-4"
         ), f"model_override should be 'gpt-4', got {call_kwargs['model_override']}"
+
+
+class TestMemoryQuestionEvaluation:
+    """Tests for memory question evaluation with two-phase structure.
+
+    Memory questions have a unique structure:
+    - stimulus: Content shown first, then hidden before the question appears
+    - question_text: The question shown after stimulus is hidden
+
+    The judge must evaluate these questions correctly, considering:
+    - Whether the stimulus is appropriate for the difficulty level
+    - Whether the question genuinely tests memory of the stimulus
+    - Whether the cognitive load matches the target difficulty
+    """
+
+    @patch("app.judge.OpenAIProvider")
+    def test_evaluate_memory_question_success(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test successful evaluation of a memory question with stimulus."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate memory question
+        evaluated = judge.evaluate_question(sample_memory_question)
+
+        # Assertions
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.question == sample_memory_question
+        assert evaluated.question.stimulus is not None
+        assert evaluated.question.question_type == QuestionType.MEMORY
+        assert isinstance(evaluated.evaluation, EvaluationScore)
+        assert evaluated.judge_model == "openai/gpt-4"
+        assert evaluated.approved is True
+
+        # Verify provider was called
+        mock_provider.generate_structured_completion_with_usage.assert_called_once()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_memory_question_stimulus_passed_to_prompt(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test that stimulus is passed to the judge prompt for memory questions."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate memory question
+        judge.evaluate_question(sample_memory_question)
+
+        # Get the prompt that was passed to the provider
+        call_args = mock_provider.generate_structured_completion_with_usage.call_args
+        prompt = call_args.kwargs.get("prompt") or call_args.args[0]
+
+        # Verify stimulus content is in the prompt
+        assert sample_memory_question.stimulus in prompt
+        # Verify memory question guidance is in the prompt
+        assert "MEMORY QUESTION EVALUATION GUIDELINES" in prompt
+        assert "two-phase delivery" in prompt.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_memory_question_without_stimulus_still_evaluates(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_evaluation_response,
+    ):
+        """Test that a memory question without stimulus can still be evaluated.
+
+        This tests backward compatibility - older memory questions might not have
+        a stimulus field, and the judge should still be able to evaluate them.
+        """
+        # Create a memory question without stimulus
+        memory_question_no_stimulus = GeneratedQuestion(
+            question_text="Recall the sequence: 3, 7, 15, 31. What comes next?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="63",
+            answer_options=["47", "55", "63", "71"],
+            explanation="Each number is double the previous plus 1. So 31*2+1=63.",
+            stimulus=None,  # No stimulus
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate should succeed without stimulus
+        evaluated = judge.evaluate_question(memory_question_no_stimulus)
+
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.question.stimulus is None
+        assert evaluated.question.question_type == QuestionType.MEMORY
+
+    @patch("app.judge.OpenAIProvider")
+    def test_memory_question_uses_correct_judge_provider(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test that memory questions use the correct judge provider from config."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate memory question
+        evaluated = judge.evaluate_question(sample_memory_question)
+
+        # Memory questions should use OpenAI per mock_judge_config fixture
+        assert "openai" in evaluated.judge_model
+
+    @pytest.mark.asyncio
+    @patch("app.judge.OpenAIProvider")
+    async def test_evaluate_memory_question_async_success(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test successful async evaluation of a memory question with stimulus."""
+        # Setup mock provider with async method
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate memory question asynchronously
+        evaluated = await judge.evaluate_question_async(sample_memory_question)
+
+        # Assertions
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.question == sample_memory_question
+        assert evaluated.question.stimulus is not None
+        assert evaluated.question.question_type == QuestionType.MEMORY
+        assert isinstance(evaluated.evaluation, EvaluationScore)
+        assert evaluated.approved is True
+
+        # Verify provider async method was called
+        mock_provider.generate_structured_completion_with_usage_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.judge.OpenAIProvider")
+    async def test_evaluate_memory_question_async_stimulus_in_prompt(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test that stimulus is passed to the judge prompt for async memory question evaluation."""
+        # Setup mock provider with async method
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Evaluate memory question asynchronously
+        await judge.evaluate_question_async(sample_memory_question)
+
+        # Get the prompt that was passed to the provider
+        call_args = (
+            mock_provider.generate_structured_completion_with_usage_async.call_args
+        )
+        prompt = call_args.kwargs.get("prompt") or call_args.args[0]
+
+        # Verify stimulus content is in the prompt
+        assert sample_memory_question.stimulus in prompt
+
+    @patch("app.judge.OpenAIProvider")
+    def test_memory_question_batch_evaluation(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_memory_question,
+        sample_evaluation_response,
+    ):
+        """Test batch evaluation of memory questions."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "gpt-4"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        judge.providers["openai"] = mock_provider
+
+        # Create batch with 3 memory questions
+        batch = GenerationBatch(
+            questions=[
+                sample_memory_question,
+                sample_memory_question,
+                sample_memory_question,
+            ],
+            question_type=QuestionType.MEMORY,
+            batch_size=3,
+            generation_timestamp="2024-01-01T00:00:00Z",
+        )
+
+        # Evaluate batch
+        evaluated_questions = judge.evaluate_batch(batch)
+
+        # Assertions
+        assert len(evaluated_questions) == 3
+        assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
+        assert all(
+            eq.question.question_type == QuestionType.MEMORY
+            for eq in evaluated_questions
+        )
+        assert all(eq.question.stimulus is not None for eq in evaluated_questions)
+        assert all(eq.approved for eq in evaluated_questions)
 
 
 class TestQuestionJudgeAsync:
