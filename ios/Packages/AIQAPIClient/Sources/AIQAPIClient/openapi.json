@@ -121,6 +121,15 @@
         "title": "ActionNeededQuestion",
         "type": "object"
       },
+      "AlertSeverity": {
+        "description": "Severity level for inventory alerts.",
+        "enum": [
+          "warning",
+          "critical"
+        ],
+        "title": "AlertSeverity",
+        "type": "string"
+      },
       "AnalyticsEvent": {
         "description": "Schema for a single analytics event from the client.",
         "properties": {
@@ -2030,6 +2039,247 @@
         "title": "InternalConsistencyMetrics",
         "type": "object"
       },
+      "InventoryAlert": {
+        "description": "Alert for a stratum that is below healthy thresholds.",
+        "example": {
+          "count": 15,
+          "difficulty": "hard",
+          "message": "Low inventory: spatial/hard has only 15 questions (threshold: 20)",
+          "question_type": "spatial",
+          "severity": "warning",
+          "threshold": 20
+        },
+        "properties": {
+          "count": {
+            "description": "Current count in this stratum",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "difficulty": {
+            "description": "Difficulty level with inventory issue",
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human-readable alert message",
+            "title": "Message",
+            "type": "string"
+          },
+          "question_type": {
+            "description": "Question type with inventory issue",
+            "title": "Question Type",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AlertSeverity",
+            "description": "Alert severity level"
+          },
+          "threshold": {
+            "description": "The threshold that was violated",
+            "minimum": 0.0,
+            "title": "Threshold",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_type",
+          "difficulty",
+          "count",
+          "threshold",
+          "message",
+          "severity"
+        ],
+        "title": "InventoryAlert",
+        "type": "object"
+      },
+      "InventoryHealthResponse": {
+        "description": "Response schema for GET /v1/admin/inventory-health.\n\nProvides comprehensive view of question inventory across all strata\nwith health status indicators and alerts for low inventory.",
+        "example": {
+          "alerts": [
+            {
+              "count": 45,
+              "difficulty": "medium",
+              "message": "Low inventory: pattern/medium has only 45 questions (threshold: 50)",
+              "question_type": "pattern",
+              "severity": "warning",
+              "threshold": 50
+            },
+            {
+              "count": 15,
+              "difficulty": "hard",
+              "message": "Critical inventory: spatial/hard has only 15 questions (threshold: 20)",
+              "question_type": "spatial",
+              "severity": "critical",
+              "threshold": 20
+            }
+          ],
+          "strata": [
+            {
+              "count": 62,
+              "difficulty": "easy",
+              "question_type": "pattern",
+              "status": "healthy"
+            },
+            {
+              "count": 45,
+              "difficulty": "medium",
+              "question_type": "pattern",
+              "status": "warning"
+            },
+            {
+              "count": 15,
+              "difficulty": "hard",
+              "question_type": "spatial",
+              "status": "critical"
+            }
+          ],
+          "summary": {
+            "critical": 2,
+            "healthy": 12,
+            "warning": 4
+          },
+          "thresholds": {
+            "healthy_min": 50,
+            "warning_min": 20
+          },
+          "total_active_questions": 523
+        },
+        "properties": {
+          "alerts": {
+            "description": "Alerts for strata below healthy thresholds",
+            "items": {
+              "$ref": "#/components/schemas/InventoryAlert"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "strata": {
+            "description": "Inventory breakdown by type and difficulty",
+            "items": {
+              "$ref": "#/components/schemas/InventoryStratum"
+            },
+            "title": "Strata",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Summary counts by status (healthy, warning, critical)",
+            "title": "Summary",
+            "type": "object"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/InventoryThresholds",
+            "description": "Thresholds used for health assessment"
+          },
+          "total_active_questions": {
+            "description": "Total number of active questions across all strata",
+            "minimum": 0.0,
+            "title": "Total Active Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_active_questions",
+          "strata",
+          "alerts",
+          "thresholds",
+          "summary"
+        ],
+        "title": "InventoryHealthResponse",
+        "type": "object"
+      },
+      "InventoryStatus": {
+        "description": "Status indicator for inventory stratum health.",
+        "enum": [
+          "healthy",
+          "warning",
+          "critical"
+        ],
+        "title": "InventoryStatus",
+        "type": "string"
+      },
+      "InventoryStratum": {
+        "description": "Inventory statistics for a specific question type and difficulty combination.",
+        "example": {
+          "count": 45,
+          "difficulty": "medium",
+          "question_type": "pattern",
+          "status": "warning"
+        },
+        "properties": {
+          "count": {
+            "description": "Number of active questions in this stratum",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "difficulty": {
+            "description": "Difficulty level (easy, medium, hard)",
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "question_type": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Question Type",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InventoryStatus",
+            "description": "Health status based on configured thresholds"
+          }
+        },
+        "required": [
+          "question_type",
+          "difficulty",
+          "count",
+          "status"
+        ],
+        "title": "InventoryStratum",
+        "type": "object"
+      },
+      "InventoryThresholds": {
+        "description": "Configurable thresholds for inventory health assessment.",
+        "example": {
+          "healthy_min": 50,
+          "warning_min": 20
+        },
+        "properties": {
+          "healthy_min": {
+            "default": 50,
+            "description": "Minimum count for healthy status (green)",
+            "minimum": 0.0,
+            "title": "Healthy Min",
+            "type": "integer"
+          },
+          "warning_min": {
+            "default": 20,
+            "description": "Minimum count for warning status (yellow). Below this is critical (red).",
+            "minimum": 0.0,
+            "title": "Warning Min",
+            "type": "integer"
+          }
+        },
+        "title": "InventoryThresholds",
+        "type": "object"
+      },
+      "LogoutRequest": {
+        "description": "Schema for logout request with optional refresh token revocation (TASK-525).",
+        "properties": {
+          "refresh_token": {
+            "description": "Refresh token to revoke. When provided, both the access token (from Authorization header) and this refresh token will be blacklisted. Must belong to the same user as the access token.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "nullable": true,
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "title": "LogoutRequest",
+        "type": "object"
+      },
       "MetricType": {
         "description": "Type of reliability metric stored in the database.",
         "enum": [
@@ -2251,6 +2501,77 @@
           "has_more"
         ],
         "title": "PaginatedTestHistoryResponse",
+        "type": "object"
+      },
+      "PasswordResetConfirm": {
+        "description": "Schema for password reset confirmation (TASK-503).",
+        "properties": {
+          "new_password": {
+            "description": "New password (8-128 characters)",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          },
+          "token": {
+            "description": "Password reset token from email",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "PasswordResetConfirm",
+        "type": "object"
+      },
+      "PasswordResetConfirmResponse": {
+        "description": "Schema for password reset confirmation response (TASK-503).",
+        "properties": {
+          "message": {
+            "description": "Success message",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "PasswordResetConfirmResponse",
+        "type": "object"
+      },
+      "PasswordResetRequest": {
+        "description": "Schema for password reset request (TASK-503).",
+        "properties": {
+          "email": {
+            "description": "Email address associated with the account",
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "PasswordResetRequest",
+        "type": "object"
+      },
+      "PasswordResetResponse": {
+        "description": "Schema for password reset request response (TASK-503).",
+        "properties": {
+          "message": {
+            "description": "Success message",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "PasswordResetResponse",
         "type": "object"
       },
       "PersonFitDetails": {
@@ -2506,13 +2827,6 @@
             "title": "Approval Rate",
             "type": "number"
           },
-          "judge_config_version": {
-            "description": "Judge config version used",
-            "maxLength": 50,
-            "nullable": true,
-            "title": "Judge Config Version",
-            "type": "string"
-          },
           "avg_judge_score": {
             "description": "Average judge score",
             "nullable": true,
@@ -2595,6 +2909,13 @@
             "description": "Database insertion failures",
             "title": "Insertion Failures",
             "type": "integer"
+          },
+          "judge_config_version": {
+            "description": "Judge config version used",
+            "maxLength": 50,
+            "nullable": true,
+            "title": "Judge Config Version",
+            "type": "string"
           },
           "max_judge_score": {
             "description": "Maximum judge score",
@@ -2759,12 +3080,6 @@
             "title": "Approval Rate",
             "type": "number"
           },
-          "judge_config_version": {
-            "description": "Judge config version used",
-            "nullable": true,
-            "title": "Judge Config Version",
-            "type": "string"
-          },
           "avg_judge_score": {
             "description": "Average judge score",
             "nullable": true,
@@ -2853,6 +3168,12 @@
             "description": "Database insertion failures",
             "title": "Insertion Failures",
             "type": "integer"
+          },
+          "judge_config_version": {
+            "description": "Judge config version used",
+            "nullable": true,
+            "title": "Judge Config Version",
+            "type": "string"
           },
           "max_judge_score": {
             "description": "Maximum judge score",
@@ -3054,12 +3375,6 @@
             "title": "Avg Approval Rate",
             "type": "number"
           },
-          "avg_judge_score": {
-            "description": "Average judge score",
-            "nullable": true,
-            "title": "Avg Judge Score",
-            "type": "number"
-          },
           "avg_duplicate_rate": {
             "description": "Average duplicate rate",
             "nullable": true,
@@ -3070,6 +3385,12 @@
             "description": "Average run duration",
             "nullable": true,
             "title": "Avg Duration Seconds",
+            "type": "number"
+          },
+          "avg_judge_score": {
+            "description": "Average judge score",
+            "nullable": true,
+            "title": "Avg Judge Score",
             "type": "number"
           },
           "avg_overall_success_rate": {
@@ -3309,6 +3630,12 @@
           "question_type": {
             "description": "Type of question (pattern, logic, etc.)",
             "title": "Question Type",
+            "type": "string"
+          },
+          "stimulus": {
+            "description": "Content to memorize before answering (for memory questions)",
+            "nullable": true,
+            "title": "Stimulus",
             "type": "string"
           }
         },
@@ -6634,6 +6961,76 @@
         ]
       }
     },
+    "/v1/admin/inventory-health": {
+      "get": {
+        "description": "Get question inventory health status across all type/difficulty strata.\n\nReturns detailed inventory statistics with health indicators to help\nmonitor question pool sufficiency. Useful for identifying which\nquestion types/difficulties need more generation.\n\nRequires X-Admin-Token header with valid admin token.\n\n**Health Status Thresholds:**\n- `healthy`: count >= healthy_min (default: 50)\n- `warning`: warning_min <= count < healthy_min (default: 20-49)\n- `critical`: count < warning_min (default: < 20)\n\n**Query Parameters:**\n- `healthy_min`: Minimum count for healthy status (configurable, default: 50)\n- `warning_min`: Minimum count for warning status (configurable, default: 20)\n\n**Response Structure:**\n- `total_active_questions`: Total count across all strata\n- `strata`: List of all type/difficulty combinations with counts and status\n- `alerts`: List of strata below healthy threshold requiring attention\n- `thresholds`: The threshold values used for this assessment\n- `summary`: Count of strata by status (healthy/warning/critical)\n\nArgs:\n    healthy_min: Minimum count for healthy status\n    warning_min: Minimum count for warning status\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    InventoryHealthResponse with complete inventory breakdown\n\nExample:\n    ```\n    # Use default thresholds\n    curl \"https://api.example.com/v1/admin/inventory-health\"           -H \"X-Admin-Token: your-admin-token\"\n\n    # Use custom thresholds\n    curl \"https://api.example.com/v1/admin/inventory-health?healthy_min=100&warning_min=30\"           -H \"X-Admin-Token: your-admin-token\"\n    ```",
+        "operationId": "get_inventory_health_v1_admin_inventory_health_get",
+        "parameters": [
+          {
+            "description": "Minimum count for healthy status (default: 50)",
+            "in": "query",
+            "name": "healthy_min",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Minimum count for healthy status (default: 50)",
+              "minimum": 0,
+              "title": "Healthy Min",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Minimum count for warning status (default: 20)",
+            "in": "query",
+            "name": "warning_min",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Minimum count for warning status (default: 20)",
+              "minimum": 0,
+              "title": "Warning Min",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Inventory Health",
+        "tags": [
+          "admin",
+          "Admin - Inventory"
+        ]
+      }
+    },
     "/v1/admin/question-generation-status/{job_id}": {
       "get": {
         "description": "Check the status of a question generation job by job ID.\n\nThis endpoint is deprecated. Use GET /v1/admin/background-jobs/{job_id} instead\nfor more detailed job information from the process registry.\n\nFor legacy compatibility, this endpoint also accepts a PID as job_id\nand will look up the job in the registry by PID.\n\nArgs:\n    job_id: Job ID (from registry) or Process ID (legacy)\n    _: Admin token validation dependency\n\nReturns:\n    Job status information",
@@ -7791,7 +8188,7 @@
     },
     "/v1/auth/login": {
       "post": {
-        "description": "Authenticate user and return access + refresh tokens.\n\nArgs:\n    credentials: User login credentials\n    db: Database session\n\nReturns:\n    Access and refresh JWT tokens with user information\n\nRaises:\n    HTTPException: 401 if credentials are invalid",
+        "description": "Authenticate user and return access + refresh tokens.\n\nArgs:\n    credentials: User login credentials\n    request: FastAPI request object for IP extraction\n    db: Database session\n\nReturns:\n    Access and refresh JWT tokens with user information\n\nRaises:\n    HTTPException: 401 if credentials are invalid",
         "operationId": "login_user_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -7833,11 +8230,30 @@
     },
     "/v1/auth/logout": {
       "post": {
-        "description": "Logout user (client-side token invalidation).\n\nNote: Since we're using stateless JWT tokens, actual logout happens\non the client side by discarding the tokens. This endpoint validates\nthat the user is authenticated and allows the client to confirm logout.\n\nArgs:\n    current_user: Current authenticated user\n\nReturns:\n    No content (204)",
+        "description": "Logout user by blacklisting their current access token and optionally refresh token.\n\nThis immediately revokes the token(s), preventing further use even before expiration.\nThe client should also discard tokens locally.\n\nWhen a refresh_token is provided in the request body, it will also be blacklisted,\nensuring the user cannot use it to obtain new access tokens.\n\nArgs:\n    request: FastAPI request object for IP extraction\n    logout_data: Optional request body with refresh_token to revoke\n    current_user: Current authenticated user\n    credentials: Token credentials for blacklisting\n\nReturns:\n    No content (204)",
         "operationId": "logout_user_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -7880,7 +8296,7 @@
     },
     "/v1/auth/register": {
       "post": {
-        "description": "Register a new user account.\n\nArgs:\n    user_data: User registration data\n    db: Database session\n\nReturns:\n    Created user information with access and refresh tokens\n\nRaises:\n    HTTPException: 409 if email already exists",
+        "description": "Register a new user account.\n\nArgs:\n    user_data: User registration data\n    request: FastAPI request object for IP extraction\n    db: Database session\n\nReturns:\n    Created user information with access and refresh tokens\n\nRaises:\n    HTTPException: 409 if email already exists",
         "operationId": "register_user_v1_auth_register_post",
         "requestBody": {
           "content": {
@@ -7915,6 +8331,90 @@
           }
         },
         "summary": "Register User",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/request-password-reset": {
+      "post": {
+        "description": "Request a password reset for an account.\n\nSends a password reset email with a time-limited token if the email exists.\nAlways returns success (even if email doesn't exist) to prevent email enumeration.\n\nSecurity considerations:\n- Generic response prevents email enumeration attacks\n- Tokens expire after 30 minutes\n- Previous unused tokens are invalidated when new request is made\n- Rate limited to prevent abuse (configured in middleware)\n\nArgs:\n    request_data: Password reset request containing email\n    request: FastAPI request object for IP extraction\n    db: Database session\n\nReturns:\n    Generic success message regardless of whether email exists\n\nExample:\n    >>> response = await request_password_reset(\n    ...     PasswordResetRequest(email=\"user@example.com\")\n    ... )\n    >>> print(response.message)\n    \"If an account exists with that email, you will receive password reset instructions.\"",
+        "operationId": "request_password_reset_v1_auth_request_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Password Reset",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/reset-password": {
+      "post": {
+        "description": "Reset password using a valid reset token.\n\nValidates the token and updates the user's password if valid.\nTokens are single-use and time-limited (30 minutes).\n\nArgs:\n    reset_data: Password reset confirmation with token and new password\n    request: FastAPI request object for IP extraction\n    db: Database session\n\nReturns:\n    Success message\n\nRaises:\n    HTTPException: 400 if token is invalid, expired, or already used\n\nExample:\n    >>> response = reset_password(\n    ...     PasswordResetConfirm(\n    ...         token=\"abc123...\",\n    ...         new_password=\"NewSecureP@ssw0rd!\"\n    ...     )\n    ... )\n    >>> print(response.message)\n    \"Password has been reset successfully.\"",
+        "operationId": "reset_password_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetConfirmResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Password",
         "tags": [
           "auth"
         ]
