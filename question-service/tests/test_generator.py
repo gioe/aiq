@@ -177,6 +177,31 @@ class TestQuestionGenerator:
         assert question.correct_answer == "32"
         assert question.source_llm == "openai"
         assert question.source_model == "gpt-4"
+        assert question.stimulus is None
+
+    def test_parse_generated_response_with_stimulus(self, generator_with_openai):
+        """Test parsing LLM response with stimulus field (memory questions)."""
+        response = {
+            "question_text": "What was the third item in the list?",
+            "correct_answer": "dolphin",
+            "answer_options": ["maple", "oak", "dolphin", "whale"],
+            "explanation": "The list was: maple, oak, dolphin, cherry.",
+            "stimulus": "maple, oak, dolphin, cherry, whale, birch, salmon",
+        }
+
+        question = generator_with_openai._parse_generated_response(
+            response=response,
+            question_type=QuestionType.MEMORY,
+            difficulty=DifficultyLevel.MEDIUM,
+            provider_name="openai",
+            model="gpt-4",
+        )
+
+        assert question.question_text == "What was the third item in the list?"
+        assert question.correct_answer == "dolphin"
+        assert question.stimulus == "maple, oak, dolphin, cherry, whale, birch, salmon"
+        assert question.question_type == QuestionType.MEMORY
+        assert question.source_llm == "openai"
 
     def test_parse_response_missing_fields(self, generator_with_openai):
         """Test that parsing fails with missing required fields."""

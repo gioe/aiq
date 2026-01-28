@@ -1100,6 +1100,7 @@ class QuestionGenerator:
                 correct_answer=response["correct_answer"],
                 answer_options=response["answer_options"],
                 explanation=response.get("explanation"),
+                stimulus=response.get("stimulus"),
                 metadata={},
                 source_llm=provider_name,
                 source_model=model,
