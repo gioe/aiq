@@ -332,6 +332,7 @@ def build_judge_prompt(
     correct_answer: str,
     question_type: str,
     difficulty: str,
+    stimulus: str | None = None,
 ) -> str:
     """Build an evaluation prompt for the judge to score a question.
 
@@ -341,16 +342,39 @@ def build_judge_prompt(
         correct_answer: The correct answer
         question_type: Type of question
         difficulty: Difficulty level
+        stimulus: Content to memorize before answering (for memory questions)
 
     Returns:
         Prompt string for judge evaluation
     """
+    # Determine if this is a memory question for specialized guidance
+    is_memory_question = question_type.lower() == "memory"
+
+    memory_guidance = ""
+    if is_memory_question:
+        memory_guidance = """
+MEMORY QUESTION EVALUATION GUIDELINES:
+Memory questions use a two-phase delivery: the stimulus is shown first, then hidden before the question appears.
+- The "stimulus" field contains content the user must memorize (shown first, then hidden)
+- The "question_text" is what the user sees AFTER the stimulus is hidden
+- Do NOT penalize for:
+  * The question being "too easy" if they could see the stimulus (they can't when answering)
+  * UX concerns about cheating, screenshots, or stimulus visibility
+  * The stimulus not being repeated in the question (this is intentional)
+- DO evaluate whether:
+  * The stimulus contains appropriate content for the difficulty level
+  * The question genuinely tests memory of the stimulus
+  * The cognitive load matches the target difficulty
+  * The question is answerable ONLY by someone who memorized the stimulus
+
+"""
+
     return f"""You are an expert psychometrician evaluating IQ test questions for a mobile app used for longitudinal cognitive tracking.
 
 CONTEXT: These questions will be used for repeated testing every 3 months. They must be highly original, suitable for mobile display, and aligned with established IQ testing principles (Wechsler, Stanford-Binet, Raven's).
 
-IMPORTANT: Evaluate QUESTION CONTENT QUALITY only. Delivery mechanism concerns (e.g., screenshots, hiding sequences before recall, preventing cheating) are handled by the app UX - do NOT penalize validity for these concerns. For memory questions, assume the app will show the sequence, hide it, then present the question.
-
+IMPORTANT: Evaluate QUESTION CONTENT QUALITY only. Delivery mechanism concerns (e.g., screenshots, hiding sequences before recall, preventing cheating) are handled by the app UX - do NOT penalize validity for these concerns.
+{memory_guidance}
 Evaluate the following question across these criteria:
 
 1. CLARITY (0.0-1.0):
@@ -387,7 +411,10 @@ Question to evaluate:
 ---
 Type: {question_type}
 Difficulty: {difficulty}
-
+{"" if not stimulus else f'''
+Stimulus (shown first, then hidden before question appears):
+{stimulus}
+'''}
 Question: {question}
 
 Answer Options:
