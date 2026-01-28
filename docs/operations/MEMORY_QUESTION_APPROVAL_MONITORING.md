@@ -91,13 +91,26 @@ Memory question generation should continue to be monitored over the next 3-5 day
 
 ### 2. Clean Up Legacy Questions
 
-Consider deactivating the 22 rejected memory questions (judge_score < 0.7) from the question pool:
+Consider deactivating the 22 rejected memory questions (judge_score < 0.7) from the question pool.
+
+First, preview what would be deactivated:
+
+```sql
+SELECT id, created_at, judge_score, LEFT(question_text, 60) as question_preview
+FROM questions
+WHERE question_type = 'MEMORY'
+  AND judge_score < 0.7
+  AND created_at < '2026-01-27';  -- Before the TASK-755 fix
+```
+
+Then execute the cleanup with date safety:
 
 ```sql
 UPDATE questions
 SET is_active = false
 WHERE question_type = 'MEMORY'
-  AND judge_score < 0.7;
+  AND judge_score < 0.7
+  AND created_at < '2026-01-27';
 ```
 
 ### 3. Monitor Stimulus Field Population
@@ -109,7 +122,7 @@ SELECT COUNT(*) as missing_stimulus_count
 FROM questions
 WHERE question_type = 'MEMORY'
   AND created_at > NOW() - INTERVAL '24 hours'
-  AND (stimulus IS NULL OR stimulus = '');
+  AND (stimulus IS NULL OR TRIM(stimulus) = '');
 ```
 
 This should return 0 if the validation is working correctly.
@@ -137,13 +150,13 @@ ORDER BY DATE(created_at) DESC;
 
 ```sql
 SELECT
-    CASE WHEN stimulus IS NULL OR stimulus = '' THEN 'Missing' ELSE 'Present' END as stimulus_status,
+    CASE WHEN stimulus IS NULL OR TRIM(stimulus) = '' THEN 'Missing' ELSE 'Present' END as stimulus_status,
     COUNT(*) as count,
     ROUND(AVG(judge_score)::numeric, 3) as avg_score
 FROM questions
 WHERE question_type = 'MEMORY'
     AND created_at >= NOW() - INTERVAL '7 days'
-GROUP BY CASE WHEN stimulus IS NULL OR stimulus = '' THEN 'Missing' ELSE 'Present' END;
+GROUP BY CASE WHEN stimulus IS NULL OR TRIM(stimulus) = '' THEN 'Missing' ELSE 'Present' END;
 ```
 
 ## Conclusion
