@@ -24,7 +24,25 @@ def sample_question():
         correct_answer="4",
         answer_options=["2", "3", "4", "5"],
         explanation="2 + 2 equals 4 by basic addition",
+        stimulus=None,
         metadata={"category": "arithmetic"},
+        source_llm="openai",
+        source_model="gpt-4",
+    )
+
+
+@pytest.fixture
+def sample_memory_question():
+    """Create a sample memory question with stimulus for testing."""
+    return GeneratedQuestion(
+        question_text="What was the third word in the list you memorized?",
+        question_type=QuestionType.MEMORY,
+        difficulty_level=DifficultyLevel.MEDIUM,
+        correct_answer="apple",
+        answer_options=["orange", "banana", "apple", "grape"],
+        explanation="The third word in the list was 'apple'",
+        stimulus="Memorize the following list of words: orange, banana, apple, grape, mango",
+        metadata={"category": "word_recall"},
         source_llm="openai",
         source_model="gpt-4",
     )
@@ -45,6 +63,27 @@ def sample_evaluated_question(sample_question):
 
     return EvaluatedQuestion(
         question=sample_question,
+        evaluation=evaluation,
+        judge_model="openai/gpt-4",
+        approved=True,
+    )
+
+
+@pytest.fixture
+def sample_evaluated_memory_question(sample_memory_question):
+    """Create a sample evaluated memory question with stimulus for testing."""
+    evaluation = EvaluationScore(
+        clarity_score=0.88,
+        difficulty_score=0.75,
+        validity_score=0.9,
+        formatting_score=0.92,
+        creativity_score=0.8,
+        overall_score=0.85,
+        feedback="Good memory question with clear stimulus",
+    )
+
+    return EvaluatedQuestion(
+        question=sample_memory_question,
         evaluation=evaluation,
         judge_model="openai/gpt-4",
         approved=True,
@@ -142,6 +181,37 @@ class TestDatabaseService:
 
         assert question_id == 456
 
+    def test_insert_question_with_stimulus(
+        self, mock_database_service, sample_memory_question
+    ):
+        """Test question insertion with stimulus field for memory questions."""
+        mock_session = Mock(spec=Session)
+        mock_db_question = Mock()
+        mock_db_question.id = 555
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 555))
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 555
+            MockQuestionModel.return_value = mock_instance
+
+            question_id = mock_database_service.insert_question(sample_memory_question)
+
+            # Verify stimulus was passed to QuestionModel
+            MockQuestionModel.assert_called_once()
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert call_kwargs["stimulus"] == sample_memory_question.stimulus
+            assert "Memorize the following list" in call_kwargs["stimulus"]
+
+        assert question_id == 555
+        mock_database_service.close_session.assert_called_once()
+
     def test_insert_question_failure_rollback(
         self, mock_database_service, sample_question
     ):
@@ -227,6 +297,41 @@ class TestDatabaseService:
             assert scores["feedback"] == "Good question"
             assert metadata["judge_model"] == "openai/gpt-4"
 
+    def test_insert_evaluated_question_preserves_stimulus(
+        self, mock_database_service, sample_evaluated_memory_question
+    ):
+        """Test that stimulus field is preserved when inserting evaluated questions."""
+        mock_session = Mock(spec=Session)
+        mock_db_question = Mock()
+        mock_db_question.id = 888
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 888))
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 888
+            MockQuestionModel.return_value = mock_instance
+
+            question_id = mock_database_service.insert_evaluated_question(
+                sample_evaluated_memory_question
+            )
+
+            # Verify stimulus was preserved and passed to QuestionModel
+            MockQuestionModel.assert_called_once()
+            call_kwargs = MockQuestionModel.call_args[1]
+            assert (
+                call_kwargs["stimulus"]
+                == sample_evaluated_memory_question.question.stimulus
+            )
+            assert "Memorize the following list" in call_kwargs["stimulus"]
+
+        assert question_id == 888
+
     def test_insert_questions_batch(self, mock_database_service):
         """Test batch question insertion."""
         questions = [
@@ -289,6 +394,64 @@ class TestDatabaseService:
             )
 
         assert isinstance(question_ids, list)
+        mock_database_service.close_session.assert_called_once()
+
+    def test_insert_questions_batch_with_stimulus(self, mock_database_service):
+        """Test batch insertion includes stimulus field for memory questions."""
+        questions = [
+            GeneratedQuestion(
+                question_text="What was the first number?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="7",
+                answer_options=["3", "5", "7", "9"],
+                explanation="The first number was 7",
+                stimulus="Remember these numbers: 7, 3, 9, 5",
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+            GeneratedQuestion(
+                question_text="What is 5 + 3?",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="8",
+                answer_options=["6", "7", "8", "9"],
+                explanation="5 + 3 = 8",
+                stimulus=None,  # Non-memory question has no stimulus
+                source_llm="openai",
+                source_model="gpt-4",
+            ),
+        ]
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.new = []
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        captured_models = []
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 100
+
+            def capture_model(**kwargs):
+                captured_models.append(kwargs)
+                return mock_instance
+
+            MockQuestionModel.side_effect = capture_model
+
+            mock_database_service.insert_questions_batch(questions)
+
+            # Verify stimulus was passed for memory question
+            assert len(captured_models) == 2
+            assert (
+                captured_models[0]["stimulus"] == "Remember these numbers: 7, 3, 9, 5"
+            )
+            assert captured_models[1]["stimulus"] is None
+
         mock_database_service.close_session.assert_called_once()
 
     def test_insert_questions_batch_score_length_mismatch(self, mock_database_service):
@@ -354,6 +517,90 @@ class TestDatabaseService:
         assert isinstance(question_ids, list)
         mock_database_service.close_session.assert_called_once()
 
+    def test_insert_evaluated_questions_batch_with_stimulus(
+        self, mock_database_service
+    ):
+        """Test batch insertion of evaluated questions preserves stimulus field."""
+        evaluated_questions = [
+            EvaluatedQuestion(
+                question=GeneratedQuestion(
+                    question_text="What color was mentioned first?",
+                    question_type=QuestionType.MEMORY,
+                    difficulty_level=DifficultyLevel.MEDIUM,
+                    correct_answer="red",
+                    answer_options=["red", "blue", "green", "yellow"],
+                    explanation="Red was the first color in the list",
+                    stimulus="Remember: red, blue, green, yellow",
+                    source_llm="openai",
+                    source_model="gpt-4",
+                ),
+                evaluation=EvaluationScore(
+                    clarity_score=0.9,
+                    difficulty_score=0.8,
+                    validity_score=0.85,
+                    formatting_score=0.95,
+                    creativity_score=0.7,
+                    overall_score=0.84,
+                ),
+                judge_model="openai/gpt-4",
+                approved=True,
+            ),
+            EvaluatedQuestion(
+                question=GeneratedQuestion(
+                    question_text="What is 10 / 2?",
+                    question_type=QuestionType.MATH,
+                    difficulty_level=DifficultyLevel.EASY,
+                    correct_answer="5",
+                    answer_options=["3", "4", "5", "6"],
+                    explanation="10 / 2 = 5",
+                    stimulus=None,
+                    source_llm="openai",
+                    source_model="gpt-4",
+                ),
+                evaluation=EvaluationScore(
+                    clarity_score=0.92,
+                    difficulty_score=0.7,
+                    validity_score=0.88,
+                    formatting_score=0.96,
+                    creativity_score=0.65,
+                    overall_score=0.82,
+                ),
+                judge_model="openai/gpt-4",
+                approved=True,
+            ),
+        ]
+
+        mock_session = Mock(spec=Session)
+        mock_session.add = Mock()
+        mock_session.commit = Mock()
+        mock_session.new = []
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        captured_models = []
+
+        with patch("app.database.QuestionModel") as MockQuestionModel:
+            mock_instance = Mock()
+            mock_instance.id = 200
+
+            def capture_model(**kwargs):
+                captured_models.append(kwargs)
+                return mock_instance
+
+            MockQuestionModel.side_effect = capture_model
+
+            mock_database_service.insert_evaluated_questions_batch(evaluated_questions)
+
+            # Verify stimulus was preserved for memory question
+            assert len(captured_models) == 2
+            assert (
+                captured_models[0]["stimulus"] == "Remember: red, blue, green, yellow"
+            )
+            assert captured_models[1]["stimulus"] is None
+
+        mock_database_service.close_session.assert_called_once()
+
     def test_get_all_questions(self, mock_database_service):
         """Test retrieving all questions."""
         mock_session = Mock(spec=Session)
@@ -369,6 +616,7 @@ class TestDatabaseService:
                 correct_answer="1",
                 answer_options=["1", "2", "3", "4"],
                 explanation="Explanation 1",
+                stimulus=None,
                 question_metadata={},
                 source_llm="openai",
                 source_model="gpt-4-turbo",
@@ -376,15 +624,17 @@ class TestDatabaseService:
                 prompt_version=PROMPT_VERSION,
                 created_at="2024-01-01",
                 is_active=True,
+                question_embedding=None,
             ),
             Mock(
                 id=2,
                 question_text="Question 2",
-                question_type="logic",
+                question_type="memory",
                 difficulty_level="medium",
                 correct_answer="2",
                 answer_options=["1", "2", "3", "4"],
                 explanation="Explanation 2",
+                stimulus="Remember these items: apple, banana, cherry",
                 question_metadata={},
                 source_llm="anthropic",
                 source_model="claude-3-opus",
@@ -392,6 +642,7 @@ class TestDatabaseService:
                 prompt_version=PROMPT_VERSION,
                 created_at="2024-01-02",
                 is_active=True,
+                question_embedding=None,
             ),
         ]
 
@@ -405,7 +656,9 @@ class TestDatabaseService:
 
         assert len(questions) == 2
         assert questions[0]["id"] == 1
+        assert questions[0]["stimulus"] is None
         assert questions[1]["id"] == 2
+        assert questions[1]["stimulus"] == "Remember these items: apple, banana, cherry"
         mock_database_service.close_session.assert_called_once()
 
     def test_get_question_count(self, mock_database_service):
