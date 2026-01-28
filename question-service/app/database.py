@@ -31,7 +31,7 @@ from .models import EvaluatedQuestion, GeneratedQuestion
 logger = logging.getLogger(__name__)
 
 # Prompt version for tracking which prompt templates were used
-PROMPT_VERSION = "2.0"  # Enhanced prompts with IQ testing context and examples
+PROMPT_VERSION = "2.1"  # Enhanced prompts with IQ testing context and examples
 
 # Embedding configuration (TASK-433)
 EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI model for generating embeddings
