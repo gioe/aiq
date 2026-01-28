@@ -352,16 +352,26 @@ def build_judge_prompt(
 
     memory_guidance = ""
     if is_memory_question:
-        memory_guidance = """
-MEMORY QUESTION EVALUATION GUIDELINES:
+        # Add critical warning if stimulus is missing
+        missing_stimulus_warning = ""
+        if not stimulus:
+            missing_stimulus_warning = """
+CRITICAL ERROR: This memory question is MISSING the required stimulus field!
+Memory questions MUST have a stimulus field containing content for the user to memorize.
+Without a stimulus, this question is INVALID and should receive a validity_score of 0.0.
+
+"""
+        memory_guidance = f"""{missing_stimulus_warning}MEMORY QUESTION EVALUATION GUIDELINES:
 Memory questions use a two-phase delivery: the stimulus is shown first, then hidden before the question appears.
 - The "stimulus" field contains content the user must memorize (shown first, then hidden)
 - The "question_text" is what the user sees AFTER the stimulus is hidden
+- CRITICAL: If no stimulus is provided above, the question MUST be rejected (validity_score = 0.0)
 - Do NOT penalize for:
   * The question being "too easy" if they could see the stimulus (they can't when answering)
   * UX concerns about cheating, screenshots, or stimulus visibility
   * The stimulus not being repeated in the question (this is intentional)
 - DO evaluate whether:
+  * The stimulus field EXISTS and contains meaningful content
   * The stimulus contains appropriate content for the difficulty level
   * The question genuinely tests memory of the stimulus
   * The cognitive load matches the target difficulty

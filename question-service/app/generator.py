@@ -1092,6 +1092,14 @@ class QuestionGenerator:
             if missing:
                 raise ValueError(f"Missing required fields in response: {missing}")
 
+            # TASK-755: Memory questions MUST have stimulus field
+            if question_type == QuestionType.MEMORY:
+                stimulus = response.get("stimulus")
+                if not stimulus or not stimulus.strip():
+                    raise ValueError(
+                        "Memory questions require a 'stimulus' field with content to memorize"
+                    )
+
             # Create GeneratedQuestion
             question = GeneratedQuestion(
                 question_text=response["question_text"],
@@ -1162,7 +1170,13 @@ class QuestionGenerator:
                 )
                 questions.append(question)
             except ValueError as e:
-                logger.warning(f"Failed to parse question {i+1} in batch: {e}")
+                # TASK-755: Log clearly when memory questions lack stimulus
+                if "stimulus" in str(e).lower():
+                    logger.warning(
+                        f"REJECTED question {i+1} in batch - missing stimulus: {e}"
+                    )
+                else:
+                    logger.warning(f"Failed to parse question {i+1} in batch: {e}")
                 continue
 
         return questions
