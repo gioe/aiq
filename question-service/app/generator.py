@@ -1094,8 +1094,9 @@ class QuestionGenerator:
 
             # TASK-755: Memory questions MUST have stimulus field
             if question_type == QuestionType.MEMORY:
-                stimulus = response.get("stimulus")
-                if not stimulus or not stimulus.strip():
+                raw_stimulus = response.get("stimulus")
+                stimulus = raw_stimulus.strip() if isinstance(raw_stimulus, str) else ""
+                if not stimulus:
                     raise ValueError(
                         "Memory questions require a 'stimulus' field with content to memorize"
                     )
