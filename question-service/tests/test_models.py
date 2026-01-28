@@ -166,6 +166,81 @@ class TestGeneratedQuestion:
         assert result["stimulus"] == "Memorize: apple, banana, cherry"
         assert result["question_type"] == "memory"
 
+    def test_stimulus_with_empty_string(self):
+        """Test that stimulus can be an empty string."""
+        question = GeneratedQuestion(
+            question_text="What comes next in the pattern?",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="D",
+            answer_options=["A", "B", "C", "D"],
+            stimulus="",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        assert question.stimulus == ""
+        result = question.to_dict()
+        assert result["stimulus"] == ""
+
+    def test_stimulus_with_non_memory_question_type(self):
+        """Test that stimulus can be used with any question type, not just memory."""
+        # Stimulus could be used for visual patterns, reading comprehension, etc.
+        question = GeneratedQuestion(
+            question_text="Based on the passage, what is the main theme?",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="persistence",
+            answer_options=["persistence", "love", "fear", "joy"],
+            stimulus="The old man climbed the mountain every day for thirty years.",
+            source_llm="anthropic",
+            source_model="claude-3-5-sonnet",
+        )
+
+        assert question.stimulus is not None
+        assert question.question_type == QuestionType.VERBAL
+        assert "climbed the mountain" in question.stimulus
+
+    def test_stimulus_json_serialization_roundtrip(self):
+        """Test that stimulus is preserved through JSON serialization."""
+        original = GeneratedQuestion(
+            question_text="What was the pattern shown?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="ABBA",
+            answer_options=["ABAB", "ABBA", "AABB", "BABA"],
+            stimulus="Study this pattern: A B B A",
+            metadata={"category": "visual"},
+            source_llm="google",
+            source_model="gemini-1.5-pro",
+        )
+
+        # Serialize to JSON and back
+        json_data = original.model_dump_json()
+        restored = GeneratedQuestion.model_validate_json(json_data)
+
+        assert restored.stimulus == original.stimulus
+        assert restored.question_text == original.question_text
+        assert restored.question_type == original.question_type
+
+    def test_stimulus_with_special_characters(self):
+        """Test stimulus with special characters and unicode."""
+        question = GeneratedQuestion(
+            question_text="What symbol appeared third?",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="★",
+            answer_options=["●", "■", "★", "▲"],
+            stimulus="Remember: ● → ■ → ★ → ▲ (symbols with unicode & special chars)",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        assert "★" in question.stimulus
+        assert "→" in question.stimulus
+        result = question.to_dict()
+        assert result["stimulus"] == question.stimulus
+
 
 class TestEvaluationScore:
     """Tests for EvaluationScore model."""
