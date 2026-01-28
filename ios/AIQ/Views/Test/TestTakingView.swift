@@ -336,29 +336,49 @@ struct TestTakingView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     if let question = viewModel.currentQuestion {
-                        // Question card
-                        QuestionCardView(
-                            question: question,
-                            questionNumber: viewModel.currentQuestionIndex + 1,
-                            totalQuestions: viewModel.questions.count
-                        )
-                        .transition(
-                            reduceMotion ? .opacity : .asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
+                        if question.isMemoryQuestion {
+                            // Memory questions use a two-phase view (stimulus then question)
+                            MemoryQuestionView(
+                                question: question,
+                                questionNumber: viewModel.currentQuestionIndex + 1,
+                                totalQuestions: viewModel.questions.count,
+                                userAnswer: Binding(
+                                    get: { viewModel.currentAnswer },
+                                    set: { viewModel.currentAnswer = $0 }
+                                ),
+                                isDisabled: viewModel.isLocked
                             )
-                        )
+                            .transition(
+                                reduceMotion ? .opacity : .asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                )
+                            )
+                        } else {
+                            // Standard questions: show question card and answer input separately
+                            QuestionCardView(
+                                question: question,
+                                questionNumber: viewModel.currentQuestionIndex + 1,
+                                totalQuestions: viewModel.questions.count
+                            )
+                            .transition(
+                                reduceMotion ? .opacity : .asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                )
+                            )
 
-                        // Answer input
-                        AnswerInputView(
-                            question: question,
-                            userAnswer: Binding(
-                                get: { viewModel.currentAnswer },
-                                set: { viewModel.currentAnswer = $0 }
-                            ),
-                            isDisabled: viewModel.isLocked
-                        )
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
+                            // Answer input
+                            AnswerInputView(
+                                question: question,
+                                userAnswer: Binding(
+                                    get: { viewModel.currentAnswer },
+                                    set: { viewModel.currentAnswer = $0 }
+                                ),
+                                isDisabled: viewModel.isLocked
+                            )
+                            .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
+                        }
                     }
                 }
                 .padding()
