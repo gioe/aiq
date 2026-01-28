@@ -432,4 +432,21 @@ final class MemoryQuestionViewTests: XCTestCase {
         XCTAssertNotEqual(rememberContentKey, "memory.question.remember.content", "remember.content should be localized")
         XCTAssertNotEqual(continueKey, "memory.question.continue", "continue should be localized")
     }
+
+    // MARK: - Stimulus Accessibility Label Tests
+
+    func testMemoryQuestionView_StimulusAccessibilityLabelKey() {
+        // Verify the accessibility label localization key exists
+        // This is used to provide an accessible description of the stimulus content
+        let key = "memory.question.stimulus.accessibility"
+        let localizedWithArg = key.localized(with: "test content")
+
+        // The localized string should not be the key itself
+        XCTAssertNotEqual(localizedWithArg, key, "Accessibility label should be localized")
+        // The localized string should contain the argument
+        XCTAssertTrue(
+            localizedWithArg.contains("test content"),
+            "Accessibility label should include the stimulus content"
+        )
+    }
 }
