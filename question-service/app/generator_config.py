@@ -246,56 +246,74 @@ class GeneratorConfigLoader:
             logger.info(f"No generator assignment for '{question_type}', using default")
             assignment = config.default_generator
 
-        # If fallback tier is requested, invert the logic
+        # Determine preferred and alternate provider/model based on tier
+        preferred: tuple[Optional[str], Optional[str]]
+        alternate: tuple[Optional[str], Optional[str]]
         if provider_tier == "fallback":
-            # Try fallback provider first
-            if assignment.fallback and assignment.fallback in available_providers:
-                logger.info(
-                    f"Using fallback provider '{assignment.fallback}' for "
-                    f"'{question_type}' (tier={provider_tier})"
-                    f"{f' with model {assignment.fallback_model}' if assignment.fallback_model else ''}"
-                )
-                return (assignment.fallback, assignment.fallback_model)
-            # If no fallback available, fall back to primary
-            elif assignment.provider in available_providers:
-                logger.warning(
-                    f"Fallback provider unavailable for '{question_type}' "
-                    f"(fallback={assignment.fallback!r}), "
-                    f"using primary '{assignment.provider}'"
-                )
-                return (assignment.provider, assignment.model)
-            # Fall back to any available provider
-            elif available_providers:
-                fallback = available_providers[0]
-                logger.warning(
-                    f"Neither fallback nor primary available for '{question_type}', "
-                    f"using '{fallback}' (no model override)"
-                )
-                return (fallback, None)
+            preferred = (assignment.fallback, assignment.fallback_model)
+            alternate = (assignment.provider, assignment.model)
         else:
-            # Default behavior: use primary provider
-            # Check if primary provider is available
-            if assignment.provider in available_providers:
-                return (assignment.provider, assignment.model)
+            preferred = (assignment.provider, assignment.model)
+            alternate = (assignment.fallback, assignment.fallback_model)
 
-            # Try fallback provider
-            if assignment.fallback and assignment.fallback in available_providers:
-                logger.warning(
-                    f"Primary provider '{assignment.provider}' unavailable for "
-                    f"'{question_type}', using fallback '{assignment.fallback}'"
-                    f"{f' with model {assignment.fallback_model}' if assignment.fallback_model else ''}"
-                )
-                return (assignment.fallback, assignment.fallback_model)
+        return self._resolve_provider(
+            preferred, alternate, question_type, provider_tier, available_providers
+        )
 
-            # Fall back to any available provider (no model override)
-            if available_providers:
-                fallback = available_providers[0]
-                logger.warning(
-                    f"Neither primary '{assignment.provider}' nor fallback "
-                    f"'{assignment.fallback}' available for '{question_type}', "
-                    f"using '{fallback}' (no model override)"
+    def _resolve_provider(
+        self,
+        preferred: tuple[Optional[str], Optional[str]],
+        alternate: tuple[Optional[str], Optional[str]],
+        question_type: str,
+        provider_tier: str,
+        available_providers: list[str],
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Resolve the best available provider using a preferred -> alternate -> any chain.
+
+        Args:
+            preferred: (provider, model) to try first
+            alternate: (provider, model) to try if preferred is unavailable
+            question_type: Question type for logging
+            provider_tier: Tier name for logging ("primary" or "fallback")
+            available_providers: Currently available provider names
+
+        Returns:
+            Tuple of (provider_name, model_override)
+
+        Raises:
+            ValueError: If no suitable provider is available
+        """
+        pref_provider, pref_model = preferred
+        alt_provider, alt_model = alternate
+
+        # 1. Try preferred provider
+        if pref_provider and pref_provider in available_providers:
+            if provider_tier == "fallback":
+                logger.info(
+                    f"Using fallback provider '{pref_provider}' for "
+                    f"'{question_type}' (tier={provider_tier})"
+                    f"{f' with model {pref_model}' if pref_model else ''}"
                 )
-                return (fallback, None)
+            return (pref_provider, pref_model)
+
+        # 2. Try alternate provider
+        if alt_provider and alt_provider in available_providers:
+            logger.warning(
+                f"Preferred provider '{pref_provider}' unavailable for "
+                f"'{question_type}' (tier={provider_tier}), "
+                f"using alternate '{alt_provider}'"
+            )
+            return (alt_provider, alt_model)
+
+        # 3. Fall back to any available provider
+        if available_providers:
+            any_provider = available_providers[0]
+            logger.warning(
+                f"Neither preferred '{pref_provider}' nor alternate "
+                f"'{alt_provider}' available for '{question_type}', "
+                f"using '{any_provider}' (no model override)"
+            )
+            return (any_provider, None)
 
         raise ValueError(f"No providers available for question type '{question_type}'")
 
