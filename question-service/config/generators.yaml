@@ -34,24 +34,28 @@ generators:
     model: "grok-4"
     rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning."
     fallback: "anthropic"
+    fallback_model: "claude-sonnet-4-5-20250929"
 
   logic:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks."
     fallback: "openai"
+    fallback_model: "gpt-5.2"
 
   pattern:
     provider: "google"
     model: "gemini-3-pro-preview"
     rationale: "ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%. Superior abstract pattern recognition. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
   spatial:
     provider: "google"
     model: "gemini-3-pro-preview"
     rationale: "ARC-AGI-2: 31.1% (standard mode), breakthrough spatial reasoning. Deep Think mode (45.1%) not currently enabled. Updated Jan 2026. Using preview identifier per Google API docs."
     fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
     # TODO: Evaluate enabling Deep Think mode for spatial question generation once
     # API support is available. Deep Think achieves 45.1% on ARC-AGI-2 vs 31.1%
     # standard mode. Considerations: latency impact, cost implications, API availability.
@@ -61,12 +65,14 @@ generators:
     model: "claude-sonnet-4-5-20250929"
     rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance."
     fallback: "openai"
+    fallback_model: "gpt-5.2"
 
   memory:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89% with 200K token context. Strong knowledge benchmarks with massive context for memory tasks."
     fallback: "openai"
+    fallback_model: "gpt-5.2"
 
 # Default generator (fallback for unknown question types)
 default_generator:
