@@ -396,10 +396,10 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
 
-        // Filter out answers for questions not in this session
+        // Filter out state for questions not in this session
         let validQuestionIds = Set(questions.map(\.id))
         userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
-        stimulusSeen = progress.stimulusSeen
+        stimulusSeen = progress.stimulusSeen.intersection(validQuestionIds)
 
         if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
             currentQuestionIndex = firstUnansweredIndex
