@@ -449,6 +449,177 @@ class TestJudgeConfigLoader:
             temp_path.unlink()
 
 
+class TestResolveJudgeProvider:
+    """Tests for JudgeConfigLoader.resolve_judge_provider fallback chain."""
+
+    def test_resolve_primary_provider_available(self, valid_config_file):
+        """Test that primary provider is used when available."""
+        loader = JudgeConfigLoader(valid_config_file)
+        loader.load()
+
+        provider, model = loader.resolve_judge_provider("math", ["openai", "anthropic"])
+        assert provider == "openai"
+        assert model == "gpt-4-turbo"
+
+    def test_resolve_falls_back_to_configured_fallback(self):
+        """Test fallback to configured alternate provider when primary unavailable."""
+        config_dict = {
+            "version": "1.0",
+            "judges": {
+                "math": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Strong math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-sonnet-4-5-20250929",
+                },
+                "logic": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "provider": "anthropic",
+                    "rationale": "Reasoning",
+                },
+                "pattern": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Patterns",
+                },
+                "spatial": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Spatial",
+                },
+                "verbal": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Verbal",
+                },
+                "memory": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Memory",
+                },
+            },
+            "default_judge": {
+                "model": "gpt-4-turbo",
+                "provider": "openai",
+                "rationale": "Default",
+            },
+            "evaluation_criteria": {
+                "clarity": 0.30,
+                "validity": 0.40,
+                "formatting": 0.20,
+                "creativity": 0.10,
+            },
+            "min_judge_score": 0.7,
+        }
+
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = JudgeConfigLoader(temp_path)
+            loader.load()
+
+            # OpenAI not available, should fall back to anthropic
+            provider, model = loader.resolve_judge_provider("math", ["anthropic"])
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5-20250929"
+        finally:
+            temp_path.unlink()
+
+    def test_resolve_fallback_without_model_returns_none(self):
+        """Test fallback without fallback_model returns None, letting the provider use its default."""
+        config_dict = {
+            "version": "1.0",
+            "judges": {
+                "math": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Strong math",
+                    "fallback": "anthropic",
+                    # No fallback_model
+                },
+                "logic": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "provider": "anthropic",
+                    "rationale": "Reasoning",
+                },
+                "pattern": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Patterns",
+                },
+                "spatial": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Spatial",
+                },
+                "verbal": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Verbal",
+                },
+                "memory": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Memory",
+                },
+            },
+            "default_judge": {
+                "model": "gpt-4-turbo",
+                "provider": "openai",
+                "rationale": "Default",
+            },
+            "evaluation_criteria": {
+                "clarity": 0.30,
+                "validity": 0.40,
+                "formatting": 0.20,
+                "creativity": 0.10,
+            },
+            "min_judge_score": 0.7,
+        }
+
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = JudgeConfigLoader(temp_path)
+            loader.load()
+
+            # OpenAI not available, fallback has no model override
+            provider, model = loader.resolve_judge_provider("math", ["anthropic"])
+            assert provider == "anthropic"
+            assert model is None  # No model override; provider uses its default
+        finally:
+            temp_path.unlink()
+
+    def test_resolve_falls_back_to_any_provider(self, valid_config_file):
+        """Test fallback to any available provider when neither primary nor fallback available."""
+        loader = JudgeConfigLoader(valid_config_file)
+        loader.load()
+
+        # Math uses openai, no fallback configured, only google available
+        provider, model = loader.resolve_judge_provider("math", ["google"])
+        assert provider == "google"
+        assert (
+            model is None
+        )  # No model override when falling back to arbitrary provider
+
+    def test_resolve_raises_when_no_providers(self, valid_config_file):
+        """Test that ValueError is raised when no providers are available."""
+        loader = JudgeConfigLoader(valid_config_file)
+        loader.load()
+
+        with pytest.raises(ValueError, match="No judge providers available"):
+            loader.resolve_judge_provider("math", [])
+
+
 class TestGlobalConfiguration:
     """Tests for global configuration functions."""
 

@@ -258,6 +258,88 @@ class JudgeConfigLoader:
         logger.info(f"Using default judge for question type '{question_type}'")
         return config.default_judge
 
+    def resolve_judge_provider(
+        self,
+        question_type: str,
+        available_providers: list[str],
+    ) -> tuple[str, Optional[str]]:
+        """Resolve the best available provider and model for judging a question type.
+
+        Uses a preferred -> alternate -> any resolution chain, matching the
+        pattern in GeneratorConfigLoader._resolve_provider.
+
+        Args:
+            question_type: Type of question (e.g., "math", "logic", "pattern")
+            available_providers: List of currently available provider names
+
+        Returns:
+            Tuple of (provider_name, model_override). Model may be None if not specified.
+
+        Raises:
+            RuntimeError: If configuration hasn't been loaded
+            ValueError: If no suitable provider is available
+        """
+        judge_model = self.get_judge_for_question_type(question_type)
+
+        preferred = (judge_model.provider, judge_model.model)
+        alternate = (judge_model.fallback, judge_model.fallback_model)
+
+        return self._resolve_provider(
+            preferred, alternate, question_type, available_providers
+        )
+
+    def _resolve_provider(
+        self,
+        preferred: tuple[str, Optional[str]],
+        alternate: tuple[Optional[str], Optional[str]],
+        question_type: str,
+        available_providers: list[str],
+    ) -> tuple[str, Optional[str]]:
+        """Resolve the best available provider using a preferred -> alternate -> any chain.
+
+        Args:
+            preferred: (provider, model) to try first
+            alternate: (provider, model) to try if preferred is unavailable
+            question_type: Question type for logging
+            available_providers: Currently available provider names
+
+        Returns:
+            Tuple of (provider_name, model_override). Model may be None if not specified.
+
+        Raises:
+            ValueError: If no suitable provider is available
+        """
+        pref_provider, pref_model = preferred
+        alt_provider, alt_model = alternate
+
+        # 1. Try preferred provider
+        if pref_provider in available_providers:
+            return (pref_provider, pref_model)
+
+        # 2. Try alternate (fallback) provider
+        if alt_provider and alt_provider in available_providers:
+            logger.warning(
+                f"Judge provider '{pref_provider}' unavailable for "
+                f"'{question_type}', using fallback '{alt_provider}'"
+                f"{f' with model {alt_model}' if alt_model else ''}"
+            )
+            return (alt_provider, alt_model)
+
+        # 3. Fall back to any available provider
+        if available_providers:
+            any_provider = available_providers[0]
+            logger.warning(
+                f"Neither preferred '{pref_provider}' nor fallback "
+                f"'{alt_provider}' available for '{question_type}', "
+                f"using '{any_provider}' (no model override)"
+            )
+            return (any_provider, None)
+
+        raise ValueError(
+            f"No judge providers available for question type '{question_type}'. "
+            f"Available providers: {available_providers}"
+        )
+
     def get_all_question_types(self) -> list[str]:
         """Get all configured question types.
 
