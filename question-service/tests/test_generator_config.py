@@ -410,6 +410,329 @@ class TestGeneratorConfigLoader:
         finally:
             temp_path.unlink()
 
+    def test_fallback_model_parsed_from_yaml(self):
+        """Test that fallback_model is correctly parsed from a YAML config file."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "xai",
+                    "model": "grok-4",
+                    "rationale": "Math performance",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-sonnet-4-5-20250929",
+                },
+                "logic": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "rationale": "Reasoning",
+                    "fallback": "openai",
+                    "fallback_model": "gpt-5.2",
+                },
+                "pattern": {
+                    "provider": "google",
+                    "rationale": "Patterns",
+                    "fallback": "anthropic",
+                },
+                "spatial": {"provider": "google", "rationale": "Spatial"},
+                "verbal": {"provider": "anthropic", "rationale": "Verbal"},
+                "memory": {"provider": "anthropic", "rationale": "Memory"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            config = loader.load()
+
+            # Generators with fallback_model should have it parsed
+            assert (
+                config.generators["math"].fallback_model == "claude-sonnet-4-5-20250929"
+            )
+            assert config.generators["logic"].fallback_model == "gpt-5.2"
+            # Generators without fallback_model should default to None
+            assert config.generators["pattern"].fallback_model is None
+            assert config.generators["spatial"].fallback_model is None
+        finally:
+            temp_path.unlink()
+
+    def test_fallback_returns_none_model_when_no_fallback_model(
+        self, valid_config_file
+    ):
+        """Test that fallback routing returns None model when fallback_model is not configured."""
+        loader = GeneratorConfigLoader(valid_config_file)
+        loader.load()
+
+        # valid_config_dict has math: openai primary, anthropic fallback, NO fallback_model
+        # Only anthropic available -> should use fallback with model=None
+        provider, model = loader.get_provider_and_model_for_question_type(
+            "math", ["anthropic"]
+        )
+        assert provider == "anthropic"
+        assert model is None
+
+    def test_primary_provider_returns_primary_model_not_fallback_model(self):
+        """Test that primary provider returns primary model, not fallback_model."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Primary provider (openai) IS available -> should return primary model
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["openai", "anthropic"]
+            )
+            assert provider == "openai"
+            assert model == "gpt-4-turbo"  # Primary model, NOT fallback_model
+        finally:
+            temp_path.unlink()
+
+    def test_neither_primary_nor_fallback_returns_no_model_override(self):
+        """Test that when neither primary nor fallback is available, no model override is used."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Neither openai nor anthropic available, only google
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["google"]
+            )
+            assert provider == "google"
+            assert model is None  # No model override for last-resort fallback
+        finally:
+            temp_path.unlink()
+
+    def test_backward_compat_config_without_fallback_model(self):
+        """Test that configs without fallback_model field work correctly (backward compatibility)."""
+        # This simulates an older config that doesn't have fallback_model at all
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                },
+                "logic": {
+                    "provider": "anthropic",
+                    "rationale": "Logic",
+                    "fallback": "openai",
+                },
+                "pattern": {"provider": "google", "rationale": "Patterns"},
+                "spatial": {"provider": "google", "rationale": "Spatial"},
+                "verbal": {"provider": "anthropic", "rationale": "Verbal"},
+                "memory": {"provider": "anthropic", "rationale": "Memory"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            config = loader.load()
+
+            # Config should load successfully
+            assert config is not None
+            assert len(config.generators) == 6
+
+            # All fallback_model fields should be None
+            for qtype, assignment in config.generators.items():
+                assert (
+                    assignment.fallback_model is None
+                ), f"{qtype} should have fallback_model=None"
+
+            # Routing should still work: fallback returns None model
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["anthropic"]
+            )
+            assert provider == "anthropic"
+            assert model is None
+        finally:
+            temp_path.unlink()
+
+    def test_fallback_model_ignored_when_specialist_routing_disabled(self):
+        """Test that fallback_model is not used when specialist routing is disabled."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": False,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Even though anthropic is the fallback with a fallback_model,
+            # disabled routing should return first available with no model
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["anthropic"]
+            )
+            assert provider == "anthropic"
+            assert model is None  # No model override when routing is disabled
+        finally:
+            temp_path.unlink()
+
+    def test_unknown_type_returns_default_model_not_fallback(self, valid_config_file):
+        """Test that unknown question type returns default generator's model."""
+        loader = GeneratorConfigLoader(valid_config_file)
+        loader.load()
+
+        provider, model = loader.get_provider_and_model_for_question_type(
+            "unknown_type", ["openai", "anthropic"]
+        )
+        assert provider == "openai"
+        assert model == "gpt-4-turbo"  # Default generator's model
+
+    def test_fallback_model_across_all_question_types(self):
+        """Test that fallback_model routing works for every question type."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-math-model",
+                },
+                "logic": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "google",
+                    "fallback_model": "gemini-logic-model",
+                },
+                "pattern": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "xai",
+                    "fallback_model": "grok-pattern-model",
+                },
+                "spatial": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-spatial-model",
+                },
+                "verbal": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "google",
+                    "fallback_model": "gemini-verbal-model",
+                },
+                "memory": {
+                    "provider": "openai",
+                    "rationale": "r",
+                    "fallback": "xai",
+                    "fallback_model": "grok-memory-model",
+                },
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": True,
+        }
+
+        expected_fallbacks = {
+            "math": ("anthropic", "claude-math-model"),
+            "logic": ("google", "gemini-logic-model"),
+            "pattern": ("xai", "grok-pattern-model"),
+            "spatial": ("anthropic", "claude-spatial-model"),
+            "verbal": ("google", "gemini-verbal-model"),
+            "memory": ("xai", "grok-memory-model"),
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            for qtype, (exp_provider, exp_model) in expected_fallbacks.items():
+                # Only fallback provider is available (not openai)
+                provider, model = loader.get_provider_and_model_for_question_type(
+                    qtype, [exp_provider]
+                )
+                assert (
+                    provider == exp_provider
+                ), f"{qtype}: expected provider {exp_provider}"
+                assert model == exp_model, f"{qtype}: expected model {exp_model}"
+        finally:
+            temp_path.unlink()
+
 
 class TestGlobalConfiguration:
     """Tests for global configuration functions."""
@@ -567,6 +890,36 @@ class TestProductionGeneratorsYaml:
                 "google",
                 "xai",
             }, f"{qtype} has invalid fallback: {assignment.fallback}"
+
+    def test_generators_yaml_all_have_fallback_models(self, production_config_path):
+        """Test that all generators have fallback_model configured."""
+        loader = GeneratorConfigLoader(production_config_path)
+        config = loader.load()
+
+        for qtype, assignment in config.generators.items():
+            assert (
+                assignment.fallback_model is not None
+            ), f"{qtype} missing fallback_model"
+            assert (
+                len(assignment.fallback_model) > 0
+            ), f"{qtype} has empty fallback_model"
+
+    def test_generators_yaml_fallback_model_routing(self, production_config_path):
+        """Test that production config fallback routing returns correct fallback_model values."""
+        loader = GeneratorConfigLoader(production_config_path)
+        config = loader.load()
+
+        for qtype, assignment in config.generators.items():
+            # Make only the fallback provider available (not the primary)
+            provider, model = loader.get_provider_and_model_for_question_type(
+                qtype, [assignment.fallback]
+            )
+            assert (
+                provider == assignment.fallback
+            ), f"{qtype}: expected fallback provider {assignment.fallback}, got {provider}"
+            assert (
+                model == assignment.fallback_model
+            ), f"{qtype}: expected fallback_model {assignment.fallback_model}, got {model}"
 
     def test_generators_yaml_all_have_rationales(self, production_config_path):
         """Test that all generators have rationales."""
