@@ -15,6 +15,27 @@ def make_completion_result(content):
     return CompletionResult(content=content, token_usage=None)
 
 
+@pytest.fixture
+def multi_provider_generator():
+    """Create generator with multiple mocked providers (no completion return values configured)."""
+    with patch("app.generator.OpenAIProvider") as mock_openai, patch(
+        "app.generator.AnthropicProvider"
+    ) as mock_anthropic:
+        openai_provider = Mock()
+        openai_provider.model = "gpt-4"
+        mock_openai.return_value = openai_provider
+
+        anthropic_provider = Mock()
+        anthropic_provider.model = "claude-3-5-sonnet"
+        mock_anthropic.return_value = anthropic_provider
+
+        generator = QuestionGenerator(
+            openai_api_key="test-key",
+            anthropic_api_key="test-key",
+        )
+        yield generator
+
+
 class TestQuestionGenerator:
     """Tests for QuestionGenerator class."""
 
@@ -315,26 +336,6 @@ class TestQuestionGenerator:
 class TestTryFallbackProvider:
     """Tests for _try_fallback_provider helper method."""
 
-    @pytest.fixture
-    def multi_provider_generator(self):
-        """Create generator with multiple mocked providers."""
-        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-            "app.generator.AnthropicProvider"
-        ) as mock_anthropic:
-            openai_provider = Mock()
-            openai_provider.model = "gpt-4"
-            mock_openai.return_value = openai_provider
-
-            anthropic_provider = Mock()
-            anthropic_provider.model = "claude-3-5-sonnet"
-            mock_anthropic.return_value = anthropic_provider
-
-            generator = QuestionGenerator(
-                openai_api_key="test-key",
-                anthropic_api_key="test-key",
-            )
-            yield generator
-
     def test_try_fallback_returns_different_provider(self, multi_provider_generator):
         """Test that _try_fallback_provider returns is_fallback=True when provider changes."""
         generator = multi_provider_generator
@@ -410,26 +411,6 @@ class TestTryFallbackProvider:
 
 class TestGetSpecialistProviderTier:
     """Tests for _get_specialist_provider with provider_tier parameter."""
-
-    @pytest.fixture
-    def multi_provider_generator(self):
-        """Create generator with multiple mocked providers."""
-        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-            "app.generator.AnthropicProvider"
-        ) as mock_anthropic:
-            openai_provider = Mock()
-            openai_provider.model = "gpt-4"
-            mock_openai.return_value = openai_provider
-
-            anthropic_provider = Mock()
-            anthropic_provider.model = "claude-3-5-sonnet"
-            mock_anthropic.return_value = anthropic_provider
-
-            generator = QuestionGenerator(
-                openai_api_key="test-key",
-                anthropic_api_key="test-key",
-            )
-            yield generator
 
     def test_get_specialist_provider_passes_provider_tier_to_config(
         self, multi_provider_generator
