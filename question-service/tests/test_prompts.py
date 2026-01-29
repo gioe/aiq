@@ -76,6 +76,46 @@ class TestBuildGenerationPrompt:
             assert difficulty in DIFFICULTY_INSTRUCTIONS
             assert len(DIFFICULTY_INSTRUCTIONS[difficulty]) > 0
 
+    def test_memory_question_prompt_includes_stimulus_requirement(self):
+        """Test that memory question generation prompt includes stimulus field requirement."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MEMORY,
+            difficulty=DifficultyLevel.MEDIUM,
+            count=1,
+        )
+
+        # The prompt should mention the stimulus field as required for memory questions
+        assert "stimulus" in prompt.lower()
+        # Should include the type-specific prompt which has CRITICAL stimulus instructions
+        assert "CRITICAL" in prompt
+        assert "stimulus" in prompt
+        # Should mention that stimulus is shown first then hidden
+        assert "shown first, then hidden" in prompt.lower()
+        # The numbered instruction list should include stimulus
+        assert "stimulus" in prompt
+
+    def test_non_memory_question_prompt_excludes_stimulus(self):
+        """Test that non-memory question generation prompts do not include stimulus instruction."""
+        non_memory_types = [
+            QuestionType.PATTERN,
+            QuestionType.LOGIC,
+            QuestionType.SPATIAL,
+            QuestionType.MATH,
+            QuestionType.VERBAL,
+        ]
+
+        for question_type in non_memory_types:
+            prompt = build_generation_prompt(
+                question_type=question_type,
+                difficulty=DifficultyLevel.MEDIUM,
+                count=1,
+            )
+
+            # Non-memory prompts should not include the stimulus instruction line
+            assert (
+                "stimulus" not in prompt.lower()
+            ), f"{question_type.value} prompt should not mention stimulus"
+
 
 class TestBuildJudgePrompt:
     """Tests for build_judge_prompt function."""
