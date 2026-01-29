@@ -3126,3 +3126,153 @@ class TestSummaryWithInsertedTotals:
         assert "generated: 150" in captured.out
         assert "inserted: 120" in captured.out
         assert "approval: 80.0%" in captured.out
+
+
+class TestInsertQuestionsBatch:
+    """Tests for batch question insertion in BootstrapInventory._insert_questions."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test")
+
+    @pytest.fixture
+    def bootstrap(self, event_logger, logger):
+        """Create BootstrapInventory with mocked database."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=False,
+            use_async=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+        bootstrap.database = Mock()
+        bootstrap.existing_questions = []
+        return bootstrap
+
+    def _make_evaluated_questions(self, count):
+        """Helper to create evaluated questions."""
+        from app.models import (
+            DifficultyLevel,
+            EvaluatedQuestion,
+            EvaluationScore,
+            GeneratedQuestion,
+            QuestionType,
+        )
+
+        return [
+            EvaluatedQuestion(
+                question=GeneratedQuestion(
+                    question_text=f"Question {i}?",
+                    question_type=QuestionType.MATH,
+                    difficulty_level=DifficultyLevel.EASY,
+                    correct_answer=str(i + 1),
+                    answer_options=["1", "2", "3", "4"],
+                    explanation=f"Explanation {i}",
+                    source_llm="openai",
+                    source_model="gpt-4",
+                ),
+                evaluation=EvaluationScore(
+                    clarity_score=0.9,
+                    difficulty_score=0.8,
+                    validity_score=0.85,
+                    formatting_score=0.95,
+                    creativity_score=0.7,
+                    overall_score=0.84,
+                ),
+                judge_model="openai/gpt-4",
+                approved=True,
+            )
+            for i in range(count)
+        ]
+
+    def test_batch_insertion_calls_batch_method(self, bootstrap):
+        """Test that _insert_questions uses insert_evaluated_questions_batch."""
+        questions = self._make_evaluated_questions(4)
+        bootstrap.database.insert_evaluated_questions_batch.return_value = [1, 2, 3, 4]
+
+        result = bootstrap._insert_questions(questions, "math")
+
+        bootstrap.database.insert_evaluated_questions_batch.assert_called_once_with(
+            questions
+        )
+        assert result == 4
+
+    def test_batch_insertion_tracks_existing_questions(self, bootstrap):
+        """Test that inserted questions are added to existing_questions for dedup."""
+        questions = self._make_evaluated_questions(3)
+        bootstrap.database.insert_evaluated_questions_batch.return_value = [10, 11, 12]
+
+        bootstrap._insert_questions(questions, "math")
+
+        assert len(bootstrap.existing_questions) == 3
+        assert bootstrap.existing_questions[0] == {
+            "id": 10,
+            "question_text": "Question 0?",
+        }
+        assert bootstrap.existing_questions[1] == {
+            "id": 11,
+            "question_text": "Question 1?",
+        }
+        assert bootstrap.existing_questions[2] == {
+            "id": 12,
+            "question_text": "Question 2?",
+        }
+
+    def test_batch_insertion_handles_failure(self, bootstrap):
+        """Test that batch insertion failure is handled gracefully."""
+        questions = self._make_evaluated_questions(3)
+        bootstrap.database.insert_evaluated_questions_batch.side_effect = Exception(
+            "DB connection lost"
+        )
+
+        result = bootstrap._insert_questions(questions, "math")
+
+        assert result == 0
+        assert len(bootstrap.existing_questions) == 0
+
+    def test_batch_insertion_dry_run_skips(self, event_logger, logger):
+        """Test that dry run mode skips insertion."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+        bootstrap.database = Mock()
+
+        questions = self._make_evaluated_questions(3)
+        result = bootstrap._insert_questions(questions, "math")
+
+        assert result == 0
+        bootstrap.database.insert_evaluated_questions_batch.assert_not_called()
+
+    def test_batch_insertion_no_database(self, event_logger, logger):
+        """Test that missing database is handled."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=False,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+        bootstrap.database = None
+
+        questions = self._make_evaluated_questions(3)
+        result = bootstrap._insert_questions(questions, "math")
+
+        assert result == 0
+
+    def test_batch_insertion_empty_list(self, bootstrap):
+        """Test that empty question list returns 0."""
+        result = bootstrap._insert_questions([], "math")
+
+        assert result == 0
+        bootstrap.database.insert_evaluated_questions_batch.assert_not_called()

@@ -338,7 +338,7 @@ class DatabaseService:
             )
 
         session = self.get_session()
-        question_ids = []
+        db_questions = []
         embeddings_computed = 0
 
         try:
@@ -369,13 +369,12 @@ class DatabaseService:
                 )
 
                 session.add(db_question)
+                db_questions.append(db_question)
 
             session.commit()
 
-            # Get IDs of inserted questions
-            for db_question in session.new:
-                if isinstance(db_question, QuestionModel):
-                    question_ids.append(db_question.id)
+            # IDs are populated by SQLAlchemy after commit
+            question_ids = [q.id for q in db_questions]
 
             logger.info(
                 f"Inserted {len(question_ids)} questions in batch "
