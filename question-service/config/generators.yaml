@@ -80,6 +80,8 @@ default_generator:
   provider: "openai"
   model: "gpt-4-turbo"
   rationale: "General-purpose fallback generator"
+  fallback: "anthropic"
+  fallback_model: "claude-sonnet-4-5-20250929"
 
 # Enable/disable specialist routing
 # When false, falls back to round-robin distribution
