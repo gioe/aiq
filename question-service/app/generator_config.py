@@ -23,6 +23,7 @@ class GeneratorAssignment(BaseModel):
         model: Optional specific model to use (overrides provider default)
         rationale: Explanation of why this provider was chosen
         fallback: Fallback provider if primary is unavailable
+        fallback_model: Optional specific model to use when fallback provider is activated
     """
 
     provider: str = Field(..., pattern="^(openai|anthropic|google|xai)$")
@@ -31,6 +32,9 @@ class GeneratorAssignment(BaseModel):
     )
     rationale: str = Field(..., min_length=1)
     fallback: Optional[str] = Field(None, pattern="^(openai|anthropic|google|xai)$")
+    fallback_model: Optional[str] = Field(
+        None, description="Specific model to use when fallback provider is activated"
+    )
 
     @field_validator("provider", "fallback")
     @classmethod
@@ -235,14 +239,14 @@ class GeneratorConfigLoader:
         if assignment.provider in available_providers:
             return (assignment.provider, assignment.model)
 
-        # Try fallback provider (model override doesn't apply to fallback)
+        # Try fallback provider
         if assignment.fallback and assignment.fallback in available_providers:
             logger.warning(
                 f"Primary provider '{assignment.provider}' unavailable for "
-                f"'{question_type}', using fallback '{assignment.fallback}' "
-                f"(model override '{assignment.model}' not applied)"
+                f"'{question_type}', using fallback '{assignment.fallback}'"
+                f"{f' with model {assignment.fallback_model}' if assignment.fallback_model else ''}"
             )
-            return (assignment.fallback, None)
+            return (assignment.fallback, assignment.fallback_model)
 
         # Fall back to any available provider (no model override)
         if available_providers:

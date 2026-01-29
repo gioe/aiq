@@ -151,6 +151,36 @@ class TestGeneratorAssignment:
             )
             assert assignment.provider == provider
 
+    def test_optional_fallback_model(self):
+        """Test that fallback_model is optional and defaults to None."""
+        assignment = GeneratorAssignment(
+            provider="openai",
+            rationale="Test rationale",
+        )
+        assert assignment.fallback_model is None
+
+    def test_fallback_model_accepts_string(self):
+        """Test that fallback_model accepts a valid model string."""
+        assignment = GeneratorAssignment(
+            provider="openai",
+            rationale="Test rationale",
+            fallback="anthropic",
+            fallback_model="claude-sonnet-4-5-20250929",
+        )
+        assert assignment.fallback_model == "claude-sonnet-4-5-20250929"
+
+    def test_fallback_model_with_fallback_provider(self):
+        """Test that both fallback and fallback_model can be set together."""
+        assignment = GeneratorAssignment(
+            provider="openai",
+            model="gpt-4-turbo",
+            rationale="Test rationale",
+            fallback="anthropic",
+            fallback_model="claude-opus-4-5-20251101",
+        )
+        assert assignment.fallback == "anthropic"
+        assert assignment.fallback_model == "claude-opus-4-5-20251101"
+
 
 class TestGeneratorConfig:
     """Tests for GeneratorConfig validation."""
@@ -326,6 +356,45 @@ class TestGeneratorConfigLoader:
             assert provider == "anthropic"  # First in list
 
             assert loader.is_specialist_routing_enabled() is False
+        finally:
+            temp_path.unlink()
+
+    def test_get_provider_and_model_uses_fallback_model(self):
+        """Test that fallback_model is returned when primary provider is unavailable."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Strong math performance",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Primary provider (openai) is not available, only fallback (anthropic)
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["anthropic"]
+            )
+            assert provider == "anthropic"
+            assert model == "claude-opus-4-5-20251101"
         finally:
             temp_path.unlink()
 
