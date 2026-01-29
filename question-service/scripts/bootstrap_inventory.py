@@ -1187,18 +1187,14 @@ class BootstrapInventory:
         inserted_count = 0
         failed_count = 0
 
-        for evaluated_question in unique_questions:
-            try:
-                question_id = self.database.insert_evaluated_question(
-                    evaluated_question
-                )
-                inserted_count += 1
-                self.logger.debug(
-                    f"Inserted question ID {question_id} "
-                    f"(score: {evaluated_question.evaluation.overall_score:.2f})"
-                )
+        try:
+            question_ids = self.database.insert_evaluated_questions_batch(
+                unique_questions
+            )
+            inserted_count = len(question_ids)
 
-                # Add to existing questions to prevent inserting duplicates within batch
+            # Add to existing questions to prevent inserting duplicates within batch
+            for question_id, evaluated_question in zip(question_ids, unique_questions):
                 self.existing_questions.append(
                     {
                         "id": question_id,
@@ -1206,9 +1202,12 @@ class BootstrapInventory:
                     }
                 )
 
-            except Exception as e:
-                failed_count += 1
-                self.logger.error(f"Failed to insert question: {e}")
+        except Exception as e:
+            failed_count = len(unique_questions)
+            self.logger.error(
+                f"[{question_type}] Batch insertion failed: {e}",
+                exc_info=True,
+            )
 
         self.progress.insertion_complete(inserted=inserted_count, failed=failed_count)
 
