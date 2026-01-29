@@ -303,6 +303,11 @@ def build_generation_prompt(
     type_prompt = QUESTION_TYPE_PROMPTS[question_type]
     diff_instructions = DIFFICULTY_INSTRUCTIONS[difficulty]
 
+    # Memory questions use a two-phase UX: the stimulus is shown first, then hidden
+    # before the question appears. The inline conditional below adds a "stimulus"
+    # field instruction only for memory questions so the LLM includes it in its
+    # JSON response. For all other question types, the conditional evaluates to an
+    # empty string and the field is omitted.
     prompt = f"""{SYSTEM_PROMPT}
 
 {type_prompt}
@@ -503,6 +508,10 @@ def build_regeneration_prompt(
    - The question_text should NOT repeat the stimulus content
    - Ensure the question is only answerable by someone who memorized the stimulus"""
 
+    # The JSON template below uses an inline conditional to append a "stimulus"
+    # field for memory questions only. This mirrors the two-phase UX where
+    # stimulus content is shown first, then hidden before the question appears.
+    # See also: build_generation_prompt() which uses the same pattern.
     prompt = f"""{SYSTEM_PROMPT}
 
 {type_prompt}
