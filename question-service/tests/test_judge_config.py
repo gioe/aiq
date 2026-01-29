@@ -130,6 +130,62 @@ class TestJudgeModel:
         )
         assert model.enabled is True
 
+    def test_fallback_fields_optional(self):
+        """Test that fallback fields are optional (backward compatible)."""
+        model = JudgeModel(
+            model="gpt-4-turbo",
+            provider="openai",
+            rationale="Test rationale",
+        )
+        assert model.fallback is None
+        assert model.fallback_model is None
+
+    def test_fallback_with_model(self):
+        """Test setting both fallback and fallback_model."""
+        model = JudgeModel(
+            model="gpt-4-turbo",
+            provider="openai",
+            rationale="Test rationale",
+            fallback="anthropic",
+            fallback_model="claude-sonnet-4-5-20250929",
+        )
+        assert model.fallback == "anthropic"
+        assert model.fallback_model == "claude-sonnet-4-5-20250929"
+
+    def test_fallback_without_model(self):
+        """Test setting fallback provider without a specific model."""
+        model = JudgeModel(
+            model="gpt-4-turbo",
+            provider="openai",
+            rationale="Test rationale",
+            fallback="anthropic",
+        )
+        assert model.fallback == "anthropic"
+        assert model.fallback_model is None
+
+    def test_fallback_model_without_fallback_fails(self):
+        """Test that setting fallback_model without fallback raises error."""
+        with pytest.raises(
+            ValidationError,
+            match="fallback_model cannot be set without a fallback provider",
+        ):
+            JudgeModel(
+                model="gpt-4-turbo",
+                provider="openai",
+                rationale="Test rationale",
+                fallback_model="claude-sonnet-4-5-20250929",
+            )
+
+    def test_invalid_fallback_provider(self):
+        """Test that invalid fallback provider raises validation error."""
+        with pytest.raises(ValidationError):
+            JudgeModel(
+                model="gpt-4-turbo",
+                provider="openai",
+                rationale="Test rationale",
+                fallback="invalid_provider",
+            )
+
 
 class TestEvaluationCriteria:
     """Tests for EvaluationCriteria validation.
@@ -318,6 +374,77 @@ class TestJudgeConfigLoader:
             loader = JudgeConfigLoader(temp_path)
             with pytest.raises(yaml.YAMLError):
                 loader.load()
+        finally:
+            temp_path.unlink()
+
+    def test_config_with_fallback_fields(self):
+        """Test loading config with fallback fields."""
+        config_dict = {
+            "version": "1.0",
+            "judges": {
+                "math": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Strong math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-sonnet-4-5-20250929",
+                },
+                "logic": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "provider": "anthropic",
+                    "rationale": "Reasoning",
+                },
+                "pattern": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Patterns",
+                },
+                "spatial": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "provider": "anthropic",
+                    "rationale": "Spatial",
+                },
+                "verbal": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "provider": "anthropic",
+                    "rationale": "Verbal",
+                },
+                "memory": {
+                    "model": "gpt-4-turbo",
+                    "provider": "openai",
+                    "rationale": "Memory",
+                },
+            },
+            "default_judge": {
+                "model": "gpt-4-turbo",
+                "provider": "openai",
+                "rationale": "Default fallback",
+            },
+            "evaluation_criteria": {
+                "clarity": 0.30,
+                "validity": 0.40,
+                "formatting": 0.20,
+                "creativity": 0.10,
+            },
+            "min_judge_score": 0.7,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = JudgeConfigLoader(temp_path)
+            loader.load()
+
+            math_judge = loader.get_judge_for_question_type("math")
+            assert math_judge.fallback == "anthropic"
+            assert math_judge.fallback_model == "claude-sonnet-4-5-20250929"
+
+            # Logic judge has no fallback fields
+            logic_judge = loader.get_judge_for_question_type("logic")
+            assert logic_judge.fallback is None
+            assert logic_judge.fallback_model is None
         finally:
             temp_path.unlink()
 

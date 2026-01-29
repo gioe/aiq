@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +27,36 @@ class JudgeModel(BaseModel):
         provider: Provider name ("openai", "anthropic", or "google")
         rationale: Explanation of why this model was chosen
         enabled: Whether this judge is active
+        fallback: Optional fallback provider if primary is unavailable
+        fallback_model: Optional specific model to use when fallback provider is activated
     """
 
     model: str = Field(..., min_length=1)
     provider: str = Field(..., pattern="^(openai|anthropic|google|xai)$")
     rationale: str = Field(..., min_length=1)
     enabled: bool = True
+    fallback: Optional[str] = Field(None, pattern="^(openai|anthropic|google|xai)$")
+    fallback_model: Optional[str] = Field(
+        None, description="Specific model to use when fallback provider is activated"
+    )
 
-    @field_validator("provider")
+    @field_validator("provider", "fallback")
     @classmethod
-    def validate_provider(cls, v: str) -> str:
+    def validate_provider(cls, v: Optional[str]) -> Optional[str]:
         """Validate provider is one of the supported options."""
+        if v is None:
+            return v
         valid_providers = {"openai", "anthropic", "google", "xai"}
         if v not in valid_providers:
             raise ValueError(f"Provider must be one of {valid_providers}, got '{v}'")
         return v
+
+    @model_validator(mode="after")
+    def validate_fallback_model_requires_fallback(self) -> "JudgeModel":
+        """Validate that fallback_model is only set when fallback is also set."""
+        if self.fallback_model is not None and self.fallback is None:
+            raise ValueError("fallback_model cannot be set without a fallback provider")
+        return self
 
 
 class EvaluationCriteria(BaseModel):
