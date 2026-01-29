@@ -729,6 +729,8 @@ class QuestionJudge:
                     "model": judge.model,
                     "provider": judge.provider,
                     "enabled": judge.enabled,
+                    "fallback": judge.fallback,
+                    "fallback_model": judge.fallback_model,
                 }
                 for qt, judge in config.judges.items()
             },

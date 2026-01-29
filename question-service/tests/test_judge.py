@@ -626,6 +626,96 @@ class TestQuestionJudge:
         # Check judges
         assert "math" in stats["judges"]
         assert stats["judges"]["math"]["provider"] == "openai"
+        assert stats["judges"]["math"]["fallback"] is None
+        assert stats["judges"]["math"]["fallback_model"] is None
+
+    @patch("app.judge.OpenAIProvider")
+    @patch("app.judge.AnthropicProvider")
+    def test_get_judge_stats_includes_fallback_fields(
+        self, mock_anthropic, mock_openai
+    ):
+        """Test that get_judge_stats includes fallback and fallback_model fields."""
+        config = JudgeConfig(
+            version="1.0.0",
+            judges={
+                "math": JudgeModel(
+                    model="gpt-4",
+                    provider="openai",
+                    rationale="Strong math performance",
+                    enabled=True,
+                    fallback="anthropic",
+                    fallback_model="claude-3-5-sonnet-20241022",
+                ),
+                "logic": JudgeModel(
+                    model="claude-3-5-sonnet-20241022",
+                    provider="anthropic",
+                    rationale="Excellent reasoning",
+                    enabled=True,
+                    fallback="openai",
+                ),
+                "pattern": JudgeModel(
+                    model="gpt-4",
+                    provider="openai",
+                    rationale="Pattern detection",
+                    enabled=True,
+                ),
+                "spatial": JudgeModel(
+                    model="gpt-4",
+                    provider="openai",
+                    rationale="Spatial tasks",
+                    enabled=True,
+                ),
+                "verbal": JudgeModel(
+                    model="gpt-4",
+                    provider="openai",
+                    rationale="Verbal tasks",
+                    enabled=True,
+                ),
+                "memory": JudgeModel(
+                    model="gpt-4",
+                    provider="openai",
+                    rationale="Memory tasks",
+                    enabled=True,
+                ),
+            },
+            default_judge=JudgeModel(
+                model="gpt-4",
+                provider="openai",
+                rationale="Default fallback",
+                enabled=True,
+            ),
+            evaluation_criteria=EvaluationCriteria(
+                clarity=0.30,
+                validity=0.40,
+                formatting=0.15,
+                creativity=0.15,
+            ),
+            min_judge_score=0.7,
+            difficulty_placement=DifficultyPlacement(
+                downgrade_threshold=0.4,
+                upgrade_threshold=0.8,
+            ),
+        )
+        judge_config_loader = JudgeConfigLoader.__new__(JudgeConfigLoader)
+        judge_config_loader._config = config
+
+        judge = QuestionJudge(
+            judge_config=judge_config_loader,
+            openai_api_key="test-openai-key",
+            anthropic_api_key="test-anthropic-key",
+        )
+
+        stats = judge.get_judge_stats()
+
+        # Math judge has both fallback and fallback_model
+        math_judge = stats["judges"]["math"]
+        assert math_judge["fallback"] == "anthropic"
+        assert math_judge["fallback_model"] == "claude-3-5-sonnet-20241022"
+
+        # Logic judge has fallback but no fallback_model
+        logic_judge = stats["judges"]["logic"]
+        assert logic_judge["fallback"] == "openai"
+        assert logic_judge["fallback_model"] is None
 
 
 class TestJudgeIntegration:
