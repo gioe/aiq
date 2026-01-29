@@ -11,6 +11,7 @@
 #     model: Exact API model identifier (must match provider SDK expectations)
 #     rationale: Explanation of why this provider was chosen
 #     fallback: Fallback provider if primary is unavailable
+#     fallback_model: Exact API model identifier for the fallback provider
 #
 # IMPORTANT - Model Naming Convention:
 #   Model identifiers MUST match the exact strings used by each provider's API:
