@@ -82,7 +82,7 @@ struct MemoryQuestionView: View {
                 }
 
                 // Difficulty indicator
-                difficultyBadge
+                DifficultyBadge(difficultyLevel: question.difficultyLevel)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -132,48 +132,11 @@ struct MemoryQuestionView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.questionPhase)
     }
 
-    // MARK: - Shared Components
-
-    private var difficultyBadge: some View {
-        HStack(spacing: 4) {
-            ForEach(0 ..< 3) { index in
-                Circle()
-                    .fill(index < difficultyCircles ? colorForDifficulty : Color.gray.opacity(0.2))
-                    .frame(width: 8, height: 8)
-            }
-
-            Text(question.difficultyLevel.capitalized)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-        }
-    }
-
     // MARK: - Accessibility
 
     private var stimulusAccessibilityLabel: String {
         let stimulus = question.stimulus ?? ""
         return "memory.question.stimulus.accessibility".localized(with: stimulus)
-    }
-
-    // MARK: - Helpers
-
-    private var difficultyCircles: Int {
-        switch question.difficultyLevel {
-        case "easy": 1
-        case "medium": 2
-        case "hard": 3
-        default: 2
-        }
-    }
-
-    private var colorForDifficulty: Color {
-        switch question.difficultyLevel {
-        case "easy": .green
-        case "medium": .orange
-        case "hard": .red
-        default: .orange
-        }
     }
 }
 
