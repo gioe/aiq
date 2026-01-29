@@ -88,21 +88,12 @@ class TestBuildGenerationPrompt:
         assert "stimulus" in prompt.lower()
         # Should include the type-specific prompt which has CRITICAL stimulus instructions
         assert "CRITICAL" in prompt
-        assert "stimulus" in prompt
         # Should mention that stimulus is shown first then hidden
         assert "shown first, then hidden" in prompt.lower()
-        # The numbered instruction list should include stimulus
-        assert "stimulus" in prompt
 
     def test_non_memory_question_prompt_excludes_stimulus(self):
         """Test that non-memory question generation prompts do not include stimulus instruction."""
-        non_memory_types = [
-            QuestionType.PATTERN,
-            QuestionType.LOGIC,
-            QuestionType.SPATIAL,
-            QuestionType.MATH,
-            QuestionType.VERBAL,
-        ]
+        non_memory_types = [qt for qt in QuestionType if qt != QuestionType.MEMORY]
 
         for question_type in non_memory_types:
             prompt = build_generation_prompt(
