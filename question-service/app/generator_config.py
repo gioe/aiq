@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,13 @@ class GeneratorAssignment(BaseModel):
         if v not in valid_providers:
             raise ValueError(f"Provider must be one of {valid_providers}, got '{v}'")
         return v
+
+    @model_validator(mode="after")
+    def validate_fallback_model_requires_fallback(self) -> "GeneratorAssignment":
+        """Validate that fallback_model is only set when fallback is also set."""
+        if self.fallback_model is not None and self.fallback is None:
+            raise ValueError("fallback_model cannot be set without a fallback provider")
+        return self
 
 
 class GeneratorConfig(BaseModel):

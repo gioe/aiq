@@ -181,6 +181,18 @@ class TestGeneratorAssignment:
         assert assignment.fallback == "anthropic"
         assert assignment.fallback_model == "claude-opus-4-5-20251101"
 
+    def test_fallback_model_without_fallback_fails(self):
+        """Test that fallback_model without fallback provider raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratorAssignment(
+                provider="openai",
+                rationale="Test rationale",
+                fallback_model="claude-opus-4-5-20251101",
+            )
+        assert "fallback_model cannot be set without a fallback provider" in str(
+            exc_info.value
+        )
+
 
 class TestGeneratorConfig:
     """Tests for GeneratorConfig validation."""
