@@ -11,7 +11,7 @@ Runs the full question generation pipeline locally using `run_generation.py`.
 ## Usage
 
 ```
-/run-generation [--type <type>] [--difficulty <difficulty>] [--count <n>] [--dry-run]
+/run-generation [--type <type>] [--difficulty <difficulty>] [--count <n>] [--provider-tier <tier>] [--dry-run]
 ```
 
 ## Arguments
@@ -21,6 +21,7 @@ Runs the full question generation pipeline locally using `run_generation.py`.
 | `--type` | No | all | Question type: `math`, `logic`, `pattern`, `spatial`, `verbal`, `memory` |
 | `--difficulty` | No | all | Difficulty level: `easy`, `medium`, `hard` |
 | `--count` | No | 50 | Number of questions to generate |
+| `--provider-tier` | No | primary | Provider tier: `primary` or `fallback` |
 | `--dry-run` | No | false | Generate and evaluate but don't insert to database |
 
 ## Implementation
@@ -31,12 +32,14 @@ Extract the optional arguments from the user's input:
 - `--type <type>` or `-t <type>` - maps to `--types <type>`
 - `--difficulty <difficulty>` or `-d <difficulty>` - maps to `--difficulties <difficulty>`
 - `--count <n>` or `-c <n>` - maps to `--count <n>`
+- `--provider-tier <tier>` - maps to `--provider-tier <tier>`
 - `--dry-run` - adds `--dry-run` flag
 
 Validate:
 - Type must be one of: `math`, `logic`, `pattern`, `spatial`, `verbal`, `memory`
 - Difficulty must be one of: `easy`, `medium`, `hard`
 - Count must be a positive integer
+- Provider tier must be one of: `primary`, `fallback`
 
 ### Step 2: Build Command
 
@@ -66,6 +69,16 @@ cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(
 With both:
 ```bash
 cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types spatial --difficulties easy --count 50 --async --async-judge --verbose
+```
+
+With provider tier (fallback):
+```bash
+cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --provider-tier fallback --count 50 --async --async-judge --verbose
+```
+
+With type and provider tier:
+```bash
+cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --provider-tier fallback --count 50 --async --async-judge --verbose
 ```
 
 Dry run:
@@ -118,6 +131,16 @@ Generate 20 easy pattern questions.
 /run-generation --type spatial --count 30 --dry-run
 ```
 Generate 30 spatial questions without inserting to database (for testing).
+
+```
+/run-generation --provider-tier fallback
+```
+Generate 50 questions using fallback provider models instead of primary.
+
+```
+/run-generation --type math --provider-tier fallback --count 20
+```
+Generate 20 math questions using fallback provider models.
 
 ## Requirements
 
