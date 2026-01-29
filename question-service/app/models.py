@@ -7,7 +7,7 @@ generation pipeline, from generation to evaluation.
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class QuestionType(str, Enum):
@@ -75,6 +75,17 @@ class GeneratedQuestion(BaseModel):
                     f"correct_answer '{correct}' must be in answer_options"
                 )
         return v
+
+    @model_validator(mode="after")
+    def validate_stimulus_for_memory_questions(self) -> "GeneratedQuestion":
+        """Validate that memory questions have a non-empty stimulus field."""
+        if self.question_type == QuestionType.MEMORY:
+            if not self.stimulus or not self.stimulus.strip():
+                raise ValueError(
+                    "Memory questions require a non-empty 'stimulus' field "
+                    "containing content for the user to memorize"
+                )
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database insertion."""

@@ -241,6 +241,70 @@ class TestGeneratedQuestion:
         result = question.to_dict()
         assert result["stimulus"] == question.stimulus
 
+    def test_memory_question_without_stimulus_rejected(self):
+        """Test that memory questions without stimulus are rejected at model level."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="What was the third word in the sequence?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="apple",
+                answer_options=["orange", "banana", "apple", "grape"],
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "stimulus" in str(exc_info.value).lower()
+
+    def test_memory_question_with_empty_stimulus_rejected(self):
+        """Test that memory questions with empty string stimulus are rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="What was the third word in the sequence?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="apple",
+                answer_options=["orange", "banana", "apple", "grape"],
+                stimulus="",
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "stimulus" in str(exc_info.value).lower()
+
+    def test_memory_question_with_whitespace_stimulus_rejected(self):
+        """Test that memory questions with whitespace-only stimulus are rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="What was the third word in the sequence?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="apple",
+                answer_options=["orange", "banana", "apple", "grape"],
+                stimulus="   \n\t  ",
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "stimulus" in str(exc_info.value).lower()
+
+    def test_non_memory_question_without_stimulus_still_allowed(self):
+        """Test that non-memory questions are not affected by stimulus validation."""
+        for qtype in [
+            QuestionType.PATTERN,
+            QuestionType.LOGIC,
+            QuestionType.SPATIAL,
+            QuestionType.MATH,
+            QuestionType.VERBAL,
+        ]:
+            question = GeneratedQuestion(
+                question_text="What is the answer to this question?",
+                question_type=qtype,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                answer_options=["A", "B", "C", "D"],
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+            assert question.stimulus is None
+
 
 class TestEvaluationScore:
     """Tests for EvaluationScore model."""
