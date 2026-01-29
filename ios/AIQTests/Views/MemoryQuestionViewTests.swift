@@ -22,7 +22,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 1,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
 
         // Then
@@ -44,6 +45,7 @@ final class MemoryQuestionViewTests: XCTestCase {
             questionNumber: 5,
             totalQuestions: 20,
             userAnswer: .constant(""),
+            showingStimulus: .constant(true),
             isDisabled: true
         )
 
@@ -65,7 +67,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 1,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
         XCTAssertNotNil(firstView)
 
@@ -74,7 +77,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 20,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
         XCTAssertNotNil(lastView)
     }
@@ -96,7 +100,8 @@ final class MemoryQuestionViewTests: XCTestCase {
                 question: question,
                 questionNumber: 1,
                 totalQuestions: 20,
-                userAnswer: .constant("")
+                userAnswer: .constant(""),
+                showingStimulus: .constant(true)
             )
 
             // Then
@@ -277,7 +282,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 1,
             totalQuestions: 10,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
 
         // Then
@@ -313,7 +319,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 15,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
 
         // Then
@@ -335,7 +342,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 8,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
 
         // Then
@@ -358,7 +366,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 1,
             totalQuestions: 5,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
 
         // Then
@@ -380,7 +389,8 @@ final class MemoryQuestionViewTests: XCTestCase {
             question: question,
             questionNumber: 1,
             totalQuestions: 5,
-            userAnswer: .constant("Apple")
+            userAnswer: .constant("Apple"),
+            showingStimulus: .constant(true)
         )
 
         // Then

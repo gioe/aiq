@@ -215,7 +215,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             userAnswers: [10: "A", 20: "B"], // 2 answers saved
             currentQuestionIndex: 2, // On third question
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-600) // Started 10 minutes ago
+            sessionStartedAt: Date().addingTimeInterval(-600), // Started 10 minutes ago
+            stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = savedProgress
 
@@ -329,7 +330,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             userAnswers: [1: "A", 2: "B"],
             currentQuestionIndex: 2,
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-600) // Started 10 minutes ago
+            sessionStartedAt: Date().addingTimeInterval(-600), // Started 10 minutes ago
+            stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = savedProgress
 
@@ -481,15 +483,17 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Set endpoint-specific responses for sequential calls
         await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(oldSessionId))
+        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
         await mockAPIClient.setResponse(startResponse, for: .testStart)
 
         await testTakingViewModel.abandonAndStartNew(sessionId: oldSessionId, questionCount: 20)
 
         // Then - Old session abandoned and new session started
         let endpoints = await mockAPIClient.allEndpoints
-        XCTAssertEqual(endpoints.count, 2, "Should make 2 API calls")
+        XCTAssertEqual(endpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
         XCTAssertEqual(endpoints[0], .testAbandon(oldSessionId), "First call should abandon")
-        XCTAssertEqual(endpoints[1], .testStart, "Second call should start new test")
+        XCTAssertEqual(endpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
+        XCTAssertEqual(endpoints[2], .testStart, "Third call should start new test")
         XCTAssertEqual(testTakingViewModel.testSession?.id, newSessionId, "Should have new session")
         XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have new questions")
         XCTAssertNil(testTakingViewModel.error, "Error should be cleared")

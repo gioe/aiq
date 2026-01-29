@@ -153,7 +153,8 @@ final class TestTakingViewModelTests: XCTestCase {
             userAnswers: [10: "A"], // One answer saved
             currentQuestionIndex: 1,
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
+            sessionStartedAt: Date().addingTimeInterval(-300), // Started 5 minutes ago
+            stimulusSeen: []
         )
 
         mockAnswerStorage.mockProgress = savedProgress
@@ -428,7 +429,8 @@ final class TestTakingViewModelTests: XCTestCase {
             userAnswers: [1: "A", 3: "C"], // Question 3 should be filtered out
             currentQuestionIndex: 0,
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
+            sessionStartedAt: Date().addingTimeInterval(-300), // Started 5 minutes ago
+            stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = savedProgress
 
@@ -1098,5 +1100,137 @@ final class TestTakingViewModelTests: XCTestCase {
             allEndpoints.contains(.testHistory(limit: 1, offset: nil)),
             "Should fetch test history with forceRefresh=true"
         )
+    }
+
+    // MARK: - Stimulus State Persistence Tests
+
+    func testStimulusSeen_InitiallyEmpty() {
+        // Then
+        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be empty initially")
+    }
+
+    func testMarkStimulusSeen_AddsQuestionId() {
+        // When
+        sut.markStimulusSeen(for: 42)
+
+        // Then
+        XCTAssertTrue(sut.hasStimulusSeen(for: 42), "Should mark question 42 as stimulus seen")
+        XCTAssertFalse(sut.hasStimulusSeen(for: 99), "Should not mark question 99 as seen")
+    }
+
+    func testMarkStimulusSeen_IsIdempotent() {
+        // When
+        sut.markStimulusSeen(for: 42)
+        sut.markStimulusSeen(for: 42)
+
+        // Then
+        XCTAssertEqual(sut.stimulusSeen.count, 1, "Should not duplicate entries")
+        XCTAssertTrue(sut.hasStimulusSeen(for: 42))
+    }
+
+    func testStimulusSeen_TracksMultipleQuestions() {
+        // When
+        sut.markStimulusSeen(for: 1)
+        sut.markStimulusSeen(for: 5)
+        sut.markStimulusSeen(for: 10)
+
+        // Then
+        XCTAssertEqual(sut.stimulusSeen.count, 3)
+        XCTAssertTrue(sut.hasStimulusSeen(for: 1))
+        XCTAssertTrue(sut.hasStimulusSeen(for: 5))
+        XCTAssertTrue(sut.hasStimulusSeen(for: 10))
+        XCTAssertFalse(sut.hasStimulusSeen(for: 2))
+    }
+
+    func testStimulusSeen_ClearedOnResetTest() {
+        // Given
+        sut.markStimulusSeen(for: 1)
+        sut.markStimulusSeen(for: 2)
+        XCTAssertEqual(sut.stimulusSeen.count, 2)
+
+        // When
+        sut.resetTest()
+
+        // Then
+        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be cleared on reset")
+    }
+
+    func testStimulusSeen_ClearedOnStartNewTest() async {
+        // Given
+        sut.markStimulusSeen(for: 1)
+        XCTAssertFalse(sut.stimulusSeen.isEmpty)
+
+        let sessionId = 4001
+        let mockQuestions = makeQuestions(count: 2)
+        let startResponse = makeStartTestResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setPaginatedTestHistoryResponse(
+            results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false
+        )
+        await mockAPIClient.setResponse(startResponse, for: .testStart)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be cleared when starting new test")
+    }
+
+    func testStimulusSeen_RestoredFromSavedProgress() async {
+        // Given
+        let sessionId = 4002
+        let mockQuestions = [
+            makeQuestion(id: 10, text: "Memory Q1?", type: "memory"),
+            makeQuestion(id: 20, text: "Memory Q2?", type: "memory"),
+            makeQuestion(id: 30, text: "Logic Q3?", type: "logic")
+        ]
+        let mockResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+
+        // Saved progress includes stimulusSeen for question 10
+        let savedProgress = SavedTestProgress(
+            sessionId: sessionId,
+            userId: 1,
+            questionIds: [10, 20, 30],
+            userAnswers: [10: "A"],
+            currentQuestionIndex: 1,
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-300),
+            stimulusSeen: [10]
+        )
+        mockAnswerStorage.mockProgress = savedProgress
+
+        // When
+        await sut.resumeActiveSession(sessionId: sessionId)
+
+        // Then
+        XCTAssertTrue(sut.hasStimulusSeen(for: 10), "Should restore stimulus seen for question 10")
+        XCTAssertFalse(sut.hasStimulusSeen(for: 20), "Question 20 stimulus should not be marked seen")
+        XCTAssertEqual(sut.stimulusSeen.count, 1)
+    }
+
+    func testRestoreProgress_RestoresStimulusSeen() {
+        // Given
+        let progress = SavedTestProgress(
+            sessionId: 1,
+            userId: 1,
+            questionIds: [10, 20],
+            userAnswers: [10: "A"],
+            currentQuestionIndex: 1,
+            savedAt: Date(),
+            sessionStartedAt: nil,
+            stimulusSeen: [10, 20]
+        )
+
+        // When
+        sut.restoreProgress(progress)
+
+        // Then
+        XCTAssertEqual(sut.stimulusSeen, [10, 20], "Should restore stimulusSeen from progress")
     }
 }

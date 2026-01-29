@@ -11,10 +11,9 @@ struct MemoryQuestionView: View {
     let questionNumber: Int
     let totalQuestions: Int
     @Binding var userAnswer: String
-    var isDisabled: Bool = false
-
     /// Whether we're showing the stimulus (true) or the question (false)
-    @State private var showingStimulus: Bool = true
+    @Binding var showingStimulus: Bool
+    var isDisabled: Bool = false
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -192,7 +191,8 @@ struct MemoryQuestionView: View {
             ),
             questionNumber: 5,
             totalQuestions: 20,
-            userAnswer: .constant("")
+            userAnswer: .constant(""),
+            showingStimulus: .constant(true)
         )
         .padding()
     }
