@@ -408,6 +408,131 @@ class TestTryFallbackProvider:
             assert is_fallback is True
 
 
+class TestGetSpecialistProviderTier:
+    """Tests for _get_specialist_provider with provider_tier parameter."""
+
+    @pytest.fixture
+    def multi_provider_generator(self):
+        """Create generator with multiple mocked providers."""
+        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generator.AnthropicProvider"
+        ) as mock_anthropic:
+            openai_provider = Mock()
+            openai_provider.model = "gpt-4"
+            mock_openai.return_value = openai_provider
+
+            anthropic_provider = Mock()
+            anthropic_provider.model = "claude-3-5-sonnet"
+            mock_anthropic.return_value = anthropic_provider
+
+            generator = QuestionGenerator(
+                openai_api_key="test-key",
+                anthropic_api_key="test-key",
+            )
+            yield generator
+
+    def test_get_specialist_provider_passes_provider_tier_to_config(
+        self, multi_provider_generator
+    ):
+        """Test that provider_tier is passed to get_provider_and_model_for_question_type."""
+        generator = multi_provider_generator
+
+        # Mock the config loader
+        mock_config = Mock()
+        mock_config.get_provider_and_model_for_question_type.return_value = (
+            "anthropic",
+            "claude-sonnet-4-5-20250929",
+        )
+
+        with patch(
+            "app.generator.is_generator_config_initialized", return_value=True
+        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            provider, model = generator._get_specialist_provider(
+                question_type=QuestionType.LOGIC, provider_tier="fallback"
+            )
+
+            # Verify the config was called with provider_tier="fallback"
+            mock_config.get_provider_and_model_for_question_type.assert_called_once_with(
+                "logic", ["openai", "anthropic"], provider_tier="fallback"
+            )
+
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5-20250929"
+
+    def test_get_specialist_provider_defaults_to_primary(
+        self, multi_provider_generator
+    ):
+        """Test that provider_tier defaults to 'primary' when None."""
+        generator = multi_provider_generator
+
+        # Mock the config loader
+        mock_config = Mock()
+        mock_config.get_provider_and_model_for_question_type.return_value = (
+            "openai",
+            "gpt-4",
+        )
+
+        with patch(
+            "app.generator.is_generator_config_initialized", return_value=True
+        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            provider, model = generator._get_specialist_provider(
+                question_type=QuestionType.MATH, provider_tier=None
+            )
+
+            # Verify the config was called with provider_tier="primary" (default)
+            mock_config.get_provider_and_model_for_question_type.assert_called_once_with(
+                "math", ["openai", "anthropic"], provider_tier="primary"
+            )
+
+            assert provider == "openai"
+            assert model == "gpt-4"
+
+    def test_get_specialist_provider_fallback_returns_fallback_model(
+        self, multi_provider_generator
+    ):
+        """Test that provider_tier='fallback' returns fallback model from config."""
+        generator = multi_provider_generator
+
+        # Mock the config loader to return fallback provider and model
+        mock_config = Mock()
+        mock_config.get_provider_and_model_for_question_type.return_value = (
+            "openai",
+            "gpt-4o-mini",
+        )
+
+        with patch(
+            "app.generator.is_generator_config_initialized", return_value=True
+        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            provider, model = generator._get_specialist_provider(
+                question_type=QuestionType.PATTERN, provider_tier="fallback"
+            )
+
+            # Verify the config was called with provider_tier="fallback"
+            mock_config.get_provider_and_model_for_question_type.assert_called_once_with(
+                "pattern", ["openai", "anthropic"], provider_tier="fallback"
+            )
+
+            # Verify fallback model is returned (not None)
+            assert provider == "openai"
+            assert model == "gpt-4o-mini"
+
+    def test_get_specialist_provider_without_config_ignores_provider_tier(
+        self, multi_provider_generator
+    ):
+        """Test that provider_tier is ignored when config is not initialized."""
+        generator = multi_provider_generator
+
+        # Mock config as not initialized
+        with patch("app.generator.is_generator_config_initialized", return_value=False):
+            provider, model = generator._get_specialist_provider(
+                question_type=QuestionType.VERBAL, provider_tier="fallback"
+            )
+
+            # Should return first available provider with no model override
+            assert provider == "openai"
+            assert model is None
+
+
 class TestGeneratorConfigModelOverride:
     """Tests for generator config model override functionality."""
 
@@ -441,21 +566,22 @@ class TestGeneratorConfigModelOverride:
         assert provider == "xai"
         assert model == "grok-4"
 
-    def test_model_not_applied_to_fallback_provider(self):
-        """Test that model override is not applied when using fallback provider."""
+    def test_fallback_uses_fallback_model_not_primary_model(self):
+        """Test that fallback provider uses fallback_model, not the primary model."""
         from app.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Logic has anthropic with a model, but if anthropic is unavailable,
-        # the model should not be applied to the fallback
+        # Logic has anthropic with claude-sonnet-4-5-20250929, but if anthropic
+        # is unavailable, the fallback provider (openai) should use fallback_model
+        # (gpt-5.2), NOT the primary model (claude-sonnet-4-5-20250929)
         provider, model = loader.get_provider_and_model_for_question_type(
             "logic", ["openai"]  # anthropic not available
         )
 
         assert provider == "openai"
-        assert model is None  # Model override not applied to fallback
+        assert model == "gpt-5.2"  # fallback_model, not primary model
 
 
 class TestQuestionGeneratorIntegration:
