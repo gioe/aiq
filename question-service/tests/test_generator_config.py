@@ -1148,3 +1148,223 @@ class TestProviderTierSelection:
         )
         assert provider == "xai"
         assert model is None  # No model override for last-resort fallback
+
+
+class TestFallbackModelEdgeCases:
+    """Edge case tests for fallback_model behavior.
+
+    Covers scenarios where fallback_model interacts with default_generator
+    and where the primary provider is available so fallback_model is not used.
+    """
+
+    def test_default_generator_uses_fallback_model_when_primary_unavailable(self):
+        """Test that default_generator's fallback_model is used for unknown question types."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {"provider": "openai", "rationale": "r"},
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {
+                "provider": "openai",
+                "model": "gpt-4-turbo",
+                "rationale": "Default generator",
+                "fallback": "anthropic",
+                "fallback_model": "claude-sonnet-4-5-20250929",
+            },
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Unknown type falls back to default_generator.
+            # Primary (openai) is unavailable, only anthropic available.
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "unknown_type", ["anthropic"]
+            )
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5-20250929"
+        finally:
+            temp_path.unlink()
+
+    def test_default_generator_returns_primary_model_when_primary_available(self):
+        """Test that default_generator returns primary model when primary provider is available."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {"provider": "openai", "rationale": "r"},
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {
+                "provider": "openai",
+                "model": "gpt-4-turbo",
+                "rationale": "Default generator",
+                "fallback": "anthropic",
+                "fallback_model": "claude-sonnet-4-5-20250929",
+            },
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Unknown type falls back to default_generator.
+            # Primary (openai) IS available, so fallback_model should NOT be used.
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "unknown_type", ["openai", "anthropic"]
+            )
+            assert provider == "openai"
+            assert model == "gpt-4-turbo"  # Primary model, not fallback_model
+        finally:
+            temp_path.unlink()
+
+    def test_default_generator_fallback_tier_uses_fallback_model(self):
+        """Test that provider_tier='fallback' uses default_generator's fallback_model."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {"provider": "openai", "rationale": "r"},
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {
+                "provider": "openai",
+                "model": "gpt-4-turbo",
+                "rationale": "Default generator",
+                "fallback": "anthropic",
+                "fallback_model": "claude-sonnet-4-5-20250929",
+            },
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Explicitly request fallback tier for an unknown question type.
+            # Should use default_generator's fallback provider and fallback_model.
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "unknown_type", ["openai", "anthropic"], provider_tier="fallback"
+            )
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5-20250929"
+        finally:
+            temp_path.unlink()
+
+    def test_fallback_model_not_used_when_primary_available(self):
+        """Test that fallback_model is ignored when primary provider is available (no fallback needed)."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "xai",
+                    "model": "grok-4",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-sonnet-4-5-20250929",
+                },
+                "logic": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "rationale": "Logic",
+                    "fallback": "openai",
+                    "fallback_model": "gpt-5.2",
+                },
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # All providers available - primary should be used, fallback_model ignored
+            all_providers = ["openai", "anthropic", "google", "xai"]
+
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", all_providers
+            )
+            assert provider == "xai"
+            assert model == "grok-4"  # Primary model, NOT fallback_model
+
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "logic", all_providers
+            )
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-5-20250929"  # Primary model, NOT gpt-5.2
+        finally:
+            temp_path.unlink()
+
+    def test_fallback_model_not_used_when_primary_available_explicit_tier(self):
+        """Test that explicitly requesting primary tier ignores fallback_model even when configured."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "xai",
+                    "model": "grok-4",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            # Explicitly request primary tier - should return primary model
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["xai", "anthropic"], provider_tier="primary"
+            )
+            assert provider == "xai"
+            assert model == "grok-4"  # Primary model, NOT claude-opus-4-5-20251101
+        finally:
+            temp_path.unlink()
