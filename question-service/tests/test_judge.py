@@ -2,6 +2,7 @@
 
 import asyncio
 import pytest
+from pydantic import ValidationError
 from unittest.mock import AsyncMock, Mock, patch
 
 from app.cost_tracking import CompletionResult
@@ -801,50 +802,31 @@ class TestMemoryQuestionEvaluation:
         assert "two-phase delivery" in prompt.lower()
 
     @patch("app.judge.OpenAIProvider")
-    def test_memory_question_without_stimulus_still_evaluates(
+    def test_memory_question_without_stimulus_rejected_at_model_level(
         self,
         mock_provider_class,
         mock_judge_config,
         sample_evaluation_response,
     ):
-        """Test that a memory question without stimulus can still be evaluated.
+        """Test that a memory question without stimulus is rejected at model level.
 
-        This tests backward compatibility - older memory questions might not have
-        a stimulus field, and the judge should still be able to evaluate them.
+        TASK-763: The GeneratedQuestion model now enforces that memory questions
+        must have a non-empty stimulus field. This prevents invalid memory
+        questions from reaching the judge.
         """
-        # Create a memory question without stimulus
-        memory_question_no_stimulus = GeneratedQuestion(
-            question_text="Recall the sequence: 3, 7, 15, 31. What comes next?",
-            question_type=QuestionType.MEMORY,
-            difficulty_level=DifficultyLevel.EASY,
-            correct_answer="63",
-            answer_options=["47", "55", "63", "71"],
-            explanation="Each number is double the previous plus 1. So 31*2+1=63.",
-            stimulus=None,  # No stimulus
-            source_llm="openai",
-            source_model="gpt-4",
-        )
-
-        # Setup mock provider
-        mock_provider = Mock()
-        mock_provider.model = "gpt-4"
-        mock_provider.generate_structured_completion_with_usage.return_value = (
-            make_completion_result(sample_evaluation_response)
-        )
-        mock_provider_class.return_value = mock_provider
-
-        judge = QuestionJudge(
-            judge_config=mock_judge_config,
-            openai_api_key="test-key",
-        )
-        judge.providers["openai"] = mock_provider
-
-        # Evaluate should succeed without stimulus
-        evaluated = judge.evaluate_question(memory_question_no_stimulus)
-
-        assert isinstance(evaluated, EvaluatedQuestion)
-        assert evaluated.question.stimulus is None
-        assert evaluated.question.question_type == QuestionType.MEMORY
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="Recall the sequence: 3, 7, 15, 31. What comes next?",
+                question_type=QuestionType.MEMORY,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="63",
+                answer_options=["47", "55", "63", "71"],
+                explanation="Each number is double the previous plus 1. So 31*2+1=63.",
+                stimulus=None,  # No stimulus - now rejected
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "stimulus" in str(exc_info.value).lower()
 
     @patch("app.judge.OpenAIProvider")
     def test_memory_question_uses_correct_judge_provider(
