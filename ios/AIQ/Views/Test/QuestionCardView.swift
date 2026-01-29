@@ -20,7 +20,7 @@ struct QuestionCardView: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionText)
 
             // Difficulty indicator
-            difficultyBadge
+            DifficultyBadge(difficultyLevel: question.difficultyLevel)
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -70,21 +70,6 @@ struct QuestionCardView: View {
         }
     }
 
-    private var difficultyBadge: some View {
-        HStack(spacing: 4) {
-            ForEach(0 ..< 3) { index in
-                Circle()
-                    .fill(index < difficultyCircles ? colorForDifficulty : Color.gray.opacity(0.2))
-                    .frame(width: 8, height: 8)
-            }
-
-            Text(question.difficultyLevel.capitalized)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-        }
-    }
-
     // MARK: - Helpers
 
     private var iconForQuestionType: String {
@@ -108,24 +93,6 @@ struct QuestionCardView: View {
         case .verbal: .pink
         case .memory: .indigo
         case nil: .gray
-        }
-    }
-
-    private var difficultyCircles: Int {
-        switch question.difficultyLevel {
-        case "easy": 1
-        case "medium": 2
-        case "hard": 3
-        default: 2
-        }
-    }
-
-    private var colorForDifficulty: Color {
-        switch question.difficultyLevel {
-        case "easy": .green
-        case "medium": .orange
-        case "hard": .red
-        default: .orange
         }
     }
 }
