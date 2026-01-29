@@ -64,6 +64,7 @@ class QuestionGenerationPipeline:
         difficulty: DifficultyLevel,
         count: int = 10,
         distribute_providers: bool = True,
+        provider_tier: Optional[str] = None,
     ) -> GenerationBatch:
         """Generate a batch of questions for a specific type and difficulty.
 
@@ -72,6 +73,7 @@ class QuestionGenerationPipeline:
             difficulty: Difficulty level
             count: Number of questions to generate
             distribute_providers: Whether to distribute across providers
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Batch of generated questions
@@ -89,6 +91,7 @@ class QuestionGenerationPipeline:
             difficulty=difficulty,
             count=count,
             distribute_across_providers=distribute_providers,
+            provider_tier=provider_tier,
         )
 
         logger.info(
@@ -103,6 +106,7 @@ class QuestionGenerationPipeline:
         difficulty: DifficultyLevel,
         count: int = 10,
         distribute_providers: bool = True,
+        provider_tier: Optional[str] = None,
     ) -> GenerationBatch:
         """Generate a batch of questions asynchronously for a specific type and difficulty.
 
@@ -114,6 +118,7 @@ class QuestionGenerationPipeline:
             difficulty: Difficulty level
             count: Number of questions to generate
             distribute_providers: Whether to distribute across providers
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Batch of generated questions
@@ -131,6 +136,7 @@ class QuestionGenerationPipeline:
             difficulty=difficulty,
             count=count,
             distribute_across_providers=distribute_providers,
+            provider_tier=provider_tier,
         )
 
         logger.info(
@@ -204,6 +210,7 @@ class QuestionGenerationPipeline:
         questions_per_run: Optional[int] = None,
         question_types: Optional[List[QuestionType]] = None,
         difficulty_distribution: Optional[Dict[DifficultyLevel, float]] = None,
+        provider_tier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run a complete question generation job.
 
@@ -213,6 +220,7 @@ class QuestionGenerationPipeline:
             questions_per_run: Total questions to generate (uses settings if None)
             question_types: Specific types to generate (None = all types)
             difficulty_distribution: Distribution of difficulties (None = equal)
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Dictionary with job statistics and results
@@ -255,6 +263,7 @@ class QuestionGenerationPipeline:
                         difficulty=difficulty,
                         count=count,
                         distribute_providers=True,
+                        provider_tier=provider_tier,
                     )
                     all_batches.append(batch)
                     all_questions.extend(batch.questions)
@@ -309,6 +318,7 @@ class QuestionGenerationPipeline:
         questions_per_run: Optional[int] = None,
         question_types: Optional[List[QuestionType]] = None,
         difficulty_distribution: Optional[Dict[DifficultyLevel, float]] = None,
+        provider_tier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run a complete question generation job asynchronously with parallel generation.
 
@@ -320,6 +330,7 @@ class QuestionGenerationPipeline:
             questions_per_run: Total questions to generate (uses settings if None)
             question_types: Specific types to generate (None = all types)
             difficulty_distribution: Distribution of difficulties (None = equal)
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Dictionary with job statistics and results
@@ -360,6 +371,7 @@ class QuestionGenerationPipeline:
                     difficulty=difficulty,
                     count=count,
                     distribute_providers=True,
+                    provider_tier=provider_tier,
                 )
                 tasks.append(task)
                 task_metadata.append(
@@ -432,6 +444,7 @@ class QuestionGenerationPipeline:
     def run_balanced_generation_job(
         self,
         stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
+        provider_tier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run a balanced question generation job with specific allocations per stratum.
 
@@ -442,6 +455,7 @@ class QuestionGenerationPipeline:
         Args:
             stratum_allocations: Dictionary mapping (QuestionType, DifficultyLevel)
                 tuples to the number of questions to generate for that stratum.
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Dictionary with job statistics and results
@@ -475,6 +489,7 @@ class QuestionGenerationPipeline:
                     difficulty=difficulty,
                     count=count,
                     distribute_providers=True,
+                    provider_tier=provider_tier,
                 )
                 all_batches.append(batch)
                 all_questions.extend(batch.questions)
@@ -528,6 +543,7 @@ class QuestionGenerationPipeline:
     async def run_balanced_generation_job_async(
         self,
         stratum_allocations: Dict[Tuple[QuestionType, DifficultyLevel], int],
+        provider_tier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run a balanced question generation job asynchronously with parallel generation.
 
@@ -538,6 +554,7 @@ class QuestionGenerationPipeline:
         Args:
             stratum_allocations: Dictionary mapping (QuestionType, DifficultyLevel)
                 tuples to the number of questions to generate for that stratum.
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Dictionary with job statistics and results
@@ -566,6 +583,7 @@ class QuestionGenerationPipeline:
                 difficulty=difficulty,
                 count=count,
                 distribute_providers=True,
+                provider_tier=provider_tier,
             )
             tasks.append(task)
             task_metadata.append(
