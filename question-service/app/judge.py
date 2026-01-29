@@ -131,23 +131,20 @@ class QuestionJudge:
             Evaluated question with scores and approval status
 
         Raises:
-            ValueError: If judge model not available or evaluation fails
+            ValueError: If no judge provider is available or evaluation fails
             Exception: If LLM call fails
         """
         question_type = question.question_type.value
         logger.info(f"Evaluating {question_type} question")
 
-        # Get judge model for this question type
-        judge_model = self.judge_config.get_judge_for_question_type(question_type)
+        # Resolve the best available provider using fallback chain
+        available_providers = list(self.providers.keys())
+        resolved_provider, resolved_model = self.judge_config.resolve_judge_provider(
+            question_type, available_providers
+        )
 
-        # Verify provider is available
-        if judge_model.provider not in self.providers:
-            raise ValueError(
-                f"Judge provider '{judge_model.provider}' not available. "
-                f"Available providers: {list(self.providers.keys())}"
-            )
-
-        provider = self.providers[judge_model.provider]
+        provider = self.providers[resolved_provider]
+        effective_model = resolved_model or provider.model
 
         # Build judge prompt
         prompt = build_judge_prompt(
@@ -159,7 +156,7 @@ class QuestionJudge:
             stimulus=question.stimulus,
         )
 
-        logger.debug(f"Using judge model: {judge_model.model} ({judge_model.provider})")
+        logger.debug(f"Using judge model: {effective_model} ({resolved_provider})")
 
         try:
             # Get evaluation from LLM with cost tracking
@@ -169,7 +166,7 @@ class QuestionJudge:
                 response_format={},  # Provider will handle JSON mode
                 temperature=temperature,
                 max_tokens=max_tokens,
-                model_override=judge_model.model,
+                model_override=resolved_model,
             )
 
             # Parse evaluation scores
@@ -194,7 +191,7 @@ class QuestionJudge:
             evaluated = EvaluatedQuestion(
                 question=question,
                 evaluation=evaluation,
-                judge_model=f"{judge_model.provider}/{judge_model.model}",
+                judge_model=f"{resolved_provider}/{effective_model}",
                 approved=approved,
             )
 
@@ -226,7 +223,7 @@ class QuestionJudge:
             Evaluated question with scores and approval status
 
         Raises:
-            ValueError: If judge model not available or evaluation fails
+            ValueError: If no judge provider is available or evaluation fails
             CircuitBreakerOpen: If the specified provider's circuit is open
             asyncio.TimeoutError: If the API call times out
             Exception: If LLM call fails
@@ -234,20 +231,17 @@ class QuestionJudge:
         question_type = question.question_type.value
         logger.info(f"Evaluating {question_type} question (async)")
 
-        # Get judge model for this question type
-        judge_model = self.judge_config.get_judge_for_question_type(question_type)
+        # Resolve the best available provider using fallback chain
+        available_providers = list(self.providers.keys())
+        resolved_provider, resolved_model = self.judge_config.resolve_judge_provider(
+            question_type, available_providers
+        )
 
-        # Verify provider is available
-        if judge_model.provider not in self.providers:
-            raise ValueError(
-                f"Judge provider '{judge_model.provider}' not available. "
-                f"Available providers: {list(self.providers.keys())}"
-            )
-
-        provider = self.providers[judge_model.provider]
+        provider = self.providers[resolved_provider]
+        effective_model = resolved_model or provider.model
 
         # Get circuit breaker for this judge provider
-        circuit_breaker_name = f"judge-{judge_model.provider}"
+        circuit_breaker_name = f"judge-{resolved_provider}"
         circuit_breaker = self._circuit_breaker_registry.get_or_create(
             circuit_breaker_name
         )
@@ -263,7 +257,7 @@ class QuestionJudge:
         )
 
         logger.debug(
-            f"Using judge model: {judge_model.model} ({judge_model.provider}) (async)"
+            f"Using judge model: {effective_model} ({resolved_provider}) (async)"
         )
 
         # Use provided timeout or instance default
@@ -278,7 +272,7 @@ class QuestionJudge:
                         response_format={},  # Provider will handle JSON mode
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        model_override=judge_model.model,
+                        model_override=resolved_model,
                     ),
                     timeout=effective_timeout,
                 )
@@ -310,7 +304,7 @@ class QuestionJudge:
             evaluated = EvaluatedQuestion(
                 question=question,
                 evaluation=evaluation,
-                judge_model=f"{judge_model.provider}/{judge_model.model}",
+                judge_model=f"{resolved_provider}/{effective_model}",
                 approved=approved,
             )
 
@@ -318,13 +312,13 @@ class QuestionJudge:
 
         except CircuitBreakerOpen:
             logger.warning(
-                f"Circuit breaker is open for judge-{judge_model.provider}, "
+                f"Circuit breaker is open for judge-{resolved_provider}, "
                 f"cannot evaluate question (async)"
             )
             raise
         except asyncio.TimeoutError:
             logger.error(
-                f"Timeout evaluating question with {judge_model.provider} "
+                f"Timeout evaluating question with {resolved_provider} "
                 f"(async) after {effective_timeout}s"
             )
             raise

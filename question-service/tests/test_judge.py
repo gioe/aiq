@@ -92,12 +92,26 @@ def mock_judge_config():
         ),
     )
 
+    def _resolve_judge_provider(qt, available_providers):
+        judge = config.judges.get(qt, config.default_judge)
+        if judge.provider in available_providers:
+            return (judge.provider, judge.model)
+        if judge.fallback and judge.fallback in available_providers:
+            return (judge.fallback, judge.fallback_model)
+        if available_providers:
+            return (available_providers[0], None)
+        raise ValueError(
+            f"No judge providers available for question type '{qt}'. "
+            f"Available providers: {available_providers}"
+        )
+
     # Create loader mock
     loader = Mock(spec=JudgeConfigLoader)
     loader.config = config
     loader.get_judge_for_question_type.side_effect = lambda qt: config.judges.get(
         qt, config.default_judge
     )
+    loader.resolve_judge_provider.side_effect = _resolve_judge_provider
     loader.get_evaluation_criteria.return_value = config.evaluation_criteria
     loader.get_min_judge_score.return_value = config.min_judge_score
     loader.get_difficulty_placement.return_value = config.difficulty_placement
@@ -372,21 +386,50 @@ class TestQuestionJudge:
         assert evaluated.evaluation.overall_score < 0.7
 
     @patch("app.judge.AnthropicProvider")
-    def test_evaluate_question_provider_not_available(
+    def test_evaluate_question_falls_back_when_primary_unavailable(
         self,
         mock_provider_class,
         mock_judge_config,
         sample_question,
+        sample_evaluation_response,
     ):
-        """Test evaluation fails when required provider not available."""
+        """Test evaluation falls back to any available provider when primary unavailable."""
+        # Setup mock provider
+        mock_provider = Mock()
+        mock_provider.model = "claude-3-5-sonnet-20241022"
+        mock_provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_provider_class.return_value = mock_provider
+
         # Initialize with only Anthropic, but question needs OpenAI
         judge = QuestionJudge(
             judge_config=mock_judge_config,
             anthropic_api_key="test-key",  # Only Anthropic available
         )
+        judge.providers["anthropic"] = mock_provider
 
-        # Try to evaluate mathematical question (needs OpenAI in config)
-        with pytest.raises(ValueError, match="not available"):
+        # Should succeed using fallback provider instead of raising ValueError
+        evaluated = judge.evaluate_question(sample_question)
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert "anthropic" in evaluated.judge_model
+
+    @patch("app.judge.OpenAIProvider")
+    def test_evaluate_question_no_providers_raises_error(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_question,
+    ):
+        """Test evaluation raises ValueError when no providers are available."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        # Clear all providers to simulate no available providers
+        judge.providers.clear()
+
+        with pytest.raises(ValueError, match="No judge providers available"):
             judge.evaluate_question(sample_question)
 
     @patch("app.judge.OpenAIProvider")
@@ -1068,24 +1111,49 @@ class TestQuestionJudgeAsync:
 
     @pytest.mark.asyncio
     @patch("app.judge.OpenAIProvider")
-    async def test_evaluate_question_async_provider_not_available(
+    async def test_evaluate_question_async_falls_back_when_primary_unavailable(
+        self,
+        mock_provider_class,
+        mock_judge_config,
+        sample_question,
+        sample_evaluation_response,
+    ):
+        """Test async evaluation falls back to available provider when primary unavailable."""
+        mock_fallback_provider = Mock()
+        mock_fallback_provider.model = "claude-3-5-sonnet-20241022"
+        mock_fallback_provider.generate_structured_completion_with_usage_async = (
+            AsyncMock(return_value=make_completion_result(sample_evaluation_response))
+        )
+
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+        # Replace providers: only Anthropic available, math needs OpenAI
+        judge.providers.clear()
+        judge.providers["anthropic"] = mock_fallback_provider
+
+        # Should succeed using fallback provider
+        evaluated = await judge.evaluate_question_async(sample_question)
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert "anthropic" in evaluated.judge_model
+
+    @pytest.mark.asyncio
+    @patch("app.judge.OpenAIProvider")
+    async def test_evaluate_question_async_no_providers_raises_error(
         self,
         mock_provider_class,
         mock_judge_config,
         sample_question,
     ):
-        """Test async evaluation fails when required provider not available."""
-        # Initialize with empty providers dict to simulate provider not available
+        """Test async evaluation raises ValueError when no providers are available."""
         judge = QuestionJudge(
             judge_config=mock_judge_config,
             openai_api_key="test-key",
         )
-        # Clear the providers to simulate the scenario
         judge.providers.clear()
-        judge.providers["anthropic"] = Mock()  # Only Anthropic available
 
-        # Try to evaluate mathematical question (needs OpenAI in config)
-        with pytest.raises(ValueError, match="not available"):
+        with pytest.raises(ValueError, match="No judge providers available"):
             await judge.evaluate_question_async(sample_question)
 
     @pytest.mark.asyncio
