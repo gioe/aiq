@@ -32,7 +32,7 @@ Extract the optional arguments from the user's input:
 - `--type <type>` or `-t <type>` - maps to `--types <type>`
 - `--difficulty <difficulty>` or `-d <difficulty>` - maps to `--difficulties <difficulty>`
 - `--count <n>` or `-c <n>` - maps to `--count <n>`
-- `--provider-tier <tier>` or `-p <tier>` - maps to `--provider-tier <tier>`
+- `--provider-tier <tier>` - maps to `--provider-tier <tier>`
 - `--dry-run` - adds `--dry-run` flag
 
 Validate:
