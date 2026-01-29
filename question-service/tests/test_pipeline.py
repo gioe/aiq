@@ -1,6 +1,6 @@
 """Tests for question generation pipeline."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -66,6 +66,7 @@ class TestQuestionGenerationPipeline:
             difficulty=DifficultyLevel.EASY,
             count=10,
             distribute_across_providers=True,
+            provider_tier=None,
         )
 
         assert result == mock_batch
@@ -309,6 +310,148 @@ class TestBalancedGenerationJob:
         assert stats["batches_created"] == 2
         assert "questions_by_type" in stats
         assert "questions_by_difficulty" in stats
+
+
+class TestPipelineProviderTier:
+    """Tests for provider_tier parameter passthrough in pipeline methods."""
+
+    @pytest.fixture
+    def mock_generator(self):
+        """Mock QuestionGenerator."""
+        with patch("app.pipeline.QuestionGenerator") as mock:
+            generator = Mock()
+            mock.return_value = generator
+            yield generator
+
+    @pytest.fixture
+    def pipeline(self, mock_generator):
+        """Create pipeline with mocked generator."""
+        return QuestionGenerationPipeline(openai_api_key="test-key")
+
+    def test_generate_questions_passes_provider_tier(self, pipeline, mock_generator):
+        """Test that generate_questions passes provider_tier to generator."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = []
+        mock_generator.generate_batch.return_value = mock_batch
+
+        pipeline.generate_questions(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=5,
+            provider_tier="fallback",
+        )
+
+        call_args = mock_generator.generate_batch.call_args
+        assert call_args.kwargs["provider_tier"] == "fallback"
+
+    def test_generate_questions_defaults_provider_tier_to_none(
+        self, pipeline, mock_generator
+    ):
+        """Test that provider_tier defaults to None when not specified."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = []
+        mock_generator.generate_batch.return_value = mock_batch
+
+        pipeline.generate_questions(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+        )
+
+        call_args = mock_generator.generate_batch.call_args
+        assert call_args.kwargs["provider_tier"] is None
+
+    @pytest.mark.asyncio
+    async def test_generate_questions_async_passes_provider_tier(
+        self, pipeline, mock_generator
+    ):
+        """Test that generate_questions_async passes provider_tier to generator."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = []
+        mock_generator.generate_batch_async = AsyncMock(return_value=mock_batch)
+
+        await pipeline.generate_questions_async(
+            question_type=QuestionType.LOGIC,
+            difficulty=DifficultyLevel.MEDIUM,
+            count=3,
+            provider_tier="fallback",
+        )
+
+        call_args = mock_generator.generate_batch_async.call_args
+        assert call_args.kwargs["provider_tier"] == "fallback"
+
+    def test_run_generation_job_passes_provider_tier(self, pipeline, mock_generator):
+        """Test that run_generation_job passes provider_tier through to generate_questions."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_question = Mock()
+        mock_question.source_llm = "openai"
+        mock_question.question_type = QuestionType.MATH
+        mock_question.difficulty_level = DifficultyLevel.EASY
+        mock_batch.questions = [mock_question]
+        mock_generator.generate_batch.return_value = mock_batch
+
+        pipeline.run_generation_job(
+            questions_per_run=10,
+            question_types=[QuestionType.MATH],
+            provider_tier="fallback",
+        )
+
+        # All calls should have provider_tier="fallback"
+        for call in mock_generator.generate_batch.call_args_list:
+            assert call.kwargs["provider_tier"] == "fallback"
+
+    def test_run_balanced_generation_job_passes_provider_tier(
+        self, pipeline, mock_generator
+    ):
+        """Test that run_balanced_generation_job passes provider_tier through."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_question = Mock()
+        mock_question.source_llm = "openai"
+        mock_question.question_type = QuestionType.MATH
+        mock_question.difficulty_level = DifficultyLevel.EASY
+        mock_batch.questions = [mock_question]
+        mock_generator.generate_batch.return_value = mock_batch
+
+        allocations = {
+            (QuestionType.MATH, DifficultyLevel.EASY): 5,
+            (QuestionType.LOGIC, DifficultyLevel.HARD): 5,
+        }
+
+        pipeline.run_balanced_generation_job(
+            stratum_allocations=allocations,
+            provider_tier="fallback",
+        )
+
+        for call in mock_generator.generate_batch.call_args_list:
+            assert call.kwargs["provider_tier"] == "fallback"
+
+    def test_generate_full_question_set_passes_provider_tier(
+        self, pipeline, mock_generator
+    ):
+        """Test that generate_full_question_set passes provider_tier through."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = [Mock()]
+        mock_generator.generate_batch.return_value = mock_batch
+
+        pipeline.generate_full_question_set(
+            questions_per_type=2,
+            provider_tier="fallback",
+        )
+
+        for call in mock_generator.generate_batch.call_args_list:
+            assert call.kwargs["provider_tier"] == "fallback"
+
+    def test_generate_full_question_set_defaults_provider_tier(
+        self, pipeline, mock_generator
+    ):
+        """Test that generate_full_question_set defaults provider_tier to None."""
+        mock_batch = Mock(spec=GenerationBatch)
+        mock_batch.questions = [Mock()]
+        mock_generator.generate_batch.return_value = mock_batch
+
+        pipeline.generate_full_question_set(questions_per_type=2)
+
+        for call in mock_generator.generate_batch.call_args_list:
+            assert call.kwargs["provider_tier"] is None
 
 
 class TestCreatePipeline:

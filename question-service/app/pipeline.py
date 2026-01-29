@@ -146,12 +146,15 @@ class QuestionGenerationPipeline:
         return batch
 
     def generate_full_question_set(
-        self, questions_per_type: int = 10
+        self,
+        questions_per_type: int = 10,
+        provider_tier: Optional[str] = None,
     ) -> Dict[QuestionType, List[GenerationBatch]]:
         """Generate a complete set of questions across all types and difficulties.
 
         Args:
             questions_per_type: Number of questions to generate per type/difficulty combo
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Dictionary mapping question types to their generation batches
@@ -178,6 +181,7 @@ class QuestionGenerationPipeline:
                         difficulty=difficulty,
                         count=questions_per_type,
                         distribute_providers=True,
+                        provider_tier=provider_tier,
                     )
                     batches.append(batch)
 
