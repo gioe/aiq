@@ -623,6 +623,9 @@ Examples:
 
   # Auto-balance with custom target per stratum
   python run_generation.py --auto-balance --target-per-stratum 100
+
+  # Test fallback provider configuration
+  python run_generation.py --provider-tier fallback
         """,
     )
 
@@ -779,6 +782,16 @@ Examples:
         help="Skip inventory alerting even when using --auto-balance",
     )
 
+    parser.add_argument(
+        "--provider-tier",
+        type=str,
+        choices=["primary", "fallback"],
+        default="primary",
+        help="Provider tier to use for question generation. "
+        "'primary' uses the primary provider from generators.yaml (default). "
+        "'fallback' forces use of fallback provider to test fallback configuration.",
+    )
+
     return parser.parse_args()
 
 
@@ -853,6 +866,7 @@ def main() -> int:
         f"Configuration: count={args.count or settings.questions_per_run}, "
         f"types={args.types or 'all'}, difficulties={args.difficulties or 'all'}"
     )
+    logger.info(f"Provider tier: {args.provider_tier}")
     logger.info(f"Dry run: {args.dry_run}")
     logger.info("=" * 80)
 
@@ -1147,6 +1161,7 @@ def main() -> int:
                     try:
                         return await pipeline.run_balanced_generation_job_async(
                             stratum_allocations=generation_plan.allocations,
+                            provider_tier=args.provider_tier,
                         )
                     finally:
                         await pipeline.cleanup()
@@ -1155,6 +1170,7 @@ def main() -> int:
             else:
                 job_result = pipeline.run_balanced_generation_job(
                     stratum_allocations=generation_plan.allocations,
+                    provider_tier=args.provider_tier,
                 )
         elif args.use_async:
             logger.info(
@@ -1172,6 +1188,7 @@ def main() -> int:
                         questions_per_run=args.count,
                         question_types=question_types,
                         difficulty_distribution=difficulty_distribution,
+                        provider_tier=args.provider_tier,
                     )
                 finally:
                     await pipeline.cleanup()
@@ -1182,6 +1199,7 @@ def main() -> int:
                 questions_per_run=args.count,
                 question_types=question_types,
                 difficulty_distribution=difficulty_distribution,
+                provider_tier=args.provider_tier,
             )
 
         stats = job_result["statistics"]

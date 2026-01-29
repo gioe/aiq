@@ -937,3 +937,214 @@ class TestProductionGeneratorsYaml:
 
         assert config.version is not None
         assert config.version == "1.0"
+
+
+class TestProviderTierSelection:
+    """Tests for provider_tier parameter in get_provider_and_model_for_question_type."""
+
+    @pytest.fixture
+    def fallback_config_loader(self):
+        """Fixture providing a loader with fallback_model configured for all types."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-opus-4-5-20251101",
+                },
+                "logic": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "rationale": "Logic",
+                    "fallback": "openai",
+                    "fallback_model": "gpt-4-turbo",
+                },
+                "pattern": {
+                    "provider": "google",
+                    "model": "gemini-3-pro-preview",
+                    "rationale": "Patterns",
+                    "fallback": "anthropic",
+                    "fallback_model": "claude-sonnet-4-5-20250929",
+                },
+                "spatial": {
+                    "provider": "google",
+                    "model": "gemini-3-pro-preview",
+                    "rationale": "Spatial",
+                    "fallback": "openai",
+                    "fallback_model": "gpt-4-turbo",
+                },
+                "verbal": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "rationale": "Verbal",
+                    "fallback": "google",
+                    "fallback_model": "gemini-3-pro-preview",
+                },
+                "memory": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "rationale": "Memory",
+                    "fallback": "xai",
+                    "fallback_model": "grok-4",
+                },
+            },
+            "default_generator": {
+                "provider": "openai",
+                "model": "gpt-4-turbo",
+                "rationale": "Default",
+            },
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        loader = GeneratorConfigLoader(temp_path)
+        loader.load()
+        yield loader
+        temp_path.unlink()
+
+    def test_primary_tier_returns_primary_provider(self, fallback_config_loader):
+        """Test that provider_tier='primary' returns the primary provider."""
+        (
+            provider,
+            model,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["openai", "anthropic"], provider_tier="primary"
+        )
+        assert provider == "openai"
+        assert model == "gpt-4-turbo"
+
+    def test_fallback_tier_returns_fallback_provider(self, fallback_config_loader):
+        """Test that provider_tier='fallback' returns the fallback provider and model."""
+        (
+            provider,
+            model,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["openai", "anthropic"], provider_tier="fallback"
+        )
+        assert provider == "anthropic"
+        assert model == "claude-opus-4-5-20251101"
+
+    def test_fallback_tier_falls_back_to_primary_when_no_fallback_configured(self):
+        """Test that fallback tier uses primary when no fallback is configured."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {
+                    "provider": "openai",
+                    "model": "gpt-4-turbo",
+                    "rationale": "Math",
+                    # No fallback configured
+                },
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {"provider": "openai", "rationale": "r"},
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "r"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            provider, model = loader.get_provider_and_model_for_question_type(
+                "math", ["openai"], provider_tier="fallback"
+            )
+            assert provider == "openai"
+            assert model == "gpt-4-turbo"
+        finally:
+            temp_path.unlink()
+
+    def test_fallback_tier_falls_back_to_primary_when_fallback_unavailable(
+        self, fallback_config_loader
+    ):
+        """Test fallback tier uses primary when fallback provider is unavailable."""
+        # math: primary=openai, fallback=anthropic
+        # Only openai is available
+        (
+            provider,
+            model,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["openai"], provider_tier="fallback"
+        )
+        assert provider == "openai"
+        assert model == "gpt-4-turbo"
+
+    def test_fallback_tier_across_all_question_types(self, fallback_config_loader):
+        """Test that fallback tier correctly selects fallback for each question type."""
+        expected = {
+            "math": ("anthropic", "claude-opus-4-5-20251101"),
+            "logic": ("openai", "gpt-4-turbo"),
+            "pattern": ("anthropic", "claude-sonnet-4-5-20250929"),
+            "spatial": ("openai", "gpt-4-turbo"),
+            "verbal": ("google", "gemini-3-pro-preview"),
+            "memory": ("xai", "grok-4"),
+        }
+
+        all_providers = ["openai", "anthropic", "google", "xai"]
+        for qtype, (exp_provider, exp_model) in expected.items():
+            (
+                provider,
+                model,
+            ) = fallback_config_loader.get_provider_and_model_for_question_type(
+                qtype, all_providers, provider_tier="fallback"
+            )
+            assert (
+                provider == exp_provider
+            ), f"{qtype}: expected {exp_provider}, got {provider}"
+            assert model == exp_model, f"{qtype}: expected {exp_model}, got {model}"
+
+    def test_default_tier_is_primary(self, fallback_config_loader):
+        """Test that default provider_tier (not specified) behaves as primary."""
+        # Without specifying provider_tier (uses default "primary")
+        (
+            provider_default,
+            model_default,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["openai", "anthropic"]
+        )
+        # Explicitly specifying "primary"
+        (
+            provider_primary,
+            model_primary,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["openai", "anthropic"], provider_tier="primary"
+        )
+        assert provider_default == provider_primary
+        assert model_default == model_primary
+
+    def test_fallback_tier_with_no_providers_available_raises(
+        self, fallback_config_loader
+    ):
+        """Test that fallback tier raises ValueError when no providers available."""
+        with pytest.raises(ValueError, match="No providers available"):
+            fallback_config_loader.get_provider_and_model_for_question_type(
+                "math", [], provider_tier="fallback"
+            )
+
+    def test_fallback_tier_uses_any_available_when_neither_configured(
+        self, fallback_config_loader
+    ):
+        """Test fallback tier uses any available provider when neither primary nor fallback available."""
+        # math: primary=openai, fallback=anthropic
+        # Only xai available (neither primary nor fallback)
+        (
+            provider,
+            model,
+        ) = fallback_config_loader.get_provider_and_model_for_question_type(
+            "math", ["xai"], provider_tier="fallback"
+        )
+        assert provider == "xai"
+        assert model is None  # No model override for last-resort fallback

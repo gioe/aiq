@@ -265,7 +265,7 @@ class QuestionGenerator:
         return available
 
     def _get_specialist_provider(
-        self, question_type: QuestionType
+        self, question_type: QuestionType, provider_tier: Optional[str] = None
     ) -> tuple[Optional[str], Optional[str]]:
         """Get the specialist provider and model for a question type based on configuration.
 
@@ -275,6 +275,7 @@ class QuestionGenerator:
 
         Args:
             question_type: Type of question to generate
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Tuple of (provider_name, model_override). Model may be None if not specified.
@@ -297,8 +298,9 @@ class QuestionGenerator:
             type_key = question_type.value.replace("_recognition", "").replace(
                 "_reasoning", ""
             )
+            tier = provider_tier or "primary"
             return config.get_provider_and_model_for_question_type(
-                type_key, available_providers
+                type_key, available_providers, provider_tier=tier
             )
         except Exception as e:
             logger.warning(
@@ -337,6 +339,7 @@ class QuestionGenerator:
         use_specialist_routing: bool = True,
         temperature: float = 0.8,
         max_tokens: int = 1500,
+        provider_tier: Optional[str] = None,
     ) -> GenerationBatch:
         """Generate a batch of questions, optionally distributed across providers.
 
@@ -354,6 +357,7 @@ class QuestionGenerator:
                 distribute_across_providers)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Batch of generated questions
@@ -369,7 +373,7 @@ class QuestionGenerator:
 
         if use_specialist_routing:
             specialist_provider, specialist_model = self._get_specialist_provider(
-                question_type
+                question_type, provider_tier=provider_tier
             )
             if specialist_provider:
                 logger.info(
@@ -737,6 +741,7 @@ class QuestionGenerator:
         temperature: float = 0.8,
         max_tokens: int = 1500,
         use_single_call: bool = True,
+        provider_tier: Optional[str] = None,
     ) -> GenerationBatch:
         """Generate a batch of questions asynchronously.
 
@@ -760,6 +765,7 @@ class QuestionGenerator:
             max_tokens: Maximum tokens to generate
             use_single_call: If True and using single provider, request all questions
                 in one API call for better diversity (default: True)
+            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
 
         Returns:
             Batch of generated questions
@@ -775,7 +781,7 @@ class QuestionGenerator:
 
         if use_specialist_routing:
             specialist_provider, specialist_model = self._get_specialist_provider(
-                question_type
+                question_type, provider_tier=provider_tier
             )
             if specialist_provider:
                 logger.info(
