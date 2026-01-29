@@ -12,6 +12,9 @@ class TestTakingViewModel: BaseViewModel {
     @Published var questions: [Question] = []
     @Published var currentQuestionIndex: Int = 0
     @Published var userAnswers: [Int: String] = [:] // questionId -> answer
+    /// Tracks question IDs where the user has viewed the stimulus and moved to the question phase.
+    /// Used to persist the stimulus→question transition across navigation.
+    @Published var stimulusSeen: Set<Int> = []
     @Published var isSubmitting: Bool = false
     @Published var isTestCompleted: Bool = false
     @Published var testResult: SubmittedTestResult?
@@ -154,6 +157,16 @@ class TestTakingViewModel: BaseViewModel {
         startQuestionTiming()
     }
 
+    /// Marks the stimulus as seen for a given question, transitioning to the question phase
+    func markStimulusSeen(for questionId: Int) {
+        stimulusSeen.insert(questionId)
+    }
+
+    /// Returns whether the stimulus has been seen for a given question
+    func hasStimulusSeen(for questionId: Int) -> Bool {
+        stimulusSeen.contains(questionId)
+    }
+
     // MARK: - Test Management
 
     func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
@@ -205,6 +218,7 @@ class TestTakingViewModel: BaseViewModel {
         questions = response.questions
         currentQuestionIndex = 0
         userAnswers.removeAll()
+        stimulusSeen.removeAll()
         isTestCompleted = false
         #if DEBUG
             print("[TestTakingViewModel] questions array now has \(questions.count) items")
@@ -382,9 +396,10 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
 
-        // Filter out answers for questions not in this session
+        // Filter out state for questions not in this session
         let validQuestionIds = Set(questions.map(\.id))
         userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
+        stimulusSeen = progress.stimulusSeen.intersection(validQuestionIds)
 
         if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
             currentQuestionIndex = firstUnansweredIndex
@@ -683,6 +698,7 @@ class TestTakingViewModel: BaseViewModel {
     func resetTest() {
         currentQuestionIndex = 0
         userAnswers.removeAll()
+        stimulusSeen.removeAll()
         isTestCompleted = false
         testResult = nil
         error = nil
@@ -692,10 +708,10 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Local Storage
 
     private func setupAutoSave() {
-        // Watch for changes to userAnswers and currentQuestionIndex
-        Publishers.CombineLatest($userAnswers, $currentQuestionIndex)
+        // Watch for changes to userAnswers, currentQuestionIndex, and stimulusSeen
+        Publishers.CombineLatest3($userAnswers, $currentQuestionIndex, $stimulusSeen)
             .dropFirst() // Skip initial value
-            .sink { [weak self] _, _ in
+            .sink { [weak self] _, _, _ in
                 self?.scheduleAutoSave()
             }
             .store(in: &cancellables)
@@ -725,7 +741,8 @@ class TestTakingViewModel: BaseViewModel {
             userAnswers: userAnswers,
             currentQuestionIndex: currentQuestionIndex,
             savedAt: Date(),
-            sessionStartedAt: session.startedAt
+            sessionStartedAt: session.startedAt,
+            stimulusSeen: stimulusSeen
         )
 
         do {
@@ -746,6 +763,7 @@ class TestTakingViewModel: BaseViewModel {
     func restoreProgress(_ progress: SavedTestProgress) {
         userAnswers = progress.userAnswers
         currentQuestionIndex = progress.currentQuestionIndex
+        stimulusSeen = progress.stimulusSeen
     }
 
     func clearSavedProgress() {

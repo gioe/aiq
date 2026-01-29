@@ -346,6 +346,14 @@ struct TestTakingView: View {
                                     get: { viewModel.currentAnswer },
                                     set: { viewModel.currentAnswer = $0 }
                                 ),
+                                showingStimulus: Binding(
+                                    get: { !viewModel.hasStimulusSeen(for: question.id) },
+                                    set: { newValue in
+                                        if !newValue {
+                                            viewModel.markStimulusSeen(for: question.id)
+                                        }
+                                    }
+                                ),
                                 isDisabled: viewModel.isLocked
                             )
                             .transition(

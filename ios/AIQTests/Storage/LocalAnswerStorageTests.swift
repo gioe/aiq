@@ -44,7 +44,8 @@ final class LocalAnswerStorageTests: XCTestCase {
             userAnswers: userAnswers,
             currentQuestionIndex: currentQuestionIndex,
             savedAt: savedAt,
-            sessionStartedAt: sessionStartedAt
+            sessionStartedAt: sessionStartedAt,
+            stimulusSeen: []
         )
     }
 
