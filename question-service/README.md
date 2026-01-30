@@ -24,10 +24,10 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # Test setup (no database writes)
-python run_generation.py --dry-run --count 5 --verbose
+python run_generation.py --dry-run --count 5 --async --async-judge --verbose
 
-# Generate questions
-python run_generation.py --count 50
+# Generate questions (async parallel generation + evaluation)
+python run_generation.py --count 50 --async --async-judge --verbose
 ```
 
 ## Architecture
@@ -37,12 +37,20 @@ python run_generation.py --count 50
 | Component | File | Description |
 |-----------|------|-------------|
 | Pipeline | `app/pipeline.py` | Orchestrates the complete generation flow |
-| Generator | `app/generator.py` | Manages multi-LLM question generation |
+| Generator | `app/generator.py` | Multi-LLM generation with sub-type routing and specialist providers |
 | Judge | `app/judge.py` | Evaluates question quality using specialized models |
 | Deduplicator | `app/deduplicator.py` | Semantic similarity checking via embeddings |
 | Models | `app/models.py` | Pydantic data models for questions and evaluations |
 | Database | `app/database.py` | PostgreSQL storage via SQLAlchemy |
-| Config | `app/judge_config.py` | YAML-based judge configuration loader |
+| Prompts | `app/prompts.py` | LLM prompt templates, gold-standard examples, and sub-type definitions |
+| Judge Config | `app/judge_config.py` | YAML-based judge configuration loader |
+| Generator Config | `app/generator_config.py` | YAML-based specialist provider routing |
+| Inventory Analyzer | `app/inventory_analyzer.py` | Inventory gap analysis for auto-balanced generation |
+| Circuit Breaker | `app/circuit_breaker.py` | Provider failure detection and automatic fallback |
+| Cost Tracking | `app/cost_tracking.py` | LLM API cost estimation and tracking |
+| Embedding Cache | `app/embedding_cache.py` | Redis/in-memory cache for deduplication embeddings |
+| Error Classifier | `app/error_classifier.py` | Categorizes API errors for alerting and retry logic |
+| Secrets | `app/secrets.py` | Abstraction layer for secrets management backends |
 
 ### LLM Providers
 
@@ -71,6 +79,29 @@ Provider implementations are in `app/providers/`.
 - `easy` - Introductory difficulty
 - `medium` - Standard difficulty
 - `hard` - Advanced difficulty
+
+### Sub-Type System
+
+Each question type has defined sub-types that drive prompt diversity. During generation, a random sub-type is selected per question and passed to the prompt builder. This ensures coverage across the full range of cognitive skills within each type.
+
+Sub-types are defined in `app/prompts.py` (`QUESTION_SUBTYPES`). Each sub-type has a corresponding gold-standard example in `GOLD_STANDARD_BY_SUBTYPE` that is injected into the prompt when that sub-type is selected.
+
+Example sub-types for `verbal_reasoning`:
+- Analogies with cause-effect or function relationships
+- Multi-layered analogies requiring recognition of two simultaneous relationship types
+- Verbal inference chains combining 2-3 premises to reach a non-obvious conclusion
+- Multi-clause sentence completion with complex rhetorical structure
+
+Type-difficulty overrides (e.g., `VERBAL/HARD`) provide additional prompt guidance enforcing structural complexity requirements for specific strata.
+
+### Provider Tiers (Primary / Fallback)
+
+Each question type can have a **primary** and **fallback** provider configured in `config/generators.yaml`. The `--provider-tier` flag controls which tier is used:
+
+- `primary` (default) — Uses the specialist provider best suited for the question type
+- `fallback` — Uses the fallback provider, useful for testing or when the primary provider is unavailable
+
+The circuit breaker (`app/circuit_breaker.py`) automatically detects provider failures and can trigger fallback behavior during a run.
 
 ## Configuration
 
@@ -161,6 +192,31 @@ min_judge_score: 0.7
 
 See [config/README.md](config/README.md) for full configuration reference.
 
+### Generator Configuration
+
+Specialist provider routing is configured in `config/generators.yaml`. Each question type maps to a primary provider/model and an optional fallback:
+
+```yaml
+generators:
+  mathematical:
+    primary:
+      provider: "openai"
+      model: "o4-mini"
+    fallback:
+      provider: "google"
+      model: "gemini-3-pro-preview"
+
+  verbal_reasoning:
+    primary:
+      provider: "anthropic"
+      model: "claude-sonnet-4-5-20250929"
+    fallback:
+      provider: "openai"
+      model: "gpt-4o"
+```
+
+When `--provider-tier fallback` is passed, the fallback provider is used instead of the primary for all question types.
+
 ## Usage
 
 ### Command Line Options
@@ -168,44 +224,61 @@ See [config/README.md](config/README.md) for full configuration reference.
 ```bash
 python run_generation.py [OPTIONS]
 
-Options:
-  --count N              Number of questions to generate (default: from config)
-  --types TYPE [TYPE...] Question types to generate (default: all)
-  --dry-run              Generate without database insertion
-  --skip-deduplication   Skip duplicate checking
-  --min-score FLOAT      Override minimum judge score threshold
-  --async                Use parallel async generation for faster throughput
-  --max-concurrent N     Max concurrent LLM API calls (default: 10, requires --async)
-  --timeout SECONDS      Timeout for individual API calls (default: 60, requires --async)
-  --async-judge        Use parallel async judge evaluation for faster throughput
-  --max-concurrent-judge N  Max concurrent judge calls (default: 10, requires --async-judge)
-  --judge-timeout SEC  Timeout for judge API calls (default: 60, requires --async-judge)
-  --verbose, -v          Enable DEBUG logging
-  --log-file PATH        Custom log file path
-  --no-console           Disable console logging
-  --triggered-by TYPE    Source: scheduler, manual, or webhook
+Generation:
+  --count N                  Number of questions to generate (default: from config)
+  --types TYPE [TYPE...]     Question types to generate (default: all)
+  --difficulties D [D...]    Difficulty levels to generate (default: all)
+  --provider-tier TIER       Provider tier: primary (default) or fallback
+  --dry-run                  Generate without database insertion
+  --skip-deduplication       Skip duplicate checking
+  --min-score FLOAT          Override minimum judge score threshold
+
+Performance:
+  --async                    Use parallel async generation
+  --max-concurrent N         Max concurrent LLM API calls (default: 10)
+  --timeout SECONDS          Timeout per API call (default: 60)
+  --async-judge              Use parallel async judge evaluation
+  --max-concurrent-judge N   Max concurrent judge calls (default: 10)
+  --judge-timeout SEC        Timeout per judge call (default: 60)
+
+Auto-Balance:
+  --auto-balance             Balance generation based on inventory gaps
+  --target-per-stratum N     Target questions per type/difficulty stratum (default: 50)
+  --healthy-threshold N      Healthy inventory threshold (default: 50)
+  --warning-threshold N      Warning inventory threshold (default: 20)
+  --skip-inventory-alerts    Skip inventory alerting with --auto-balance
+  --alerting-config PATH     Path to alerting config (default: ./config/alerting.yaml)
+
+Logging:
+  --verbose, -v              Enable DEBUG logging
+  --log-file PATH            Custom log file path
+  --no-console               Disable console logging
+  --triggered-by TYPE        Source: scheduler, manual, or webhook
 ```
 
 ### Examples
 
 ```bash
-# Generate 100 questions
-python run_generation.py --count 100
+# Generate 100 questions with async parallelism
+python run_generation.py --count 100 --async --async-judge --verbose
 
 # Generate only math and logic questions
-python run_generation.py --types mathematical logical_reasoning
+python run_generation.py --types mathematical logical_reasoning --async --async-judge --verbose
+
+# Generate only hard questions
+python run_generation.py --difficulties hard --async --async-judge --verbose
 
 # Dry run with verbose output
-python run_generation.py --dry-run --count 10 --verbose
+python run_generation.py --dry-run --count 10 --async --async-judge --verbose
 
-# Lower approval threshold
-python run_generation.py --min-score 0.6
+# Use fallback providers instead of primary
+python run_generation.py --provider-tier fallback --async --async-judge --verbose
 
-# Async parallel generation (4-10x faster for large batches)
-python run_generation.py --count 100 --async
+# Auto-balance generation based on inventory gaps
+python run_generation.py --auto-balance --async --async-judge --verbose
 
-# Async with custom concurrency limits
-python run_generation.py --count 200 --async --max-concurrent 15 --timeout 90
+# Custom concurrency limits for large batches
+python run_generation.py --count 200 --async --max-concurrent 15 --timeout 90 --async-judge
 ```
 
 ### Exit Codes
@@ -222,38 +295,55 @@ python run_generation.py --count 200 --async --max-concurrent 15 --timeout 90
 
 ## Pipeline Flow
 
+The pipeline runs through up to 6 phases. The overview section at the top describes the high-level flow; the detailed description below covers each phase.
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Question Generation Pipeline                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  1. GENERATION                                                   │
-│     ┌──────────┐  ┌───────────┐  ┌────────┐  ┌──────┐          │
-│     │  OpenAI  │  │ Anthropic │  │ Google │  │ xAI  │          │
-│     └────┬─────┘  └─────┬─────┘  └───┬────┘  └──┬───┘          │
-│          │              │            │          │               │
-│          └──────────────┴────────────┴──────────┘               │
-│                         │                                        │
-│                         ▼                                        │
-│  2. EVALUATION    ┌─────────────┐                               │
-│                   │   Judge   │  Type-specific models          │
-│                   │  Evaluation │  Weighted scoring              │
-│                   └──────┬──────┘                               │
-│                          │                                       │
-│                          ▼                                       │
-│  3. DEDUPLICATION ┌─────────────┐                               │
-│                   │  Semantic   │  OpenAI embeddings             │
-│                   │  Similarity │  Cosine similarity             │
-│                   └──────┬──────┘                               │
-│                          │                                       │
-│                          ▼                                       │
-│  4. STORAGE       ┌─────────────┐                               │
-│                   │  PostgreSQL │  With evaluation scores        │
-│                   │  Database   │                               │
-│                   └─────────────┘                               │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                    Question Generation Pipeline                       │
+├───────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  0. INVENTORY      (optional, --auto-balance)                         │
+│     Analyze DB inventory → compute per-stratum allocations            │
+│                         │                                             │
+│                         ▼                                             │
+│  1. GENERATION     ┌──────────┐ ┌───────────┐ ┌────────┐ ┌──────┐   │
+│     Sub-type       │  OpenAI  │ │ Anthropic │ │ Google │ │ xAI  │   │
+│     routing &      └────┬─────┘ └─────┬─────┘ └───┬────┘ └──┬───┘   │
+│     specialist          └─────────────┴────────────┴─────────┘       │
+│     providers                         │                               │
+│                                       ▼                               │
+│  1b. BATCH DEDUP   Remove near-duplicate questions within batch       │
+│                                       │                               │
+│                                       ▼                               │
+│  2. EVALUATION     Type-specific judge models, weighted scoring       │
+│                    Difficulty placement adjustment                     │
+│                         ┌─────┴─────┐                                 │
+│                     Approved     Rejected                              │
+│                         │            │                                 │
+│                         │            ▼                                 │
+│  2b. SALVAGE       Answer repair, difficulty reclassification,        │
+│                    regeneration with judge feedback                    │
+│                         │            │                                 │
+│                         ◄────────────┘ (recovered questions)          │
+│                         │                                             │
+│                         ▼                                             │
+│  3. DEDUPLICATION  Semantic similarity vs existing DB questions        │
+│                    Scoped by difficulty level                          │
+│                                       │                               │
+│                                       ▼                               │
+│  4. STORAGE        PostgreSQL insertion with evaluation scores         │
+│                    Run reporting to backend API                        │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
 ```
+
+### Salvage Phase (2b)
+
+Rejected questions go through three recovery attempts before being discarded:
+
+1. **Answer Repair** — Parses judge feedback for a suggested correct answer. If found in the answer options, the answer key is fixed and the question is salvaged.
+2. **Difficulty Reclassification** — If a question was rejected primarily for difficulty mismatch (too easy/hard for its target), it is reclassified to the appropriate difficulty level.
+3. **Regeneration with Feedback** — The original question and judge feedback are sent back to the LLM to produce an improved version, which is re-evaluated by the judge. Limited to 5 attempts per run to control API costs.
 
 ## Monitoring
 
@@ -355,33 +445,48 @@ mypy .
 ```
 question-service/
 ├── app/
-│   ├── __init__.py          # Package exports
-│   ├── alerting.py          # Email/file alerting
-│   ├── judge.py           # Question evaluation
-│   ├── judge_config.py    # YAML config loader
-│   ├── config.py            # Settings management
-│   ├── database.py          # PostgreSQL operations
-│   ├── deduplicator.py      # Semantic deduplication
-│   ├── error_classifier.py  # Error categorization
-│   ├── generator.py         # Multi-LLM generation
-│   ├── logging_config.py    # Logging setup
-│   ├── metrics.py           # Run metrics tracking
-│   ├── models.py            # Pydantic models
-│   ├── pipeline.py          # Orchestration
-│   ├── prompts.py           # LLM prompt templates
-│   ├── reporter.py          # Backend API reporting
-│   └── providers/           # LLM provider implementations
+│   ├── __init__.py            # Package exports
+│   ├── alerting.py            # Email/file alerting and inventory alerts
+│   ├── benchmark.py           # Provider benchmark scoring
+│   ├── circuit_breaker.py     # Provider failure detection and fallback
+│   ├── config.py              # Settings management
+│   ├── cost_tracking.py       # LLM API cost estimation
+│   ├── database.py            # PostgreSQL operations
+│   ├── deduplicator.py        # Semantic deduplication
+│   ├── embedding_cache.py     # Redis/in-memory embedding cache
+│   ├── error_classifier.py    # Error categorization for alerts
+│   ├── generator.py           # Multi-LLM generation with sub-type routing
+│   ├── generator_config.py    # YAML specialist provider routing
+│   ├── inventory_analyzer.py  # Inventory gap analysis for auto-balance
+│   ├── judge.py               # Question evaluation
+│   ├── judge_config.py        # YAML judge configuration loader
+│   ├── logging_config.py      # Logging setup
+│   ├── metrics.py             # Run metrics tracking
+│   ├── models.py              # Pydantic models
+│   ├── pipeline.py            # Orchestration
+│   ├── prompts.py             # Prompt templates, gold-standard examples, sub-types
+│   ├── reporter.py            # Backend API run reporting
+│   ├── secrets.py             # Secrets management abstraction
+│   ├── type_mapping.py        # Question type/difficulty mappings
+│   └── providers/             # LLM provider implementations
 │       ├── base.py
 │       ├── openai_provider.py
 │       ├── anthropic_provider.py
 │       ├── google_provider.py
 │       └── xai_provider.py
 ├── config/
-│   └── judges.yaml        # Judge model configuration
-├── tests/                   # Test suite
-├── logs/                    # Runtime logs
-├── run_generation.py        # Main entry point
-├── trigger_server.py        # HTTP trigger endpoint
+│   ├── generators.yaml        # Specialist provider routing (primary/fallback)
+│   ├── judges.yaml            # Judge model configuration per question type
+│   ├── alerting.yaml          # Inventory alerting thresholds
+│   ├── benchmark_scores.yaml  # Provider benchmark data
+│   └── README.md              # Configuration reference
+├── scripts/
+│   ├── bootstrap_inventory.py # Initial inventory population
+│   └── run_cron.sh            # Cron wrapper script
+├── tests/                     # Test suite
+├── logs/                      # Runtime logs
+├── run_generation.py          # Main entry point
+├── trigger_server.py          # HTTP trigger endpoint
 ├── requirements.txt
 ├── Dockerfile
 └── Dockerfile.trigger
@@ -608,12 +713,18 @@ The script is safe to re-run:
 
 ### Docker
 
+The Dockerfile default CMD runs with `--async --async-judge --verbose --triggered-by scheduler` for optimized nightly runs.
+
 ```bash
 # Build image
 docker build -t question-service .
 
-# Run container
+# Run container (uses default async flags)
 docker run -e DATABASE_URL=... -e OPENAI_API_KEY=... question-service
+
+# Override with custom arguments
+docker run -e DATABASE_URL=... -e OPENAI_API_KEY=... question-service \
+  python run_generation.py --count 100 --async --async-judge --verbose --dry-run
 ```
 
 ### Scheduling
