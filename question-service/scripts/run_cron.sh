@@ -70,7 +70,7 @@ echo ""
 echo "Running question generation..."
 echo "----------------------------------------------------------------"
 
-python run_generation.py --no-console
+python run_generation.py --count 50 --async --async-judge --verbose --no-console --triggered-by scheduler
 
 # Capture exit code
 EXIT_CODE=$?

@@ -45,6 +45,6 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Switch to non-root user
 USER appuser
 
-# Default command runs question generation
+# Default command runs question generation with async parallelism
 # Can be overridden with docker run arguments
-CMD ["python", "run_generation.py", "--count", "50"]
+CMD ["python", "run_generation.py", "--count", "50", "--async", "--async-judge", "--verbose", "--triggered-by", "scheduler"]

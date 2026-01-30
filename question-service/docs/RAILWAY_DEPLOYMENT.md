@@ -58,7 +58,7 @@ DEBUG=False
 In Railway dashboard:
 1. Go to your cron service settings
 2. Set **Cron Schedule**: `0 2 * * 0` (Every Sunday at 2:00 AM UTC)
-3. Set **Command**: `python run_generation.py --count 50`
+3. Set **Command**: `python run_generation.py --count 50 --async --async-judge --verbose --triggered-by scheduler`
 
 #### Alternative Schedule Options
 
@@ -308,7 +308,7 @@ Since Railway might have its own issues, set up external monitoring:
 
 ```bash
 # In Railway cron command
-python run_generation.py && curl https://cronitor.link/your-id/complete
+python run_generation.py --count 50 --async --async-judge --verbose --triggered-by scheduler && curl https://cronitor.link/your-id/complete
 ```
 
 ### Option 3: Better Uptime
@@ -329,7 +329,7 @@ Railway logs are retained for:
 
 ```bash
 # Add to end of cron command in Railway
-python run_generation.py && python export_metrics.py
+python run_generation.py --count 50 --async --async-judge --verbose --triggered-by scheduler && python export_metrics.py
 ```
 
 Where `export_metrics.py` sends heartbeat + success data to:
@@ -357,7 +357,7 @@ Where `export_metrics.py` sends heartbeat + success data to:
 
 Update cron command temporarily to:
 ```bash
-python run_generation.py --dry-run --count 5 --verbose
+python run_generation.py --dry-run --count 5 --async --async-judge --verbose --triggered-by scheduler
 ```
 
 **Check Railway logs for:**
@@ -368,7 +368,7 @@ python run_generation.py --dry-run --count 5 --verbose
 ### 2. Full Production Test
 
 ```bash
-python run_generation.py --count 10
+python run_generation.py --count 10 --async --async-judge --verbose --triggered-by scheduler
 ```
 
 **Verify:**

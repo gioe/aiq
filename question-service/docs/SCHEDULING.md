@@ -103,8 +103,8 @@ The question generation service is designed to run periodically to maintain a fr
    # Load environment variables
    export $(grep -v '^#' .env | xargs)
 
-   # Run generation script
-   python run_generation.py --no-console
+   # Run generation script with async parallelism
+   python run_generation.py --count 50 --async --async-judge --verbose --no-console --triggered-by scheduler
 
    # Capture exit code
    EXIT_CODE=$?
@@ -184,7 +184,7 @@ For production Linux servers, systemd timers are more robust than cron.
    WorkingDirectory=/opt/aiq/question-service
    Environment="PATH=/opt/aiq/question-service/venv/bin:/usr/bin"
    EnvironmentFile=/opt/aiq/question-service/.env
-   ExecStart=/opt/aiq/question-service/venv/bin/python run_generation.py --no-console
+   ExecStart=/opt/aiq/question-service/venv/bin/python run_generation.py --count 50 --async --async-judge --verbose --no-console --triggered-by scheduler
    StandardOutput=append:/var/log/aiq/generation.log
    StandardError=append:/var/log/aiq/generation-error.log
 
@@ -377,7 +377,7 @@ aws events put-targets \
 
    COPY . .
 
-   CMD ["python", "run_generation.py", "--no-console"]
+   CMD ["python", "run_generation.py", "--count", "50", "--async", "--async-judge", "--verbose", "--no-console", "--triggered-by", "scheduler"]
    ```
 
 2. **Deploy to Cloud Run**:
@@ -428,7 +428,7 @@ def main(Timer: func.TimerRequest) -> None:
     """Run question generation on timer trigger."""
 
     result = subprocess.run(
-        ['python', 'run_generation.py', '--no-console'],
+        ['python', 'run_generation.py', '--count', '50', '--async', '--async-judge', '--verbose', '--no-console', '--triggered-by', 'scheduler'],
         capture_output=True,
         text=True
     )
