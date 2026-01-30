@@ -185,6 +185,8 @@ def apply_difficulty_placement(
         correct_answer=question.correct_answer,
         answer_options=question.answer_options,
         explanation=question.explanation,
+        stimulus=question.stimulus,
+        sub_type=question.sub_type,
         metadata={
             **question.metadata,
             "difficulty_adjusted": True,
@@ -332,6 +334,8 @@ def attempt_answer_repair(
         correct_answer=matching_option,
         answer_options=question.answer_options,
         explanation=question.explanation,
+        stimulus=question.stimulus,
+        sub_type=question.sub_type,
         metadata={
             **question.metadata,
             "repaired": True,
@@ -435,6 +439,8 @@ def attempt_difficulty_reclassification(
         correct_answer=question.correct_answer,
         answer_options=question.answer_options,
         explanation=question.explanation,
+        stimulus=question.stimulus,
+        sub_type=question.sub_type,
         metadata={
             **question.metadata,
             "reclassified": True,

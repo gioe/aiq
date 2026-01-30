@@ -165,6 +165,11 @@ Example types:
 - Semantic reasoning about described relationships
 - Sequence completion with conceptually ordered words
 - Verbal inference drawing a conclusion from a short statement
+- Multi-layered analogies requiring recognition of two simultaneous relationship types
+- Verbal inference chains combining 2-3 premises to reach a non-obvious conclusion
+- Abstract cross-domain analogies connecting unrelated fields via a shared principle
+- Multi-clause sentence completion with complex rhetorical structure
+- Embedded verbal constraint satisfaction requiring 3+ semantic conditions
 """,
     QuestionType.MEMORY: """Generate a memory-based question that tests working memory and recall.
 
@@ -377,6 +382,30 @@ Answer: "Small"
 Explanation: "A telescope is used to see distant objects; a microscope is used to see small objects. The relationship is 'instrument to the quality of what it reveals.' Large is the opposite, Near confuses physical distance with scale, and Scientific and Glass describe attributes of the tool itself."
 
 Quality notes: Tests functional analogy reasoning with instruments, distractors target different relationship interpretations.""",
+        # Example 5: Multi-layered analogy (hard)
+        """GOLD STANDARD EXAMPLE:
+Question: "Fossil is to Paleontologist as Dream is to ____"
+Options: ["Psychoanalyst", "Sleeper", "Neurologist", "Philosopher", "Artist"]
+Answer: "Psychoanalyst"
+Explanation: "This analogy operates on two levels simultaneously. Surface level: both fossils and dreams are artifacts of past activity (biological history / unconscious thought). Deeper level: both paleontologists and psychoanalysts reconstruct a hidden narrative by interpreting fragmentary evidence. 'Neurologist' studies the brain mechanism but doesn't interpret dream content narratively. 'Sleeper' produces dreams but doesn't analyze them. 'Philosopher' and 'Artist' engage with dreams but not through systematic evidence-based interpretation."
+
+Quality notes: HARD — requires recognizing a dual-layer relationship (artifact + interpretive reconstruction), not just a single functional link. Distractors each match one layer but not both.""",
+        # Example 6: Verbal inference chain (hard)
+        """GOLD STANDARD EXAMPLE:
+Question: "All effective communicators adapt their message to their audience. Some scientists struggle to explain their work to non-specialists. No one who fails to adapt their message is persuasive to a general audience. Which conclusion follows?"
+Options: ["All scientists are poor communicators", "Some scientists may not be persuasive to a general audience", "Non-specialists cannot understand science", "Effective communicators are always scientists", "Scientists who adapt their message are always persuasive"]
+Answer: "Some scientists may not be persuasive to a general audience"
+Explanation: "Premise 1: Effective communicators adapt to their audience. Premise 2: Some scientists struggle to explain to non-specialists (i.e., struggle to adapt). Premise 3: Failing to adapt → not persuasive to general audiences. Chaining premises 2 and 3: some scientists struggle to adapt → those scientists are not persuasive to general audiences. The answer uses 'may not be' because premise 2 says 'some,' not 'all.' The other options overgeneralize or reverse the logic."
+
+Quality notes: HARD — requires chaining three premises and tracking quantifiers ('some' vs 'all'). Distractors exploit common logical errors (overgeneralization, reversal).""",
+        # Example 7: Multi-clause rhetorical completion (hard)
+        """GOLD STANDARD EXAMPLE:
+Question: "While the novelist's early works were praised for their ____, critics noted that this same quality, when taken to excess in her later novels, made the prose feel ____ rather than refined."
+Options: ["brevity ... sparse", "complexity ... convoluted", "originality ... derivative", "precision ... pedantic", "warmth ... sentimental"]
+Answer: "precision ... pedantic"
+Explanation: "The sentence requires a quality that is positive in moderation but negative in excess. 'Precision' is valued in early work, but excessive precision becomes 'pedantic' (overly focused on minor details). The pair must satisfy three constraints: (1) the first word is a positive trait, (2) the second is its negative extreme, and (3) the second contrasts with 'refined.' 'Brevity/sparse' nearly works but 'sparse' doesn't contrast with 'refined.' 'Complexity/convoluted' fails because complexity isn't typically praised as a virtue. 'Originality/derivative' contradicts itself (derivative is the opposite, not the excess)."
+
+Quality notes: HARD — requires satisfying three simultaneous constraints across two blanks. Each distractor pair fails on exactly one constraint, testing thorough reasoning rather than pattern matching.""",
     ],
     QuestionType.MEMORY: [
         # Example 1: List recall with logical constraint (existing)
@@ -472,6 +501,38 @@ TYPE_DIFFICULTY_OVERRIDES: Dict[tuple[QuestionType, DifficultyLevel], str] = {
 - IQ range: Effectively measures differences in the 85-115 range
 - Discriminatory power: Should still differentiate between average and above-average
 """,
+    (
+        QuestionType.VERBAL,
+        DifficultyLevel.HARD,
+    ): """Difficulty: HARD
+- Target success rate: ~10-30% of general population
+- IQ range: Effectively measures differences in the 115-145+ range
+- Discriminatory power: Should identify genuinely exceptional verbal reasoning ability
+
+WHAT MAKES A VERBAL QUESTION HARD (follow these rules strictly):
+- The question MUST require MULTI-STEP verbal reasoning — single-step recognition (e.g., simple A:B::C:? analogies, basic odd-one-out) is NOT hard
+- Difficulty must come from STRUCTURAL COMPLEXITY, not just advanced vocabulary
+- Hard verbal questions require the solver to hold multiple relationships in working memory simultaneously
+
+REQUIRED structural characteristics (use at least one):
+1. Multi-layered analogies: relationships that operate on two levels (e.g., functional AND metaphorical)
+2. Verbal inference chains: 2-3 premises in natural language that require combining to reach a non-obvious conclusion
+3. Abstract cross-domain mapping: analogies connecting concepts from unrelated domains via a shared abstract principle
+4. Rhetorical structure reasoning: sentence completions requiring understanding of complex contrasts, concessions, or paradoxes across multiple clauses
+5. Embedded constraint satisfaction: verbal puzzles where 3+ semantic constraints must be satisfied simultaneously
+
+ANTI-PATTERNS (these produce medium-difficulty questions, NOT hard):
+✗ Simple A:B::C:? analogies with a single clear relationship — ALWAYS medium or easy
+✗ "Which word does NOT belong?" with a single shared category — ALWAYS medium
+✗ Synonym/antonym selection even with advanced vocabulary — ALWAYS medium
+✗ Single-clause sentence completions — ALWAYS medium
+✗ Making questions hard solely through obscure vocabulary without structural complexity
+
+VOCABULARY GUIDELINES FOR HARD:
+- You MAY use moderately advanced vocabulary (e.g., "pragmatic", "tenuous", "ameliorate")
+- Avoid highly obscure words that only test vocabulary knowledge (e.g., "defenestrate", "sesquipedalian")
+- Difficulty must PRIMARILY come from reasoning complexity, not word rarity
+""",
 }
 
 # Sub-types for each question type, extracted from the "Example types" lists
@@ -539,6 +600,11 @@ QUESTION_SUBTYPES: Dict[QuestionType, List[str]] = {
         "semantic reasoning about described relationships",
         "sequence completion with conceptually ordered words",
         "verbal inference drawing a conclusion from a short statement",
+        "multi-layered analogies requiring recognition of two simultaneous relationship types",
+        "verbal inference chains combining 2-3 premises to reach a non-obvious conclusion",
+        "abstract cross-domain analogies connecting unrelated fields via a shared principle",
+        "multi-clause sentence completion with complex rhetorical structure",
+        "embedded verbal constraint satisfaction requiring 3+ semantic conditions",
     ],
     QuestionType.MEMORY: [
         "list recall with logical constraint",
@@ -634,6 +700,31 @@ GOLD_STANDARD_BY_SUBTYPE: Dict[str, str] = {
     "analogies with cause-effect or function relationships": GOLD_STANDARD_EXAMPLES[
         QuestionType.VERBAL
     ][3],
+    "multi-layered analogies requiring recognition of two simultaneous relationship types": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        4
+    ],
+    "verbal inference chains combining 2-3 premises to reach a non-obvious conclusion": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        5
+    ],
+    "abstract cross-domain analogies connecting unrelated fields via a shared principle": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        4
+    ],
+    "multi-clause sentence completion with complex rhetorical structure": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        6
+    ],
+    "embedded verbal constraint satisfaction requiring 3+ semantic conditions": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        6
+    ],
     # Memory
     "list recall with logical constraint": GOLD_STANDARD_EXAMPLES[QuestionType.MEMORY][
         0

@@ -146,6 +146,7 @@ class QuestionGenerator:
         model_override: Optional[str] = None,
         temperature: float = 0.8,
         max_tokens: int = 1500,
+        subtype: Optional[str] = None,
     ) -> GeneratedQuestion:
         """Generate a single question using a specific or available provider.
 
@@ -156,6 +157,7 @@ class QuestionGenerator:
             model_override: Specific model to use (overrides provider default)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
+            subtype: Optional sub-type focus (randomly selected if not provided)
 
         Returns:
             Generated question
@@ -165,6 +167,11 @@ class QuestionGenerator:
             CircuitBreakerOpen: If the specified provider's circuit is open
             Exception: If generation fails
         """
+        # Select sub-type for prompt diversity
+        if subtype is None:
+            subtypes = QUESTION_SUBTYPES.get(question_type, [])
+            subtype = random.choice(subtypes) if subtypes else None
+
         # Select provider
         if provider_name:
             if provider_name not in self.providers:
@@ -196,7 +203,9 @@ class QuestionGenerator:
         )
 
         # Build prompt
-        prompt = build_generation_prompt(question_type, difficulty, count=1)
+        prompt = build_generation_prompt(
+            question_type, difficulty, count=1, subtype=subtype
+        )
 
         # Track timing for latency metrics (TASK-575)
         start_time = time.perf_counter()
@@ -236,6 +245,7 @@ class QuestionGenerator:
                 provider_name=provider_name,
                 model=actual_model,
             )
+            question.sub_type = subtype
 
             logger.info(
                 f"Successfully generated question: {question.question_text[:50]}..."
@@ -621,6 +631,7 @@ class QuestionGenerator:
         temperature: float = 0.8,
         max_tokens: int = 1500,
         timeout: Optional[float] = None,
+        subtype: Optional[str] = None,
     ) -> GeneratedQuestion:
         """Generate a single question asynchronously using a specific or random provider.
 
@@ -635,6 +646,7 @@ class QuestionGenerator:
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
             timeout: Timeout in seconds (uses instance default if not specified)
+            subtype: Optional sub-type focus (randomly selected if not provided)
 
         Returns:
             Generated question
@@ -645,6 +657,11 @@ class QuestionGenerator:
             asyncio.TimeoutError: If the API call times out
             Exception: If generation fails
         """
+        # Select sub-type for prompt diversity
+        if subtype is None:
+            subtypes = QUESTION_SUBTYPES.get(question_type, [])
+            subtype = random.choice(subtypes) if subtypes else None
+
         # Select provider
         if provider_name:
             if provider_name not in self.providers:
@@ -676,7 +693,9 @@ class QuestionGenerator:
         )
 
         # Build prompt
-        prompt = build_generation_prompt(question_type, difficulty, count=1)
+        prompt = build_generation_prompt(
+            question_type, difficulty, count=1, subtype=subtype
+        )
 
         # Use provided timeout or instance default
         effective_timeout = timeout if timeout is not None else self._async_timeout
@@ -724,6 +743,7 @@ class QuestionGenerator:
                 provider_name=provider_name,
                 model=actual_model,
             )
+            question.sub_type = subtype
 
             logger.info(
                 f"Successfully generated question (async): {question.question_text[:50]}..."
@@ -784,7 +804,7 @@ class QuestionGenerator:
             use_specialist_routing: If True, use the specialist provider for this
                 question type based on generators.yaml config
             temperature: Sampling temperature for generation
-            max_tokens: Maximum tokens to generate
+            max_tokens: Maximum tokens to generate (auto-increased for memory questions)
             use_single_call: If True and using single provider, request all questions
                 in one API call for better diversity (default: True)
             provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
@@ -795,6 +815,12 @@ class QuestionGenerator:
         Raises:
             Exception: If generation fails
         """
+        # Memory questions include a stimulus field per question, roughly
+        # doubling the per-question token footprint.  Increase the budget so
+        # providers (especially Gemini) don't truncate the JSON mid-string.
+        if question_type == QuestionType.MEMORY:
+            max_tokens = max(max_tokens, 3000)
+
         # Determine provider selection strategy
         specialist_provider = None
         specialist_model: Optional[str] = None
@@ -1082,6 +1108,7 @@ class QuestionGenerator:
         model_override: Optional[str],
         temperature: float,
         max_tokens: int,
+        subtype: Optional[str] = None,
     ) -> GeneratedQuestion:
         """Internal task for generating a single question.
 
@@ -1095,6 +1122,7 @@ class QuestionGenerator:
             model_override: Optional model override
             temperature: Sampling temperature
             max_tokens: Maximum tokens
+            subtype: Optional sub-type focus
 
         Returns:
             Generated question
@@ -1106,6 +1134,7 @@ class QuestionGenerator:
             model_override=model_override,
             temperature=temperature,
             max_tokens=max_tokens,
+            subtype=subtype,
         )
 
     def _get_max_batch_size(self, question_type: QuestionType) -> Optional[int]:
@@ -1687,6 +1716,9 @@ class QuestionGenerator:
                 provider_name=provider_name,
                 model=actual_model,
             )
+
+            # Preserve original sub_type on regenerated question
+            question.sub_type = original_question.sub_type
 
             # Add metadata indicating this was regenerated
             question.metadata["regenerated"] = True

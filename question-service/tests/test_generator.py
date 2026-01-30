@@ -105,6 +105,7 @@ class TestQuestionGenerator:
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.source_llm == "openai"
         assert len(question.answer_options) == 4
+        assert question.sub_type is not None
 
     def test_generate_question_with_specific_provider(self, generator_with_openai):
         """Test generating a question with a specific provider."""
@@ -141,6 +142,7 @@ class TestQuestionGenerator:
         assert batch.batch_size == 3
         assert all(q.question_type == QuestionType.VERBAL for q in batch.questions)
         assert all(q.difficulty_level == DifficultyLevel.HARD for q in batch.questions)
+        assert all(q.sub_type is not None for q in batch.questions)
 
     def test_generate_batch_with_failures(self, generator_with_openai):
         """Test batch generation with some failures."""
@@ -176,6 +178,7 @@ class TestQuestionGenerator:
         # Should have 2 successful questions despite 1 failure
         assert len(batch.questions) == 2
         assert batch.batch_size == 3
+        assert all(q.sub_type is not None for q in batch.questions)
 
     def test_parse_generated_response(self, generator_with_openai):
         """Test parsing LLM response."""
@@ -680,6 +683,7 @@ class TestAsyncQuestionGenerator:
         assert question.question_type == QuestionType.MATH
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.source_llm == "openai"
+        assert question.sub_type is not None
 
     @pytest.mark.asyncio
     async def test_generate_question_async_with_specific_provider(
@@ -771,6 +775,7 @@ class TestAsyncQuestionGenerator:
         # Should have 2 successful questions despite 1 failure
         assert len(batch.questions) == 2
         assert batch.batch_size == 3
+        assert all(q.sub_type is not None for q in batch.questions)
 
 
 class TestAsyncMultiProviderGenerator:
@@ -1173,3 +1178,55 @@ class TestBatchChunking:
                 found_subtype = True
                 break
         assert found_subtype, "Non-chunked path should assign a random subtype"
+
+
+class TestRegeneratePreservesSubType:
+    """Tests that regeneration preserves the original question's sub_type."""
+
+    @pytest.fixture
+    def regen_generator(self):
+        """Create generator with mocked async-capable provider for regeneration tests."""
+        with patch("app.generator.OpenAIProvider") as mock_openai:
+            provider = Mock()
+            provider.model = "gpt-4"
+            provider.generate_structured_completion_with_usage_async = AsyncMock(
+                return_value=make_completion_result(
+                    {
+                        "question_text": "Regenerated question?",
+                        "correct_answer": "B",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": "Regenerated explanation",
+                    }
+                )
+            )
+            mock_openai.return_value = provider
+
+            generator = QuestionGenerator(openai_api_key="test-key")
+            yield generator
+
+    @pytest.mark.asyncio
+    async def test_regenerated_question_preserves_sub_type(self, regen_generator):
+        """Test that regenerated questions keep the original sub_type."""
+        from app.models import GeneratedQuestion
+
+        original = GeneratedQuestion(
+            question_text="Original question text here",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options=["A", "B", "C", "D"],
+            explanation="Original explanation",
+            sub_type="number sequences with arithmetic progressions",
+            metadata={},
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        regenerated = await regen_generator.regenerate_question_with_feedback_async(
+            original_question=original,
+            judge_feedback="The question was too easy.",
+            scores={"difficulty_calibration": 0.3},
+        )
+
+        assert regenerated.sub_type == "number sequences with arithmetic progressions"
+        assert regenerated.metadata["regenerated"] is True
