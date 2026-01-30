@@ -28,6 +28,13 @@ class QuestionResponse(BaseModel):
     stimulus: Optional[str] = Field(
         None, description="Content to memorize before answering (for memory questions)"
     )
+    sub_type: Optional[str] = Field(
+        None, description="Generation sub-type (e.g., cube rotations, cross-section)"
+    )
+    inferred_sub_type: Optional[str] = Field(
+        None,
+        description="Inferred sub-type from LLM classification of existing questions",
+    )
 
     @field_validator("id")
     @classmethod

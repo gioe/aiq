@@ -40,8 +40,8 @@ judges:
       USAMO_2025: "61.9%"
       MMLU: "92.1%"
     enabled: true
-    fallback: "anthropic"
-    fallback_model: "claude-sonnet-4-5-20250929"
+    fallback: "openai"
+    fallback_model: "gpt-5.2"
     # Decision Log (Jan 2026): Evaluated Grok 4 Heavy as alternative.
     # Grok 4 Heavy achieves identical USAMO performance (61.9%) but is NOT available
     # via API - only through SuperGrok Heavy subscription ($300/month). The multi-agent
@@ -61,32 +61,27 @@ judges:
     fallback_model: "gpt-5.2"
 
   pattern:
-    model: "gemini-3-pro-preview"
-    provider: "google"
-    rationale: "Superior abstract reasoning: ARC-AGI-2 (31.1%), GPQA Diamond (91.9%). Updated Jan 2026. Using preview identifier per Google API docs."
+    model: "gpt-5.2"
+    provider: "openai"
+    rationale: "Leads abstract reasoning: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%). Surpasses Gemini 3 Pro (31.1%) and Claude Opus 4.5 (37.6%) on pattern recognition. Updated Jan 2026."
     benchmark_data:
-      ARC_AGI_2: "31.1%"
-      GPQA_Diamond: "91.9%"
-      MMMU_Pro: "81.0%"
+      ARC_AGI_2: "52.9%"
+      MMMU_Pro: "86.5%"
     enabled: true
     fallback: "anthropic"
     fallback_model: "claude-opus-4-5-20251101"
 
   spatial:
-    model: "gemini-3-pro-preview"
-    provider: "google"
-    rationale: "Breakthrough spatial reasoning: ARC-AGI-2 (31.1% standard mode). Deep Think mode (45.1%) not currently enabled. MMMU-Pro (81.0%). 6x improvement over previous models. Updated Jan 2026. Using preview identifier per Google API docs."
+    model: "gpt-5.2"
+    provider: "openai"
+    rationale: "Leads spatial reasoning: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%), Video-MMMU (90.5%). Composite 75.9. Fallback upgraded to Gemini 3 Pro (composite 65.5). Updated Jan 2026."
     benchmark_data:
-      ARC_AGI_2: "31.1%"
-      ARC_AGI_2_Deep_Think: "45.1% (not enabled)"
-      MMMU_Pro: "81.0%"
-      Visual_Reasoning: "62%"
+      ARC_AGI_2: "52.9%"
+      MMMU_Pro: "86.5%"
+      Video_MMMU: "90.5%"
     enabled: true
-    fallback: "anthropic"
-    fallback_model: "claude-opus-4-5-20251101"
-    # TODO: Evaluate enabling Deep Think mode for spatial judging once API support
-    # is available. Deep Think achieves 45.1% on ARC-AGI-2 vs 31.1% standard mode.
-    # Considerations: latency impact, cost implications, API availability.
+    fallback: "google"
+    fallback_model: "gemini-3-pro-preview"
 
   verbal:
     model: "claude-sonnet-4-5-20250929"
@@ -100,12 +95,13 @@ judges:
     fallback_model: "gpt-5.2"
 
   memory:
-    model: "claude-sonnet-4-5-20250929"
-    provider: "anthropic"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89% with 200K token context window. Combines strong knowledge benchmarks with massive context for memory-intensive evaluation tasks."
+    model: "gemini-3-pro-preview"
+    provider: "google"
+    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window. Strong knowledge + largest context for memory-intensive evaluation. Updated Jan 2026."
     benchmark_data:
-      MMLU: "89%"
-      context_window: "200,000 tokens"
+      MMLU: "91.8%"
+      MMLU_Pro: "90.1%"
+      context_window: "1,000,000 tokens"
     enabled: true
     fallback: "openai"
     fallback_model: "gpt-5.2"

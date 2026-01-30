@@ -125,6 +125,33 @@ class TestGeneratedQuestion:
 
         assert question.stimulus is None
 
+    def test_sub_type_defaults_to_none(self):
+        """Test that sub_type defaults to None."""
+        question = GeneratedQuestion(
+            question_text="What is 2 + 2?",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="4",
+            answer_options=["2", "3", "4", "5"],
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+        assert question.sub_type is None
+
+    def test_sub_type_can_be_set(self):
+        """Test that sub_type can be set on a question."""
+        question = GeneratedQuestion(
+            question_text="Which shape results from rotating the cube 90 degrees?",
+            question_type=QuestionType.SPATIAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="B",
+            answer_options=["A", "B", "C", "D"],
+            sub_type="cube rotations and transformations",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+        assert question.sub_type == "cube rotations and transformations"
+
     def test_to_dict(self):
         """Test converting question to dictionary."""
         question = GeneratedQuestion(
@@ -147,6 +174,7 @@ class TestGeneratedQuestion:
         assert result["correct_answer"] == "4"
         assert len(result["answer_options"]) == 4
         assert result["stimulus"] is None
+        assert result["sub_type"] is None
 
     def test_to_dict_with_stimulus(self):
         """Test that to_dict includes stimulus field when present."""
@@ -165,6 +193,22 @@ class TestGeneratedQuestion:
 
         assert result["stimulus"] == "Memorize: apple, banana, cherry"
         assert result["question_type"] == "memory"
+
+    def test_to_dict_with_sub_type(self):
+        """Test that to_dict includes sub_type field when present."""
+        question = GeneratedQuestion(
+            question_text="Which shape results from rotating the cube 90 degrees?",
+            question_type=QuestionType.SPATIAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="B",
+            answer_options=["A", "B", "C", "D"],
+            sub_type="cube rotations and transformations",
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+
+        result = question.to_dict()
+        assert result["sub_type"] == "cube rotations and transformations"
 
     def test_stimulus_with_empty_string(self):
         """Test that stimulus can be an empty string."""

@@ -159,6 +159,12 @@ class Question(Base):
     stimulus: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
     )  # Content to memorize before answering (for memory questions)
+    sub_type: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True
+    )  # Generation sub-type (e.g., "cube rotations", "cross-section")
+    inferred_sub_type: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True
+    )  # Inferred sub-type from LLM classification of existing questions
     question_metadata: Mapped[Optional[Any]] = mapped_column(
         "metadata", JSON, nullable=True
     )  # Flexible field for additional data

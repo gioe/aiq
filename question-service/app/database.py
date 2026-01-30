@@ -93,6 +93,12 @@ class QuestionModel(Base):
     stimulus = Column(
         Text, nullable=True
     )  # TASK-727: Content to memorize (memory questions)
+    sub_type = Column(
+        String(200), nullable=True
+    )  # Generation sub-type (e.g., "cube rotations", "cross-section")
+    inferred_sub_type = Column(
+        String(200), nullable=True
+    )  # Inferred sub-type from LLM classification of existing questions
 
 
 class DatabaseService:
@@ -231,6 +237,7 @@ class DatabaseService:
                 answer_options=question.answer_options,
                 explanation=question.explanation,
                 stimulus=question.stimulus,  # TASK-727: Content to memorize
+                sub_type=question.sub_type,
                 question_metadata=question.metadata,
                 source_llm=question.source_llm,
                 source_model=question.source_model,
@@ -303,6 +310,7 @@ class DatabaseService:
             answer_options=question.answer_options,
             explanation=question.explanation,
             stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
+            sub_type=question.sub_type,
             metadata=enriched_metadata,
             source_llm=question.source_llm,
             source_model=question.source_model,
@@ -359,6 +367,7 @@ class DatabaseService:
                     answer_options=question.answer_options,
                     explanation=question.explanation,
                     stimulus=question.stimulus,  # TASK-727: Content to memorize
+                    sub_type=question.sub_type,
                     question_metadata=question.metadata,
                     source_llm=question.source_llm,
                     source_model=question.source_model,
@@ -437,6 +446,7 @@ class DatabaseService:
                 answer_options=question.answer_options,
                 explanation=question.explanation,
                 stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
+                sub_type=question.sub_type,
                 metadata=enriched_metadata,
                 source_llm=question.source_llm,
                 source_model=question.source_model,
@@ -474,6 +484,8 @@ class DatabaseService:
                         "answer_options": q.answer_options,
                         "explanation": q.explanation,
                         "stimulus": q.stimulus,  # TASK-727: Content to memorize
+                        "sub_type": q.sub_type,
+                        "inferred_sub_type": q.inferred_sub_type,
                         "metadata": q.question_metadata,  # TASK-445: Standardized key name
                         "source_llm": q.source_llm,
                         "source_model": q.source_model,

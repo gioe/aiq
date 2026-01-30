@@ -14,7 +14,7 @@ class TestDedupConfig:
     def test_default_dedup_similarity_threshold(self):
         """Test default similarity threshold value."""
         settings = Settings()
-        assert settings.dedup_similarity_threshold == pytest.approx(0.85)
+        assert settings.dedup_similarity_threshold == pytest.approx(0.98)
 
     def test_default_dedup_embedding_model(self):
         """Test default embedding model value."""

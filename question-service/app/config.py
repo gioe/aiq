@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     circuit_breaker_window_size: int = 10  # Sliding window for error rate calculation
 
     # Deduplication Configuration
-    dedup_similarity_threshold: float = 0.85  # Semantic similarity threshold (0.0-1.0)
+    dedup_similarity_threshold: float = 0.98  # Semantic similarity threshold (0.0-1.0)
     dedup_embedding_model: str = "text-embedding-3-small"  # OpenAI embedding model
 
     # Redis Embedding Cache Configuration

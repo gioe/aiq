@@ -1,10 +1,15 @@
 """Tests for prompt generation."""
 
+from unittest.mock import patch
+
 from app.models import DifficultyLevel, QuestionType
 from app.prompts import (
     build_generation_prompt,
     build_judge_prompt,
     build_regeneration_prompt,
+    GOLD_STANDARD_BY_SUBTYPE,
+    GOLD_STANDARD_EXAMPLES,
+    QUESTION_SUBTYPES,
     QUESTION_TYPE_PROMPTS,
     DIFFICULTY_INSTRUCTIONS,
 )
@@ -108,6 +113,176 @@ class TestBuildGenerationPrompt:
             ), f"{question_type.value} prompt should not mention stimulus"
 
 
+class TestGoldStandardExamples:
+    """Tests for gold standard example pool and random injection."""
+
+    def test_all_question_types_have_gold_standard_examples(self):
+        """Test that GOLD_STANDARD_EXAMPLES has entries for all QuestionType values."""
+        for question_type in QuestionType:
+            assert (
+                question_type in GOLD_STANDARD_EXAMPLES
+            ), f"Missing GOLD_STANDARD_EXAMPLES entry for {question_type.value}"
+            assert len(GOLD_STANDARD_EXAMPLES[question_type]) >= 1
+
+    def test_all_types_have_multiple_examples(self):
+        """Test that every type has multiple gold standard examples for diversity."""
+        for question_type in QuestionType:
+            assert (
+                len(GOLD_STANDARD_EXAMPLES[question_type]) >= 2
+            ), f"{question_type.value} should have multiple gold standard examples to reduce anchoring bias"
+
+    def test_each_example_contains_gold_standard_header(self):
+        """Test that every example string starts with the GOLD STANDARD EXAMPLE header."""
+        for question_type, examples in GOLD_STANDARD_EXAMPLES.items():
+            for i, example in enumerate(examples):
+                assert (
+                    "GOLD STANDARD EXAMPLE:" in example
+                ), f"{question_type.value} example {i} missing 'GOLD STANDARD EXAMPLE:' header"
+
+    def test_build_generation_prompt_contains_gold_standard(self):
+        """Test that build_generation_prompt output includes a gold standard example."""
+        for question_type in QuestionType:
+            prompt = build_generation_prompt(
+                question_type=question_type,
+                difficulty=DifficultyLevel.MEDIUM,
+                count=1,
+            )
+            assert (
+                "GOLD STANDARD EXAMPLE:" in prompt
+            ), f"Prompt for {question_type.value} missing gold standard example"
+
+    def test_build_generation_prompt_uses_random_choice(self):
+        """Test that build_generation_prompt calls random.choice for example selection."""
+        with patch("app.prompts.random.choice") as mock_choice:
+            mock_choice.return_value = GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL][0]
+            build_generation_prompt(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.HARD,
+                count=1,
+            )
+            mock_choice.assert_called_once_with(
+                GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL]
+            )
+
+    def test_spatial_examples_cover_different_subtypes(self):
+        """Test that spatial gold standard examples cover different spatial subtypes."""
+        examples = GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL]
+        # Each example should have distinct question content
+        questions = [ex.split('Question: "')[1].split('"')[0] for ex in examples]
+        assert len(set(questions)) == len(
+            questions
+        ), "Spatial gold standard examples should all have unique questions"
+
+    def test_build_regeneration_prompt_contains_gold_standard(self):
+        """Test that build_regeneration_prompt output includes a gold standard example."""
+        prompt = build_regeneration_prompt(
+            original_question="Test question",
+            original_answer="Answer",
+            original_options=["A", "B", "C", "D"],
+            question_type=QuestionType.SPATIAL,
+            difficulty=DifficultyLevel.HARD,
+            judge_feedback="Needs work",
+            scores={"clarity": 0.6},
+        )
+        assert "GOLD STANDARD EXAMPLE:" in prompt
+
+
+class TestSubtypeGoldStandard:
+    """Tests for subtype-aware gold standard selection and prompt tailoring."""
+
+    def test_build_generation_prompt_uses_subtype_gold_standard(self):
+        """When subtype matches a gold standard, that specific example appears in the prompt."""
+        subtype = "cube rotations tracking labeled faces through sequential turns"
+        prompt = build_generation_prompt(
+            question_type=QuestionType.SPATIAL,
+            difficulty=DifficultyLevel.EASY,
+            count=5,
+            subtype=subtype,
+        )
+
+        # The cube rotation gold standard should be present (it mentions "different symbols on each face")
+        expected_example = GOLD_STANDARD_BY_SUBTYPE[subtype]
+        assert expected_example in prompt
+
+    def test_build_generation_prompt_subtype_strengthened_wording(self):
+        """Prompt contains 'REQUIRED SUB-TYPE' when subtype is set."""
+        subtype = "cross-section identification from slicing a 3D solid"
+        prompt = build_generation_prompt(
+            question_type=QuestionType.SPATIAL,
+            difficulty=DifficultyLevel.EASY,
+            count=3,
+            subtype=subtype,
+        )
+
+        assert "REQUIRED SUB-TYPE" in prompt
+        assert f"'{subtype}'" in prompt
+        assert "Do NOT generate questions of other sub-types" in prompt
+
+    def test_build_generation_prompt_subtype_fallback(self):
+        """When subtype has no matching gold standard, falls back to random choice."""
+        # "paper folding..." has no entry in GOLD_STANDARD_BY_SUBTYPE
+        subtype = "paper folding with holes or cuts, predicting unfolded result"
+        assert subtype not in GOLD_STANDARD_BY_SUBTYPE
+
+        with patch("app.prompts.random.choice") as mock_choice:
+            mock_choice.return_value = GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL][0]
+            prompt = build_generation_prompt(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=1,
+                subtype=subtype,
+            )
+            mock_choice.assert_called_once_with(
+                GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL]
+            )
+            assert "GOLD STANDARD EXAMPLE:" in prompt
+
+    def test_build_generation_prompt_subtype_narrows_example_types(self):
+        """When subtype is set, the 'Example types' list shows only the assigned subtype."""
+        subtype = "probability and likelihood reasoning"
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.MEDIUM,
+            count=1,
+            subtype=subtype,
+        )
+
+        # The prompt should contain our subtype in the Example types section
+        assert f"- {subtype}" in prompt
+
+        # Other subtypes from the full list should NOT appear
+        for other_subtype in QUESTION_SUBTYPES[QuestionType.MATH]:
+            if other_subtype != subtype:
+                assert other_subtype not in prompt, (
+                    f"Expected '{other_subtype}' to be removed from prompt when "
+                    f"subtype='{subtype}'"
+                )
+
+    def test_no_subtype_preserves_full_example_types(self):
+        """When no subtype is provided, the full Example types list is preserved."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.SPATIAL,
+            difficulty=DifficultyLevel.EASY,
+            count=1,
+        )
+
+        # All spatial subtypes should appear in the prompt
+        for subtype in QUESTION_SUBTYPES[QuestionType.SPATIAL]:
+            # The subtypes in QUESTION_SUBTYPES are lowercase versions;
+            # the prompt has mixed-case versions. Check the key concepts.
+            assert "Example types:" in prompt
+
+    def test_gold_standard_by_subtype_covers_all_types(self):
+        """Verify GOLD_STANDARD_BY_SUBTYPE has entries for all types with gold standards."""
+        for question_type, examples in GOLD_STANDARD_EXAMPLES.items():
+            # At least one subtype per question type should have a mapping
+            subtypes = QUESTION_SUBTYPES.get(question_type, [])
+            mapped = [s for s in subtypes if s in GOLD_STANDARD_BY_SUBTYPE]
+            assert (
+                len(mapped) >= 1
+            ), f"No GOLD_STANDARD_BY_SUBTYPE entries for {question_type.value}"
+
+
 class TestBuildJudgePrompt:
     """Tests for build_judge_prompt function."""
 
@@ -168,6 +343,24 @@ class TestBuildJudgePrompt:
         )
 
         assert "0.0-1.0" in prompt or "0.0 to 1.0" in prompt
+
+    def test_judge_prompt_difficulty_uses_absolute_scale(self):
+        """Test that judge prompt asks for absolute difficulty, not appropriateness."""
+        prompt = build_judge_prompt(
+            question="Test question?",
+            answer_options=["A", "B", "C", "D"],
+            correct_answer="A",
+            question_type="math",
+            difficulty="easy",
+        )
+
+        # Should contain absolute scale language
+        assert "absolute scale" in prompt.lower()
+        assert "inherent difficulty" in prompt.lower()
+        assert "regardless of the target level" in prompt.lower()
+
+        # Should NOT contain the old appropriateness wording
+        assert "Is difficulty appropriate for" not in prompt
 
     def test_judge_prompt_memory_question_includes_stimulus(self):
         """Test that memory question judge prompt includes stimulus content."""
@@ -399,3 +592,75 @@ class TestBuildRegenerationPrompt:
         )
 
         assert "Multiple areas need improvement" in prompt
+
+
+class TestTypeDifficultyOverrides:
+    """Tests for TYPE_DIFFICULTY_OVERRIDES in prompt generation."""
+
+    def test_math_easy_prompt_uses_override(self):
+        """Test that math+easy prompt includes the override text instead of generic."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=1,
+        )
+
+        # Override-specific constraints should appear
+        assert "single arithmetic operation" in prompt.lower()
+        assert "no percentages, fractions, ratios" in prompt.lower()
+        assert "solvable in one mental step" in prompt.lower()
+
+    def test_non_math_easy_uses_generic_instructions(self):
+        """Test that non-math easy prompts still use generic difficulty instructions."""
+        non_math_types = [qt for qt in QuestionType if qt != QuestionType.MATH]
+
+        for question_type in non_math_types:
+            prompt = build_generation_prompt(
+                question_type=question_type,
+                difficulty=DifficultyLevel.EASY,
+                count=1,
+            )
+
+            # Generic easy instructions should appear (not the override)
+            assert (
+                "single-step or simple two-step reasoning" in prompt.lower()
+            ), f"{question_type.value} easy prompt should use generic instructions"
+            assert (
+                "single arithmetic operation" not in prompt.lower()
+            ), f"{question_type.value} easy prompt should NOT contain math override"
+
+    def test_math_medium_uses_generic_instructions(self):
+        """Test that math+medium still uses generic instructions (override only for easy)."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.MEDIUM,
+            count=1,
+        )
+
+        # Generic medium instructions should appear
+        assert "multi-step reasoning" in prompt.lower()
+        # Override text should NOT appear
+        assert "single arithmetic operation" not in prompt.lower()
+
+    def test_math_hard_uses_generic_instructions(self):
+        """Test that math+hard still uses generic instructions."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.HARD,
+            count=1,
+        )
+
+        assert "abstract thinking" in prompt.lower()
+        assert "single arithmetic operation" not in prompt.lower()
+
+    def test_override_preserves_iq_range_and_success_rate(self):
+        """Test that the override includes the same calibration metadata as generic."""
+        prompt = build_generation_prompt(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=1,
+        )
+
+        assert "70-80%" in prompt
+        assert "85-115" in prompt
+        assert "discriminatory power" in prompt.lower()

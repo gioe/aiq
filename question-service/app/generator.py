@@ -7,6 +7,7 @@ LLM providers to generate candidate IQ test questions.
 import asyncio
 import json
 import logging
+import random
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -25,7 +26,7 @@ from .models import (
     GenerationBatch,
     QuestionType,
 )
-from .prompts import build_generation_prompt
+from .prompts import QUESTION_SUBTYPES, build_generation_prompt
 from .providers.anthropic_provider import AnthropicProvider
 from .providers.base import BaseLLMProvider, LLMProviderError
 from .providers.google_provider import GoogleProvider
@@ -37,6 +38,27 @@ logger = logging.getLogger(__name__)
 # Default rate limiting settings
 DEFAULT_MAX_CONCURRENT_REQUESTS = 10  # Max concurrent LLM API calls per provider
 DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async LLM calls
+
+# JSON response schemas for structured LLM completions
+_QUESTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "question_text": {"type": "string"},
+        "correct_answer": {"type": "string"},
+        "answer_options": {"type": "array", "items": {"type": "string"}},
+        "explanation": {"type": "string"},
+        "stimulus": {"type": "string"},
+    },
+    "required": ["question_text", "correct_answer", "answer_options", "explanation"],
+}
+
+_QUESTION_BATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "questions": {"type": "array", "items": _QUESTION_SCHEMA},
+    },
+    "required": ["questions"],
+}
 
 
 class QuestionGenerator:
@@ -670,7 +692,7 @@ class QuestionGenerator:
                 completion_result = await asyncio.wait_for(
                     provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
-                        response_format={},  # Provider will handle JSON mode
+                        response_format=_QUESTION_SCHEMA,
                         temperature=temperature,
                         max_tokens=max_tokens,
                         model_override=model_override,
@@ -817,60 +839,134 @@ class QuestionGenerator:
 
         # Use single-call batch generation for better diversity
         if use_single_call_batch and single_call_provider:
-            logger.info(
-                f"Generating batch of {count} {question_type.value} questions "
-                f"at {difficulty.value} difficulty (single-call mode)"
-            )
+            # Check if max_batch_size is configured for this question type
+            max_batch_size = self._get_max_batch_size(question_type)
 
-            try:
-                batch_questions = await self.generate_batch_single_call_async(
-                    question_type=question_type,
-                    difficulty=difficulty,
-                    count=count,
-                    provider_name=single_call_provider,
-                    model_override=single_call_model,
-                    temperature=temperature,
-                    max_tokens=max_tokens * 2,  # More tokens for batch response
+            if max_batch_size is not None and count > max_batch_size:
+                # Chunk into parallel sub-batches with sub-type rotation
+                logger.info(
+                    f"Chunking batch of {count} {question_type.value} questions "
+                    f"into sub-batches of {max_batch_size} "
+                    f"(single-call mode, chunked)"
                 )
 
-                # Get circuit breaker states for metadata
-                circuit_breaker_stats = self._circuit_breaker_registry.get_all_stats()
+                try:
+                    batch_questions = await self._generate_chunked_batch_async(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=count,
+                        max_batch_size=max_batch_size,
+                        provider_name=single_call_provider,
+                        model_override=single_call_model,
+                        temperature=temperature,
+                        max_tokens=max_tokens * 2,
+                    )
 
-                batch = GenerationBatch(
-                    questions=batch_questions,
-                    question_type=question_type,
-                    batch_size=count,
-                    generation_timestamp=datetime.now(timezone.utc).isoformat(),
-                    metadata={
-                        "target_difficulty": difficulty.value,
-                        "providers_used": [single_call_provider],
-                        "success_rate": (
-                            len(batch_questions) / count if count > 0 else 0.0
-                        ),
-                        "failed_questions": count - len(batch_questions),
-                        "circuit_breaker_states": {
-                            name: stats["state"]
-                            for name, stats in circuit_breaker_stats.items()
+                    circuit_breaker_stats = (
+                        self._circuit_breaker_registry.get_all_stats()
+                    )
+
+                    batch = GenerationBatch(
+                        questions=batch_questions,
+                        question_type=question_type,
+                        batch_size=count,
+                        generation_timestamp=datetime.now(timezone.utc).isoformat(),
+                        metadata={
+                            "target_difficulty": difficulty.value,
+                            "providers_used": [single_call_provider],
+                            "success_rate": (
+                                len(batch_questions) / count if count > 0 else 0.0
+                            ),
+                            "failed_questions": count - len(batch_questions),
+                            "circuit_breaker_states": {
+                                name: stats["state"]
+                                for name, stats in circuit_breaker_stats.items()
+                            },
+                            "async": True,
+                            "single_call": True,
+                            "chunked": True,
+                            "max_batch_size": max_batch_size,
+                            "specialist_routing": specialist_provider is not None,
+                            "specialist_provider": specialist_provider,
                         },
-                        "async": True,
-                        "single_call": True,
-                        "specialist_routing": specialist_provider is not None,
-                        "specialist_provider": specialist_provider,
-                    },
-                )
+                    )
+
+                    logger.info(
+                        f"Chunked batch generation complete: "
+                        f"{len(batch_questions)}/{count} questions successfully generated"
+                    )
+
+                    return batch
+
+                except Exception as e:
+                    logger.warning(
+                        f"Chunked batch failed, falling back to parallel: {e}"
+                    )
+                    # Fall through to parallel generation
+            else:
+                # No chunking needed — single call for entire batch.
+                # Pick a random subtype for diversity even in the non-chunked path.
+                subtypes = QUESTION_SUBTYPES.get(question_type, [])
+                subtype = random.choice(subtypes) if subtypes else None
 
                 logger.info(
-                    f"Single-call batch generation complete: "
-                    f"{len(batch_questions)}/{count} questions successfully generated"
+                    f"Generating batch of {count} {question_type.value} questions "
+                    f"at {difficulty.value} difficulty (single-call mode), "
+                    f"subtype={subtype!r}"
                 )
 
-                return batch
+                try:
+                    batch_questions = await self.generate_batch_single_call_async(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=count,
+                        provider_name=single_call_provider,
+                        model_override=single_call_model,
+                        temperature=temperature,
+                        max_tokens=max_tokens * 2,  # More tokens for batch response
+                        subtype=subtype,
+                    )
 
-            except Exception as e:
-                logger.warning(
-                    f"Single-call batch failed, falling back to parallel: {e}"
-                )
-                # Fall through to parallel generation
+                    # Get circuit breaker states for metadata
+                    circuit_breaker_stats = (
+                        self._circuit_breaker_registry.get_all_stats()
+                    )
+
+                    batch = GenerationBatch(
+                        questions=batch_questions,
+                        question_type=question_type,
+                        batch_size=count,
+                        generation_timestamp=datetime.now(timezone.utc).isoformat(),
+                        metadata={
+                            "target_difficulty": difficulty.value,
+                            "providers_used": [single_call_provider],
+                            "success_rate": (
+                                len(batch_questions) / count if count > 0 else 0.0
+                            ),
+                            "failed_questions": count - len(batch_questions),
+                            "circuit_breaker_states": {
+                                name: stats["state"]
+                                for name, stats in circuit_breaker_stats.items()
+                            },
+                            "async": True,
+                            "single_call": True,
+                            "specialist_routing": specialist_provider is not None,
+                            "specialist_provider": specialist_provider,
+                        },
+                    )
+
+                    logger.info(
+                        f"Single-call batch generation complete: "
+                        f"{len(batch_questions)}/{count} questions successfully generated"
+                    )
+
+                    return batch
+
+                except Exception as e:
+                    logger.warning(
+                        f"Single-call batch failed, falling back to parallel: {e}"
+                    )
+                    # Fall through to parallel generation
 
         # Parallel generation (fallback or when distributing across providers)
         logger.info(
@@ -1011,6 +1107,110 @@ class QuestionGenerator:
             temperature=temperature,
             max_tokens=max_tokens,
         )
+
+    def _get_max_batch_size(self, question_type: QuestionType) -> Optional[int]:
+        """Get the max_batch_size for a question type from generator config.
+
+        Args:
+            question_type: The question type to look up
+
+        Returns:
+            max_batch_size if configured, None otherwise
+        """
+        if not is_generator_config_initialized():
+            return None
+        try:
+            config = get_generator_config()
+            type_key = question_type.value
+            return config.get_max_batch_size(type_key)
+        except Exception:
+            return None
+
+    async def _generate_chunked_batch_async(
+        self,
+        question_type: QuestionType,
+        difficulty: DifficultyLevel,
+        count: int,
+        max_batch_size: int,
+        provider_name: str,
+        model_override: Optional[str] = None,
+        temperature: float = 0.8,
+        max_tokens: int = 3000,
+    ) -> List[GeneratedQuestion]:
+        """Split a large batch into parallel sub-batches with sub-type rotation.
+
+        Each sub-batch is assigned a different sub-type from QUESTION_SUBTYPES
+        so the LLM explores different patterns instead of anchoring on one.
+
+        Args:
+            question_type: Type of questions to generate
+            difficulty: Difficulty level
+            count: Total number of questions to generate
+            max_batch_size: Maximum questions per sub-batch
+            provider_name: Provider to use
+            model_override: Optional model override
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens per sub-batch call
+
+        Returns:
+            Flat list of generated questions from all sub-batches
+        """
+        # Calculate sub-batch sizes: e.g. count=25, max_batch_size=10 -> [10, 10, 5]
+        sub_batch_sizes: List[int] = []
+        remaining = count
+        while remaining > 0:
+            chunk = min(remaining, max_batch_size)
+            sub_batch_sizes.append(chunk)
+            remaining -= chunk
+
+        # Get sub-types for rotation (cycle if more batches than sub-types)
+        subtypes = QUESTION_SUBTYPES.get(question_type, [])
+        start_idx = random.randint(0, len(subtypes) - 1) if subtypes else 0
+
+        logger.info(
+            f"Splitting {count} questions into {len(sub_batch_sizes)} sub-batches: "
+            f"{sub_batch_sizes} with {len(subtypes)} sub-types available"
+        )
+
+        # Build parallel tasks
+        tasks = []
+        for i, sub_count in enumerate(sub_batch_sizes):
+            subtype = subtypes[(start_idx + i) % len(subtypes)] if subtypes else None
+            logger.info(
+                f"Sub-batch {i+1}/{len(sub_batch_sizes)}: "
+                f"{sub_count} questions, subtype='{subtype}'"
+            )
+            tasks.append(
+                self.generate_batch_single_call_async(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=sub_count,
+                    provider_name=provider_name,
+                    model_override=model_override,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    subtype=subtype,
+                )
+            )
+
+        # Run all sub-batches in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Merge results into a flat list
+        all_questions: List[GeneratedQuestion] = []
+        for i, result in enumerate(results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    f"Sub-batch {i+1}/{len(sub_batch_sizes)} failed: {result}"
+                )
+            elif isinstance(result, list):
+                all_questions.extend(result)
+
+        logger.info(
+            f"Chunked generation produced {len(all_questions)}/{count} questions "
+            f"from {len(sub_batch_sizes)} sub-batches"
+        )
+        return all_questions
 
     def generate_diverse_batch(
         self,
@@ -1198,6 +1398,7 @@ class QuestionGenerator:
         temperature: float = 0.8,
         max_tokens: int = 3000,
         timeout: Optional[float] = None,
+        subtype: Optional[str] = None,
     ) -> List[GeneratedQuestion]:
         """Generate multiple questions in a single API call.
 
@@ -1213,6 +1414,7 @@ class QuestionGenerator:
             temperature: Sampling temperature
             max_tokens: Maximum tokens (should be higher for batch)
             timeout: Timeout in seconds
+            subtype: Optional sub-type focus for prompt diversity
 
         Returns:
             List of generated questions
@@ -1241,8 +1443,10 @@ class QuestionGenerator:
             + (f" with model {model_override}" if model_override else "")
         )
 
-        # Build prompt requesting multiple questions
-        prompt = build_generation_prompt(question_type, difficulty, count=count)
+        # Build prompt requesting multiple questions (with optional sub-type focus)
+        prompt = build_generation_prompt(
+            question_type, difficulty, count=count, subtype=subtype
+        )
 
         start_time = time.perf_counter()
         completion_result = None
@@ -1253,7 +1457,7 @@ class QuestionGenerator:
                 completion_result = await asyncio.wait_for(
                     provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
-                        response_format={},
+                        response_format=_QUESTION_BATCH_SCHEMA,
                         temperature=temperature,
                         max_tokens=max_tokens,
                         model_override=model_override,
@@ -1283,6 +1487,11 @@ class QuestionGenerator:
                 provider_name=provider_name,
                 model=actual_model,
             )
+
+            # Stamp the batch-level subtype onto each parsed question
+            if subtype:
+                for q in questions:
+                    q.sub_type = subtype
 
             logger.info(
                 f"Single-call batch complete: {len(questions)}/{count} questions "
@@ -1448,7 +1657,7 @@ class QuestionGenerator:
                 completion_result = await asyncio.wait_for(
                     provider.generate_structured_completion_with_usage_async(
                         prompt=prompt,
-                        response_format={},
+                        response_format=_QUESTION_SCHEMA,
                         temperature=temperature,
                         max_tokens=max_tokens,
                         model_override=model_override,

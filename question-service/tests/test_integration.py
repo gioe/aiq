@@ -102,11 +102,10 @@ def mock_judge_config():
             enabled=True,
         ),
         evaluation_criteria=EvaluationCriteria(
-            clarity=0.25,
-            difficulty=0.20,
-            validity=0.30,
-            formatting=0.10,
-            creativity=0.15,
+            clarity=0.30,
+            validity=0.35,
+            formatting=0.15,
+            creativity=0.20,
         ),
         min_judge_score=0.7,
     )
@@ -118,6 +117,18 @@ def mock_judge_config():
     )
     loader.get_evaluation_criteria.return_value = config.evaluation_criteria
     loader.get_min_judge_score.return_value = config.min_judge_score
+
+    def _resolve_judge_provider(question_type, available_providers):
+        judge_model = config.judges.get(question_type, config.default_judge)
+        if judge_model.provider in available_providers:
+            return (judge_model.provider, judge_model.model)
+        if judge_model.fallback and judge_model.fallback in available_providers:
+            return (judge_model.fallback, judge_model.fallback_model)
+        if available_providers:
+            return (available_providers[0], None)
+        raise ValueError(f"No available provider for {question_type}")
+
+    loader.resolve_judge_provider.side_effect = _resolve_judge_provider
 
     return loader
 
@@ -216,12 +227,13 @@ def sample_spatial_question():
 def sample_memory_question():
     """Create a sample MEMORY question."""
     return GeneratedQuestion(
-        question_text="Remember this sequence: Blue, Red, Green, Yellow. What was the second color?",
+        question_text="What was the second color in the sequence?",
         question_type=QuestionType.MEMORY,
         difficulty_level=DifficultyLevel.EASY,
         correct_answer="Red",
         answer_options=["Blue", "Red", "Green", "Yellow"],
         explanation="The sequence was Blue (1st), Red (2nd), Green (3rd), Yellow (4th).",
+        stimulus="Blue, Red, Green, Yellow",
         metadata={"category": "sequence_recall"},
         source_llm="openai",
         source_model="gpt-4",

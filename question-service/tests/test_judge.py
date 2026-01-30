@@ -1453,3 +1453,211 @@ class TestQuestionJudgeAsync:
 
         # Verify cleanup was called when exiting context
         mock_provider.cleanup.assert_called_once()
+
+
+class TestDifficultyPlacement:
+    """Tests for determine_difficulty_placement() logic.
+
+    The difficulty_score is an absolute scale:
+      0.0-0.3 = Easy, 0.4-0.6 = Medium, 0.7-1.0 = Hard
+
+    Thresholds (from config):
+      - downgrade_threshold = 0.4 (score < 0.4 → question is easier than target)
+      - upgrade_threshold = 0.8 (score > 0.8 → question is harder than target)
+    """
+
+    @patch("app.judge.OpenAIProvider")
+    def test_easy_question_low_score_stays_easy(self, mock_openai, mock_judge_config):
+        """Easy question with low difficulty score (0.2) stays easy — can't downgrade below easy."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.EASY,
+            difficulty_score=0.2,
+        )
+
+        assert level == DifficultyLevel.EASY
+        assert reason is None
+
+    @patch("app.judge.OpenAIProvider")
+    def test_easy_question_high_score_upgraded_to_medium(
+        self, mock_openai, mock_judge_config
+    ):
+        """Easy question with high difficulty score (0.9) is upgraded to medium."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.EASY,
+            difficulty_score=0.9,
+        )
+
+        assert level == DifficultyLevel.MEDIUM
+        assert "Upgraded" in reason
+        assert "easy to medium" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_easy_question_mid_score_stays_easy(self, mock_openai, mock_judge_config):
+        """Easy question with mid difficulty score (0.5) stays easy — within thresholds."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.EASY,
+            difficulty_score=0.5,
+        )
+
+        assert level == DifficultyLevel.EASY
+        assert reason is None
+
+    @patch("app.judge.OpenAIProvider")
+    def test_medium_question_low_score_downgraded_to_easy(
+        self, mock_openai, mock_judge_config
+    ):
+        """Medium question with low difficulty score (0.3) is downgraded to easy."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.MEDIUM,
+            difficulty_score=0.3,
+        )
+
+        assert level == DifficultyLevel.EASY
+        assert "Downgraded" in reason
+        assert "medium to easy" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_medium_question_high_score_upgraded_to_hard(
+        self, mock_openai, mock_judge_config
+    ):
+        """Medium question with high difficulty score (0.9) is upgraded to hard."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.MEDIUM,
+            difficulty_score=0.9,
+        )
+
+        assert level == DifficultyLevel.HARD
+        assert "Upgraded" in reason
+        assert "medium to hard" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_hard_question_low_score_downgraded_to_medium(
+        self, mock_openai, mock_judge_config
+    ):
+        """Hard question with low difficulty score (0.2) is downgraded to medium."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.HARD,
+            difficulty_score=0.2,
+        )
+
+        assert level == DifficultyLevel.MEDIUM
+        assert "Downgraded" in reason
+        assert "hard to medium" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_hard_question_high_score_stays_hard(self, mock_openai, mock_judge_config):
+        """Hard question with high difficulty score (0.9) stays hard — can't upgrade above hard."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.HARD,
+            difficulty_score=0.9,
+        )
+
+        assert level == DifficultyLevel.HARD
+        assert reason is None
+
+    @patch("app.judge.OpenAIProvider")
+    def test_feedback_fallback_too_easy_downgrades_medium(
+        self, mock_openai, mock_judge_config
+    ):
+        """Feedback pattern 'too easy' downgrades medium to easy when score is ambiguous."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.MEDIUM,
+            difficulty_score=0.5,  # In ambiguous zone (between thresholds)
+            feedback="This question is too easy for the target difficulty level.",
+        )
+
+        assert level == DifficultyLevel.EASY
+        assert "feedback" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_feedback_fallback_too_hard_upgrades_easy(
+        self, mock_openai, mock_judge_config
+    ):
+        """Feedback pattern 'too hard' upgrades easy to medium when score is ambiguous."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.EASY,
+            difficulty_score=0.5,  # In ambiguous zone (between thresholds)
+            feedback="This question is too hard for the intended audience.",
+        )
+
+        assert level == DifficultyLevel.MEDIUM
+        assert "feedback" in reason.lower()
+
+    @patch("app.judge.OpenAIProvider")
+    def test_boundary_score_at_downgrade_threshold(
+        self, mock_openai, mock_judge_config
+    ):
+        """Score exactly at downgrade threshold (0.4) does NOT trigger downgrade."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.MEDIUM,
+            difficulty_score=0.4,  # Exactly at threshold — not strictly less than
+        )
+
+        assert level == DifficultyLevel.MEDIUM
+        assert reason is None
+
+    @patch("app.judge.OpenAIProvider")
+    def test_boundary_score_at_upgrade_threshold(self, mock_openai, mock_judge_config):
+        """Score exactly at upgrade threshold (0.8) does NOT trigger upgrade."""
+        judge = QuestionJudge(
+            judge_config=mock_judge_config,
+            openai_api_key="test-key",
+        )
+
+        level, reason = judge.determine_difficulty_placement(
+            current_difficulty=DifficultyLevel.EASY,
+            difficulty_score=0.8,  # Exactly at threshold — not strictly greater than
+        )
+
+        assert level == DifficultyLevel.EASY
+        assert reason is None

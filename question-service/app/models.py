@@ -56,6 +56,7 @@ class GeneratedQuestion(BaseModel):
     answer_options: Optional[List[str]] = None
     explanation: Optional[str] = None
     stimulus: Optional[str] = None
+    sub_type: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
     source_llm: str = Field(..., min_length=1)  # "openai", "anthropic", "google"
     source_model: str = Field(..., min_length=1)  # Specific model name
@@ -97,6 +98,7 @@ class GeneratedQuestion(BaseModel):
             "answer_options": self.answer_options,
             "explanation": self.explanation,
             "stimulus": self.stimulus,
+            "sub_type": self.sub_type,
             "metadata": self.metadata,
             "source_llm": self.source_llm,
             "source_model": self.source_model,

@@ -35,6 +35,11 @@ class GeneratorAssignment(BaseModel):
     fallback_model: Optional[str] = Field(
         None, description="Specific model to use when fallback provider is activated"
     )
+    max_batch_size: Optional[int] = Field(
+        None,
+        description="Maximum questions per single API call. When set, large batches "
+        "are split into parallel sub-batches of this size to reduce mode collapse.",
+    )
 
     @field_validator("provider", "fallback")
     @classmethod
@@ -45,6 +50,14 @@ class GeneratorAssignment(BaseModel):
         valid_providers = {"openai", "anthropic", "google", "xai"}
         if v not in valid_providers:
             raise ValueError(f"Provider must be one of {valid_providers}, got '{v}'")
+        return v
+
+    @field_validator("max_batch_size")
+    @classmethod
+    def validate_max_batch_size(cls, v: Optional[int]) -> Optional[int]:
+        """Validate max_batch_size is positive when set."""
+        if v is not None and v <= 0:
+            raise ValueError(f"max_batch_size must be positive, got {v}")
         return v
 
     @model_validator(mode="after")
@@ -316,6 +329,20 @@ class GeneratorConfigLoader:
             return (any_provider, None)
 
         raise ValueError(f"No providers available for question type '{question_type}'")
+
+    def get_max_batch_size(self, question_type: str) -> Optional[int]:
+        """Get the max_batch_size for a given question type.
+
+        Args:
+            question_type: Type of question (e.g., "math", "spatial", "pattern")
+
+        Returns:
+            max_batch_size if configured, None otherwise
+        """
+        config = self.config
+        if question_type in config.generators:
+            return config.generators[question_type].max_batch_size
+        return config.default_generator.max_batch_size
 
     def is_specialist_routing_enabled(self) -> bool:
         """Check if specialist routing is enabled.

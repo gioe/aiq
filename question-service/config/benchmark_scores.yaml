@@ -1,0 +1,135 @@
+# Benchmark scoring rubric and stored scores for /refresh-providers
+# Auto-updated by the skill. Manual edits to rubric/threshold are fine.
+
+last_updated: "2026-01-29"
+
+# Composite delta must exceed this to recommend a provider change
+change_threshold: 5.0
+
+# Source trust order — prefer higher-ranked; never overwrite a
+# higher-ranked source's value with a lower-ranked one
+source_hierarchy:
+  - "vals.ai"
+  - "official-announcement"
+  - "artificial-analysis"
+  - "epoch-ai"
+  - "arc-prize"
+  - "third-party"
+
+# Models to evaluate (provider + exact API model ID)
+models:
+  - { provider: "openai",    model: "gpt-5.2" }
+  - { provider: "anthropic", model: "claude-opus-4-5-20251101" }
+  - { provider: "anthropic", model: "claude-sonnet-4-5-20250929" }
+  - { provider: "google",    model: "gemini-3-pro-preview" }
+  - { provider: "xai",       model: "grok-4" }
+
+# Per-domain rubric: which benchmarks, what weight
+# Weights must sum to 1.0 within each domain
+rubric:
+  math:
+    AIME_2025:     0.40
+    FrontierMath:  0.30
+    GSM8K:         0.30
+  logic:
+    GPQA_Diamond:       0.40
+    SWE_bench_Verified: 0.35
+    HumanEval:          0.25
+  pattern:
+    ARC_AGI_2:  0.60
+    MMMU_Pro:   0.40
+  spatial:
+    ARC_AGI_2:  0.35
+    MMMU_Pro:   0.35
+    Video_MMMU: 0.30
+  verbal:
+    MMLU:       0.40
+    MMLU_Pro:   0.35
+    HellaSwag:  0.25
+  memory:
+    MMLU:                   0.40
+    context_window_norm:    0.35   # tokens / 2M × 100, capped at 100
+    RULER:                  0.25
+
+# Stored scores — each value is a percentage (0–100)
+# null = no verified data; source/date track provenance
+scores:
+  gpt-5.2:
+    AIME_2025:           { value: 100.0, source: "official-announcement", date: "2025-12-11" }
+    FrontierMath:        { value: 40.3,  source: "official-announcement", date: "2025-12-11" }
+    GSM8K:               { value: 99.0,  source: "third-party",           date: "2026-01-15" }
+    GPQA_Diamond:        { value: 93.2,  source: "official-announcement", date: "2025-12-11" }
+    SWE_bench_Verified:  { value: 80.0,  source: "artificial-analysis",  date: "2026-01-15" }
+    HumanEval:           { value: null }
+    ARC_AGI_2:           { value: 52.9,  source: "official-announcement", date: "2025-12-11" }
+    MMMU_Pro:            { value: 86.5,  source: "official-announcement", date: "2025-12-11" }
+    Video_MMMU:          { value: 90.5,  source: "official-announcement", date: "2025-12-11" }
+    MMLU:                { value: 88.0,  source: "artificial-analysis",  date: "2026-01-15" }
+    MMLU_Pro:            { value: 83.0,  source: "artificial-analysis",  date: "2026-01-15" }
+    HellaSwag:           { value: null }
+    context_window_norm: { value: 20.0,  source: "official-announcement", date: "2025-12-11" }  # 400K / 2M × 100
+    RULER:               { value: null }
+
+  claude-opus-4-5-20251101:
+    AIME_2025:           { value: 92.8,  source: "official-announcement", date: "2025-11-01" }
+    FrontierMath:        { value: 21.0,  source: "epoch-ai",              date: "2025-11-01" }
+    GSM8K:               { value: 96.4,  source: "official-announcement", date: "2025-11-01" }
+    GPQA_Diamond:        { value: 83.3,  source: "official-announcement", date: "2025-11-01" }
+    SWE_bench_Verified:  { value: 80.9,  source: "official-announcement", date: "2025-11-01" }
+    HumanEval:           { value: 97.6,  source: "official-announcement", date: "2025-11-01" }
+    ARC_AGI_2:           { value: 37.6,  source: "arc-prize",            date: "2025-12-20" }
+    MMMU_Pro:            { value: 60.0,  source: "third-party",           date: "2026-01-15" }
+    Video_MMMU:          { value: null }
+    MMLU:                { value: 87.4,  source: "official-announcement", date: "2025-11-01" }
+    MMLU_Pro:            { value: 90.0,  source: "vals.ai",              date: "2026-01-10" }
+    HellaSwag:           { value: null }
+    context_window_norm: { value: 10.0,  source: "official-announcement", date: "2025-11-01" }  # 200K / 2M × 100
+    RULER:               { value: null }
+
+  claude-sonnet-4-5-20250929:
+    AIME_2025:           { value: 87.0,  source: "official-announcement", date: "2025-09-29" }
+    FrontierMath:        { value: null }
+    GSM8K:               { value: 98.0,  source: "third-party",           date: "2025-09-29" }
+    GPQA_Diamond:        { value: 83.4,  source: "official-announcement", date: "2025-09-29" }
+    SWE_bench_Verified:  { value: 77.2,  source: "official-announcement", date: "2025-09-29" }
+    HumanEval:           { value: 95.0,  source: "official-announcement", date: "2025-09-29" }
+    ARC_AGI_2:           { value: null }
+    MMMU_Pro:            { value: 55.0,  source: "third-party",           date: "2026-01-15" }
+    Video_MMMU:          { value: null }
+    MMLU:                { value: 89.0,  source: "official-announcement", date: "2025-09-29" }
+    MMLU_Pro:            { value: 78.0,  source: "third-party",           date: "2026-01-15" }
+    HellaSwag:           { value: 95.0,  source: "artificial-analysis",  date: "2025-10-15" }
+    context_window_norm: { value: 10.0,  source: "official-announcement", date: "2025-09-29" }  # 200K / 2M × 100
+    RULER:               { value: null }
+
+  gemini-3-pro-preview:
+    AIME_2025:           { value: 95.0,  source: "official-announcement", date: "2025-11-18" }
+    FrontierMath:        { value: 38.0,  source: "epoch-ai",              date: "2025-11-18" }
+    GSM8K:               { value: null }
+    GPQA_Diamond:        { value: 91.9,  source: "official-announcement", date: "2025-11-18" }
+    SWE_bench_Verified:  { value: 76.2,  source: "official-announcement", date: "2025-11-18" }
+    HumanEval:           { value: null }
+    ARC_AGI_2:           { value: 31.1,  source: "official-announcement", date: "2025-11-18" }
+    MMMU_Pro:            { value: 81.0,  source: "official-announcement", date: "2025-11-18" }
+    Video_MMMU:          { value: 87.6,  source: "official-announcement", date: "2025-11-18" }
+    MMLU:                { value: 91.8,  source: "official-announcement", date: "2025-11-18" }
+    MMLU_Pro:            { value: 90.1,  source: "vals.ai",               date: "2026-01-15" }
+    HellaSwag:           { value: null }
+    context_window_norm: { value: 50.0,  source: "official-announcement", date: "2025-11-18" }  # 1M / 2M × 100
+    RULER:               { value: null }
+
+  grok-4:
+    AIME_2025:           { value: 93.0,  source: "vals.ai",              date: "2025-09-15" }
+    FrontierMath:        { value: 13.0,  source: "epoch-ai",             date: "2025-07-10" }
+    GSM8K:               { value: 95.2,  source: "official-announcement", date: "2025-07-10" }
+    GPQA_Diamond:        { value: 88.0,  source: "official-announcement", date: "2025-07-10" }
+    SWE_bench_Verified:  { value: 72.0,  source: "third-party",          date: "2025-07-10" }
+    HumanEval:           { value: null }
+    ARC_AGI_2:           { value: 16.0,  source: "third-party",          date: "2025-08-01" }
+    MMMU_Pro:            { value: null }
+    Video_MMMU:          { value: null }
+    MMLU:                { value: 92.1,  source: "official-announcement", date: "2025-07-10" }
+    MMLU_Pro:            { value: 87.0,  source: "third-party",          date: "2025-07-10" }
+    HellaSwag:           { value: null }
+    context_window_norm: { value: 12.8,  source: "official-announcement", date: "2025-07-10" }  # 256K / 2M × 100
+    RULER:               { value: null }

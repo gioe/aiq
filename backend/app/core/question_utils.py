@@ -37,5 +37,7 @@ def question_to_response(
             "answer_options": answer_options,
             "explanation": question.explanation if include_explanation else None,
             "stimulus": question.stimulus,
+            "sub_type": question.sub_type,
+            "inferred_sub_type": question.inferred_sub_type,
         }
     )

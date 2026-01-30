@@ -1514,8 +1514,25 @@ def main() -> int:
                 try:
                     # Type assertion: deduplicator is guaranteed to be initialized here
                     assert deduplicator is not None
+                    # Scope dedup to same difficulty level — questions sharing a
+                    # problem template across difficulties are intentionally distinct.
+                    q_difficulty = str(
+                        evaluated_question.question.difficulty_level.value
+                    ).lower()
+                    same_difficulty_questions = [
+                        eq
+                        for eq in existing_questions
+                        if str(
+                            getattr(
+                                eq.get("difficulty_level", ""),
+                                "value",
+                                eq.get("difficulty_level", ""),
+                            )
+                        ).lower()
+                        == q_difficulty
+                    ]
                     result = deduplicator.check_duplicate(
-                        evaluated_question.question, existing_questions
+                        evaluated_question.question, same_difficulty_questions
                     )
 
                     if not result.is_duplicate:

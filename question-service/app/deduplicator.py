@@ -181,7 +181,7 @@ class QuestionDeduplicator:
     def __init__(
         self,
         openai_api_key: str,
-        similarity_threshold: float = 0.85,
+        similarity_threshold: float = 0.98,
         embedding_model: str = "text-embedding-3-small",
         embedding_cache: Optional[Union[EmbeddingCache, HybridEmbeddingCache]] = None,
         redis_url: Optional[str] = None,

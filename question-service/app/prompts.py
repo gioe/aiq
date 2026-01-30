@@ -4,9 +4,14 @@ This module contains the prompts used to generate different types of
 IQ test questions from various LLM providers.
 """
 
-from typing import Dict
+import logging
+import random
+import re
+from typing import Dict, List, Optional
 
 from .models import DifficultyLevel, QuestionType
+
+logger = logging.getLogger(__name__)
 
 # Threshold below which a score is considered weak and needs improvement
 WEAK_SCORE_THRESHOLD = 0.7
@@ -62,20 +67,17 @@ Requirements:
 - Provide 4-6 answer options including distractors
 - Include an explanation of the pattern rule
 
-GOLD STANDARD EXAMPLE:
-Question: "What comes next in the sequence? 3, 6, 11, 18, 27, ?"
-Options: ["36", "38", "40", "42", "44"]
-Answer: "38"
-Explanation: "Each number increases by consecutive odd numbers: +3, +5, +7, +9, +11. So 27 + 11 = 38."
-
-Quality notes: Clear progression rule, plausible distractors (other arithmetic progressions), concise wording.
-
 Example types:
-- Number sequences with arithmetic/geometric progressions
-- Letter patterns (alphabetic positions, skip patterns)
-- Visual pattern descriptions (rotating shapes, size progressions)
-- Matrix patterns (describe a 3x3 grid with one missing cell)
-- Alternating or recursive patterns
+- Number sequences with arithmetic progressions
+- Number sequences with geometric or multiplicative rules
+- Letter patterns using alphabetic positions or skip patterns
+- Alternating or interleaved dual sequences
+- Recursive patterns where each term depends on previous terms
+- Matrix patterns describing a 3x3 grid with one missing cell
+- Shape or symbol transformation sequences
+- Modular arithmetic or cyclic patterns
+- Difference-of-differences (second-order) sequences
+- Combined operation sequences (e.g., +2, ×3, +2, ×3)
 """,
     QuestionType.LOGIC: """Generate a logical reasoning question that tests deductive or inductive reasoning abilities.
 
@@ -86,25 +88,17 @@ Requirements:
 - Provide 4-6 answer options including plausible distractors
 - Include an explanation of the logical reasoning process
 
-GOLD STANDARD EXAMPLE:
-Question: "All musicians can read sheet music. Some musicians are teachers. Which statement must be true?"
-Options: [
-  "All teachers can read sheet music",
-  "Some teachers can read sheet music",
-  "All people who read sheet music are musicians",
-  "Some musicians who teach cannot read sheet music"
-]
-Answer: "Some teachers can read sheet music"
-Explanation: "Since some musicians are teachers, and all musicians can read sheet music, it follows that at least some teachers (those who are musicians) can read sheet music. We cannot conclude that ALL teachers can read music since only some are musicians."
-
-Quality notes: Tests syllogistic reasoning, distractors exploit common logical fallacies, clear and unambiguous.
-
 Example types:
 - Syllogisms (All A are B, Some B are C, therefore...)
-- If-then reasoning with valid/invalid inferences
-- Set theory problems (Venn diagram logic)
-- Deductive puzzles from given facts
-- Necessary vs. sufficient conditions
+- If-then conditional reasoning with valid and invalid inferences
+- Set theory and Venn diagram logic
+- Ordering and ranking puzzles from comparative clues
+- Truth-teller and liar puzzles
+- Necessary vs. sufficient condition identification
+- Elimination puzzles using process of elimination
+- Logical equivalence and contrapositive reasoning
+- Multi-constraint deductive puzzles (Einstein-style, simplified)
+- Categorical classification with overlapping properties
 """,
     QuestionType.SPATIAL: """Generate a spatial reasoning question that tests the ability to visualize and manipulate objects in space.
 
@@ -115,20 +109,19 @@ Requirements:
 - Provide 4-6 answer options including similar but incorrect options
 - Include an explanation of the spatial transformation
 
-GOLD STANDARD EXAMPLE:
-Question: "A cube has different symbols on each face: ★ on top, ● on bottom, ■ on front, ▲ on back, ◆ on left, and ✦ on right. If you rotate the cube 90° forward (top face moves to front), then 90° clockwise (when viewed from above), which symbol is now on top?"
-Options: ["★", "●", "■", "▲", "◆"]
-Answer: "◆"
-Explanation: "After rotating forward 90°: ● moves to front, ★ moves to back, ■ moves to top, ▲ moves to bottom. Then rotating 90° clockwise from above: ◆ (left) moves to top."
-
-Quality notes: Tests sequential 3D visualization, requires mental manipulation, clear face labeling.
-
 Example types:
-- Cube rotations with labeled faces
-- Paper folding sequences with holes/marks
-- 3D object assembly from 2D nets
-- Mirror/reflection problems
-- Cross-section identification (what shape results from slicing a 3D object)
+- Cube rotations tracking labeled faces through sequential turns
+- Paper folding with holes or cuts, predicting unfolded result
+- 2D net folding into 3D cubes or boxes
+- Mirror and reflection of 2D shapes across an axis
+- Cross-section identification from slicing a 3D solid
+- Mental rotation of 2D shapes (which rotated shape matches?)
+- Map or compass navigation (follow directions, determine final position)
+- Shape fitting or tangram-style assembly into a target outline
+- Perspective taking (what does a 3D object look like from another angle?)
+- Symmetry identification (line/rotational symmetry of a figure)
+- Coordinate grid transformations (translate, rotate, reflect a shape on a grid)
+- Counting faces, edges, or vertices of described 3D objects
 """,
     QuestionType.MATH: """Generate a mathematical reasoning question that tests quantitative and numerical reasoning.
 
@@ -139,20 +132,17 @@ Requirements:
 - Provide 4-6 answer options with numerical answers
 - Include a step-by-step explanation of the solution
 
-GOLD STANDARD EXAMPLE:
-Question: "A store sells apples in bags of 6 and oranges in bags of 8. If you buy the same number of apples and oranges, what is the minimum number of each fruit you must buy?"
-Options: ["12", "16", "24", "32", "48"]
-Answer: "24"
-Explanation: "We need the least common multiple (LCM) of 6 and 8. Factors: 6 = 2 × 3, 8 = 2³. LCM = 2³ × 3 = 24. You need 4 bags of apples (4 × 6 = 24) and 3 bags of oranges (3 × 8 = 24)."
-
-Quality notes: Tests LCM concept through practical context, requires reasoning not just calculation, appropriate distractors.
-
 Example types:
-- Word problems with practical contexts (avoiding culturally-specific scenarios)
-- Number theory (LCM, GCD, divisibility patterns)
-- Proportional reasoning (ratios, rates, scaling)
-- Algebraic thinking (pattern generalization, unknown quantities)
-- Logical-mathematical puzzles (digit problems, arithmetic constraints)
+- Word problems with practical everyday contexts
+- Number theory involving LCM, GCD, or divisibility
+- Proportional reasoning with ratios, rates, or scaling
+- Algebraic thinking with unknown quantities or pattern generalization
+- Logical-mathematical puzzles with digit or arithmetic constraints
+- Combinatorics and counting problems
+- Probability and likelihood reasoning
+- Fraction, percentage, or unit conversion reasoning
+- Age, distance, or work-rate relationship problems
+- Estimation and number sense problems
 """,
     QuestionType.VERBAL: """Generate a verbal reasoning question that tests language comprehension and reasoning.
 
@@ -164,20 +154,17 @@ Requirements:
 - Include an explanation of the relationship or reasoning
 - Use common vocabulary (avoid obscure or highly technical terms)
 
-GOLD STANDARD EXAMPLE:
-Question: "Book is to Chapter as Building is to ____"
-Options: ["Floor", "Brick", "Foundation", "Architect", "City"]
-Answer: "Floor"
-Explanation: "A book is divided into chapters; similarly, a building is divided into floors. The relationship is 'whole to major subdivision.' Brick is too small (a component), Foundation is a specific part, Architect is the creator, and City is a larger container."
-
-Quality notes: Tests hierarchical relationship reasoning, uses common words, distractors test different relationship types.
-
 Example types:
-- Analogies (testing various relationship types: part-whole, cause-effect, function, category)
-- Odd one out (identify item that doesn't share a property)
-- Word relationships (synonyms, antonyms, category membership)
-- Inference from context (complete a sentence where meaning determines the answer)
-- Semantic reasoning (which word fits a described relationship)
+- Analogies with part-whole relationships
+- Analogies with cause-effect or function relationships
+- Analogies with tool-user or creator-creation relationships
+- Odd one out identifying the item that doesn't share a category or property
+- Word classification grouping words by shared semantic feature
+- Sentence completion where context determines the correct word
+- Synonym or antonym selection
+- Semantic reasoning about described relationships
+- Sequence completion with conceptually ordered words
+- Verbal inference drawing a conclusion from a short statement
 """,
     QuestionType.MEMORY: """Generate a memory-based question that tests working memory and recall.
 
@@ -196,33 +183,239 @@ STRUCTURED FORMAT:
 - stimulus: The content the user must memorize (will be shown first, then hidden)
 - question_text: The question to answer after the stimulus is hidden (should NOT contain the stimulus)
 
-GOLD STANDARD EXAMPLE:
+Example types:
+- List recall with logical constraint (remember items, then answer question requiring reasoning)
+- Sequence memory with position-based recall
+- Detail recall from a short passage of 2-3 sentences
+- Pattern memory with number or letter sequences to recall and identify
+- Multi-step memory requiring remember, transform, and recall
+- Spatial memory recalling positions or arrangements
+- Associative memory recalling paired items or attributes
+- Temporal order memory recalling the sequence of events
+
+IMPORTANT: The stimulus field must contain ONLY the content to memorize.
+The question_text must be answerable only by someone who has memorized the stimulus.
+Do NOT embed the stimulus within the question_text.
+""",
+}
+
+# Pool of gold standard examples per question type, randomly selected at prompt
+# build time. Each call to build_generation_prompt() picks one example from the
+# pool, reducing anchoring bias toward any single question style.
+GOLD_STANDARD_EXAMPLES: Dict[QuestionType, List[str]] = {
+    QuestionType.PATTERN: [
+        # Example 1: Arithmetic progression (existing)
+        """GOLD STANDARD EXAMPLE:
+Question: "What comes next in the sequence? 3, 6, 11, 18, 27, ?"
+Options: ["36", "38", "40", "42", "44"]
+Answer: "38"
+Explanation: "Each number increases by consecutive odd numbers: +3, +5, +7, +9, +11. So 27 + 11 = 38."
+
+Quality notes: Clear progression rule, plausible distractors (other arithmetic progressions), concise wording.""",
+        # Example 2: Letter pattern
+        """GOLD STANDARD EXAMPLE:
+Question: "What letter comes next? B, D, G, K, P, ?"
+Options: ["T", "U", "V", "W", "X"]
+Answer: "V"
+Explanation: "The gaps between alphabetic positions increase by 1 each time: B→D (+2), D→G (+3), G→K (+4), K→P (+5), P→? (+6). P + 6 = V."
+
+Quality notes: Tests alphabetic position reasoning with increasing gaps, requires translating letters to ordinal positions.""",
+        # Example 3: Matrix pattern
+        """GOLD STANDARD EXAMPLE:
+Question: "In a 3×3 grid, the top row shows 2, 4, 6; the middle row shows 3, 6, 9; and the bottom row shows 5, 10, ?. What number replaces the question mark?"
+Options: ["12", "15", "20", "14", "25"]
+Answer: "15"
+Explanation: "Each row multiplies its first number by 1, 2, and 3. The bottom row: 5×1=5, 5×2=10, 5×3=15."
+
+Quality notes: Tests matrix pattern recognition, requires identifying row-level rules, plausible distractors from other operations.""",
+        # Example 4: Combined operation sequence
+        """GOLD STANDARD EXAMPLE:
+Question: "What comes next? 2, 6, 4, 12, 10, 30, ?"
+Options: ["28", "32", "26", "60", "90"]
+Answer: "28"
+Explanation: "The pattern alternates two operations: ×3, then −2. So 2×3=6, 6−2=4, 4×3=12, 12−2=10, 10×3=30, 30−2=28."
+
+Quality notes: Tests alternating dual-operation recognition, requires tracking two interleaved rules.""",
+    ],
+    QuestionType.LOGIC: [
+        # Example 1: Syllogism (existing)
+        """GOLD STANDARD EXAMPLE:
+Question: "All musicians can read sheet music. Some musicians are teachers. Which statement must be true?"
+Options: [
+  "All teachers can read sheet music",
+  "Some teachers can read sheet music",
+  "All people who read sheet music are musicians",
+  "Some musicians who teach cannot read sheet music"
+]
+Answer: "Some teachers can read sheet music"
+Explanation: "Since some musicians are teachers, and all musicians can read sheet music, it follows that at least some teachers (those who are musicians) can read sheet music. We cannot conclude that ALL teachers can read music since only some are musicians."
+
+Quality notes: Tests syllogistic reasoning, distractors exploit common logical fallacies, clear and unambiguous.""",
+        # Example 2: Conditional / contrapositive reasoning
+        """GOLD STANDARD EXAMPLE:
+Question: "If it rains, the ground gets wet. The ground is not wet. Which conclusion is valid?"
+Options: ["It rained", "It did not rain", "The ground is dry because of the sun", "It might have rained"]
+Answer: "It did not rain"
+Explanation: "This is modus tollens: If P then Q; Not Q; therefore Not P. Since the ground is not wet (not Q), it did not rain (not P). The other options either affirm the consequent or introduce unsupported causes."
+
+Quality notes: Tests contrapositive reasoning, distractors include affirming the consequent and irrelevant causal explanations.""",
+        # Example 3: Ordering / ranking puzzle
+        """GOLD STANDARD EXAMPLE:
+Question: "Four runners finished a race. Amy finished before Ben. Carlos finished after Diana. Ben finished before Diana. Who finished first?"
+Options: ["Amy", "Ben", "Diana", "Carlos"]
+Answer: "Amy"
+Explanation: "From the clues: Amy before Ben, Ben before Diana, Carlos after Diana. Combined order: Amy, Ben, Diana, Carlos. Amy finished first."
+
+Quality notes: Tests transitive ordering from comparative clues, requires combining multiple constraints into a single sequence.""",
+        # Example 4: Elimination puzzle
+        """GOLD STANDARD EXAMPLE:
+Question: "A prize is in one of three boxes: red, blue, or green. You're told: (1) The prize is not in the red box. (2) If the prize is in the blue box, then the note inside says 'Try again.' The blue box's note says 'Congratulations!' Which box has the prize?"
+Options: ["Red box", "Blue box", "Green box", "Cannot be determined"]
+Answer: "Green box"
+Explanation: "Clue 1 eliminates red. Clue 2 says if the prize were in blue, the note would say 'Try again,' but blue's note says 'Congratulations!' — a contradiction. So the prize is not in blue either. It must be in the green box."
+
+Quality notes: Tests process of elimination with conditional reasoning, requires identifying contradictions to narrow possibilities.""",
+    ],
+    QuestionType.SPATIAL: [
+        # Example 1: Cube rotation (existing)
+        """GOLD STANDARD EXAMPLE:
+Question: "A cube has different symbols on each face: ★ on top, ● on bottom, ■ on front, ▲ on back, ◆ on left, and ✦ on right. If you rotate the cube 90° forward (top face moves to front), then 90° clockwise (when viewed from above), which symbol is now on top?"
+Options: ["★", "●", "■", "▲", "◆"]
+Answer: "◆"
+Explanation: "After rotating forward 90°: ● moves to front, ★ moves to back, ■ moves to top, ▲ moves to bottom. Then rotating 90° clockwise from above: ◆ (left) moves to top."
+
+Quality notes: Tests sequential 3D visualization, requires mental manipulation, clear face labeling.""",
+        # Example 2: Cross-section
+        """GOLD STANDARD EXAMPLE:
+Question: "A right circular cone with height 12 cm and base radius 6 cm is sliced by a horizontal plane 4 cm above the base. What is the shape and radius of the cross-section?"
+Options: ["Circle, radius 4 cm", "Circle, radius 2 cm", "Ellipse, 4 cm wide", "Circle, radius 3 cm"]
+Answer: "Circle, radius 4 cm"
+Explanation: "A horizontal slice of a cone parallel to the base produces a circle. At height 4 from the base (8 from the apex), the radius scales linearly: r = 6 × (8/12) = 4 cm."
+
+Quality notes: Tests cross-section visualization and proportional spatial reasoning.""",
+        # Example 3: Map/compass navigation
+        """GOLD STANDARD EXAMPLE:
+Question: "Starting at point X, you walk 3 blocks North, turn right and walk 4 blocks, turn right and walk 1 block, then turn left and walk 2 blocks. What direction and approximate distance are you from point X in a straight line?"
+Options: ["Northeast, 5 blocks", "East, 6 blocks", "Southeast, 7 blocks", "Northeast, 6.3 blocks"]
+Answer: "Northeast, 6.3 blocks"
+Explanation: "Net displacement: East = 4 + 2 = 6 blocks, North = 3 − 1 = 2 blocks. Distance = √(6² + 2²) = √40 ≈ 6.3. Direction is Northeast (positive East and North)."
+
+Quality notes: Tests path integration and spatial orientation, requires tracking cumulative displacement.""",
+        # Example 4: Perspective taking
+        """GOLD STANDARD EXAMPLE:
+Question: "Three blocks are stacked: a large cube on the bottom, a medium cylinder on top of it, and a small sphere on top of the cylinder. What shape do you see when looking at this arrangement directly from the side (eye level with the middle object)?"
+Options: ["A square with a circle on top and a smaller circle above that", "A square with a rectangle on top and a circle above that", "A square topped by a rectangle topped by a semicircle", "A square topped by a rectangle topped by a circle"]
+Answer: "A square topped by a rectangle topped by a circle"
+Explanation: "From the side: the cube appears as a square, the cylinder appears as a rectangle (side profile), and the sphere appears as a circle. The shapes stack vertically."
+
+Quality notes: Tests 3D-to-2D projection reasoning, requires understanding of how solids project from different viewpoints.""",
+    ],
+    QuestionType.MATH: [
+        # Example 1: Number theory / LCM (existing)
+        """GOLD STANDARD EXAMPLE:
+Question: "A store sells apples in bags of 6 and oranges in bags of 8. If you buy the same number of apples and oranges, what is the minimum number of each fruit you must buy?"
+Options: ["12", "16", "24", "32", "48"]
+Answer: "24"
+Explanation: "We need the least common multiple (LCM) of 6 and 8. Factors: 6 = 2 × 3, 8 = 2³. LCM = 2³ × 3 = 24. You need 4 bags of apples (4 × 6 = 24) and 3 bags of oranges (3 × 8 = 24)."
+
+Quality notes: Tests LCM concept through practical context, requires reasoning not just calculation, appropriate distractors.""",
+        # Example 2: Probability
+        """GOLD STANDARD EXAMPLE:
+Question: "A bag contains 3 red marbles, 4 blue marbles, and 5 green marbles. If you draw two marbles without replacement, what is the probability that both are blue?"
+Options: ["1/11", "1/6", "4/33", "1/9", "2/12"]
+Answer: "1/11"
+Explanation: "P(first blue) = 4/12 = 1/3. P(second blue | first blue) = 3/11. P(both blue) = (4/12) × (3/11) = 12/132 = 1/11."
+
+Quality notes: Tests probability reasoning with dependent events, requires understanding sampling without replacement.""",
+        # Example 3: Proportional reasoning
+        """GOLD STANDARD EXAMPLE:
+Question: "A recipe serves 4 people and requires 2/3 cup of flour. How much flour is needed to serve 10 people?"
+Options: ["5/3 cups", "10/3 cups", "5/6 cup", "2 cups", "4/3 cups"]
+Answer: "5/3 cups"
+Explanation: "Scaling factor = 10/4 = 5/2. Flour needed = (2/3) × (5/2) = 10/6 = 5/3 cups."
+
+Quality notes: Tests proportional scaling with fractions, practical everyday context, requires fraction multiplication.""",
+        # Example 4: Combinatorics
+        """GOLD STANDARD EXAMPLE:
+Question: "How many different 3-letter arrangements can be made from the letters A, B, C, D if no letter may be repeated?"
+Options: ["12", "24", "64", "6", "27"]
+Answer: "24"
+Explanation: "This is a permutation: 4 choices for the first letter, 3 for the second, 2 for the third. 4 × 3 × 2 = 24."
+
+Quality notes: Tests combinatorial thinking, requires understanding ordered selection without replacement.""",
+    ],
+    QuestionType.VERBAL: [
+        # Example 1: Part-whole analogy (existing)
+        """GOLD STANDARD EXAMPLE:
+Question: "Book is to Chapter as Building is to ____"
+Options: ["Floor", "Brick", "Foundation", "Architect", "City"]
+Answer: "Floor"
+Explanation: "A book is divided into chapters; similarly, a building is divided into floors. The relationship is 'whole to major subdivision.' Brick is too small (a component), Foundation is a specific part, Architect is the creator, and City is a larger container."
+
+Quality notes: Tests hierarchical relationship reasoning, uses common words, distractors test different relationship types.""",
+        # Example 2: Odd one out
+        """GOLD STANDARD EXAMPLE:
+Question: "Which word does NOT belong with the others? Whisper, Shout, Mumble, Write, Murmur"
+Options: ["Whisper", "Shout", "Mumble", "Write", "Murmur"]
+Answer: "Write"
+Explanation: "Whisper, Shout, Mumble, and Murmur are all ways of producing vocal sound. Write is a form of communication but does not involve vocalization."
+
+Quality notes: Tests categorical classification by shared semantic property, uses common vocabulary with a subtle but clear distinction.""",
+        # Example 3: Sentence completion
+        """GOLD STANDARD EXAMPLE:
+Question: "Despite the team's early setbacks, their ____ determination led them to an unexpected victory."
+Options: ["wavering", "unwavering", "halfhearted", "token", "questionable"]
+Answer: "unwavering"
+Explanation: "'Despite early setbacks' signals a contrast — the team overcame obstacles. 'Unwavering' (steady, firm) fits because their steady determination contrasts with setbacks. The other options would agree with setbacks rather than contrasting them."
+
+Quality notes: Tests contextual vocabulary and contrast-signal comprehension, requires understanding sentence-level logical structure.""",
+        # Example 4: Function analogy
+        """GOLD STANDARD EXAMPLE:
+Question: "Telescope is to Distant as Microscope is to ____"
+Options: ["Small", "Large", "Near", "Scientific", "Glass"]
+Answer: "Small"
+Explanation: "A telescope is used to see distant objects; a microscope is used to see small objects. The relationship is 'instrument to the quality of what it reveals.' Large is the opposite, Near confuses physical distance with scale, and Scientific and Glass describe attributes of the tool itself."
+
+Quality notes: Tests functional analogy reasoning with instruments, distractors target different relationship interpretations.""",
+    ],
+    QuestionType.MEMORY: [
+        # Example 1: List recall with logical constraint (existing)
+        """GOLD STANDARD EXAMPLE:
 stimulus: "maple, oak, dolphin, cherry, whale, birch, salmon"
 question_text: "Which item from the list is a mammal that is NOT the fourth item?"
 Options: ["dolphin", "whale", "salmon", "cherry", "oak"]
 Answer: "whale"
 Explanation: "The mammals in the list are dolphin and whale. The fourth item is cherry (not a mammal). Therefore, whale is the mammal that is not the fourth item."
 
-Quality notes: Tests both memory retention and logical reasoning, stimulus is separate from question, appropriate cognitive load.
-
-ANOTHER EXAMPLE:
+Quality notes: Tests both memory retention and logical reasoning, stimulus is separate from question, appropriate cognitive load.""",
+        # Example 2: Detail recall from a short passage (existing)
+        """GOLD STANDARD EXAMPLE:
 stimulus: "The red house is next to the blue house. The green house is across from the yellow house. A doctor lives in the blue house."
 question_text: "Which house is next to the one where the doctor lives?"
 Options: ["red house", "green house", "yellow house", "blue house"]
 Answer: "red house"
 Explanation: "The doctor lives in the blue house, and the red house is next to the blue house."
 
-Example types:
-- List recall with logical constraint (remember items, then answer question requiring reasoning)
-- Sequence memory (position-based recall)
-- Detail recall from short passage (2-3 sentences)
-- Pattern memory (number/letter sequences to recall and identify)
-- Multi-step memory (remember, transform, recall)
+Quality notes: Tests relational memory and spatial inference from memorized statements.""",
+        # Example 3: Sequence memory with position-based recall
+        """GOLD STANDARD EXAMPLE:
+stimulus: "7, K, 3, P, 9, A, 5, M"
+question_text: "What is the fifth item in the sequence, and what type is it (letter or number)?"
+Options: ["9, number", "P, letter", "A, letter", "5, number"]
+Answer: "9, number"
+Explanation: "The sequence is: 7(1st), K(2nd), 3(3rd), P(4th), 9(5th), A(6th), 5(7th), M(8th). The fifth item is 9, which is a number."
 
-IMPORTANT: The stimulus field must contain ONLY the content to memorize.
-The question_text must be answerable only by someone who has memorized the stimulus.
-Do NOT embed the stimulus within the question_text.
-""",
+Quality notes: Tests sequential position recall with mixed-type items, requires precise ordinal memory.""",
+        # Example 4: Temporal order memory
+        """GOLD STANDARD EXAMPLE:
+stimulus: "First, the bell rang. Then, the lights flickered. Next, a door slammed shut. After that, someone laughed. Finally, music began playing."
+question_text: "Which event occurred immediately before the door slammed shut?"
+Options: ["The bell rang", "The lights flickered", "Someone laughed", "Music began playing"]
+Answer: "The lights flickered"
+Explanation: "The sequence of events: bell rang, lights flickered, door slammed, someone laughed, music began. The event immediately before the door slammed was the lights flickering."
+
+Quality notes: Tests temporal sequence memory, requires recall of event order from a narrative passage.""",
+    ],
 }
 
 # Difficulty-specific instructions
@@ -260,6 +453,202 @@ DIFFICULTY_INSTRUCTIONS: Dict[DifficultyLevel, str] = {
 """,
 }
 
+# Type+difficulty-specific overrides that replace the generic DIFFICULTY_INSTRUCTIONS
+# when the combination matches. This allows fine-tuning difficulty constraints for
+# question types where the generic instructions produce misaligned difficulty (e.g.,
+# easy math questions that are actually medium-difficulty word problems).
+TYPE_DIFFICULTY_OVERRIDES: Dict[tuple[QuestionType, DifficultyLevel], str] = {
+    (
+        QuestionType.MATH,
+        DifficultyLevel.EASY,
+    ): """Difficulty: EASY
+- Single arithmetic operation only — NO chaining multiple steps
+- Use whole numbers with small values (under 100)
+- NO percentages, fractions, ratios, or unit conversions
+- NO multi-step word problems
+- Basic addition, subtraction, multiplication, or division only
+- The question should be solvable in one mental step
+- Target success rate: ~70-80% of general population
+- IQ range: Effectively measures differences in the 85-115 range
+- Discriminatory power: Should still differentiate between average and above-average
+""",
+}
+
+# Sub-types for each question type, extracted from the "Example types" lists
+# in QUESTION_TYPE_PROMPTS. Used by the batch chunking system to assign each
+# sub-batch a different focus area, reducing mode collapse in large batches.
+QUESTION_SUBTYPES: Dict[QuestionType, List[str]] = {
+    QuestionType.PATTERN: [
+        "number sequences with arithmetic progressions",
+        "number sequences with geometric or multiplicative rules",
+        "letter patterns using alphabetic positions or skip patterns",
+        "alternating or interleaved dual sequences",
+        "recursive patterns where each term depends on previous terms",
+        "matrix patterns describing a 3x3 grid with one missing cell",
+        "shape or symbol transformation sequences",
+        "modular arithmetic or cyclic patterns",
+        "difference-of-differences (second-order) sequences",
+        "combined operation sequences (e.g., +2, ×3, +2, ×3)",
+    ],
+    QuestionType.LOGIC: [
+        "syllogisms (All A are B, Some B are C, therefore...)",
+        "if-then conditional reasoning with valid and invalid inferences",
+        "set theory and Venn diagram logic",
+        "ordering and ranking puzzles from comparative clues",
+        "truth-teller and liar puzzles",
+        "necessary vs. sufficient condition identification",
+        "elimination puzzles using process of elimination",
+        "logical equivalence and contrapositive reasoning",
+        "multi-constraint deductive puzzles (Einstein-style, simplified)",
+        "categorical classification with overlapping properties",
+    ],
+    QuestionType.SPATIAL: [
+        "cube rotations tracking labeled faces through sequential turns",
+        "paper folding with holes or cuts, predicting unfolded result",
+        "2D net folding into 3D cubes or boxes",
+        "mirror and reflection of 2D shapes across an axis",
+        "cross-section identification from slicing a 3D solid",
+        "mental rotation of 2D shapes (which rotated shape matches?)",
+        "map or compass navigation (follow directions, determine final position)",
+        "shape fitting or tangram-style assembly into a target outline",
+        "perspective taking (what does a 3D object look like from another angle?)",
+        "symmetry identification (line/rotational symmetry of a figure)",
+        "coordinate grid transformations (translate, rotate, reflect a shape on a grid)",
+        "counting faces, edges, or vertices of described 3D objects",
+    ],
+    QuestionType.MATH: [
+        "word problems with practical everyday contexts",
+        "number theory involving LCM, GCD, or divisibility",
+        "proportional reasoning with ratios, rates, or scaling",
+        "algebraic thinking with unknown quantities or pattern generalization",
+        "logical-mathematical puzzles with digit or arithmetic constraints",
+        "combinatorics and counting problems",
+        "probability and likelihood reasoning",
+        "fraction, percentage, or unit conversion reasoning",
+        "age, distance, or work-rate relationship problems",
+        "estimation and number sense problems",
+    ],
+    QuestionType.VERBAL: [
+        "analogies with part-whole relationships",
+        "analogies with cause-effect or function relationships",
+        "analogies with tool-user or creator-creation relationships",
+        "odd one out identifying the item that doesn't share a category or property",
+        "word classification grouping words by shared semantic feature",
+        "sentence completion where context determines the correct word",
+        "synonym or antonym selection",
+        "semantic reasoning about described relationships",
+        "sequence completion with conceptually ordered words",
+        "verbal inference drawing a conclusion from a short statement",
+    ],
+    QuestionType.MEMORY: [
+        "list recall with logical constraint",
+        "sequence memory with position-based recall",
+        "detail recall from a short passage of 2-3 sentences",
+        "pattern memory with number or letter sequences to recall and identify",
+        "multi-step memory requiring remember, transform, and recall",
+        "spatial memory recalling positions or arrangements",
+        "associative memory recalling paired items or attributes",
+        "temporal order memory recalling the sequence of events",
+    ],
+}
+
+# Mapping from sub-type strings (as found in QUESTION_SUBTYPES) to their
+# matching gold standard example.  When build_generation_prompt() is called
+# with a specific subtype, this mapping is consulted so the single example
+# shown to the LLM reinforces—rather than contradicts—the assigned sub-type.
+GOLD_STANDARD_BY_SUBTYPE: Dict[str, str] = {
+    # Pattern
+    "number sequences with arithmetic progressions": GOLD_STANDARD_EXAMPLES[
+        QuestionType.PATTERN
+    ][0],
+    "letter patterns using alphabetic positions or skip patterns": GOLD_STANDARD_EXAMPLES[
+        QuestionType.PATTERN
+    ][
+        1
+    ],
+    "matrix patterns describing a 3x3 grid with one missing cell": GOLD_STANDARD_EXAMPLES[
+        QuestionType.PATTERN
+    ][
+        2
+    ],
+    "combined operation sequences (e.g., +2, ×3, +2, ×3)": GOLD_STANDARD_EXAMPLES[
+        QuestionType.PATTERN
+    ][3],
+    # Logic
+    "syllogisms (All A are B, Some B are C, therefore...)": GOLD_STANDARD_EXAMPLES[
+        QuestionType.LOGIC
+    ][0],
+    "logical equivalence and contrapositive reasoning": GOLD_STANDARD_EXAMPLES[
+        QuestionType.LOGIC
+    ][1],
+    "ordering and ranking puzzles from comparative clues": GOLD_STANDARD_EXAMPLES[
+        QuestionType.LOGIC
+    ][2],
+    "elimination puzzles using process of elimination": GOLD_STANDARD_EXAMPLES[
+        QuestionType.LOGIC
+    ][3],
+    # Spatial
+    "cube rotations tracking labeled faces through sequential turns": GOLD_STANDARD_EXAMPLES[
+        QuestionType.SPATIAL
+    ][
+        0
+    ],
+    "cross-section identification from slicing a 3D solid": GOLD_STANDARD_EXAMPLES[
+        QuestionType.SPATIAL
+    ][1],
+    "map or compass navigation (follow directions, determine final position)": GOLD_STANDARD_EXAMPLES[
+        QuestionType.SPATIAL
+    ][
+        2
+    ],
+    "perspective taking (what does a 3D object look like from another angle?)": GOLD_STANDARD_EXAMPLES[
+        QuestionType.SPATIAL
+    ][
+        3
+    ],
+    # Math
+    "number theory involving LCM, GCD, or divisibility": GOLD_STANDARD_EXAMPLES[
+        QuestionType.MATH
+    ][0],
+    "probability and likelihood reasoning": GOLD_STANDARD_EXAMPLES[QuestionType.MATH][
+        1
+    ],
+    "proportional reasoning with ratios, rates, or scaling": GOLD_STANDARD_EXAMPLES[
+        QuestionType.MATH
+    ][2],
+    "combinatorics and counting problems": GOLD_STANDARD_EXAMPLES[QuestionType.MATH][3],
+    # Verbal
+    "analogies with part-whole relationships": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][0],
+    "odd one out identifying the item that doesn't share a category or property": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        1
+    ],
+    "sentence completion where context determines the correct word": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][
+        2
+    ],
+    "analogies with cause-effect or function relationships": GOLD_STANDARD_EXAMPLES[
+        QuestionType.VERBAL
+    ][3],
+    # Memory
+    "list recall with logical constraint": GOLD_STANDARD_EXAMPLES[QuestionType.MEMORY][
+        0
+    ],
+    "detail recall from a short passage of 2-3 sentences": GOLD_STANDARD_EXAMPLES[
+        QuestionType.MEMORY
+    ][1],
+    "sequence memory with position-based recall": GOLD_STANDARD_EXAMPLES[
+        QuestionType.MEMORY
+    ][2],
+    "temporal order memory recalling the sequence of events": GOLD_STANDARD_EXAMPLES[
+        QuestionType.MEMORY
+    ][3],
+}
+
 # JSON response format specification
 JSON_RESPONSE_FORMAT = {
     "type": "object",
@@ -288,7 +677,10 @@ JSON_RESPONSE_FORMAT = {
 
 
 def build_generation_prompt(
-    question_type: QuestionType, difficulty: DifficultyLevel, count: int = 1
+    question_type: QuestionType,
+    difficulty: DifficultyLevel,
+    count: int = 1,
+    subtype: Optional[str] = None,
 ) -> str:
     """Build a complete generation prompt for a specific question type and difficulty.
 
@@ -296,12 +688,56 @@ def build_generation_prompt(
         question_type: Type of question to generate
         difficulty: Difficulty level
         count: Number of questions to generate (default: 1)
+        subtype: Optional sub-type focus for diversity (e.g., "cube rotations").
+            When provided, the prompt is tailored to generate only that sub-type:
+            the gold standard example is matched, the "Example types" list is
+            narrowed, and a mandatory sub-type directive is included.
 
     Returns:
         Complete prompt string for the LLM
     """
     type_prompt = QUESTION_TYPE_PROMPTS[question_type]
-    diff_instructions = DIFFICULTY_INSTRUCTIONS[difficulty]
+    diff_instructions = TYPE_DIFFICULTY_OVERRIDES.get(
+        (question_type, difficulty), DIFFICULTY_INSTRUCTIONS[difficulty]
+    )
+
+    # When a subtype is specified, narrow the "Example types" list to just that
+    # subtype so the LLM doesn't see the full menu and pick its favorite.
+    if subtype:
+        type_prompt = re.sub(
+            r"Example types:\n(?:- .*\n)+",
+            f"Example types:\n- {subtype}\n",
+            type_prompt,
+        )
+
+    # Select gold standard example: prefer subtype-specific match to reduce
+    # anchoring on an unrelated example that contradicts the assigned subtype.
+    if subtype and subtype in GOLD_STANDARD_BY_SUBTYPE:
+        gold_standard = GOLD_STANDARD_BY_SUBTYPE[subtype]
+        gold_source = "subtype-matched"
+    else:
+        gold_standard = random.choice(GOLD_STANDARD_EXAMPLES[question_type])
+        gold_source = "random"
+
+    # Extract a short label from the gold standard for logging (first Question line)
+    gold_label = (
+        gold_standard.split('Question: "')[1].split('"')[0][:60]
+        if 'Question: "' in gold_standard
+        else "unknown"
+    )
+    logger.info(
+        f"Prompt config: type={question_type.value}, subtype={subtype!r}, "
+        f"gold_standard={gold_source} ({gold_label}...)"
+    )
+
+    # Build optional diversity instruction for sub-batch focus
+    diversity_instruction = ""
+    if subtype:
+        diversity_instruction = f"""
+REQUIRED SUB-TYPE: You MUST generate '{subtype}' questions for this batch.
+Do NOT generate questions of other sub-types (e.g., do not generate cube rotation questions if the required sub-type is mirror/reflection).
+Vary the specific scenarios, objects, and transformations within this sub-type.
+"""
 
     # Memory questions use a two-phase UX: the stimulus is shown first, then hidden
     # before the question appears. The inline conditional below adds a "stimulus"
@@ -312,8 +748,10 @@ def build_generation_prompt(
 
 {type_prompt}
 
-{diff_instructions}
+{gold_standard}
 
+{diff_instructions}
+{diversity_instruction}
 Generate {count} unique, high-quality {"question" if count == 1 else "questions"} of type '{question_type.value}' at '{difficulty.value}' difficulty.
 
 IMPORTANT: Respond with valid JSON only. Do not include any text outside the JSON structure.
@@ -398,11 +836,12 @@ Evaluate the following question across these criteria:
    - Can it be understood without multiple readings?
 
 2. DIFFICULTY (0.0-1.0):
-   - Is difficulty appropriate for {difficulty} level?
-   - EASY: ~70-80% success rate, tests basic understanding
-   - MEDIUM: ~40-60% success rate, requires multi-step reasoning
-   - HARD: ~10-30% success rate, requires abstract/creative thinking
-   - Does cognitive demand match the target, not just obscure knowledge?
+   - Rate the ACTUAL cognitive difficulty of this question on an absolute scale:
+     0.0-0.3 = Easy (single-step, basic recall/recognition, ~70-80% success rate)
+     0.4-0.6 = Medium (multi-step reasoning, integration of concepts, ~40-60% success rate)
+     0.7-1.0 = Hard (abstract/creative thinking, complex working memory, ~10-30% success rate)
+   - Score the question's inherent difficulty, regardless of the target level ({difficulty})
+   - Base your rating on cognitive demand, not obscure knowledge
 
 3. VALIDITY (0.0-1.0):
    - Does it genuinely measure {question_type} cognitive ability?
@@ -484,6 +923,9 @@ def build_regeneration_prompt(
     type_prompt = QUESTION_TYPE_PROMPTS[question_type]
     diff_instructions = DIFFICULTY_INSTRUCTIONS[difficulty]
 
+    # Randomly select a gold standard example to reduce anchoring bias
+    gold_standard = random.choice(GOLD_STANDARD_EXAMPLES[question_type])
+
     # Identify the weakest areas to focus improvement
     weak_areas = []
     for score_name, score_value in scores.items():
@@ -515,6 +957,8 @@ def build_regeneration_prompt(
     prompt = f"""{SYSTEM_PROMPT}
 
 {type_prompt}
+
+{gold_standard}
 
 {diff_instructions}
 

@@ -194,6 +194,118 @@ class TestGeneratorAssignment:
         )
 
 
+class TestMaxBatchSizeConfig:
+    """Tests for max_batch_size field on GeneratorAssignment."""
+
+    def test_max_batch_size_defaults_to_none(self):
+        """Test that max_batch_size defaults to None when omitted."""
+        assignment = GeneratorAssignment(
+            provider="openai",
+            rationale="Test rationale",
+        )
+        assert assignment.max_batch_size is None
+
+    def test_max_batch_size_accepts_positive_int(self):
+        """Test that max_batch_size accepts a positive integer."""
+        assignment = GeneratorAssignment(
+            provider="openai",
+            rationale="Test rationale",
+            max_batch_size=10,
+        )
+        assert assignment.max_batch_size == 10
+
+    def test_max_batch_size_rejects_zero(self):
+        """Test that max_batch_size=0 raises validation error."""
+        with pytest.raises(ValidationError, match="max_batch_size must be positive"):
+            GeneratorAssignment(
+                provider="openai",
+                rationale="Test rationale",
+                max_batch_size=0,
+            )
+
+    def test_max_batch_size_rejects_negative(self):
+        """Test that negative max_batch_size raises validation error."""
+        with pytest.raises(ValidationError, match="max_batch_size must be positive"):
+            GeneratorAssignment(
+                provider="openai",
+                rationale="Test rationale",
+                max_batch_size=-5,
+            )
+
+    def test_max_batch_size_parsed_from_yaml(self):
+        """Test that max_batch_size is correctly parsed from a YAML config file."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {"provider": "openai", "rationale": "r"},
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {
+                    "provider": "openai",
+                    "rationale": "Patterns",
+                    "max_batch_size": 10,
+                },
+                "spatial": {
+                    "provider": "openai",
+                    "rationale": "Spatial",
+                    "max_batch_size": 15,
+                },
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            config = loader.load()
+
+            assert config.generators["pattern"].max_batch_size == 10
+            assert config.generators["spatial"].max_batch_size == 15
+            assert config.generators["math"].max_batch_size is None
+            assert config.generators["verbal"].max_batch_size is None
+        finally:
+            temp_path.unlink()
+
+    def test_get_max_batch_size_returns_configured_value(self):
+        """Test that get_max_batch_size returns the configured value for a type."""
+        config_dict = {
+            "version": "1.0",
+            "generators": {
+                "math": {"provider": "openai", "rationale": "r"},
+                "logic": {"provider": "openai", "rationale": "r"},
+                "pattern": {
+                    "provider": "openai",
+                    "rationale": "Patterns",
+                    "max_batch_size": 10,
+                },
+                "spatial": {"provider": "openai", "rationale": "r"},
+                "verbal": {"provider": "openai", "rationale": "r"},
+                "memory": {"provider": "openai", "rationale": "r"},
+            },
+            "default_generator": {"provider": "openai", "rationale": "Default"},
+            "use_specialist_routing": True,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_dict, f)
+            temp_path = Path(f.name)
+
+        try:
+            loader = GeneratorConfigLoader(temp_path)
+            loader.load()
+
+            assert loader.get_max_batch_size("pattern") == 10
+            assert loader.get_max_batch_size("math") is None
+            assert loader.get_max_batch_size("unknown_type") is None
+        finally:
+            temp_path.unlink()
+
+
 class TestGeneratorConfig:
     """Tests for GeneratorConfig validation."""
 
@@ -813,21 +925,21 @@ class TestProductionGeneratorsYaml:
         configured_types = set(config.generators.keys())
         assert required_types == configured_types
 
-    def test_generators_yaml_pattern_uses_google(self, production_config_path):
-        """Test that pattern questions use Google provider."""
+    def test_generators_yaml_pattern_uses_openai(self, production_config_path):
+        """Test that pattern questions use OpenAI provider."""
         loader = GeneratorConfigLoader(production_config_path)
         config = loader.load()
 
-        assert config.generators["pattern"].provider == "google"
-        assert config.generators["pattern"].model == "gemini-3-pro-preview"
+        assert config.generators["pattern"].provider == "openai"
+        assert config.generators["pattern"].model == "gpt-5.2"
 
-    def test_generators_yaml_spatial_uses_google(self, production_config_path):
-        """Test that spatial questions use Google provider."""
+    def test_generators_yaml_spatial_uses_openai(self, production_config_path):
+        """Test that spatial questions use OpenAI provider."""
         loader = GeneratorConfigLoader(production_config_path)
         config = loader.load()
 
-        assert config.generators["spatial"].provider == "google"
-        assert config.generators["spatial"].model == "gemini-3-pro-preview"
+        assert config.generators["spatial"].provider == "openai"
+        assert config.generators["spatial"].model == "gpt-5.2"
 
     def test_generators_yaml_math_uses_xai(self, production_config_path):
         """Test that math questions use xAI provider."""
@@ -853,13 +965,13 @@ class TestProductionGeneratorsYaml:
         assert config.generators["verbal"].provider == "anthropic"
         assert config.generators["verbal"].model == "claude-sonnet-4-5-20250929"
 
-    def test_generators_yaml_memory_uses_anthropic(self, production_config_path):
-        """Test that memory questions use Anthropic provider."""
+    def test_generators_yaml_memory_uses_google(self, production_config_path):
+        """Test that memory questions use Google provider."""
         loader = GeneratorConfigLoader(production_config_path)
         config = loader.load()
 
-        assert config.generators["memory"].provider == "anthropic"
-        assert config.generators["memory"].model == "claude-sonnet-4-5-20250929"
+        assert config.generators["memory"].provider == "google"
+        assert config.generators["memory"].model == "gemini-3-pro-preview"
 
     def test_generators_yaml_has_default_generator(self, production_config_path):
         """Test that default generator is configured."""

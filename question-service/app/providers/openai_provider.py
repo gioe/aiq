@@ -1,6 +1,7 @@
 """OpenAI LLM provider integration."""
 
 import json
+import logging
 from typing import Any, Dict, Optional
 
 import openai
@@ -10,8 +11,17 @@ from ..cost_tracking import CompletionResult, TokenUsage
 from .base import BaseLLMProvider
 
 
+logger = logging.getLogger(__name__)
+
+
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI API integration for question generation and evaluation."""
+
+    # Models that require max_completion_tokens instead of max_tokens.
+    # These reasoning models use internal chain-of-thought that consumes
+    # the completion token budget, so they need a higher limit.
+    _MAX_COMPLETION_TOKENS_MODELS = ("gpt-5", "o1", "o3", "o4")
+    _REASONING_TOKEN_MULTIPLIER = 4
 
     def __init__(
         self,
@@ -30,6 +40,23 @@ class OpenAIProvider(BaseLLMProvider):
         super().__init__(api_key, model)
         self.client = OpenAI(api_key=api_key, organization=organization)
         self.async_client = AsyncOpenAI(api_key=api_key, organization=organization)
+
+    def _uses_max_completion_tokens(self, model: str) -> bool:
+        """Check if a model requires max_completion_tokens instead of max_tokens."""
+        return model.startswith(self._MAX_COMPLETION_TOKENS_MODELS)
+
+    def _token_limit_kwargs(self, model: str, max_tokens: int) -> Dict[str, int]:
+        """Return the correct token limit parameter for the given model.
+
+        Reasoning models (GPT-5.x, o1, o3, o4) use internal chain-of-thought
+        that consumes the completion token budget. The requested max_tokens
+        is multiplied to leave room for both reasoning and output.
+        """
+        if self._uses_max_completion_tokens(model):
+            return {
+                "max_completion_tokens": max_tokens * self._REASONING_TOKEN_MULTIPLIER,
+            }
+        return {"max_tokens": max_tokens}
 
     def generate_completion(
         self,
@@ -59,11 +86,11 @@ class OpenAIProvider(BaseLLMProvider):
 
         def _make_request() -> str:
             try:
-                response = self.client.chat.completions.create(
+                response = self.client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
                 return response.choices[0].message.content or ""
@@ -106,11 +133,11 @@ class OpenAIProvider(BaseLLMProvider):
                 # Add JSON mode instruction to the prompt
                 json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-                response = self.client.chat.completions.create(
+                response = self.client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     response_format={"type": "json_object"},
                     **kwargs,
                 )
@@ -170,11 +197,11 @@ class OpenAIProvider(BaseLLMProvider):
 
         async def _make_request() -> str:
             try:
-                response = await self.async_client.chat.completions.create(
+                response = await self.async_client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
                 return response.choices[0].message.content or ""
@@ -217,11 +244,11 @@ class OpenAIProvider(BaseLLMProvider):
                 # Add JSON mode instruction to the prompt
                 json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-                response = await self.async_client.chat.completions.create(
+                response = await self.async_client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     response_format={"type": "json_object"},
                     **kwargs,
                 )
@@ -260,11 +287,11 @@ class OpenAIProvider(BaseLLMProvider):
 
         def _make_request() -> CompletionResult:
             try:
-                response = self.client.chat.completions.create(
+                response = self.client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
 
@@ -316,11 +343,11 @@ class OpenAIProvider(BaseLLMProvider):
                 # Add JSON mode instruction to the prompt
                 json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-                response = self.client.chat.completions.create(
+                response = self.client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     response_format={"type": "json_object"},
                     **kwargs,
                 )
@@ -371,11 +398,11 @@ class OpenAIProvider(BaseLLMProvider):
 
         async def _make_request() -> CompletionResult:
             try:
-                response = await self.async_client.chat.completions.create(
+                response = await self.async_client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
 
@@ -427,16 +454,25 @@ class OpenAIProvider(BaseLLMProvider):
                 # Add JSON mode instruction to the prompt
                 json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
 
-                response = await self.async_client.chat.completions.create(
+                response = await self.async_client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
                     messages=[{"role": "user", "content": json_prompt}],
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    **self._token_limit_kwargs(model_to_use, max_tokens),
                     response_format={"type": "json_object"},
                     **kwargs,
                 )
 
-                raw_content = response.choices[0].message.content or "{}"
+                raw_content = response.choices[0].message.content
+                if not raw_content:
+                    logger.warning(
+                        "OpenAI async structured response had empty content. "
+                        "finish_reason=%s, usage=%s, model=%s",
+                        response.choices[0].finish_reason,
+                        response.usage,
+                        model_to_use,
+                    )
+                    raw_content = "{}"
                 content = json.loads(raw_content)
 
                 # Extract actual token usage from response

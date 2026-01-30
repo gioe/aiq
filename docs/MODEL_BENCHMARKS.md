@@ -22,9 +22,9 @@ AIQ integrates with four major LLM providers:
 
 | Provider | Current Default Model | Primary Use Case |
 |----------|----------------------|------------------|
-| **Anthropic** | claude-sonnet-4-5-20250929 | Logic, Verbal, Memory evaluation |
-| **Google** | gemini-2.5-pro | Pattern, Spatial evaluation |
-| **OpenAI** | gpt-4-turbo-preview | General-purpose fallback |
+| **Anthropic** | claude-sonnet-4-5-20250929 | Logic, Verbal evaluation |
+| **Google** | gemini-3-pro-preview | Memory evaluation; Spatial fallback |
+| **OpenAI** | gpt-5.2 | Pattern, Spatial evaluation; Math/Logic fallback |
 | **xAI** | grok-4 | Mathematical reasoning |
 
 ### Available Models by Provider
@@ -91,12 +91,10 @@ The following table shows which models excel at each cognitive task type used in
 |-----------|------------|----------|---------------|-------|
 | **Math** | grok-4 | xAI | AIME 2024 | 100% |
 | **Logic** | claude-sonnet-4-5 | Anthropic | SWE-bench | 77-82% |
-| **Pattern** | gemini-3-pro-preview | Google | ARC-AGI-2 | 31.1% |
-| **Spatial** | gemini-3-pro-preview | Google | ARC-AGI-2 | 31.1%* |
+| **Pattern** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
+| **Spatial** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
 | **Verbal** | claude-sonnet-4-5 | Anthropic | HellaSwag | ~95% |
-| **Memory** | claude-sonnet-4-5 | Anthropic | MMLU | 89% |
-
-*Uses standard mode. Deep Think mode (45.1%) is not currently enabled.
+| **Memory** | gemini-3-pro | Google | MMLU + 1M context | 91.8% |
 
 ## Detailed Benchmark Data
 
@@ -104,13 +102,14 @@ The following table shows which models excel at each cognitive task type used in
 
 Mathematical reasoning is critical for evaluating IQ questions involving numerical patterns, algebraic problems, and quantitative logic.
 
-| Model | GSM8K | AIME 2024 | USAMO 2025 | MATH | MMLU-Math |
-|-------|-------|-----------|------------|------|-----------|
-| **grok-4** | 95.2% | **100%** | **61.9%** | - | 92.1% |
-| claude-opus-4-5 | 96.4% | - | - | 96.4% | - |
-| claude-sonnet-4-5 | - | - | - | - | 89% |
-| gemini-3-pro-preview | - | - | - | - | - |
-| gpt-4-turbo | 92.0% | - | - | 52.9% | - |
+| Model | GSM8K | AIME 2024 | AIME 2025 | USAMO 2025 | MATH | FrontierMath |
+|-------|-------|-----------|-----------|------------|------|--------------|
+| **grok-4** | 95.2% | **100%** | 93.0% | **61.9%** | - | 13.0% |
+| **gpt-5.2** | 99.0% | - | **100%** | - | - | **40.3%** |
+| claude-opus-4-5 | 96.4% | - | 92.8% | - | 96.4% | 21.0% |
+| claude-sonnet-4-5 | 98.0% | - | 87.0% | - | - | - |
+| gemini-3-pro-preview | - | - | 95% | - | - | 38.0% |
+| gpt-4-turbo | 92.0% | - | - | - | 52.9% | - |
 
 **Selected for Math Evaluation:** `grok-4` (xAI)
 
@@ -120,13 +119,14 @@ Mathematical reasoning is critical for evaluating IQ questions involving numeric
 
 Logical reasoning benchmarks assess the ability to evaluate deductive reasoning, code logic, and structured problem-solving.
 
-| Model | HumanEval | GPQA Diamond | SWE-bench | LiveCodeBench |
-|-------|-----------|--------------|-----------|---------------|
-| **claude-sonnet-4-5** | >95% | 83.4% | **77-82%** | - |
-| claude-opus-4-5 | 97.6% | 83.3% | 72.5% | - |
-| gemini-3-pro-preview | - | 91.9% | - | - |
-| gpt-4-turbo | 87.1% | - | - | - |
-| grok-4 | - | - | - | - |
+| Model | HumanEval | GPQA Diamond | SWE-bench Verified | SWE-bench Pro | LiveCodeBench |
+|-------|-----------|--------------|-------------------|---------------|---------------|
+| **claude-sonnet-4-5** | >95% | 83.4% | **77-82%** | - | - |
+| claude-opus-4-5 | 97.6% | 83.3% | 80.9% | - | - |
+| gpt-5.2 | - | **92.4-93.2%** | 80.0% | 55.6% | - |
+| gemini-3-pro-preview | - | 91.9% | 76.2% | - | - |
+| gpt-4-turbo | 87.1% | - | - | - | - |
+| grok-4 | - | 88.0% | 72.0% | - | - |
 
 **Selected for Logic Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
@@ -136,43 +136,49 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 
 Pattern recognition benchmarks measure abstract reasoning and the ability to identify underlying structures.
 
-| Model | ARC-AGI-2 | ARC-AGI-2 (Deep Think)* | MMMU-Pro | Visual Reasoning |
-|-------|-----------|-------------------------|----------|------------------|
-| **gemini-3-pro-preview** | **31.1%** | 45.1% | 81.0% | 62% |
-| claude-sonnet-4-5 | - | - | - | - |
+| Model | ARC-AGI-2 | ARC-AGI-2 (Deep Think/Pro)* | MMMU-Pro | Visual Reasoning |
+|-------|-----------|----------------------------|----------|------------------|
+| **gpt-5.2** | **52.9%** | **54.2%** (Pro) | **86.5%** | - |
+| gemini-3-pro-preview | 31.1% | 45.1% (Deep Think) | 81.0% | 62% |
+| claude-opus-4-5 | 37.6% | - | 60.0% | - |
+| claude-sonnet-4-5 | - | - | 55.0% | - |
+| grok-4 | 16.0% | - | - | - |
 | gpt-4-turbo | - | - | - | - |
-| grok-4 | - | - | - | - |
 
-*Deep Think mode is not currently enabled in our implementation.
+*GPT-5.2 Pro and Gemini 3 Deep Think use extended reasoning modes not currently enabled in our pipeline.
 
-**Selected for Pattern Evaluation:** `gemini-3-pro-preview` (Google)
+**Selected for Pattern Evaluation:** `gpt-5.2` (OpenAI)
 
-**Rationale:** Gemini 3 Pro achieves breakthrough performance on ARC-AGI-2 (31.1% standard mode), the gold-standard benchmark for abstract pattern reasoning. This represents a 6x improvement over previous models and makes it the clear choice for evaluating pattern recognition questions.
+**Rationale:** GPT-5.2 achieves the highest ARC-AGI-2 score (52.9% Thinking, 54.2% Pro) among all models, the gold-standard benchmark for abstract pattern reasoning. This represents a 70% improvement over Gemini 3 Pro standard mode (31.1%) and surpasses Claude Opus 4.5 (37.6%). Fallback: Claude Opus 4.5 (ARC-AGI-2: 37.6%).
 
 ### Spatial Reasoning
 
 Spatial reasoning benchmarks evaluate the ability to mentally manipulate objects and understand spatial relationships.
 
-| Model | ARC-AGI-2 | MMMU-Pro | Visual Reasoning | 3D Understanding |
-|-------|-----------|----------|------------------|------------------|
-| **gemini-3-pro-preview** | 31.1% | **81.0%** | **62%** | - |
-| claude-sonnet-4-5 | - | - | - | - |
+| Model | ARC-AGI-2 | MMMU-Pro | Visual Reasoning | Video-MMMU |
+|-------|-----------|----------|------------------|------------|
+| **gpt-5.2** | **52.9%** | **86.5%** | - | **90.5%** |
+| claude-opus-4-5 | 37.6% | 60.0% | - | - |
+| gemini-3-pro-preview | 31.1% | 81.0% | 62% | 87.6% |
+| grok-4 | 16.0% | - | - | - |
 | gpt-4-turbo | - | - | - | - |
 
-**Selected for Spatial Evaluation:** `gemini-3-pro-preview` (Google)
+**Selected for Spatial Evaluation:** `gpt-5.2` (OpenAI)
 
-**Rationale:** Gemini 3 Pro's MMMU-Pro score (81.0%) and visual reasoning capabilities (62%) demonstrate strong spatial understanding. The ARC-AGI-2 benchmark, which tests abstract spatial manipulation, shows exceptional performance (31.1% standard mode). Deep Think mode (45.1%) is not currently enabled but could be a future enhancement.
+**Rationale:** GPT-5.2 leads across all spatial reasoning benchmarks: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%), and Video-MMMU (90.5%). Composite score 75.9. Fallback: Gemini 3 Pro (composite 65.5, ARC-AGI-2: 31.1%, MMMU-Pro: 81.0%, Video-MMMU: 87.6%).
 
 ### Verbal Reasoning
 
 Verbal reasoning benchmarks measure language understanding, reading comprehension, and natural language inference.
 
-| Model | MMLU | HellaSwag | WinoGrande | Reading Comprehension |
-|-------|------|-----------|------------|----------------------|
-| **claude-sonnet-4-5** | **89%** | **~95%** | - | - |
-| claude-opus-4-5 | 87.4% | - | - | - |
+| Model | MMLU | MMLU Pro | HellaSwag | WinoGrande |
+|-------|------|----------|-----------|------------|
+| gemini-3-pro-preview | **91.8%** | **90.1%** | - | - |
+| grok-4 | 92.1% | 87.0% | - | - |
+| claude-opus-4-5 | 87.4% | 90.0% | - | - |
+| **claude-sonnet-4-5** | 89.0% | 78.0% | **~95%** | - |
+| gpt-5.2 | 88.0% | 83.0% | - | - |
 | gpt-4-turbo | 86.4% | - | - | - |
-| gemini-3-pro-preview | - | - | - | - |
 
 **Selected for Verbal Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
@@ -182,16 +188,18 @@ Verbal reasoning benchmarks measure language understanding, reading comprehensio
 
 Memory evaluation requires both broad knowledge and the ability to process long contexts.
 
-| Model | MMLU | Context Window | Long-Context Retrieval |
-|-------|------|----------------|----------------------|
-| **claude-sonnet-4-5** | **89%** | **200,000 tokens** | - |
-| claude-opus-4-5 | 87.4% | 200,000 tokens | - |
-| gemini-3-pro-preview | - | 1,000,000+ tokens | - |
-| gpt-4-turbo | 86.4% | 128,000 tokens | - |
+| Model | MMLU | MMLU Pro | Context Window | Long-Context Retrieval |
+|-------|------|----------|----------------|----------------------|
+| **gemini-3-pro-preview** | **91.8%** | **90.1%** | **1,000,000 tokens** | - |
+| gpt-5.2 | 88.0% | 83.0% | 400,000 tokens | - |
+| grok-4 | 92.1% | 87.0% | 256,000 tokens | - |
+| claude-sonnet-4-5 | 89.0% | 78.0% | 200,000 tokens | - |
+| claude-opus-4-5 | 87.4% | 90.0% | 200,000 tokens | - |
+| gpt-4-turbo | 86.4% | - | 128,000 tokens | - |
 
-**Selected for Memory Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Selected for Memory Evaluation:** `gemini-3-pro-preview` (Google)
 
-**Rationale:** Claude Sonnet 4.5 combines strong knowledge benchmarks (MMLU 89%) with a massive 200K token context window, making it ideal for evaluating memory-intensive questions that require both factual knowledge and context retention.
+**Rationale:** Gemini 3 Pro leads with composite score 72.3, combining top MMLU (91.8%) and MMLU-Pro (90.1%) scores with the largest usable context window (1M tokens, norm 50.0). This provides the strongest combination of knowledge breadth and context retention for memory-intensive evaluation.
 
 ## Model Selection Rationale
 
@@ -201,15 +209,15 @@ AIQ uses a "specialists-do-both" approach where the same model that excels at a 
 
 This ensures domain expertise is applied consistently throughout the pipeline.
 
-| Question Type | Generator | Judge | Provider |
-|---------------|-----------|-------|----------|
-| Math | grok-4 | grok-4 | xAI |
-| Logic | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic |
-| Pattern | gemini-3-pro-preview | gemini-3-pro-preview | Google |
-| Spatial | gemini-3-pro-preview | gemini-3-pro-preview | Google |
-| Verbal | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic |
-| Memory | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic |
-| Default | gpt-4-turbo | gpt-4-turbo | OpenAI |
+| Question Type | Generator | Judge | Provider | Fallback Provider |
+|---------------|-----------|-------|----------|-------------------|
+| Math | grok-4 | grok-4 | xAI | OpenAI |
+| Logic | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic | OpenAI |
+| Pattern | gpt-5.2 | gpt-5.2 | OpenAI | Anthropic |
+| Spatial | gpt-5.2 | gpt-5.2 | OpenAI | Google |
+| Verbal | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic | OpenAI |
+| Memory | gemini-3-pro | gemini-3-pro | Google | OpenAI |
+| Default | gpt-4-turbo | gpt-4-turbo | OpenAI | Anthropic |
 
 ## Benchmark Sources
 
@@ -249,8 +257,12 @@ All benchmark data is sourced from official provider announcements, research pap
 - [LMSYS Chatbot Arena](https://chat.lmsys.org/?leaderboard) - Crowdsourced model comparisons
 - [Hugging Face Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - Standardized evaluations
 - [Artificial Analysis LLM Benchmarks](https://artificialanalysis.ai/) - Independent performance testing
+- [Vals.ai Benchmarks](https://www.vals.ai/benchmarks/mmlu_pro) - MMLU-Pro and domain-specific evaluations
+- [Epoch AI FrontierMath](https://epoch.ai/benchmarks/frontiermath) - Expert-level mathematics benchmark
+- [Epoch AI SWE-bench Verified](https://epoch.ai/benchmarks/swe-bench-verified) - Software engineering benchmark
+- [Automatio.ai Model Data](https://automatio.ai/) - Aggregated benchmark data across models
 
 ---
 
-*Last updated: 2026-01-25*
+*Last updated: 2026-01-29*
 *See also: [question-service/docs/PERFORMANCE.md](../question-service/docs/PERFORMANCE.md) for operational performance metrics*

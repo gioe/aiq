@@ -708,6 +708,20 @@ class TestAsyncQuestionGenerator:
     @pytest.mark.asyncio
     async def test_generate_batch_async(self, async_generator):
         """Test generating a batch of questions asynchronously."""
+        # Override mock to return batch-shaped response for single-call batch path
+        provider = async_generator.providers["openai"]
+        question_obj = {
+            "question_text": "What is 2 + 2? (async)",
+            "correct_answer": "4",
+            "answer_options": ["2", "3", "4", "5"],
+            "explanation": "2 + 2 equals 4 by basic addition.",
+        }
+        provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(
+                {"questions": [question_obj, question_obj, question_obj]}
+            )
+        )
+
         batch = await async_generator.generate_batch_async(
             question_type=QuestionType.VERBAL,
             difficulty=DifficultyLevel.HARD,
@@ -751,6 +765,7 @@ class TestAsyncQuestionGenerator:
             difficulty=DifficultyLevel.EASY,
             count=3,
             distribute_across_providers=False,
+            use_single_call=False,
         )
 
         # Should have 2 successful questions despite 1 failure
@@ -877,6 +892,7 @@ class TestAsyncMultiProviderGenerator:
             difficulty=DifficultyLevel.EASY,
             count=4,  # 2 questions each provider
             distribute_across_providers=True,
+            use_specialist_routing=False,  # Disable to test distribution
         )
         duration = time.time() - start
 
@@ -885,3 +901,275 @@ class TestAsyncMultiProviderGenerator:
         # Allow some overhead but should be well under sequential time
         assert duration < 0.3, f"Async execution took {duration}s, expected < 0.3s"
         assert len(batch.questions) == 4
+
+
+class TestBatchChunking:
+    """Tests for max_batch_size chunking and sub-type rotation."""
+
+    @pytest.fixture
+    def chunking_generator(self):
+        """Create generator with mocked async-capable provider for chunking tests."""
+        with patch("app.generator.OpenAIProvider") as mock_openai:
+            provider = Mock()
+            provider.model = "gpt-5.2"
+
+            def make_batch_response(count):
+                questions = []
+                for i in range(count):
+                    questions.append(
+                        {
+                            "question_text": f"Question {i+1}?",
+                            "correct_answer": "A",
+                            "answer_options": ["A", "B", "C", "D"],
+                            "explanation": f"Explanation {i+1}",
+                        }
+                    )
+                return make_completion_result({"questions": questions})
+
+            # Track calls to verify sub-batch behavior
+            call_log = []
+
+            async def mock_async_gen(*args, **kwargs):
+                prompt = kwargs.get("prompt", args[0] if args else "")
+                call_log.append({"prompt": prompt, "kwargs": kwargs})
+                # Infer count from prompt — look for "Generate N"
+                import re
+
+                match = re.search(r"Generate (\d+)", prompt)
+                count = int(match.group(1)) if match else 1
+                return make_batch_response(count)
+
+            provider.generate_structured_completion_with_usage_async = AsyncMock(
+                side_effect=mock_async_gen
+            )
+            mock_openai.return_value = provider
+
+            generator = QuestionGenerator(openai_api_key="test-key")
+            generator._call_log = call_log
+            yield generator
+
+    @pytest.mark.asyncio
+    async def test_chunking_splits_into_sub_batches(self, chunking_generator):
+        """Test that max_batch_size=10 chunks count=25 into 3 sub-batches (10+10+5)."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=10):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=25,
+                use_single_call=True,
+            )
+
+            # Should have 25 questions total from 3 sub-batches
+            assert len(batch.questions) == 25
+            assert batch.metadata.get("chunked") is True
+            assert batch.metadata.get("max_batch_size") == 10
+
+            # Verify 3 calls were made (10 + 10 + 5)
+            provider = chunking_generator.providers["openai"]
+            assert (
+                provider.generate_structured_completion_with_usage_async.call_count == 3
+            )
+
+    @pytest.mark.asyncio
+    async def test_no_chunking_when_max_batch_size_unset(self, chunking_generator):
+        """Test that max_batch_size=None passes full count in single call."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=None):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=25,
+                use_single_call=True,
+            )
+
+            assert len(batch.questions) == 25
+            assert batch.metadata.get("chunked") is not True
+            assert batch.metadata.get("single_call") is True
+
+            # Should be a single API call
+            provider = chunking_generator.providers["openai"]
+            assert (
+                provider.generate_structured_completion_with_usage_async.call_count == 1
+            )
+
+    @pytest.mark.asyncio
+    async def test_no_chunking_when_count_within_limit(self, chunking_generator):
+        """Test that count <= max_batch_size uses single call without chunking."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=10):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=8,
+                use_single_call=True,
+            )
+
+            assert len(batch.questions) == 8
+            assert batch.metadata.get("chunked") is not True
+            assert batch.metadata.get("single_call") is True
+
+            # Should be a single API call
+            provider = chunking_generator.providers["openai"]
+            assert (
+                provider.generate_structured_completion_with_usage_async.call_count == 1
+            )
+
+    @pytest.mark.asyncio
+    async def test_sub_batches_merge_correctly(self, chunking_generator):
+        """Test that sub-batch results are merged into a single flat list."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=5):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.PATTERN,
+                difficulty=DifficultyLevel.MEDIUM,
+                count=12,
+                use_single_call=True,
+            )
+
+            # 12 / 5 = 3 sub-batches (5+5+2)
+            assert len(batch.questions) == 12
+            assert batch.metadata.get("chunked") is True
+
+            # All questions should be GeneratedQuestion instances
+            from app.models import GeneratedQuestion
+
+            for q in batch.questions:
+                assert isinstance(q, GeneratedQuestion)
+                assert q.question_type == QuestionType.PATTERN
+                assert q.difficulty_level == DifficultyLevel.MEDIUM
+
+    @pytest.mark.asyncio
+    async def test_subtypes_rotated_across_sub_batches(self, chunking_generator):
+        """Test that sub-types are rotated across sub-batches with random start offset."""
+        call_log = chunking_generator._call_log
+
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=5):
+            await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=15,
+                use_single_call=True,
+            )
+
+        # 15 / 5 = 3 sub-batches, each should have a REQUIRED SUB-TYPE instruction
+        from app.prompts import QUESTION_SUBTYPES
+
+        spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
+
+        assert len(call_log) == 3
+
+        # Extract the subtype from each sub-batch prompt
+        used_subtypes = []
+        for call in call_log:
+            assert "REQUIRED SUB-TYPE" in call["prompt"]
+            for subtype in spatial_subtypes:
+                if subtype in call["prompt"]:
+                    used_subtypes.append(subtype)
+                    break
+
+        # All 3 sub-batches should have different subtypes (consecutive in cycle)
+        assert len(used_subtypes) == 3
+        assert len(set(used_subtypes)) == 3
+
+    @pytest.mark.asyncio
+    async def test_subtypes_cycle_when_more_batches_than_subtypes(
+        self, chunking_generator
+    ):
+        """Test that sub-types cycle when there are more batches than sub-types."""
+        call_log = chunking_generator._call_log
+
+        from app.prompts import QUESTION_SUBTYPES
+
+        spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
+        n = len(spatial_subtypes)
+
+        # Request enough questions to exceed the number of subtypes.
+        # batch_size=2, so we need (n+1)*2 questions to get n+1 sub-batches.
+        count = (n + 1) * 2
+
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=2):
+            await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=count,
+                use_single_call=True,
+            )
+
+        expected_batches = n + 1
+        assert len(call_log) == expected_batches
+
+        # Extract subtype from each sub-batch prompt
+        def extract_subtype(prompt_text):
+            for s in spatial_subtypes:
+                if s in prompt_text:
+                    return s
+            return None
+
+        first_subtype = extract_subtype(call_log[0]["prompt"])
+        cycled_subtype = extract_subtype(call_log[n]["prompt"])
+        # Sub-batch at index n should cycle back to the same subtype as index 0
+        assert first_subtype == cycled_subtype
+
+    @pytest.mark.asyncio
+    async def test_sub_type_set_on_chunked_questions(self, chunking_generator):
+        """Test that sub_type is stamped on each question in chunked batch generation."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=5):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=12,
+                use_single_call=True,
+            )
+
+            # All questions should have a non-None sub_type
+            assert len(batch.questions) == 12
+            for q in batch.questions:
+                assert (
+                    q.sub_type is not None
+                ), "sub_type should be set on chunked questions"
+
+    @pytest.mark.asyncio
+    async def test_sub_type_set_on_non_chunked_questions(self, chunking_generator):
+        """Test that sub_type is stamped on each question in non-chunked single-call batch."""
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=10):
+            batch = await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=8,  # <= max_batch_size, so non-chunked
+                use_single_call=True,
+            )
+
+            # All questions should have a non-None sub_type
+            assert len(batch.questions) == 8
+            for q in batch.questions:
+                assert (
+                    q.sub_type is not None
+                ), "sub_type should be set on non-chunked questions"
+
+    @pytest.mark.asyncio
+    async def test_non_chunked_path_assigns_random_subtype(self, chunking_generator):
+        """Test that non-chunked path assigns a random subtype for diversity."""
+        call_log = chunking_generator._call_log
+
+        with patch.object(chunking_generator, "_get_max_batch_size", return_value=10):
+            await chunking_generator.generate_batch_async(
+                question_type=QuestionType.SPATIAL,
+                difficulty=DifficultyLevel.EASY,
+                count=8,  # <= max_batch_size, so non-chunked
+                use_single_call=True,
+            )
+
+        from app.prompts import QUESTION_SUBTYPES
+
+        spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
+
+        assert len(call_log) == 1
+        prompt = call_log[0]["prompt"]
+
+        # Should have REQUIRED SUB-TYPE instruction
+        assert "REQUIRED SUB-TYPE" in prompt
+
+        # The subtype should be one from the spatial subtypes list
+        found_subtype = False
+        for subtype in spatial_subtypes:
+            if subtype in prompt:
+                found_subtype = True
+                break
+        assert found_subtype, "Non-chunked path should assign a random subtype"
