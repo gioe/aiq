@@ -3523,6 +3523,23 @@ actor MyQueue {
 - No cross-actor property access occurs in the actor's methods
 - The `[weak self]` capture prevents retain cycles between the actor and the Combine subscription stored in `cancellables`—without it, the actor would hold the subscription via `cancellables`, and the subscription's closure would hold the actor, preventing deallocation
 
+**Alternative - Async/Await for One-Time Reads:**
+
+If the actor only needs to read `@MainActor` state once (not reactively observe changes), use `await` directly instead of setting up Combine observation:
+
+```swift
+// ✅ Use await for one-time reads of @MainActor state
+actor MyQueue {
+    private let monitor: NetworkMonitor  // @MainActor-isolated
+
+    func getCurrentNetworkStatus() async -> Bool {
+        await monitor.isConnected  // Explicitly crosses actor boundary
+    }
+}
+```
+
+Use Combine caching (above) when the actor needs to react to ongoing state changes. Use `await` when the actor just needs a snapshot of the current value.
+
 **Real-World Example:**
 
 See `OfflineOperationQueue.swift` for a production implementation of this pattern:
@@ -3564,7 +3581,8 @@ actor OfflineOperationQueue {
 
 | Scenario | Use This Pattern? |
 |----------|-------------------|
-| Actor needs state from `@MainActor` class | ✅ Yes |
+| Actor needs reactive state from `@MainActor` class | ✅ Yes |
+| Actor needs one-time read of `@MainActor` state | ❌ No (use `await` directly) |
 | Actor needs state from another actor | ❌ No (use `await` instead) |
 | `@MainActor` class needs state from actor | ❌ No (use `await` instead) |
 | Non-actor code needs `@Published` state | ❌ No (use Combine directly) |
