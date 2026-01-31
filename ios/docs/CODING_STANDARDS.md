@@ -3486,10 +3486,14 @@ actor MyQueue {
 
 **Correct Pattern - Cache State via Combine Observation:**
 
-The solution is to cache the state within the actor and update it through Combine observation, which safely transfers values across actor boundaries:
+The solution is to cache the state within the actor and update it through Combine observation, which safely transfers values across actor boundaries.
+
+> **Note:** This pattern requires `import Combine` in files that use `AnyCancellable`, `.sink`, or other Combine APIs.
 
 ```swift
 // ✅ Cache state within the actor via Combine observation
+import Combine
+
 actor MyQueue {
     private var isNetworkConnected: Bool = true  // Actor-isolated cache
     private var cancellables = Set<AnyCancellable>()
