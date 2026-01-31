@@ -114,6 +114,11 @@ class Settings(BaseSettings):
         True  # Enable/disable runtime model validation
     )
 
+    # Prometheus Metrics Configuration
+    enable_prometheus_metrics: bool = (
+        True  # Enable/disable Prometheus /metrics endpoint
+    )
+
     # Batch Generation Configuration (for providers that support it)
     enable_batch_generation: bool = True  # Enable/disable batch API generation
     batch_generation_size: int = 100  # Maximum prompts per batch (Google limit: 1000)

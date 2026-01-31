@@ -600,3 +600,60 @@ class TestRateLimiting:
 
             # Should be rate limited before auth check
             assert response.status_code == 429
+
+
+class TestPrometheusMetrics:
+    """Tests for Prometheus /metrics endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Reset module state before each test."""
+        with patch.dict(os.environ, {"ADMIN_TOKEN": "test-secret-token"}, clear=False):
+            import importlib
+
+            import trigger_server
+
+            importlib.reload(trigger_server)
+            self.app = trigger_server.app
+            self.client = TestClient(self.app)
+            self.module = trigger_server
+
+            yield
+
+    def test_metrics_endpoint_returns_200(self):
+        """Test that /metrics endpoint returns 200 with Prometheus text format."""
+        response = self.client.get("/metrics")
+        assert response.status_code == 200
+        assert "text/plain" in response.headers.get("content-type", "")
+
+    def test_metrics_endpoint_returns_prometheus_format(self):
+        """Test that /metrics returns valid Prometheus exposition format."""
+        response = self.client.get("/metrics")
+        body = response.text
+        # Prometheus text format contains TYPE and HELP comments
+        assert "# HELP" in body
+        assert "# TYPE" in body
+
+    def test_metrics_namespace_is_aiq_question_service(self):
+        """Test that metrics use the aiq_question_service_ namespace."""
+        # Make a request to generate some metrics
+        self.client.get("/health")
+        response = self.client.get("/metrics")
+        assert "aiq_question_service_" in response.text
+
+    def test_metrics_endpoint_not_rate_limited(self):
+        """Test that /metrics endpoint is exempt from rate limiting."""
+        for _ in range(15):
+            response = self.client.get("/metrics")
+            assert response.status_code == 200
+        # No rate limit headers on /metrics
+        assert "X-RateLimit-Limit" not in response.headers
+
+    def test_metrics_excludes_health_endpoint(self):
+        """Test that /health requests are not counted in HTTP metrics."""
+        # Make several health requests
+        for _ in range(5):
+            self.client.get("/health")
+        response = self.client.get("/metrics")
+        # /health should be excluded from handler-level metrics
+        assert '/health"' not in response.text or "excluded" in response.text.lower()

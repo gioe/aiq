@@ -114,6 +114,23 @@ class TestCircuitBreakerConfig:
             assert settings.circuit_breaker_enabled is False
 
 
+class TestPrometheusConfig:
+    """Tests for Prometheus metrics configuration settings."""
+
+    def test_default_enable_prometheus_metrics(self):
+        """Test default prometheus metrics enabled value."""
+        settings = Settings()
+        assert settings.enable_prometheus_metrics is True
+
+    def test_prometheus_metrics_disabled_from_env(self):
+        """Test disabling prometheus metrics from environment."""
+        with patch.dict(
+            "os.environ", {"ENABLE_PROMETHEUS_METRICS": "false"}, clear=False
+        ):
+            settings = Settings()
+            assert settings.enable_prometheus_metrics is False
+
+
 class TestSecretsIntegration:
     """Tests for secrets management integration in config."""
 
