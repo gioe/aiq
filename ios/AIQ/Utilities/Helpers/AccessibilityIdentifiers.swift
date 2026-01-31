@@ -197,6 +197,24 @@ enum AccessibilityIdentifiers {
         static let secondaryButton = "common.secondaryButton"
     }
 
+    // MARK: - Error Banner
+
+    enum ErrorBanner {
+        static let dismissButton = "errorBanner.dismissButton"
+    }
+
+    // MARK: - Notification Soft Prompt
+
+    enum NotificationSoftPrompt {
+        static let notNowButton = "notificationSoftPrompt.notNowButton"
+    }
+
+    // MARK: - Notification Permission Banner
+
+    enum NotificationPermissionBanner {
+        static let banner = "notificationPermissionBanner"
+    }
+
     // MARK: - Notification Settings
 
     enum NotificationSettings {

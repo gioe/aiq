@@ -23,7 +23,7 @@ struct ErrorBanner: View {
                 accessibilityLabel: "error.banner.dismiss".localized,
                 foregroundColor: .white
             )
-            .accessibilityIdentifier("errorBanner.dismissButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.ErrorBanner.dismissButton)
         }
         .padding()
         .background(Color.red)
