@@ -52,6 +52,7 @@ struct TimeWarningBanner: View {
                 )
         )
         .padding(.horizontal)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.timeWarningBanner)
         .opacity(isVisible ? 1 : 0)
         .offset(y: reduceMotion ? 0 : (isVisible ? 0 : -20))
         .onAppear {

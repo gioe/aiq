@@ -24,6 +24,7 @@ struct TestTimerView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(urgencyPrefix)Time remaining: \(timerManager.formattedTime)")
         .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.timerLabel)
     }
 
     // MARK: - Computed Properties

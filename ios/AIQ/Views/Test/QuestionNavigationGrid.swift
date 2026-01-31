@@ -45,6 +45,7 @@ struct QuestionNavigationGrid: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
     }
 
     @ViewBuilder
@@ -58,6 +59,7 @@ struct QuestionNavigationGrid: View {
             questionCellContent(index: index, isCurrent: isCurrent, isAnswered: isAnswered)
         }
         .buttonStyle(ScaleButtonStyle())
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationButton(at: index))
         .accessibilityLabel("question.navigator.accessibility.question".localized(with: index + 1))
         .accessibilityHint(accessibilityHintText(isCurrent: isCurrent, isAnswered: isAnswered))
     }
