@@ -23,7 +23,8 @@ final class EducationLevelPickerTests: BaseUITest {
 
     private var registrationHelper: RegistrationHelper!
 
-    /// All available education level display names
+    /// All available education level display names.
+    /// Must match `EducationLevel.displayName` values in `AIQ/Models/User.swift`.
     private let educationLevels = [
         "High School",
         "Some College",
