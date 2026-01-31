@@ -747,4 +747,5 @@ See [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md) for Railway-specifi
 - **[docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)** - Railway deployment guide
 - **[docs/JUDGE_SELECTION.md](docs/JUDGE_SELECTION.md)** - Model selection rationale
 - **[docs/GOOGLE_MODEL_VERSIONING.md](docs/GOOGLE_MODEL_VERSIONING.md)** - Gemini model version monitoring strategy
+- **[docs/SUB_TYPES.md](docs/SUB_TYPES.md)** - Sub-type system and gold-standard example rotation
 - **[config/README.md](config/README.md)** - Judge configuration reference
