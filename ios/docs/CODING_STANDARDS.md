@@ -3530,9 +3530,9 @@ If the actor only needs to read `@MainActor` state once (not reactively observe 
 ```swift
 // ✅ Use await for one-time reads of @MainActor state
 actor MyQueue {
-    private let monitor: NetworkMonitor
+    private let monitor: NetworkMonitor  // @MainActor-isolated
 
-    func checkStatus() async -> Bool {
+    func getCurrentNetworkStatus() async -> Bool {
         await monitor.isConnected  // Explicitly crosses actor boundary
     }
 }
