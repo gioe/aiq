@@ -23,9 +23,9 @@ enum TabDestination: Int, Hashable {
     /// The string identifier for accessibility purposes
     var accessibilityIdentifier: String {
         switch self {
-        case .dashboard: "tabBar.dashboardTab"
-        case .history: "tabBar.historyTab"
-        case .settings: "tabBar.settingsTab"
+        case .dashboard: AccessibilityIdentifiers.TabBar.dashboardTab
+        case .history: AccessibilityIdentifiers.TabBar.historyTab
+        case .settings: AccessibilityIdentifiers.TabBar.settingsTab
         }
     }
 }

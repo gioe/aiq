@@ -103,7 +103,7 @@ struct NotificationUpgradePromptView: View {
                 }
                 .accessibilityLabel("Not now")
                 .accessibilityHint("Double tap to dismiss without enabling notifications")
-                .accessibilityIdentifier("notNowButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSoftPrompt.notNowButton)
             }
             .padding(.horizontal, DesignSystem.Spacing.xxl)
             .padding(.bottom, DesignSystem.Spacing.xxxl)

@@ -48,7 +48,7 @@ struct NotificationPermissionBanner: View {
         .accessibilityLabel("notification.permission.banner.accessibility.label".localized)
         .accessibilityHint("notification.permission.banner.accessibility.hint".localized)
         .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("notificationPermissionBanner")
+        .accessibilityIdentifier(AccessibilityIdentifiers.NotificationPermissionBanner.banner)
     }
 }
 
