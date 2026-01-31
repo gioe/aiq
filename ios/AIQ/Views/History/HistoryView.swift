@@ -117,6 +117,7 @@ struct HistoryView: View {
                 // Trend Chart
                 IQTrendChart(testHistory: viewModel.testHistory)
                     .padding(.horizontal)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.chartView)
 
                 Divider()
                     .padding(.horizontal)
@@ -154,7 +155,7 @@ struct HistoryView: View {
                 }
 
                 // Test History List
-                ForEach(viewModel.testHistory) { result in
+                ForEach(Array(viewModel.testHistory.enumerated()), id: \.element.id) { index, result in
                     Button {
                         router.push(.testDetail(
                             result: result,
@@ -165,6 +166,7 @@ struct HistoryView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.testRow(at: index))
                 }
 
                 // Load More Button
@@ -184,6 +186,7 @@ struct HistoryView: View {
             }
             .padding(.vertical)
         }
+        .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.scrollView)
         .refreshable {
             await viewModel.refreshHistory()
         }
@@ -203,6 +206,7 @@ struct HistoryView: View {
             Your scores and progress will appear here.
             """
         )
+        .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.emptyStateView)
     }
 }
 
