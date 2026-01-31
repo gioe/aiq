@@ -22,6 +22,9 @@ from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from prometheus_client import REGISTRY
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -258,10 +261,9 @@ app.add_middleware(RateLimitMiddleware, skip_paths=["/health", "/metrics"])
 
 # Prometheus metrics instrumentation
 if settings.enable_prometheus_metrics:
-    from prometheus_client import REGISTRY
-    from prometheus_fastapi_instrumentator import Instrumentator
-
-    # Clear default collectors to avoid duplicate registration on module reload (tests)
+    # Clear FastAPI Instrumentator's default HTTP collectors to avoid duplicate
+    # registration on module reload (common in test scenarios with importlib.reload).
+    # These collectors are recreated by instrumentator.instrument() below.
     collectors_to_remove = [
         c
         for c in list(REGISTRY._names_to_collectors.values())
@@ -270,8 +272,8 @@ if settings.enable_prometheus_metrics:
     for collector in collectors_to_remove:
         try:
             REGISTRY.unregister(collector)
-        except Exception:
-            pass
+        except (ValueError, KeyError) as e:
+            logger.debug(f"Failed to unregister Prometheus collector: {e}")
 
     instrumentator = Instrumentator(
         excluded_handlers=["/health", "/metrics"],
