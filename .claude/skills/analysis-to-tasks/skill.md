@@ -152,12 +152,46 @@ The tasks table has these columns:
 - summary: TEXT NOT NULL (brief task title, ~60 chars max)
 - description: TEXT (detailed description with context, acceptance criteria)
 - status: TEXT (always 'To Do' for new tasks)
-- priority: TEXT (Highest, High, Medium, Low - map from analysis priority)
-- domain: TEXT (iOS, Backend, Infrastructure, Docs, etc.)
+- priority: TEXT (Highest, High, Medium, Low, Lowest - map from analysis priority)
+- domain: TEXT (iOS, Backend, Question Service, Infrastructure, Docs, Testing, Web, Data)
 - assignee: TEXT (ios-engineer, fastapi-architect, database-engineer, statistical-analysis-scientist, python-code-guardian, technical-product-manager, project-code-reviewer)
 - task_type: TEXT (bug, feature, refactor, test, docs)
 - created_at: TEXT (datetime)
 - updated_at: TEXT (datetime)
+
+## Valid Values (Enforced)
+
+These values are enforced by SQLite triggers. Inserts with invalid values will be rejected.
+
+### Status (trigger-enforced, case-sensitive)
+| Value | Description |
+|-------|-------------|
+| `To Do` | Task not yet started (use for all new tasks) |
+| `In Progress` | Task currently being worked on |
+| `Done` | Task completed |
+
+### Priority (trigger-enforced, case-sensitive)
+| Value | Priority Score |
+|-------|---------------|
+| `Highest` | 40 |
+| `High` | 30 |
+| `Medium` | 20 |
+| `Low` | 10 |
+| `Lowest` | 5 |
+
+### Domain (not trigger-enforced — use canonical values below to prevent inconsistency)
+| Canonical Value | Use For |
+|----------------|---------|
+| `iOS` | iOS app, Swift, SwiftUI, ViewModels |
+| `Backend` | FastAPI, Python backend, API endpoints |
+| `Question Service` | Question generation, LLM prompts, judge |
+| `Infrastructure` | CI/CD, Railway, deployment, monitoring |
+| `Docs` | Documentation, READMEs |
+| `Testing` | Cross-cutting test improvements |
+| `Web` | Web frontend, website |
+| `Data` | Database schemas, SQL, data pipelines |
+
+WARNING: Do NOT use lowercase variants like `backend`, `ios`, `question-service`, or alternatives like `documentation`, `devops`. Always use the exact canonical values above.
 
 ## Priority Mapping
 
@@ -165,15 +199,21 @@ The tasks table has these columns:
 - High (analysis) -> High (database)
 - Medium (analysis) -> Medium (database)
 - Low (analysis) -> Low (database)
+- Informational/Nice-to-have (analysis) -> Lowest (database)
 
 ## Domain Assignment Rules
 
+IMPORTANT: Domain values are case-sensitive and must match the canonical forms exactly (e.g., `iOS` not `ios`, `Backend` not `backend`, `Question Service` not `question-service`).
+
 - iOS/Swift/SwiftUI/ViewModel -> domain: iOS, assignee: ios-engineer
 - API/FastAPI/Backend/Python -> domain: Backend, assignee: fastapi-architect
-- SQL/Database/Schema -> domain: Backend, assignee: database-engineer
+- Question generation/LLM prompts/Judge -> domain: Question Service, assignee: python-code-guardian
+- SQL/Database/Schema -> domain: Data, assignee: database-engineer
 - Statistics/Math/Formulas -> domain: Backend, assignee: statistical-analysis-scientist
-- Tests/Coverage -> domain matches content, assignee matches domain
+- CI/CD/Railway/Deployment/Monitoring -> domain: Infrastructure, assignee: technical-product-manager
+- Tests/Coverage -> domain: Testing, assignee matches content area
 - Docs/README -> domain: Docs, assignee: technical-product-manager
+- Web/Frontend (non-iOS) -> domain: Web, assignee: fastapi-architect
 
 ## Output Format
 
