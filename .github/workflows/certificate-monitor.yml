@@ -1,0 +1,180 @@
+name: Certificate Monitor
+
+on:
+  schedule:
+    # Run every Monday at 9:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-certificate:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check certificate expiration
+        id: cert-check
+        run: |
+          set +e
+          chmod +x ios/scripts/check_certificate_expiration.sh
+          ios/scripts/check_certificate_expiration.sh \
+            --plist ios/AIQ/TrustKit.plist
+          EXIT_CODE=$?
+          set -e
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          # Map exit codes to status labels
+          case $EXIT_CODE in
+            0) echo "status=OK" >> $GITHUB_OUTPUT ;;
+            1) echo "status=WARNING" >> $GITHUB_OUTPUT ;;
+            2) echo "status=EXPIRED" >> $GITHUB_OUTPUT ;;
+            3) echo "status=HASH_MISMATCH" >> $GITHUB_OUTPUT ;;
+            4) echo "status=CONFIG_ERROR" >> $GITHUB_OUTPUT ;;
+            *) echo "status=UNKNOWN" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Create issue on failure
+        if: steps.cert-check.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        env:
+          CERT_STATUS: ${{ steps.cert-check.outputs.status }}
+          CERT_EXIT_CODE: ${{ steps.cert-check.outputs.exit_code }}
+        with:
+          script: |
+            const status = process.env.CERT_STATUS;
+            const exitCode = process.env.CERT_EXIT_CODE;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            let title, body, labels;
+
+            if (status === 'HASH_MISMATCH') {
+              title = 'CRITICAL: Certificate hash mismatch detected';
+              body = [
+                '## Certificate Hash Mismatch',
+                '',
+                'The current server certificate hash does NOT match any pinned hash in TrustKit.plist.',
+                '',
+                '**Impact:** All RELEASE builds will fail to connect to the backend.',
+                '',
+                '**Immediate action required:**',
+                '1. Verify this is the expected certificate (not MITM attack)',
+                '2. Add the new hash to TrustKit.plist',
+                '3. Submit emergency app update',
+                '',
+                'See [Certificate Rotation Runbook](ios/docs/CERTIFICATE_ROTATION_RUNBOOK.md) for procedures.',
+                '',
+                `[Workflow run](${runUrl})`,
+              ].join('\n');
+              labels = ['certificate', 'critical', 'production'];
+            } else if (status === 'EXPIRED') {
+              title = 'CRITICAL: Backend SSL certificate has expired';
+              body = [
+                '## Certificate Expired',
+                '',
+                'The Railway backend SSL certificate has expired.',
+                '',
+                '**Impact:** All RELEASE builds will fail to connect to the backend.',
+                '',
+                '**Immediate action required:**',
+                '1. Check if Railway has issued a new certificate',
+                '2. Generate new certificate hash',
+                '3. Update TrustKit.plist',
+                '4. Push emergency app update',
+                '',
+                'See [Certificate Rotation Runbook](ios/docs/CERTIFICATE_ROTATION_RUNBOOK.md) for procedures.',
+                '',
+                `[Workflow run](${runUrl})`,
+              ].join('\n');
+              labels = ['certificate', 'critical', 'production'];
+            } else if (status === 'WARNING') {
+              title = 'Certificate expiring soon - rotation required';
+              body = [
+                '## Certificate Expiration Warning',
+                '',
+                'The Railway backend SSL certificate expires within 30 days.',
+                '',
+                '**Action required:**',
+                '1. Follow the [Certificate Rotation Runbook](ios/docs/CERTIFICATE_ROTATION_RUNBOOK.md)',
+                '2. Generate new certificate hash when Railway renews',
+                '3. Update TrustKit.plist',
+                '4. Submit app update before expiration',
+                '',
+                `[Workflow run](${runUrl})`,
+              ].join('\n');
+              labels = ['certificate', 'maintenance'];
+            } else {
+              title = `Certificate check failed (${status})`;
+              body = [
+                '## Certificate Check Failed',
+                '',
+                `The weekly certificate monitoring check failed with status: **${status}** (exit code ${exitCode}).`,
+                '',
+                `Please investigate the [workflow run](${runUrl}) for details.`,
+              ].join('\n');
+              labels = ['certificate'];
+            }
+
+            // Ensure required labels exist
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+              } catch {
+                const colors = {
+                  certificate: '0075ca',
+                  critical: 'B60205',
+                  production: 'D93F0B',
+                  maintenance: '0E8A16',
+                };
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                  color: colors[label] || 'ededed',
+                });
+              }
+            }
+
+            // Check for existing open issue with the same title to avoid duplicates
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'certificate',
+              per_page: 100,
+            });
+
+            const duplicate = existingIssues.data.find(issue =>
+              issue.title === title
+            );
+
+            if (duplicate) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: duplicate.number,
+                body: `**Automated update:** Certificate check ran again.\n\nStatus: **${status}**\n\n[Workflow run](${runUrl})`,
+              });
+              console.log(`Updated existing issue #${duplicate.number}`);
+            } else {
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels,
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+      - name: Fail workflow on certificate issues
+        if: steps.cert-check.outputs.exit_code != '0'
+        env:
+          EXIT_CODE: ${{ steps.cert-check.outputs.exit_code }}
+        run: exit "$EXIT_CODE"
