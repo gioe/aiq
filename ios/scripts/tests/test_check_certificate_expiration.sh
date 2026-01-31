@@ -418,7 +418,9 @@ echo ""
 # Test: Unreadable plist file exits with code 4
 echo "Test: Unreadable plist file exits with code 4"
 if [ "$(id -u)" = "0" ]; then
+    TESTS_RUN=$((TESTS_RUN + 1))
     echo -e "  ${YELLOW}[SKIP]${NC} Running as root - permission test not applicable"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     unreadable_plist="$TEST_DIR/unreadable.plist"
     touch "$unreadable_plist"
