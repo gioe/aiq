@@ -63,6 +63,25 @@ final class EducationLevelPickerTests: BaseUITest {
         return registrationHelper.educationLevelButton.waitForExistence(timeout: standardTimeout)
     }
 
+    /// Navigate to the education picker, select the given level, and assert it displays correctly
+    private func assertEducationLevelSelection(_ level: String) {
+        let navigated = navigateToEducationPicker()
+        XCTAssertTrue(navigated, "Should navigate to education picker")
+
+        let success = registrationHelper.fillEducationLevel(level)
+        XCTAssertTrue(success, "Should successfully select \(level) education level")
+
+        let educationButton = registrationHelper.educationLevelButton
+        XCTAssertTrue(
+            educationButton.label.contains(level),
+            "Education level should display '\(level)', got: \(educationButton.label)"
+        )
+
+        let screenshotName = level.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "'", with: "")
+        takeScreenshot(named: "EducationLevelPicker-\(screenshotName)")
+    }
+
     // MARK: - Education Level Picker Existence Tests
 
     func testEducationLevelPickerExists() throws {
@@ -100,82 +119,22 @@ final class EducationLevelPickerTests: BaseUITest {
 
     func testSelectHighSchoolEducationLevel() throws {
         throw XCTSkip("UI test - requires simulator/device")
-
-        let navigated = navigateToEducationPicker()
-        XCTAssertTrue(navigated, "Should navigate to education picker")
-
-        // Select High School
-        let success = registrationHelper.fillEducationLevel("High School")
-        XCTAssertTrue(success, "Should successfully select High School education level")
-
-        // Verify selection is displayed
-        let educationButton = registrationHelper.educationLevelButton
-        XCTAssertTrue(
-            educationButton.label.contains("High School"),
-            "Education level should display 'High School', got: \(educationButton.label)"
-        )
-
-        takeScreenshot(named: "EducationLevelPicker-HighSchool")
+        assertEducationLevelSelection("High School")
     }
 
     func testSelectBachelorsEducationLevel() throws {
         throw XCTSkip("UI test - requires simulator/device")
-
-        let navigated = navigateToEducationPicker()
-        XCTAssertTrue(navigated, "Should navigate to education picker")
-
-        // Select Bachelor's Degree
-        let success = registrationHelper.fillEducationLevel("Bachelor's Degree")
-        XCTAssertTrue(success, "Should successfully select Bachelor's Degree education level")
-
-        // Verify selection is displayed
-        let educationButton = registrationHelper.educationLevelButton
-        XCTAssertTrue(
-            educationButton.label.contains("Bachelor's Degree"),
-            "Education level should display 'Bachelor's Degree', got: \(educationButton.label)"
-        )
-
-        takeScreenshot(named: "EducationLevelPicker-Bachelors")
+        assertEducationLevelSelection("Bachelor's Degree")
     }
 
     func testSelectDoctorateEducationLevel() throws {
         throw XCTSkip("UI test - requires simulator/device")
-
-        let navigated = navigateToEducationPicker()
-        XCTAssertTrue(navigated, "Should navigate to education picker")
-
-        // Select Doctorate
-        let success = registrationHelper.fillEducationLevel("Doctorate")
-        XCTAssertTrue(success, "Should successfully select Doctorate education level")
-
-        // Verify selection is displayed
-        let educationButton = registrationHelper.educationLevelButton
-        XCTAssertTrue(
-            educationButton.label.contains("Doctorate"),
-            "Education level should display 'Doctorate', got: \(educationButton.label)"
-        )
-
-        takeScreenshot(named: "EducationLevelPicker-Doctorate")
+        assertEducationLevelSelection("Doctorate")
     }
 
     func testSelectPreferNotToSayEducationLevel() throws {
         throw XCTSkip("UI test - requires simulator/device")
-
-        let navigated = navigateToEducationPicker()
-        XCTAssertTrue(navigated, "Should navigate to education picker")
-
-        // Select "Prefer not to say"
-        let success = registrationHelper.fillEducationLevel("Prefer not to say")
-        XCTAssertTrue(success, "Should successfully select 'Prefer not to say' education level")
-
-        // Verify selection is displayed
-        let educationButton = registrationHelper.educationLevelButton
-        XCTAssertTrue(
-            educationButton.label.contains("Prefer not to say"),
-            "Education level should display 'Prefer not to say', got: \(educationButton.label)"
-        )
-
-        takeScreenshot(named: "EducationLevelPicker-PreferNotToSay")
+        assertEducationLevelSelection("Prefer not to say")
     }
 
     // MARK: - Menu Opening and Interaction Tests
