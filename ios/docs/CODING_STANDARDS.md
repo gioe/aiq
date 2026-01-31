@@ -3521,6 +3521,7 @@ actor MyQueue {
 - The `Task { await ... }` call transfers execution to the actor's isolation context
 - The cached property is actor-isolated, so all reads are synchronous and safe
 - No cross-actor property access occurs in the actor's methods
+- The `[weak self]` capture prevents retain cycles between the actor and the Combine subscription stored in `cancellables`—without it, the actor would hold the subscription via `cancellables`, and the subscription's closure would hold the actor, preventing deallocation
 
 **Real-World Example:**
 
