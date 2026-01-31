@@ -85,7 +85,7 @@ final class EducationLevelPickerTests: BaseUITest {
     // MARK: - Education Level Picker Existence Tests
 
     func testEducationLevelPickerExists() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to verify education level picker exists on registration screen")
 
         // Navigate to registration and scroll to education picker
         let navigated = navigateToEducationPicker()
@@ -99,7 +99,7 @@ final class EducationLevelPickerTests: BaseUITest {
     }
 
     func testEducationLevelPickerDefaultState() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to verify education picker shows 'not selected' by default")
 
         // Navigate to registration and scroll to education picker
         let navigated = navigateToEducationPicker()
@@ -118,29 +118,29 @@ final class EducationLevelPickerTests: BaseUITest {
     // MARK: - Education Level Selection Tests
 
     func testSelectHighSchoolEducationLevel() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test selecting High School education level")
         assertEducationLevelSelection("High School")
     }
 
     func testSelectBachelorsEducationLevel() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test selecting Bachelor's Degree education level")
         assertEducationLevelSelection("Bachelor's Degree")
     }
 
     func testSelectDoctorateEducationLevel() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test selecting Doctorate education level")
         assertEducationLevelSelection("Doctorate")
     }
 
     func testSelectPreferNotToSayEducationLevel() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test selecting Prefer not to say education level")
         assertEducationLevelSelection("Prefer not to say")
     }
 
     // MARK: - Menu Opening and Interaction Tests
 
     func testEducationLevelMenuOpens() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to verify education level menu opens and displays options")
 
         let navigated = navigateToEducationPicker()
         XCTAssertTrue(navigated, "Should navigate to education picker")
@@ -167,7 +167,7 @@ final class EducationLevelPickerTests: BaseUITest {
     }
 
     func testAllEducationLevelOptionsVisible() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to verify all education level options are visible in menu")
 
         let navigated = navigateToEducationPicker()
         XCTAssertTrue(navigated, "Should navigate to education picker")
@@ -194,7 +194,7 @@ final class EducationLevelPickerTests: BaseUITest {
     // MARK: - Selection Change Tests
 
     func testChangeEducationLevelSelection() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test changing education level from one selection to another")
 
         let navigated = navigateToEducationPicker()
         XCTAssertTrue(navigated, "Should navigate to education picker")
@@ -224,7 +224,7 @@ final class EducationLevelPickerTests: BaseUITest {
     // MARK: - Menu Dismissal Tests
 
     func testDismissMenuWithoutSelection() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to test menu dismissal preserves 'not selected' state")
 
         let navigated = navigateToEducationPicker()
         XCTAssertTrue(navigated, "Should navigate to education picker")
@@ -260,7 +260,7 @@ final class EducationLevelPickerTests: BaseUITest {
     // MARK: - Registration Integration Tests
 
     func testRegistrationWithEducationLevel() throws {
-        throw XCTSkip("UI test - requires backend connection and unique email")
+        throw XCTSkip("Requires simulator and backend connection to test registration with education level")
 
         // Navigate to registration
         guard registrationHelper.navigateToRegistration() else {
@@ -299,7 +299,7 @@ final class EducationLevelPickerTests: BaseUITest {
     }
 
     func testEducationLevelOptionalForRegistration() throws {
-        throw XCTSkip("UI test - requires simulator/device")
+        throw XCTSkip("Requires simulator to verify registration submit is enabled without education level")
 
         // Navigate to registration
         guard registrationHelper.navigateToRegistration() else {
