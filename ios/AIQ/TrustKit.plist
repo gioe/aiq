@@ -23,8 +23,10 @@
             <!-- Set to false because we only connect to the exact domain -->
             <!-- aiq-backend-production.up.railway.app with no subdomains. -->
             <!-- Set to true if Railway introduces subdomain routing (e.g., -->
-            <!-- api.aiq-backend-production.up.railway.app) or if we add -->
-            <!-- additional backend endpoints on subdomains. -->
+            <!-- api.aiq-backend-production.up.railway.app), if we add -->
+            <!-- additional backend endpoints on subdomains, or if a CDN/API -->
+            <!-- gateway with subdomain-based routing is placed in front of -->
+            <!-- the backend. -->
             <key>TSKIncludeSubdomains</key>
             <false/>
 
