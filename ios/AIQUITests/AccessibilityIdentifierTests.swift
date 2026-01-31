@@ -18,6 +18,7 @@ import XCTest
 /// - DashboardView: Stats, cards, and action buttons
 /// - TestTakingView: Question display and navigation elements
 /// - SettingsView: Account and preference controls
+/// - HistoryView: Scroll view, chart, empty state, and test rows
 final class AccessibilityIdentifierTests: BaseUITest {
     // MARK: - Helper Properties
 
@@ -309,6 +310,56 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
+    // MARK: - HistoryView Identifier Tests
+
+    func testHistoryView_ScrollViewIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToHistory()
+
+        let scrollView = app.scrollViews["historyView.scrollView"]
+        XCTAssertTrue(
+            wait(for: scrollView, timeout: standardTimeout),
+            "historyView.scrollView identifier should exist"
+        )
+    }
+
+    func testHistoryView_ChartViewIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToHistory()
+
+        let chartView = app.otherElements["historyView.chartView"]
+        XCTAssertTrue(
+            wait(for: chartView, timeout: standardTimeout),
+            "historyView.chartView identifier should exist"
+        )
+    }
+
+    func testHistoryView_EmptyStateViewIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with no history")
+
+        try loginAndNavigateToHistory()
+
+        let emptyStateView = app.otherElements["historyView.emptyStateView"]
+        XCTAssertTrue(
+            wait(for: emptyStateView, timeout: standardTimeout),
+            "historyView.emptyStateView identifier should exist when no test history"
+        )
+    }
+
+    func testHistoryView_TestRowIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToHistory()
+
+        let testRow = app.buttons["historyView.testRow.0"]
+        XCTAssertTrue(
+            wait(for: testRow, timeout: standardTimeout),
+            "historyView.testRow.0 identifier should exist for first test row"
+        )
+    }
+
     // MARK: - Private Helpers
 
     /// Login and verify we reach the dashboard
@@ -320,6 +371,21 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
         guard success else {
             throw XCTSkip("Could not login to reach dashboard")
+        }
+    }
+
+    /// Login and navigate to the History tab
+    private func loginAndNavigateToHistory() throws {
+        try loginAndNavigateToDashboard()
+
+        let historyTab = app.buttons["tabBar.historyTab"]
+        guard wait(for: historyTab, timeout: standardTimeout) else {
+            throw XCTSkip("History tab not found")
+        }
+        historyTab.tap()
+
+        guard historyTab.isSelected else {
+            throw XCTSkip("Could not navigate to History")
         }
     }
 
