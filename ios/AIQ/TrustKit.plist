@@ -27,6 +27,7 @@
             <!-- additional backend endpoints on subdomains, or if a CDN/API -->
             <!-- gateway with subdomain-based routing is placed in front of -->
             <!-- the backend. -->
+            <!-- See: ios/docs/CODING_STANDARDS.md § Security > Certificate Pinning -->
             <key>TSKIncludeSubdomains</key>
             <false/>
 
