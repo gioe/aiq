@@ -72,8 +72,8 @@ final class NotificationPermissionBannerTests: XCTestCase {
 
         // Then
         XCTAssertTrue(
-            viewInspector.hasAccessibilityIdentifier("notificationPermissionBanner"),
-            "View should have accessibility identifier 'notificationPermissionBanner'"
+            viewInspector.hasAccessibilityIdentifier(AccessibilityIdentifiers.NotificationPermissionBanner.banner),
+            "View should have accessibility identifier for notification permission banner"
         )
     }
 
