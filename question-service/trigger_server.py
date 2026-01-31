@@ -22,6 +22,8 @@ from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Rate limiting constants
@@ -251,8 +253,35 @@ app = FastAPI(
     },
 )
 
-# Add rate limiting middleware (skip health check)
-app.add_middleware(RateLimitMiddleware, skip_paths=["/health"])
+# Add rate limiting middleware (skip health check and metrics)
+app.add_middleware(RateLimitMiddleware, skip_paths=["/health", "/metrics"])
+
+# Prometheus metrics instrumentation
+if settings.enable_prometheus_metrics:
+    from prometheus_client import REGISTRY
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    # Clear default collectors to avoid duplicate registration on module reload (tests)
+    collectors_to_remove = [
+        c
+        for c in list(REGISTRY._names_to_collectors.values())
+        if hasattr(c, "_name") and c._name.startswith(("http_requests", "http_request"))
+    ]
+    for collector in collectors_to_remove:
+        try:
+            REGISTRY.unregister(collector)
+        except Exception:
+            pass
+
+    instrumentator = Instrumentator(
+        excluded_handlers=["/health", "/metrics"],
+        should_instrument_requests_inprogress=True,
+    )
+    instrumentator.instrument(
+        app, metric_namespace="aiq", metric_subsystem="question_service"
+    )
+    instrumentator.expose(app, include_in_schema=False)
+    logger.info("Prometheus metrics enabled at /metrics")
 
 # Admin token from environment
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
