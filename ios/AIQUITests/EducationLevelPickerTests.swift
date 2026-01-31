@@ -149,11 +149,19 @@ final class EducationLevelPickerTests: BaseUITest {
         let educationButton = registrationHelper.educationLevelButton
         educationButton.tap()
 
-        // Verify menu options are visible
-        // Check that at least one education level option appears
+        // Verify multiple key menu options are visible
         let bachelorOption = app.buttons["Bachelor's Degree"]
         let menuOpened = bachelorOption.waitForExistence(timeout: standardTimeout)
         XCTAssertTrue(menuOpened, "Education level menu should open and show options")
+
+        let highSchoolOption = app.buttons["High School"]
+        XCTAssertTrue(highSchoolOption.exists, "High School option should be visible in menu")
+
+        let doctorateOption = app.buttons["Doctorate"]
+        XCTAssertTrue(doctorateOption.exists, "Doctorate option should be visible in menu")
+
+        let preferNotToSayOption = app.buttons["Prefer not to say"]
+        XCTAssertTrue(preferNotToSayOption.exists, "Prefer not to say option should be visible in menu")
 
         takeScreenshot(named: "EducationLevelPicker-MenuOpen")
     }
