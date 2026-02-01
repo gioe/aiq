@@ -15,12 +15,6 @@ final class FeedbackViewModelTests: XCTestCase {
         sut = FeedbackViewModel(apiClient: mockAPIClient)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialization_DefaultState() {

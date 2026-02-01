@@ -10,11 +10,6 @@ final class HapticManagerTests: XCTestCase {
         sut = HapticManager()
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testSharedInstance_ReturnsSameInstance() {

@@ -16,13 +16,6 @@ final class AuthServiceTests: XCTestCase {
         sut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        mockSecureStorage = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInit_LoadsExistingTokenFromStorage() async throws {

@@ -14,9 +14,7 @@ final class ServiceContainerTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up after tests
         sut.reset()
-        sut = nil
         super.tearDown()
     }
 

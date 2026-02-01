@@ -13,7 +13,6 @@ final class OnboardingViewModelTests: XCTestCase {
     }
 
     override func tearDown() {
-        sut = nil
         UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
         super.tearDown()
     }

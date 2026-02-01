@@ -71,11 +71,6 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         deepLinkHandler = DeepLinkHandler()
     }
 
-    override func tearDown() {
-        deepLinkHandler = nil
-        super.tearDown()
-    }
-
     // MARK: - Payload Structure Validation Tests
 
     /// Test extracting deep_link from nested payload structure
@@ -633,12 +628,6 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         deepLinkHandler = DeepLinkHandler()
     }
 
-    override func tearDown() {
-        router = nil
-        deepLinkHandler = nil
-        super.tearDown()
-    }
-
     // MARK: - Settings Navigation Tests
 
     /// Test that .settings deep link switches to settings tab
@@ -1141,12 +1130,6 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
         super.setUp()
         router = AppRouter()
         deepLinkHandler = DeepLinkHandler()
-    }
-
-    override func tearDown() {
-        router = nil
-        deepLinkHandler = nil
-        super.tearDown()
     }
 
     // MARK: - Processing State Tests

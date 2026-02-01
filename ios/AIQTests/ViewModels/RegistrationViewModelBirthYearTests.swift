@@ -14,12 +14,6 @@ final class RegistrationViewModelBirthYearTests: XCTestCase {
         sut = RegistrationViewModel(authManager: mockAuthManager)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Birth Year Validation Tests
 
     func testBirthYearValidation_EmptyBirthYear() {

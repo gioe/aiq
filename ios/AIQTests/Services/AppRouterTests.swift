@@ -13,11 +13,6 @@ final class AppRouterTests: XCTestCase {
         sut = AppRouter()
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialState() {

@@ -19,13 +19,6 @@ final class TestTakingViewModelTests: XCTestCase {
         )
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        mockAnswerStorage = nil
-        super.tearDown()
-    }
-
     // MARK: - Active Session Error Detection Tests
 
     func testStartTest_DetectsActiveSessionConflictError() async {

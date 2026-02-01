@@ -14,7 +14,6 @@ final class ToastManagerTests: XCTestCase {
 
     override func tearDown() {
         sut.dismiss()
-        sut = nil
         super.tearDown()
     }
 

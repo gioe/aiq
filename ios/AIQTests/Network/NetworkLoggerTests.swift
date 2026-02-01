@@ -15,11 +15,6 @@ final class NetworkLoggerTests: XCTestCase {
         sut = NetworkLogger.shared
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Shared Instance Tests
 
     func testSharedInstance_IsAccessible() {

@@ -62,12 +62,6 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
         await sut.setAuthService(mockAuthService)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthService = nil
-        super.tearDown()
-    }
-
     // MARK: - Stress Tests (10+ Concurrent Requests)
 
     /// BTS-55: Test that 10+ concurrent 401 responses share a single token refresh

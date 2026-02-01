@@ -16,13 +16,6 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         mockDeviceTokenManager = MockDeviceTokenManager()
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthService = nil
-        mockDeviceTokenManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Delete Account Tests
 
     func testDeleteAccount_Success() async throws {

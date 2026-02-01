@@ -79,12 +79,6 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await sut.setAuthService(mockAuthService)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthService = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInit_WithoutAuthService() {

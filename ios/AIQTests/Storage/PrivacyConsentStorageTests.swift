@@ -14,10 +14,7 @@ final class PrivacyConsentStorageTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up after each test
         mockUserDefaults.removePersistentDomain(forName: "com.aiq.tests.PrivacyConsentStorageTests")
-        sut = nil
-        mockUserDefaults = nil
         super.tearDown()
     }
 

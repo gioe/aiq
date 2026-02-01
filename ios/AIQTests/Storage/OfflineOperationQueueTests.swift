@@ -33,14 +33,7 @@ final class OfflineOperationQueueTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        // Clean up UserDefaults
         mockUserDefaults.removePersistentDomain(forName: mockUserDefaults.dictionaryRepresentation().keys.first ?? "")
-        mockUserDefaults = nil
-
-        sut = nil
-        mockNetworkMonitor = nil
-        cancellables = nil
-
         try await super.tearDown()
     }
 

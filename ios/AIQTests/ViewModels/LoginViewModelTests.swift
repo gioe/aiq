@@ -14,12 +14,6 @@ final class LoginViewModelTests: XCTestCase {
         sut = LoginViewModel(authManager: mockAuthManager)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialState() {

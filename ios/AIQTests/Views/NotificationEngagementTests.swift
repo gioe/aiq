@@ -343,11 +343,6 @@ final class MockNotificationManagerUpgradePromptTests: XCTestCase {
         mockNotificationManager = MockNotificationManager()
     }
 
-    override func tearDown() {
-        mockNotificationManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Tests
 
     /// Test that hasShownUpgradePrompt defaults to false

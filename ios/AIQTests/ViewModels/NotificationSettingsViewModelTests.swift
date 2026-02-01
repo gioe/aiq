@@ -18,13 +18,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         )
     }
 
-    override func tearDown() {
-        sut = nil
-        mockNotificationService = nil
-        mockNotificationManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInit_SetsDefaultValues() {
