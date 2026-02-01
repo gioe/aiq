@@ -13,13 +13,6 @@ final class ViewModelFactoryTests: XCTestCase {
         ServiceConfiguration.configureServices(container: container)
     }
 
-    override func tearDown() async throws {
-        container.reset()
-        ServiceConfiguration.configureServices(container: container)
-        container = nil
-        try await super.tearDown()
-    }
-
     // MARK: - Comprehensive Factory Test
 
     /// Verifies all ViewModelFactory methods can successfully create ViewModels with production configuration.
