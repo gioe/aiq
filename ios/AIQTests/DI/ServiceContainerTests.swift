@@ -7,14 +7,11 @@ final class ServiceContainerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        // Use the shared instance for all tests
-        sut = ServiceContainer.shared
-        // Reset to ensure test isolation
-        sut.reset()
+        sut = ServiceContainer()
     }
 
     override func tearDown() {
-        sut.reset()
+        sut = nil
         super.tearDown()
     }
 
@@ -339,14 +336,17 @@ final class ServiceContainerTests: XCTestCase {
     // MARK: - Shared Instance Tests
 
     func testSharedInstance_PersistsRegistrations() {
-        // Given
-        sut.register(String.self) { "SharedTest" }
+        // Given — use the real singleton for this specific test
+        let shared = ServiceContainer.shared
+        shared.reset()
+        shared.register(String.self) { "SharedTest" }
 
         // When
-        let resolved = sut.resolve(String.self)
+        let resolved = shared.resolve(String.self)
 
         // Then
         XCTAssertEqual(resolved, "SharedTest", "Should persist registrations across resolutions")
+        shared.reset()
     }
 
     // MARK: - Complex Type Tests

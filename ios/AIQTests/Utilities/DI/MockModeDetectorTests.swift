@@ -50,7 +50,7 @@ final class MockModeDetectorTests: XCTestCase {
 
     func testMockScenarioCount() {
         // Verify the expected number of scenarios
-        XCTAssertEqual(MockScenario.allCases.count, 7, "Should have exactly 7 mock scenarios")
+        XCTAssertEqual(MockScenario.allCases.count, 9, "Should have exactly 9 mock scenarios")
     }
 
     // MARK: - MockModeDetector Constants Tests

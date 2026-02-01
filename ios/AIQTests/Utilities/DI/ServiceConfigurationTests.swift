@@ -8,12 +8,13 @@ final class ServiceConfigurationTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        // Use the shared instance since the initializer is private
-        container = ServiceContainer.shared
-        // Reset before each test to start fresh
-        container.reset()
-        // Configure services for testing
+        container = ServiceContainer()
         ServiceConfiguration.configureServices(container: container)
+    }
+
+    override func tearDown() async throws {
+        container = nil
+        try await super.tearDown()
     }
 
     // MARK: - Registration Tests

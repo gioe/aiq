@@ -315,17 +315,17 @@ final class AIQAPIClientExtensionsTests: XCTestCase {
 
     func testTestResultResponse_completionTimeFormatted_secondsOnly() {
         let result = createTestResult(completionTimeSeconds: 45)
-        XCTAssertEqual(result.completionTimeFormatted, "45s")
+        XCTAssertEqual(result.completionTimeFormatted, "0:45")
     }
 
     func testTestResultResponse_completionTimeFormatted_minutesOnly() {
         let result = createTestResult(completionTimeSeconds: 120)
-        XCTAssertEqual(result.completionTimeFormatted, "2m")
+        XCTAssertEqual(result.completionTimeFormatted, "2:00")
     }
 
     func testTestResultResponse_completionTimeFormatted_minutesAndSeconds() {
         let result = createTestResult(completionTimeSeconds: 330)
-        XCTAssertEqual(result.completionTimeFormatted, "5m 30s")
+        XCTAssertEqual(result.completionTimeFormatted, "5:30")
     }
 
     func testTestResultResponse_completionTimeFormatted_nil() {

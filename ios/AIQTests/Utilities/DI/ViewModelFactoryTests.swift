@@ -8,9 +8,13 @@ final class ViewModelFactoryTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        container = ServiceContainer.shared
-        container.reset()
+        container = ServiceContainer()
         ServiceConfiguration.configureServices(container: container)
+    }
+
+    override func tearDown() async throws {
+        container = nil
+        try await super.tearDown()
     }
 
     // MARK: - Comprehensive Factory Test

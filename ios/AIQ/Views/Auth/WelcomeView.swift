@@ -73,24 +73,6 @@ struct WelcomeView: View {
                             }
                         }
 
-//                        // Stats Teaser
-//                        StatsTeaser()
-//                            .opacity(isAnimating ? 1.0 : 0.0)
-//                            .offset(y: isAnimating ? 0 : 20)
-//                            .animation(
-//                                DesignSystem.Animation.smooth.delay(0.2),
-//                                value: isAnimating
-//                            )
-
-                        // Feature Highlights
-                        FeatureHighlights()
-                            .opacity(isAnimating ? 1.0 : 0.0)
-                            .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
-                            .animation(
-                                reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
-                                value: isAnimating
-                            )
-
                         // Login Form
                         VStack(spacing: DesignSystem.Spacing.xl) {
                             CustomTextField(
@@ -185,75 +167,6 @@ struct WelcomeView: View {
                 RegistrationView()
             }
         }
-    }
-}
-
-// MARK: - Stats Teaser Component
-
-/// Displays engaging statistics to attract users
-struct StatsTeaser: View {
-    var body: some View {
-        HStack(spacing: DesignSystem.Spacing.lg) {
-            StatItem(icon: "person.3.fill", value: "10K+", label: "Users")
-            StatItem(icon: "brain.fill", value: "2M+", label: "Questions")
-            StatItem(icon: "chart.line.uptrend.xyaxis", value: "95%", label: "Improved")
-        }
-        .padding(.horizontal, DesignSystem.Spacing.xl)
-    }
-}
-
-/// Individual stat item with icon, value, and label
-struct StatItem: View {
-    let icon: String
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.xs) {
-            Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.md))
-                .foregroundColor(ColorPalette.primary)
-
-            Text(value)
-                .font(Typography.h4)
-                .foregroundColor(ColorPalette.textPrimary)
-
-            Text(label)
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Feature Highlights Component
-
-/// Displays key features with icons and descriptions
-struct FeatureHighlights: View {
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            InfoCard(
-                icon: "puzzlepiece.extension.fill",
-                title: "Fresh AI Challenges",
-                description: "New questions every test",
-                color: ColorPalette.statBlue
-            )
-
-            InfoCard(
-                icon: "chart.line.uptrend.xyaxis",
-                title: "Track Your Progress",
-                description: "Watch your IQ improve over time",
-                color: ColorPalette.statGreen
-            )
-
-//            InfoCard(
-//                icon: "trophy.fill",
-//                title: "Unlock Achievements",
-//                description: "Earn rewards for consistency",
-//                color: ColorPalette.statOrange
-//            )
-        }
-        .padding(.horizontal, DesignSystem.Spacing.xl)
     }
 }
 

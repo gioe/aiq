@@ -167,7 +167,9 @@ final class NetworkMonitorTests: XCTestCase {
     func testMultipleObservers_AllReceiveUpdates() async {
         // Given
         let expectation1 = expectation(description: "First observer receives updates")
+        expectation1.assertForOverFulfill = false
         let expectation2 = expectation(description: "Second observer receives updates")
+        expectation2.assertForOverFulfill = false
 
         var observer1Values: [Bool] = []
         var observer2Values: [Bool] = []

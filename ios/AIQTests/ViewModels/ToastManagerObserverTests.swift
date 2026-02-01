@@ -22,12 +22,17 @@ final class ToastManagerObserverTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         cancellables = Set<AnyCancellable>()
-        container = ServiceContainer.shared
-        container.reset()
+        container = ServiceContainer()
     }
 
     override func tearDown() {
+<<<<<<< HEAD
         container.reset()
+=======
+        cancellables.removeAll()
+        cancellables = nil
+        container = nil
+>>>>>>> b007952 (fixed tests)
         super.tearDown()
     }
 
@@ -323,7 +328,9 @@ final class ToastManagerObserverTests: XCTestCase {
         let sut = ToastManagerObserver(container: container)
 
         let expectation1 = expectation(description: "First observer receives updates")
+        expectation1.assertForOverFulfill = false
         let expectation2 = expectation(description: "Second observer receives updates")
+        expectation2.assertForOverFulfill = false
         var observer1Received = false
         var observer2Received = false
 

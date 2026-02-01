@@ -19,7 +19,7 @@ import SwiftUI
 /// 1. **Startup**: Call `ServiceConfiguration.configureServices()` once during app init
 /// 2. **Seal**: Call `markConfigurationComplete()` to enable DEBUG assertions
 /// 3. **Runtime**: Only use `resolve()` to obtain services
-/// 4. **Testing**: Use `reset()` to clear registrations between tests
+/// 4. **Testing**: Create a fresh `ServiceContainer()` per test for isolation
 ///
 /// Example:
 /// ```swift
@@ -59,8 +59,8 @@ final class ServiceContainer {
 
     // MARK: - Initialization
 
-    /// Private initializer to enforce singleton pattern
-    private init() {}
+    /// Internal initializer allows tests to create isolated instances instead of sharing the singleton
+    init() {}
 
     // MARK: - Registration
 
