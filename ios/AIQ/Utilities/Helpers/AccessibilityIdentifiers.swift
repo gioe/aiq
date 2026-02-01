@@ -108,6 +108,7 @@ enum AccessibilityIdentifiers {
         static let timerLabel = "testTakingView.timerLabel"
         static let timeWarningBanner = "testTakingView.timeWarningBanner"
         static let questionNavigationGrid = "testTakingView.questionNavigationGrid"
+        static let loadingOverlay = "testTakingView.loadingOverlay"
 
         /// Generate identifier for answer button at specific index
         static func answerButton(at index: Int) -> String {

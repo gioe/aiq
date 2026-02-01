@@ -55,7 +55,14 @@ struct TestTakingView: View {
                 testContentView
             }
 
-            // Loading overlay with transition
+            // Loading overlay for initial test fetch
+            if viewModel.isLoading && viewModel.questions.isEmpty {
+                LoadingOverlay(message: "Preparing your test...")
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
+            }
+
+            // Loading overlay for test submission
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
