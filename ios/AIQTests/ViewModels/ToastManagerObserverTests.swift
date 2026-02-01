@@ -26,13 +26,9 @@ final class ToastManagerObserverTests: XCTestCase {
     }
 
     override func tearDown() {
-<<<<<<< HEAD
-        container.reset()
-=======
         cancellables.removeAll()
         cancellables = nil
         container = nil
->>>>>>> b007952 (fixed tests)
         super.tearDown()
     }
 
