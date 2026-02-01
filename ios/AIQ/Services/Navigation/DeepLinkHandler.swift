@@ -339,7 +339,7 @@ extension DeepLinkHandler {
         _ deepLink: DeepLink,
         router: AppRouter,
         tab: TabDestination? = nil,
-        apiClient: APIClientProtocol = APIClient.shared,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
         source: DeepLinkSource = .unknown,
         originalURL: String = ""
     ) async -> Bool {
@@ -348,7 +348,7 @@ extension DeepLinkHandler {
         switch deepLink {
         case let .testResults(id):
             if let result = await handleTestResultsNavigation(
-                id: id, router: router, targetTab: targetTab, apiClient: apiClient
+                id: id, router: router, targetTab: targetTab, apiService: apiService
             ) {
                 router.navigateTo(.testDetail(result: result, userAverage: nil), in: targetTab)
                 trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
@@ -389,15 +389,10 @@ extension DeepLinkHandler {
         id: Int,
         router _: AppRouter,
         targetTab _: TabDestination,
-        apiClient: APIClientProtocol
+        apiService: OpenAPIServiceProtocol
     ) async -> TestResult? {
         do {
-            return try await apiClient.request(
-                endpoint: .testResults(String(id)),
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true
-            )
+            return try await apiService.getTestResults(resultId: id)
         } catch {
             Self.logger.error("Failed to fetch test result \(id): \(error.localizedDescription, privacy: .public)")
             CrashlyticsErrorRecorder.recordError(error, context: .deepLinkNavigation)

@@ -92,8 +92,9 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     // MARK: - Initialization
 
     init(
-        notificationService: NotificationServiceProtocol = NotificationService.shared,
-        authManager: AuthManagerProtocol = AuthManager.shared,
+        // swiftlint:disable:next line_length
+        notificationService: NotificationServiceProtocol = ServiceContainer.shared.resolve(NotificationServiceProtocol.self)!,
+        authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
         notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
         application: ApplicationProtocol = UIApplication.shared
     ) {
@@ -247,8 +248,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         }
 
         do {
-            let response = try await notificationService.unregisterDeviceToken()
-            print("[SUCCESS] [NotificationManager] Device token unregistered: \(response.message)")
+            try await notificationService.unregisterDeviceToken()
+            print("[SUCCESS] [NotificationManager] Device token unregistered")
 
             isDeviceTokenRegistered = false
             clearCachedDeviceToken()
@@ -317,8 +318,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         isRegisteringToken = true
 
         do {
-            let response = try await notificationService.registerDeviceToken(token)
-            print("[SUCCESS] [NotificationManager] Device token registered: \(response.message)")
+            try await notificationService.registerDeviceToken(token)
+            print("[SUCCESS] [NotificationManager] Device token registered")
 
             isDeviceTokenRegistered = true
             pendingDeviceToken = nil

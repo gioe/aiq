@@ -21,7 +21,6 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     var authErrorPublisher: Published<Error?>.Publisher { $authError }
 
     private let authService: AuthServiceProtocol
-    private let tokenRefreshInterceptor: TokenRefreshInterceptor
 
     /// Factory closure for creating DeviceTokenManager - using lazy initialization
     /// to break circular dependency with NotificationManager
@@ -29,23 +28,17 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     private lazy var deviceTokenManager: DeviceTokenManagerProtocol = deviceTokenManagerFactory()
 
     init(
-        authService: AuthServiceProtocol = AuthService.shared,
+        authService: AuthServiceProtocol = ServiceContainer.shared.resolve(AuthServiceProtocol.self)!,
         deviceTokenManagerFactory: @escaping @MainActor () -> DeviceTokenManagerProtocol = {
-            NotificationManager.shared
+            guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self),
+                  let tokenManager = manager as? DeviceTokenManagerProtocol else {
+                fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+            }
+            return tokenManager
         }
     ) {
         self.authService = authService
         self.deviceTokenManagerFactory = deviceTokenManagerFactory
-        tokenRefreshInterceptor = TokenRefreshInterceptor(authService: authService)
-
-        // Set up token refresh interceptor in APIClient
-        if authService is AuthService {
-            // Access the shared APIClient and set the auth service
-            // Note: This must be done asynchronously due to actor isolation
-            Task {
-                await APIClient.shared.setAuthService(authService)
-            }
-        }
 
         // Initialize state from existing session
         isAuthenticated = authService.isAuthenticated

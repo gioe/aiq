@@ -9,7 +9,14 @@ struct TestResultsView: View {
     @State private var showConfidenceIntervalInfo = false
     @State private var showNotificationSoftPrompt = false
     @State private var hasDismissed = false
-    @ObservedObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var notificationManager: NotificationManager = {
+        let resolved = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
+        guard let manager = resolved as? NotificationManager else {
+            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+        }
+        return manager
+    }()
+
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {

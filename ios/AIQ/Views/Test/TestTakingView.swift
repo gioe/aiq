@@ -70,6 +70,7 @@ struct TestTakingView: View {
         }
         .navigationTitle("IQ Test")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 TestTimerView(timerManager: timerManager)

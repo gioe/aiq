@@ -522,14 +522,8 @@ final class NotificationManagerTests: XCTestCase {
     }
 
     func testRegistration_InterruptedByLogout_CleansUpState() async throws {
-        // Given - Authenticated user with successful mock configuration
+        // Given - Authenticated user (mock will succeed by default)
         mockAuthManager.isAuthenticated = true
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
 
         // Receive device token
         let deviceToken = Data([0x11, 0x22, 0x33, 0x44])
@@ -554,13 +548,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = true
         UserDefaults.standard.set("registered_token", forKey: deviceTokenKey)
 
-        // First, register successfully
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // First, register successfully (mock succeeds by default)
         await sut.retryDeviceTokenRegistration()
 
         // Wait for registration
@@ -603,14 +591,8 @@ final class NotificationManagerTests: XCTestCase {
             !self.sut.isDeviceTokenRegistered
         }
 
-        // Now configure success
+        // Now configure success (clear the error)
         await mockNotificationService.setRegisterError(nil)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
 
         // When - Second attempt (should succeed)
         await sut.retryDeviceTokenRegistration()
@@ -652,14 +634,8 @@ final class NotificationManagerTests: XCTestCase {
             !self.sut.isDeviceTokenRegistered
         }
 
-        // Now configure success
+        // Now configure success (clear the error)
         await mockNotificationService.setRegisterError(nil)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
 
         // Final attempt - should succeed
         await sut.retryDeviceTokenRegistration()
@@ -723,14 +699,8 @@ final class NotificationManagerTests: XCTestCase {
             !self.sut.isDeviceTokenRegistered
         }
 
-        // When - Configure success and retry
+        // When - Configure success and retry (clear the error)
         await mockNotificationService.setRegisterError(nil)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
         await sut.retryDeviceTokenRegistration()
 
         // Then - Should transition to success state
@@ -746,13 +716,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = false
         UserDefaults.standard.set("auth_transition_token", forKey: deviceTokenKey)
 
-        // Configure successful response (for when auth happens)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Mock will succeed by default - no need to configure response
 
         // When - User authenticates
         mockAuthManager.isAuthenticated = true
@@ -770,12 +734,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = true
         UserDefaults.standard.set("logout_token", forKey: deviceTokenKey)
 
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Register (mock will succeed by default)
         await sut.retryDeviceTokenRegistration()
 
         // Wait for registration
@@ -811,13 +770,7 @@ final class NotificationManagerTests: XCTestCase {
     }
 
     func testStateTransition_ConcurrentAuthChanges_MaintainsConsistency() async throws {
-        // Given - Configure successful registration
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Given - Mock will succeed by default
         UserDefaults.standard.set("concurrent_token", forKey: deviceTokenKey)
 
         // When - Rapidly toggle authentication state
@@ -884,12 +837,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = true
         UserDefaults.standard.set("unregister_error_token", forKey: deviceTokenKey)
 
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Register successfully (mock succeeds by default)
         await sut.retryDeviceTokenRegistration()
 
         try await waitForCondition(message: "Should become registered") {
@@ -928,14 +876,8 @@ final class NotificationManagerTests: XCTestCase {
             !self.sut.isDeviceTokenRegistered
         }
 
-        // Simulate network recovery
+        // Simulate network recovery (clear the error)
         await mockNotificationService.setRegisterError(nil)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
 
         // When - Retry after network recovery
         await sut.retryDeviceTokenRegistration()
@@ -1387,13 +1329,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = false
         UserDefaults.standard.set("auth_state_test_token", forKey: deviceTokenKey)
 
-        // Configure mock to succeed registration
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Mock will succeed by default - no need to configure response
 
         // Verify initial state - not registered
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should start unregistered")
@@ -1421,13 +1357,7 @@ final class NotificationManagerTests: XCTestCase {
         mockAuthManager.isAuthenticated = true
         UserDefaults.standard.set("logout_test_token", forKey: deviceTokenKey)
 
-        // Configure mock to succeed registration
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
+        // Mock will succeed by default - no need to configure response
 
         // Register the token first
         await sut.retryDeviceTokenRegistration()
@@ -1481,14 +1411,8 @@ final class NotificationManagerTests: XCTestCase {
     }
 
     func testAuthStateChange_handlesRapidToggling() async throws {
-        // Given - Cached token with successful mock configuration
+        // Given - Cached token (mock will succeed by default)
         UserDefaults.standard.set("rapid_toggle_token", forKey: deviceTokenKey)
-        await mockNotificationService.setRegisterResponse(
-            DeviceTokenResponse(
-                success: true,
-                message: "Device token registered"
-            )
-        )
 
         // When - Rapidly toggle auth state multiple times
         mockAuthManager.isAuthenticated = true

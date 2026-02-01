@@ -97,10 +97,10 @@ enum CrashlyticsErrorRecorder {
 
             // Add error-specific info
             if let apiError = error as? APIError {
-                userInfo["apiErrorCode"] = apiError.errorCode
+                userInfo["apiErrorCode"] = String(describing: apiError)
                 userInfo["isRetryable"] = apiError.isRetryable
             } else if let contextualError = error as? ContextualError {
-                userInfo["operation"] = contextualError.operation.rawValue
+                userInfo["operation"] = String(describing: contextualError.operation)
                 userInfo["isRetryable"] = contextualError.isRetryable
             }
 

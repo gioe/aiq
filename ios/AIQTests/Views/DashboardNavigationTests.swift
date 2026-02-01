@@ -10,12 +10,12 @@ import XCTest
 @MainActor
 final class DashboardNavigationTests: XCTestCase {
     var sut: AppRouter!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
 
     override func setUp() {
         super.setUp()
         sut = AppRouter()
-        mockAPIClient = MockAPIClient()
+        mockService = MockOpenAPIService()
     }
 
     // MARK: - Action Button Navigation Tests

@@ -66,7 +66,7 @@ class HistoryViewModel: BaseViewModel {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
     private var allTestHistory: [TestResult] = []
     private var cachedInsights: PerformanceInsights?
 
@@ -78,8 +78,8 @@ class HistoryViewModel: BaseViewModel {
 
     // MARK: - Initialization
 
-    init(apiClient: APIClientProtocol) {
-        self.apiClient = apiClient
+    init(apiService: OpenAPIServiceProtocol) {
+        self.apiService = apiService
         super.init()
     }
 
@@ -119,15 +119,7 @@ class HistoryViewModel: BaseViewModel {
     }
 
     private func fetchFromAPI() async throws -> PaginatedTestHistoryResponse {
-        try await apiClient.request(
-            endpoint: .testHistory(limit: pageSize, offset: 0),
-            method: .get,
-            body: nil as String?,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
+        try await apiService.getTestHistory(limit: pageSize, offset: 0)
     }
 
     private func cacheResults(_ results: [TestResult]) async {
@@ -170,14 +162,9 @@ class HistoryViewModel: BaseViewModel {
         clearError()
 
         do {
-            let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
-                endpoint: .testHistory(limit: pageSize, offset: currentOffset),
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
+            let paginatedResponse = try await apiService.getTestHistory(
+                limit: pageSize,
+                offset: currentOffset
             )
 
             let newResults = paginatedResponse.results

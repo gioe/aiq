@@ -11,7 +11,7 @@ class AuthService: AuthServiceProtocol {
     @available(*, deprecated, message: "AuthService instances are now created by ServiceContainer")
     static let shared = AuthService()
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
     private let secureStorage: SecureStorageProtocol
     private var _currentUser: User?
     private let logger = Logger(subsystem: "com.aiq.app", category: "AuthService")
@@ -25,20 +25,23 @@ class AuthService: AuthServiceProtocol {
     }
 
     init(
-        apiClient: APIClientProtocol = APIClient.shared,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
         secureStorage: SecureStorageProtocol = KeychainStorage.shared
     ) {
-        self.apiClient = apiClient
+        self.apiService = apiService
         self.secureStorage = secureStorage
 
-        // Try to load existing token and set on API client
+        // Restore tokens from keychain into middleware on init
         do {
-            if let token = try secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue) {
-                apiClient.setAuthToken(token)
+            if let accessToken = try secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue),
+               let refreshToken = try secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue) {
+                Task {
+                    await apiService.setTokens(accessToken: accessToken, refreshToken: refreshToken)
+                }
             }
         } catch {
             // Log storage error but don't crash - this is graceful degradation
-            logger.error("Failed to retrieve access token during init: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to retrieve tokens during init: \(error.localizedDescription, privacy: .public)")
             CrashlyticsErrorRecorder.recordError(
                 error,
                 context: .storageRetrieve,
@@ -68,37 +71,16 @@ class AuthService: AuthServiceProtocol {
             print("   - Education level: \(educationLevel?.rawValue ?? "nil")")
         #endif
 
-        // Convert local EducationLevel to OpenAPI EducationLevelPayload
-        let educationPayload: Components.Schemas.UserRegister.EducationLevelPayload? = if let educationLevel {
-            if let schemaValue = Components.Schemas.EducationLevelSchema(rawValue: educationLevel.rawValue) {
-                .init(value1: schemaValue)
-            } else {
-                nil
-            }
-        } else {
-            nil
-        }
-
-        let request = RegisterRequest(
-            birthYear: birthYear,
-            country: country,
-            educationLevel: educationPayload,
-            email: email,
-            firstName: firstName,
-            lastName: lastName,
-            password: password,
-            region: region
-        )
-
         do {
-            let response: AuthResponse = try await apiClient.request(
-                endpoint: .register,
-                method: .post,
-                body: request,
-                requiresAuth: false,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
+            let response = try await apiService.register(
+                email: email,
+                password: password,
+                firstName: firstName,
+                lastName: lastName,
+                birthYear: birthYear,
+                educationLevel: educationLevel,
+                country: country,
+                region: region
             )
 
             #if DEBUG
@@ -109,7 +91,7 @@ class AuthService: AuthServiceProtocol {
             #endif
 
             // Save tokens and user
-            try saveAuthData(response)
+            try await saveAuthData(response)
 
             return response
         } catch {
@@ -125,18 +107,9 @@ class AuthService: AuthServiceProtocol {
             print("[AUTH] Starting login")
             print("   - Email: \(email)")
         #endif
-        let request = LoginRequest(email: email, password: password)
 
         do {
-            let response: AuthResponse = try await apiClient.request(
-                endpoint: .login,
-                method: .post,
-                body: request,
-                requiresAuth: false,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
+            let response = try await apiService.login(email: email, password: password)
 
             #if DEBUG
                 print("[SUCCESS] Login successful")
@@ -146,7 +119,7 @@ class AuthService: AuthServiceProtocol {
             #endif
 
             // Save tokens and user
-            try saveAuthData(response)
+            try await saveAuthData(response)
 
             return response
         } catch {
@@ -158,44 +131,25 @@ class AuthService: AuthServiceProtocol {
     }
 
     func refreshToken() async throws -> AuthResponse {
-        guard let refreshToken = try secureStorage.retrieve(
-            forKey: SecureStorageKey.refreshToken.rawValue
-        ) else {
+        guard try secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue) != nil else {
             throw AuthError.noRefreshToken
         }
 
-        // Send refresh token in Authorization header, not body
-        let response: AuthResponse = try await apiClient.request(
-            endpoint: .refreshToken,
-            method: .post,
-            body: String?.none,
-            requiresAuth: false,
-            customHeaders: ["Authorization": "Bearer \(refreshToken)"],
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
+        // The OpenAPI middleware handles sending the refresh token
+        let response = try await apiService.refreshToken()
 
         // Save new tokens
-        try saveAuthData(response)
+        try await saveAuthData(response)
 
         return response
     }
 
     func logout() async throws {
         // Call logout endpoint (best effort - don't fail if it errors)
-        try? await apiClient.request(
-            endpoint: .logout,
-            method: .post,
-            body: String?.none,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        ) as String
+        try? await apiService.logout()
 
         // Clear local data
-        clearAuthData()
+        await clearAuthData()
     }
 
     func deleteAccount() async throws {
@@ -203,51 +157,19 @@ class AuthService: AuthServiceProtocol {
             print("[AUTH] Starting account deletion")
         #endif
 
-        // Call delete account endpoint - propagate errors to caller
-        // This is critical: user must know if deletion failed to avoid GDPR issues
-        //
-        // Backend behavior: Returns 204 No Content on success (empty body)
-        // This causes a decodingError when the APIClient tries to decode the response.
-        // We treat decodingError as success since it indicates 2xx with empty body.
-        // Any other error (network, 4xx, 5xx) is a real failure.
         do {
-            let _: String? = try await apiClient.request(
-                endpoint: .deleteAccount,
-                method: .delete,
-                body: String?.none,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
-            // If we somehow got a response body, that's also success
-            onDeleteSuccess()
-        } catch let error as APIError {
-            switch error {
-            case .decodingError:
-                // Expected path: 204 No Content causes decoding error with empty body
-                onDeleteSuccess()
-            default:
-                // Real API failures (network, server errors, etc.)
-                #if DEBUG
-                    print("[ERROR] Account deletion failed: \(error)")
-                #endif
-                throw AuthError.accountDeletionFailed(underlying: error)
-            }
+            try await apiService.deleteAccount()
+
+            #if DEBUG
+                print("[SUCCESS] Account deletion successful")
+            #endif
+            await clearAuthData()
         } catch {
-            // Non-API errors (shouldn't happen, but handle defensively)
             #if DEBUG
                 print("[ERROR] Account deletion failed: \(error)")
             #endif
             throw AuthError.accountDeletionFailed(underlying: error)
         }
-    }
-
-    private func onDeleteSuccess() {
-        #if DEBUG
-            print("[SUCCESS] Account deletion successful")
-        #endif
-        clearAuthData()
     }
 
     func getAccessToken() -> String? {
@@ -270,7 +192,7 @@ class AuthService: AuthServiceProtocol {
 
     // MARK: - Private Methods
 
-    private func saveAuthData(_ response: AuthResponse) throws {
+    private func saveAuthData(_ response: AuthResponse) async throws {
         // Step 1: Capture current state before making changes
         let oldAccessToken = try? secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue)
         let oldRefreshToken = try? secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue)
@@ -291,8 +213,11 @@ class AuthService: AuthServiceProtocol {
                 forKey: SecureStorageKey.userId.rawValue
             )
 
-            // Step 3: Only update API client and in-memory state after successful saves
-            apiClient.setAuthToken(response.accessToken)
+            // Step 3: Only update middleware tokens and in-memory state after successful saves
+            await apiService.setTokens(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
+            )
             _currentUser = response.user
         } catch {
             // Step 4: Rollback on any failure
@@ -346,7 +271,7 @@ class AuthService: AuthServiceProtocol {
         }
     }
 
-    private func clearAuthData() {
+    private func clearAuthData() async {
         // Remove tokens from keychain
         do {
             try secureStorage.deleteAll()
@@ -368,8 +293,8 @@ class AuthService: AuthServiceProtocol {
             #endif
         }
 
-        // Clear API client token
-        apiClient.setAuthToken(nil)
+        // Clear middleware tokens
+        await apiService.clearTokens()
 
         // Clear current user
         _currentUser = nil

@@ -5,7 +5,7 @@ import Foundation
 class FeedbackViewModel: BaseViewModel {
     // MARK: - Dependencies
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
     private let authManager: AuthManagerProtocol?
 
     // MARK: - Private State
@@ -25,10 +25,10 @@ class FeedbackViewModel: BaseViewModel {
 
     /// Initialize the ViewModel with dependencies
     /// - Parameters:
-    ///   - apiClient: API client for network requests
+    ///   - apiService: API service for network requests
     ///   - authManager: Auth manager for accessing current user (optional for pre-populating email)
-    init(apiClient: APIClientProtocol, authManager: AuthManagerProtocol? = nil) {
-        self.apiClient = apiClient
+    init(apiService: OpenAPIServiceProtocol, authManager: AuthManagerProtocol? = nil) {
+        self.apiService = apiService
         self.authManager = authManager
         super.init()
 
@@ -94,12 +94,7 @@ class FeedbackViewModel: BaseViewModel {
             )
 
             // Submit feedback to backend (no authentication required)
-            let response: FeedbackSubmitResponse = try await apiClient.request(
-                endpoint: .submitFeedback,
-                method: .post,
-                body: feedback,
-                requiresAuth: false
-            )
+            let response = try await apiService.submitFeedback(feedback)
 
             setLoading(false)
 

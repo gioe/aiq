@@ -34,7 +34,7 @@ class TestTakingViewModel: BaseViewModel {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
     private let answerStorage: LocalAnswerStorageProtocol
     private var saveWorkItem: DispatchWorkItem?
 
@@ -45,10 +45,10 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Initialization
 
     init(
-        apiClient: APIClientProtocol,
+        apiService: OpenAPIServiceProtocol,
         answerStorage: LocalAnswerStorageProtocol
     ) {
-        self.apiClient = apiClient
+        self.apiService = apiService
         self.answerStorage = answerStorage
         super.init()
         setupAutoSave()
@@ -199,15 +199,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func fetchTestQuestions(questionCount _: Int) async throws -> StartTestResponse {
-        try await apiClient.request(
-            endpoint: .testStart,
-            method: .post,
-            body: nil as String?,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
+        try await apiService.startTest()
     }
 
     private func handleTestStartSuccess(response: StartTestResponse) {
@@ -307,15 +299,7 @@ class TestTakingViewModel: BaseViewModel {
     /// This is used to determine if the upcoming test will be the user's first test
     private func fetchTestCountAtStart() async {
         do {
-            let response: PaginatedTestHistoryResponse = try await apiClient.request(
-                endpoint: .testHistory(limit: 1, offset: nil),
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: true
-            )
+            let response = try await apiService.getTestHistory(limit: 1, offset: nil)
             testCountAtStart = response.totalCount
         } catch {
             // If we fail to fetch test count, assume it's not the first test to avoid false positives
@@ -334,15 +318,7 @@ class TestTakingViewModel: BaseViewModel {
         clearError()
 
         do {
-            let response: TestSessionStatusResponse = try await apiClient.request(
-                endpoint: .testSession(sessionId),
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
+            let response = try await apiService.getTestSession(sessionId: sessionId)
 
             // Verify we have questions in the response
             guard let fetchedQuestions = response.questions, !fetchedQuestions.isEmpty else {
@@ -439,15 +415,7 @@ class TestTakingViewModel: BaseViewModel {
 
         do {
             // First, abandon the existing session
-            let _: TestAbandonResponse = try await apiClient.request(
-                endpoint: .testAbandon(sessionId),
-                method: .post,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
+            _ = try await apiService.abandonTest(sessionId: sessionId)
 
             #if DEBUG
                 print("[SUCCESS] Abandoned session \(sessionId), starting new test")
@@ -538,9 +506,10 @@ class TestTakingViewModel: BaseViewModel {
 
         let submission = buildTestSubmission(for: session, timeLimitExceeded: timeLimitExceeded)
         do {
-            let response: TestSubmitResponse = try await apiClient.request(
-                endpoint: .testSubmit, method: .post, body: submission,
-                requiresAuth: true, cacheKey: nil, cacheDuration: nil, forceRefresh: false
+            let response = try await apiService.submitTest(
+                sessionId: session.id,
+                responses: submission.responses,
+                timeLimitExceeded: timeLimitExceeded
             )
             handleSubmissionSuccess(response, isTimeoutSubmission: timeLimitExceeded)
         } catch {
@@ -650,15 +619,7 @@ class TestTakingViewModel: BaseViewModel {
         clearError()
 
         do {
-            let response: TestAbandonResponse = try await apiClient.request(
-                endpoint: .testAbandon(session.id),
-                method: .post,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
+            let response = try await apiService.abandonTest(sessionId: session.id)
 
             // Update session with abandoned status
             testSession = response.session

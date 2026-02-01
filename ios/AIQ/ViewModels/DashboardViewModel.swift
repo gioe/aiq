@@ -17,12 +17,12 @@ class DashboardViewModel: BaseViewModel {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
 
     // MARK: - Initialization
 
-    init(apiClient: APIClientProtocol) {
-        self.apiClient = apiClient
+    init(apiService: OpenAPIServiceProtocol) {
+        self.apiService = apiService
         super.init()
     }
 
@@ -79,16 +79,7 @@ class DashboardViewModel: BaseViewModel {
         clearError()
 
         do {
-            // Call abandon endpoint
-            let response: TestAbandonResponse = try await apiClient.request(
-                endpoint: .testAbandon(sessionId),
-                method: .post,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: nil,
-                cacheDuration: nil,
-                forceRefresh: false
-            )
+            let response = try await apiService.abandonTest(sessionId: sessionId)
 
             #if DEBUG
                 print("[SUCCESS] Test abandoned: \(response.message)")
@@ -123,22 +114,21 @@ class DashboardViewModel: BaseViewModel {
     /// - Note: Dashboard only needs the first page of results for summary stats.
     @discardableResult
     func fetchTestHistory(forceRefresh: Bool = false) async -> Error? {
+        // Check cache first if not forcing refresh
+        if !forceRefresh {
+            if let cached: [TestResult] = await DataCache.shared.get(forKey: DataCache.Key.testHistory) {
+                updateDashboardState(with: cached, totalCount: cached.count)
+                return nil
+            }
+        }
+
         do {
-            // API now returns paginated response (BCQ-004)
-            // Dashboard only needs the first page to show summary stats
-            let paginatedResponse: PaginatedTestHistoryResponse = try await apiClient.request(
-                endpoint: .testHistory(limit: nil, offset: nil),
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: DataCache.Key.testHistory,
-                cacheDuration: nil, // Use default cache duration
-                forceRefresh: forceRefresh
-            )
+            let paginatedResponse = try await apiService.getTestHistory(limit: nil, offset: nil)
+
+            // Cache the results
+            await DataCache.shared.set(paginatedResponse.results, forKey: DataCache.Key.testHistory)
 
             // Update dashboard state with results array
-            // Note: For users with >50 tests, this only shows stats from first 50
-            // but that's acceptable for dashboard summary display
             updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
             return nil
 
@@ -157,16 +147,27 @@ class DashboardViewModel: BaseViewModel {
     /// - Note: Errors are logged but don't block dashboard loading
     @discardableResult
     func fetchActiveSession(forceRefresh: Bool = false) async -> Error? {
+        // Check cache first if not forcing refresh
+        if !forceRefresh {
+            if let cached: TestSessionStatusResponse = await DataCache.shared.get(
+                forKey: DataCache.Key.activeTestSession
+            ) {
+                updateActiveSessionState(cached)
+                return nil
+            }
+        }
+
         do {
-            let response: TestSessionStatusResponse? = try await apiClient.request(
-                endpoint: .testActive,
-                method: .get,
-                body: nil as String?,
-                requiresAuth: true,
-                cacheKey: DataCache.Key.activeTestSession,
-                cacheDuration: Constants.Cache.dashboardCacheDuration,
-                forceRefresh: forceRefresh
-            )
+            let response = try await apiService.getActiveTest()
+
+            // Cache the response
+            if let response {
+                await DataCache.shared.set(
+                    response,
+                    forKey: DataCache.Key.activeTestSession,
+                    expiration: Constants.Cache.dashboardCacheDuration
+                )
+            }
 
             // Update active session state
             updateActiveSessionState(response)

@@ -117,13 +117,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let deviceToken = "test_token_123"
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
 
-        // Configure mock service to succeed
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Device token registered successfully"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
-
         // When - User authenticates
         mockAuthManager.isAuthenticated = true
 
@@ -147,13 +140,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         let deviceToken = "test_token_456"
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
-
-        // Configure mock service for initial registration
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Device token registered"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
 
         // Trigger registration
         await sut.retryDeviceTokenRegistration()
@@ -188,13 +174,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         let deviceToken = Data([0xAB, 0xCD, 0xEF, 0x12])
         let expectedTokenString = "abcdef12"
-
-        // Configure mock service to succeed
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Device token registered"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
 
         // When - Device token is received
         sut.didReceiveDeviceToken(deviceToken)
@@ -286,11 +265,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
 
         // Register first
-        let registerResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered"
-        )
-        await mockNotificationService.setRegisterResponse(registerResponse)
         await sut.retryDeviceTokenRegistration()
 
         // Wait for registration to complete
@@ -302,13 +276,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // Without this reset, the mock would still have registerDeviceTokenCalled=true from the
         // setup phase, making it impossible to verify that only unregister (not register) was called.
         await mockNotificationService.reset()
-
-        // Configure unregister response
-        let unregisterResponse = DeviceTokenResponse(
-            success: true,
-            message: "Unregistered"
-        )
-        await mockNotificationService.setUnregisterResponse(unregisterResponse)
 
         // When - Unregister is called
         await sut.unregisterDeviceToken()
@@ -349,11 +316,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
 
         // Register first
-        let registerResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered"
-        )
-        await mockNotificationService.setRegisterResponse(registerResponse)
         await sut.retryDeviceTokenRegistration()
 
         // Wait for registration to complete
@@ -394,13 +356,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         let deviceToken = "retry_token_456"
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
-
-        // Configure mock service
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered on retry"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
 
         // When - Retry registration
         await sut.retryDeviceTokenRegistration()
@@ -508,19 +463,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // Given - User logs in
         mockAuthManager.isAuthenticated = true
 
-        // Configure mock service
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
-
-        let unregisterResponse = DeviceTokenResponse(
-            success: true,
-            message: "Unregistered"
-        )
-        await mockNotificationService.setUnregisterResponse(unregisterResponse)
-
         // When - Device token received
         let tokenData = Data([0xAA, 0xBB, 0xCC, 0xDD])
         sut.didReceiveDeviceToken(tokenData)
@@ -548,8 +490,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertFalse(sut.isDeviceTokenRegistered, "Should clear registration state after logout")
 
         // When - User logs back in
-        // Re-configure mock service for re-registration
-        await mockNotificationService.setRegisterResponse(mockResponse)
         mockAuthManager.isAuthenticated = true
 
         // Wait for re-registration
@@ -589,12 +529,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         XCTAssertEqual(cachedToken, expectedTokenString, "Should cache token before login")
 
         // When - User logs in
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered after login"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
-
         mockAuthManager.isAuthenticated = true
 
         // Wait for registration to complete
@@ -641,13 +575,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // This allows us to verify that the retry makes exactly one new call and succeeds independently.
         await mockNotificationService.reset()
 
-        // Configure mock to succeed
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered on retry"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
-
         // When - Retry registration
         await sut.retryDeviceTokenRegistration()
 
@@ -678,8 +605,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
 
         // Configure mock with delay to simulate slow network
-        let mockResponse = DeviceTokenResponse(success: true, message: "Registered")
-        await mockNotificationService.setRegisterResponse(mockResponse)
         await mockNotificationService.setRegisterDelay(0.2) // 200ms delay to test guard
 
         // When - Trigger concurrent registrations
@@ -707,12 +632,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         // Configure mock service
         let deviceToken = "consistency_token"
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
-
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
 
         // When - Rapid auth state changes
         mockAuthManager.isAuthenticated = true
@@ -744,12 +663,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
         let tokenData = Data([0xFF, 0xEE, 0xDD, 0xCC])
 
-        let mockResponse = DeviceTokenResponse(
-            success: true,
-            message: "Registered"
-        )
-        await mockNotificationService.setRegisterResponse(mockResponse)
-
         sut.didReceiveDeviceToken(tokenData)
 
         // Wait for registration to complete
@@ -763,8 +676,6 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         let newMockNotificationCenter = MockUserNotificationCenter()
         let newMockApplication = MockApplication()
         newMockAuthManager.isAuthenticated = true
-
-        await newMockNotificationService.setRegisterResponse(mockResponse)
 
         let newSut = NotificationManager(
             notificationService: newMockNotificationService,

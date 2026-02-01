@@ -6,15 +6,15 @@ import XCTest
 @MainActor
 final class TestTakingViewModelTests: XCTestCase {
     var sut: TestTakingViewModel!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
     var mockAnswerStorage: MockLocalAnswerStorage!
 
     override func setUp() {
         super.setUp()
-        mockAPIClient = MockAPIClient()
+        mockService = MockOpenAPIService()
         mockAnswerStorage = MockLocalAnswerStorage()
         sut = TestTakingViewModel(
-            apiClient: mockAPIClient,
+            apiService: mockService,
             answerStorage: mockAnswerStorage
         )
     }
@@ -28,18 +28,14 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             message: "User already has an active test session (ID: \(sessionId)). Please complete or abandon the existing session."
         )
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.startTestError = conflictError
 
         // When
         await sut.startTest(questionCount: 20)
 
         // Then
-
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testStart, "Should call testStart endpoint")
+        let startTestCalled = await mockService.startTestCalled
+        XCTAssertTrue(startTestCalled, "API should be called")
         XCTAssertFalse(sut.isLoading, "Loading should be false after error")
         XCTAssertNotNil(sut.error, "Error should be set")
 
@@ -59,7 +55,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             message: "User already has an active test session (ID: \(sessionId))."
         )
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.startTestError = conflictError
 
         // When
         await sut.startTest(questionCount: 20)
@@ -78,7 +74,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testStartTest_DoesNotSetActiveSessionConflictForOtherErrors() async {
         // Given - Mock API returns a different error
         let otherError = APIError.serverError(statusCode: 500, message: "Internal server error")
-        await mockAPIClient.setMockError(otherError)
+        await mockService.startTestError = otherError
 
         // When
         await sut.startTest(questionCount: 20)
@@ -102,21 +98,17 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: mockQuestions
         )
 
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let getTestSessionCalled = await mockService.getTestSessionCalled
+        let lastSessionId = await mockService.lastGetTestSessionId
 
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testSession(sessionId), "Should call testSession endpoint")
-        XCTAssertEqual(lastMethod, .get, "Should use GET method")
-        XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
+        XCTAssertTrue(getTestSessionCalled, "API should be called")
+        XCTAssertEqual(lastSessionId, sessionId, "Should call with correct session ID")
         XCTAssertNotNil(sut.testSession, "Test session should be set")
         XCTAssertEqual(sut.testSession?.id, sessionId, "Session ID should match")
         XCTAssertEqual(sut.questions.count, 2, "Should have 2 questions")
@@ -136,7 +128,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
 
         // Set up saved progress with one answer
         let savedProgress = SavedTestProgress(
@@ -170,7 +162,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
         mockAnswerStorage.mockProgress = nil // No saved progress
 
         // When
@@ -197,7 +189,7 @@ final class TestTakingViewModelTests: XCTestCase {
             questionsCount: 0,
             session: mockSession
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -212,7 +204,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 333
         let apiError = APIError.notFound(message: "Session not found")
-        await mockAPIClient.setMockError(apiError)
+        await mockService.getTestSessionError = apiError
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -237,20 +229,24 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: makeQuestions(count: 1, startingId: 100)
         )
 
-        // Set up endpoint-specific responses for sequential calls
-        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        // Set up responses
+        await mockService.abandonTestResponse = abandonResponse
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
 
         // When - abandonAndStartNew should make both calls internally
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // Then - verify all API calls were made (abandon, testHistory for first test check, then testStart)
-        let allEndpoints = await mockAPIClient.allEndpoints
-        XCTAssertEqual(allEndpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
-        XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(allEndpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
-        XCTAssertEqual(allEndpoints[2], .testStart, "Third call should start new test")
+        // Then - verify all API calls were made
+        let abandonTestCalled = await mockService.abandonTestCalled
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        let startTestCalled = await mockService.startTestCalled
+        let lastAbandonSessionId = await mockService.lastAbandonTestSessionId
+
+        XCTAssertTrue(abandonTestCalled, "Should call abandonTest")
+        XCTAssertEqual(lastAbandonSessionId, sessionId, "Should abandon correct session")
+        XCTAssertTrue(getTestHistoryCalled, "Should call getTestHistory for first test check")
+        XCTAssertTrue(startTestCalled, "Should call startTest")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -263,7 +259,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 666
         let abandonError = APIError.serverError(statusCode: 500, message: "Failed to abandon")
-        await mockAPIClient.setMockError(abandonError)
+        await mockService.abandonTestError = abandonError
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
@@ -272,11 +268,11 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNotNil(sut.error, "Error should be set")
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let abandonTestCalled = await mockService.abandonTestCalled
+        let lastAbandonSessionId = await mockService.lastAbandonTestSessionId
 
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testAbandon(sessionId), "Should try to abandon")
+        XCTAssertTrue(abandonTestCalled, "API should be called")
+        XCTAssertEqual(lastAbandonSessionId, sessionId, "Should try to abandon correct session")
     }
 
     func testAbandonAndStartNew_CallsStartTestAfterSuccessfulAbandon() async {
@@ -290,25 +286,22 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: makeQuestions(count: 1)
         )
 
-        // Set up endpoint-specific responses for sequential calls
-        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
-        await mockAPIClient.setResponse(startTestResponse, for: .testStart)
+        // Set up responses
+        await mockService.abandonTestResponse = abandonResponse
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startTestResponse
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
 
-        // Then - Verify all API calls were made (abandon, testHistory for first test check, then testStart)
-        let allEndpoints = await mockAPIClient.allEndpoints
-        let allMethods = await mockAPIClient.allMethods
+        // Then - Verify all API calls were made
+        let abandonTestCalled = await mockService.abandonTestCalled
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        let startTestCalled = await mockService.startTestCalled
 
-        XCTAssertEqual(allEndpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
-        XCTAssertEqual(allEndpoints[0], .testAbandon(sessionId), "First call should abandon")
-        XCTAssertEqual(allEndpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
-        XCTAssertEqual(allEndpoints[2], .testStart, "Third call should start new test")
-        XCTAssertEqual(allMethods[0], .post, "Abandon should use POST")
-        XCTAssertEqual(allMethods[1], .get, "Test history should use GET")
-        XCTAssertEqual(allMethods[2], .post, "Start test should use POST")
+        XCTAssertTrue(abandonTestCalled, "Should call abandonTest")
+        XCTAssertTrue(getTestHistoryCalled, "Should call getTestHistory for first test check")
+        XCTAssertTrue(startTestCalled, "Should call startTest")
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
@@ -323,7 +316,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 888
         let expiredError = APIError.notFound(message: "Session has expired")
-        await mockAPIClient.setMockError(expiredError)
+        await mockService.getTestSessionError = expiredError
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -346,7 +339,7 @@ final class TestTakingViewModelTests: XCTestCase {
         let networkError = APIError.networkError(
             URLError(.notConnectedToInternet)
         )
-        await mockAPIClient.setMockError(networkError)
+        await mockService.getTestSessionError = networkError
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -367,7 +360,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         let sessionId = 1010
         let authError = APIError.unauthorized(message: "Session expired")
-        await mockAPIClient.setMockError(authError)
+        await mockService.abandonTestError = authError
 
         // When
         await sut.abandonAndStartNew(sessionId: sessionId, questionCount: 20)
@@ -413,7 +406,7 @@ final class TestTakingViewModelTests: XCTestCase {
             questionsCount: mockQuestions.count,
             session: mockSession
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
         // Saved progress includes an answer for question 3 (not in session) and question 1 (in session)
         let savedProgress = SavedTestProgress(
             sessionId: sessionId,
@@ -546,7 +539,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -578,7 +572,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Simulate some time passing on first question
@@ -605,7 +600,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // First visit to question 1
@@ -636,7 +632,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Navigate to second question
@@ -663,7 +660,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
@@ -688,7 +686,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -723,7 +722,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Set an initial answer
@@ -757,7 +757,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Set answers for all questions
@@ -778,14 +779,14 @@ final class TestTakingViewModelTests: XCTestCase {
             ),
             session: makeTestSession(id: sessionId, status: "completed")
         )
-        await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
+        await mockService.submitTestResponse = submitResponse
 
         // When
         await sut.submitTestForTimeout()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "API should be called for timeout submission")
+        let submitTestCalled = await mockService.submitTestCalled
+        XCTAssertTrue(submitTestCalled, "API should be called for timeout submission")
         XCTAssertTrue(sut.isTestCompleted, "Test should be marked completed")
     }
 
@@ -797,7 +798,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Only answer first question (not all)
@@ -818,14 +820,14 @@ final class TestTakingViewModelTests: XCTestCase {
             ),
             session: makeTestSession(id: sessionId, status: "completed")
         )
-        await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
+        await mockService.submitTestResponse = submitResponse
 
         // When - Submit via timeout (should not require all answers)
         await sut.submitTestForTimeout()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "API should be called even with partial answers")
+        let submitTestCalled = await mockService.submitTestCalled
+        XCTAssertTrue(submitTestCalled, "API should be called even with partial answers")
         XCTAssertTrue(sut.isTestCompleted, "Test should complete despite partial answers")
     }
 
@@ -851,7 +853,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
 
         // Answer questions with time between
@@ -874,14 +877,14 @@ final class TestTakingViewModelTests: XCTestCase {
             ),
             session: makeTestSession(id: sessionId, status: "completed")
         )
-        await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
+        await mockService.submitTestResponse = submitResponse
 
         // When
         await sut.submitTest()
 
         // Then - Verify submission was made (time data is included in payload)
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "Submission should include time data")
+        let submitTestCalled = await mockService.submitTestCalled
+        XCTAssertTrue(submitTestCalled, "Submission should include time data")
         XCTAssertTrue(sut.isTestCompleted, "Test should be completed")
     }
 
@@ -889,13 +892,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testIsFirstTest_ReturnsTrueWhenTestCountAtStartIsZero() async {
         // Given - Set up API to return zero test count
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: [],
-            totalCount: 0,
-            limit: 1,
-            offset: 0,
-            hasMore: false
-        )
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
 
         let sessionId = 3001
         let mockQuestions = makeQuestions(count: 2)
@@ -903,7 +900,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -924,13 +921,7 @@ final class TestTakingViewModelTests: XCTestCase {
             accuracyPercentage: 60.0,
             completedAt: Date()
         )
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: [mockTestResult],
-            totalCount: 1,
-            limit: 1,
-            offset: 0,
-            hasMore: false
-        )
+        await mockService.setTestHistoryResponse([mockTestResult], totalCount: 1, hasMore: false)
 
         let sessionId = 3002
         let mockQuestions = makeQuestions(count: 2)
@@ -938,7 +929,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -959,13 +950,7 @@ final class TestTakingViewModelTests: XCTestCase {
             accuracyPercentage: 60.0,
             completedAt: Date()
         )
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: [mockTestResult],
-            totalCount: 5, // Multiple tests exist
-            limit: 1,
-            offset: 0,
-            hasMore: true
-        )
+        await mockService.setTestHistoryResponse([mockTestResult], totalCount: 5, hasMore: true)
 
         let sessionId = 3003
         let mockQuestions = makeQuestions(count: 2)
@@ -973,7 +958,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -984,13 +969,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testFetchTestCountAtStart_SetsCountCorrectlyFromAPIResponse() async {
         // Given - Set up API to return a specific test count
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: [],
-            totalCount: 3,
-            limit: 1,
-            offset: 0,
-            hasMore: false
-        )
+        await mockService.setTestHistoryResponse([], totalCount: 3, hasMore: false)
 
         let sessionId = 3004
         let mockQuestions = makeQuestions(count: 2)
@@ -998,7 +977,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -1007,17 +986,16 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isFirstTest, "isFirstTest should be false when count is 3")
 
         // Verify API was called with correct parameters
-        let allEndpoints = await mockAPIClient.allEndpoints
-        XCTAssertTrue(
-            allEndpoints.contains(.testHistory(limit: 1, offset: nil)),
-            "Should call test history endpoint"
-        )
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        let lastLimit = await mockService.lastGetTestHistoryLimit
+        XCTAssertTrue(getTestHistoryCalled, "Should call test history endpoint")
+        XCTAssertEqual(lastLimit, 1, "Should use limit of 1")
     }
 
     func testFetchTestCountAtStart_HandlesFetchError_DefaultsToNotFirstTest() async {
         // Given - Set up API to return an error for test history
         let historyError = APIError.serverError(statusCode: 500, message: "Server error")
-        await mockAPIClient.setError(historyError, for: .testHistory(limit: 1, offset: nil))
+        await mockService.getTestHistoryError = historyError
 
         let sessionId = 3005
         let mockQuestions = makeQuestions(count: 2)
@@ -1025,7 +1003,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -1044,7 +1022,7 @@ final class TestTakingViewModelTests: XCTestCase {
             results: [],
             totalCount: 0
         )
-        await mockAPIClient.setResponse(emptyHistoryResponse, for: .testHistory(limit: 1, offset: nil))
+        await mockService.getTestHistoryResponse = emptyHistoryResponse
 
         let sessionId = 3006
         let mockQuestions = makeQuestions(count: 2)
@@ -1052,7 +1030,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // Verify isFirstTest is false before starting test
         XCTAssertFalse(sut.isFirstTest, "Should be false before test starts")
@@ -1073,7 +1051,7 @@ final class TestTakingViewModelTests: XCTestCase {
             results: [],
             totalCount: 0
         )
-        await mockAPIClient.setResponse(historyResponse, for: .testHistory(limit: 1, offset: nil))
+        await mockService.getTestHistoryResponse = historyResponse
 
         let sessionId = 3007
         let mockQuestions = makeQuestions(count: 2)
@@ -1081,18 +1059,15 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
 
         // Then - Verify the API was called with force refresh
         // This ensures we get the most up-to-date count, not cached data
-        let allEndpoints = await mockAPIClient.allEndpoints
-        XCTAssertTrue(
-            allEndpoints.contains(.testHistory(limit: 1, offset: nil)),
-            "Should fetch test history with forceRefresh=true"
-        )
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertTrue(getTestHistoryCalled, "Should fetch test history with forceRefresh=true")
     }
 
     // MARK: - Stimulus State Persistence Tests
@@ -1159,10 +1134,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false
-        )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 20)
@@ -1183,7 +1156,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = mockResponse
 
         // Saved progress includes stimulusSeen for question 10
         let savedProgress = SavedTestProgress(

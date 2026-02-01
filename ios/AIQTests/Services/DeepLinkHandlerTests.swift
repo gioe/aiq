@@ -1060,7 +1060,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 123
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Create a mock test result that will be returned by the API
         let mockTestResult = MockDataFactory.makeTestResult(
@@ -1075,18 +1075,18 @@ final class DeepLinkHandlerTests: XCTestCase {
         )
 
         // Configure mock to return the test result
-        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+        await mockService.getTestResultsResponse = mockTestResult
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
 
         // Then
         XCTAssertTrue(result, "Navigation should return true on successful API call")
         XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to testDetail")
 
         // Verify the API was called
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "API client should have been called")
+        let getTestResultsCalled = await mockService.getTestResultsCalled
+        XCTAssertTrue(getTestResultsCalled, "API service should have been called")
     }
 
     @MainActor
@@ -1095,21 +1095,21 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 999
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Configure mock to throw an error (simulating test not found)
-        await mockAPIClient.setError(APIError.notFound(message: "Test result not found"), for: .testResults(String(testId)))
+        await mockService.getTestResultsError = APIError.notFound(message: "Test result not found")
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
 
         // Then
         XCTAssertFalse(result, "Navigation should return false on API error")
         XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
 
         // Verify the API was called
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "API client should have been called")
+        let getTestResultsCalled = await mockService.getTestResultsCalled
+        XCTAssertTrue(getTestResultsCalled, "API service should have been called")
     }
 
     @MainActor
@@ -1118,14 +1118,14 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 456
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Configure mock to throw a network error
         let networkError = URLError(.notConnectedToInternet)
-        await mockAPIClient.setError(APIError.networkError(networkError), for: .testResults(String(testId)))
+        await mockService.getTestResultsError = APIError.networkError(networkError)
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
 
         // Then
         XCTAssertFalse(result, "Navigation should return false on network error")
@@ -1138,13 +1138,13 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 789
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Configure mock to throw a server error
-        await mockAPIClient.setError(APIError.serverError(statusCode: 500, message: "Internal server error"), for: .testResults(String(testId)))
+        await mockService.getTestResultsError = APIError.serverError(statusCode: 500, message: "Internal server error")
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
 
         // Then
         XCTAssertFalse(result, "Navigation should return false on server error")
@@ -1157,7 +1157,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 123
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Create a mock test result
         let mockTestResult = MockDataFactory.makeTestResult(
@@ -1171,10 +1171,10 @@ final class DeepLinkHandlerTests: XCTestCase {
             completedAt: Date()
         )
 
-        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+        await mockService.getTestResultsResponse = mockTestResult
 
         // When - navigate to history tab explicitly
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, tab: .history, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, tab: .history, apiService: mockService)
 
         // Then
         XCTAssertTrue(result, "Navigation should return true")
@@ -1188,7 +1188,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let testId = 123
         let deepLink = DeepLink.testResults(id: testId)
         let mockRouter = AppRouter()
-        let mockAPIClient = MockAPIClient()
+        let mockService = MockOpenAPIService()
 
         // Set current tab to history
         mockRouter.currentTab = .history
@@ -1205,10 +1205,10 @@ final class DeepLinkHandlerTests: XCTestCase {
             completedAt: Date()
         )
 
-        await mockAPIClient.setResponse(mockTestResult, for: .testResults(String(testId)))
+        await mockService.getTestResultsResponse = mockTestResult
 
         // When - don't specify tab, should use router's currentTab
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiClient: mockAPIClient)
+        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
 
         // Then
         XCTAssertTrue(result, "Navigation should return true")

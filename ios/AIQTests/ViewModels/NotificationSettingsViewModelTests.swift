@@ -33,11 +33,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadNotificationPreferences_Success_UpdatesState() async {
         // Given
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Success"
-        )
-        await mockNotificationService.setGetPreferencesResponse(mockResponse)
+        await mockNotificationService.setGetPreferencesResponse(true)
 
         // When
         await sut.loadNotificationPreferences()
@@ -67,11 +63,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadNotificationPreferences_SetsLoadingState() async {
         // Given
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: false,
-            message: "Success"
-        )
-        await mockNotificationService.setGetPreferencesResponse(mockResponse)
+        await mockNotificationService.setGetPreferencesResponse(false)
 
         // When
         let loadTask = Task {
@@ -93,12 +85,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Enabled"
-        )
-        await mockNotificationService.setUpdatePreferencesResponse(mockResponse)
-
         // When
         await sut.toggleNotifications()
 
@@ -116,12 +102,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         // Given
         sut.areNotificationsEnabled = true
         sut.systemPermissionGranted = true
-
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: false,
-            message: "Disabled"
-        )
-        await mockNotificationService.setUpdatePreferencesResponse(mockResponse)
 
         // When
         await sut.toggleNotifications()
@@ -182,11 +162,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
     func testRequestSystemPermission_WhenGranted_UpdatesState() async {
         // Given
         mockNotificationManager.mockAuthorizationGranted = true
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Success"
-        )
-        await mockNotificationService.setUpdatePreferencesResponse(mockResponse)
 
         // When
         await sut.requestSystemPermission()
@@ -356,11 +331,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadThenToggle_Success() async {
         // Given - Load preferences first
-        let loadResponse = NotificationPreferencesResponse(
-            notificationEnabled: false,
-            message: "Loaded"
-        )
-        await mockNotificationService.setGetPreferencesResponse(loadResponse)
+        await mockNotificationService.setGetPreferencesResponse(false)
 
         await sut.loadNotificationPreferences()
 
@@ -368,11 +339,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         XCTAssertFalse(sut.areNotificationsEnabled)
 
         // Given - Toggle notifications
-        let toggleResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Toggled"
-        )
-        await mockNotificationService.setUpdatePreferencesResponse(toggleResponse)
         sut.systemPermissionGranted = true
 
         // When
@@ -394,11 +360,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
         // Given - Retry succeeds
         await mockNotificationService.setGetPreferencesError(nil)
-        let successResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Success"
-        )
-        await mockNotificationService.setGetPreferencesResponse(successResponse)
+        await mockNotificationService.setGetPreferencesResponse(true)
 
         // When
         await sut.retry()
@@ -413,11 +375,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
     func testToggleNotifications_MultipleRapidCalls_HandlesCorrectly() async {
         // Given
         sut.systemPermissionGranted = true
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Success"
-        )
-        await mockNotificationService.setUpdatePreferencesResponse(mockResponse)
 
         // When - Make multiple rapid calls
         await sut.toggleNotifications()
@@ -432,11 +389,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadNotificationPreferences_CalledMultipleTimes_HandlesCorrectly() async {
         // Given
-        let mockResponse = NotificationPreferencesResponse(
-            notificationEnabled: true,
-            message: "Success"
-        )
-        await mockNotificationService.setGetPreferencesResponse(mockResponse)
+        await mockNotificationService.setGetPreferencesResponse(true)
 
         // When
         await sut.loadNotificationPreferences()
@@ -556,7 +509,6 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.setAuthorizationStatus(.notDetermined)
         mockNotificationManager.mockAuthorizationGranted = true
-        await mockNotificationService.setUpdatePreferencesResponse(NotificationPreferencesResponse(notificationEnabled: true, message: "Success"))
         sut.areNotificationsEnabled = false
 
         // When

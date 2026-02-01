@@ -52,8 +52,7 @@ class NotificationSettingsViewModel: BaseViewModel {
 
         do {
             // Get backend preferences
-            let response = try await notificationService.getNotificationPreferences()
-            areNotificationsEnabled = response.notificationEnabled
+            areNotificationsEnabled = try await notificationService.getNotificationPreferences()
 
             // Check system permission
             await checkSystemPermission()
@@ -84,8 +83,8 @@ class NotificationSettingsViewModel: BaseViewModel {
 
         do {
             let newValue = !areNotificationsEnabled
-            let response = try await notificationService.updateNotificationPreferences(enabled: newValue)
-            areNotificationsEnabled = response.notificationEnabled
+            try await notificationService.updateNotificationPreferences(enabled: newValue)
+            areNotificationsEnabled = newValue
 
             setLoading(false)
 
@@ -261,8 +260,8 @@ class NotificationSettingsViewModel: BaseViewModel {
     /// Disable notifications in backend without updating UI toggle
     private func disableBackendNotifications() async {
         do {
-            let response = try await notificationService.updateNotificationPreferences(enabled: false)
-            areNotificationsEnabled = response.notificationEnabled
+            try await notificationService.updateNotificationPreferences(enabled: false)
+            areNotificationsEnabled = false
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .notificationPreferences)

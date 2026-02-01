@@ -22,7 +22,7 @@ import Foundation
     /// ## Architecture
     ///
     /// The mock services follow the same registration pattern as real services:
-    /// 1. Layer 1: Services with no dependencies (APIClient, LocalAnswerStorage)
+    /// 1. Layer 1: Services with no dependencies (OpenAPIService, LocalAnswerStorage)
     /// 2. Layer 2: Services depending on Layer 1 (NotificationService)
     /// 3. Layer 3: AuthManager with lazy NotificationManager dependency
     /// 4. Layer 4: NotificationManager
@@ -51,9 +51,9 @@ import Foundation
             let mockToastManager = UITestMockToastManager()
             container.register(ToastManagerProtocol.self, instance: mockToastManager)
 
-            let mockAPIClient = UITestMockAPIClient()
-            mockAPIClient.configureForScenario(scenario)
-            container.register(APIClientProtocol.self, instance: mockAPIClient)
+            let mockOpenAPIService = UITestMockOpenAPIService()
+            mockOpenAPIService.configureForScenario(scenario)
+            container.register(OpenAPIServiceProtocol.self, instance: mockOpenAPIService)
 
             let mockLocalAnswerStorage = UITestMockLocalAnswerStorage()
             container.register(LocalAnswerStorageProtocol.self, instance: mockLocalAnswerStorage)

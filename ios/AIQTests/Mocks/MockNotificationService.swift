@@ -22,10 +22,7 @@ actor MockNotificationService: NotificationServiceProtocol {
 
     // MARK: - Mock Response Configuration
 
-    var mockRegisterResponse: DeviceTokenResponse?
-    var mockUnregisterResponse: DeviceTokenResponse?
-    var mockUpdatePreferencesResponse: NotificationPreferencesResponse?
-    var mockGetPreferencesResponse: NotificationPreferencesResponse?
+    var mockGetPreferencesResponse: Bool?
 
     var mockRegisterError: Error?
     var mockUnregisterError: Error?
@@ -44,7 +41,7 @@ actor MockNotificationService: NotificationServiceProtocol {
 
     // MARK: - NotificationServiceProtocol Implementation
 
-    func registerDeviceToken(_ deviceToken: String) async throws -> DeviceTokenResponse {
+    func registerDeviceToken(_ deviceToken: String) async throws {
         registerDeviceTokenCalled = true
         lastRegisteredToken = deviceToken
         registerCallCount += 1
@@ -57,38 +54,18 @@ actor MockNotificationService: NotificationServiceProtocol {
         if let error = mockRegisterError {
             throw error
         }
-
-        guard let response = mockRegisterResponse else {
-            throw NSError(
-                domain: "MockNotificationService",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Mock register response not configured"]
-            )
-        }
-
-        return response
     }
 
-    func unregisterDeviceToken() async throws -> DeviceTokenResponse {
+    func unregisterDeviceToken() async throws {
         unregisterDeviceTokenCalled = true
         unregisterCallCount += 1
 
         if let error = mockUnregisterError {
             throw error
         }
-
-        guard let response = mockUnregisterResponse else {
-            throw NSError(
-                domain: "MockNotificationService",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Mock unregister response not configured"]
-            )
-        }
-
-        return response
     }
 
-    func updateNotificationPreferences(enabled: Bool) async throws -> NotificationPreferencesResponse {
+    func updateNotificationPreferences(enabled: Bool) async throws {
         updateNotificationPreferencesCalled = true
         lastPreferencesEnabled = enabled
         updatePreferencesCallCount += 1
@@ -96,19 +73,9 @@ actor MockNotificationService: NotificationServiceProtocol {
         if let error = mockUpdatePreferencesError {
             throw error
         }
-
-        guard let response = mockUpdatePreferencesResponse else {
-            throw NSError(
-                domain: "MockNotificationService",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Mock update preferences response not configured"]
-            )
-        }
-
-        return response
     }
 
-    func getNotificationPreferences() async throws -> NotificationPreferencesResponse {
+    func getNotificationPreferences() async throws -> Bool {
         getNotificationPreferencesCalled = true
         getPreferencesCallCount += 1
 
@@ -129,24 +96,9 @@ actor MockNotificationService: NotificationServiceProtocol {
 
     // MARK: - Helper Methods
 
-    /// Set mock register response
-    func setRegisterResponse(_ response: DeviceTokenResponse) {
-        mockRegisterResponse = response
-    }
-
-    /// Set mock unregister response
-    func setUnregisterResponse(_ response: DeviceTokenResponse) {
-        mockUnregisterResponse = response
-    }
-
-    /// Set mock update preferences response
-    func setUpdatePreferencesResponse(_ response: NotificationPreferencesResponse) {
-        mockUpdatePreferencesResponse = response
-    }
-
     /// Set mock get preferences response
-    func setGetPreferencesResponse(_ response: NotificationPreferencesResponse) {
-        mockGetPreferencesResponse = response
+    func setGetPreferencesResponse(_ enabled: Bool) {
+        mockGetPreferencesResponse = enabled
     }
 
     /// Set mock register error
@@ -191,9 +143,6 @@ actor MockNotificationService: NotificationServiceProtocol {
         getNotificationPreferencesCalled = false
         getPreferencesCallCount = 0
 
-        mockRegisterResponse = nil
-        mockUnregisterResponse = nil
-        mockUpdatePreferencesResponse = nil
         mockGetPreferencesResponse = nil
 
         mockRegisterError = nil

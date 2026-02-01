@@ -14,7 +14,7 @@ import XCTest
 final class ActiveSessionFlowIntegrationTests: XCTestCase {
     var dashboardViewModel: DashboardViewModel!
     var testTakingViewModel: TestTakingViewModel!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
     var mockAnswerStorage: MockLocalAnswerStorage!
     var cancellables: Set<AnyCancellable>!
 
@@ -22,7 +22,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         try await super.setUp()
 
         // Initialize mocks
-        mockAPIClient = MockAPIClient()
+        mockService = MockOpenAPIService()
         mockAnswerStorage = MockLocalAnswerStorage()
         cancellables = []
 
@@ -31,9 +31,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
 
         // Initialize view models
-        dashboardViewModel = DashboardViewModel(apiClient: mockAPIClient)
+        dashboardViewModel = DashboardViewModel(apiService: mockService)
         testTakingViewModel = TestTakingViewModel(
-            apiClient: mockAPIClient,
+            apiService: mockService,
             answerStorage: mockAnswerStorage
         )
     }
@@ -42,8 +42,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
     func testStartNewTest_WithNoActiveSession_StartsSuccessfully() async {
         // Given - Dashboard shows no active session
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil
 
         await dashboardViewModel.fetchDashboardData()
 
@@ -52,7 +52,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be nil")
 
         // Reset mock for start test call
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User starts a new test
         let mockQuestions = makeQuestions(count: 3)
@@ -60,18 +60,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             sessionId: 100,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         await testTakingViewModel.startTest(questionCount: 20)
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
+        let startTestCalled = await mockService.startTestCalled
 
         // Then - Test starts successfully
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testStart, "Should call testStart endpoint")
-        XCTAssertEqual(lastMethod, .post, "Should use POST method")
+        XCTAssertTrue(startTestCalled, "API should be called")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, 100, "Session ID should match")
         XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have 3 questions")
@@ -83,13 +79,13 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Given - Start a test first
         let mockQuestions = makeQuestions(count: 2)
         let startResponse = makeStartTestResponse(sessionId: 200, questions: mockQuestions)
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
 
         await testTakingViewModel.startTest(questionCount: 20)
         XCTAssertNotNil(testTakingViewModel.testSession, "Test should be started")
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Dashboard refreshes and detects active session
         let activeSession = MockDataFactory.makeTestSession(
@@ -104,8 +100,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             session: activeSession
         )
 
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
 
@@ -132,8 +128,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             session: activeSession
         )
 
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
 
@@ -142,7 +138,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeTestSession?.id, sessionId)
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User resumes test from dashboard
         let mockQuestions = makeQuestions(count: 5)
@@ -151,18 +147,16 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questionsCount: 5,
             session: activeSession
         )
-        await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = resumeResponse
 
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
+        let getTestSessionCalled = await mockService.getTestSessionCalled
+        let lastGetTestSessionId = await mockService.lastGetTestSessionId
 
         // Then - Test session loads successfully
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testSession(sessionId), "Should call testSession endpoint")
-        XCTAssertEqual(lastMethod, .get, "Should use GET method")
+        XCTAssertTrue(getTestSessionCalled, "API should be called")
+        XCTAssertEqual(lastGetTestSessionId, sessionId, "Should call getTestSession with correct sessionId")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, sessionId, "Session ID should match")
         XCTAssertEqual(testTakingViewModel.questions.count, 5, "Should have 5 questions")
@@ -187,8 +181,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             questionsCount: 3,
             session: activeSession
         )
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
@@ -212,14 +206,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         mockAnswerStorage.mockProgress = savedProgress
 
         // Reset mock and set up resume response
-        await mockAPIClient.reset()
+        await mockService.reset()
         let resumeResponse = TestSessionStatusResponse(
             questions: mockQuestions,
             questionsCount: 3,
             session: activeSession
         )
 
-        await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = resumeResponse
 
         // When - User resumes test
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
@@ -252,8 +246,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Set endpoint-specific responses for parallel API calls
         // This avoids race conditions that occur with queue-based responses
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
 
@@ -263,7 +257,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 10)
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User abandons test from dashboard
         let abandonedSession = MockDataFactory.makeTestSession(
@@ -280,23 +274,16 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Set endpoint-specific responses for abandon operation
         // abandonActiveTest() calls: 1) abandon endpoint, 2) fetchDashboardData (parallel)
-        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // No active session after abandoning
+        await mockService.abandonTestResponse = abandonResponse
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil // No active session after abandoning
 
         await dashboardViewModel.abandonActiveTest()
 
-        let requestCalled = await mockAPIClient.requestCalled
+        let abandonTestCalled = await mockService.abandonTestCalled
 
         // Then - State is cleared and dashboard refreshed
-        XCTAssertTrue(requestCalled, "API should be called")
-        let allEndpoints = await mockAPIClient.allEndpoints
-
-        let abandonCalled = allEndpoints.contains { endpoint in
-            if case .testAbandon(sessionId) = endpoint { return true }
-            return false
-        }
-        XCTAssertTrue(abandonCalled, "Should call testAbandon endpoint")
+        XCTAssertTrue(abandonTestCalled, "API should be called")
         XCTAssertFalse(dashboardViewModel.hasActiveTest, "Should have no active test")
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be nil")
         XCTAssertNil(dashboardViewModel.activeSessionQuestionsAnswered, "Questions answered should be nil")
@@ -342,9 +329,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             )
         )
 
-        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive)
+        await mockService.abandonTestResponse = abandonResponse
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil
 
         await dashboardViewModel.abandonActiveTest()
 
@@ -368,17 +355,15 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             sessionId: existingSessionId,
             message: "User already has an active test session (ID: \(existingSessionId)). Please complete or abandon the existing session."
         )
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.startTestError = conflictError
 
         // When - User attempts to start new test
         await testTakingViewModel.startTest(questionCount: 20)
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let startTestCalled = await mockService.startTestCalled
 
         // Then - Error is detected and properly handled
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testStart, "Should call testStart endpoint")
+        XCTAssertTrue(startTestCalled, "API should be called")
         XCTAssertNotNil(testTakingViewModel.error, "Error should be set")
 
         // Verify error is activeSessionConflict type
@@ -401,14 +386,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             message: "User already has an active test session (ID: \(sessionId))."
         )
 
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.startTestError = conflictError
 
         // User tries to start test and gets conflict
         await testTakingViewModel.startTest(questionCount: 20)
         XCTAssertNotNil(testTakingViewModel.error, "Should have conflict error")
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User chooses to resume the conflicted session
         let mockQuestions = makeQuestions(count: 4)
@@ -423,16 +408,16 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             )
         )
 
-        await mockAPIClient.setResponse(resumeResponse, for: .testSession(sessionId))
+        await mockService.getTestSessionResponse = resumeResponse
 
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
+        let getTestSessionCalled = await mockService.getTestSessionCalled
+        let lastGetTestSessionId = await mockService.lastGetTestSessionId
 
         // Then - Session resumes successfully
-        XCTAssertTrue(requestCalled, "API should be called")
-        XCTAssertEqual(lastEndpoint, .testSession(sessionId), "Should call testSession endpoint")
+        XCTAssertTrue(getTestSessionCalled, "API should be called")
+        XCTAssertEqual(lastGetTestSessionId, sessionId, "Should call getTestSession with correct sessionId")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, sessionId, "Session ID should match")
         XCTAssertEqual(testTakingViewModel.questions.count, 4, "Should have 4 questions")
@@ -447,14 +432,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             sessionId: oldSessionId,
             message: "User already has an active test session (ID: \(oldSessionId))."
         )
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.startTestError = conflictError
 
         // User tries to start test and gets conflict
         await testTakingViewModel.startTest(questionCount: 20)
         XCTAssertNotNil(testTakingViewModel.error, "Should have conflict error")
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User chooses to abandon and start new
         let abandonResponse = TestAbandonResponse(
@@ -473,18 +458,20 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         // Set endpoint-specific responses for sequential calls
-        await mockAPIClient.setResponse(abandonResponse, for: .testAbandon(oldSessionId))
-        await mockAPIClient.setPaginatedTestHistoryResponse(results: [], totalCount: 0, limit: 1, offset: 0, hasMore: false)
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.abandonTestResponse = abandonResponse
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
 
         await testTakingViewModel.abandonAndStartNew(sessionId: oldSessionId, questionCount: 20)
 
         // Then - Old session abandoned and new session started
-        let endpoints = await mockAPIClient.allEndpoints
-        XCTAssertEqual(endpoints.count, 3, "Should make 3 API calls (abandon, history, start)")
-        XCTAssertEqual(endpoints[0], .testAbandon(oldSessionId), "First call should abandon")
-        XCTAssertEqual(endpoints[1], .testHistory(limit: 1, offset: nil), "Second call should fetch test history")
-        XCTAssertEqual(endpoints[2], .testStart, "Third call should start new test")
+        let abandonTestCalled = await mockService.abandonTestCalled
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        let startTestCalled = await mockService.startTestCalled
+
+        XCTAssertTrue(abandonTestCalled, "Should call abandonTest")
+        XCTAssertTrue(getTestHistoryCalled, "Should call getTestHistory")
+        XCTAssertTrue(startTestCalled, "Should call startTest")
         XCTAssertEqual(testTakingViewModel.testSession?.id, newSessionId, "Should have new session")
         XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have new questions")
         XCTAssertNil(testTakingViewModel.error, "Error should be cleared")
@@ -494,14 +481,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Given - User tries to resume expired session
         let sessionId = 1000
         let expiredError = APIError.notFound(message: "Session has expired or been deleted")
-        await mockAPIClient.setMockError(expiredError)
+        await mockService.getTestSessionError = expiredError
 
         // When - User attempts to resume
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
-        let requestCalled = await mockAPIClient.requestCalled
+        let getTestSessionCalled = await mockService.getTestSessionCalled
 
         // Then - Error handled gracefully
-        XCTAssertTrue(requestCalled, "API should be called")
+        XCTAssertTrue(getTestSessionCalled, "API should be called")
         XCTAssertNotNil(testTakingViewModel.error, "Error should be set")
         XCTAssertNil(testTakingViewModel.testSession, "Test session should be nil")
 
@@ -530,8 +517,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             session: activeSession
         )
 
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
 
@@ -540,7 +527,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 5)
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User answers more questions (simulated by updated count)
         // and dashboard refreshes
@@ -550,8 +537,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             session: activeSession
         )
 
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(updatedActiveSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = updatedActiveSessionResponse
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
 
@@ -572,21 +559,18 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         // Dashboard shows active session
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(
-            TestSessionStatusResponse(
-                questions: nil,
-                questionsCount: 2,
-                session: activeSession
-            ),
-            for: .testActive
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 2,
+            session: activeSession
         )
 
         await dashboardViewModel.fetchDashboardData()
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - User completes test
         let mockQuestions = makeQuestions(count: 2)
@@ -594,7 +578,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
-        await mockAPIClient.setResponse(startResponse, for: .testStart)
+        await mockService.startTestResponse = startResponse
         await testTakingViewModel.startTest(questionCount: 2)
 
         // Simulate answering all questions and submitting
@@ -602,7 +586,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         testTakingViewModel.userAnswers[mockQuestions[1].id] = "B"
 
         // Reset and set up submit response
-        await mockAPIClient.reset()
+        await mockService.reset()
         let testResult = SubmittedTestResult(
             accuracyPercentage: 100.0,
             completedAt: Date(),
@@ -632,7 +616,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             result: testResult,
             session: completedSession
         )
-        await mockAPIClient.setResponse(submitResponse, for: .testSubmit)
+        await mockService.submitTestResponse = submitResponse
         await testTakingViewModel.submitTest()
 
         // Then - Test marked as completed
@@ -640,7 +624,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNotNil(testTakingViewModel.testResult, "Test result should be set")
 
         // Reset mock for dashboard refresh
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Dashboard refreshes after completion
         // Convert SubmittedTestResult to TestResult for history fetch
@@ -661,8 +645,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             userId: testResult.userId,
             weakestDomain: testResult.weakestDomain
         )
-        await mockAPIClient.setTestHistoryResponse([historyResult])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // No active session after completion
+        await mockService.setTestHistoryResponse([historyResult])
+        await mockService.getActiveTestResponse = nil // No active session after completion
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
 
@@ -689,15 +673,15 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             session: activeSession
         )
 
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(activeSessionResponse, for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = activeSessionResponse
 
         await dashboardViewModel.fetchDashboardData()
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 3)
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Session is completed externally (e.g., on another device)
         // and dashboard fetches again without force refresh (uses cache)
@@ -707,11 +691,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(dashboardViewModel.hasActiveTest, "Should still show active from cache")
 
         // Reset mock
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Dashboard force refreshes (bypasses cache)
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // Session no longer active
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil // Session no longer active
 
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
 
@@ -722,14 +706,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
     func testStateSynchronization_MultipleRefreshes_MaintainConsistency() async {
         // Given - Dashboard in initial state
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive)
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil
 
         await dashboardViewModel.fetchDashboardData()
         XCTAssertFalse(dashboardViewModel.hasActiveTest)
 
         // When - Multiple rapid refreshes occur
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         let sessionId = 1400
         let activeSession = MockDataFactory.makeTestSession(
@@ -740,34 +724,28 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
 
         // First refresh - session appears
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(
-            TestSessionStatusResponse(
-                questions: nil,
-                questionsCount: 5,
-                session: activeSession
-            ),
-            for: .testActive
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 5,
+            session: activeSession
         )
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
 
         // Second refresh - session still active
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(
-            TestSessionStatusResponse(
-                questions: nil,
-                questionsCount: 7,
-                session: activeSession
-            ),
-            for: .testActive
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 7,
+            session: activeSession
         )
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 7)
 
         // Third refresh - session completed
-        await mockAPIClient.setTestHistoryResponse(
+        await mockService.setTestHistoryResponse(
             [TestResult(
                 accuracyPercentage: 80.0,
                 completedAt: Date(),
@@ -786,7 +764,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
                 weakestDomain: nil
             )]
         )
-        await mockAPIClient.setResponse(NSNull(), for: .testActive)
+        await mockService.getActiveTestResponse = nil
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
 
         // Then - Final state is consistent (no active session, test in history)

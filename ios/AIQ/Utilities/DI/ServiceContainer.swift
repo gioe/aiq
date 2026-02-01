@@ -24,12 +24,10 @@ import SwiftUI
 /// Example:
 /// ```swift
 /// // Register a service (during startup only)
-/// ServiceContainer.shared.register(APIClientProtocol.self) {
-///     APIClient.shared
-/// }
+/// ServiceContainer.shared.register(OpenAPIServiceProtocol.self, instance: openAPIService)
 ///
 /// // Resolve a service (anytime after startup)
-/// let apiClient = ServiceContainer.shared.resolve(APIClientProtocol.self)
+/// let apiService = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)
 ///
 /// // Use in SwiftUI
 /// MyView()
@@ -137,8 +135,8 @@ final class ServiceContainer {
     /// Example:
     /// ```swift
     /// // Create instance owned by container
-    /// let apiClient = APIClient()
-    /// container.register(APIClientProtocol.self, instance: apiClient)
+    /// let apiService = OpenAPIService(serverURL: url)
+    /// container.register(OpenAPIServiceProtocol.self, instance: apiService)
     /// ```
     func register<T>(_ type: T.Type, instance: T) {
         #if DEBUG

@@ -80,13 +80,13 @@ final class CertificatePinningTests: XCTestCase {
     }
 
     func testAPIClientUsesSharedSession() {
-        // Verify the shared APIClient instance exists
+        // Verify the OpenAPIService instance is registered in ServiceContainer
         // This is important because TrustKit swizzles URLSession.shared
-        let apiClient = APIClient.shared
+        let apiService = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)
 
-        // The APIClient.shared singleton should be initialized with default session (.shared)
-        // We verify this indirectly by checking the singleton exists
-        XCTAssertNotNil(apiClient, "APIClient.shared should exist")
+        // The OpenAPIService should be registered in ServiceContainer
+        // We verify this indirectly by checking the resolved instance exists
+        XCTAssertNotNil(apiService, "OpenAPIServiceProtocol should be registered in ServiceContainer")
     }
 
     // MARK: - Certificate Hash Validation Tests

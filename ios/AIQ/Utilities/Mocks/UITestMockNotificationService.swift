@@ -8,26 +8,20 @@ import Foundation
     final class UITestMockNotificationService: NotificationServiceProtocol {
         init() {}
 
-        func registerDeviceToken(_: String) async throws -> DeviceTokenResponse {
-            DeviceTokenResponse(success: true, message: "Mock token registered")
+        func registerDeviceToken(_: String) async throws {
+            // No-op
         }
 
-        func unregisterDeviceToken() async throws -> DeviceTokenResponse {
-            DeviceTokenResponse(success: true, message: "Mock token unregistered")
+        func unregisterDeviceToken() async throws {
+            // No-op
         }
 
-        func updateNotificationPreferences(enabled: Bool) async throws -> NotificationPreferencesResponse {
-            NotificationPreferencesResponse(
-                notificationEnabled: enabled,
-                message: "Mock preferences updated"
-            )
+        func updateNotificationPreferences(enabled _: Bool) async throws {
+            // No-op
         }
 
-        func getNotificationPreferences() async throws -> NotificationPreferencesResponse {
-            NotificationPreferencesResponse(
-                notificationEnabled: true,
-                message: "Mock preferences retrieved"
-            )
+        func getNotificationPreferences() async throws -> Bool {
+            true
         }
     }
 

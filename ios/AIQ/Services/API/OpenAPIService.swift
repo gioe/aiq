@@ -47,17 +47,19 @@ protocol OpenAPIServiceProtocol: Sendable {
     func abandonTest(sessionId: Int) async throws -> Components.Schemas.TestSessionAbandonResponse
     func getTestSession(sessionId: Int) async throws -> Components.Schemas.TestSessionStatusResponse
     func getTestResults(resultId: Int) async throws -> Components.Schemas.TestResultResponse
-    func getTestHistory(limit: Int?, offset: Int?) async throws -> [Components.Schemas.TestResultResponse]
+    func getTestHistory(limit: Int?, offset: Int?) async throws -> PaginatedTestHistoryResponse
     func getActiveTest() async throws -> Components.Schemas.TestSessionStatusResponse?
 
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws
+    func unregisterDevice() async throws
     func updateNotificationPreferences(enabled: Bool) async throws
+    func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse
 
     // MARK: - Feedback
 
-    func submitFeedback(_ feedback: Feedback) async throws
+    func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse
 
     // MARK: - Token Management
 
@@ -375,7 +377,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
-    func getTestHistory(limit: Int? = nil, offset: Int? = nil) async throws -> [Components.Schemas.TestResultResponse] {
+    func getTestHistory(limit: Int? = nil, offset: Int? = nil) async throws -> PaginatedTestHistoryResponse {
         let response = try await client.getTestHistoryV1TestHistoryGet(
             query: .init(
                 limit: limit,
@@ -388,7 +390,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             guard case let .json(paginatedResponse) = okResponse.body else {
                 throw APIError.invalidResponse
             }
-            return paginatedResponse.results
+            return paginatedResponse
 
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")
@@ -441,6 +443,18 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
+    func unregisterDevice() async throws {
+        let response = try await client.unregisterDeviceTokenV1NotificationsRegisterDeviceDelete()
+
+        switch response {
+        case .ok:
+            return
+
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        }
+    }
+
     func updateNotificationPreferences(enabled: Bool) async throws {
         let response = try await client.updateNotificationPreferencesV1NotificationsPreferencesPut(
             body: .json(
@@ -462,9 +476,24 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
+    func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse {
+        let response = try await client.getNotificationPreferencesV1NotificationsPreferencesGet()
+
+        switch response {
+        case let .ok(okResponse):
+            guard case let .json(preferencesResponse) = okResponse.body else {
+                throw APIError.invalidResponse
+            }
+            return preferencesResponse
+
+        case let .undocumented(statusCode, payload):
+            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        }
+    }
+
     // MARK: - Feedback
 
-    func submitFeedback(_ feedback: Feedback) async throws {
+    func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse {
         let categorySchema: Components.Schemas.FeedbackCategorySchema = switch feedback.category {
         case .bugReport:
             .bugReport
@@ -490,8 +519,11 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         )
 
         switch response {
-        case .created:
-            return
+        case let .created(createdResponse):
+            guard case let .json(feedbackResponse) = createdResponse.body else {
+                throw APIError.invalidResponse
+            }
+            return feedbackResponse
 
         case .unprocessableContent:
             throw APIError.unprocessableEntity(message: "Validation failed")

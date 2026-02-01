@@ -1,15 +1,16 @@
+import AIQAPIClient
 import Foundation
 
 #if DEBUG
 
-    /// Mock API client for UI tests
+    /// Mock OpenAPI service for UI tests
     ///
-    /// This mock provides pre-configured responses for all API endpoints needed
+    /// This mock provides pre-configured responses for all API operations needed
     /// by UI tests. Responses are configured based on the current MockScenario.
     ///
-    /// Unlike the unit test MockAPIClient (which is an actor), this mock is
+    /// Unlike the unit test MockOpenAPIService (which is an actor), this mock is
     /// a simple class designed for synchronous UI test configuration.
-    final class UITestMockAPIClient: APIClientProtocol {
+    final class UITestMockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         /// Current scenario determining response behavior
         private var scenario: MockScenario = .default
 
@@ -24,100 +25,112 @@ import Foundation
             shouldSimulateNetworkError = (scenario == .networkError)
         }
 
-        // MARK: - APIClientProtocol
+        // MARK: - Error Helper
 
-        nonisolated func setAuthToken(_: String?) {
-            // No-op for UI tests - auth is handled by MockAuthManager
-        }
-
-        // swiftlint:disable:next function_parameter_count
-        func request<T: Decodable>(
-            endpoint: APIEndpoint,
-            method _: HTTPMethod,
-            body _: Encodable?,
-            requiresAuth _: Bool,
-            customHeaders _: [String: String]?,
-            cacheKey _: String?,
-            cacheDuration _: TimeInterval?,
-            forceRefresh _: Bool
-        ) async throws -> T {
-            print("[UITestMockAPIClient] Request: \(endpoint.path), expecting type: \(T.self)")
-
-            // Simulate network delay
-            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
+        private func throwIfNetworkError() throws {
             if shouldSimulateNetworkError {
-                print("[UITestMockAPIClient] Simulating network error")
                 throw APIError.networkError(
                     NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
                 )
             }
-
-            // Route to appropriate mock response based on endpoint
-            do {
-                let response: T = try mockResponse(for: endpoint)
-                print("[UITestMockAPIClient] Response success for: \(endpoint.path)")
-                return response
-            } catch {
-                print("[UITestMockAPIClient] Error for \(endpoint.path): \(error)")
-                throw error
-            }
         }
 
-        // MARK: - Mock Response Routing
+        // MARK: - Authentication
 
-        private func mockResponse<T: Decodable>(for endpoint: APIEndpoint) throws -> T {
-            let path = endpoint.path
+        func login(email _: String, password _: String) async throws -> AuthResponse {
+            try throwIfNetworkError()
+            return UITestMockData.mockAuthResponse
+        }
 
-            // Test History endpoint
-            if path.contains("/test/history") {
-                return try castResponse(mockTestHistoryResponse())
-            }
+        // swiftlint:disable:next function_parameter_count
+        func register(
+            email _: String,
+            password _: String,
+            firstName _: String,
+            lastName _: String,
+            birthYear _: Int?,
+            educationLevel _: EducationLevel?,
+            country _: String?,
+            region _: String?
+        ) async throws -> AuthResponse {
+            try throwIfNetworkError()
+            return UITestMockData.mockAuthResponse
+        }
 
-            // Test Active Session endpoint
-            if path.contains("/test/active") {
-                return try castResponse(mockActiveSessionResponse())
-            }
+        func refreshToken() async throws -> AuthResponse {
+            try throwIfNetworkError()
+            return UITestMockData.mockAuthResponse
+        }
 
-            // Start Test endpoint
-            if path.contains("/test/start") {
-                return try castResponse(mockStartTestResponse())
-            }
+        func logout() async throws {
+            try throwIfNetworkError()
+        }
 
-            // Get Questions endpoint
-            if path.contains("/test/questions") || path.contains("/questions") {
-                return try castResponse(mockQuestionsResponse())
-            }
+        // MARK: - User Profile
 
-            // Submit Test endpoint
-            if path.contains("/test/submit") || path.contains("/submit") {
-                return try castResponse(mockSubmitTestResponse())
-            }
+        func getProfile() async throws -> User {
+            try throwIfNetworkError()
+            return UITestMockAuthManager.mockUser
+        }
 
-            // Abandon Test endpoint
-            if path.contains("/test/abandon") || path.contains("/abandon") {
-                return try castResponse(mockAbandonTestResponse())
-            }
+        func deleteAccount() async throws {
+            try throwIfNetworkError()
+        }
 
-            // User Profile endpoint
-            if path.contains("/user/me") || path.contains("/user/profile") {
-                return try castResponse(UITestMockAuthManager.mockUser)
-            }
+        // MARK: - Test Management
 
-            // Default: throw error for unhandled endpoints
-            throw APIError.decodingError(
-                NSError(domain: "UITestMockAPIClient", code: -1, userInfo: [
-                    NSLocalizedDescriptionKey: "No mock configured for endpoint: \(path)"
-                ])
+        func startTest() async throws -> StartTestResponse {
+            try throwIfNetworkError()
+            return StartTestResponse(
+                questions: UITestMockData.sampleQuestions,
+                session: UITestMockData.newSession,
+                totalQuestions: UITestMockData.sampleQuestions.count
             )
         }
 
-        // MARK: - Mock Response Builders
+        func submitTest(
+            sessionId _: Int,
+            responses _: [QuestionResponse],
+            timeLimitExceeded _: Bool
+        ) async throws -> TestSubmitResponse {
+            try throwIfNetworkError()
+            return TestSubmitResponse(
+                message: "Test completed successfully",
+                responsesCount: UITestMockData.sampleQuestions.count,
+                result: UITestMockData.highScoreResult,
+                session: UITestMockData.completedSession
+            )
+        }
 
-        private func mockTestHistoryResponse() -> PaginatedTestHistoryResponse {
+        func abandonTest(sessionId _: Int) async throws -> TestAbandonResponse {
+            try throwIfNetworkError()
+            return TestAbandonResponse(
+                message: "Test abandoned",
+                responsesSaved: 5,
+                session: UITestMockData.abandonedSession
+            )
+        }
+
+        func getTestSession(sessionId _: Int) async throws -> TestSessionStatusResponse {
+            try throwIfNetworkError()
+            return TestSessionStatusResponse(
+                questions: UITestMockData.sampleQuestions,
+                questionsCount: 0,
+                session: UITestMockData.inProgressSession
+            )
+        }
+
+        func getTestResults(resultId _: Int) async throws -> TestResult {
+            try throwIfNetworkError()
+            return UITestMockData.highScoreResult
+        }
+
+        func getTestHistory(limit _: Int?, offset _: Int?) async throws -> PaginatedTestHistoryResponse {
+            try throwIfNetworkError()
+
             switch scenario {
             case .loggedInNoHistory, .loggedOut, .default, .registrationTimeout, .registrationServerError:
-                PaginatedTestHistoryResponse(
+                return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
                     offset: 0,
@@ -125,7 +138,7 @@ import Foundation
                     totalCount: 0
                 )
             case .loggedInWithHistory, .testInProgress, .loginFailure, .networkError:
-                PaginatedTestHistoryResponse(
+                return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
                     offset: 0,
@@ -135,56 +148,74 @@ import Foundation
             }
         }
 
-        private func mockActiveSessionResponse() -> TestSession? {
+        func getActiveTest() async throws -> TestSessionStatusResponse? {
+            try throwIfNetworkError()
+
             switch scenario {
             case .testInProgress:
-                UITestMockData.inProgressSession
-            default:
-                nil
-            }
-        }
-
-        private func mockStartTestResponse() -> StartTestResponse {
-            StartTestResponse(
-                questions: UITestMockData.sampleQuestions,
-                session: UITestMockData.newSession,
-                totalQuestions: UITestMockData.sampleQuestions.count
-            )
-        }
-
-        private func mockQuestionsResponse() -> [Question] {
-            UITestMockData.sampleQuestions
-        }
-
-        private func mockSubmitTestResponse() -> TestSubmitResponse {
-            TestSubmitResponse(
-                message: "Test completed successfully",
-                responsesCount: UITestMockData.sampleQuestions.count,
-                result: UITestMockData.highScoreResult,
-                session: UITestMockData.completedSession
-            )
-        }
-
-        private func mockAbandonTestResponse() -> TestAbandonResponse {
-            TestAbandonResponse(
-                message: "Test abandoned",
-                responsesSaved: 5,
-                session: UITestMockData.abandonedSession
-            )
-        }
-
-        // MARK: - Helpers
-
-        private func castResponse<T: Decodable>(_ response: some Any) throws -> T {
-            guard let typed = response as? T else {
-                throw APIError.decodingError(
-                    NSError(domain: "UITestMockAPIClient", code: -1, userInfo: [
-                        NSLocalizedDescriptionKey: "Response type mismatch"
-                    ])
+                return TestSessionStatusResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    questionsCount: 0,
+                    session: UITestMockData.inProgressSession
                 )
+            default:
+                return nil
             }
-            return typed
         }
+
+        // MARK: - Notifications
+
+        func registerDevice(deviceToken _: String) async throws {
+            try throwIfNetworkError()
+        }
+
+        func unregisterDevice() async throws {
+            try throwIfNetworkError()
+        }
+
+        func updateNotificationPreferences(enabled _: Bool) async throws {
+            try throwIfNetworkError()
+        }
+
+        func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.NotificationPreferencesResponse(
+                message: "Preferences retrieved",
+                notificationEnabled: true
+            )
+        }
+
+        // MARK: - Feedback
+
+        func submitFeedback(_: Feedback) async throws -> FeedbackSubmitResponse {
+            try throwIfNetworkError()
+            return FeedbackSubmitResponse(
+                message: "Thank you for your feedback!",
+                submissionId: 1,
+                success: true
+            )
+        }
+
+        // MARK: - Token Management
+
+        func setTokens(accessToken _: String, refreshToken _: String) async {
+            // No-op for UI tests - auth is handled by MockAuthManager
+        }
+
+        func clearTokens() async {
+            // No-op for UI tests
+        }
+    }
+
+    // MARK: - Mock Auth Response
+
+    extension UITestMockData {
+        static let mockAuthResponse = AuthResponse(
+            accessToken: "mock-access-token",
+            refreshToken: "mock-refresh-token",
+            tokenType: "Bearer",
+            user: UITestMockAuthManager.mockUser
+        )
     }
 
     // MARK: - Mock Data

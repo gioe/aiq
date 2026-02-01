@@ -7,7 +7,14 @@ import UIKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    private let notificationManager = NotificationManager.shared
+    private let notificationManager: NotificationManager = {
+        let resolved = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
+        guard let manager = resolved as? NotificationManager else {
+            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+        }
+        return manager
+    }()
+
     private let deepLinkHandler = DeepLinkHandler()
     private let analyticsService = AnalyticsService.shared
     private let backgroundRefreshManager = BackgroundRefreshManager.shared

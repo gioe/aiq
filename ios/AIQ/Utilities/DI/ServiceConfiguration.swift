@@ -14,8 +14,8 @@ import Foundation
 /// ## Dependency Order
 ///
 /// Services are created in the following order to resolve dependencies:
-/// 1. **No dependencies**: APIClient, LocalAnswerStorage
-/// 2. **Depends on APIClient**: AuthService, NotificationService
+/// 1. **No dependencies**: OpenAPIService, LocalAnswerStorage
+/// 2. **Depends on OpenAPIService**: AuthService, NotificationService
 /// 3. **Depends on AuthService**: AuthManager (with lazy NotificationManager factory)
 /// 4. **Depends on NotificationService + AuthManager**: NotificationManager
 ///
@@ -36,7 +36,7 @@ enum ServiceConfiguration {
     /// to enable testability through mocking.
     ///
     /// Registered Services:
-    /// - `APIClientProtocol`: Container-owned instance for making API requests
+    /// - `OpenAPIServiceProtocol`: Container-owned instance for making API requests
     /// - `AuthManagerProtocol`: Container-owned instance for authentication management
     /// - `NotificationServiceProtocol`: Container-owned instance for notification operations
     /// - `NotificationManagerProtocol`: Container-owned instance for notification coordination
@@ -68,11 +68,11 @@ enum ServiceConfiguration {
         let biometricAuthManager = BiometricAuthManager()
         container.register(BiometricAuthManagerProtocol.self, instance: biometricAuthManager)
 
-        let apiClient = APIClient(
-            baseURL: AppConfig.apiBaseURL,
-            retryPolicy: .default
-        )
-        container.register(APIClientProtocol.self, instance: apiClient)
+        guard let serverURL = URL(string: AppConfig.apiBaseURL) else {
+            fatalError("Invalid API base URL: \(AppConfig.apiBaseURL)")
+        }
+        let openAPIService = OpenAPIService(serverURL: serverURL)
+        container.register(OpenAPIServiceProtocol.self, instance: openAPIService)
 
         let localAnswerStorage = LocalAnswerStorage()
         container.register(LocalAnswerStorageProtocol.self, instance: localAnswerStorage)
@@ -80,9 +80,10 @@ enum ServiceConfiguration {
         // MARK: - Layer 2: Services depending on Layer 1
 
         let keychainStorage = KeychainStorage()
-        let authService = AuthService(apiClient: apiClient, secureStorage: keychainStorage)
+        let authService = AuthService(apiService: openAPIService, secureStorage: keychainStorage)
+        container.register(AuthServiceProtocol.self, instance: authService)
 
-        let notificationService = NotificationService(apiClient: apiClient)
+        let notificationService = NotificationService(apiService: openAPIService)
         container.register(NotificationServiceProtocol.self, instance: notificationService)
 
         // MARK: - Layer 3: AuthManager with lazy NotificationManager dependency

@@ -19,13 +19,13 @@ final class ServiceConfigurationTests: XCTestCase {
 
     // MARK: - Registration Tests
 
-    func testAPIClientProtocolIsRegistered() {
+    func testOpenAPIServiceProtocolIsRegistered() {
         // Given & When
-        let apiClient = container.resolve(APIClientProtocol.self)
+        let apiService = container.resolve(OpenAPIServiceProtocol.self)
 
         // Then
-        XCTAssertNotNil(apiClient, "APIClientProtocol should be registered")
-        XCTAssertTrue(apiClient is APIClient, "Resolved instance should be APIClient")
+        XCTAssertNotNil(apiService, "OpenAPIServiceProtocol should be registered")
+        XCTAssertTrue(apiService is OpenAPIService, "Resolved instance should be OpenAPIService")
     }
 
     func testAuthManagerProtocolIsRegistered() {
@@ -69,8 +69,8 @@ final class ServiceConfigurationTests: XCTestCase {
     func testAllServicesAreRegistered() {
         // Verify each expected service is registered
         XCTAssertTrue(
-            container.isRegistered(APIClientProtocol.self),
-            "APIClientProtocol should be registered in ServiceContainer"
+            container.isRegistered(OpenAPIServiceProtocol.self),
+            "OpenAPIServiceProtocol should be registered in ServiceContainer"
         )
         XCTAssertTrue(
             container.isRegistered(AuthManagerProtocol.self),
@@ -92,30 +92,30 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testServiceResolutionReturnsSameInstance() {
         // Given: Services registered as singletons
-        let apiClient1 = container.resolve(APIClientProtocol.self)
-        let apiClient2 = container.resolve(APIClientProtocol.self)
+        let apiService1 = container.resolve(OpenAPIServiceProtocol.self)
+        let apiService2 = container.resolve(OpenAPIServiceProtocol.self)
 
         // Then: Should return the same singleton instance
         XCTAssertTrue(
-            apiClient1 as AnyObject === apiClient2 as AnyObject,
-            "Resolving APIClientProtocol multiple times should return the same singleton instance"
+            apiService1 as AnyObject === apiService2 as AnyObject,
+            "Resolving OpenAPIServiceProtocol multiple times should return the same singleton instance"
         )
     }
 
     func testContainerResetClearsRegistrations() {
         // Given: Container with registered services
-        XCTAssertTrue(container.isRegistered(APIClientProtocol.self))
+        XCTAssertTrue(container.isRegistered(OpenAPIServiceProtocol.self))
 
         // When: Reset is called
         container.reset()
 
         // Then: Services should no longer be registered
         XCTAssertFalse(
-            container.isRegistered(APIClientProtocol.self),
+            container.isRegistered(OpenAPIServiceProtocol.self),
             "Services should be cleared after reset"
         )
         XCTAssertNil(
-            container.resolve(APIClientProtocol.self),
+            container.resolve(OpenAPIServiceProtocol.self),
             "Resolving after reset should return nil"
         )
     }
@@ -124,14 +124,14 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testConfigurationCanBeCalledMultipleTimes() {
         // Given: Already configured container
-        let apiClient1 = container.resolve(APIClientProtocol.self)
+        let apiService1 = container.resolve(OpenAPIServiceProtocol.self)
 
         // When: Configuration is called again (should overwrite)
         ServiceConfiguration.configureServices(container: container)
-        let apiClient2 = container.resolve(APIClientProtocol.self)
+        let apiService2 = container.resolve(OpenAPIServiceProtocol.self)
 
         // Then: Should still resolve successfully
-        XCTAssertNotNil(apiClient1, "First resolution should succeed")
-        XCTAssertNotNil(apiClient2, "Second resolution should succeed after reconfiguration")
+        XCTAssertNotNil(apiService1, "First resolution should succeed")
+        XCTAssertNotNil(apiService2, "Second resolution should succeed after reconfiguration")
     }
 }

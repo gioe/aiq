@@ -7,12 +7,12 @@ import AIQAPIClient
 @MainActor
 final class FeedbackViewModelTests: XCTestCase {
     var sut: FeedbackViewModel!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
 
     override func setUp() {
         super.setUp()
-        mockAPIClient = MockAPIClient()
-        sut = FeedbackViewModel(apiClient: mockAPIClient)
+        mockService = MockOpenAPIService()
+        sut = FeedbackViewModel(apiService: mockService)
     }
 
     // MARK: - Initialization Tests
@@ -41,7 +41,7 @@ final class FeedbackViewModelTests: XCTestCase {
         )
 
         // When
-        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+        let viewModel = FeedbackViewModel(apiService: mockService, authManager: mockAuthManager)
 
         // Then
         XCTAssertEqual(viewModel.email, expectedEmail, "email should be pre-populated from authenticated user")
@@ -50,7 +50,7 @@ final class FeedbackViewModelTests: XCTestCase {
 
     func testInitialization_WithoutAuthManager_EmailRemainsEmpty() {
         // When
-        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: nil)
+        let viewModel = FeedbackViewModel(apiService: mockService, authManager: nil)
 
         // Then
         XCTAssertEqual(viewModel.email, "", "email should be empty when no auth manager provided")
@@ -62,7 +62,7 @@ final class FeedbackViewModelTests: XCTestCase {
         mockAuthManager.currentUser = nil
 
         // When
-        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+        let viewModel = FeedbackViewModel(apiService: mockService, authManager: mockAuthManager)
 
         // Then
         XCTAssertEqual(viewModel.email, "", "email should be empty when user is not authenticated")
@@ -267,21 +267,21 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When
         await sut.submitFeedback()
 
         // Then - Verify API call
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let submitFeedbackCalled = await mockService.submitFeedbackCalled
+        let lastFeedback = await mockService.lastFeedback
 
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .submitFeedback, "should call submitFeedback endpoint")
-        XCTAssertEqual(lastMethod, .post, "should use POST method")
-        XCTAssertEqual(lastRequiresAuth, false, "should not require authentication")
+        XCTAssertTrue(submitFeedbackCalled, "API request should be called")
+        XCTAssertNotNil(lastFeedback, "Feedback should be captured")
+        XCTAssertEqual(lastFeedback?.name, "John Doe")
+        XCTAssertEqual(lastFeedback?.email, "john@example.com")
+        XCTAssertEqual(lastFeedback?.category, .bugReport)
+        XCTAssertEqual(lastFeedback?.description, "This is a detailed bug report")
 
         // Then - Verify success state
         XCTAssertTrue(sut.showSuccessMessage, "should show success message")
@@ -302,7 +302,7 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 0,
             success: false
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When
         await sut.submitFeedback()
@@ -331,7 +331,7 @@ final class FeedbackViewModelTests: XCTestCase {
             code: -1009,
             userInfo: [NSLocalizedDescriptionKey: "The Internet connection appears to be offline"]
         )
-        await mockAPIClient.setError(networkError, for: .submitFeedback)
+        await mockService.submitFeedbackError = networkError
 
         // When
         await sut.submitFeedback()
@@ -353,8 +353,8 @@ final class FeedbackViewModelTests: XCTestCase {
         await sut.submitFeedback()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertFalse(requestCalled, "should not call API when form is invalid")
+        let submitFeedbackCalled = await mockService.submitFeedbackCalled
+        XCTAssertFalse(submitFeedbackCalled, "should not call API when form is invalid")
         XCTAssertFalse(sut.showSuccessMessage, "should not show success message")
     }
 
@@ -371,18 +371,18 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 456,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When
         await sut.submitFeedback()
 
-        // Then - Verify request body
-        let bodyDict = await mockAPIClient.lastBodyAsDictionary
-        XCTAssertNotNil(bodyDict, "request body should be present")
-        XCTAssertEqual(bodyDict?["name"] as? String, "John Doe")
-        XCTAssertEqual(bodyDict?["email"] as? String, "john@example.com")
-        XCTAssertEqual(bodyDict?["category"] as? String, "feature_request")
-        XCTAssertEqual(bodyDict?["description"] as? String, "Please add dark mode support")
+        // Then - Verify captured feedback data
+        let lastFeedback = await mockService.lastFeedback
+        XCTAssertNotNil(lastFeedback, "feedback should be captured")
+        XCTAssertEqual(lastFeedback?.name, "John Doe")
+        XCTAssertEqual(lastFeedback?.email, "john@example.com")
+        XCTAssertEqual(lastFeedback?.category, .featureRequest)
+        XCTAssertEqual(lastFeedback?.description, "Please add dark mode support")
     }
 
     // MARK: - Loading State Tests
@@ -399,7 +399,7 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When - Start submission
         XCTAssertFalse(sut.isLoading, "should not be loading initially")
@@ -435,7 +435,7 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When
         await sut.submitFeedback()
@@ -498,7 +498,7 @@ final class FeedbackViewModelTests: XCTestCase {
             lastName: "User",
             notificationEnabled: false
         )
-        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: mockAuthManager)
+        let viewModel = FeedbackViewModel(apiService: mockService, authManager: mockAuthManager)
 
         // When - Fill form and reset
         viewModel.name = "John Doe"
@@ -515,7 +515,7 @@ final class FeedbackViewModelTests: XCTestCase {
 
     func testResetForm_WithoutAuthManager_ClearsEmail() {
         // Given - No auth manager, email manually set
-        let viewModel = FeedbackViewModel(apiClient: mockAPIClient, authManager: nil)
+        let viewModel = FeedbackViewModel(apiService: mockService, authManager: nil)
         viewModel.email = "manual@example.com"
 
         // When
@@ -546,12 +546,12 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 789,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
         await sut.submitFeedback()
 
         // Then - Verify success
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "API should be called")
+        let submitFeedbackCalled = await mockService.submitFeedbackCalled
+        XCTAssertTrue(submitFeedbackCalled, "API should be called")
         XCTAssertTrue(sut.showSuccessMessage, "should show success message")
         XCTAssertNil(sut.error, "should have no error")
     }
@@ -565,7 +565,7 @@ final class FeedbackViewModelTests: XCTestCase {
 
         // When - First submission fails
         let networkError = NSError(domain: "NetworkError", code: -1, userInfo: nil)
-        await mockAPIClient.setError(networkError, for: .submitFeedback)
+        await mockService.submitFeedbackError = networkError
         await sut.submitFeedback()
 
         // Then - Should have error
@@ -573,13 +573,13 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertFalse(sut.showSuccessMessage, "should not show success message")
 
         // When - Clear error and retry with success
-        await mockAPIClient.reset()
+        await mockService.reset()
         let mockResponse = FeedbackSubmitResponse(
             message: "Success on retry",
             submissionId: 999,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
         await sut.submitFeedback()
 
         // Then - Should succeed
@@ -604,16 +604,16 @@ final class FeedbackViewModelTests: XCTestCase {
                 submissionId: Int.random(in: 1 ... 1000),
                 success: true
             )
-            await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+            await mockService.submitFeedbackResponse = mockResponse
             await sut.submitFeedback()
 
             // Then
-            let requestCalled = await mockAPIClient.requestCalled
-            XCTAssertTrue(requestCalled, "should submit feedback for category \(category.displayName)")
+            let submitFeedbackCalled = await mockService.submitFeedbackCalled
+            XCTAssertTrue(submitFeedbackCalled, "should submit feedback for category \(category.displayName)")
             XCTAssertTrue(sut.showSuccessMessage, "should show success for category \(category.displayName)")
 
             // Reset for next iteration
-            await mockAPIClient.reset()
+            await mockService.reset()
             sut.resetForm()
         }
     }
@@ -632,7 +632,7 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When - First submission
         await sut.submitFeedback()
@@ -641,8 +641,8 @@ final class FeedbackViewModelTests: XCTestCase {
         // Immediately update form and submit again (before the 2-second reset fires)
         sut.name = "Jane Doe"
         sut.description = "Second submission before reset"
-        await mockAPIClient.reset()
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.reset()
+        await mockService.submitFeedbackResponse = mockResponse
         await sut.submitFeedback()
 
         // Then - Form should still have second submission data, not be reset
@@ -663,14 +663,14 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
 
         // When - Submit multiple times rapidly
         for i in 1 ... 3 {
             sut.name = "User \(i)"
             sut.description = "Submission number \(i) with details"
-            await mockAPIClient.reset()
-            await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+            await mockService.reset()
+            await mockService.submitFeedbackResponse = mockResponse
             await sut.submitFeedback()
         }
 
@@ -701,7 +701,7 @@ final class FeedbackViewModelTests: XCTestCase {
             submissionId: 123,
             success: true
         )
-        await mockAPIClient.setResponse(mockResponse, for: .submitFeedback)
+        await mockService.submitFeedbackResponse = mockResponse
         await sut.submitFeedback()
 
         // A reset task is now scheduled for 2 seconds later

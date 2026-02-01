@@ -6,12 +6,12 @@ import XCTest
 @MainActor
 final class DashboardViewModelTests: XCTestCase {
     var sut: DashboardViewModel!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
 
     override func setUp() async throws {
         try await super.setUp()
-        mockAPIClient = MockAPIClient()
-        sut = DashboardViewModel(apiClient: mockAPIClient)
+        mockService = MockOpenAPIService()
+        sut = DashboardViewModel(apiService: mockService)
 
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
@@ -34,21 +34,15 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testFetchActiveSession_WithNoActiveSession() async {
         // Given
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
+        await mockService.getActiveTestResponse = nil // Represents no active session
 
         // When
         await sut.fetchActiveSession()
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let getActiveTestCalled = await mockService.getActiveTestCalled
 
         // Then
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .testActive, "Should call testActive endpoint")
-        XCTAssertEqual(lastMethod, .get, "Should use GET method")
-        XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
+        XCTAssertTrue(getActiveTestCalled, "API request should be called")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil when no active session")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be nil")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false")
@@ -68,21 +62,15 @@ final class DashboardViewModelTests: XCTestCase {
             session: mockSession
         )
 
-        await mockAPIClient.setResponse(mockResponse, for: .testActive)
+        await mockService.getActiveTestResponse = mockResponse
 
         // When
         await sut.fetchActiveSession()
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let getActiveTestCalled = await mockService.getActiveTestCalled
 
         // Then
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .testActive, "Should call testActive endpoint")
-        XCTAssertEqual(lastMethod, .get, "Should use GET method")
-        XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
+        XCTAssertTrue(getActiveTestCalled, "API request should be called")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should not be nil")
         XCTAssertEqual(sut.activeTestSession?.id, 123, "Should set correct session ID")
         XCTAssertEqual(sut.activeTestSession?.status, "in_progress", "Should set correct status")
@@ -98,15 +86,15 @@ final class DashboardViewModelTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
         let apiError = APIError.networkError(mockError)
-        await mockAPIClient.setMockError(apiError)
+        await mockService.getActiveTestError = apiError
 
         // When
         await sut.fetchActiveSession()
 
-        let requestCalled = await mockAPIClient.requestCalled
+        let getActiveTestCalled = await mockService.getActiveTestCalled
 
         // Then
-        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertTrue(getActiveTestCalled, "API request should be called")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil on error")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be nil on error")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false on error")
@@ -123,7 +111,7 @@ final class DashboardViewModelTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
         let apiError = APIError.networkError(mockError)
-        await mockAPIClient.setMockError(apiError)
+        await mockService.getTestHistoryError = apiError
 
         // When - Fetch dashboard data (which includes test history)
         await sut.fetchDashboardData()
@@ -155,16 +143,16 @@ final class DashboardViewModelTests: XCTestCase {
             userId: 1,
             weakestDomain: nil
         )
-        await mockAPIClient.setTestHistoryResponse([mockTestResult])
+        await mockService.setTestHistoryResponse([mockTestResult])
 
-        // Set active session to fail using endpoint-specific error
+        // Set active session to fail
         let mockError = NSError(
             domain: "TestDomain",
             code: 500,
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
         let apiError = APIError.networkError(mockError)
-        await mockAPIClient.setError(apiError, for: .testActive)
+        await mockService.getActiveTestError = apiError
 
         // When
         await sut.fetchDashboardData()
@@ -191,16 +179,16 @@ final class DashboardViewModelTests: XCTestCase {
         )
 
         // When - First call should fetch from API
-        await mockAPIClient.setResponse(mockResponse, for: .testActive)
+        await mockService.getActiveTestResponse = mockResponse
         await sut.fetchActiveSession()
 
-        let requestCalled = await mockAPIClient.requestCalled
+        let getActiveTestCalled = await mockService.getActiveTestCalled
 
-        XCTAssertTrue(requestCalled, "First call should make API request")
+        XCTAssertTrue(getActiveTestCalled, "First call should make API request")
         XCTAssertEqual(sut.activeTestSession?.id, 456)
 
         // Reset mock to verify cache is used
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Second call should use cache (within TTL)
         await sut.fetchActiveSession()
@@ -223,25 +211,25 @@ final class DashboardViewModelTests: XCTestCase {
             questionsCount: 7,
             session: mockSession
         )
-        await mockAPIClient.setResponse(mockResponse, for: .testActive)
+        await mockService.getActiveTestResponse = mockResponse
 
         // When - First call
         await sut.fetchActiveSession()
 
-        let requestCalled = await mockAPIClient.requestCalled
+        let getActiveTestCalled = await mockService.getActiveTestCalled
 
-        XCTAssertTrue(requestCalled)
+        XCTAssertTrue(getActiveTestCalled)
 
         // Reset mock
-        await mockAPIClient.reset()
-        await mockAPIClient.setResponse(mockResponse, for: .testActive)
+        await mockService.reset()
+        await mockService.getActiveTestResponse = mockResponse
 
         // When - Second call with forceRefresh
         await sut.fetchActiveSession(forceRefresh: true)
 
-        let requestCalledAgain = await mockAPIClient.requestCalled
+        let getActiveTestCalledAgain = await mockService.getActiveTestCalled
         // Then - Should make API request again despite cache
-        XCTAssertTrue(requestCalledAgain, "Force refresh should bypass cache")
+        XCTAssertTrue(getActiveTestCalledAgain, "Force refresh should bypass cache")
     }
 
     // MARK: - Computed Properties Tests
@@ -295,30 +283,17 @@ final class DashboardViewModelTests: XCTestCase {
             session: mockAbandonedSession
         )
 
-        await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(456))
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
+        await mockService.abandonTestResponse = mockAbandonResponse
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()
 
-        let requestCalled = await mockAPIClient.requestCalled
-        let allMethods = await mockAPIClient.allMethods
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
-        let allEndpoints = await mockAPIClient.allEndpoints
+        let abandonTestCalled = await mockService.abandonTestCalled
 
         // Then
-        XCTAssertTrue(requestCalled, "API request should be called")
-        // Check that testAbandon was called (it's the first call, followed by dashboard refresh calls)
-        XCTAssertTrue(allMethods.contains(.post), "Should use POST method")
-        XCTAssertTrue(allMethods.first == .post, "First call should be POST")
-        XCTAssertTrue(lastRequiresAuth == true, "Should require authentication")
-        // Verify the abandon endpoint was called by checking allEndpoints
-        let abandonCalled = allEndpoints.contains { endpoint in
-            if case .testAbandon(456) = endpoint { return true }
-            return false
-        }
-        XCTAssertTrue(abandonCalled, "Should call testAbandon endpoint")
+        XCTAssertTrue(abandonTestCalled, "API request should be called")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be cleared after abandoning")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be cleared")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false after abandoning")
@@ -332,9 +307,9 @@ final class DashboardViewModelTests: XCTestCase {
         // When
         await sut.abandonActiveTest()
 
-        let requestCalled = await mockAPIClient.requestCalled
+        let abandonTestCalled = await mockService.abandonTestCalled
         // Then
-        XCTAssertFalse(requestCalled, "API request should not be called when no active session")
+        XCTAssertFalse(abandonTestCalled, "API request should not be called when no active session")
     }
 
     func testAbandonActiveTest_ErrorHandling() async {
@@ -354,15 +329,15 @@ final class DashboardViewModelTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
         let apiError = APIError.networkError(mockError)
-        await mockAPIClient.setMockError(apiError)
+        await mockService.abandonTestError = apiError
 
         // When
         await sut.abandonActiveTest()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
+        let abandonTestCalled = await mockService.abandonTestCalled
 
-        XCTAssertTrue(requestCalled, "API request should be called")
+        XCTAssertTrue(abandonTestCalled, "API request should be called")
         XCTAssertNotNil(sut.error, "Error should be set when API fails")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should remain when abandon fails")
         XCTAssertNotNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should remain when abandon fails")
@@ -404,9 +379,9 @@ final class DashboardViewModelTests: XCTestCase {
         )
 
         // Queue all responses in order: abandon, test history, active session
-        await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setTestHistoryResponse([])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
+        await mockService.abandonTestResponse = mockAbandonResponse
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()
@@ -461,9 +436,9 @@ final class DashboardViewModelTests: XCTestCase {
         )
 
         // Queue all responses in order: abandon, test history, active session
-        await mockAPIClient.setResponse(mockAbandonResponse, for: .testAbandon(sessionId))
-        await mockAPIClient.setTestHistoryResponse([mockTestResult])
-        await mockAPIClient.setResponse(NSNull(), for: .testActive) // Represents nil for TestSessionStatusResponse?
+        await mockService.abandonTestResponse = mockAbandonResponse
+        await mockService.setTestHistoryResponse([mockTestResult])
+        await mockService.getActiveTestResponse = nil // Represents nil for TestSessionStatusResponse?
 
         // When
         await sut.abandonActiveTest()

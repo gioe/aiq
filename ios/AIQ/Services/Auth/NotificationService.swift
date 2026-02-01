@@ -1,42 +1,5 @@
 import Foundation
 
-// MARK: - Request/Response Models
-
-/// Request model for device token registration
-struct DeviceTokenRegister: Codable {
-    let deviceToken: String
-
-    enum CodingKeys: String, CodingKey {
-        case deviceToken = "device_token"
-    }
-}
-
-/// Response model for device token registration
-struct DeviceTokenResponse: Codable {
-    let success: Bool
-    let message: String
-}
-
-/// Request/Response model for notification preferences
-struct NotificationPreferences: Codable {
-    let notificationEnabled: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case notificationEnabled = "notification_enabled"
-    }
-}
-
-/// Response model for notification preferences
-struct NotificationPreferencesResponse: Codable {
-    let notificationEnabled: Bool
-    let message: String
-
-    enum CodingKeys: String, CodingKey {
-        case notificationEnabled = "notification_enabled"
-        case message
-    }
-}
-
 // MARK: - NotificationError
 
 /// Errors that can occur during notification operations
@@ -57,21 +20,18 @@ enum NotificationError: Error, LocalizedError, Equatable {
 protocol NotificationServiceProtocol {
     /// Register device token with the backend
     /// - Parameter deviceToken: APNs device token string
-    /// - Returns: Response indicating success or failure
-    func registerDeviceToken(_ deviceToken: String) async throws -> DeviceTokenResponse
+    func registerDeviceToken(_ deviceToken: String) async throws
 
     /// Unregister device token from the backend
-    /// - Returns: Response indicating success or failure
-    func unregisterDeviceToken() async throws -> DeviceTokenResponse
+    func unregisterDeviceToken() async throws
 
     /// Update notification preferences
     /// - Parameter enabled: Whether notifications should be enabled
-    /// - Returns: Updated preferences
-    func updateNotificationPreferences(enabled: Bool) async throws -> NotificationPreferencesResponse
+    func updateNotificationPreferences(enabled: Bool) async throws
 
     /// Get current notification preferences
-    /// - Returns: Current notification preferences
-    func getNotificationPreferences() async throws -> NotificationPreferencesResponse
+    /// - Returns: Whether notifications are enabled
+    func getNotificationPreferences() async throws -> Bool
 }
 
 // MARK: - NotificationService Implementation
@@ -85,73 +45,30 @@ class NotificationService: NotificationServiceProtocol {
     @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(NotificationServiceProtocol.self) instead")
     static let shared = NotificationService()
 
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
-        self.apiClient = apiClient
+    init(apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!) {
+        self.apiService = apiService
     }
 
-    func registerDeviceToken(_ deviceToken: String) async throws -> DeviceTokenResponse {
+    func registerDeviceToken(_ deviceToken: String) async throws {
         guard !deviceToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw NotificationError.emptyDeviceToken
         }
 
-        let request = DeviceTokenRegister(deviceToken: deviceToken)
-
-        let response: DeviceTokenResponse = try await apiClient.request(
-            endpoint: .notificationRegisterDevice,
-            method: .post,
-            body: request,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
-
-        return response
+        try await apiService.registerDevice(deviceToken: deviceToken)
     }
 
-    func unregisterDeviceToken() async throws -> DeviceTokenResponse {
-        let response: DeviceTokenResponse = try await apiClient.request(
-            endpoint: .notificationRegisterDevice,
-            method: .delete,
-            body: nil as String?,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
-
-        return response
+    func unregisterDeviceToken() async throws {
+        try await apiService.unregisterDevice()
     }
 
-    func updateNotificationPreferences(enabled: Bool) async throws -> NotificationPreferencesResponse {
-        let request = NotificationPreferences(notificationEnabled: enabled)
-
-        let response: NotificationPreferencesResponse = try await apiClient.request(
-            endpoint: .notificationPreferences,
-            method: .put,
-            body: request,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
-
-        return response
+    func updateNotificationPreferences(enabled: Bool) async throws {
+        try await apiService.updateNotificationPreferences(enabled: enabled)
     }
 
-    func getNotificationPreferences() async throws -> NotificationPreferencesResponse {
-        let response: NotificationPreferencesResponse = try await apiClient.request(
-            endpoint: .notificationPreferences,
-            method: .get,
-            body: nil as String?,
-            requiresAuth: true,
-            cacheKey: nil,
-            cacheDuration: nil,
-            forceRefresh: false
-        )
-
-        return response
+    func getNotificationPreferences() async throws -> Bool {
+        let response = try await apiService.getNotificationPreferences()
+        return response.notificationEnabled
     }
 }

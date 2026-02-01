@@ -24,7 +24,7 @@ class BackgroundRefreshManager: ObservableObject {
     // MARK: - Private Properties
 
     private let logger = Logger(subsystem: "com.aiq.app", category: "BackgroundRefresh")
-    private let apiClient: APIClientProtocol
+    private let apiService: OpenAPIServiceProtocol
     private let authManager: AuthManagerProtocol
     private let analyticsService: AnalyticsService
     private let networkMonitor: NetworkMonitorProtocol
@@ -39,13 +39,13 @@ class BackgroundRefreshManager: ObservableObject {
     // MARK: - Initialization
 
     init(
-        apiClient: APIClientProtocol = APIClient.shared,
-        authManager: AuthManagerProtocol = AuthManager.shared,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
+        authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
         analyticsService: AnalyticsService = AnalyticsService.shared,
         networkMonitor: NetworkMonitorProtocol = NetworkMonitor.shared,
         notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current()
     ) {
-        self.apiClient = apiClient
+        self.apiService = apiService
         self.authManager = authManager
         self.analyticsService = analyticsService
         self.networkMonitor = networkMonitor
@@ -199,11 +199,7 @@ class BackgroundRefreshManager: ObservableObject {
     /// - Returns: True if user can take a new test
     private func checkTestAvailability() async throws -> Bool {
         // Fetch the most recent test from history
-        let response: PaginatedTestHistoryResponse = try await apiClient.request(
-            endpoint: .testHistory(limit: 1, offset: nil),
-            method: .get,
-            requiresAuth: true
-        )
+        let response = try await apiService.getTestHistory(limit: 1, offset: nil)
 
         // If no tests exist, user can take a test
         guard let lastTest = response.results.first else {

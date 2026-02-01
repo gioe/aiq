@@ -6,7 +6,7 @@ import XCTest
 @MainActor
 final class HistoryViewModelTests: XCTestCase {
     var sut: HistoryViewModel!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
     var testUserDefaults: UserDefaults!
     var testSuiteName: String!
 
@@ -20,8 +20,8 @@ final class HistoryViewModelTests: XCTestCase {
         testSuiteName = "com.aiq.tests.HistoryViewModel.\(UUID().uuidString)"
         testUserDefaults = UserDefaults(suiteName: testSuiteName)!
 
-        mockAPIClient = MockAPIClient()
-        sut = HistoryViewModel(apiClient: mockAPIClient)
+        mockService = MockOpenAPIService()
+        sut = HistoryViewModel(apiService: mockService)
 
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
     }
@@ -74,7 +74,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1),
             createMockTestResult(id: 2)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 100, hasMore: true)
+        await mockService.setTestHistoryResponse(results, totalCount: 100, hasMore: true)
 
         // When
         await sut.fetchHistory(forceRefresh: true)
@@ -89,7 +89,7 @@ final class HistoryViewModelTests: XCTestCase {
     func testFetchHistory_SetsHasMoreFalseWhenNoMoreResults() async {
         // Given
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
 
         // When
         await sut.fetchHistory(forceRefresh: true)
@@ -108,7 +108,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1),
             createMockTestResult(id: 2)
         ]
-        await mockAPIClient.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
+        await mockService.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
         await sut.fetchHistory(forceRefresh: true)
 
         // Configure second page response
@@ -116,12 +116,12 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 3),
             createMockTestResult(id: 4)
         ]
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: page2Results,
-            totalCount: 4,
+        await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
+            hasMore: false,
             limit: 50,
             offset: 2,
-            hasMore: false
+            results: page2Results,
+            totalCount: 4
         )
 
         // When
@@ -136,24 +136,24 @@ final class HistoryViewModelTests: XCTestCase {
     func testLoadMore_DoesNothing_WhenNoMoreResults() async {
         // Given - Initial fetch with hasMore = false
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When
         await sut.loadMore()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertFalse(requestCalled, "Should not make API request when hasMore is false")
+        let testHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertFalse(testHistoryCalled, "Should not make API request when hasMore is false")
         XCTAssertEqual(sut.testHistory.count, 1, "Results should not change")
     }
 
     func testLoadMore_DoesNothing_WhenAlreadyLoadingMore() async {
         // Given - Initial fetch with hasMore = true
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 10, hasMore: true)
+        await mockService.setTestHistoryResponse(results, totalCount: 10, hasMore: true)
         await sut.fetchHistory(forceRefresh: true)
 
         // Simulate isLoadingMore being true (we can't easily do this without internal access)
@@ -174,16 +174,16 @@ final class HistoryViewModelTests: XCTestCase {
     func testRefreshHistory_ResetsPaginationState() async {
         // Given - Load initial page and a second page
         let page1Results = [createMockTestResult(id: 1), createMockTestResult(id: 2)]
-        await mockAPIClient.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
+        await mockService.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
         await sut.fetchHistory(forceRefresh: true)
 
         let page2Results = [createMockTestResult(id: 3), createMockTestResult(id: 4)]
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: page2Results,
-            totalCount: 4,
+        await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
+            hasMore: false,
             limit: 50,
             offset: 2,
-            hasMore: false
+            results: page2Results,
+            totalCount: 4
         )
         await sut.loadMore()
 
@@ -191,7 +191,7 @@ final class HistoryViewModelTests: XCTestCase {
 
         // When - Refresh should reset to first page
         let refreshedResults = [createMockTestResult(id: 5), createMockTestResult(id: 6)]
-        await mockAPIClient.setTestHistoryResponse(refreshedResults, totalCount: 10, hasMore: true)
+        await mockService.setTestHistoryResponse(refreshedResults, totalCount: 10, hasMore: true)
         await sut.refreshHistory()
 
         // Then
@@ -205,19 +205,19 @@ final class HistoryViewModelTests: XCTestCase {
     func testFetchHistory_UsesCache_WhenNotForceRefresh() async {
         // Given - First fetch populates cache
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled)
+        let testHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertTrue(testHistoryCalled)
 
-        await mockAPIClient.reset()
+        await mockService.reset()
 
         // When - Second fetch should use cache
         await sut.fetchHistory(forceRefresh: false)
 
         // Then
-        let secondRequestCalled = await mockAPIClient.requestCalled
+        let secondRequestCalled = await mockService.getTestHistoryCalled
         XCTAssertFalse(secondRequestCalled, "Should use cache instead of making API request")
         XCTAssertEqual(sut.testHistory.count, 1, "Should still have results from cache")
     }
@@ -227,57 +227,57 @@ final class HistoryViewModelTests: XCTestCase {
     func testFetchHistory_UsesPaginationParameters() async {
         // Given
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
 
         // When
         await sut.fetchHistory(forceRefresh: true)
 
         // Then
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        if case let .testHistory(limit, offset) = lastEndpoint {
-            XCTAssertEqual(limit, 50, "Should use pageSize of 50")
-            XCTAssertEqual(offset, 0, "First fetch should use offset 0")
-        } else {
-            XCTFail("Expected testHistory endpoint with pagination parameters")
-        }
+        let testHistoryCalled = await mockService.getTestHistoryCalled
+        let lastLimit = await mockService.lastGetTestHistoryLimit
+        let lastOffset = await mockService.lastGetTestHistoryOffset
+
+        XCTAssertTrue(testHistoryCalled, "Should call getTestHistory")
+        XCTAssertEqual(lastLimit, 50, "Should use pageSize of 50")
+        XCTAssertEqual(lastOffset, 0, "First fetch should use offset 0")
     }
 
     func testLoadMore_UsesCorrectOffset() async {
         // Given - Initial fetch
         let page1Results = [createMockTestResult(id: 1), createMockTestResult(id: 2)]
-        await mockAPIClient.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
+        await mockService.setTestHistoryResponse(page1Results, totalCount: 4, hasMore: true)
         await sut.fetchHistory(forceRefresh: true)
 
         // Set up second page
         let page2Results = [createMockTestResult(id: 3)]
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: page2Results,
-            totalCount: 4,
+        await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
+            hasMore: true,
             limit: 50,
             offset: 2,
-            hasMore: true
+            results: page2Results,
+            totalCount: 4
         )
 
-        await mockAPIClient.reset()
-        await mockAPIClient.setPaginatedTestHistoryResponse(
-            results: page2Results,
-            totalCount: 4,
+        await mockService.reset()
+        await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
+            hasMore: true,
             limit: 50,
             offset: 2,
-            hasMore: true
+            results: page2Results,
+            totalCount: 4
         )
 
         // When
         await sut.loadMore()
 
         // Then
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        if case let .testHistory(limit, offset) = lastEndpoint {
-            XCTAssertEqual(limit, 50, "Should use pageSize of 50")
-            XCTAssertEqual(offset, 2, "Second page should use offset 2")
-        } else {
-            XCTFail("Expected testHistory endpoint with pagination parameters")
-        }
+        let testHistoryCalled = await mockService.getTestHistoryCalled
+        let lastLimit = await mockService.lastGetTestHistoryLimit
+        let lastOffset = await mockService.lastGetTestHistoryOffset
+
+        XCTAssertTrue(testHistoryCalled, "Should call getTestHistory")
+        XCTAssertEqual(lastLimit, 50, "Should use pageSize of 50")
+        XCTAssertEqual(lastOffset, 2, "Second page should use offset 2")
     }
 
     // MARK: - Computed Properties Tests
@@ -288,7 +288,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1),
             createMockTestResult(id: 2)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // Then - totalTestsTaken uses allTestHistory.count which matches results loaded
@@ -300,7 +300,7 @@ final class HistoryViewModelTests: XCTestCase {
     func testFetchHistory_HandlesError() async {
         // Given
         let apiError = APIError.serverError(statusCode: 500, message: "Server error")
-        await mockAPIClient.setMockError(apiError)
+        await mockService.getTestHistoryError = apiError
 
         // When
         await sut.fetchHistory(forceRefresh: true)
@@ -313,12 +313,12 @@ final class HistoryViewModelTests: XCTestCase {
     func testLoadMore_HandlesError() async {
         // Given - Initial successful fetch
         let results = [createMockTestResult(id: 1)]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 10, hasMore: true)
+        await mockService.setTestHistoryResponse(results, totalCount: 10, hasMore: true)
         await sut.fetchHistory(forceRefresh: true)
 
         // Set up error for loadMore
         let apiError = APIError.serverError(statusCode: 500, message: "Server error")
-        await mockAPIClient.setMockError(apiError)
+        await mockService.getTestHistoryError = apiError
 
         // When
         await sut.loadMore()
@@ -495,7 +495,7 @@ final class HistoryViewModelTests: XCTestCase {
         )
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should restore oldestFirst sort order
         XCTAssertEqual(
@@ -514,7 +514,7 @@ final class HistoryViewModelTests: XCTestCase {
         )
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should restore lastMonth filter
         XCTAssertEqual(
@@ -533,7 +533,7 @@ final class HistoryViewModelTests: XCTestCase {
         )
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should restore lastSixMonths filter
         XCTAssertEqual(
@@ -552,7 +552,7 @@ final class HistoryViewModelTests: XCTestCase {
         )
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should restore lastYear filter
         XCTAssertEqual(
@@ -568,7 +568,7 @@ final class HistoryViewModelTests: XCTestCase {
         UserDefaults.standard.set("InvalidSortOrder", forKey: sortOrderStorageKey)
 
         // When - Creating a new ViewModel instance
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should fall back to default (.newestFirst)
         XCTAssertEqual(
@@ -584,7 +584,7 @@ final class HistoryViewModelTests: XCTestCase {
         UserDefaults.standard.set("InvalidDateFilter", forKey: dateFilterStorageKey)
 
         // When - Creating a new ViewModel instance
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Should fall back to default (.all)
         XCTAssertEqual(
@@ -607,7 +607,7 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertEqual(savedDateFilter, TestHistoryDateFilter.lastSixMonths.rawValue)
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Then - Both filters should be restored
         XCTAssertEqual(
@@ -657,7 +657,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: oldDate),
             createMockTestResult(id: 2, completedAt: newDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Set sort order to newestFirst
@@ -678,7 +678,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: oldDate),
             createMockTestResult(id: 2, completedAt: newDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Set sort order to oldestFirst
@@ -699,7 +699,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: ancientDate),
             createMockTestResult(id: 2, completedAt: recentDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Apply lastMonth filter
@@ -719,7 +719,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: ancientDate),
             createMockTestResult(id: 2, completedAt: recentDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Apply lastSixMonths filter
@@ -739,7 +739,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: ancientDate),
             createMockTestResult(id: 2, completedAt: recentDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Apply lastYear filter
@@ -759,7 +759,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 1, completedAt: ancientDate),
             createMockTestResult(id: 2, completedAt: recentDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 2, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // First apply a restrictive filter
@@ -784,7 +784,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 2, completedAt: newWithinMonth),
             createMockTestResult(id: 3, completedAt: outsideMonth)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Apply both filters
@@ -804,7 +804,7 @@ final class HistoryViewModelTests: XCTestCase {
         let results = [
             createMockTestResult(id: 1, completedAt: ancientDate)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
         // When - Apply restrictive filter
@@ -829,7 +829,7 @@ final class HistoryViewModelTests: XCTestCase {
         )
 
         // Create new ViewModel (simulating app restart)
-        let newViewModel = HistoryViewModel(apiClient: mockAPIClient)
+        let newViewModel = HistoryViewModel(apiService: mockService)
 
         // Load test data
         let oldWithinMonth = Date().addingTimeInterval(-86400 * 20)
@@ -840,7 +840,7 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 2, completedAt: newWithinMonth),
             createMockTestResult(id: 3, completedAt: outsideMonth)
         ]
-        await mockAPIClient.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
+        await mockService.setTestHistoryResponse(results, totalCount: 3, hasMore: false)
 
         // When - Fetch data
         await newViewModel.fetchHistory(forceRefresh: true)

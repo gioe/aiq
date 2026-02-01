@@ -6,7 +6,7 @@ import XCTest
 @MainActor
 final class BackgroundRefreshManagerTests: XCTestCase {
     var sut: BackgroundRefreshManager!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
     var mockAuthManager: MockAuthManager!
     var mockNetworkMonitor: MockNetworkMonitor!
     var mockNotificationCenter: MockUserNotificationCenter!
@@ -23,14 +23,14 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: lastNotificationKey)
 
         // Create mocks
-        mockAPIClient = MockAPIClient()
+        mockService = MockOpenAPIService()
         mockAuthManager = MockAuthManager()
         mockNetworkMonitor = MockNetworkMonitor()
         mockNotificationCenter = MockUserNotificationCenter()
 
         // Create SUT with injected dependencies
         sut = BackgroundRefreshManager(
-            apiClient: mockAPIClient,
+            apiService: mockService,
             authManager: mockAuthManager,
             analyticsService: AnalyticsService.shared,
             networkMonitor: mockNetworkMonitor,
@@ -67,8 +67,8 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertTrue(result)
 
         // Should not make API calls
-        let callCount = await mockAPIClient.allEndpoints.count
-        XCTAssertEqual(callCount, 0)
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertFalse(getTestHistoryCalled)
     }
 
     func testPerformRefresh_SkipsWhenNoNetwork() async {
@@ -83,8 +83,8 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertTrue(result)
 
         // Should not make API calls
-        let callCount = await mockAPIClient.allEndpoints.count
-        XCTAssertEqual(callCount, 0)
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertFalse(getTestHistoryCalled)
     }
 
     func testPerformRefresh_SkipsWhenRefreshedRecently() async {
@@ -103,8 +103,8 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertTrue(result)
 
         // Should not make API calls
-        let callCount = await mockAPIClient.allEndpoints.count
-        XCTAssertEqual(callCount, 0)
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertFalse(getTestHistoryCalled)
     }
 
     func testPerformRefresh_FetchesTestHistory_WhenConditionsMet() async {
@@ -115,7 +115,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Create test history response with a test from 100 days ago (past 90-day threshold)
         let oldTest = createTestResult(daysAgo: 100)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -124,7 +124,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertTrue(result)
 
         // Should have called API
-        let callCount = await mockAPIClient.allEndpoints.count
+        let callCount = await mockService.getTestHistoryCallCount
         XCTAssertEqual(callCount, 1)
 
         // Should have saved refresh timestamp
@@ -141,7 +141,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Create test from 100 days ago (past 90-day threshold)
         let oldTest = createTestResult(daysAgo: 100)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -170,7 +170,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Create test from 100 days ago
         let oldTest = createTestResult(daysAgo: 100)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -191,7 +191,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Create test from 100 days ago
         let oldTest = createTestResult(daysAgo: 100)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -207,7 +207,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Given
         mockAuthManager.isAuthenticated = true
         mockNetworkMonitor.isConnected = true
-        await mockAPIClient.setMockError(.unknown(message: "Test error"))
+        mockService.getTestHistoryError = APIError.unknown(message: "Test error")
 
         // When
         let result = await sut.performRefresh()
@@ -224,7 +224,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         mockNetworkMonitor.isConnected = true
 
         // Empty test history
-        await mockAPIClient.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -233,7 +233,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         XCTAssertTrue(result)
 
         // Should have called API
-        let callCount = await mockAPIClient.allEndpoints.count
+        let callCount = await mockService.getTestHistoryCallCount
         XCTAssertEqual(callCount, 1)
     }
 
@@ -245,7 +245,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Test from exactly 90 days ago
         let oldTest = createTestResult(daysAgo: 90)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -262,7 +262,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Test from 30 days ago (within 90-day threshold)
         let recentTest = createTestResult(daysAgo: 30)
 
-        await mockAPIClient.setTestHistoryResponse([recentTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([recentTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -288,7 +288,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // daysAgo: -5 creates a completedAt date 5 days in the future
         let futureTest = createTestResult(daysAgo: -5)
 
-        await mockAPIClient.setTestHistoryResponse([futureTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([futureTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()
@@ -315,7 +315,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Create test from 100 days ago (past threshold, would normally trigger notification)
         let oldTest = createTestResult(daysAgo: 100)
 
-        await mockAPIClient.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
+        await mockService.setTestHistoryResponse([oldTest], totalCount: 1, hasMore: false)
 
         // When
         let result = await sut.performRefresh()

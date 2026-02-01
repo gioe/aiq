@@ -29,7 +29,7 @@ import Foundation
 /// For UI tests, inject a mock container:
 /// ```swift
 /// let mockContainer = ServiceContainer()
-/// mockContainer.register(APIClientProtocol.self) { MockAPIClient() }
+/// mockContainer.register(OpenAPIServiceProtocol.self) { MockOpenAPIService() }
 /// let view = DashboardView(serviceContainer: mockContainer)
 /// ```
 enum ViewModelFactory {
@@ -40,10 +40,10 @@ enum ViewModelFactory {
     /// - Returns: Configured DashboardViewModel instance
     @MainActor
     static func makeDashboardViewModel(container: ServiceContainer) -> DashboardViewModel {
-        guard let apiClient = container.resolve(APIClientProtocol.self) else {
-            fatalError("APIClientProtocol not registered in ServiceContainer")
+        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
+            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
-        return DashboardViewModel(apiClient: apiClient)
+        return DashboardViewModel(apiService: apiService)
     }
 
     // MARK: - History
@@ -53,10 +53,10 @@ enum ViewModelFactory {
     /// - Returns: Configured HistoryViewModel instance
     @MainActor
     static func makeHistoryViewModel(container: ServiceContainer) -> HistoryViewModel {
-        guard let apiClient = container.resolve(APIClientProtocol.self) else {
-            fatalError("APIClientProtocol not registered in ServiceContainer")
+        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
+            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
-        return HistoryViewModel(apiClient: apiClient)
+        return HistoryViewModel(apiService: apiService)
     }
 
     // MARK: - Test Taking
@@ -66,13 +66,13 @@ enum ViewModelFactory {
     /// - Returns: Configured TestTakingViewModel instance
     @MainActor
     static func makeTestTakingViewModel(container: ServiceContainer) -> TestTakingViewModel {
-        guard let apiClient = container.resolve(APIClientProtocol.self) else {
-            fatalError("APIClientProtocol not registered in ServiceContainer")
+        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
+            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
         guard let answerStorage = container.resolve(LocalAnswerStorageProtocol.self) else {
             fatalError("LocalAnswerStorageProtocol not registered in ServiceContainer")
         }
-        return TestTakingViewModel(apiClient: apiClient, answerStorage: answerStorage)
+        return TestTakingViewModel(apiService: apiService, answerStorage: answerStorage)
     }
 
     // MARK: - Feedback
@@ -82,11 +82,11 @@ enum ViewModelFactory {
     /// - Returns: Configured FeedbackViewModel instance
     @MainActor
     static func makeFeedbackViewModel(container: ServiceContainer) -> FeedbackViewModel {
-        guard let apiClient = container.resolve(APIClientProtocol.self) else {
-            fatalError("APIClientProtocol not registered in ServiceContainer")
+        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
+            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
         let authManager = container.resolve(AuthManagerProtocol.self)
-        return FeedbackViewModel(apiClient: apiClient, authManager: authManager)
+        return FeedbackViewModel(apiService: apiService, authManager: authManager)
     }
 
     // MARK: - Notification Settings

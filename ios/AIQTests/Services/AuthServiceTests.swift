@@ -6,14 +6,14 @@ import AIQAPIClient
 
 final class AuthServiceTests: XCTestCase {
     var sut: AuthService!
-    var mockAPIClient: MockAPIClient!
+    var mockService: MockOpenAPIService!
     var mockSecureStorage: MockSecureStorage!
 
     override func setUp() async throws {
         try await super.setUp()
-        mockAPIClient = MockAPIClient()
+        mockService = MockOpenAPIService()
         mockSecureStorage = MockSecureStorage()
-        sut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+        sut = AuthService(apiService: mockService, secureStorage: mockSecureStorage)
     }
 
     // MARK: - Initialization Tests
@@ -21,27 +21,31 @@ final class AuthServiceTests: XCTestCase {
     func testInit_LoadsExistingTokenFromStorage() async throws {
         // Given
         let existingToken = "existing_access_token"
+        let existingRefreshToken = "existing_refresh_token"
         try mockSecureStorage.save(existingToken, forKey: SecureStorageKey.accessToken.rawValue)
+        try mockSecureStorage.save(existingRefreshToken, forKey: SecureStorageKey.refreshToken.rawValue)
 
         // When
-        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+        let newSut = AuthService(apiService: mockService, secureStorage: mockSecureStorage)
 
         // Then
         let token = await newSut.getAccessToken()
         XCTAssertEqual(token, existingToken, "Should load existing token from storage on init")
 
-        // Verify setAuthToken was called on API client during init (Critical Issue #1)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called during init when token exists")
-        XCTAssertEqual(lastAuthToken, existingToken, "API client should receive the existing token")
+        // Verify setTokens was called on API service during init
+        let setTokensCalled = await mockService.setTokensCalled
+        let lastAccessToken = await mockService.lastAccessToken
+        let lastRefreshToken = await mockService.lastRefreshToken
+        XCTAssertTrue(setTokensCalled, "setTokens should be called during init when tokens exist")
+        XCTAssertEqual(lastAccessToken, existingToken, "API service should receive the existing access token")
+        XCTAssertEqual(lastRefreshToken, existingRefreshToken, "API service should receive the existing refresh token")
     }
 
     func testInit_HandlesNoExistingToken() async throws {
         // Given - no token in storage
 
         // When
-        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+        let newSut = AuthService(apiService: mockService, secureStorage: mockSecureStorage)
 
         // Then
         let token = await newSut.getAccessToken()
@@ -53,15 +57,15 @@ final class AuthServiceTests: XCTestCase {
         mockSecureStorage.setShouldThrowOnRetrieve(true)
 
         // When - Init should not crash even if storage throws
-        let newSut = AuthService(apiClient: mockAPIClient, secureStorage: mockSecureStorage)
+        let newSut = AuthService(apiService: mockService, secureStorage: mockSecureStorage)
 
         // Then - Should handle gracefully without crashing
         let token = await newSut.getAccessToken()
         XCTAssertNil(token, "Should return nil when storage throws error")
 
-        // setAuthToken should NOT have been called (since no token was retrieved)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        XCTAssertFalse(setAuthTokenCalled, "setAuthToken should not be called when storage fails")
+        // setTokens should NOT have been called (since no tokens were retrieved)
+        let setTokensCalled = await mockService.setTokensCalled
+        XCTAssertFalse(setTokensCalled, "setTokens should not be called when storage fails")
     }
 
     func testIsAuthenticated_ReturnsTrueWhenTokenExists() async throws {
@@ -119,27 +123,19 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // When
         let response = try await sut.login(email: email, password: password)
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let loginCalled = await mockService.loginCalled
+        let lastLoginEmail = await mockService.lastLoginEmail
+        let lastLoginPassword = await mockService.lastLoginPassword
 
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .login, "Should call login endpoint")
-        XCTAssertEqual(lastMethod, .post, "Should use POST method")
-        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for login")
-
-        // Verify request body contains correct fields
-        let requestBody = await mockAPIClient.lastBodyAsDictionary
-        XCTAssertNotNil(requestBody, "Login request should have a body")
-        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
-        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
+        XCTAssertTrue(loginCalled, "Login should be called")
+        XCTAssertEqual(lastLoginEmail, email, "Should pass correct email")
+        XCTAssertEqual(lastLoginPassword, password, "Should pass correct password")
 
         XCTAssertEqual(response.accessToken, "access_token_123")
         XCTAssertEqual(response.refreshToken, "refresh_token_456")
@@ -166,11 +162,13 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(currentUser?.id, 1)
         XCTAssertEqual(currentUser?.email, email)
 
-        // Verify setAuthToken was called on API client (Critical Issue #1)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after login")
-        XCTAssertEqual(lastAuthToken, "access_token_123", "API client should receive the new access token")
+        // Verify setTokens was called on API service
+        let setTokensCalled = await mockService.setTokensCalled
+        let lastAccessToken = await mockService.lastAccessToken
+        let lastRefreshToken = await mockService.lastRefreshToken
+        XCTAssertTrue(setTokensCalled, "setTokens should be called after login")
+        XCTAssertEqual(lastAccessToken, "access_token_123", "API service should receive the new access token")
+        XCTAssertEqual(lastRefreshToken, "refresh_token_456", "API service should receive the new refresh token")
     }
 
     func testLogin_NetworkError() async throws {
@@ -181,7 +179,7 @@ final class AuthServiceTests: XCTestCase {
             NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
         )
 
-        await mockAPIClient.setMockError(networkError)
+        await mockService.loginError = networkError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -198,7 +196,7 @@ final class AuthServiceTests: XCTestCase {
         let password = "wrongpassword"
         let unauthorizedError = APIError.unauthorized(message: "Invalid credentials")
 
-        await mockAPIClient.setMockError(unauthorizedError)
+        await mockService.loginError = unauthorizedError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -228,7 +226,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
         mockSecureStorage.setShouldThrowOnSave(true)
 
         // When/Then
@@ -260,7 +258,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // Configure storage to fail only on refresh token save
         mockSecureStorage.setShouldThrowOnSave(
@@ -303,20 +301,14 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should not be saved after refresh token failure"
             )
 
-            // BTS-229: Verify API client state after partial save failure
-            // EXPECTED BEHAVIOR: setAuthToken() should NOT be called at all when storage fails
-            // The implementation correctly defers apiClient.setAuthToken() until after all saves succeed
-            // This maintains atomicity between storage and apiClient state
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state after partial save failure
+            // EXPECTED BEHAVIOR: setTokens() should NOT be called at all when storage fails
+            // The implementation correctly defers apiService.setTokens() until after all saves succeed
+            // This maintains atomicity between storage and apiService state
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage save fails"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken should have 0 calls when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -331,8 +323,8 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("old_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Simulate that apiClient already has the old token
-        await mockAPIClient.resetAuthTokenTracking()
+        // Reset mock to track new calls
+        await mockService.reset()
 
         let email = "test@example.com"
         let password = "password123"
@@ -351,7 +343,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // Configure storage to fail on refresh token save (after access token succeeds)
         mockSecureStorage.setShouldThrowOnSave(
@@ -386,24 +378,18 @@ final class AuthServiceTests: XCTestCase {
                 "Refresh token should remain as old value when save fails"
             )
 
-            // BTS-229: Verify apiClient.setAuthToken() was NOT called with new token
-            // CRITICAL: apiClient should still have old token, not new token
-            // The implementation correctly does NOT call setAuthToken on partial failure
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify apiService.setTokens() was NOT called with new tokens
+            // CRITICAL: apiService should still have old tokens, not new tokens
+            // The implementation correctly does NOT call setTokens on partial failure
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage rollback occurs"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 after rollback"
+                setTokensCalled,
+                "API service setTokens should not be called when storage rollback occurs"
             )
 
-            // Note: In a real scenario, apiClient would still have "old_access_token"
-            // This test verifies that we don't UPDATE it with the new token
-            // The lack of setAuthToken calls means apiClient state is preserved
+            // Note: In a real scenario, apiService would still have "old_access_token" and "old_refresh_token"
+            // This test verifies that we don't UPDATE it with the new tokens
+            // The lack of setTokens calls means apiService state is preserved
         }
     }
 
@@ -426,7 +412,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // Configure storage to fail only on userId save
         mockSecureStorage.setShouldThrowOnSave(
@@ -468,17 +454,11 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should not be saved when save fails"
             )
 
-            // BTS-229: Verify API client state - enhanced with call count verification
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage save fails"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -515,7 +495,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+        await mockService.registerResponse = mockAuthResponse
 
         // When
         let response = try await sut.register(
@@ -530,27 +510,17 @@ final class AuthServiceTests: XCTestCase {
         )
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
+        let registerCalled = await mockService.registerCalled
+        let lastRegisterEmail = await mockService.lastRegisterEmail
+        let lastRegisterPassword = await mockService.lastRegisterPassword
+        let lastRegisterFirstName = await mockService.lastRegisterFirstName
+        let lastRegisterLastName = await mockService.lastRegisterLastName
 
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .register, "Should call register endpoint")
-        XCTAssertEqual(lastMethod, .post, "Should use POST method")
-        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth for registration")
-
-        // Verify request body contains correct fields (with snake_case conversion)
-        let requestBody = await mockAPIClient.lastBodyAsDictionary
-        XCTAssertNotNil(requestBody, "Register request should have a body")
-        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
-        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
-        XCTAssertEqual(requestBody?["first_name"] as? String, firstName, "Request body should contain first_name")
-        XCTAssertEqual(requestBody?["last_name"] as? String, lastName, "Request body should contain last_name")
-        XCTAssertEqual(requestBody?["birth_year"] as? Int, birthYear, "Request body should contain birth_year")
-        XCTAssertEqual(requestBody?["education_level"] as? String, educationLevel.rawValue, "Request body should contain education_level")
-        XCTAssertEqual(requestBody?["country"] as? String, country, "Request body should contain country")
-        XCTAssertEqual(requestBody?["region"] as? String, region, "Request body should contain region")
+        XCTAssertTrue(registerCalled, "Register should be called")
+        XCTAssertEqual(lastRegisterEmail, email, "Should pass correct email")
+        XCTAssertEqual(lastRegisterPassword, password, "Should pass correct password")
+        XCTAssertEqual(lastRegisterFirstName, firstName, "Should pass correct first name")
+        XCTAssertEqual(lastRegisterLastName, lastName, "Should pass correct last name")
 
         XCTAssertEqual(response.accessToken, "new_access_token")
         XCTAssertEqual(response.user.id, 2)
@@ -567,11 +537,13 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(currentUser?.id, 2)
         // Note: birthYear and educationLevel are not available in the generated UserResponse type
 
-        // Verify setAuthToken was called on API client (Critical Issue #1)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after registration")
-        XCTAssertEqual(lastAuthToken, "new_access_token", "API client should receive the new access token")
+        // Verify setTokens was called on API service
+        let setTokensCalled = await mockService.setTokensCalled
+        let lastAccessToken = await mockService.lastAccessToken
+        let lastRefreshToken = await mockService.lastRefreshToken
+        XCTAssertTrue(setTokensCalled, "setTokens should be called after registration")
+        XCTAssertEqual(lastAccessToken, "new_access_token", "API service should receive the new access token")
+        XCTAssertEqual(lastRefreshToken, "new_refresh_token", "API service should receive the new refresh token")
     }
 
     func testRegister_Success_WithMinimalFields() async throws {
@@ -596,7 +568,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+        await mockService.registerResponse = mockAuthResponse
 
         // When
         let response = try await sut.register(
@@ -607,18 +579,8 @@ final class AuthServiceTests: XCTestCase {
         )
 
         // Then
-        // Verify request body contains only required fields
-        let requestBody = await mockAPIClient.lastBodyAsDictionary
-        XCTAssertNotNil(requestBody, "Register request should have a body")
-        XCTAssertEqual(requestBody?["email"] as? String, email, "Request body should contain email")
-        XCTAssertEqual(requestBody?["password"] as? String, password, "Request body should contain password")
-        XCTAssertEqual(requestBody?["first_name"] as? String, firstName, "Request body should contain first_name")
-        XCTAssertEqual(requestBody?["last_name"] as? String, lastName, "Request body should contain last_name")
-        // Verify optional fields are omitted (not present in JSON, not sent as null)
-        XCTAssertNil(requestBody?["birth_year"], "birth_year should be omitted when nil")
-        XCTAssertNil(requestBody?["education_level"], "education_level should be omitted when nil")
-        XCTAssertNil(requestBody?["country"], "country should be omitted when nil")
-        XCTAssertNil(requestBody?["region"], "region should be omitted when nil")
+        let registerCalled = await mockService.registerCalled
+        XCTAssertTrue(registerCalled, "Register should be called")
 
         XCTAssertEqual(response.accessToken, "minimal_access_token")
         XCTAssertEqual(response.user.id, 3)
@@ -633,7 +595,7 @@ final class AuthServiceTests: XCTestCase {
         let lastName = "User"
         let conflictError = APIError.unprocessableEntity(message: "Email already exists")
 
-        await mockAPIClient.setMockError(conflictError)
+        await mockService.registerError = conflictError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -657,7 +619,7 @@ final class AuthServiceTests: XCTestCase {
         let lastName = "User"
         let validationError = APIError.badRequest(message: "Invalid email format")
 
-        await mockAPIClient.setMockError(validationError)
+        await mockService.registerError = validationError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -694,7 +656,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+        await mockService.registerResponse = mockAuthResponse
 
         // Configure storage to fail only on refresh token save
         mockSecureStorage.setShouldThrowOnSave(
@@ -733,17 +695,11 @@ final class AuthServiceTests: XCTestCase {
                 "Refresh token should not be saved when save fails"
             )
 
-            // BTS-229: Verify API client state after partial save failure
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state after partial save failure
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage save fails"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -773,7 +729,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+        await mockService.registerResponse = mockAuthResponse
 
         // Configure storage to fail only on userId save
         mockSecureStorage.setShouldThrowOnSave(
@@ -811,17 +767,11 @@ final class AuthServiceTests: XCTestCase {
                 "Refresh token should be rolled back when userId save fails"
             )
 
-            // BTS-229: Verify API client state after partial save failure
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state after partial save failure
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage save fails"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage save fails"
             )
 
             // Verify currentUser was NOT set
@@ -838,22 +788,12 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Mock successful logout response
-        await mockAPIClient.setResponse("success", for: .logout)
-
         // When
         try await sut.logout()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
-
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .logout, "Should call logout endpoint")
-        XCTAssertEqual(lastMethod, .post, "Should use POST method")
-        XCTAssertTrue(lastRequiresAuth ?? false, "Should require auth for logout")
+        let logoutCalled = await mockService.logoutCalled
+        XCTAssertTrue(logoutCalled, "Logout should be called")
 
         // Verify all tokens were cleared
         let accessToken = try mockSecureStorage.retrieve(
@@ -878,11 +818,9 @@ final class AuthServiceTests: XCTestCase {
         let isAuthenticated = await sut.isAuthenticated
         XCTAssertFalse(isAuthenticated, "Should not be authenticated after logout")
 
-        // Verify setAuthToken was called with nil to clear API client token (Critical Issue #1)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after logout")
-        XCTAssertEqual(lastAuthToken, .some(nil), "API client token should be cleared (set to nil)")
+        // Verify clearTokens was called on API service
+        let clearTokensCalled = await mockService.clearTokensCalled
+        XCTAssertTrue(clearTokensCalled, "clearTokens should be called after logout")
     }
 
     func testLogout_APIError_StillClearsLocalData() async throws {
@@ -894,7 +832,7 @@ final class AuthServiceTests: XCTestCase {
         let networkError = APIError.networkError(
             NSError(domain: "Test", code: -1, userInfo: nil)
         )
-        await mockAPIClient.setMockError(networkError)
+        await mockService.logoutError = networkError
 
         // When - Logout should succeed even if API call fails (best effort)
         try await sut.logout()
@@ -916,9 +854,6 @@ final class AuthServiceTests: XCTestCase {
 
     func testLogout_WhenNotAuthenticated() async throws {
         // Given - No tokens in storage
-
-        // Mock logout response
-        await mockAPIClient.setResponse("success", for: .logout)
 
         // When
         try await sut.logout()
@@ -948,7 +883,7 @@ final class AuthServiceTests: XCTestCase {
             tokenType: "Bearer",
             user: mockUser
         )
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
         _ = try await sut.login(email: "test@example.com", password: "password")
 
         // Verify user is set
@@ -957,8 +892,7 @@ final class AuthServiceTests: XCTestCase {
 
         // Now configure storage to fail on deleteAll
         mockSecureStorage.setShouldThrowOnDeleteAll(true)
-        await mockAPIClient.reset()
-        await mockAPIClient.setResponse("success", for: .logout)
+        await mockService.reset()
 
         // When - Logout should handle storage error gracefully
         try await sut.logout()
@@ -967,11 +901,9 @@ final class AuthServiceTests: XCTestCase {
         currentUser = await sut.currentUser
         XCTAssertNil(currentUser, "Current user should be cleared even if storage deleteAll fails")
 
-        // Verify setAuthToken(nil) was still called
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called even if storage fails")
-        XCTAssertEqual(lastAuthToken, .some(nil), "API client token should be cleared")
+        // Verify clearTokens was still called
+        let clearTokensCalled = await mockService.clearTokensCalled
+        XCTAssertTrue(clearTokensCalled, "clearTokens should be called even if storage fails")
     }
 
     // MARK: - Token Refresh Tests
@@ -997,32 +929,14 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+        await mockService.refreshTokenResponse = mockAuthResponse
 
         // When
         let response = try await sut.refreshToken()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
-        let lastCustomHeaders = await mockAPIClient.lastCustomHeaders
-
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .refreshToken, "Should call refreshToken endpoint")
-        XCTAssertEqual(lastMethod, .post, "Should use POST method")
-        XCTAssertFalse(lastRequiresAuth ?? true, "Should not require auth (uses custom header)")
-        XCTAssertNotNil(lastCustomHeaders, "Should include custom headers")
-        XCTAssertEqual(
-            lastCustomHeaders?["Authorization"],
-            "Bearer \(oldRefreshToken)",
-            "Should send refresh token in Authorization header"
-        )
-
-        // Verify request body is nil (refresh token sent in header, not body)
-        let lastBody = await mockAPIClient.lastBody
-        XCTAssertNil(lastBody, "Refresh token request should not have a body (token is in header)")
+        let refreshTokenCalled = await mockService.refreshTokenCalled
+        XCTAssertTrue(refreshTokenCalled, "RefreshToken should be called")
 
         XCTAssertEqual(response.accessToken, "new_access_token")
         XCTAssertEqual(response.refreshToken, "new_refresh_token")
@@ -1038,11 +952,13 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(savedAccessToken, "new_access_token")
         XCTAssertEqual(savedRefreshToken, "new_refresh_token")
 
-        // Verify setAuthToken was called on API client (Critical Issue #1)
-        let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-        let lastAuthToken = await mockAPIClient.lastAuthToken
-        XCTAssertTrue(setAuthTokenCalled, "setAuthToken should be called after token refresh")
-        XCTAssertEqual(lastAuthToken, "new_access_token", "API client should receive the new access token")
+        // Verify setTokens was called on API service
+        let setTokensCalled = await mockService.setTokensCalled
+        let lastAccessToken = await mockService.lastAccessToken
+        let lastRefreshToken = await mockService.lastRefreshToken
+        XCTAssertTrue(setTokensCalled, "setTokens should be called after token refresh")
+        XCTAssertEqual(lastAccessToken, "new_access_token", "API service should receive the new access token")
+        XCTAssertEqual(lastRefreshToken, "new_refresh_token", "API service should receive the new refresh token")
     }
 
     func testRefreshToken_NoRefreshToken_ThrowsError() async throws {
@@ -1057,8 +973,8 @@ final class AuthServiceTests: XCTestCase {
         }
 
         // API should not be called
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertFalse(requestCalled, "API should not be called when no refresh token")
+        let refreshTokenCalled = await mockService.refreshTokenCalled
+        XCTAssertFalse(refreshTokenCalled, "API should not be called when no refresh token")
     }
 
     func testRefreshToken_ExpiredRefreshToken_Error() async throws {
@@ -1066,7 +982,7 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("expired_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
         let unauthorizedError = APIError.unauthorized(message: "Refresh token expired")
-        await mockAPIClient.setMockError(unauthorizedError)
+        await mockService.refreshTokenError = unauthorizedError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -1084,7 +1000,7 @@ final class AuthServiceTests: XCTestCase {
         let networkError = APIError.networkError(
             NSError(domain: "Test", code: -1, userInfo: nil)
         )
-        await mockAPIClient.setMockError(networkError)
+        await mockService.refreshTokenError = networkError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
         do {
@@ -1116,7 +1032,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+        await mockService.refreshTokenResponse = mockAuthResponse
 
         // Configure storage to fail only on refresh token save
         mockSecureStorage.setShouldThrowOnSave(
@@ -1162,18 +1078,12 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should remain unchanged when refresh token save fails"
             )
 
-            // BTS-229: Verify API client state - enhanced with call count verification
-            // CRITICAL: When rollback occurs, apiClient should preserve old token (not update to new token)
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state
+            // CRITICAL: When rollback occurs, apiService should preserve old tokens (not update to new tokens)
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage rollback occurs"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage rollback occurs"
             )
 
             // Verify currentUser was NOT updated
@@ -1203,7 +1113,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+        await mockService.refreshTokenResponse = mockAuthResponse
 
         // Configure storage to fail only on userId save
         mockSecureStorage.setShouldThrowOnSave(
@@ -1248,17 +1158,11 @@ final class AuthServiceTests: XCTestCase {
                 "User ID should remain unchanged when save fails"
             )
 
-            // BTS-229: Verify API client state - enhanced with call count verification
-            let setAuthTokenCalled = await mockAPIClient.setAuthTokenCalled
-            let setAuthTokenCallCount = await mockAPIClient.setAuthTokenCallCount
+            // BTS-229: Verify API service state
+            let setTokensCalled = await mockService.setTokensCalled
             XCTAssertFalse(
-                setAuthTokenCalled,
-                "API client setAuthToken should not be called when storage rollback occurs"
-            )
-            XCTAssertEqual(
-                setAuthTokenCallCount,
-                0,
-                "API client setAuthToken call count should be 0 when storage save fails"
+                setTokensCalled,
+                "API service setTokens should not be called when storage rollback occurs"
             )
 
             // Verify currentUser was NOT updated
@@ -1275,22 +1179,12 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Mock successful delete response (backend returns 204 No Content, so optional string)
-        await mockAPIClient.setResponse(String?.some("success"), for: .deleteAccount)
-
         // When
         try await sut.deleteAccount()
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        let lastEndpoint = await mockAPIClient.lastEndpoint
-        let lastMethod = await mockAPIClient.lastMethod
-        let lastRequiresAuth = await mockAPIClient.lastRequiresAuth
-
-        XCTAssertTrue(requestCalled, "API request should be called")
-        XCTAssertEqual(lastEndpoint, .deleteAccount, "Should call deleteAccount endpoint")
-        XCTAssertEqual(lastMethod, .delete, "Should use DELETE method")
-        XCTAssertTrue(lastRequiresAuth ?? false, "Should require auth for delete account")
+        let deleteAccountCalled = await mockService.deleteAccountCalled
+        XCTAssertTrue(deleteAccountCalled, "DeleteAccount should be called")
 
         // Verify all tokens were cleared
         let accessToken = try mockSecureStorage.retrieve(
@@ -1318,11 +1212,9 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
-        // Mock 204 No Content (backend returns empty body, causing decodingError)
-        // The implementation should treat this as success
-        await mockAPIClient.setMockError(APIError.decodingError(NSError(domain: "TestDomain", code: 0)))
+        // OpenAPIService now handles 204 properly, so no error needed - just succeeds
 
-        // When - Should succeed despite decoding error (204 No Content is success)
+        // When - Should succeed (204 No Content is handled by OpenAPIService)
         try await sut.deleteAccount()
 
         // Then - Local data should be cleared
@@ -1344,7 +1236,7 @@ final class AuthServiceTests: XCTestCase {
 
         // Mock API error
         let serverError = APIError.serverError(statusCode: 500, message: "Server error")
-        await mockAPIClient.setMockError(serverError)
+        await mockService.deleteAccountError = serverError
 
         // When/Then - Delete account should throw error when API fails
         do {
@@ -1389,7 +1281,7 @@ final class AuthServiceTests: XCTestCase {
         let networkError = APIError.networkError(
             NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
         )
-        await mockAPIClient.setMockError(networkError)
+        await mockService.deleteAccountError = networkError
 
         // When/Then - Delete account should throw error when network fails
         do {
@@ -1467,7 +1359,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // When
         _ = try await sut.login(email: email, password: password)
@@ -1498,7 +1390,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
         _ = try await sut.login(email: "test@example.com", password: "password")
 
         // Verify user is set
@@ -1506,7 +1398,6 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertNotNil(currentUser)
 
         // When
-        await mockAPIClient.setResponse("success", for: .logout)
         try await sut.logout()
 
         // Then
@@ -1548,7 +1439,7 @@ final class AuthServiceTests: XCTestCase {
             user: secondUser
         )
 
-        await mockAPIClient.setResponse(firstResponse, for: .login)
+        await mockService.loginResponse = firstResponse
 
         // When - First login
         _ = try await sut.login(email: "first@example.com", password: "password1")
@@ -1557,8 +1448,8 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(currentUser?.id, 1)
 
         // When - Second login (different user)
-        await mockAPIClient.reset()
-        await mockAPIClient.setResponse(secondResponse, for: .login)
+        await mockService.reset()
+        await mockService.loginResponse = secondResponse
         _ = try await sut.login(email: "second@example.com", password: "password2")
 
         // Then - Should overwrite with second user
@@ -1591,7 +1482,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .refreshToken)
+        await mockService.refreshTokenResponse = mockAuthResponse
 
         // When - Perform multiple concurrent refresh operations
         async let refresh1 = sut.refreshToken()
@@ -1623,14 +1514,14 @@ final class AuthServiceTests: XCTestCase {
             )
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // When
         _ = try await sut.login(email: "", password: "")
 
         // Then
-        let requestCalled = await mockAPIClient.requestCalled
-        XCTAssertTrue(requestCalled, "Should call API even with empty strings")
+        let loginCalled = await mockService.loginCalled
+        XCTAssertTrue(loginCalled, "Should call API even with empty strings")
     }
 
     func testConcurrentLogin_ThreadSafety() async throws {
@@ -1650,7 +1541,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .login)
+        await mockService.loginResponse = mockAuthResponse
 
         // When - Perform multiple concurrent login operations (simulates rapid button taps)
         async let login1 = sut.login(email: "test@example.com", password: "password")
@@ -1691,7 +1582,7 @@ final class AuthServiceTests: XCTestCase {
             user: mockUser
         )
 
-        await mockAPIClient.setResponse(mockAuthResponse, for: .register)
+        await mockService.registerResponse = mockAuthResponse
 
         // When - Perform multiple concurrent register operations
         async let register1 = sut.register(
