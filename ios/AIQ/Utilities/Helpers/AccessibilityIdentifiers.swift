@@ -146,8 +146,6 @@ enum AccessibilityIdentifiers {
         static let container = "testDetailView"
         static let scoreLabel = "testDetailView.scoreLabel"
         static let dateLabel = "testDetailView.dateLabel"
-        static let domainScoresSection = "testDetailView.domainScoresSection"
-        static let backButton = "testDetailView.backButton"
     }
 
     // MARK: - Settings View
