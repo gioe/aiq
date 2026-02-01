@@ -10,6 +10,7 @@ struct TestTakingView: View {
     @State private var showExitConfirmation = false
     @State private var savedProgress: SavedTestProgress?
     @State private var activeSessionConflictId: Int?
+    @State private var showQuestionGrid = false
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
     @State private var showTimeExpiredAlert = false
@@ -71,10 +72,8 @@ struct TestTakingView: View {
         .navigationTitle("IQ Test")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                TestTimerView(timerManager: timerManager)
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Exit") {
                     handleExit()
@@ -316,16 +315,11 @@ struct TestTakingView: View {
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
 
-            // Progress section at the top
-            VStack(spacing: 12) {
-                // Enhanced progress bar with stats
-                TestProgressView(
-                    currentQuestion: viewModel.currentQuestionIndex + 1,
-                    totalQuestions: viewModel.questions.count,
-                    answeredCount: viewModel.answeredCount
-                )
+            // Compact header: timer, progress, and grid toggle
+            compactHeader
 
-                // Question navigation grid
+            // Collapsible question navigation grid
+            if showQuestionGrid {
                 QuestionNavigationGrid(
                     totalQuestions: viewModel.questions.count,
                     currentQuestionIndex: viewModel.currentQuestionIndex,
@@ -336,10 +330,10 @@ struct TestTakingView: View {
                         }
                     }
                 )
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
-            .padding()
-            .background(Color(.systemBackground))
-            .shadow(color: Color.black.opacity(0.05), radius: 4, y: 2)
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -407,6 +401,48 @@ struct TestTakingView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 4, y: -2)
         }
         .background(Color(.systemGroupedBackground))
+    }
+
+    // MARK: - Compact Header
+
+    private var compactHeader: some View {
+        VStack(spacing: 6) {
+            HStack {
+                TestTimerView(timerManager: timerManager)
+                Spacer()
+                Text("\(viewModel.currentQuestionIndex + 1)/\(viewModel.questions.count)")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
+                Text("·").foregroundColor(.secondary)
+                Text("\(viewModel.answeredCount) answered")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
+                        showQuestionGrid.toggle()
+                    }
+                } label: {
+                    Image(systemName: showQuestionGrid ? "square.grid.3x3.fill" : "square.grid.3x3")
+                        .font(.body)
+                        .foregroundColor(.accentColor)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel(showQuestionGrid ? "Hide question grid" : "Show question grid")
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
+            }
+
+            let allAnswered = viewModel.answeredCount == viewModel.questions.count && !viewModel.questions.isEmpty
+            ProgressView(
+                value: Double(viewModel.answeredCount),
+                total: Double(max(viewModel.questions.count, 1))
+            )
+            .tint(allAnswered ? .green : .accentColor)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
+        .shadow(color: Color.black.opacity(0.05), radius: 2, y: 1)
     }
 
     // MARK: - Navigation Controls
