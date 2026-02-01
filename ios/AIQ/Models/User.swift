@@ -8,10 +8,8 @@ import Foundation
 /// This typealias provides a clean interface to the generated `Components.Schemas.UserResponse` type.
 /// UI-specific computed properties are provided via the `User+Extensions.swift` file.
 ///
-/// - Note: The generated type includes required fields only: id, email, firstName, lastName,
-///   createdAt, notificationEnabled. Optional demographic fields (birthYear, educationLevel,
-///   country, region, lastLoginAt) are NOT available due to a Swift OpenAPI generator limitation.
-///   See User+Extensions.swift for details on this limitation.
+/// - Note: The generated type includes required fields (id, email, createdAt, notificationEnabled)
+///   and optional fields (firstName, lastName, birthYear, educationLevel, country, region, lastLoginAt).
 typealias User = Components.Schemas.UserResponse
 
 // MARK: - Education Level

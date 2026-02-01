@@ -5268,6 +5268,7 @@
           },
           "first_name": {
             "description": "User first name",
+            "nullable": true,
             "title": "First Name",
             "type": "string"
           },
@@ -5285,6 +5286,7 @@
           },
           "last_name": {
             "description": "User last name",
+            "nullable": true,
             "title": "Last Name",
             "type": "string"
           },
@@ -5303,8 +5305,6 @@
         "required": [
           "id",
           "email",
-          "first_name",
-          "last_name",
           "created_at",
           "notification_enabled"
         ],

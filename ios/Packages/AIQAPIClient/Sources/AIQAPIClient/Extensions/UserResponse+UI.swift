@@ -13,15 +13,18 @@ import Foundation
 
 public extension Components.Schemas.UserResponse {
     /// Full name combining first and last name (e.g., "John Smith")
+    /// Returns empty string components gracefully (e.g., "John" if last name is nil)
     var fullName: String {
-        "\(firstName) \(lastName)"
+        [firstName, lastName]
+            .compactMap { $0 }
+            .joined(separator: " ")
     }
 
     /// User's initials (e.g., "JS" for John Smith)
-    /// Returns "?" for empty or whitespace-only names
+    /// Returns "?" for empty, whitespace-only, or nil names
     var initials: String {
-        let first = firstName.trimmingCharacters(in: .whitespaces)
-        let last = lastName.trimmingCharacters(in: .whitespaces)
+        let first = (firstName ?? "").trimmingCharacters(in: .whitespaces)
+        let last = (lastName ?? "").trimmingCharacters(in: .whitespaces)
         let firstInitial = first.isEmpty ? "?" : first.prefix(1).uppercased()
         let lastInitial = last.isEmpty ? "?" : last.prefix(1).uppercased()
         return "\(firstInitial)\(lastInitial)"
