@@ -14,7 +14,7 @@ factor-analyzer==0.5.1
 # FastAPI and server (will be used in later phases)
 fastapi==0.115.0
 uvicorn[standard]==0.32.1
-gunicorn==21.2.0
+gunicorn==22.0.0
 pydantic==2.10.0
 pydantic-settings==2.6.1
 email-validator==2.1.1
@@ -22,8 +22,8 @@ email-validator==2.1.1
 # Authentication (will be used in later phases)
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-jose[cryptography]==3.3.0
-python-multipart==0.0.6
+python-jose[cryptography]==3.4.0
+python-multipart==0.0.22
 
 # Push Notifications
 aioapns==3.3
@@ -43,7 +43,7 @@ sentry-sdk[fastapi]>=2.0.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.27.0
-black==23.11.0
+black==24.3.0
 flake8==6.1.0
 mypy==1.7.1
 pre-commit==3.5.0
