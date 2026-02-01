@@ -32,6 +32,7 @@ struct TestDetailView: View {
             }
             .padding()
         }
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.container)
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Test Details")
         .navigationBarTitleDisplayMode(.inline)
@@ -70,6 +71,7 @@ struct TestDetailView: View {
                     .foregroundStyle(scoreGradient)
                     .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
                     .opacity(showAnimation ? 1.0 : 0.0)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.scoreLabel)
                     .accessibilityLabel(testResult.scoreAccessibilityDescription)
 
                 // Confidence interval display (when available)
@@ -93,6 +95,7 @@ struct TestDetailView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .opacity(showAnimation ? 1.0 : 0.0)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.dateLabel)
         }
         .padding(24)
         .frame(maxWidth: .infinity)

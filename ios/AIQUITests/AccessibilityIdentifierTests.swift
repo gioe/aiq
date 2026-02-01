@@ -360,6 +360,44 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
+    // MARK: - TestDetailView Identifier Tests
+
+    func testTestDetailView_ContainerIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToTestDetail()
+
+        let container = app.scrollViews["testDetailView"]
+        XCTAssertTrue(
+            wait(for: container, timeout: standardTimeout),
+            "testDetailView identifier should exist"
+        )
+    }
+
+    func testTestDetailView_ScoreLabelIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToTestDetail()
+
+        let scoreLabel = app.staticTexts["testDetailView.scoreLabel"]
+        XCTAssertTrue(
+            wait(for: scoreLabel, timeout: standardTimeout),
+            "testDetailView.scoreLabel identifier should exist"
+        )
+    }
+
+    func testTestDetailView_DateLabelIdentifierExists() throws {
+        throw XCTSkip("Requires backend connection and valid test account with history")
+
+        try loginAndNavigateToTestDetail()
+
+        let dateLabel = app.staticTexts["testDetailView.dateLabel"]
+        XCTAssertTrue(
+            wait(for: dateLabel, timeout: standardTimeout),
+            "testDetailView.dateLabel identifier should exist"
+        )
+    }
+
     // MARK: - Private Helpers
 
     /// Login and verify we reach the dashboard
@@ -421,6 +459,24 @@ final class AccessibilityIdentifierTests: BaseUITest {
         let questionCard = app.otherElements["testTakingView.questionCard"]
         guard wait(for: questionCard, timeout: extendedTimeout) else {
             throw XCTSkip("Could not start test or reach TestTakingView")
+        }
+    }
+
+    /// Login and navigate to a test detail view
+    private func loginAndNavigateToTestDetail() throws {
+        try loginAndNavigateToHistory()
+
+        // Tap the first test row to navigate to detail
+        let firstTestRow = app.buttons["historyView.testRow.0"]
+        guard wait(for: firstTestRow, timeout: standardTimeout) else {
+            throw XCTSkip("No test rows found in history")
+        }
+        firstTestRow.tap()
+
+        // Wait for test detail view to appear
+        let testDetailContainer = app.scrollViews["testDetailView"]
+        guard wait(for: testDetailContainer, timeout: standardTimeout) else {
+            throw XCTSkip("Could not navigate to test detail view")
         }
     }
 }
