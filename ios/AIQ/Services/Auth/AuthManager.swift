@@ -80,7 +80,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             AnalyticsService.shared.trackUserRegistered(email: email)
         } catch {
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(),
+                error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .register
             )
             authError = contextualError
@@ -104,7 +104,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             AnalyticsService.shared.trackUserLogin(email: email)
         } catch {
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(),
+                error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .login
             )
             authError = contextualError
@@ -168,7 +168,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             await DataCache.shared.clearAll()
         } catch {
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(),
+                error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .deleteAccount
             )
             authError = contextualError

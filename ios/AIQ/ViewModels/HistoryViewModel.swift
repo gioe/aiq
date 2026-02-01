@@ -103,7 +103,7 @@ class HistoryViewModel: BaseViewModel {
             updateState(with: response, fromCache: false)
         } catch {
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(),
+                error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .fetchHistory
             )
             handleError(contextualError, context: .fetchHistory) { [weak self] in
@@ -191,7 +191,7 @@ class HistoryViewModel: BaseViewModel {
         } catch {
             isLoadingMore = false
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(),
+                error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .fetchHistory
             )
             handleError(contextualError, context: .fetchHistory) { [weak self] in

@@ -2,6 +2,48 @@ import Foundation
 import OpenAPIRuntime
 import OpenAPIURLSession
 
+/// Date transcoder that handles ISO 8601 dates both with and without fractional seconds.
+///
+/// The backend (Pydantic/FastAPI) sends dates with microsecond precision
+/// (e.g. "2025-11-26T02:01:47.860855Z") but `ISO8601DateFormatter` with default
+/// options rejects fractional seconds, and with `.withFractionalSeconds` it rejects
+/// dates without them. This transcoder tries fractional seconds first, then falls
+/// back to the standard format.
+struct FlexibleISO8601DateTranscoder: DateTranscoder, @unchecked Sendable {
+    private let lock = NSLock()
+    private let withFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private let withoutFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    func encode(_ date: Date) throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return withFractional.string(from: date)
+    }
+
+    func decode(_ dateString: String) throws -> Date {
+        lock.lock()
+        defer { lock.unlock() }
+        if let date = withFractional.date(from: dateString) {
+            return date
+        }
+        if let date = withoutFractional.date(from: dateString) {
+            return date
+        }
+        throw DecodingError.dataCorrupted(
+            .init(codingPath: [], debugDescription: "Expected ISO 8601 date string, got: \(dateString)")
+        )
+    }
+}
+
 /// Factory for creating configured OpenAPI client instances.
 ///
 /// This factory provides a convenient way to create API clients with proper
@@ -55,6 +97,7 @@ public final class AIQAPIClientFactory {
     public func makeClient() -> Client {
         Client(
             serverURL: serverURL,
+            configuration: .init(dateTranscoder: FlexibleISO8601DateTranscoder()),
             transport: URLSessionTransport(),
             middlewares: [
                 authMiddleware,

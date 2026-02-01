@@ -98,27 +98,33 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     // MARK: - Authentication
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        let response = try await client.loginUserV1AuthLoginPost(
-            body: .json(
-                Components.Schemas.UserLogin(
-                    email: email,
-                    password: password
+        do {
+            let response = try await client.loginUserV1AuthLoginPost(
+                body: .json(
+                    Components.Schemas.UserLogin(
+                        email: email,
+                        password: password
+                    )
                 )
             )
-        )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(token) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(token) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return mapToAuthResponse(token)
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return mapToAuthResponse(token)
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
@@ -146,139 +152,181 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         // swiftlint:enable opening_brace
         // swiftformat:enable all
 
-        let response = try await client.registerUserV1AuthRegisterPost(
-            body: .json(
-                Components.Schemas.UserRegister(
-                    birthYear: birthYear,
-                    country: country,
-                    educationLevel: educationPayload,
-                    email: email,
-                    firstName: firstName,
-                    lastName: lastName,
-                    password: password,
-                    region: region
+        do {
+            let response = try await client.registerUserV1AuthRegisterPost(
+                body: .json(
+                    Components.Schemas.UserRegister(
+                        birthYear: birthYear,
+                        country: country,
+                        educationLevel: educationPayload,
+                        email: email,
+                        firstName: firstName,
+                        lastName: lastName,
+                        password: password,
+                        region: region
+                    )
                 )
             )
-        )
 
-        switch response {
-        case let .created(createdResponse):
-            guard case let .json(token) = createdResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .created(createdResponse):
+                guard case let .json(token) = createdResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return mapToAuthResponse(token)
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return mapToAuthResponse(token)
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func refreshToken() async throws -> AuthResponse {
-        let response = try await client.refreshAccessTokenV1AuthRefreshPost()
+        do {
+            let response = try await client.refreshAccessTokenV1AuthRefreshPost()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(tokenRefresh) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(tokenRefresh) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                // TokenRefresh includes user data, so we can build a complete AuthResponse
+                return AuthResponse(
+                    accessToken: tokenRefresh.accessToken,
+                    refreshToken: tokenRefresh.refreshToken,
+                    tokenType: tokenRefresh.tokenType ?? "Bearer",
+                    user: tokenRefresh.user
+                )
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            // TokenRefresh includes user data, so we can build a complete AuthResponse
-            return AuthResponse(
-                accessToken: tokenRefresh.accessToken,
-                refreshToken: tokenRefresh.refreshToken,
-                tokenType: tokenRefresh.tokenType ?? "Bearer",
-                user: tokenRefresh.user
-            )
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     /// Refresh access token - returns only the new tokens without user data.
     /// Use this when you only need to refresh tokens and don't need user profile.
     func refreshAccessToken() async throws -> (accessToken: String, refreshToken: String, tokenType: String) {
-        let response = try await client.refreshAccessTokenV1AuthRefreshPost()
+        do {
+            let response = try await client.refreshAccessTokenV1AuthRefreshPost()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(tokenRefresh) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(tokenRefresh) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return (
+                    accessToken: tokenRefresh.accessToken,
+                    refreshToken: tokenRefresh.refreshToken,
+                    tokenType: tokenRefresh.tokenType ?? "Bearer"
+                )
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return (
-                accessToken: tokenRefresh.accessToken,
-                refreshToken: tokenRefresh.refreshToken,
-                tokenType: tokenRefresh.tokenType ?? "Bearer"
-            )
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func logout() async throws {
-        let response = try await client.logoutUserV1AuthLogoutPost()
+        do {
+            let response = try await client.logoutUserV1AuthLogoutPost()
 
-        switch response {
-        case .noContent:
-            await clearTokens()
+            switch response {
+            case .noContent:
+                await clearTokens()
 
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     // MARK: - User Profile
 
     func getProfile() async throws -> User {
-        let response = try await client.getUserProfileV1UserProfileGet()
+        do {
+            let response = try await client.getUserProfileV1UserProfileGet()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(userResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(userResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return userResponse
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return userResponse
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func deleteAccount() async throws {
-        let response = try await client.deleteUserAccountV1UserDeleteAccountDelete()
+        do {
+            let response = try await client.deleteUserAccountV1UserDeleteAccountDelete()
 
-        switch response {
-        case .noContent:
-            await clearTokens()
+            switch response {
+            case .noContent:
+                await clearTokens()
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     // MARK: - Test Management
 
     func startTest() async throws -> Components.Schemas.StartTestResponse {
-        let response = try await client.startTestV1TestStartPost()
+        do {
+            let response = try await client.startTestV1TestStartPost()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(startResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(startResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return startResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return startResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
@@ -292,202 +340,262 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             )
         }
 
-        let response = try await client.submitTestV1TestSubmitPost(
-            body: .json(
-                Components.Schemas.ResponseSubmission(
-                    responses: items,
-                    sessionId: sessionId,
-                    timeLimitExceeded: timeLimitExceeded
+        do {
+            let response = try await client.submitTestV1TestSubmitPost(
+                body: .json(
+                    Components.Schemas.ResponseSubmission(
+                        responses: items,
+                        sessionId: sessionId,
+                        timeLimitExceeded: timeLimitExceeded
+                    )
                 )
             )
-        )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(submitResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(submitResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return submitResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return submitResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func abandonTest(sessionId: Int) async throws -> Components.Schemas.TestSessionAbandonResponse {
-        let response = try await client.abandonTestV1TestSessionIdAbandonPost(
-            path: .init(sessionId: sessionId)
-        )
+        do {
+            let response = try await client.abandonTestV1TestSessionIdAbandonPost(
+                path: .init(sessionId: sessionId)
+            )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(abandonResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(abandonResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return abandonResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return abandonResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func getTestSession(sessionId: Int) async throws -> Components.Schemas.TestSessionStatusResponse {
-        let response = try await client.getTestSessionV1TestSessionSessionIdGet(
-            path: .init(sessionId: sessionId)
-        )
+        do {
+            let response = try await client.getTestSessionV1TestSessionSessionIdGet(
+                path: .init(sessionId: sessionId)
+            )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(sessionResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(sessionResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return sessionResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return sessionResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func getTestResults(resultId: Int) async throws -> Components.Schemas.TestResultResponse {
-        let response = try await client.getTestResultV1TestResultsResultIdGet(
-            path: .init(resultId: resultId)
-        )
+        do {
+            let response = try await client.getTestResultV1TestResultsResultIdGet(
+                path: .init(resultId: resultId)
+            )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(resultResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(resultResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return resultResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return resultResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func getTestHistory(limit: Int? = nil, offset: Int? = nil) async throws -> PaginatedTestHistoryResponse {
-        let response = try await client.getTestHistoryV1TestHistoryGet(
-            query: .init(
-                limit: limit,
-                offset: offset
+        do {
+            let response = try await client.getTestHistoryV1TestHistoryGet(
+                query: .init(
+                    limit: limit,
+                    offset: offset
+                )
             )
-        )
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(paginatedResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(paginatedResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return paginatedResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return paginatedResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func getActiveTest() async throws -> Components.Schemas.TestSessionStatusResponse? {
-        let response = try await client.getActiveTestSessionV1TestActiveGet()
+        do {
+            let response = try await client.getActiveTestSessionV1TestActiveGet()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(jsonPayload) = okResponse.body else {
-                throw APIError.invalidResponse
-            }
-            // Response can be nil if no active session
-            // The JsonPayload wraps the actual TestSessionStatusResponse in value1
-            guard let payload = jsonPayload else {
-                return nil
-            }
-            return payload.value1
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(jsonPayload) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                // Response can be nil if no active session
+                // The JsonPayload wraps the actual TestSessionStatusResponse in value1
+                guard let payload = jsonPayload else {
+                    return nil
+                }
+                return payload.value1
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws {
-        let response = try await client.registerDeviceTokenV1NotificationsRegisterDevicePost(
-            body: .json(
-                Components.Schemas.DeviceTokenRegister(
-                    deviceToken: deviceToken
+        do {
+            let response = try await client.registerDeviceTokenV1NotificationsRegisterDevicePost(
+                body: .json(
+                    Components.Schemas.DeviceTokenRegister(
+                        deviceToken: deviceToken
+                    )
                 )
             )
-        )
 
-        switch response {
-        case .ok:
-            return
+            switch response {
+            case .ok:
+                return
 
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func unregisterDevice() async throws {
-        let response = try await client.unregisterDeviceTokenV1NotificationsRegisterDeviceDelete()
+        do {
+            let response = try await client.unregisterDeviceTokenV1NotificationsRegisterDeviceDelete()
 
-        switch response {
-        case .ok:
-            return
+            switch response {
+            case .ok:
+                return
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func updateNotificationPreferences(enabled: Bool) async throws {
-        let response = try await client.updateNotificationPreferencesV1NotificationsPreferencesPut(
-            body: .json(
-                Components.Schemas.NotificationPreferences(
-                    notificationEnabled: enabled
+        do {
+            let response = try await client.updateNotificationPreferencesV1NotificationsPreferencesPut(
+                body: .json(
+                    Components.Schemas.NotificationPreferences(
+                        notificationEnabled: enabled
+                    )
                 )
             )
-        )
 
-        switch response {
-        case .ok:
-            return
+            switch response {
+            case .ok:
+                return
 
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
 
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
     func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse {
-        let response = try await client.getNotificationPreferencesV1NotificationsPreferencesGet()
+        do {
+            let response = try await client.getNotificationPreferencesV1NotificationsPreferencesGet()
 
-        switch response {
-        case let .ok(okResponse):
-            guard case let .json(preferencesResponse) = okResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(preferencesResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return preferencesResponse
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return preferencesResponse
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
@@ -507,29 +615,35 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             .other
         }
 
-        let response = try await client.submitFeedbackV1FeedbackSubmitPost(
-            body: .json(
-                Components.Schemas.FeedbackSubmitRequest(
-                    category: categorySchema,
-                    description: feedback.description,
-                    email: feedback.email,
-                    name: feedback.name
+        do {
+            let response = try await client.submitFeedbackV1FeedbackSubmitPost(
+                body: .json(
+                    Components.Schemas.FeedbackSubmitRequest(
+                        category: categorySchema,
+                        description: feedback.description,
+                        email: feedback.email,
+                        name: feedback.name
+                    )
                 )
             )
-        )
 
-        switch response {
-        case let .created(createdResponse):
-            guard case let .json(feedbackResponse) = createdResponse.body else {
-                throw APIError.invalidResponse
+            switch response {
+            case let .created(createdResponse):
+                guard case let .json(feedbackResponse) = createdResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return feedbackResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
-            return feedbackResponse
-
-        case .unprocessableContent:
-            throw APIError.unprocessableEntity(message: "Validation failed")
-
-        case let .undocumented(statusCode, payload):
-            throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
         }
     }
 
@@ -547,6 +661,36 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     // MARK: - Helper Methods
+
+    /// Maps non-APIError errors (e.g. ClientError from OpenAPIRuntime) to typed APIError cases.
+    /// This ensures all errors leaving OpenAPIService are properly typed.
+    private func mapToAPIError(_ error: Error) -> APIError {
+        // Already an APIError — pass through
+        if let apiError = error as? APIError {
+            return apiError
+        }
+
+        // Dig through the error chain to find the underlying cause.
+        // ClientError wraps the real error; NSError bridging may add another layer.
+        let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error ?? error
+
+        if underlying is DecodingError {
+            return .decodingError(underlying)
+        }
+
+        if let urlError = underlying as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return .noInternetConnection
+            case .timedOut:
+                return .timeout
+            default:
+                return .networkError(urlError)
+            }
+        }
+
+        return .unknown(message: error.localizedDescription)
+    }
 
     private func mapToAuthResponse(_ token: Components.Schemas.Token) -> AuthResponse {
         AuthResponse(
