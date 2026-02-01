@@ -116,11 +116,7 @@ struct MemoryQuestionView: View {
     private var questionPhase: some View {
         VStack(spacing: 24) {
             // Question card (reuse QuestionCardView pattern)
-            QuestionCardView(
-                question: question,
-                questionNumber: questionNumber,
-                totalQuestions: totalQuestions
-            )
+            QuestionCardView(question: question)
 
             // Answer input
             AnswerInputView(
@@ -172,9 +168,7 @@ struct MemoryQuestionView: View {
                     questionText: "Which of the following fruits did you see in the list?",
                     difficultyLevel: "medium",
                     answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
-                ),
-                questionNumber: 5,
-                totalQuestions: 20
+                )
             )
 
             AnswerInputView(

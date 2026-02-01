@@ -366,11 +366,7 @@ struct TestTakingView: View {
                             )
                         } else {
                             // Standard questions: show question card and answer input separately
-                            QuestionCardView(
-                                question: question,
-                                questionNumber: viewModel.currentQuestionIndex + 1,
-                                totalQuestions: viewModel.questions.count
-                            )
+                            QuestionCardView(question: question)
                             .transition(
                                 reduceMotion ? .opacity : .asymmetric(
                                     insertion: .move(edge: .trailing).combined(with: .opacity),
