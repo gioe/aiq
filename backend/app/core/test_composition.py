@@ -9,6 +9,7 @@ Based on:
 - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
 """
 import logging
+import random
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 
@@ -260,5 +261,10 @@ def select_stratified_questions(
             )
 
     actual_composition["total"] = len(selected_questions)
+
+    # Randomize presentation order to avoid position-difficulty confounds.
+    # The stratified composition (difficulty/domain balance) is preserved;
+    # only the sequence in which questions are shown is shuffled.
+    random.shuffle(selected_questions)
 
     return selected_questions, actual_composition

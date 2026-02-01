@@ -104,6 +104,7 @@ def get_session_questions(
             UserQuestion.user_id == user_id,
             UserQuestion.test_session_id == session_id,
         )
+        .order_by(UserQuestion.id)
         .all()
     )
     question_ids = [q_id for (q_id,) in session_question_ids]

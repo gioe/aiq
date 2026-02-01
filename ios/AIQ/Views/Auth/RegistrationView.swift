@@ -93,15 +93,6 @@ struct RegistrationView: View {
                         }
                     }
 
-                    // Benefits Section
-                    RegistrationBenefits()
-                        .opacity(isAnimating ? 1.0 : 0.0)
-                        .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
-                        .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
-                            value: isAnimating
-                        )
-
                     // Registration Form
                     VStack(spacing: DesignSystem.Spacing.xl) {
                         // Name fields
@@ -393,37 +384,6 @@ struct RegistrationView: View {
         }
         .navigationTitle("Register")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: - Registration Benefits Component
-
-/// Displays key benefits of creating an account
-struct RegistrationBenefits: View {
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            InfoCard(
-                icon: "person.fill.badge.plus",
-                title: "Personalized Tracking",
-                description: "Your progress, your insights, your journey",
-                color: ColorPalette.statBlue
-            )
-
-            InfoCard(
-                icon: "lock.shield.fill",
-                title: "Secure & Private",
-                description: "Your data is encrypted and never shared",
-                color: ColorPalette.statGreen
-            )
-
-            InfoCard(
-                icon: "chart.xyaxis.line",
-                title: "Visual Analytics",
-                description: "Beautiful charts tracking your cognitive growth",
-                color: ColorPalette.statOrange
-            )
-        }
-        .padding(.horizontal, DesignSystem.Spacing.xl)
     }
 }
 
