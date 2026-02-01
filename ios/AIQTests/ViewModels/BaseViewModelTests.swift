@@ -12,11 +12,6 @@ final class BaseViewModelTests: XCTestCase {
         sut = BaseViewModel()
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialState() {

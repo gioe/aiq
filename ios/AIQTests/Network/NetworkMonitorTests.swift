@@ -49,13 +49,6 @@ final class NetworkMonitorTests: XCTestCase {
         sut = NetworkMonitor.shared
     }
 
-    override func tearDown() {
-        cancellables.removeAll()
-        cancellables = nil
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Initial State Tests
 
     func testInitialState() {

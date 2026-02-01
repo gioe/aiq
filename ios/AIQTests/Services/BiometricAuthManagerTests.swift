@@ -11,11 +11,6 @@ final class BiometricAuthManagerTests: XCTestCase {
         sut = BiometricAuthManager()
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInit_CreatesValidInstance() {

@@ -18,12 +18,6 @@ final class DashboardNavigationTests: XCTestCase {
         mockAPIClient = MockAPIClient()
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        super.tearDown()
-    }
-
     // MARK: - Action Button Navigation Tests
 
     /// Test that calling the action button's navigation closure correctly

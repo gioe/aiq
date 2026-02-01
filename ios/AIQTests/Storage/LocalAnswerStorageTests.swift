@@ -18,11 +18,8 @@ final class LocalAnswerStorageTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up test data
         sut.clearProgress()
         testUserDefaults.removePersistentDomain(forName: testSuiteName)
-        sut = nil
-        testUserDefaults = nil
         super.tearDown()
     }
 

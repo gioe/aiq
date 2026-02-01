@@ -14,13 +14,6 @@ final class ScrollPositionStorageTests: XCTestCase {
         cancellables = []
     }
 
-    override func tearDown() {
-        cancellables = nil
-        sut = nil
-        mockAppStateStorage = nil
-        super.tearDown()
-    }
-
     // MARK: - Save Position Tests
 
     func testSavePosition_WithItemId_StoresSuccessfully() async {

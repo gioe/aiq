@@ -27,17 +27,9 @@ final class HistoryViewModelTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up test UserDefaults
         testUserDefaults.removePersistentDomain(forName: testSuiteName)
-        testUserDefaults = nil
-        testSuiteName = nil
-
-        // Clean up filter persistence in standard UserDefaults
         UserDefaults.standard.removeObject(forKey: sortOrderStorageKey)
         UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
-
-        sut = nil
-        mockAPIClient = nil
         super.tearDown()
     }
 

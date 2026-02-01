@@ -38,15 +38,6 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         )
     }
 
-    override func tearDown() {
-        cancellables = nil
-        dashboardViewModel = nil
-        testTakingViewModel = nil
-        mockAPIClient = nil
-        mockAnswerStorage = nil
-        super.tearDown()
-    }
-
     // MARK: - Test 1: Starting New Test with No Active Session
 
     func testStartNewTest_WithNoActiveSession_StartsSuccessfully() async {

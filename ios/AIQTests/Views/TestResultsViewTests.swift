@@ -13,11 +13,6 @@ final class TestResultsViewTests: XCTestCase {
         mockNotificationManager = MockNotificationManager()
     }
 
-    override func tearDown() {
-        mockNotificationManager = nil
-        super.tearDown()
-    }
-
     // MARK: - shouldShowNotificationPrompt() Logic Tests (BTS-238)
 
     /// Test that shouldShowNotificationPrompt returns true when all conditions are met:

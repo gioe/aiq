@@ -104,16 +104,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
     }
 
     override func tearDown() {
-        cancellables = nil
-        sut = nil
-        mockNotificationService = nil
-        mockAuthManager = nil
-        mockNotificationCenter = nil
-        mockApplication = nil
-
-        // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
-
         super.tearDown()
     }
 

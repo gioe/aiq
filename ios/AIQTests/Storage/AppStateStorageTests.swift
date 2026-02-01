@@ -16,10 +16,7 @@ final class AppStateStorageTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up test data
         testUserDefaults.removePersistentDomain(forName: testSuiteName)
-        sut = nil
-        testUserDefaults = nil
         super.tearDown()
     }
 

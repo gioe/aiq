@@ -23,7 +23,6 @@ final class DataCacheTests: XCTestCase {
 
     override func tearDown() async throws {
         await sut.clearAll()
-        sut = nil
         try await super.tearDown()
     }
 

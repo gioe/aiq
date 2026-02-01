@@ -11,11 +11,6 @@ final class DeepLinkHandlerTests: XCTestCase {
         sut = DeepLinkHandler()
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
     // MARK: - URL Scheme Tests - Test Results
 
     func testParseURLScheme_TestResults_ValidID() {

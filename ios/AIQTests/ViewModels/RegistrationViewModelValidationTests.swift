@@ -14,12 +14,6 @@ final class RegistrationViewModelValidationTests: XCTestCase {
         sut = RegistrationViewModel(authManager: mockAuthManager)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Email Validation Tests
 
     func testEmailValidation_EmptyEmail() {

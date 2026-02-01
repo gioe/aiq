@@ -25,12 +25,6 @@ final class NotificationServiceTests: XCTestCase {
         sut = NotificationService(apiClient: mockAPIClient)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        super.tearDown()
-    }
-
     // MARK: - Register Device Token Tests
 
     func testRegisterDeviceToken_Success() async throws {

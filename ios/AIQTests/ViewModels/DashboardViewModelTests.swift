@@ -17,12 +17,6 @@ final class DashboardViewModelTests: XCTestCase {
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialState() {

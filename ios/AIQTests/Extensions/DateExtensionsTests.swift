@@ -20,11 +20,6 @@ final class DateExtensionsTests: XCTestCase {
         testDate = calendar.date(from: components)!
     }
 
-    override func tearDown() {
-        testDate = nil
-        super.tearDown()
-    }
-
     // MARK: - toShortString Tests
 
     func testToShortString_enUS() {

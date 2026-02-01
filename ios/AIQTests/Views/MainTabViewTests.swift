@@ -45,11 +45,7 @@ final class MainTabViewTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up test UserDefaults
         testUserDefaults.removePersistentDomain(forName: testSuiteName)
-        testUserDefaults = nil
-        testSuiteName = nil
-
         super.tearDown()
     }
 

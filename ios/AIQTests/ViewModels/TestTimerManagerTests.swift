@@ -16,8 +16,6 @@ final class TestTimerManagerTests: XCTestCase {
 
     override func tearDown() {
         sut.stop()
-        sut = nil
-        cancellables = nil
         super.tearDown()
     }
 

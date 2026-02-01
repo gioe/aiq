@@ -16,9 +16,7 @@ final class KeychainStorageTests: XCTestCase {
     }
 
     override func tearDown() {
-        // Clean up test data
         try? sut.deleteAll()
-        sut = nil
         super.tearDown()
     }
 

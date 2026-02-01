@@ -35,12 +35,7 @@ final class AnalyticsServiceTests: XCTestCase {
 
     override func tearDown() {
         MockURLProtocol.requestHandler = nil
-        sut = nil
-        mockNetworkMonitor = nil
         mockUserDefaults.removePersistentDomain(forName: "com.aiq.tests")
-        mockUserDefaults = nil
-        mockURLSession = nil
-        mockSecureStorage = nil
         super.tearDown()
     }
 

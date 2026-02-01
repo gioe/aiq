@@ -39,16 +39,8 @@ final class BackgroundRefreshManagerTests: XCTestCase {
     }
 
     override func tearDown() {
-        sut = nil
-        mockAPIClient = nil
-        mockAuthManager = nil
-        mockNetworkMonitor = nil
-        mockNotificationCenter = nil
-
-        // Clear UserDefaults after each test
         UserDefaults.standard.removeObject(forKey: lastRefreshKey)
         UserDefaults.standard.removeObject(forKey: lastNotificationKey)
-
         super.tearDown()
     }
 

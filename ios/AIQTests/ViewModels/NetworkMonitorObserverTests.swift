@@ -27,10 +27,7 @@ final class NetworkMonitorObserverTests: XCTestCase {
     }
 
     override func tearDown() {
-        cancellables.removeAll()
-        cancellables = nil
         container.reset()
-        container = nil
         super.tearDown()
     }
 

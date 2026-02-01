@@ -14,12 +14,6 @@ final class RegistrationViewModelTests: XCTestCase {
         sut = RegistrationViewModel(authManager: mockAuthManager)
     }
 
-    override func tearDown() {
-        sut = nil
-        mockAuthManager = nil
-        super.tearDown()
-    }
-
     // MARK: - Initialization Tests
 
     func testInitialState() {

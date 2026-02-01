@@ -36,9 +36,6 @@ final class APIClientIntegrationTests: XCTestCase {
     }
 
     override func tearDown() {
-        cancellables = nil
-        mockURLSession = nil
-        sut = nil
         MockURLProtocol.requestHandler = nil
         super.tearDown()
     }
