@@ -34,7 +34,7 @@ def get_unseen_questions(
     no repetition for the user.
 
     Args:
-        count: Number of questions to return (default: 20, max: 100)
+        count: Number of questions to return (default: 25, max: 100)
         current_user: Current authenticated user
         db: Database session
 
