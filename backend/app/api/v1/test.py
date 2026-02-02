@@ -289,7 +289,7 @@ def build_test_result_response(
 @router.post("/start", response_model=StartTestResponse)
 def start_test(
     question_count: int = Query(
-        default=20,
+        default=settings.TEST_TOTAL_QUESTIONS,
         ge=1,
         le=100,
         description="Number of questions for this test (1-100)",
