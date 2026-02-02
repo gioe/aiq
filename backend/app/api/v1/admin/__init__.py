@@ -9,6 +9,7 @@ Submodules:
     - generation: Question generation job management and run tracking
     - calibration: Question difficulty calibration and validation
     - calibration_monitoring: IRT calibration readiness monitoring dashboard
+    - anchor_items: Anchor item designation for IRT calibration
     - analytics: Response time analytics and factor analysis
     - distractors: Distractor effectiveness analysis
     - validity: Test session validity assessment and management
@@ -21,6 +22,7 @@ from fastapi import APIRouter
 
 from . import (
     analytics,
+    anchor_items,
     calibration,
     calibration_monitoring,
     config,
@@ -91,4 +93,9 @@ router.include_router(
 router.include_router(
     inventory.router,
     tags=["Admin - Inventory"],
+)
+
+router.include_router(
+    anchor_items.router,
+    tags=["Admin - CAT"],
 )

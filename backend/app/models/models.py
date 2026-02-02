@@ -285,6 +285,14 @@ class Question(Base):
     # Enables efficient duplicate detection without recomputing embeddings
     # Format: Array of 1536 float values representing semantic meaning
 
+    # Anchor item designation (TASK-850)
+    # Curated subset embedded in every test to accumulate IRT calibration data faster.
+    # 30 per domain (180 total). Selection: discrimination >= 0.30, balanced difficulty.
+    is_anchor: Mapped[bool] = mapped_column(default=False, index=True)
+    anchor_designated_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
+    )  # When designated; NULL for non-anchors
+
     # Relationships
     responses: Mapped[List["Response"]] = relationship(back_populates="question")
     user_questions: Mapped[List["UserQuestion"]] = relationship(
