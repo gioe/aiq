@@ -679,8 +679,8 @@
 // MARK: - Onboarding Page 2 - How Tests Work
 "onboarding.page2.title" = "How AIQ Tests Work";
 "onboarding.page2.subtitle" = "Each test is designed to comprehensively assess your cognitive abilities across multiple domains.";
-"onboarding.page2.step1" = "Answer 20 unique questions across different cognitive domains";
-"onboarding.page2.step2" = "Complete the test in one sitting (approximately 15-20 minutes)";
+"onboarding.page2.step1" = "Answer 25 unique questions across different cognitive domains";
+"onboarding.page2.step2" = "Complete the test in one sitting (approximately 20-25 minutes)";
 "onboarding.page2.step3" = "Receive your IQ score and detailed performance breakdown";
 "onboarding.page2.info.note" = "Questions are refreshed daily, so every test is unique.";
 

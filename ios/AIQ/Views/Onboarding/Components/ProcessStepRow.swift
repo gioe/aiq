@@ -34,8 +34,8 @@ struct ProcessStepRow: View {
 
 #Preview {
     VStack(spacing: 16) {
-        ProcessStepRow(number: 1, text: "Answer 20 unique questions across different cognitive domains")
-        ProcessStepRow(number: 2, text: "Complete the test in one sitting (approximately 15-20 minutes)")
+        ProcessStepRow(number: 1, text: "Answer 25 unique questions across different cognitive domains")
+        ProcessStepRow(number: 2, text: "Complete the test in one sitting (approximately 20-25 minutes)")
         ProcessStepRow(number: 3, text: "Receive your IQ score and detailed performance breakdown")
     }
     .padding()

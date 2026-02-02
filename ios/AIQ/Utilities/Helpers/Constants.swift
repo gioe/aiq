@@ -60,7 +60,7 @@ enum Constants {
     enum Test {
         /// Default number of questions per test session
         /// Calibrated for statistical reliability while minimizing test fatigue
-        static let defaultQuestionCount: Int = 20
+        static let defaultQuestionCount: Int = 25
 
         /// Progress validity duration in seconds (24 hours)
         /// Saved test progress is only valid if saved within this time window
