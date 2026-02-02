@@ -9,6 +9,7 @@ from app.models import get_db, User, Question, UserQuestion
 from app.schemas.questions import UnseenQuestionsResponse
 from app.core.auth import get_current_user
 from app.core.question_utils import question_to_response
+from app.core.config import settings
 from app.core.error_responses import ErrorMessages, raise_not_found
 
 router = APIRouter()
@@ -17,7 +18,7 @@ router = APIRouter()
 @router.get("/unseen", response_model=UnseenQuestionsResponse)
 def get_unseen_questions(
     count: int = Query(
-        default=20,
+        default=settings.TEST_TOTAL_QUESTIONS,
         ge=1,
         le=100,
         description="Number of unseen questions to fetch (1-100)",
