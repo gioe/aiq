@@ -500,8 +500,8 @@ ORDER BY completed_at DESC
 - **Implementation**: Configured in backend application settings
 
 **Test Composition:**
-- **Total Questions**: Configurable via `TEST_TOTAL_QUESTIONS` (default: 20)
-- **Difficulty Distribution**: 30% easy, 40% medium, 30% hard
+- **Total Questions**: Configurable via `TEST_TOTAL_QUESTIONS` (default: 25)
+- **Difficulty Distribution**: 20% easy, 50% medium, 30% hard
 - **Cognitive Domains**: Balanced across pattern, logic, spatial, math, verbal, memory
 
 ---
