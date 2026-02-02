@@ -89,6 +89,40 @@ enum DeepLinkSource: String {
     case unknown
 }
 
+/// Protocol for deep link handling (enables testing with mock/spy)
+///
+/// This protocol abstracts the methods that `DeepLinkNavigationService` depends on,
+/// allowing tests to inject a mock that verifies correct parameters are passed
+/// for navigation calls and analytics tracking.
+protocol DeepLinkHandlerProtocol {
+    /// Parse a URL into a structured DeepLink
+    func parse(_ url: URL) -> DeepLink
+
+    /// Handle a deep link by converting it to a route and navigating via the router
+    @MainActor
+    func handleNavigation(
+        _ deepLink: DeepLink,
+        router: AppRouter,
+        tab: TabDestination?,
+        source: DeepLinkSource,
+        originalURL: String
+    ) async -> Bool
+
+    /// Track a successful deep link navigation (for use when navigation happens outside this handler)
+    func trackNavigationSuccess(
+        _ deepLink: DeepLink,
+        source: DeepLinkSource,
+        originalURL: String
+    )
+
+    /// Track a failed deep link parse
+    func trackParseFailed(
+        error: DeepLinkError,
+        source: DeepLinkSource,
+        originalURL: String
+    )
+}
+
 /// Handles parsing of URL schemes and universal links into structured navigation commands
 ///
 /// Supports both URL schemes (aiq://) and universal links (https://aiq.app/..., https://dev.aiq.app/...).
@@ -135,7 +169,7 @@ enum DeepLinkSource: String {
 ///     }
 /// }
 /// ```
-struct DeepLinkHandler {
+struct DeepLinkHandler: DeepLinkHandlerProtocol {
     // MARK: - Constants
 
     /// URL scheme for AIQ deep links (aiq://)
@@ -330,6 +364,29 @@ struct DeepLinkHandler {
 // MARK: - Deep Link Navigation
 
 extension DeepLinkHandler {
+    /// Protocol-conforming entry point that resolves the API service from ServiceContainer
+    ///
+    /// This method satisfies the `DeepLinkHandlerProtocol` requirement and delegates to the
+    /// full implementation with an internally-resolved `apiService`. The API service is an
+    /// implementation detail that callers through the protocol don't need to provide.
+    @MainActor
+    func handleNavigation(
+        _ deepLink: DeepLink,
+        router: AppRouter,
+        tab: TabDestination?,
+        source: DeepLinkSource,
+        originalURL: String
+    ) async -> Bool {
+        await handleNavigation(
+            deepLink,
+            router: router,
+            tab: tab,
+            apiService: ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
+            source: source,
+            originalURL: originalURL
+        )
+    }
+
     /// Handle a deep link by converting it to a route and navigating via the router
     ///
     /// This method performs any necessary data fetching (e.g., fetching test results by ID)
@@ -339,7 +396,7 @@ extension DeepLinkHandler {
     ///   - deepLink: The parsed deep link to handle
     ///   - router: The app router to use for navigation
     ///   - tab: The tab to navigate in (defaults to current tab)
-    ///   - apiClient: The API client for fetching data (optional, defaults to shared instance)
+    ///   - apiService: The API client for fetching data (defaults to shared instance)
     ///   - source: The source of the deep link for analytics tracking
     ///   - originalURL: The original URL string for analytics tracking
     /// - Returns: True if navigation was initiated, false if the deep link couldn't be handled
