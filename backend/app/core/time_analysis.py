@@ -945,6 +945,217 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     }
 
 
+# =============================================================================
+# PER-TYPE RESPONSE TIME PERCENTILE ANALYTICS (TASK-836)
+# =============================================================================
+
+# Minimum number of responses required to compute meaningful percentiles.
+# With fewer responses, percentile estimates are unreliable.
+MIN_RESPONSES_FOR_PERCENTILES = 4
+
+# Quantile subdivision parameter for statistics.quantiles().
+# n=20 produces 19 cut points at 5%, 10%, ..., 95%.
+QUANTILE_DIVISIONS = 20
+
+# Indices into the quantiles array for the 90th and 95th percentiles.
+# With QUANTILE_DIVISIONS=20, index 17 = 90th percentile, index 18 = 95th.
+P90_INDEX = int(0.90 * QUANTILE_DIVISIONS) - 1  # 17
+P95_INDEX = int(0.95 * QUANTILE_DIVISIONS) - 1  # 18
+
+# Maximum rows to load for percentile computation.
+# Percentiles require raw values (can't be computed via SQL aggregation),
+# so we load rows into memory. At ~12 bytes per row (enum + enum + int),
+# 500K rows uses ~6MB — acceptable for admin analytics workloads.
+MAX_PERCENTILE_QUERY_ROWS = 500_000
+
+
+def _compute_percentile_stats(times: List[int]) -> Dict[str, Any]:
+    """
+    Compute percentile statistics for a list of response times.
+
+    Uses statistics.quantiles with the inclusive method (interpolation)
+    which is appropriate for continuous data like response times.
+
+    Args:
+        times: List of response times in seconds. Must not be empty.
+
+    Returns:
+        Dictionary with count, mean, median, p90, and p95 values.
+        Percentiles are None if fewer than MIN_RESPONSES_FOR_PERCENTILES responses.
+    """
+    count = len(times)
+    mean_val = round(statistics.mean(times), 2)
+    median_val = round(statistics.median(times), 2)
+
+    p90_val: Optional[float] = None
+    p95_val: Optional[float] = None
+
+    if count >= MIN_RESPONSES_FOR_PERCENTILES:
+        percentiles = statistics.quantiles(
+            times, n=QUANTILE_DIVISIONS, method="inclusive"
+        )
+        p90_val = round(float(percentiles[P90_INDEX]), 2)
+        p95_val = round(float(percentiles[P95_INDEX]), 2)
+
+    return {
+        "count": count,
+        "mean_seconds": mean_val,
+        "median_seconds": median_val,
+        "p90_seconds": p90_val,
+        "p95_seconds": p95_val,
+    }
+
+
+def get_response_time_percentiles(db: Session) -> Dict[str, Any]:
+    """
+    Calculate response time percentile distributions grouped by question type
+    and difficulty level.
+
+    Returns aggregate statistics only (no individual user tracking) suitable
+    for validating whether current time limits are appropriate.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dictionary containing:
+        {
+            "by_type_and_difficulty": [
+                {
+                    "question_type": str,
+                    "difficulty_level": str,
+                    "stats": {count, mean, median, p90, p95}
+                },
+                ...
+            ],
+            "by_type": {
+                "pattern": {count, mean, median, p90, p95},
+                ...
+            },
+            "by_difficulty": {
+                "easy": {count, mean, median, p90, p95},
+                ...
+            },
+            "overall": {count, mean, median, p90, p95},
+            "total_responses_analyzed": int
+        }
+    """
+    from app.models.models import TestSession, TestStatus
+
+    # Fetch response times with their question type and difficulty
+    # from completed sessions only, with a safety LIMIT to prevent
+    # unbounded memory usage at scale.
+    rows = (
+        db.query(
+            Question.question_type,
+            Question.difficulty_level,
+            Response.time_spent_seconds,
+        )
+        .join(Response, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .filter(
+            TestSession.status == TestStatus.COMPLETED,
+            Response.time_spent_seconds.isnot(None),
+        )
+        .order_by(Response.id)
+        .limit(MAX_PERCENTILE_QUERY_ROWS)
+        .all()
+    )
+
+    if not rows:
+        logger.info("No response time data available for percentile analysis")
+        return _create_empty_percentile_analytics()
+
+    if len(rows) >= MAX_PERCENTILE_QUERY_ROWS:
+        logger.warning(
+            f"Percentile analysis truncated at {MAX_PERCENTILE_QUERY_ROWS} responses; "
+            "results may not reflect the full dataset"
+        )
+
+    # Group times by (type, difficulty), by type, by difficulty, and overall
+    type_difficulty_times: Dict[tuple, List[int]] = {}
+    type_times: Dict[str, List[int]] = {}
+    difficulty_times: Dict[str, List[int]] = {}
+    all_times: List[int] = []
+
+    for question_type, difficulty_level, time_spent in rows:
+        q_type = question_type.value
+        d_level = difficulty_level.value
+        time_val = time_spent
+
+        # By (type, difficulty)
+        key = (q_type, d_level)
+        type_difficulty_times.setdefault(key, []).append(time_val)
+
+        # By type
+        type_times.setdefault(q_type, []).append(time_val)
+
+        # By difficulty
+        difficulty_times.setdefault(d_level, []).append(time_val)
+
+        # Overall
+        all_times.append(time_val)
+
+    # Compute stats for each group
+    by_type_and_difficulty = []
+    for (q_type, d_level), times in sorted(type_difficulty_times.items()):
+        by_type_and_difficulty.append(
+            {
+                "question_type": q_type,
+                "difficulty_level": d_level,
+                "stats": _compute_percentile_stats(times),
+            }
+        )
+
+    by_type = {}
+    for q_type, times in sorted(type_times.items()):
+        by_type[q_type] = _compute_percentile_stats(times)
+
+    by_difficulty = {}
+    for d_level, times in sorted(difficulty_times.items()):
+        by_difficulty[d_level] = _compute_percentile_stats(times)
+
+    overall = _compute_percentile_stats(all_times)
+
+    total_responses = len(all_times)
+
+    logger.info(
+        f"Percentile analytics computed: {total_responses} responses across "
+        f"{len(type_difficulty_times)} type-difficulty groups"
+    )
+
+    return {
+        "by_type_and_difficulty": by_type_and_difficulty,
+        "by_type": by_type,
+        "by_difficulty": by_difficulty,
+        "overall": overall,
+        "total_responses_analyzed": total_responses,
+    }
+
+
+def _create_empty_percentile_analytics() -> Dict[str, Any]:
+    """
+    Create empty percentile analytics when no data is available.
+
+    Returns:
+        Empty analytics dictionary with all fields set to default values.
+    """
+    empty_stats = {
+        "count": 0,
+        "mean_seconds": None,
+        "median_seconds": None,
+        "p90_seconds": None,
+        "p95_seconds": None,
+    }
+    return {
+        "by_type_and_difficulty": [],
+        "by_type": {},
+        "by_difficulty": {},
+        "overall": empty_stats,
+        "total_responses_analyzed": 0,
+    }
+
+
 def _create_empty_aggregate_analytics() -> Dict[str, Any]:
     """
     Create empty aggregate analytics when no data is available.

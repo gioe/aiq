@@ -24,6 +24,9 @@ from app.core.time_analysis import (
     _create_empty_speed_accuracy_result,
     get_aggregate_response_time_analytics,
     _create_empty_aggregate_analytics,
+    get_response_time_percentiles,
+    _compute_percentile_stats,
+    _create_empty_percentile_analytics,
     # Threshold constants for testing
     MIN_RESPONSE_TIME_SECONDS,
     MIN_HARD_RESPONSE_TIME_SECONDS,
@@ -1519,4 +1522,330 @@ class TestEmptyAggregateAnalytics:
 
         # Check totals
         assert result["total_sessions_analyzed"] == 0
+        assert result["total_responses_analyzed"] == 0
+
+
+# =============================================================================
+# PER-TYPE RESPONSE TIME PERCENTILE TESTS (TASK-836)
+# =============================================================================
+
+
+class TestComputePercentileStats:
+    """Tests for the _compute_percentile_stats helper function."""
+
+    def test_basic_computation(self):
+        """Test percentile computation with sufficient data."""
+        # 20 values from 1 to 20
+        times = list(range(1, 21))
+        result = _compute_percentile_stats(times)
+
+        assert result["count"] == 20
+        assert result["mean_seconds"] == pytest.approx(10.5)
+        assert result["median_seconds"] == pytest.approx(10.5)
+        assert result["p90_seconds"] == pytest.approx(18.1)
+        assert result["p95_seconds"] == pytest.approx(19.05)
+        assert result["p95_seconds"] >= result["p90_seconds"]
+
+    def test_insufficient_data_for_percentiles(self):
+        """Test that percentiles are None with too few responses."""
+        times = [10, 20, 30]  # 3 < MIN_RESPONSES_FOR_PERCENTILES (4)
+        result = _compute_percentile_stats(times)
+
+        assert result["count"] == 3
+        assert result["mean_seconds"] == pytest.approx(20.0)
+        assert result["median_seconds"] == pytest.approx(20.0)
+        assert result["p90_seconds"] is None
+        assert result["p95_seconds"] is None
+
+    def test_exactly_min_responses(self):
+        """Test with exactly the minimum number of responses for percentiles."""
+        times = [10, 20, 30, 40]  # Exactly MIN_RESPONSES_FOR_PERCENTILES
+        result = _compute_percentile_stats(times)
+
+        assert result["count"] == 4
+        assert result["mean_seconds"] == pytest.approx(25.0)
+        assert result["median_seconds"] == pytest.approx(25.0)
+        assert result["p90_seconds"] is not None
+        assert result["p95_seconds"] is not None
+        assert result["p95_seconds"] >= result["p90_seconds"]
+
+    def test_single_value(self):
+        """Test with a single response time."""
+        result = _compute_percentile_stats([42])
+
+        assert result["count"] == 1
+        assert result["mean_seconds"] == pytest.approx(42.0)
+        assert result["median_seconds"] == pytest.approx(42.0)
+        assert result["p90_seconds"] is None
+        assert result["p95_seconds"] is None
+
+    def test_identical_values(self):
+        """Test with all identical response times."""
+        times = [30] * 10
+        result = _compute_percentile_stats(times)
+
+        assert result["count"] == 10
+        assert result["mean_seconds"] == pytest.approx(30.0)
+        assert result["median_seconds"] == pytest.approx(30.0)
+        assert result["p90_seconds"] == pytest.approx(30.0)
+        assert result["p95_seconds"] == pytest.approx(30.0)
+
+    def test_p95_greater_or_equal_p90(self):
+        """Test that p95 is always >= p90."""
+        times = [5, 10, 15, 20, 25, 30, 35, 40, 45, 100]
+        result = _compute_percentile_stats(times)
+
+        assert result["p95_seconds"] >= result["p90_seconds"]
+
+
+class TestGetResponseTimePercentiles:
+    """Tests for the get_response_time_percentiles function."""
+
+    def test_no_data_returns_empty(self, db_session):
+        """Test that empty database returns empty percentile analytics."""
+        result = get_response_time_percentiles(db_session)
+
+        assert result["total_responses_analyzed"] == 0
+        assert result["by_type_and_difficulty"] == []
+        assert result["by_type"] == {}
+        assert result["by_difficulty"] == {}
+        assert result["overall"]["count"] == 0
+        assert result["overall"]["mean_seconds"] is None
+
+    def test_single_type_single_difficulty(self, db_session, test_user):
+        """Test with responses from one question type and difficulty."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+
+        question = Question(
+            question_text="Pattern question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Add 5 responses
+        for t in [10, 20, 30, 40, 50]:
+            db_session.add(
+                Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=question.id,
+                    user_answer="A",
+                    is_correct=True,
+                    time_spent_seconds=t,
+                )
+            )
+        db_session.commit()
+
+        result = get_response_time_percentiles(db_session)
+
+        assert result["total_responses_analyzed"] == 5
+        assert len(result["by_type_and_difficulty"]) == 1
+        assert result["by_type_and_difficulty"][0]["question_type"] == "pattern"
+        assert result["by_type_and_difficulty"][0]["difficulty_level"] == "easy"
+        assert result["by_type_and_difficulty"][0]["stats"]["count"] == 5
+        assert result["by_type_and_difficulty"][0]["stats"][
+            "mean_seconds"
+        ] == pytest.approx(30.0)
+
+        # by_type should have pattern only
+        assert "pattern" in result["by_type"]
+        assert result["by_type"]["pattern"]["count"] == 5
+
+        # by_difficulty should have easy only
+        assert "easy" in result["by_difficulty"]
+        assert result["by_difficulty"]["easy"]["count"] == 5
+
+        # Overall
+        assert result["overall"]["count"] == 5
+        assert result["overall"]["mean_seconds"] == pytest.approx(30.0)
+
+    def test_multiple_types_and_difficulties(self, db_session, test_user):
+        """Test with responses across multiple types and difficulties."""
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
+
+        # Create questions of different types and difficulties
+        pattern_easy = Question(
+            question_text="PE",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            is_active=True,
+        )
+        logic_hard = Question(
+            question_text="LH",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="B",
+            is_active=True,
+        )
+        db_session.add_all([pattern_easy, logic_hard])
+        db_session.commit()
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # Pattern easy: times 10-50
+        for t in [10, 20, 30, 40, 50]:
+            db_session.add(
+                Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=pattern_easy.id,
+                    user_answer="A",
+                    is_correct=True,
+                    time_spent_seconds=t,
+                )
+            )
+
+        # Logic hard: times 30-70
+        for t in [30, 40, 50, 60, 70]:
+            db_session.add(
+                Response(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    question_id=logic_hard.id,
+                    user_answer="B",
+                    is_correct=True,
+                    time_spent_seconds=t,
+                )
+            )
+        db_session.commit()
+
+        result = get_response_time_percentiles(db_session)
+
+        assert result["total_responses_analyzed"] == 10
+
+        # Should have 2 type-difficulty groups
+        assert len(result["by_type_and_difficulty"]) == 2
+
+        # by_type should have pattern and logic
+        assert "pattern" in result["by_type"]
+        assert "logic" in result["by_type"]
+        assert result["by_type"]["pattern"]["count"] == 5
+        assert result["by_type"]["logic"]["count"] == 5
+        assert result["by_type"]["pattern"]["mean_seconds"] == pytest.approx(30.0)
+        assert result["by_type"]["logic"]["mean_seconds"] == pytest.approx(50.0)
+
+        # by_difficulty should have easy and hard
+        assert "easy" in result["by_difficulty"]
+        assert "hard" in result["by_difficulty"]
+        assert result["by_difficulty"]["easy"]["count"] == 5
+        assert result["by_difficulty"]["hard"]["count"] == 5
+
+        # Overall: 10 responses, mean = (30+50)/2 = 40
+        assert result["overall"]["count"] == 10
+        assert result["overall"]["mean_seconds"] == pytest.approx(40.0)
+
+    def test_excludes_in_progress_sessions(self, db_session, test_user, test_questions):
+        """Test that in-progress sessions are excluded."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.IN_PROGRESS,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[0].id,
+                user_answer="10",
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+        )
+        db_session.commit()
+
+        result = get_response_time_percentiles(db_session)
+
+        assert result["total_responses_analyzed"] == 0
+
+    def test_excludes_responses_without_time(
+        self, db_session, test_user, test_questions
+    ):
+        """Test that responses without time data are excluded."""
+        from app.models.models import Response, TestSession, TestStatus
+
+        session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+        )
+        db_session.add(session)
+        db_session.commit()
+
+        # One with time, one without
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[0].id,
+                user_answer="10",
+                is_correct=True,
+                time_spent_seconds=30,
+            )
+        )
+        db_session.add(
+            Response(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                question_id=test_questions[1].id,
+                user_answer="No",
+                is_correct=True,
+                time_spent_seconds=None,
+            )
+        )
+        db_session.commit()
+
+        result = get_response_time_percentiles(db_session)
+
+        assert result["total_responses_analyzed"] == 1
+
+
+class TestEmptyPercentileAnalytics:
+    """Tests for the empty percentile analytics helper."""
+
+    def test_creates_correct_structure(self):
+        """Test that empty percentile analytics has all expected fields."""
+        result = _create_empty_percentile_analytics()
+
+        assert result["by_type_and_difficulty"] == []
+        assert result["by_type"] == {}
+        assert result["by_difficulty"] == {}
+        assert result["overall"]["count"] == 0
+        assert result["overall"]["mean_seconds"] is None
+        assert result["overall"]["median_seconds"] is None
+        assert result["overall"]["p90_seconds"] is None
+        assert result["overall"]["p95_seconds"] is None
         assert result["total_responses_analyzed"] == 0

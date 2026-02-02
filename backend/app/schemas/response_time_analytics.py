@@ -1,11 +1,11 @@
 """
-Pydantic schemas for response time analytics endpoints (TS-007).
+Pydantic schemas for response time analytics endpoints (TS-007, TASK-836).
 
-These schemas support the admin endpoint for viewing aggregate response time
-statistics across all test sessions.
+These schemas support the admin endpoints for viewing aggregate response time
+statistics across all test sessions, including per-type percentile distributions.
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Dict, List, Literal, Optional
 
 
 class OverallTimeStats(BaseModel):
@@ -177,5 +177,136 @@ class ResponseTimeAnalyticsResponse(BaseModel):
                 },
                 "total_sessions_analyzed": 1500,
                 "total_responses_analyzed": 30000,
+            }
+        }
+
+
+# =============================================================================
+# Detailed Per-Type Response Time Percentile Schemas (TASK-836)
+# =============================================================================
+
+
+class PercentileStats(BaseModel):
+    """Percentile distribution statistics for a group of response times."""
+
+    count: int = Field(
+        ...,
+        ge=0,
+        description="Number of responses in this group",
+    )
+    mean_seconds: Optional[float] = Field(
+        None,
+        description="Mean response time in seconds",
+    )
+    median_seconds: Optional[float] = Field(
+        None,
+        description="Median (p50) response time in seconds",
+    )
+    p90_seconds: Optional[float] = Field(
+        None,
+        description="90th percentile response time in seconds",
+    )
+    p95_seconds: Optional[float] = Field(
+        None,
+        description="95th percentile response time in seconds",
+    )
+
+
+QuestionTypeStr = Literal["pattern", "logic", "spatial", "math", "verbal", "memory"]
+DifficultyLevelStr = Literal["easy", "medium", "hard"]
+
+
+class TypeDifficultyBreakdown(BaseModel):
+    """Percentile stats for a specific (question_type, difficulty_level) combination."""
+
+    question_type: QuestionTypeStr = Field(
+        ...,
+        description="Question type (pattern, logic, spatial, math, verbal, memory)",
+    )
+    difficulty_level: DifficultyLevelStr = Field(
+        ...,
+        description="Difficulty level (easy, medium, hard)",
+    )
+    stats: PercentileStats = Field(
+        ...,
+        description="Percentile distribution statistics for this group",
+    )
+
+
+class DetailedResponseTimeAnalyticsResponse(BaseModel):
+    """
+    Response schema for GET /v1/admin/analytics/response-times/detailed.
+
+    Provides percentile distributions of response times broken down by
+    question type and difficulty level. All data is aggregate and
+    privacy-preserving (no individual user tracking).
+    """
+
+    by_type_and_difficulty: List[TypeDifficultyBreakdown] = Field(
+        ...,
+        description="Percentile stats for each (question_type, difficulty_level) combination",
+    )
+    by_type: Dict[str, PercentileStats] = Field(
+        ...,
+        description="Percentile stats aggregated by question type across all difficulties",
+    )
+    by_difficulty: Dict[str, PercentileStats] = Field(
+        ...,
+        description="Percentile stats aggregated by difficulty level across all types",
+    )
+    overall: PercentileStats = Field(
+        ...,
+        description="Percentile stats across all response times",
+    )
+    total_responses_analyzed: int = Field(
+        ...,
+        ge=0,
+        description="Total number of responses with time data included in analysis",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "by_type_and_difficulty": [
+                    {
+                        "question_type": "pattern",
+                        "difficulty_level": "easy",
+                        "stats": {
+                            "count": 150,
+                            "mean_seconds": 22.5,
+                            "median_seconds": 20.0,
+                            "p90_seconds": 38.0,
+                            "p95_seconds": 45.0,
+                        },
+                    },
+                ],
+                "by_type": {
+                    "pattern": {
+                        "count": 500,
+                        "mean_seconds": 32.0,
+                        "median_seconds": 28.0,
+                        "p90_seconds": 52.0,
+                        "p95_seconds": 62.0,
+                    },
+                },
+                "by_difficulty": {
+                    "easy": {
+                        "count": 1000,
+                        "mean_seconds": 25.0,
+                        "median_seconds": 22.0,
+                        "p90_seconds": 40.0,
+                        "p95_seconds": 48.0,
+                    },
+                },
+                "overall": {
+                    "count": 3000,
+                    "mean_seconds": 35.0,
+                    "median_seconds": 30.0,
+                    "p90_seconds": 58.0,
+                    "p95_seconds": 68.0,
+                },
+                "total_responses_analyzed": 3000,
             }
         }
