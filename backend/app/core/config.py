@@ -3,7 +3,11 @@ Application configuration settings.
 """
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Literal, Self
+from typing import Dict, List, Literal, Self
+
+
+# Tolerance for floating-point weight summation checks
+_WEIGHT_SUM_TOLERANCE = 1e-6
 
 
 class Settings(BaseSettings):
@@ -76,7 +80,8 @@ class Settings(BaseSettings):
     # Gf (Fluid Reasoning) has the highest g-loading (~0.70-0.80) and is split
     # across pattern + logic. Gc, Gv, Gq, and Gsm receive progressively lower
     # weights reflecting their empirical g-saturation (McGrew 2009; Carroll 1993).
-    TEST_DOMAIN_WEIGHTS: dict = {
+    # Keys must match QuestionType enum values in app/models/models.py
+    TEST_DOMAIN_WEIGHTS: Dict[str, float] = {
         "pattern": 0.22,  # Gf — perceptual/matrix reasoning (highest g-loading)
         "logic": 0.20,  # Gf — deductive/inductive reasoning
         "verbal": 0.19,  # Gc — verbal comprehension
@@ -170,6 +175,27 @@ class Settings(BaseSettings):
                 'Generate with: python -c "from passlib.hash import bcrypt; '
                 "print(bcrypt.hash('your_password'))\""
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_domain_weights(self) -> Self:
+        """Validate TEST_DOMAIN_WEIGHTS: positive values summing to 1.0."""
+        weights = self.TEST_DOMAIN_WEIGHTS
+        # Canonical domain set — must match QuestionType enum in app/models/models.py
+        expected_domains = {"pattern", "logic", "spatial", "math", "verbal", "memory"}
+        if set(weights.keys()) != expected_domains:
+            raise ValueError(
+                f"TEST_DOMAIN_WEIGHTS keys must be {sorted(expected_domains)}, "
+                f"got {sorted(weights.keys())}"
+            )
+        non_positive = [k for k, v in weights.items() if v <= 0]
+        if non_positive:
+            raise ValueError(
+                f"All domain weights must be positive, got non-positive: {non_positive}"
+            )
+        total = sum(weights.values())
+        if abs(total - 1.0) > _WEIGHT_SUM_TOLERANCE:
+            raise ValueError(f"TEST_DOMAIN_WEIGHTS must sum to 1.0, got {total}")
         return self
 
 

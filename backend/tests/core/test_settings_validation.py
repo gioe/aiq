@@ -120,11 +120,11 @@ class TestDomainWeightsConfiguration:
     """Tests for TEST_DOMAIN_WEIGHTS configuration constant."""
 
     def test_weights_sum_to_one(self):
-        """Domain weights must sum to exactly 1.0."""
+        """Domain weights must sum to 1.0 within floating-point tolerance."""
         from app.core.config import settings
 
         total = sum(settings.TEST_DOMAIN_WEIGHTS.values())
-        assert total == pytest.approx(1.0)
+        assert total == pytest.approx(1.0, abs=1e-9)
 
     def test_contains_all_question_types(self):
         """Weights must include all six cognitive domains from QuestionType."""
@@ -157,4 +157,58 @@ class TestDomainWeightsConfiguration:
             assert gf_weight > settings.TEST_DOMAIN_WEIGHTS[other_domain], (
                 f"Combined Gf weight ({gf_weight}) should exceed any single domain "
                 f"({other_domain}: {settings.TEST_DOMAIN_WEIGHTS[other_domain]})"
+            )
+
+    def test_weights_not_summing_to_one_rejected(self):
+        """Validator rejects domain weights that do not sum to 1.0."""
+        from app.core.config import Settings
+
+        with pytest.raises(ValidationError):
+            Settings(
+                SECRET_KEY=TEST_SECRET_KEY,
+                JWT_SECRET_KEY=TEST_JWT_SECRET_KEY,
+                TEST_DOMAIN_WEIGHTS={
+                    "pattern": 0.50,
+                    "logic": 0.20,
+                    "verbal": 0.10,
+                    "spatial": 0.10,
+                    "math": 0.05,
+                    "memory": 0.01,
+                },
+            )
+
+    def test_negative_weight_rejected(self):
+        """Validator rejects negative domain weights."""
+        from app.core.config import Settings
+
+        with pytest.raises(ValidationError):
+            Settings(
+                SECRET_KEY=TEST_SECRET_KEY,
+                JWT_SECRET_KEY=TEST_JWT_SECRET_KEY,
+                TEST_DOMAIN_WEIGHTS={
+                    "pattern": -0.10,
+                    "logic": 0.30,
+                    "verbal": 0.20,
+                    "spatial": 0.20,
+                    "math": 0.20,
+                    "memory": 0.20,
+                },
+            )
+
+    def test_missing_domain_rejected(self):
+        """Validator rejects weights with missing domains."""
+        from app.core.config import Settings
+
+        with pytest.raises(ValidationError):
+            Settings(
+                SECRET_KEY=TEST_SECRET_KEY,
+                JWT_SECRET_KEY=TEST_JWT_SECRET_KEY,
+                TEST_DOMAIN_WEIGHTS={
+                    "pattern": 0.25,
+                    "logic": 0.25,
+                    "verbal": 0.20,
+                    "spatial": 0.15,
+                    "math": 0.15,
+                    # memory missing
+                },
             )
