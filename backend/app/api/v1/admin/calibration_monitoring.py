@@ -8,7 +8,7 @@ threshold needed for IRT parameter estimation.
 import logging
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,9 @@ LOW_TEST_COUNT_WARNING = 100  # Warn when fewer than this many completed tests
 # Readiness thresholds
 READINESS_READY_THRESHOLD = 80.0  # >= 80% items ready = "ready"
 READINESS_APPROACHING_THRESHOLD = 40.0  # >= 40% items ready = "approaching"
+
+# Safety bound for question pool query to prevent unbounded memory usage
+MAX_ITEMS_LIMIT = 10_000
 
 # Response count bucket boundaries
 BUCKET_LOW = 9  # Upper bound for "1-9" bucket
@@ -98,6 +101,7 @@ async def get_calibration_status(
     min_responses_threshold: int = Query(
         CALIBRATION_READY_THRESHOLD,
         ge=1,
+        le=10000,
         description="Minimum responses per item for calibration readiness (default: 50)",
     ),
     db: Session = Depends(get_db),
@@ -181,6 +185,8 @@ async def get_calibration_status(
                 Question.is_active == True,  # noqa: E712
                 Question.quality_flag == "normal",
             )
+            .order_by(Question.id)
+            .limit(MAX_ITEMS_LIMIT)
             .all()
         )
 
@@ -241,7 +247,7 @@ async def get_calibration_status(
             domains.append(
                 DomainCalibrationStats(
                     domain=domain_name,
-                    total_items=len(items_with_responses),
+                    items_with_responses=len(items_with_responses),
                     total_responses=total_domain_responses,
                     avg_responses_per_item=avg_responses,
                     items_ready=domain_items_ready,
@@ -362,6 +368,8 @@ async def get_calibration_status(
             response_count_distribution=distribution,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve calibration status: {e}")
         raise_server_error(

@@ -82,7 +82,7 @@ class DomainCalibrationStats(BaseModel):
         ...,
         description="Question type (pattern, logic, spatial, math, verbal, memory)",
     )
-    total_items: int = Field(
+    items_with_responses: int = Field(
         ...,
         ge=0,
         description="Number of distinct questions with at least one response",
@@ -124,7 +124,7 @@ class DomainCalibrationStats(BaseModel):
         json_schema_extra = {
             "example": {
                 "domain": "pattern",
-                "total_items": 85,
+                "items_with_responses": 85,
                 "total_responses": 3200,
                 "avg_responses_per_item": 37.6,
                 "items_ready": 42,
@@ -278,7 +278,7 @@ class CalibrationMonitoringResponse(BaseModel):
                 "domains": [
                     {
                         "domain": "pattern",
-                        "total_items": 85,
+                        "items_with_responses": 85,
                         "total_responses": 3200,
                         "avg_responses_per_item": 37.6,
                         "items_ready": 42,
