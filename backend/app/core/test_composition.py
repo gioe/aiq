@@ -59,7 +59,7 @@ def select_stratified_questions(
         composition_metadata contains actual distribution for tracking
 
     Algorithm:
-    1. Calculate target counts per difficulty level (30/40/30 split)
+    1. Calculate target counts per difficulty level (20/50/30 split)
     2. For each difficulty, distribute evenly across 6 cognitive domains
     3. Fall back gracefully if insufficient questions in specific strata
     """
