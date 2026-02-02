@@ -5,6 +5,8 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Literal, Self
 
+from app.models.models import QuestionType
+
 
 # Tolerance for floating-point weight summation checks
 _WEIGHT_SUM_TOLERANCE = 1e-6
@@ -181,8 +183,7 @@ class Settings(BaseSettings):
     def validate_domain_weights(self) -> Self:
         """Validate TEST_DOMAIN_WEIGHTS: positive values summing to 1.0."""
         weights = self.TEST_DOMAIN_WEIGHTS
-        # Canonical domain set — must match QuestionType enum in app/models/models.py
-        expected_domains = {"pattern", "logic", "spatial", "math", "verbal", "memory"}
+        expected_domains = {qt.value for qt in QuestionType}
         if set(weights.keys()) != expected_domains:
             raise ValueError(
                 f"TEST_DOMAIN_WEIGHTS keys must be {sorted(expected_domains)}, "
