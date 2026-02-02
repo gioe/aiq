@@ -230,6 +230,7 @@
 		C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5C4061DEB7041061A94125B9 /* Localizable.strings */; };
 		CAAEB2F88F58B07D096FEF9B /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951C4CC161112894FD8C0A0 /* Auth.swift */; };
 		CAB88873281F64A404D1CF83 /* NetworkLoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC4FF0AE985922793BCA32C /* NetworkLoggerTests.swift */; };
+		CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */; };
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		CF8D0CD438776E479A6030F5 /* FeedbackHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
@@ -395,6 +396,7 @@
 		43E4F024D64CDA4C3FE524BA /* LocalAnswerStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalAnswerStorageTests.swift; sourceTree = "<group>"; };
 		451DCC1088B05DD66CC0F5B3 /* PrivacyConsentStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PrivacyConsentStorageTests.swift; sourceTree = "<group>"; };
 		47B029F2D8A7A84C7D5BC812 /* FeedbackViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackViewModelTests.swift; sourceTree = "<group>"; };
+		4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkNavigationIntegrationTests.swift; sourceTree = "<group>"; };
 		4A885B4A077ACA85644D0D8B /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
 		4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackHelper.swift; sourceTree = "<group>"; };
 		4C4F23DD832678C6F11E29DF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -1236,6 +1238,7 @@
 				D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */,
 				11213FF1DC2D22E406EF823A /* BiometricAuthManagerTests.swift */,
 				73118F73B261EFB50B8A8782 /* DeepLinkNavigationServiceTests.swift */,
+				4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1495,6 +1498,7 @@
 				2E850740035B22AA3D5CCF72 /* MockOpenAPIService.swift in Sources */,
 				7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */,
 				06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */,
+				CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
