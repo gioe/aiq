@@ -12,6 +12,7 @@
 		0572138AE58FDA34E510B63C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845907D460CC2DAB74F0F53 /* DashboardView.swift */; };
 		059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */; };
 		05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */; };
+		06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */; };
 		06E9311FFA4FD65043CA90B1 /* TestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C12636F62D9CB068BF0D5 /* TestTimerManager.swift */; };
 		0746B731514603BC8AFB6F47 /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F65A561E55D0962F63D8A98 /* ViewModelProtocol.swift */; };
 		076EB45937D160B4DF496FEC /* ChartDomainCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43F5C5CECD9BF9BD4CDF913 /* ChartDomainCalculator.swift */; };
@@ -359,6 +360,7 @@
 		228530C772B32AF3828E8D42 /* UITestMockAuthManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockAuthManager.swift; sourceTree = "<group>"; };
 		22F955B0D3A59C417C4CE16C /* TestDetailView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestDetailView+Helpers.swift"; sourceTree = "<group>"; };
 		247C2966272215BF7BB8FC46 /* TestTakingAccessibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestTakingAccessibilityTests.swift; sourceTree = "<group>"; };
+		2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockDeepLinkHandler.swift; sourceTree = "<group>"; };
 		26D08F64944D4FA5B2FEAB69 /* TokenRefreshMockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshMockAuthService.swift; sourceTree = "<group>"; };
 		28562393136A696F5BEEDDA6 /* ScrollPositionModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollPositionModifier.swift; sourceTree = "<group>"; };
 		2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IconButton.swift; sourceTree = "<group>"; };
@@ -904,6 +906,7 @@
 				A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */,
 				A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */,
 				F9B7AAAF658F273016A6A08D /* MockOpenAPIService.swift */,
+				2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -1491,6 +1494,7 @@
 				B7B6DD5EAC718D8EA6D96B99 /* DifficultyBadgeTests.swift in Sources */,
 				2E850740035B22AA3D5CCF72 /* MockOpenAPIService.swift in Sources */,
 				7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */,
+				06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

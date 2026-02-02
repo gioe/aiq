@@ -72,7 +72,7 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
     private let router: AppRouter
 
     /// Deep link handler for async navigation (test results, resume test)
-    private let deepLinkHandler: DeepLinkHandler
+    private let deepLinkHandler: DeepLinkHandlerProtocol
 
     /// Callback to update the selected tab in MainTabView
     private let tabSelectionHandler: TabSelectionHandler
@@ -94,7 +94,7 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
     ///   - tabSelectionHandler: Callback to update the selected tab in MainTabView
     init(
         router: AppRouter,
-        deepLinkHandler: DeepLinkHandler,
+        deepLinkHandler: DeepLinkHandlerProtocol,
         tabSelectionHandler: @escaping TabSelectionHandler
     ) {
         self.router = router
