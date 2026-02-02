@@ -15,7 +15,7 @@ factor-analyzer==0.5.1
 fastapi==0.115.0
 uvicorn[standard]==0.32.1
 gunicorn==22.0.0
-pydantic==2.10.0
+pydantic==2.12.5
 pydantic-settings==2.6.1
 email-validator==2.3.0
 
