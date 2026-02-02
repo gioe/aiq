@@ -105,6 +105,15 @@ enum DeepLinkSource: String {
 /// - `https://dev.aiq.app/test/resume/{sessionId}` - Resume a test session (development)
 /// - `https://dev.aiq.app/settings` - Open settings (development)
 ///
+/// ## Query Parameters and Fragments
+/// Query parameters and URL fragments are ignored during parsing. The handler routes
+/// exclusively based on path components, so `aiq://test/results/123?source=notification`
+/// and `aiq://test/results/123#section` both resolve to `testResults(id: 123)`. This ensures
+/// consistent routing behavior regardless of tracking parameters, analytics tags, or
+/// fragment identifiers that may be appended by external systems (e.g., email campaigns,
+/// push notification payloads). It also prevents query strings from being misinterpreted
+/// as part of the navigation path.
+///
 /// ## Extra Path Component Handling
 /// Extra path components beyond the expected pattern are tolerated but logged as warnings.
 /// For example, `aiq://test/results/123/extra` parses successfully as `testResults(id: 123)`
