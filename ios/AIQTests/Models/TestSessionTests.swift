@@ -108,13 +108,13 @@ final class TestSessionTests: XCTestCase {
             startedAt: startedAt
         )
         XCTAssertNotNil(session.completedAt, "Completed sessions should always have completedAt")
-        // Default is 30 minutes (1800 seconds) after start
+        // Default is 35 minutes (2100 seconds) after start
         if let completedAt = session.completedAt {
             XCTAssertEqual(
                 completedAt.timeIntervalSince(startedAt),
-                1800,
+                2100,
                 accuracy: 1.0,
-                "Default completedAt should be 30 minutes after startedAt"
+                "Default completedAt should be 35 minutes after startedAt"
             )
         }
     }

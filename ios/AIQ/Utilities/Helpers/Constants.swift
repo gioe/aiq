@@ -7,9 +7,10 @@ enum Constants {
 
     /// Time-related constants used throughout the application
     enum Timing {
-        /// Total test time limit in seconds (30 minutes)
+        /// Total test time limit in seconds (35 minutes)
         /// Based on psychometric testing standards for cognitive assessments
-        static let totalTestTimeSeconds: Int = 1800
+        /// Scaled from 30 to 35 minutes to maintain ~84 sec/question with 25 questions
+        static let totalTestTimeSeconds: Int = 2100
 
         /// Timer warning threshold in seconds (5 minutes remaining)
         /// When timer reaches this threshold, UI shows warning state (orange color)
