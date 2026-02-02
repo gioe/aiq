@@ -58,6 +58,13 @@ import XCTest
 /// All parsing failures are logged via `os.Logger` and recorded to Crashlytics
 /// via `CrashlyticsErrorRecorder.recordError(_:context:)`.
 ///
+/// ## See Also
+///
+/// - ``MainTabView`` — The view containing the notification tap observer
+/// - ``DeepLinkHandler`` — Parses deep link URLs into `DeepLink` enum values
+/// - ``AppDelegate`` — Posts `.notificationTapped` notifications from push notification callbacks
+/// - ``DeepLinkHandlerTests`` — Unit tests for `DeepLinkHandler.parse(_:)`
+///
 /// Related to BTS-102: Test notification tapped handler in MainTabView
 final class MainTabViewNotificationTappedTests: XCTestCase {
     // MARK: - Properties
@@ -612,6 +619,13 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
 /// | `.resumeTest(sessionId:)` | Dashboard | `popToRoot(in: .dashboard)`, `handleNavigation(_:router:tab:)` |
 /// | `.invalid` | (no change) | (none) |
 ///
+/// ## See Also
+///
+/// - ``MainTabView`` — The view containing `handleDeepLinkNavigation`
+/// - ``DeepLinkHandler`` — Parses URLs and handles post-navigation actions
+/// - ``AppDelegate`` — Posts `.notificationTapped` notifications from push notification callbacks
+/// - ``AppRouter`` — Manages tab selection and navigation stack state
+///
 /// Related to BTS-102: Test notification tapped handler in MainTabView
 @MainActor
 final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
@@ -1115,6 +1129,13 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
 /// - The original deep link processing continues uninterrupted
 ///
 /// This prevents race conditions and ensures consistent navigation state.
+///
+/// ## See Also
+///
+/// - ``MainTabView`` — The view managing `isProcessingDeepLink` state
+/// - ``DeepLinkHandler`` — Parses deep link URLs into `DeepLink` enum values
+/// - ``MainTabViewNotificationTappedTests`` — Tests for payload extraction and parsing
+/// - ``MainTabViewNotificationTappedNavigationTests`` — Tests for navigation behavior
 ///
 /// Related to TASK-153: Handle Concurrent Deep Link Processing
 @MainActor
