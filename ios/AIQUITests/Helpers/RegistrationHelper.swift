@@ -134,8 +134,9 @@ class RegistrationHelper {
     ///
     /// - Note: Registration uses a 15-second network timeout (vs. the standard 10 seconds used elsewhere)
     ///   because the registration endpoint performs additional backend processing: creating the user account,
-    ///   hashing the password, initializing user preferences, and setting up default data. This extra buffer
-    ///   ensures reliable test execution even under slower network conditions or higher backend load.
+    ///   hashing the password (bcrypt, intentionally slow), committing to the database, logging the security
+    ///   event, tracking analytics, and generating auth tokens. This extra buffer ensures reliable test
+    ///   execution even under slower network conditions or higher backend load.
     init(app: XCUIApplication, timeout: TimeInterval = 5.0, networkTimeout: TimeInterval = 15.0) {
         self.app = app
         self.timeout = timeout
