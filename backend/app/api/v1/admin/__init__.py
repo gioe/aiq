@@ -8,6 +8,7 @@ AIQ backend. All endpoints require authentication via X-Admin-Token header
 Submodules:
     - generation: Question generation job management and run tracking
     - calibration: Question difficulty calibration and validation
+    - calibration_monitoring: IRT calibration readiness monitoring dashboard
     - analytics: Response time analytics and factor analysis
     - distractors: Distractor effectiveness analysis
     - validity: Test session validity assessment and management
@@ -21,6 +22,7 @@ from fastapi import APIRouter
 from . import (
     analytics,
     calibration,
+    calibration_monitoring,
     config,
     discrimination,
     distractors,
@@ -44,6 +46,11 @@ router.include_router(
 router.include_router(
     calibration.router,
     tags=["Admin - Calibration"],
+)
+
+router.include_router(
+    calibration_monitoring.router,
+    tags=["Admin - CAT"],
 )
 
 router.include_router(
