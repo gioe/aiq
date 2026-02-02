@@ -10,6 +10,7 @@ Based on:
 """
 import logging
 import random
+from collections.abc import Sequence
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 
@@ -18,6 +19,70 @@ from app.models.models import QuestionType, DifficultyLevel
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Minimum anchor items per domain to include in each test (TASK-850)
+MIN_ANCHORS_PER_DOMAIN = 1
+
+
+def _select_anchor_items(
+    db: Session, user_id: int, seen_question_ids: Sequence[int]
+) -> dict[QuestionType, list[Question]]:
+    """
+    Select anchor items for each cognitive domain.
+
+    Anchor items are curated questions used for IRT calibration. This function
+    attempts to select MIN_ANCHORS_PER_DOMAIN unseen anchor items per domain.
+
+    Based on TASK-850: Anchor item designation for IRT calibration.
+
+    Args:
+        db: Database session
+        user_id: User ID to filter out seen questions
+        seen_question_ids: List of question IDs the user has already seen
+
+    Returns:
+        Dictionary mapping QuestionType to list of selected anchor Questions.
+        Empty list for a domain if no unseen anchors are available.
+
+    Quality Filters Applied:
+    - is_anchor = True
+    - is_active = True
+    - quality_flag = "normal"
+    - discrimination >= 0 or NULL (excludes negative discrimination)
+    """
+    anchor_items: dict[QuestionType, list[Question]] = {}
+    all_question_types = list(QuestionType)
+
+    for question_type in all_question_types:
+        # Query for unseen anchor items of this type
+        query = db.query(Question).filter(
+            Question.is_anchor == True,  # noqa: E712
+            Question.is_active == True,  # noqa: E712
+            Question.quality_flag == "normal",
+            Question.question_type == question_type,
+            # Exclude negative discrimination, allow NULL (new anchors)
+            or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
+        )
+
+        if seen_question_ids:
+            query = query.filter(~Question.id.in_(seen_question_ids))
+
+        # Order by discrimination descending (prefer high-discrimination anchors)
+        query = query.order_by(Question.discrimination.desc().nullslast())
+
+        # Get up to MIN_ANCHORS_PER_DOMAIN anchor items
+        anchors = query.limit(MIN_ANCHORS_PER_DOMAIN).all()
+
+        if len(anchors) < MIN_ANCHORS_PER_DOMAIN:
+            logger.warning(
+                f"Could not find {MIN_ANCHORS_PER_DOMAIN} unseen anchor items "
+                f"for domain {question_type.value}. Found {len(anchors)}. "
+                f"User may have seen all anchors for this domain."
+            )
+
+        anchor_items[question_type] = anchors
+
+    return anchor_items
 
 
 def select_stratified_questions(
@@ -69,6 +134,20 @@ def select_stratified_questions(
     )
     seen_question_ids = db.execute(seen_question_ids_query).scalars().all()
 
+    # Pre-select anchor items for IRT calibration (TASK-850)
+    # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
+    anchor_items_by_type = _select_anchor_items(db, user_id, seen_question_ids)
+    selected_questions: list[Question] = []
+
+    # Track which strata (difficulty × type) already have anchor items allocated
+    # This allows us to reduce the domain allocation accordingly
+    anchor_allocation: dict[tuple[DifficultyLevel, QuestionType], int] = {}
+    for question_type, anchors in anchor_items_by_type.items():
+        for anchor in anchors:
+            key = (anchor.difficulty_level, question_type)
+            anchor_allocation[key] = anchor_allocation.get(key, 0) + 1
+            selected_questions.append(anchor)
+
     # Calculate target distribution based on config
     difficulty_targets = {
         DifficultyLevel.EASY: int(
@@ -89,11 +168,14 @@ def select_stratified_questions(
         difficulty_targets[DifficultyLevel.MEDIUM] += total_count - current_total
 
     all_question_types = list(QuestionType)
-    selected_questions: list[Question] = []
     actual_composition: dict = {
         "difficulty": {},
         "domain": {},
         "total": 0,
+        "anchor_count": len(selected_questions),
+        "anchors_per_domain": {
+            qt.value: len(anchor_items_by_type[qt]) for qt in all_question_types
+        },
     }
 
     # For each difficulty level, select questions distributed across domains
@@ -135,7 +217,12 @@ def select_stratified_questions(
         for question_type in all_question_types:
             domain_count = domain_allocation[question_type]
 
-            if domain_count == 0:
+            # Subtract anchor items already allocated for this stratum
+            stratum_key = (difficulty, question_type)
+            anchors_in_stratum = anchor_allocation.get(stratum_key, 0)
+            domain_count -= anchors_in_stratum
+
+            if domain_count <= 0:
                 continue
 
             # Query for unseen questions of this difficulty and type
@@ -150,8 +237,13 @@ def select_stratified_questions(
                 or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
             )
 
-            if seen_question_ids:
-                query = query.filter(~Question.id.in_(seen_question_ids))
+            # Exclude seen questions AND already-selected anchor items
+            excluded_ids = list(seen_question_ids) if seen_question_ids else []
+            already_selected_ids = [q.id for q in selected_questions]
+            all_excluded_ids = excluded_ids + already_selected_ids
+
+            if all_excluded_ids:
+                query = query.filter(~Question.id.in_(all_excluded_ids))
 
             # IDA-006: Order by discrimination descending (NULLs last)
             # This prefers high-discrimination questions when available
@@ -163,9 +255,18 @@ def select_stratified_questions(
 
         # If we didn't get enough questions with strict stratification,
         # fill remainder from any unseen questions of this difficulty
-        if len(difficulty_questions) < target_count:
-            already_selected_ids = [q.id for q in difficulty_questions]
-            additional_needed = target_count - len(difficulty_questions)
+        # Account for anchor items already allocated for this difficulty level
+        anchors_for_difficulty = sum(
+            anchor_allocation.get((difficulty, qt), 0) for qt in all_question_types
+        )
+        total_for_difficulty = len(difficulty_questions) + anchors_for_difficulty
+
+        if total_for_difficulty < target_count:
+            # Exclude anchor items, seen questions, and difficulty_questions
+            all_selected_ids = [q.id for q in selected_questions]
+            difficulty_question_ids = [q.id for q in difficulty_questions]
+            all_excluded = all_selected_ids + difficulty_question_ids
+            additional_needed = target_count - total_for_difficulty
 
             additional_query = db.query(Question).filter(
                 Question.is_active == True,  # noqa: E712
@@ -176,13 +277,13 @@ def select_stratified_questions(
             )
 
             if seen_question_ids:
-                combined_ids = list(seen_question_ids) + already_selected_ids
+                combined_ids = list(seen_question_ids) + all_excluded
                 additional_query = additional_query.filter(
                     ~Question.id.in_(combined_ids)
                 )
             else:
                 additional_query = additional_query.filter(
-                    ~Question.id.in_(already_selected_ids)
+                    ~Question.id.in_(all_excluded)
                 )
 
             # IDA-006: Order by discrimination descending (NULLs last)
@@ -218,8 +319,8 @@ def select_stratified_questions(
 
         selected_questions.extend(difficulty_questions)
 
-        # Track actual composition
-        actual_composition["difficulty"][difficulty.value] = len(difficulty_questions)
+        # Track actual composition (including anchors for this difficulty)
+        actual_composition["difficulty"][difficulty.value] = total_for_difficulty
 
     # Final fallback: If we still don't have enough questions, get any unseen questions
     if len(selected_questions) < total_count:

@@ -802,3 +802,445 @@ class TestDiscriminationPreference:
         selected_ids = [q.id for q in selected]
         if null_disc.id not in selected_ids:
             assert low_disc.id in selected_ids
+
+
+class TestAnchorItemInclusion:
+    """Test anchor item inclusion in test composition (TASK-850)."""
+
+    def test_anchor_items_included_in_every_domain(self, db_session, test_user):
+        """When anchors exist for all domains, each domain gets at least 1."""
+        question_types = list(QuestionType)
+
+        # Create 1 anchor item per domain (6 total)
+        for qt in question_types:
+            anchor = Question(
+                question_text=f"Anchor-{qt.value}",
+                question_type=qt,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                is_anchor=True,
+                discrimination=0.35,
+            )
+            db_session.add(anchor)
+
+        # Create regular questions to fill the rest
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Verify total count
+        assert len(selected) == 25
+
+        # Verify anchor metadata
+        assert "anchor_count" in metadata
+        assert "anchors_per_domain" in metadata
+        assert metadata["anchor_count"] == 6
+
+        # Verify each domain has at least 1 anchor
+        for qt in question_types:
+            assert metadata["anchors_per_domain"][qt.value] == 1
+
+        # Verify anchor questions are in the selected list
+        anchor_questions = [q for q in selected if q.is_anchor]
+        assert len(anchor_questions) == 6
+
+        # Verify each domain is represented in anchors
+        anchor_types = {q.question_type for q in anchor_questions}
+        assert len(anchor_types) == 6
+
+    def test_anchor_items_count_toward_domain_quota(self, db_session, test_user):
+        """Anchor items count toward domain quota - total stays at total_count."""
+        question_types = list(QuestionType)
+
+        # Create 1 anchor item per domain
+        for qt in question_types:
+            anchor = Question(
+                question_text=f"Anchor-{qt.value}",
+                question_type=qt,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                is_anchor=True,
+                discrimination=0.40,
+            )
+            db_session.add(anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(15):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Total should be exactly 25 (not 25 + 6 anchors)
+        assert len(selected) == 25
+        assert metadata["total"] == 25
+
+        # Anchors are included in the total
+        assert metadata["anchor_count"] == 6
+
+    def test_fallback_when_all_anchors_seen(self, db_session, test_user):
+        """When user has seen all anchors for a domain, test still works."""
+        from app.models import UserQuestion
+
+        question_types = list(QuestionType)
+
+        # Create 1 anchor per domain
+        anchors = []
+        for qt in question_types:
+            anchor = Question(
+                question_text=f"Anchor-{qt.value}",
+                question_type=qt,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                is_anchor=True,
+                discrimination=0.35,
+            )
+            db_session.add(anchor)
+            anchors.append(anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        # Mark all anchors as seen by the user
+        for anchor in anchors:
+            uq = UserQuestion(
+                user_id=test_user.id,
+                question_id=anchor.id,
+            )
+            db_session.add(uq)
+        db_session.commit()
+
+        # Should still work - no anchors but test proceeds
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        assert len(selected) == 25
+        assert metadata["anchor_count"] == 0
+
+        # No anchors should be selected (all were seen)
+        anchor_questions = [q for q in selected if q.is_anchor]
+        assert len(anchor_questions) == 0
+
+    def test_fallback_when_no_anchors_exist(self, db_session, test_user):
+        """When no anchors exist at all, test still works normally."""
+        question_types = list(QuestionType)
+
+        # Create only regular questions (no anchors)
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        assert len(selected) == 25
+        assert metadata["anchor_count"] == 0
+
+        # Verify all domains have 0 anchors
+        for qt in question_types:
+            assert metadata["anchors_per_domain"][qt.value] == 0
+
+    def test_anchor_metadata_in_composition(self, db_session, test_user):
+        """Metadata includes anchor_count and anchors_per_domain info."""
+        question_types = list(QuestionType)
+
+        # Create varying numbers of anchors per domain
+        # pattern: 1, logic: 1, verbal: 1, spatial: 0, math: 0, memory: 0
+        for qt in [QuestionType.PATTERN, QuestionType.LOGIC, QuestionType.VERBAL]:
+            anchor = Question(
+                question_text=f"Anchor-{qt.value}",
+                question_type=qt,
+                difficulty_level=DifficultyLevel.HARD,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                is_anchor=True,
+                discrimination=0.38,
+            )
+            db_session.add(anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Verify metadata structure
+        assert "anchor_count" in metadata
+        assert "anchors_per_domain" in metadata
+
+        # Verify anchor count
+        assert metadata["anchor_count"] == 3
+
+        # Verify per-domain breakdown
+        assert metadata["anchors_per_domain"]["pattern"] == 1
+        assert metadata["anchors_per_domain"]["logic"] == 1
+        assert metadata["anchors_per_domain"]["verbal"] == 1
+        assert metadata["anchors_per_domain"]["spatial"] == 0
+        assert metadata["anchors_per_domain"]["math"] == 0
+        assert metadata["anchors_per_domain"]["memory"] == 0
+
+    def test_anchor_items_respect_quality_filters(self, db_session, test_user):
+        """Inactive/flagged anchors are excluded from selection."""
+        question_types = list(QuestionType)
+
+        # Create inactive anchor
+        inactive_anchor = Question(
+            question_text="Inactive anchor",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=False,  # Inactive
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=0.40,
+        )
+        db_session.add(inactive_anchor)
+
+        # Create flagged anchor
+        flagged_anchor = Question(
+            question_text="Flagged anchor",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="under_review",  # Flagged
+            is_anchor=True,
+            discrimination=0.35,
+        )
+        db_session.add(flagged_anchor)
+
+        # Create valid anchor
+        valid_anchor = Question(
+            question_text="Valid anchor",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=0.42,
+        )
+        db_session.add(valid_anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Only 1 anchor should be selected (the valid one)
+        assert metadata["anchor_count"] == 1
+
+        # Verify the valid anchor is in selection
+        selected_ids = [q.id for q in selected]
+        assert valid_anchor.id in selected_ids
+        assert inactive_anchor.id not in selected_ids
+        assert flagged_anchor.id not in selected_ids
+
+    def test_anchor_items_respect_discrimination_filter(self, db_session, test_user):
+        """Negative discrimination anchors are excluded from selection."""
+        question_types = list(QuestionType)
+
+        # Create anchor with negative discrimination
+        negative_anchor = Question(
+            question_text="Negative discrimination anchor",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=-0.15,  # Negative
+            response_count=100,
+        )
+        db_session.add(negative_anchor)
+
+        # Create anchor with positive discrimination
+        positive_anchor = Question(
+            question_text="Positive discrimination anchor",
+            question_type=QuestionType.LOGIC,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=0.38,
+            response_count=100,
+        )
+        db_session.add(positive_anchor)
+
+        # Create anchor with NULL discrimination (new)
+        null_anchor = Question(
+            question_text="NULL discrimination anchor",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.HARD,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=None,  # NULL (new anchor)
+            response_count=0,
+        )
+        db_session.add(null_anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(10):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Should have 2 anchors (positive and null, but not negative)
+        assert metadata["anchor_count"] == 2
+
+        # Verify correct anchors are selected
+        selected_ids = [q.id for q in selected]
+        assert positive_anchor.id in selected_ids
+        assert null_anchor.id in selected_ids
+        assert negative_anchor.id not in selected_ids
