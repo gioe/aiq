@@ -425,6 +425,10 @@ def create_application() -> FastAPI:
                     "limit": 10,
                     "window": 60,
                 },  # 10 per min - expensive calculation
+                f"{settings.API_V1_PREFIX}/admin/calibration-status": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min - expensive calculation
                 f"{settings.API_V1_PREFIX}/admin/validity-report": {
                     "limit": 10,
                     "window": 60,
