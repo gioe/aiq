@@ -144,6 +144,7 @@
 		731CFCF9993A9DF70D8C6FFD /* ExampleUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */; };
 		73430DF9A0CA1845CAED4FB4 /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D5E51F4712FCE75F777B75 /* Validators.swift */; };
 		755819833C8FCA8D8B23ECF9 /* PageIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B854EEF4041AB787B9FE997F /* PageIndicatorTests.swift */; };
+		7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73118F73B261EFB50B8A8782 /* DeepLinkNavigationServiceTests.swift */; };
 		771FD0877FAA1BCE3BF03006 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B426F8FDE650BFBE5B9DFC0 /* HistoryViewModel.swift */; };
 		7999DB6818A68F5BAF1781FF /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */; };
 		79F01ACE8043927A8ADCA9E7 /* ErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0DF798C3B6252592D78702 /* ErrorBanner.swift */; };
@@ -231,6 +232,7 @@
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		CF8D0CD438776E479A6030F5 /* FeedbackHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */; };
 		D0B755FEADF00977F06F2B53 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */; };
+		D116220FF0F3BD5EED6008D1 /* DeepLinkNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401DD7DDFF93046681F7F97A /* DeepLinkNavigationService.swift */; };
 		D13BEF52570E9BB485D48967 /* MemoryQuestionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BF66297B81C3976226ED04 /* MemoryQuestionViewTests.swift */; };
 		D151EE8467DD80B701931B22 /* AuthStateObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03A45FDDE6CC8040BF6879D /* AuthStateObserver.swift */; };
 		D1C8A7DC27B49CFE68496938 /* EducationLevelPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B5DE45427D4A5C1E897541 /* EducationLevelPickerTests.swift */; };
@@ -382,6 +384,7 @@
 		3D11D893F3EC79F32CAEE284 /* TestResultTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultTests.swift; sourceTree = "<group>"; };
 		3D392BB68D9DA2CBB0218043 /* CertificatePinningTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CertificatePinningTests.swift; path = AIQTests/Integration/CertificatePinningTests.swift; sourceTree = SOURCE_ROOT; };
 		3D90F0480B621765EDC45755 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		401DD7DDFF93046681F7F97A /* DeepLinkNavigationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkNavigationService.swift; sourceTree = "<group>"; };
 		409E33929D1D00C484DD2426 /* Feedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Feedback.swift; sourceTree = "<group>"; };
 		425CBCEA4F6F27755060AEB5 /* TestTimerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTimerManagerTests.swift; sourceTree = "<group>"; };
 		42BF66297B81C3976226ED04 /* MemoryQuestionViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryQuestionViewTests.swift; sourceTree = "<group>"; };
@@ -434,6 +437,7 @@
 		72704EDD064DAB7B07592442 /* SettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		72841079C61044E3141B3EC5 /* TestSession+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TestSession+Extensions.swift"; sourceTree = "<group>"; };
 		72DB1F74E4C42D4EDE293DC7 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		73118F73B261EFB50B8A8782 /* DeepLinkNavigationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkNavigationServiceTests.swift; sourceTree = "<group>"; };
 		73568203E42275D471EF8420 /* ScrollPositionStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollPositionStorage.swift; sourceTree = "<group>"; };
 		73E416F892038706B0664DFE /* OpenAPITypeAliases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenAPITypeAliases.swift; sourceTree = "<group>"; };
 		764993E8667FA60C49C142E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -1206,6 +1210,7 @@
 			children = (
 				ICG007002AAAA /* AppRouter.swift */,
 				9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */,
+				401DD7DDFF93046681F7F97A /* DeepLinkNavigationService.swift */,
 			);
 			path = Navigation;
 			sourceTree = "<group>";
@@ -1227,6 +1232,7 @@
 				8D5AC4F47FAFDCEE18F69897 /* ToastManagerTests.swift */,
 				D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */,
 				11213FF1DC2D22E406EF823A /* BiometricAuthManagerTests.swift */,
+				73118F73B261EFB50B8A8782 /* DeepLinkNavigationServiceTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1484,6 +1490,7 @@
 				D13BEF52570E9BB485D48967 /* MemoryQuestionViewTests.swift in Sources */,
 				B7B6DD5EAC718D8EA6D96B99 /* DifficultyBadgeTests.swift in Sources */,
 				2E850740035B22AA3D5CCF72 /* MockOpenAPIService.swift in Sources */,
+				7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1647,6 +1654,7 @@
 				3A5A135B4D21848C78DC3D39 /* UITestMockToastManager.swift in Sources */,
 				893370BC1BF122320045005D /* MemoryQuestionView.swift in Sources */,
 				3F70E3D07D59B9FDB48929D7 /* DifficultyBadge.swift in Sources */,
+				D116220FF0F3BD5EED6008D1 /* DeepLinkNavigationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

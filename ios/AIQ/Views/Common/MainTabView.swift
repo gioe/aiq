@@ -10,10 +10,9 @@ struct MainTabView: View {
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
     @State private var deepLinkHandler = DeepLinkHandler()
-    /// Tracks whether a deep link is currently being processed to prevent concurrent handling.
-    /// Thread-safety: Notification handlers use `.receive(on: DispatchQueue.main)` to ensure
-    /// main thread execution before accessing this property.
-    @State private var isProcessingDeepLink = false
+    /// Service that handles deep link navigation logic (tab switching, routing, error handling).
+    /// Lazily initialized on first use via `getNavigationService()` since it depends on `router`.
+    @State private var navigationService: DeepLinkNavigationService?
 
     // MARK: - Upgrade Prompt State
 
@@ -72,8 +71,8 @@ struct MainTabView: View {
             router.currentTab = selectedTab
         }
         .onDisappear {
-            // Reset deep link processing state when view disappears to prevent stale state
-            isProcessingDeepLink = false
+            // Reset navigation service when view disappears to prevent stale state
+            navigationService = nil
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .deepLinkReceived)
@@ -82,7 +81,10 @@ struct MainTabView: View {
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
             let source = notification.userInfo?["source"] as? DeepLinkSource ?? .unknown
             let originalURL = notification.userInfo?["originalURL"] as? String ?? ""
-            handleDeepLinkNavigation(deepLink, source: source, originalURL: originalURL)
+            let service = getNavigationService()
+            Task {
+                _ = await service.navigate(to: deepLink, source: source, originalURL: originalURL)
+            }
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .notificationTapped)
@@ -145,7 +147,10 @@ struct MainTabView: View {
 
         // Sanitize URL for analytics (remove query parameters)
         let sanitizedURL = sanitizeURLForAnalytics(deepLinkURL)
-        handleDeepLinkNavigation(deepLink, source: .pushNotification, originalURL: sanitizedURL)
+        let service = getNavigationService()
+        Task {
+            _ = await service.navigate(to: deepLink, source: .pushNotification, originalURL: sanitizedURL)
+        }
     }
 
     /// Sanitize a URL for analytics by removing sensitive query parameters
@@ -194,79 +199,23 @@ struct MainTabView: View {
 
     // MARK: - Private Helpers
 
-    /// Handles deep link navigation by switching to the appropriate tab and navigating to the destination.
-    /// This method consolidates navigation logic for both `.deepLinkReceived` and `.notificationTapped` handlers.
+    /// Returns the navigation service, creating it lazily if needed.
     ///
-    /// - Parameters:
-    ///   - deepLink: The parsed deep link to navigate to
-    ///   - source: The source of the deep link for analytics tracking
-    ///   - originalURL: The original URL string for analytics tracking
-    ///
-    /// - Note: Concurrent deep links are dropped (not queued) while one is being processed. This is intentional
-    ///   because deep links represent user intent at a specific moment. Processing an older deep link after a
-    ///   newer one completes would create unexpected navigation and poor UX.
-    private func handleDeepLinkNavigation(
-        _ deepLink: DeepLink,
-        source: DeepLinkSource = .unknown,
-        originalURL: String = ""
-    ) {
-        // Guard against concurrent deep link processing.
-        // The flag is set before Task creation to prevent race conditions.
-        guard !isProcessingDeepLink else {
-            let deepLinkDescription = String(describing: deepLink)
-            Self.logger.info("Dropping deep link (concurrent): \(deepLinkDescription, privacy: .public)")
-            return
+    /// The service is created on first access because it depends on `router` which is
+    /// an `@EnvironmentObject` and not available during `init()`.
+    private func getNavigationService() -> DeepLinkNavigationService {
+        if let service = navigationService {
+            return service
         }
-
-        isProcessingDeepLink = true
-        Task {
-            defer { isProcessingDeepLink = false }
-
-            switch deepLink {
-            case .settings:
-                // For settings deep link, switch to the settings tab
-                selectedTab = .settings
-                router.currentTab = .settings
-                router.popToRoot(in: .settings) // Pop to root in case there's a navigation stack
-                // Track successful navigation for settings (handled here, not in DeepLinkHandler)
-                deepLinkHandler.trackNavigationSuccess(deepLink, source: source, originalURL: originalURL)
-
-            case .testResults, .resumeTest:
-                // Switch to Dashboard tab first for test-related deep links
-                // This ensures navigation happens in the correct tab context
-                selectedTab = .dashboard
-                router.currentTab = .dashboard
-                router.popToRoot(in: .dashboard) // Clear any existing navigation stack
-
-                let success = await deepLinkHandler.handleNavigation(
-                    deepLink,
-                    router: router,
-                    tab: .dashboard,
-                    source: source,
-                    originalURL: originalURL
-                )
-                if !success {
-                    let linkDesc = String(describing: deepLink)
-                    Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
-
-                    // Show user-friendly error toast based on deep link type
-                    let message = switch deepLink {
-                    case .testResults:
-                        // Navigation failed due to API error (couldn't fetch test results)
-                        "toast.deeplink.navigation.failed".localized
-                    case .resumeTest:
-                        // Resume test not yet implemented
-                        "toast.deeplink.resume.unavailable".localized
-                    default:
-                        "toast.deeplink.navigation.failed".localized
-                    }
-                    ToastManager.shared.show(message, type: .error)
-                }
-
-            case .invalid:
-                Self.logger.warning("Received invalid deep link: \(String(describing: deepLink), privacy: .public)")
+        let service = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: deepLinkHandler,
+            tabSelectionHandler: { newTab in
+                selectedTab = newTab
             }
-        }
+        )
+        navigationService = service
+        return service
     }
 }
 

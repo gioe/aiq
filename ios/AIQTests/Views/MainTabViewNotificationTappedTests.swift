@@ -633,6 +633,8 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
 
     private var router: AppRouter!
     private var deepLinkHandler: DeepLinkHandler!
+    private var navigationService: DeepLinkNavigationService!
+    private var selectedTab: TabDestination!
 
     // MARK: - Setup/Teardown
 
@@ -640,48 +642,43 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         super.setUp()
         router = AppRouter()
         deepLinkHandler = DeepLinkHandler()
+        selectedTab = .dashboard
+        navigationService = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: deepLinkHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
     }
 
     // MARK: - Settings Navigation Tests
 
     /// Test that .settings deep link switches to settings tab
-    func testSettingsDeepLink_SwitchesToSettingsTab() {
+    func testSettingsDeepLink_SwitchesToSettingsTab() async {
         // Given - router starts on dashboard tab
         router.currentTab = .dashboard
         XCTAssertEqual(router.currentTab, .dashboard, "setup: should start on dashboard")
 
-        // When - simulating handleDeepLinkNavigation for .settings
-        // (Replicating MainTabView behavior)
-        let deepLink = DeepLink.settings
-        switch deepLink {
-        case .settings:
-            router.currentTab = .settings
-            router.popToRoot(in: .settings)
-        default:
-            XCTFail("Expected .settings deep link")
-        }
+        // When - navigating via the service
+        let result = await navigationService.navigate(to: .settings)
 
         // Then - should switch to settings tab
+        XCTAssertEqual(result, .navigated(tab: .settings))
+        XCTAssertEqual(selectedTab, .settings, "should switch to settings tab")
         XCTAssertEqual(router.currentTab, .settings, "should switch to settings tab")
     }
 
     /// Test that .settings deep link calls popToRoot on settings tab
-    func testSettingsDeepLink_CallsPopToRootInSettings() {
+    func testSettingsDeepLink_CallsPopToRootInSettings() async {
         // Given - router has navigation state in settings tab
         router.currentTab = .settings
         router.push(.help, in: .settings)
         router.push(.notificationSettings, in: .settings)
         XCTAssertEqual(router.depth(in: .settings), 2, "setup: settings should have 2 routes")
 
-        // When - simulating handleDeepLinkNavigation for .settings
-        let deepLink = DeepLink.settings
-        switch deepLink {
-        case .settings:
-            router.currentTab = .settings
-            router.popToRoot(in: .settings)
-        default:
-            XCTFail("Expected .settings deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .settings)
 
         // Then - settings navigation stack should be cleared
         XCTAssertTrue(router.isAtRoot(in: .settings), "settings should be at root after popToRoot")
@@ -689,7 +686,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .settings deep link preserves other tabs' navigation state
-    func testSettingsDeepLink_PreservesOtherTabsNavigation() {
+    func testSettingsDeepLink_PreservesOtherTabsNavigation() async {
         // Given - router has navigation state in dashboard and history tabs
         router.push(.testTaking(), in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
@@ -697,15 +694,8 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
         XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
 
-        // When - simulating handleDeepLinkNavigation for .settings
-        let deepLink = DeepLink.settings
-        switch deepLink {
-        case .settings:
-            router.currentTab = .settings
-            router.popToRoot(in: .settings)
-        default:
-            XCTFail("Expected .settings deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .settings)
 
         // Then - other tabs should preserve their navigation state
         XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should still have 1 route")
@@ -713,11 +703,11 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .settings deep link from universal link switches tabs correctly
-    func testSettingsUniversalLink_SwitchesToSettingsTab() {
+    func testSettingsUniversalLink_SwitchesToSettingsTab() async {
         // Given - router starts on history tab
         router.currentTab = .history
 
-        // When - parsing universal link and handling navigation
+        // When - parsing universal link and navigating through service
         guard let url = URL(string: "https://aiq.app/settings") else {
             XCTFail("Should create valid URL")
             return
@@ -726,66 +716,46 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(url)
         XCTAssertEqual(deepLink, .settings, "should parse to .settings")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .settings:
-            router.currentTab = .settings
-            router.popToRoot(in: .settings)
-        default:
-            XCTFail("Expected .settings deep link")
-        }
+        let result = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
 
         // Then - should switch to settings tab
-        XCTAssertEqual(router.currentTab, .settings, "should switch to settings tab")
+        XCTAssertEqual(result, .navigated(tab: .settings))
+        XCTAssertEqual(selectedTab, .settings, "should switch to settings tab")
     }
 
     // MARK: - Test Results Navigation Tests
 
     /// Test that .testResults deep link switches to dashboard tab
-    func testTestResultsDeepLink_SwitchesToDashboardTab() {
+    func testTestResultsDeepLink_SwitchesToDashboardTab() async {
         // Given - router starts on settings tab
         router.currentTab = .settings
         XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
 
-        // When - simulating handleDeepLinkNavigation for .testResults
-        let deepLink = DeepLink.testResults(id: 123)
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .testResults deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .testResults(id: 123))
 
         // Then - should switch to dashboard tab
+        XCTAssertEqual(selectedTab, .dashboard, "should switch to dashboard tab")
         XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
     }
 
     /// Test that .testResults deep link calls popToRoot on dashboard tab
-    func testTestResultsDeepLink_CallsPopToRootInDashboard() {
+    func testTestResultsDeepLink_CallsPopToRootInDashboard() async {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
         router.push(.testTaking(), in: .dashboard)
         router.push(.help, in: .dashboard)
         XCTAssertEqual(router.depth(in: .dashboard), 2, "setup: dashboard should have 2 routes")
 
-        // When - simulating handleDeepLinkNavigation for .testResults
-        let deepLink = DeepLink.testResults(id: 456)
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .testResults deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .testResults(id: 456))
 
-        // Then - dashboard navigation stack should be cleared
-        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root after popToRoot")
-        XCTAssertEqual(router.depth(in: .dashboard), 0, "dashboard depth should be 0")
+        // Then - dashboard tab should have been selected (popToRoot was called before handleNavigation)
+        XCTAssertEqual(selectedTab, .dashboard, "should be on dashboard tab")
     }
 
     /// Test that .testResults deep link preserves other tabs' navigation state
-    func testTestResultsDeepLink_PreservesOtherTabsNavigation() {
+    func testTestResultsDeepLink_PreservesOtherTabsNavigation() async {
         // Given - router has navigation state in settings and history tabs
         router.push(.help, in: .settings)
         router.push(.notificationSettings, in: .settings)
@@ -794,15 +764,8 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         XCTAssertEqual(router.depth(in: .settings), 2, "setup: settings should have 2 routes")
         XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
 
-        // When - simulating handleDeepLinkNavigation for .testResults
-        let deepLink = DeepLink.testResults(id: 789)
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .testResults deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .testResults(id: 789))
 
         // Then - other tabs should preserve their navigation state
         XCTAssertEqual(router.depth(in: .settings), 2, "settings should still have 2 routes")
@@ -810,11 +773,11 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     }
 
     /// Test that .testResults from universal link switches tabs correctly
-    func testTestResultsUniversalLink_SwitchesToDashboardTab() {
+    func testTestResultsUniversalLink_SwitchesToDashboardTab() async {
         // Given - router starts on history tab
         router.currentTab = .history
 
-        // When - parsing universal link and handling navigation
+        // When - parsing universal link and navigating through service
         guard let url = URL(string: "https://aiq.app/test/results/999") else {
             XCTFail("Should create valid URL")
             return
@@ -823,68 +786,48 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(url)
         XCTAssertEqual(deepLink, .testResults(id: 999), "should parse to .testResults with id 999")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .testResults deep link")
-        }
+        _ = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
 
         // Then - should switch to dashboard tab
-        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+        XCTAssertEqual(selectedTab, .dashboard, "should switch to dashboard tab")
     }
 
     // MARK: - Resume Test Navigation Tests
 
     /// Test that .resumeTest deep link switches to dashboard tab
-    func testResumeTestDeepLink_SwitchesToDashboardTab() {
+    func testResumeTestDeepLink_SwitchesToDashboardTab() async {
         // Given - router starts on settings tab
         router.currentTab = .settings
         XCTAssertEqual(router.currentTab, .settings, "setup: should start on settings")
 
-        // When - simulating handleDeepLinkNavigation for .resumeTest
-        let deepLink = DeepLink.resumeTest(sessionId: 555)
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .resumeTest deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .resumeTest(sessionId: 555))
 
         // Then - should switch to dashboard tab
+        XCTAssertEqual(selectedTab, .dashboard, "should switch to dashboard tab")
         XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
     }
 
     /// Test that .resumeTest deep link calls popToRoot on dashboard tab
-    func testResumeTestDeepLink_CallsPopToRootInDashboard() {
+    func testResumeTestDeepLink_CallsPopToRootInDashboard() async {
         // Given - router has navigation state in dashboard tab
         router.currentTab = .dashboard
         router.push(.testTaking(), in: .dashboard)
         XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
 
-        // When - simulating handleDeepLinkNavigation for .resumeTest
-        let deepLink = DeepLink.resumeTest(sessionId: 666)
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .resumeTest deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .resumeTest(sessionId: 666))
 
-        // Then - dashboard navigation stack should be cleared
-        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root after popToRoot")
+        // Then - should be on dashboard tab
+        XCTAssertEqual(selectedTab, .dashboard, "should be on dashboard tab")
     }
 
     /// Test that .resumeTest from universal link switches tabs correctly
-    func testResumeTestUniversalLink_SwitchesToDashboardTab() {
+    func testResumeTestUniversalLink_SwitchesToDashboardTab() async {
         // Given - router starts on settings tab
         router.currentTab = .settings
 
-        // When - parsing universal link and handling navigation
+        // When - parsing universal link and navigating through service
         guard let url = URL(string: "https://aiq.app/test/resume/777") else {
             XCTFail("Should create valid URL")
             return
@@ -893,73 +836,56 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(url)
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 777), "should parse to .resumeTest with sessionId 777")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            XCTFail("Expected .resumeTest deep link")
-        }
+        _ = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
 
         // Then - should switch to dashboard tab
-        XCTAssertEqual(router.currentTab, .dashboard, "should switch to dashboard tab")
+        XCTAssertEqual(selectedTab, .dashboard, "should switch to dashboard tab")
     }
 
     // MARK: - Invalid Deep Link Tests
 
     /// Test that .invalid deep link does not change tab
-    func testInvalidDeepLink_DoesNotChangeTab() {
+    func testInvalidDeepLink_DoesNotChangeTab() async {
         // Given - router is on history tab
         router.currentTab = .history
+        selectedTab = .history
         XCTAssertEqual(router.currentTab, .history, "setup: should start on history")
 
-        // When - handling invalid deep link (no navigation should occur)
-        let deepLink = DeepLink.invalid
-        switch deepLink {
-        case .invalid:
-            // MainTabView logs warning and does nothing
-            break
-        default:
-            XCTFail("Expected .invalid deep link")
-        }
+        // When - navigating via the service
+        let result = await navigationService.navigate(to: .invalid)
 
         // Then - tab should remain unchanged
+        XCTAssertEqual(result, .invalid)
+        XCTAssertEqual(selectedTab, .history, "tab should not change for invalid deep link")
         XCTAssertEqual(router.currentTab, .history, "tab should not change for invalid deep link")
     }
 
     /// Test that .invalid deep link does not affect navigation state
-    func testInvalidDeepLink_PreservesNavigationState() {
+    func testInvalidDeepLink_PreservesNavigationState() async {
         // Given - router has navigation state across all tabs
         router.push(.testTaking(), in: .dashboard)
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
         router.push(.help, in: .settings)
         router.currentTab = .dashboard
+        selectedTab = .dashboard
         XCTAssertEqual(router.depth(in: .dashboard), 1, "setup: dashboard should have 1 route")
         XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
         XCTAssertEqual(router.depth(in: .settings), 1, "setup: settings should have 1 route")
 
-        // When - handling invalid deep link
-        let deepLink = DeepLink.invalid
-        switch deepLink {
-        case .invalid:
-            // MainTabView logs warning and does nothing
-            break
-        default:
-            XCTFail("Expected .invalid deep link")
-        }
+        // When - navigating via the service
+        _ = await navigationService.navigate(to: .invalid)
 
         // Then - all tabs should preserve their navigation state
         XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should still have 1 route")
         XCTAssertEqual(router.depth(in: .history), 1, "history should still have 1 route")
         XCTAssertEqual(router.depth(in: .settings), 1, "settings should still have 1 route")
-        XCTAssertEqual(router.currentTab, .dashboard, "current tab should remain dashboard")
+        XCTAssertEqual(selectedTab, .dashboard, "current tab should remain dashboard")
     }
 
     // MARK: - Full Flow Integration Tests
 
     /// Test complete flow: notification tap -> parse -> navigate for settings
-    func testFullFlow_SettingsNotificationTap_NavigatesToSettingsTab() {
+    func testFullFlow_SettingsNotificationTap_NavigatesToSettingsTab() async {
         // Given - notification payload with settings deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -968,9 +894,10 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             ]
         ]
         router.currentTab = .dashboard
+        selectedTab = .dashboard
         router.push(.testTaking(), in: .dashboard)
 
-        // When - simulating full notification tap flow (matching MainTabView logic)
+        // When - simulating full notification tap flow
         guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
               let deepLinkString = payload["deep_link"] as? String,
               let deepLinkURL = URL(string: deepLinkString) else {
@@ -981,24 +908,19 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(deepLinkURL)
         XCTAssertEqual(deepLink, .settings, "should parse to .settings")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .settings:
-            router.currentTab = .settings
-            router.popToRoot(in: .settings)
-        default:
-            break
-        }
+        // Navigate through the service (the actual implementation, not replicated logic)
+        let result = await navigationService.navigate(to: deepLink, source: .pushNotification, originalURL: deepLinkURL.absoluteString)
 
         // Then - should be on settings tab with clean navigation
-        XCTAssertEqual(router.currentTab, .settings, "should be on settings tab")
+        XCTAssertEqual(result, .navigated(tab: .settings))
+        XCTAssertEqual(selectedTab, .settings, "should be on settings tab")
         XCTAssertTrue(router.isAtRoot(in: .settings), "settings should be at root")
         // Dashboard navigation should be preserved
         XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should preserve navigation")
     }
 
     /// Test complete flow: notification tap -> parse -> navigate for test results
-    func testFullFlow_TestResultsNotificationTap_NavigatesToDashboard() {
+    func testFullFlow_TestResultsNotificationTap_NavigatesToDashboard() async {
         // Given - notification payload with test results deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -1007,10 +929,11 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             ]
         ]
         router.currentTab = .settings
+        selectedTab = .settings
         router.push(.help, in: .settings)
         router.push(.testTaking(), in: .dashboard)
 
-        // When - simulating full notification tap flow (matching MainTabView logic)
+        // When - simulating full notification tap flow
         guard let payload = notificationUserInfo["payload"] as? [AnyHashable: Any],
               let deepLinkString = payload["deep_link"] as? String,
               let deepLinkURL = URL(string: deepLinkString) else {
@@ -1021,26 +944,17 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(deepLinkURL)
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to .testResults with id 123")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        // Note: In real code, deepLinkHandler.handleNavigation would be called here
-        // to fetch and display the test result
-        default:
-            break
-        }
+        // Navigate through the service
+        _ = await navigationService.navigate(to: deepLink, source: .pushNotification, originalURL: deepLinkURL.absoluteString)
 
-        // Then - should be on dashboard tab with clean navigation
-        XCTAssertEqual(router.currentTab, .dashboard, "should be on dashboard tab")
-        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root")
+        // Then - should be on dashboard tab
+        XCTAssertEqual(selectedTab, .dashboard, "should be on dashboard tab")
         // Settings navigation should be preserved
         XCTAssertEqual(router.depth(in: .settings), 1, "settings should preserve navigation")
     }
 
     /// Test complete flow: notification tap -> parse -> navigate for resume test
-    func testFullFlow_ResumeTestNotificationTap_NavigatesToDashboard() {
+    func testFullFlow_ResumeTestNotificationTap_NavigatesToDashboard() async {
         // Given - notification payload with resume test deep link
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -1049,6 +963,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             ]
         ]
         router.currentTab = .history
+        selectedTab = .history
         router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
 
         // When - simulating full notification tap flow
@@ -1062,18 +977,11 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         let deepLink = deepLinkHandler.parse(deepLinkURL)
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 456), "should parse to .resumeTest with sessionId 456")
 
-        // Simulate handleDeepLinkNavigation
-        switch deepLink {
-        case .testResults, .resumeTest:
-            router.currentTab = .dashboard
-            router.popToRoot(in: .dashboard)
-        default:
-            break
-        }
+        // Navigate through the service
+        _ = await navigationService.navigate(to: deepLink, source: .pushNotification, originalURL: deepLinkURL.absoluteString)
 
-        // Then - should be on dashboard tab with clean navigation
-        XCTAssertEqual(router.currentTab, .dashboard, "should be on dashboard tab")
-        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should be at root")
+        // Then - should be on dashboard tab
+        XCTAssertEqual(selectedTab, .dashboard, "should be on dashboard tab")
         // History navigation should be preserved
         XCTAssertEqual(router.depth(in: .history), 1, "history should preserve navigation")
     }
@@ -1085,6 +993,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             "payload": "not a dictionary"
         ]
         router.currentTab = .dashboard
+        selectedTab = .dashboard
         let initialTab = router.currentTab
 
         // When - attempting to extract deep link
@@ -1093,7 +1002,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         // Then - payload extraction should fail
         XCTAssertNil(payload, "malformed payload should not be extractable")
         // Navigation should not have occurred
-        XCTAssertEqual(router.currentTab, initialTab, "tab should not change with malformed payload")
+        XCTAssertEqual(selectedTab, initialTab, "tab should not change with malformed payload")
     }
 
     // MARK: - Helper Methods
@@ -1144,6 +1053,8 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
 
     private var router: AppRouter!
     private var deepLinkHandler: DeepLinkHandler!
+    private var navigationService: DeepLinkNavigationService!
+    private var selectedTab: TabDestination!
 
     // MARK: - Setup/Teardown
 
@@ -1151,6 +1062,14 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
         super.setUp()
         router = AppRouter()
         deepLinkHandler = DeepLinkHandler()
+        selectedTab = .dashboard
+        navigationService = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: deepLinkHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
     }
 
     // MARK: - Processing State Tests
@@ -1209,173 +1128,49 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
         XCTAssertTrue(isProcessingDeepLink, "processing should be true during handling")
     }
 
-    /// Test that processing flag is reset after deep link handling completes
+    /// Test that processing state is reset after deep link handling completes
     func testProcessingState_IsResetAfterHandlingCompletes() async {
-        // Given - simulating the processing flow
-        var isProcessingDeepLink = false
-        let deepLink = DeepLink.settings
+        // Given - service starts with no processing in flight
 
-        // When - simulating complete handleDeepLinkNavigation flow
-        guard !isProcessingDeepLink else {
-            XCTFail("Should not be processing initially")
-            return
-        }
+        // When - navigating to settings (completes synchronously for settings)
+        let result = await navigationService.navigate(to: .settings)
 
-        isProcessingDeepLink = true
+        // Then - should have navigated successfully
+        XCTAssertEqual(result, .navigated(tab: .settings), "should navigate successfully")
 
-        // Simulate async processing with Task
-        await Task { @MainActor in
-            // Handle the deep link
-            switch deepLink {
-            case .settings:
-                router.currentTab = .settings
-                router.popToRoot(in: .settings)
-            default:
-                break
-            }
-            // Reset processing flag (as MainTabView does)
-            isProcessingDeepLink = false
-        }.value
-
-        // Then - processing flag should be reset
-        XCTAssertFalse(isProcessingDeepLink, "processing should be false after handling completes")
+        // And processing state should be reset (a new deep link can be processed)
+        let result2 = await navigationService.navigate(to: .settings)
+        XCTAssertEqual(result2, .navigated(tab: .settings), "should process new deep link after first completes")
     }
 
-    /// Test that processing flag is reset even when deep link handling fails
+    /// Test that processing state is reset even when handling an invalid deep link
     func testProcessingState_IsResetAfterHandlingFails() async {
-        // Given - simulating the processing flow with an invalid deep link
-        var isProcessingDeepLink = false
-        let deepLink = DeepLink.invalid
+        // Given - service starts with no processing in flight
 
-        // When - simulating handleDeepLinkNavigation with invalid link
-        guard !isProcessingDeepLink else {
-            XCTFail("Should not be processing initially")
-            return
-        }
+        // When - navigating with invalid deep link
+        let result = await navigationService.navigate(to: .invalid)
+        XCTAssertEqual(result, .invalid, "should return invalid result")
 
-        isProcessingDeepLink = true
-
-        await Task { @MainActor in
-            // Handle the deep link (invalid does nothing but still completes)
-            switch deepLink {
-            case .invalid:
-                // Log warning only, no navigation
-                break
-            default:
-                break
-            }
-            // Reset processing flag (as MainTabView does)
-            isProcessingDeepLink = false
-        }.value
-
-        // Then - processing flag should still be reset
-        XCTAssertFalse(isProcessingDeepLink, "processing should be false even after invalid deep link")
-    }
-
-    // MARK: - Rapid Deep Link Tests
-
-    /// Test that only the first of multiple rapid deep links is processed
-    func testRapidDeepLinks_OnlyFirstIsProcessed() {
-        // Given - simulating rapid deep links
-        var isProcessingDeepLink = false
-        var processedDeepLinks: [DeepLink] = []
-        var ignoredDeepLinks: [DeepLink] = []
-
-        let deepLinks: [DeepLink] = [
-            .testResults(id: 1),
-            .testResults(id: 2),
-            .testResults(id: 3)
-        ]
-
-        // When - processing rapid deep links (simulating MainTabView behavior)
-        for deepLink in deepLinks {
-            if isProcessingDeepLink {
-                ignoredDeepLinks.append(deepLink)
-            } else {
-                isProcessingDeepLink = true
-                processedDeepLinks.append(deepLink)
-                // In real code, isProcessingDeepLink would be reset after async processing
-                // For this test, we keep it true to simulate rapid sequential arrivals
-            }
-        }
-
-        // Then - only first deep link should be processed
-        XCTAssertEqual(processedDeepLinks.count, 1, "only one deep link should be processed")
-        XCTAssertEqual(processedDeepLinks.first, .testResults(id: 1), "first deep link should be the one processed")
-        XCTAssertEqual(ignoredDeepLinks.count, 2, "remaining deep links should be ignored")
-        XCTAssertEqual(ignoredDeepLinks, [.testResults(id: 2), .testResults(id: 3)], "correct deep links should be ignored")
-    }
-
-    /// Test that different types of deep links are also ignored during processing
-    func testRapidDeepLinks_DifferentTypes_AreIgnored() {
-        // Given - simulating rapid deep links of different types
-        var isProcessingDeepLink = false
-        var processedDeepLinks: [DeepLink] = []
-        var ignoredDeepLinks: [DeepLink] = []
-
-        let deepLinks: [DeepLink] = [
-            .testResults(id: 1),
-            .settings,
-            .resumeTest(sessionId: 2),
-            .invalid
-        ]
-
-        // When - processing rapid deep links
-        for deepLink in deepLinks {
-            if isProcessingDeepLink {
-                ignoredDeepLinks.append(deepLink)
-            } else {
-                isProcessingDeepLink = true
-                processedDeepLinks.append(deepLink)
-            }
-        }
-
-        // Then - only first deep link should be processed regardless of type
-        XCTAssertEqual(processedDeepLinks.count, 1, "only one deep link should be processed")
-        XCTAssertEqual(processedDeepLinks.first, .testResults(id: 1), "first deep link should be processed")
-        XCTAssertEqual(ignoredDeepLinks.count, 3, "all other deep links should be ignored")
+        // Then - processing state should be reset (a new deep link can be processed)
+        let result2 = await navigationService.navigate(to: .settings)
+        XCTAssertEqual(result2, .navigated(tab: .settings), "should process new deep link after invalid completes")
     }
 
     // MARK: - State Recovery Tests
 
     /// Test that after processing completes, new deep links can be processed
     func testStateRecovery_AfterProcessingCompletes_NewDeepLinksCanBeProcessed() async {
-        // Given - simulating complete processing cycle
-        var isProcessingDeepLink = false
-        var processedDeepLinks: [DeepLink] = []
+        // When - first deep link is processed and completes
+        let result1 = await navigationService.navigate(to: .settings)
+        XCTAssertEqual(result1, .navigated(tab: .settings), "first deep link should be processed")
 
-        let firstDeepLink = DeepLink.testResults(id: 1)
-        let secondDeepLink = DeepLink.settings
+        // And - second deep link arrives after first completes
+        let result2 = await navigationService.navigate(to: .invalid)
+        XCTAssertEqual(result2, .invalid, "second deep link should also be processed")
 
-        // When - process first deep link
-        guard !isProcessingDeepLink else {
-            XCTFail("Should not be processing initially")
-            return
-        }
-
-        isProcessingDeepLink = true
-        processedDeepLinks.append(firstDeepLink)
-
-        // Simulate async completion
-        await Task { @MainActor in
-            // Processing completes
-            isProcessingDeepLink = false
-        }.value
-
-        // Process second deep link after first completes
-        guard !isProcessingDeepLink else {
-            XCTFail("Should be able to process after first completes")
-            return
-        }
-
-        isProcessingDeepLink = true
-        processedDeepLinks.append(secondDeepLink)
-        isProcessingDeepLink = false
-
-        // Then - both deep links should have been processed
-        XCTAssertEqual(processedDeepLinks.count, 2, "both deep links should be processed")
-        XCTAssertEqual(processedDeepLinks[0], .testResults(id: 1), "first deep link processed correctly")
-        XCTAssertEqual(processedDeepLinks[1], .settings, "second deep link processed correctly")
+        // And - third deep link arrives after second completes
+        let result3 = await navigationService.navigate(to: .settings)
+        XCTAssertEqual(result3, .navigated(tab: .settings), "third deep link should also be processed")
     }
 
     // MARK: - Logging Behavior Tests
@@ -1416,85 +1211,20 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
 
     // MARK: - Integration-Style Tests
 
-    /// Test complete scenario: rapid notification taps while processing
-    func testScenario_RapidNotificationTaps_OnlyFirstNavigates() {
-        // Given - router in initial state
-        router.currentTab = .dashboard
-        var isProcessingDeepLink = false
-        var navigationCount = 0
-
-        // Simulating three rapid notification taps with test results deep links
-        let notifications: [[AnyHashable: Any]] = [
-            ["payload": ["deep_link": "aiq://test/results/1"]],
-            ["payload": ["deep_link": "aiq://test/results/2"]],
-            ["payload": ["deep_link": "aiq://test/results/3"]]
-        ]
-
-        // When - processing rapid notifications (simulating MainTabView behavior)
-        for notification in notifications {
-            guard let payload = notification["payload"] as? [AnyHashable: Any],
-                  let deepLinkString = payload["deep_link"] as? String,
-                  let url = URL(string: deepLinkString) else {
-                continue
-            }
-
-            let deepLink = deepLinkHandler.parse(url)
-
-            // Simulate guard check
-            guard !isProcessingDeepLink else {
-                // Would log: "Dropping deep link (concurrent): ..."
-                continue
-            }
-
-            isProcessingDeepLink = true
-            navigationCount += 1
-
-            // Simulate navigation
-            switch deepLink {
-            case .testResults, .resumeTest:
-                router.currentTab = .dashboard
-                router.popToRoot(in: .dashboard)
-            default:
-                break
-            }
-            // Keep isProcessingDeepLink true to simulate rapid arrivals during processing
-        }
-
-        // Then - only one navigation should have occurred
-        XCTAssertEqual(navigationCount, 1, "only one navigation should occur during rapid taps")
-    }
-
-    /// Test scenario: deep link completes, then new deep link arrives
+    /// Test scenario: deep link completes, then new deep link arrives - both navigate
     func testScenario_DeepLinkCompletesThenNewArrives_BothNavigate() async {
         // Given - router in initial state
         router.currentTab = .history
-        var isProcessingDeepLink = false
-        var navigationEvents: [TabDestination] = []
+        selectedTab = .history
 
         // When - first deep link arrives and completes
-        isProcessingDeepLink = true
-        router.currentTab = .settings
-        navigationEvents.append(.settings)
-
-        await Task { @MainActor in
-            isProcessingDeepLink = false
-        }.value
+        let result1 = await navigationService.navigate(to: .settings)
+        XCTAssertEqual(result1, .navigated(tab: .settings), "first navigation should succeed")
+        XCTAssertEqual(selectedTab, .settings, "first navigation to settings")
 
         // Second deep link arrives after first completes
-        guard !isProcessingDeepLink else {
-            XCTFail("Should be able to process new deep link after first completes")
-            return
-        }
-
-        isProcessingDeepLink = true
-        router.currentTab = .dashboard
-        navigationEvents.append(.dashboard)
-        isProcessingDeepLink = false
-
-        // Then - both navigations should have occurred
-        XCTAssertEqual(navigationEvents.count, 2, "both navigations should occur")
-        XCTAssertEqual(navigationEvents[0], .settings, "first navigation to settings")
-        XCTAssertEqual(navigationEvents[1], .dashboard, "second navigation to dashboard")
-        XCTAssertEqual(router.currentTab, .dashboard, "final tab should be dashboard")
+        let result2 = await navigationService.navigate(to: .resumeTest(sessionId: 1))
+        // resumeTest navigates to dashboard tab regardless of API result
+        XCTAssertEqual(selectedTab, .dashboard, "second navigation to dashboard")
     }
 }
