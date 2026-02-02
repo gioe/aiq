@@ -138,7 +138,6 @@ enum AccessibilityIdentifiers {
         static let performanceLabel = "testResultsView.performanceLabel"
         static let domainScoresSection = "testResultsView.domainScoresSection"
         static let doneButton = "testResultsView.doneButton"
-        static let shareButton = "testResultsView.shareButton"
     }
 
     // MARK: - Test Detail View
@@ -192,8 +191,6 @@ enum AccessibilityIdentifiers {
         static let loadingView = "common.loadingView"
         static let errorView = "common.errorView"
         static let retryButton = "common.retryButton"
-        static let primaryButton = "common.primaryButton"
-        static let secondaryButton = "common.secondaryButton"
     }
 
     // MARK: - Error Banner
@@ -220,14 +217,6 @@ enum AccessibilityIdentifiers {
         static let enableNotificationsToggle = "notificationSettings.enableNotificationsToggle"
         static let permissionButton = "notificationSettings.permissionButton"
         static let statusLabel = "notificationSettings.statusLabel"
-    }
-
-    // MARK: - Help View
-
-    enum HelpView {
-        static let scrollView = "helpView.scrollView"
-        static let contactSupportButton = "helpView.contactSupportButton"
-        static let faqSection = "helpView.faqSection"
     }
 
     // MARK: - Feedback View
