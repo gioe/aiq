@@ -13,7 +13,7 @@ factor-analyzer==0.5.1
 
 # FastAPI and server (will be used in later phases)
 fastapi==0.115.0
-uvicorn[standard]==0.32.1
+uvicorn[standard]==0.40.0
 gunicorn==22.0.0
 pydantic==2.10.0
 pydantic-settings==2.6.1
