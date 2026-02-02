@@ -45,8 +45,8 @@ class TestGetUnseenQuestions:
         assert response.status_code == 200
         data = response.json()
 
-        # Default should be 20, but we only have 4 active questions
-        assert data["requested_count"] == 20
+        # Default should be 25, but we only have 4 active questions
+        assert data["requested_count"] == 25
         assert data["total_count"] == 4  # Only 4 active questions available
         assert len(data["questions"]) == 4
 
