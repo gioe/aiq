@@ -9,7 +9,7 @@
 
 Computerized Adaptive Testing (CAT) dynamically selects questions based on a test-taker's estimated ability, converging on a precise score with fewer items than fixed-form tests. Research consistently shows CAT achieves equivalent reliability using **50% fewer items** (10-15 items vs. AIQ's current 25). For a mobile cognitive assessment app, this translates directly to reduced user fatigue and higher completion rates.
 
-AIQ's current infrastructure provides a strong foundation for CAT: IRT parameter columns exist in the database (currently NULL), 1,542 calibrated items span 6 domains, discrimination and empirical difficulty are tracked, and individual response data is stored. The primary blocker is **calibration data** — zero user responses exist in production. A 2PL IRT model is recommended initially, requiring ~200-500 responses per item for stable parameter estimation.
+AIQ's current infrastructure provides a strong foundation for CAT: IRT parameter columns exist in the database (currently NULL), 1,542 items span 6 domains (judge-rated but not yet empirically calibrated), discrimination and empirical difficulty tracking is in place, and individual response data storage is ready. The primary blocker is **calibration data** — zero user responses exist in production. A 2PL IRT model is recommended initially, requiring ~200-500 responses per item for stable parameter estimation.
 
 **Recommendation:** Begin with a data collection phase using the current fixed-form test, plan for IRT calibration at ~500 completed tests, and target CAT launch after calibration validation. Item bank expansion to 200+ items per domain should proceed in parallel.
 
@@ -255,11 +255,14 @@ When to end the test:
 | Rule | Threshold | Purpose |
 |------|-----------|---------|
 | **Primary: SE threshold** | SE(θ) < 0.30 | Stop when precision is sufficient |
-| **Minimum items** | ≥ 5 | Ensure content coverage |
+| **Minimum items** | ≥ 8 | Ensure content coverage across domains |
 | **Maximum items** | ≤ 15 | Prevent excessive test length |
+| **Content balance check** | ≥ 1 item per domain OR ≥ 10 items | Prevent domain gaps in short tests |
 | **Supplementary: Change in θ** | Δθ < 0.03 | Stop when estimates stabilize |
 
-The SE threshold of 0.30 on the theta scale corresponds to a reliability of approximately 0.91, which exceeds AIQ's current target of 0.90. On the IQ scale (SD=15), this translates to a 95% CI of approximately ±8.8 points — comparable to the current SEM table at α=0.91 (`backend/app/core/scoring.py:568-933`).
+The minimum of 8 items (rather than 5) reflects AIQ's 6-domain structure — with fewer than 8 items, content balancing cannot ensure meaningful coverage across domains. The content balance check adds a secondary guard: even if SE converges quickly, the test should not terminate until either every domain has been sampled or at least 10 items have been administered.
+
+The SE threshold of 0.30 on the theta scale corresponds to a reliability of approximately 0.91, which exceeds AIQ's current target of 0.90. On the IQ scale (SD=15), this translates to a 95% CI of approximately ±8.8 points — comparable to the current SEM table at α=0.91 (`backend/app/core/scoring.py`).
 
 ### 5.5 Score Conversion
 
@@ -331,6 +334,19 @@ ALTER TABLE test_sessions ADD COLUMN stopping_reason TEXT;   -- 'se_threshold', 
 ALTER TABLE test_results ADD COLUMN theta_estimate FLOAT;
 ALTER TABLE test_results ADD COLUMN theta_se FLOAT;
 ALTER TABLE test_results ADD COLUMN scoring_method TEXT DEFAULT 'ctt';  -- 'ctt' or 'irt'
+
+-- Indexes for CAT item selection queries
+CREATE INDEX idx_questions_irt_selection
+  ON questions(question_type, irt_difficulty, irt_discrimination)
+  WHERE irt_difficulty IS NOT NULL AND irt_discrimination IS NOT NULL AND is_active = TRUE;
+
+CREATE INDEX idx_questions_irt_calibrated
+  ON questions(irt_calibrated_at)
+  WHERE irt_calibrated_at IS NOT NULL;
+
+CREATE INDEX idx_test_sessions_adaptive
+  ON test_sessions(is_adaptive)
+  WHERE is_adaptive = TRUE;
 ```
 
 ### 6.4 API Changes
@@ -456,7 +472,8 @@ Tasks:
 | Multidimensionality violates unidimensional IRT | Medium | Biased estimates | Content balancing, eventual MIRT |
 | Small item bank limits θ range | Low (bank is large) | Imprecise at extremes | Generate targeted extreme-difficulty items |
 | Test speededness affects IRT assumptions | Low | Invalid parameters | Response time monitoring already exists |
-| Score comparability (fixed vs. adaptive) | Medium | User confusion | Maintain both modes during transition |
+| Score comparability (fixed vs. adaptive) | Medium | User confusion | Maintain both modes during transition, assign users to consistent mode |
+| Longitudinal trend disruption during A/B test | Medium | Invalid trend data | Keep individual users in one mode throughout A/B period; document equating methodology |
 
 ### 8.3 Effort Considerations
 
