@@ -22,10 +22,10 @@ final class TestTimerManagerTests: XCTestCase {
     // MARK: - Initial State Tests
 
     func testInitialState_HasCorrectDefaults() {
-        XCTAssertEqual(sut.remainingSeconds, 1800, "Should start with 30 minutes (1800 seconds)")
+        XCTAssertEqual(sut.remainingSeconds, 2100, "Should start with 35 minutes (2100 seconds)")
         XCTAssertFalse(sut.showWarning, "Warning should be false initially")
         XCTAssertFalse(sut.hasExpired, "Should not be expired initially")
-        XCTAssertEqual(sut.formattedTime, "30:00", "Formatted time should be 30:00")
+        XCTAssertEqual(sut.formattedTime, "35:00", "Formatted time should be 35:00")
         XCTAssertEqual(sut.progress, 1.0, "Progress should be 1.0 (full)")
         XCTAssertEqual(sut.timerColor, .normal, "Timer color should be normal")
     }
@@ -59,15 +59,15 @@ final class TestTimerManagerTests: XCTestCase {
         XCTAssertTrue(started, "Should return true when time remaining")
         // Allow for 1-2 second variance due to test execution time
         XCTAssertTrue(
-            sut.remainingSeconds >= 1738 && sut.remainingSeconds <= 1742,
-            "Should have ~1740 seconds remaining (30min - 60s). Actual: \(sut.remainingSeconds)"
+            sut.remainingSeconds >= 2038 && sut.remainingSeconds <= 2042,
+            "Should have ~2040 seconds remaining (35min - 60s). Actual: \(sut.remainingSeconds)"
         )
         XCTAssertFalse(sut.hasExpired, "Should not be expired")
     }
 
     func testStartWithSessionTime_ReturnsfalseWhenAlreadyExpired() {
-        // Given - Session started 31 minutes ago (already expired)
-        let sessionStart = Date().addingTimeInterval(-1860)
+        // Given - Session started 36 minutes ago (already expired)
+        let sessionStart = Date().addingTimeInterval(-2160)
 
         // When
         let started = sut.startWithSessionTime(sessionStart)
@@ -80,8 +80,8 @@ final class TestTimerManagerTests: XCTestCase {
     }
 
     func testStartWithSessionTime_SetsWarningWhenUnderFiveMinutes() {
-        // Given - Session started 26 minutes ago (4 minutes remaining)
-        let sessionStart = Date().addingTimeInterval(-1560) // 26 * 60 = 1560
+        // Given - Session started 31 minutes ago (4 minutes remaining)
+        let sessionStart = Date().addingTimeInterval(-1860) // 31 * 60 = 1860
 
         // When
         let started = sut.startWithSessionTime(sessionStart)
@@ -137,7 +137,7 @@ final class TestTimerManagerTests: XCTestCase {
 
     func testResume_DoesNotResumeWhenExpired() {
         // Given
-        let sessionStart = Date().addingTimeInterval(-1860) // Already expired
+        let sessionStart = Date().addingTimeInterval(-2160) // Already expired
         sut.startWithSessionTime(sessionStart)
 
         // Verify expired state
@@ -155,7 +155,7 @@ final class TestTimerManagerTests: XCTestCase {
 
     func testWarningTriggersAtFiveMinutes() async {
         // Given - Start with 301 seconds remaining (just over 5 minutes)
-        let sessionStart = Date().addingTimeInterval(-(1800 - 301))
+        let sessionStart = Date().addingTimeInterval(-(2100 - 301))
         sut.startWithSessionTime(sessionStart)
 
         // Verify initial state
@@ -186,7 +186,7 @@ final class TestTimerManagerTests: XCTestCase {
 
     func testTimerColorChangesToWarningAtFiveMinutes() {
         // Given - Session with exactly 5 minutes remaining
-        let sessionStart = Date().addingTimeInterval(-(1800 - 300))
+        let sessionStart = Date().addingTimeInterval(-(2100 - 300))
         sut.startWithSessionTime(sessionStart)
 
         // Then
@@ -199,7 +199,7 @@ final class TestTimerManagerTests: XCTestCase {
 
     func testTimerColorChangesToCriticalAtOneMinute() {
         // Given - Session with 1 minute remaining
-        let sessionStart = Date().addingTimeInterval(-(1800 - 60))
+        let sessionStart = Date().addingTimeInterval(-(2100 - 60))
         sut.startWithSessionTime(sessionStart)
 
         // Then
@@ -214,7 +214,7 @@ final class TestTimerManagerTests: XCTestCase {
 
     func testTimerExpiresAtZero() async {
         // Given - Start with just 1 second remaining
-        let sessionStart = Date().addingTimeInterval(-(1800 - 1))
+        let sessionStart = Date().addingTimeInterval(-(2100 - 1))
         sut.startWithSessionTime(sessionStart)
 
         // When - Wait for expiration
@@ -242,41 +242,41 @@ final class TestTimerManagerTests: XCTestCase {
         // Given - Timer has been running
         let sessionStart = Date().addingTimeInterval(-600) // 10 minutes elapsed
         sut.startWithSessionTime(sessionStart)
-        XCTAssertTrue(sut.remainingSeconds < 1800, "Time should have elapsed")
+        XCTAssertTrue(sut.remainingSeconds < 2100, "Time should have elapsed")
 
         // When
         sut.reset()
 
         // Then
-        XCTAssertEqual(sut.remainingSeconds, 1800, "Should reset to 30 minutes")
+        XCTAssertEqual(sut.remainingSeconds, 2100, "Should reset to 35 minutes")
         XCTAssertFalse(sut.showWarning, "Warning should be reset")
         XCTAssertFalse(sut.hasExpired, "Expired flag should be reset")
-        XCTAssertEqual(sut.formattedTime, "30:00", "Formatted time should be 30:00")
+        XCTAssertEqual(sut.formattedTime, "35:00", "Formatted time should be 35:00")
     }
 
     // MARK: - Formatted Time Tests
 
     func testFormattedTime_DisplaysCorrectly() {
         // Test various remaining times
-        // 30 minutes
-        XCTAssertEqual(sut.formattedTime, "30:00")
+        // 35 minutes
+        XCTAssertEqual(sut.formattedTime, "35:00")
 
         // 5 minutes
-        let fiveMinStart = Date().addingTimeInterval(-(1800 - 300))
+        let fiveMinStart = Date().addingTimeInterval(-(2100 - 300))
         sut.startWithSessionTime(fiveMinStart)
         sut.pause()
         XCTAssertEqual(sut.formattedTime, "05:00")
 
         // Reset and test 1 minute
         sut.reset()
-        let oneMinStart = Date().addingTimeInterval(-(1800 - 60))
+        let oneMinStart = Date().addingTimeInterval(-(2100 - 60))
         sut.startWithSessionTime(oneMinStart)
         sut.pause()
         XCTAssertEqual(sut.formattedTime, "01:00")
 
         // Reset and test 59 seconds
         sut.reset()
-        let fiftyNineSecStart = Date().addingTimeInterval(-(1800 - 59))
+        let fiftyNineSecStart = Date().addingTimeInterval(-(2100 - 59))
         sut.startWithSessionTime(fiftyNineSecStart)
         sut.pause()
         XCTAssertEqual(sut.formattedTime, "00:59")
@@ -289,14 +289,14 @@ final class TestTimerManagerTests: XCTestCase {
         XCTAssertEqual(sut.progress, 1.0)
 
         // Half time = 0.5
-        let halfTimeStart = Date().addingTimeInterval(-900) // 15 minutes elapsed
+        let halfTimeStart = Date().addingTimeInterval(-1050) // 17.5 minutes elapsed
         sut.startWithSessionTime(halfTimeStart)
         sut.pause()
         XCTAssertEqual(sut.progress, 0.5, accuracy: 0.01)
 
         // No time = 0.0
         sut.reset()
-        let expiredStart = Date().addingTimeInterval(-1860)
+        let expiredStart = Date().addingTimeInterval(-2160)
         sut.startWithSessionTime(expiredStart)
         XCTAssertEqual(sut.progress, 0.0)
     }
@@ -306,8 +306,8 @@ final class TestTimerManagerTests: XCTestCase {
     func testConstants_HaveCorrectValues() {
         XCTAssertEqual(
             TestTimerManager.totalTimeSeconds,
-            1800,
-            "Total time should be 30 minutes (1800 seconds)"
+            2100,
+            "Total time should be 35 minutes (2100 seconds)"
         )
         XCTAssertEqual(
             TestTimerManager.warningThresholdSeconds,
@@ -341,7 +341,7 @@ final class TestTimerManagerTests: XCTestCase {
 
         // Then - Should not crash and state should be valid
         XCTAssertFalse(sut.hasExpired)
-        XCTAssertEqual(sut.remainingSeconds, 1800)
+        XCTAssertEqual(sut.remainingSeconds, 2100)
     }
 
     func testResumeWhileNotPaused_DoesNotCrash() {
