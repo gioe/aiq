@@ -14,7 +14,10 @@ from app.core.analytics import (
     calculate_g_loadings,
 )
 from app.core.datetime_utils import utc_now
-from app.core.time_analysis import get_aggregate_response_time_analytics
+from app.core.time_analysis import (
+    get_aggregate_response_time_analytics,
+    get_response_time_percentiles,
+)
 from app.models import get_db
 from app.schemas.factor_analysis import (
     FactorAnalysisRecommendation,
@@ -26,10 +29,13 @@ from app.schemas.response_time_analytics import (
     AnomalySummary,
     ByDifficultyStats,
     ByQuestionTypeStats,
+    DetailedResponseTimeAnalyticsResponse,
     DifficultyTimeStats,
     OverallTimeStats,
+    PercentileStats,
     QuestionTypeTimeStats,
     ResponseTimeAnalyticsResponse,
+    TypeDifficultyBreakdown,
 )
 
 from ._dependencies import logger, verify_admin_token
@@ -185,6 +191,81 @@ async def get_response_time_analytics(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve response time analytics: {str(e)}",
+        )
+
+
+# =============================================================================
+# Detailed Response Time Percentile Analytics Endpoint (TASK-836)
+# =============================================================================
+
+
+@router.get(
+    "/analytics/response-times/detailed",
+    response_model=DetailedResponseTimeAnalyticsResponse,
+)
+async def get_detailed_response_time_analytics(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Get detailed response time percentile distributions by question type and difficulty.
+
+    Returns privacy-preserving aggregate statistics (no individual user tracking)
+    including median (p50), p90, and p95 percentiles for each combination of
+    question type and difficulty level. Use this data to validate whether current
+    time limits are appropriate for each question category.
+
+    Requires X-Admin-Token header with valid admin token.
+
+    **By Type and Difficulty:**
+    - Percentile stats for each (question_type, difficulty_level) combination
+
+    **By Type:**
+    - Percentile stats aggregated by question type across all difficulties
+
+    **By Difficulty:**
+    - Percentile stats aggregated by difficulty level across all types
+
+    **Overall:**
+    - Percentile stats across all response times
+    """
+    try:
+        analytics = get_response_time_percentiles(db)
+
+        by_type_and_difficulty = [
+            TypeDifficultyBreakdown(
+                question_type=item["question_type"],
+                difficulty_level=item["difficulty_level"],
+                stats=PercentileStats(**item["stats"]),
+            )
+            for item in analytics["by_type_and_difficulty"]
+        ]
+
+        by_type = {
+            q_type: PercentileStats(**stats)
+            for q_type, stats in analytics["by_type"].items()
+        }
+
+        by_difficulty = {
+            d_level: PercentileStats(**stats)
+            for d_level, stats in analytics["by_difficulty"].items()
+        }
+
+        overall = PercentileStats(**analytics["overall"])
+
+        return DetailedResponseTimeAnalyticsResponse(
+            by_type_and_difficulty=by_type_and_difficulty,
+            by_type=by_type,
+            by_difficulty=by_difficulty,
+            overall=overall,
+            total_responses_analyzed=analytics["total_responses_analyzed"],
+        )
+
+    except Exception as e:
+        logger.exception(f"Detailed response time analytics failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve detailed response time analytics. Please try again later.",
         )
 
 
