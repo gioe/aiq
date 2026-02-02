@@ -283,21 +283,37 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
         XCTAssertEqual(selectedTab, .dashboard, "current tab should remain dashboard")
     }
 
-    // MARK: - Concurrent Processing Tests
+    // MARK: - Sequential Processing Tests
 
-    /// Test that the service returns .dropped when a deep link is already being processed
-    func testConcurrentDeepLinks_SecondIsDrop() async {
-        // Given - create a service with a slow handler to simulate processing
-        // We use the real service - the first call will be in-flight when second arrives
-        // Since both calls are sequential in this test (async/await), we verify the flag logic
-
-        // First navigation starts
+    /// Test that after processing completes, the processing flag is reset and new deep links work
+    ///
+    /// Note: The concurrent processing guard (`isProcessingDeepLink`) in `DeepLinkNavigationService`
+    /// is designed for the case where `navigate()` is called from SwiftUI's `onReceive` which creates
+    /// a `Task {}`. The flag is checked synchronously before the Task body runs. Since
+    /// `DeepLinkNavigationService` is `@MainActor`, sequential `await` calls serialize correctly,
+    /// so the flag is always reset between calls. True concurrent testing of the flag requires
+    /// testing at the MainTabView level where `Task {}` creates unstructured concurrency.
+    func testSequentialDeepLinks_BothProcessed() async {
+        // Given/When - first navigation completes
         let result1 = await sut.navigate(to: .settings)
         XCTAssertEqual(result1, .navigated(tab: .settings), "first deep link should be processed")
 
-        // After completion, processing flag is reset, so a new deep link can be processed
+        // Then - second navigation also completes (processing flag was reset)
         let result2 = await sut.navigate(to: .settings)
         XCTAssertEqual(result2, .navigated(tab: .settings), "second deep link should also be processed after first completes")
+    }
+
+    /// Test that processing flag is reset even after invalid deep links
+    func testSequentialDeepLinks_AfterInvalid_NewDeepLinksWork() async {
+        // Given - an invalid deep link is processed
+        let result1 = await sut.navigate(to: .invalid)
+        XCTAssertEqual(result1, .invalid, "invalid deep link should return .invalid")
+
+        // When - a valid deep link follows
+        let result2 = await sut.navigate(to: .settings)
+
+        // Then - it should be processed normally
+        XCTAssertEqual(result2, .navigated(tab: .settings), "should process after invalid completes")
     }
 
     // MARK: - Full Flow Integration Tests
