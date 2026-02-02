@@ -30,7 +30,7 @@ aioapns==3.3
 
 # Admin Dashboard
 sqladmin==0.16.1
-itsdangerous==2.1.2  # Required for session middleware
+itsdangerous==2.2.0  # Required for session middleware
 psutil==5.9.8  # Process and system monitoring
 
 # Redis (for distributed rate limiting in multi-worker deployments)
