@@ -56,6 +56,7 @@ struct NotificationSettingsView: View {
                 ))
                 .disabled(!viewModel.canToggle)
                 .labelsHidden()
+                .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSettings.enableNotificationsToggle)
             }
             .padding(.vertical, 8)
 
@@ -73,6 +74,7 @@ struct NotificationSettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSettings.statusLabel)
 
                         Spacer()
 
@@ -87,6 +89,7 @@ struct NotificationSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)
+                .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSettings.permissionButton)
             }
         }
         .task {
