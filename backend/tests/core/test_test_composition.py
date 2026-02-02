@@ -13,12 +13,12 @@ class TestDifficultyDistribution:
     """Test that difficulty distribution produces expected question counts."""
 
     def test_25_question_distribution(self, db_session, test_user):
-        """For 25 questions, distribution should be 5 easy, 12 medium (+1 rounding), 7 hard."""
+        """For 25 questions, distribution should be 5 easy, 13 medium, 7 hard with weighted domains."""
         # Create enough questions across all difficulties and types
         question_types = list(QuestionType)
         for difficulty in DifficultyLevel:
             for i, qt in enumerate(question_types):
-                for j in range(5):  # 5 per type per difficulty
+                for j in range(10):  # 10 per type per difficulty for sufficient pool
                     q = Question(
                         question_text=f"Q-{difficulty.value}-{qt.value}-{j}",
                         question_type=qt,
@@ -49,6 +49,200 @@ class TestDifficultyDistribution:
         # 25 * 0.50 = 12.5 -> 12, plus 1 rounding adjustment = 13 medium
         assert medium_count == 13
         assert easy_count + medium_count + hard_count == 25
+
+        # Verify domain distribution matches weights within tolerance
+        domain_counts = metadata["domain"]
+
+        # Expected counts based on weights (25 questions total):
+        # pattern: 25 * 0.22 = 5.5 -> 5 or 6
+        # logic: 25 * 0.20 = 5.0 -> 5
+        # verbal: 25 * 0.19 = 4.75 -> 4 or 5
+        # spatial: 25 * 0.16 = 4.0 -> 4
+        # math: 25 * 0.13 = 3.25 -> 3 or 4
+        # memory: 25 * 0.10 = 2.5 -> 2 or 3
+
+        pattern_count = domain_counts.get("pattern", 0)
+        logic_count = domain_counts.get("logic", 0)
+        verbal_count = domain_counts.get("verbal", 0)
+        spatial_count = domain_counts.get("spatial", 0)
+        math_count = domain_counts.get("math", 0)
+        memory_count = domain_counts.get("memory", 0)
+
+        # Allow +/-1 tolerance per domain due to rounding
+        assert 5 <= pattern_count <= 6, f"Pattern count {pattern_count} not in [5, 6]"
+        assert 4 <= logic_count <= 6, f"Logic count {logic_count} not in [4, 6]"
+        assert 4 <= verbal_count <= 6, f"Verbal count {verbal_count} not in [4, 6]"
+        assert 3 <= spatial_count <= 5, f"Spatial count {spatial_count} not in [3, 5]"
+        assert 2 <= math_count <= 4, f"Math count {math_count} not in [2, 4]"
+        assert 2 <= memory_count <= 4, f"Memory count {memory_count} not in [2, 4]"
+
+        # Total must equal 25
+        total_domain = sum(domain_counts.values())
+        assert total_domain == 25
+
+
+class TestWeightedDomainDistribution:
+    """Test that domain distribution follows configured weights."""
+
+    def test_weighted_allocation_25_questions(self, db_session, test_user):
+        """
+        Verify weighted domain allocation for 25 questions.
+
+        Expected distribution based on TEST_DOMAIN_WEIGHTS:
+        - Easy (5): pattern=1, logic=1, verbal=1, spatial=1, math=1, memory=0
+        - Medium (13): pattern=3, logic=3, verbal=2, spatial=2, math=2, memory=1
+        - Hard (7): pattern=2, logic=1, verbal=1, spatial=1, math=1, memory=1
+        Total: pattern=6, logic=5, verbal=4, spatial=4, math=4, memory=2
+
+        Note: Exact distribution may vary due to largest-remainder rounding,
+        but should be within +/-1 per domain.
+        """
+        # Create sufficient questions across all difficulties and types
+        question_types = list(QuestionType)
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(15):  # Ample pool
+                    q = Question(
+                        question_text=f"Q-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.95,
+                        is_active=True,
+                        quality_flag="normal",
+                    )
+                    db_session.add(q)
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        assert len(selected) == 25
+
+        # Verify total equals target
+        domain_counts = metadata["domain"]
+        total_domain = sum(domain_counts.values())
+        assert total_domain == 25, f"Total domain count {total_domain} != 25"
+
+        # Verify distribution matches weights within tolerance
+        # Using largest-remainder method, expected approximate counts:
+        # pattern: 25 * 0.22 = 5.5 -> likely 5 or 6
+        # logic: 25 * 0.20 = 5.0 -> 5
+        # verbal: 25 * 0.19 = 4.75 -> likely 4 or 5
+        # spatial: 25 * 0.16 = 4.0 -> 4
+        # math: 25 * 0.13 = 3.25 -> likely 3
+        # memory: 25 * 0.10 = 2.5 -> likely 2 or 3
+
+        pattern_count = domain_counts.get("pattern", 0)
+        logic_count = domain_counts.get("logic", 0)
+        verbal_count = domain_counts.get("verbal", 0)
+        spatial_count = domain_counts.get("spatial", 0)
+        math_count = domain_counts.get("math", 0)
+        memory_count = domain_counts.get("memory", 0)
+
+        # Pattern has highest weight (0.22) - should get 5-6 questions
+        assert 5 <= pattern_count <= 6, f"Pattern: expected [5,6], got {pattern_count}"
+
+        # Logic (0.20) - should get 4-5 questions
+        assert 4 <= logic_count <= 6, f"Logic: expected [4,6], got {logic_count}"
+
+        # Verbal (0.19) - should get 4-5 questions
+        assert 4 <= verbal_count <= 5, f"Verbal: expected [4,5], got {verbal_count}"
+
+        # Spatial (0.16) - should get 3-4 questions
+        assert 3 <= spatial_count <= 5, f"Spatial: expected [3,5], got {spatial_count}"
+
+        # Math (0.13) - should get 3-4 questions
+        assert 2 <= math_count <= 4, f"Math: expected [2,4], got {math_count}"
+
+        # Memory has lowest weight (0.10) - should get 2-3 questions
+        assert 2 <= memory_count <= 3, f"Memory: expected [2,3], got {memory_count}"
+
+    def test_weighted_allocation_preserves_total(self, db_session, test_user):
+        """Verify weighted allocation always produces exactly the requested total."""
+        # Create sufficient questions
+        question_types = list(QuestionType)
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(20):
+                    q = Question(
+                        question_text=f"Q-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.95,
+                        is_active=True,
+                        quality_flag="normal",
+                    )
+                    db_session.add(q)
+        db_session.commit()
+
+        # Test various totals
+        for total in [10, 15, 20, 25, 30]:
+            selected, metadata = select_stratified_questions(
+                db_session, test_user.id, total
+            )
+            assert len(selected) == total
+            assert metadata["total"] == total
+            # Domain counts must sum to total
+            domain_total = sum(metadata["domain"].values())
+            assert (
+                domain_total == total
+            ), f"For total={total}, domain counts sum to {domain_total}"
+
+    def test_weighted_allocation_respects_difficulty_splits(
+        self, db_session, test_user
+    ):
+        """
+        Verify that weighted allocation is applied within each difficulty level,
+        not globally, so difficulty distribution is preserved.
+        """
+        # Create sufficient questions
+        question_types = list(QuestionType)
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(15):
+                    q = Question(
+                        question_text=f"Q-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.95,
+                        is_active=True,
+                        quality_flag="normal",
+                    )
+                    db_session.add(q)
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Verify difficulty distribution (20/50/30)
+        assert metadata["difficulty"]["easy"] == 5
+        assert metadata["difficulty"]["medium"] == 13
+        assert metadata["difficulty"]["hard"] == 7
+
+        # Now manually verify that questions are distributed across domains
+        # within each difficulty level
+        from collections import Counter
+
+        easy_questions = [q for q in selected if q.difficulty_level.value == "easy"]
+        medium_questions = [q for q in selected if q.difficulty_level.value == "medium"]
+        hard_questions = [q for q in selected if q.difficulty_level.value == "hard"]
+
+        easy_domains = Counter(q.question_type.value for q in easy_questions)
+        medium_domains = Counter(q.question_type.value for q in medium_questions)
+        hard_domains = Counter(q.question_type.value for q in hard_questions)
+
+        # Each difficulty level should have diversity across domains
+        # (at least 3 different domains represented in each difficulty)
+        assert len(easy_domains) >= 3, f"Easy: {easy_domains}"
+        assert len(medium_domains) >= 5, f"Medium: {medium_domains}"
+        assert len(hard_domains) >= 4, f"Hard: {hard_domains}"
 
 
 class TestQualityFlagExclusion:

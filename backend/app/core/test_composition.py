@@ -60,7 +60,7 @@ def select_stratified_questions(
 
     Algorithm:
     1. Calculate target counts per difficulty level (20/50/30 split)
-    2. For each difficulty, distribute evenly across 6 cognitive domains
+    2. For each difficulty, distribute across cognitive domains according to configured weights
     3. Fall back gracefully if insufficient questions in specific strata
     """
     # Get list of seen question IDs for this user
@@ -101,16 +101,39 @@ def select_stratified_questions(
         if target_count == 0:
             continue
 
-        # Calculate how many questions per domain for this difficulty level
-        questions_per_domain = target_count // len(all_question_types)
-        remainder = target_count % len(all_question_types)
+        # Calculate weighted allocation using largest-remainder method
+        # 1. Multiply target_count by each domain's weight
+        weighted_counts = {
+            qt: target_count * settings.TEST_DOMAIN_WEIGHTS[qt.value]
+            for qt in all_question_types
+        }
+
+        # 2. Floor all values to get initial allocation
+        domain_allocation = {qt: int(weighted_counts[qt]) for qt in all_question_types}
+
+        # 3. Distribute remaining slots to domains with largest fractional remainders
+        allocated_total = sum(domain_allocation.values())
+        remaining_slots = target_count - allocated_total
+
+        if remaining_slots > 0:
+            # Calculate fractional remainders
+            remainders = {
+                qt: weighted_counts[qt] - domain_allocation[qt]
+                for qt in all_question_types
+            }
+            # Sort by remainder descending, then by domain name for determinism
+            sorted_domains = sorted(
+                remainders.keys(), key=lambda qt: (-remainders[qt], qt.value)
+            )
+            # Distribute remaining slots
+            for i in range(remaining_slots):
+                domain_allocation[sorted_domains[i]] += 1
 
         difficulty_questions = []
 
         # Try to get questions from each domain
-        for idx, question_type in enumerate(all_question_types):
-            # First few domains get the remainder to reach target
-            domain_count = questions_per_domain + (1 if idx < remainder else 0)
+        for question_type in all_question_types:
+            domain_count = domain_allocation[question_type]
 
             if domain_count == 0:
                 continue
