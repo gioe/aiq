@@ -139,17 +139,19 @@ def select_stratified_questions(
     anchor_items_by_type = _select_anchor_items(db, user_id, seen_question_ids)
     selected_questions: list[Question] = []
 
-    # Track which strata (difficulty × type) already have anchor items allocated
-    # This allows us to reduce the domain allocation accordingly
-    anchor_allocation: dict[tuple[DifficultyLevel, QuestionType], int] = {}
+    # Count anchors per difficulty level so we can reduce difficulty targets
+    anchors_per_difficulty: dict[DifficultyLevel, int] = {}
     for question_type, anchors in anchor_items_by_type.items():
         for anchor in anchors:
-            key = (anchor.difficulty_level, question_type)
-            anchor_allocation[key] = anchor_allocation.get(key, 0) + 1
+            anchors_per_difficulty[anchor.difficulty_level] = (
+                anchors_per_difficulty.get(anchor.difficulty_level, 0) + 1
+            )
             selected_questions.append(anchor)
 
+    total_anchors = len(selected_questions)
+
     # Calculate target distribution based on config
-    difficulty_targets = {
+    difficulty_targets: dict[DifficultyLevel, int] = {
         DifficultyLevel.EASY: int(
             total_count * settings.TEST_DIFFICULTY_DISTRIBUTION["easy"]
         ),
@@ -167,12 +169,33 @@ def select_stratified_questions(
         # Add remaining to medium difficulty
         difficulty_targets[DifficultyLevel.MEDIUM] += total_count - current_total
 
+    # Reduce difficulty targets by anchors already selected for each difficulty.
+    # This ensures anchors count toward the total without exceeding total_count.
+    for anchor_diff, anchor_count in anchors_per_difficulty.items():
+        difficulty_targets[anchor_diff] = max(
+            0, difficulty_targets[anchor_diff] - anchor_count
+        )
+
+    # If anchors landed in difficulties with small quotas, some reductions may
+    # not fully account for all anchors. Distribute any remaining surplus
+    # reduction to the largest difficulty target.
+    reduced_total = sum(difficulty_targets.values())
+    if reduced_total + total_anchors > total_count:
+        surplus = (reduced_total + total_anchors) - total_count
+        # Reduce from the largest target first (medium is typically largest)
+        for diff in sorted(difficulty_targets, key=lambda d: -difficulty_targets[d]):
+            reduction = min(surplus, difficulty_targets[diff])
+            difficulty_targets[diff] -= reduction
+            surplus -= reduction
+            if surplus == 0:
+                break
+
     all_question_types = list(QuestionType)
     actual_composition: dict = {
         "difficulty": {},
         "domain": {},
         "total": 0,
-        "anchor_count": len(selected_questions),
+        "anchor_count": total_anchors,
         "anchors_per_domain": {
             qt.value: len(anchor_items_by_type[qt]) for qt in all_question_types
         },
@@ -217,11 +240,6 @@ def select_stratified_questions(
         for question_type in all_question_types:
             domain_count = domain_allocation[question_type]
 
-            # Subtract anchor items already allocated for this stratum
-            stratum_key = (difficulty, question_type)
-            anchors_in_stratum = anchor_allocation.get(stratum_key, 0)
-            domain_count -= anchors_in_stratum
-
             if domain_count <= 0:
                 continue
 
@@ -255,18 +273,11 @@ def select_stratified_questions(
 
         # If we didn't get enough questions with strict stratification,
         # fill remainder from any unseen questions of this difficulty
-        # Account for anchor items already allocated for this difficulty level
-        anchors_for_difficulty = sum(
-            anchor_allocation.get((difficulty, qt), 0) for qt in all_question_types
-        )
-        total_for_difficulty = len(difficulty_questions) + anchors_for_difficulty
-
-        if total_for_difficulty < target_count:
-            # Exclude anchor items, seen questions, and difficulty_questions
+        if len(difficulty_questions) < target_count:
             all_selected_ids = [q.id for q in selected_questions]
             difficulty_question_ids = [q.id for q in difficulty_questions]
             all_excluded = all_selected_ids + difficulty_question_ids
-            additional_needed = target_count - total_for_difficulty
+            additional_needed = target_count - len(difficulty_questions)
 
             additional_query = db.query(Question).filter(
                 Question.is_active == True,  # noqa: E712
@@ -319,8 +330,11 @@ def select_stratified_questions(
 
         selected_questions.extend(difficulty_questions)
 
-        # Track actual composition (including anchors for this difficulty)
-        actual_composition["difficulty"][difficulty.value] = total_for_difficulty
+        # Track actual composition: difficulty questions + anchors at this level
+        anchors_at_difficulty = anchors_per_difficulty.get(difficulty, 0)
+        actual_composition["difficulty"][difficulty.value] = (
+            len(difficulty_questions) + anchors_at_difficulty
+        )
 
     # Final fallback: If we still don't have enough questions, get any unseen questions
     if len(selected_questions) < total_count:

@@ -4,6 +4,7 @@ Tests for test composition and question selection logic.
 Tests IDA-005: Flagged questions should be excluded from test composition.
 Tests IDA-006: Discrimination preference in test composition.
 """
+import pytest
 from app.models import Question
 from app.models.models import QuestionType, DifficultyLevel
 from app.core.test_composition import select_stratified_questions
@@ -1244,3 +1245,110 @@ class TestAnchorItemInclusion:
         assert positive_anchor.id in selected_ids
         assert null_anchor.id in selected_ids
         assert negative_anchor.id not in selected_ids
+
+    @pytest.mark.parametrize("total_count", [10, 15, 20, 25, 30])
+    def test_total_count_invariant_with_anchors(
+        self, db_session, test_user, total_count
+    ):
+        """Total count must equal requested count regardless of anchor inclusion."""
+        question_types = list(QuestionType)
+
+        # Create 1 anchor per domain at varying difficulties
+        difficulties = list(DifficultyLevel)
+        for i, qt in enumerate(question_types):
+            anchor = Question(
+                question_text=f"Anchor-{qt.value}",
+                question_type=qt,
+                difficulty_level=difficulties[i % len(difficulties)],
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                is_anchor=True,
+                discrimination=0.35,
+            )
+            db_session.add(anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(20):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(
+            db_session, test_user.id, total_count
+        )
+
+        assert len(selected) == total_count
+        assert metadata["total"] == total_count
+
+    def test_total_count_when_anchor_in_zero_allocation_stratum(
+        self, db_session, test_user
+    ):
+        """Total stays correct even when an anchor lands in a stratum with zero allocation.
+
+        Example: MEMORY gets 0 slots in EASY (5 * 0.10 = 0.5, floored to 0).
+        An EASY MEMORY anchor must not cause the total to exceed total_count.
+        """
+        question_types = list(QuestionType)
+
+        # Create an anchor in a stratum that gets 0 allocation (EASY MEMORY)
+        anchor = Question(
+            question_text="Anchor-memory-easy",
+            question_type=QuestionType.MEMORY,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            source_llm="test-llm",
+            judge_score=0.95,
+            is_active=True,
+            quality_flag="normal",
+            is_anchor=True,
+            discrimination=0.40,
+        )
+        db_session.add(anchor)
+
+        # Create regular questions
+        for difficulty in DifficultyLevel:
+            for qt in question_types:
+                for j in range(15):
+                    q = Question(
+                        question_text=f"Regular-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.90,
+                        is_active=True,
+                        quality_flag="normal",
+                        is_anchor=False,
+                    )
+                    db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        # Total must be exactly 25 — anchor occupies one slot
+        assert len(selected) == 25
+        assert metadata["total"] == 25
+
+        # Anchor should be in the selection
+        assert anchor.id in [q.id for q in selected]
