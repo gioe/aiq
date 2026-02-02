@@ -72,8 +72,18 @@ class Settings(BaseSettings):
         "medium": 0.50,  # 50% medium (~13 questions)
         "hard": 0.30,  # 30% hard (~7 questions)
     }
-    # Target ~4 questions per cognitive domain for balanced assessment
-    # Domains: pattern, logic, spatial, math, verbal, memory (6 domains)
+    # Weighted domain distribution based on CHC theory g-loadings.
+    # Gf (Fluid Reasoning) has the highest g-loading (~0.70-0.80) and is split
+    # across pattern + logic. Gc, Gv, Gq, and Gsm receive progressively lower
+    # weights reflecting their empirical g-saturation (McGrew 2009; Carroll 1993).
+    TEST_DOMAIN_WEIGHTS: dict = {
+        "pattern": 0.22,  # Gf — perceptual/matrix reasoning (highest g-loading)
+        "logic": 0.20,  # Gf — deductive/inductive reasoning
+        "verbal": 0.19,  # Gc — verbal comprehension
+        "spatial": 0.16,  # Gv — visual-spatial processing
+        "math": 0.13,  # Gq — quantitative reasoning
+        "memory": 0.10,  # Gsm — working memory (lowest g-loading)
+    }
 
     # Apple Push Notification Service (APNs)
     APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
