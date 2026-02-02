@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     # and IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
     TEST_TOTAL_QUESTIONS: int = 25
     TEST_DIFFICULTY_DISTRIBUTION: dict = {
-        "easy": 0.30,  # 30% easy (~8 questions)
-        "medium": 0.40,  # 40% medium (10 questions)
+        "easy": 0.20,  # 20% easy (5 questions)
+        "medium": 0.50,  # 50% medium (~13 questions)
         "hard": 0.30,  # 30% hard (~7 questions)
     }
     # Target ~4 questions per cognitive domain for balanced assessment

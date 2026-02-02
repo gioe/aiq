@@ -9,6 +9,48 @@ from app.models.models import QuestionType, DifficultyLevel
 from app.core.test_composition import select_stratified_questions
 
 
+class TestDifficultyDistribution:
+    """Test that difficulty distribution produces expected question counts."""
+
+    def test_25_question_distribution(self, db_session, test_user):
+        """For 25 questions, distribution should be 5 easy, 12 medium (+1 rounding), 7 hard."""
+        # Create enough questions across all difficulties and types
+        question_types = list(QuestionType)
+        for difficulty in DifficultyLevel:
+            for i, qt in enumerate(question_types):
+                for j in range(5):  # 5 per type per difficulty
+                    q = Question(
+                        question_text=f"Q-{difficulty.value}-{qt.value}-{j}",
+                        question_type=qt,
+                        difficulty_level=difficulty,
+                        correct_answer="A",
+                        answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                        source_llm="test-llm",
+                        judge_score=0.95,
+                        is_active=True,
+                        quality_flag="normal",
+                    )
+                    db_session.add(q)
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+
+        assert len(selected) == 25
+
+        # Verify difficulty counts from metadata
+        easy_count = metadata["difficulty"].get("easy", 0)
+        medium_count = metadata["difficulty"].get("medium", 0)
+        hard_count = metadata["difficulty"].get("hard", 0)
+
+        # 25 * 0.20 = 5.0 -> 5 easy
+        assert easy_count == 5
+        # 25 * 0.30 = 7.5 -> 7 hard
+        assert hard_count == 7
+        # 25 * 0.50 = 12.5 -> 12, plus 1 rounding adjustment = 13 medium
+        assert medium_count == 13
+        assert easy_count + medium_count + hard_count == 25
+
+
 class TestQualityFlagExclusion:
     """Test that questions with quality_flag != 'normal' are excluded (IDA-005)."""
 
