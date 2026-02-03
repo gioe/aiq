@@ -8,7 +8,7 @@ CAT activates only when all 6 domains meet the configured thresholds.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.cat.readiness import evaluate_cat_readiness
+from app.core.cat.readiness import evaluate_cat_readiness, serialize_readiness_result
 from app.core.datetime_utils import utc_now
 from app.core.system_config import (
     get_cat_readiness_status,
@@ -110,28 +110,7 @@ async def evaluate_readiness(
 
     now = utc_now()
 
-    # Serialize result for storage
-    config_value = {
-        "enabled": result.is_globally_ready,
-        "is_globally_ready": result.is_globally_ready,
-        "evaluated_at": now.isoformat(),
-        "thresholds": result.thresholds,
-        "domains": [
-            {
-                "domain": d.domain,
-                "is_ready": d.is_ready,
-                "total_calibrated": d.total_calibrated,
-                "well_calibrated": d.well_calibrated,
-                "easy_count": d.easy_count,
-                "medium_count": d.medium_count,
-                "hard_count": d.hard_count,
-                "reasons": d.reasons,
-            }
-            for d in result.domains
-        ],
-        "summary": result.summary,
-    }
-
+    config_value = serialize_readiness_result(result, now)
     set_cat_readiness(db, config_value)
 
     logger.info(

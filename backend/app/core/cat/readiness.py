@@ -7,6 +7,7 @@ CAT activates only when every domain meets the configured thresholds.
 """
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List
 
 from sqlalchemy import func
@@ -183,3 +184,38 @@ def evaluate_cat_readiness(db: Session) -> CATReadinessResult:
         summary=summary,
         thresholds=thresholds,
     )
+
+
+def serialize_readiness_result(
+    result: CATReadinessResult, evaluated_at: datetime
+) -> dict:
+    """
+    Serialize a CATReadinessResult into the dict format stored in SystemConfig.
+
+    Args:
+        result: The evaluation result to serialize
+        evaluated_at: Timestamp of the evaluation
+
+    Returns:
+        Dictionary suitable for persisting via set_cat_readiness()
+    """
+    return {
+        "enabled": result.is_globally_ready,
+        "is_globally_ready": result.is_globally_ready,
+        "evaluated_at": evaluated_at.isoformat(),
+        "thresholds": result.thresholds,
+        "domains": [
+            {
+                "domain": d.domain,
+                "is_ready": d.is_ready,
+                "total_calibrated": d.total_calibrated,
+                "well_calibrated": d.well_calibrated,
+                "easy_count": d.easy_count,
+                "medium_count": d.medium_count,
+                "hard_count": d.hard_count,
+                "reasons": d.reasons,
+            }
+            for d in result.domains
+        ],
+        "summary": result.summary,
+    }
