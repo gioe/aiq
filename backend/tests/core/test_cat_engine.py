@@ -188,6 +188,18 @@ class TestProcessResponse:
                 irt_discrimination=-0.5,
             )
 
+    def test_rejects_unknown_question_type(self, manager: CATSessionManager):
+        session = manager.initialize(user_id=1, session_id=100)
+        with pytest.raises(ValueError, match="Unknown question type"):
+            manager.process_response(
+                session=session,
+                question_id=1,
+                is_correct=True,
+                question_type="invalid_domain",
+                irt_difficulty=0.0,
+                irt_discrimination=1.0,
+            )
+
 
 class TestEstimateThetaEAP:
     """Tests for CATSessionManager.estimate_theta_eap()."""

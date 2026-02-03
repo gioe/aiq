@@ -87,11 +87,10 @@ class CATSessionManager:
     MIN_ITEMS = 8  # Minimum items before stopping allowed
     MAX_ITEMS = 15  # Maximum items (safety limit)
     MIN_ITEMS_PER_DOMAIN = 2  # Hard constraint per domain
-    DOMAIN_WEIGHT_TOLERANCE = 0.10  # ±10% soft constraint
+    DOMAIN_WEIGHT_TOLERANCE = 0.10  # ±10% soft constraint (used by item selection)
     PRIOR_THETA = 0.0  # Default prior ability
     PRIOR_SE = 1.0  # Default prior SE
     IQ_MEAN = 100  # IQ scale mean (Wechsler convention)
-    MIN_DISCRIMINATION = 0.01  # Minimum valid a parameter
 
     # EAP quadrature configuration
     QUADRATURE_POINTS = 49  # Number of integration points
@@ -201,13 +200,12 @@ class CATSessionManager:
         session.administered_items.append(question_id)
 
         # Update domain coverage
-        if question_type in session.domain_coverage:
-            session.domain_coverage[question_type] += 1
-        else:
-            logger.warning(
-                f"Unknown question type '{question_type}' for question {question_id}"
+        if question_type not in session.domain_coverage:
+            raise ValueError(
+                f"Unknown question type '{question_type}' for question {question_id}. "
+                f"Expected one of: {list(session.domain_coverage.keys())}"
             )
-            session.domain_coverage[question_type] = 1
+        session.domain_coverage[question_type] += 1
 
         # Update correct count
         if is_correct:
