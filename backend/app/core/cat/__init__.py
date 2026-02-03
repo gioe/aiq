@@ -4,20 +4,38 @@ CAT (Computerized Adaptive Testing) utilities for AIQ.
 This module provides utilities for IRT calibration and CAT implementation.
 """
 
+from .calibration import (
+    CalibrationError,
+    CalibrationJobSummary,
+    ItemCalibrationResult,
+    ValidationReport,
+    build_priors_from_ctt,
+    calibrate_questions_2pl,
+    run_calibration_job,
+    validate_calibration,
+)
 from .data_export import (
-    export_responses_for_calibration,
-    export_response_matrix,
-    export_response_details,
-    export_ctt_summary,
     DataExportError,
+    export_ctt_summary,
+    export_response_details,
+    export_response_matrix,
+    export_responses_for_calibration,
 )
 from .readiness import (
-    evaluate_cat_readiness,
     CATReadinessResult,
     DomainReadiness,
+    evaluate_cat_readiness,
 )
 
 __all__ = [
+    "calibrate_questions_2pl",
+    "build_priors_from_ctt",
+    "run_calibration_job",
+    "validate_calibration",
+    "CalibrationError",
+    "ItemCalibrationResult",
+    "CalibrationJobSummary",
+    "ValidationReport",
     "export_responses_for_calibration",
     "export_response_matrix",
     "export_response_details",
