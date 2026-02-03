@@ -643,3 +643,130 @@ class TestDataExportError:
         error_msg = str(error)
         assert "Export failed" in error_msg
         assert "Invalid value" in error_msg
+
+
+class TestAdaptiveSessionExclusion:
+    """Tests that adaptive (CAT) sessions are excluded from exports (TASK-835)."""
+
+    @pytest.fixture
+    def mixed_sessions(self, db_session):
+        """Create both fixed-form and adaptive sessions with responses."""
+        test_password_hash = "hash"  # pragma: allowlist secret
+        user = User(email="export_test@test.com", password_hash=test_password_hash)
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        q = Question(
+            question_text="Export test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+            empirical_difficulty=0.70,
+            discrimination=0.35,
+            response_count=2,
+            is_active=True,
+        )
+        db_session.add(q)
+        db_session.commit()
+        db_session.refresh(q)
+
+        base_time = datetime(2026, 1, 10, 12, 0, 0)
+
+        # Fixed-form session
+        fixed_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=base_time,
+            completed_at=base_time + timedelta(minutes=20),
+            is_adaptive=False,
+        )
+        db_session.add(fixed_session)
+        db_session.commit()
+        db_session.refresh(fixed_session)
+
+        fixed_response = Response(
+            test_session_id=fixed_session.id,
+            user_id=user.id,
+            question_id=q.id,
+            user_answer="A",
+            is_correct=True,
+            time_spent_seconds=30,
+        )
+        db_session.add(fixed_response)
+
+        # Adaptive session
+        adaptive_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=base_time + timedelta(days=1),
+            completed_at=base_time + timedelta(days=1, minutes=20),
+            is_adaptive=True,
+        )
+        db_session.add(adaptive_session)
+        db_session.commit()
+        db_session.refresh(adaptive_session)
+
+        adaptive_response = Response(
+            test_session_id=adaptive_session.id,
+            user_id=user.id,
+            question_id=q.id,
+            user_answer="A",
+            is_correct=True,
+            time_spent_seconds=25,
+        )
+        db_session.add(adaptive_response)
+        db_session.commit()
+
+        return {
+            "user": user,
+            "question": q,
+            "fixed_session": fixed_session,
+            "adaptive_session": adaptive_session,
+        }
+
+    def test_calibration_export_excludes_adaptive(self, db_session, mixed_sessions):
+        """Calibration export only includes fixed-form sessions."""
+        output = export_responses_for_calibration(
+            db=db_session, min_responses=1, output_format="csv"
+        )
+
+        reader = csv.DictReader(io.StringIO(output))
+        rows = list(reader)
+
+        # Only 1 response from fixed-form session
+        assert len(rows) == 1
+        assert int(rows[0]["test_session_id"]) == mixed_sessions["fixed_session"].id
+
+    def test_matrix_export_excludes_adaptive(self, db_session, mixed_sessions):
+        """Response matrix export only includes fixed-form sessions."""
+        output = export_response_matrix(db=db_session, min_responses=1)
+
+        reader = csv.DictReader(io.StringIO(output))
+        rows = list(reader)
+
+        # Only 1 user row (from fixed-form session)
+        assert len(rows) == 1
+
+    def test_details_export_excludes_adaptive(self, db_session, mixed_sessions):
+        """Response details export only includes fixed-form sessions."""
+        output = export_response_details(
+            db=db_session, min_responses=1, output_format="csv"
+        )
+
+        reader = csv.DictReader(io.StringIO(output))
+        rows = list(reader)
+
+        assert len(rows) == 1
+
+    def test_ctt_summary_excludes_adaptive(self, db_session, mixed_sessions):
+        """CTT summary export only counts responses from fixed-form sessions."""
+        output = export_ctt_summary(db=db_session, min_responses=1)
+
+        reader = csv.DictReader(io.StringIO(output))
+        rows = list(reader)
+
+        # Question should only count the 1 response from fixed-form session
+        assert len(rows) == 1
+        assert int(rows[0]["response_count"]) == 1

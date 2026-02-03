@@ -170,6 +170,51 @@ def set_weighted_scoring_enabled(db: Session, enabled: bool) -> SystemConfig:
     return set_config(db, "use_weighted_scoring", {"enabled": enabled})
 
 
+def is_cat_enabled(db: Session) -> bool:
+    """
+    Check if CAT (Computerized Adaptive Testing) is enabled.
+
+    Single-row lookup suitable for the hot path in start_test().
+
+    Args:
+        db: Database session
+
+    Returns:
+        True if CAT is enabled, False otherwise (default)
+    """
+    config = get_config(db, "cat_readiness")
+    if config is None:
+        return False
+    return config.get("enabled", False)
+
+
+def get_cat_readiness_status(db: Session) -> Optional[dict]:
+    """
+    Get the full CAT readiness evaluation result.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dictionary with readiness details, or None if never evaluated
+    """
+    return get_config(db, "cat_readiness")
+
+
+def set_cat_readiness(db: Session, result: dict) -> "SystemConfig":
+    """
+    Persist a CAT readiness evaluation result.
+
+    Args:
+        db: Database session
+        result: Dictionary with readiness evaluation data
+
+    Returns:
+        The SystemConfig instance
+    """
+    return set_config(db, "cat_readiness", result)
+
+
 def get_domain_population_stats(db: Session) -> Optional[dict[str, dict[str, float]]]:
     """
     Get domain population statistics for percentile calculations.

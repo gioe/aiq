@@ -23,6 +23,9 @@ class TestSessionResponse(BaseModel):
     time_limit_exceeded: bool = Field(
         False, description="Flag indicating if 30-minute time limit was exceeded"
     )
+    is_adaptive: bool = Field(
+        False, description="Whether this session uses adaptive (CAT) test delivery"
+    )
 
     class Config:
         """Pydantic configuration."""

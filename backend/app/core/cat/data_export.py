@@ -135,8 +135,7 @@ def export_responses_for_calibration(
             f"start_date={start_date}, end_date={end_date}"
         )
 
-        # Build base query for responses from completed sessions
-        # TODO: Add is_adaptive=False filter when CAT sessions are introduced (TASK-835)
+        # Build base query for responses from completed, fixed-form sessions
         query = (
             db.query(
                 Response.user_id,
@@ -148,6 +147,7 @@ def export_responses_for_calibration(
             )
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
+            .filter(TestSession.is_adaptive == False)  # noqa: E712
         )
 
         # Apply date filters
@@ -268,8 +268,7 @@ def export_response_matrix(
     try:
         logger.info("Starting response matrix export")
 
-        # Build base query
-        # TODO: Add is_adaptive=False filter when CAT sessions are introduced (TASK-835)
+        # Build base query for responses from completed, fixed-form sessions
         query = (
             db.query(
                 Response.user_id,
@@ -278,6 +277,7 @@ def export_response_matrix(
             )
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
+            .filter(TestSession.is_adaptive == False)  # noqa: E712
         )
 
         if start_date:
@@ -385,8 +385,7 @@ def export_response_details(
     try:
         logger.info(f"Starting response details export: format={output_format}")
 
-        # Build query with question data
-        # TODO: Add is_adaptive=False filter when CAT sessions are introduced (TASK-835)
+        # Build query with question data from completed, fixed-form sessions
         query = (
             db.query(
                 Response.user_id,
@@ -401,6 +400,7 @@ def export_response_details(
             .join(TestSession, Response.test_session_id == TestSession.id)
             .join(Question, Response.question_id == Question.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
+            .filter(TestSession.is_adaptive == False)  # noqa: E712
         )
 
         if start_date:
@@ -505,8 +505,7 @@ def export_ctt_summary(
     try:
         logger.info("Starting CTT summary export")
 
-        # Count responses per question with filters
-        # TODO: Add is_adaptive=False filter when CAT sessions are introduced (TASK-835)
+        # Count responses per question from completed, fixed-form sessions
         count_query = (
             db.query(
                 Response.question_id,
@@ -514,6 +513,7 @@ def export_ctt_summary(
             )
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
+            .filter(TestSession.is_adaptive == False)  # noqa: E712
         )
 
         if start_date:

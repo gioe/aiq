@@ -54,6 +54,7 @@ from app.core.system_config import (
     is_weighted_scoring_enabled,
     get_domain_weights,
     get_domain_population_stats,
+    is_cat_enabled,
 )
 from app.core.time_analysis import analyze_response_times, get_session_time_summary
 from app.core.config import settings
@@ -375,7 +376,19 @@ def start_test(
             )
         )
 
+    # TASK-835: Check if CAT is enabled for this test
+    cat_active = is_cat_enabled(db)
+
+    if cat_active:
+        logger.info(
+            f"CAT enabled for user {current_user.id}: "
+            "adaptive item selection will be used in future; "
+            "falling back to stratified selection for now"
+        )
+
     # P11-005: Use stratified question selection for balanced test composition
+    # Both fixed-form and CAT paths use stratified selection for now.
+    # The actual CAT item selection algorithm is a separate future task.
     unseen_questions, composition_metadata = select_stratified_questions(
         db=db,
         user_id=current_user.id,
@@ -396,6 +409,7 @@ def start_test(
         status=TestStatus.IN_PROGRESS,
         started_at=utc_now(),
         composition_metadata=composition_metadata,
+        is_adaptive=cat_active,
     )
     db.add(test_session)
 

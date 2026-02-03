@@ -2963,3 +2963,46 @@ class TestValueCorrectness:
         assert (
             total_questions == 4
         ), f"Expected 4 total questions, got {total_questions}"
+
+
+class TestAdaptiveSession:
+    """Tests for is_adaptive flag on test sessions (TASK-835)."""
+
+    def test_default_session_not_adaptive(self, client, auth_headers, test_questions):
+        """Default session (no CAT config) has is_adaptive=False."""
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response.status_code == 200
+        session = response.json()["session"]
+        assert session["is_adaptive"] is False
+
+    def test_cat_enabled_session_is_adaptive(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Session has is_adaptive=True when CAT is enabled in SystemConfig."""
+        from app.core.system_config import set_cat_readiness
+
+        set_cat_readiness(db_session, {"enabled": True})
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response.status_code == 200
+        session = response.json()["session"]
+        assert session["is_adaptive"] is True
+
+    def test_is_adaptive_persisted_in_database(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """is_adaptive flag is persisted in the database."""
+        from app.models import TestSession
+        from app.core.system_config import set_cat_readiness
+
+        set_cat_readiness(db_session, {"enabled": True})
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        assert response.status_code == 200
+        session_id = response.json()["session"]["id"]
+
+        db_session.expire_all()
+        test_session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+        assert test_session.is_adaptive is True

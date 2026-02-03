@@ -223,6 +223,23 @@ class Question(Base):
     )  # IRT guessing parameter (c): lower asymptote (0.0-1.0)
     # Probability of correct answer by random guessing (e.g., 0.25 for 4-option multiple choice)
 
+    # IRT calibration metadata (TASK-854)
+    # Tracks when IRT parameters were calibrated and the precision of estimates
+    irt_calibrated_at: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
+    )  # Timestamp of IRT calibration run that produced current parameters
+    # NULL means IRT parameters have not been calibrated yet
+
+    irt_se_difficulty: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Standard error of the IRT difficulty (b) parameter estimate
+    # Lower values indicate more precise calibration; used for CAT readiness gating
+
+    irt_se_discrimination: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Standard error of the IRT discrimination (a) parameter estimate
+    # Lower values indicate more precise calibration; used for CAT readiness gating
+
     # Distractor Analysis (DA-001)
     # Tracks selection statistics for each answer option to enable distractor quality analysis
     distractor_stats: Mapped[Optional[Any]] = mapped_column(
@@ -366,6 +383,14 @@ class TestSession(Base):
     )  # Flag indicating submission exceeded 30-minute time limit
     # Set by backend during submission if total test time > 1800 seconds
     # Over-time submissions are still accepted but flagged for validity analysis
+
+    # Adaptive testing (TASK-835)
+    is_adaptive: Mapped[bool] = mapped_column(
+        default=False
+    )  # Whether this session uses CAT (Computerized Adaptive Testing)
+    # False = fixed-form test (standard stratified question selection)
+    # True = adaptive test (questions selected based on estimated ability)
+    # Set at session creation based on CAT readiness status in SystemConfig
 
     # Relationships
     user: Mapped["User"] = relationship(back_populates="test_sessions")

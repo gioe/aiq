@@ -92,6 +92,13 @@ class Settings(BaseSettings):
         "memory": 0.10,  # Gsm — working memory (lowest g-loading)
     }
 
+    # CAT (Computerized Adaptive Testing) readiness thresholds (TASK-835)
+    # These control when the system considers the question bank ready for adaptive testing
+    CAT_MIN_CALIBRATED_ITEMS_PER_DOMAIN: int = 30
+    CAT_MAX_SE_DIFFICULTY: float = 0.50
+    CAT_MAX_SE_DISCRIMINATION: float = 0.30
+    CAT_MIN_ITEMS_PER_DIFFICULTY_BAND: int = 5
+
     # Apple Push Notification Service (APNs)
     APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
     APNS_TEAM_ID: str = ""  # Apple Developer Team ID (10 characters)

@@ -9,6 +9,7 @@ Submodules:
     - generation: Question generation job management and run tracking
     - calibration: Question difficulty calibration and validation
     - calibration_monitoring: IRT calibration readiness monitoring dashboard
+    - cat_readiness: CAT readiness evaluation and activation
     - anchor_items: Anchor item designation for IRT calibration
     - analytics: Response time analytics and factor analysis
     - distractors: Distractor effectiveness analysis
@@ -25,6 +26,7 @@ from . import (
     anchor_items,
     calibration,
     calibration_monitoring,
+    cat_readiness,
     config,
     discrimination,
     distractors,
@@ -93,6 +95,11 @@ router.include_router(
 router.include_router(
     inventory.router,
     tags=["Admin - Inventory"],
+)
+
+router.include_router(
+    cat_readiness.router,
+    tags=["Admin - CAT"],
 )
 
 router.include_router(
