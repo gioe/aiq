@@ -54,6 +54,13 @@ from .readiness import (
     DomainReadiness,
     evaluate_cat_readiness,
 )
+from .score_conversion import (
+    DomainScore,
+    IQResult,
+    calculate_domain_scores_from_responses,
+    equate_ctt_to_irt,
+    theta_to_iq,
+)
 from .stopping_rules import (
     StoppingDecision,
     check_stopping_criteria,
@@ -96,4 +103,9 @@ __all__ = [
     "is_content_balanced",
     "StoppingDecision",
     "check_stopping_criteria",
+    "theta_to_iq",
+    "IQResult",
+    "DomainScore",
+    "calculate_domain_scores_from_responses",
+    "equate_ctt_to_irt",
 ]
