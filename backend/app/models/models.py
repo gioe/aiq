@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Optional, List
 import enum
 
+import sqlalchemy as sa
 from sqlalchemy import (
     ForeignKey,
     Text,
@@ -403,6 +404,29 @@ class TestSession(Base):
     # True = adaptive test (questions selected based on estimated ability)
     # Set at session creation based on CAT readiness status in SystemConfig
 
+    # CAT ability tracking (TASK-871)
+    theta_history: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # Array of theta (ability) estimates after each item response
+    # Format: [0.0, 0.3, 0.5, 0.45, ...] (List[float])
+    # NULL for fixed-form tests (is_adaptive=false)
+
+    final_theta: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Final theta (ability) estimate at test completion
+    # NULL for fixed-form tests
+
+    final_se: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Final standard error of theta at test completion
+    # NULL for fixed-form tests
+
+    stopping_reason: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )  # Why the adaptive test stopped
+    # Values: "se_threshold", "max_items", "min_items_and_se", "abandoned"
+    # NULL for fixed-form tests
+
     # Relationships
     user: Mapped["User"] = relationship(back_populates="test_sessions")
     responses: Mapped[List["Response"]] = relationship(
@@ -421,6 +445,7 @@ class TestSession(Base):
     __table_args__ = (
         Index("ix_test_sessions_user_status", "user_id", "status"),
         Index("ix_test_sessions_user_completed", "user_id", "completed_at"),
+        Index("idx_test_sessions_adaptive", "is_adaptive"),
     )
 
 
@@ -553,6 +578,21 @@ class TestResult(Base):
     # - pct: percentage score (correct/total * 100), None if total is 0
     # NULL for pre-DW test results; populated by DW-003 during test submission
 
+    # IRT scoring (TASK-871)
+    theta_estimate: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Theta (ability) estimate used for IQ score conversion
+    # NULL for CTT-scored tests
+
+    theta_se: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Standard error of the theta estimate
+    # NULL for CTT-scored tests
+
+    scoring_method: Mapped[str] = mapped_column(
+        String(10), server_default="ctt", default="ctt"
+    )  # Scoring method: 'ctt' (Classical Test Theory) or 'irt' (Item Response Theory)
+
     # Relationships
     test_session: Mapped["TestSession"] = relationship(back_populates="test_result")
     user: Mapped["User"] = relationship(back_populates="test_results")
@@ -565,6 +605,11 @@ class TestResult(Base):
         ),
         # Composite index for /test/history endpoint: filters by user_id and orders by completed_at DESC
         Index("ix_test_results_user_completed", "user_id", completed_at.desc()),
+        Index(
+            "idx_test_results_theta",
+            "theta_estimate",
+            postgresql_where=sa.text("theta_estimate IS NOT NULL"),
+        ),
     )
 
 
