@@ -16,7 +16,7 @@ import secrets
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from app.core.cat.calibration import CalibrationError, run_calibration_job
 from app.models.base import SessionLocal
@@ -36,15 +36,18 @@ class CalibrationJobState:
     error_message: Optional[str] = None
 
 
+MAX_RETAINED_JOBS = 100
+
+
 class CalibrationRunner:
     """
     Singleton runner for IRT calibration jobs.
 
     Only one calibration can run at a time to prevent database contention
-    and resource exhaustion.
+    and resource exhaustion. Completed jobs are retained up to MAX_RETAINED_JOBS.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the calibration runner."""
         self._lock = threading.Lock()
         self._jobs: Dict[str, CalibrationJobState] = {}
@@ -52,7 +55,7 @@ class CalibrationRunner:
 
     def start_job(
         self,
-        question_ids: Optional[list] = None,
+        question_ids: Optional[List[int]] = None,
         min_responses: int = 50,
         bootstrap_se: bool = True,
     ) -> CalibrationJobState:
@@ -92,24 +95,46 @@ class CalibrationRunner:
             self._jobs[job_id] = job
             self._current_running_job_id = job_id
 
-        # Start background thread
-        thread = threading.Thread(
-            target=self._run_calibration_thread,
-            args=(job_id, question_ids, min_responses, bootstrap_se),
-            daemon=True,
-        )
-        thread.start()
+            # Evict oldest completed jobs if over retention limit
+            self._evict_old_jobs()
+
+            # Start background thread inside lock to prevent race condition
+            thread = threading.Thread(
+                target=self._run_calibration_thread,
+                args=(job_id, question_ids, min_responses, bootstrap_se),
+                daemon=True,
+            )
+            thread.start()
 
         logger.info(f"Started calibration job: {job_id}")
         return job
 
+    def _evict_old_jobs(self) -> None:
+        """Remove oldest completed/failed jobs when over retention limit.
+
+        Must be called while holding self._lock.
+        """
+        if len(self._jobs) <= MAX_RETAINED_JOBS:
+            return
+
+        finished = [
+            (jid, j)
+            for jid, j in self._jobs.items()
+            if j.status in ("completed", "failed")
+        ]
+        finished.sort(key=lambda x: x[1].started_at)
+
+        to_remove = len(self._jobs) - MAX_RETAINED_JOBS
+        for jid, _ in finished[:to_remove]:
+            del self._jobs[jid]
+
     def _run_calibration_thread(
         self,
         job_id: str,
-        question_ids: Optional[list],
+        question_ids: Optional[List[int]],
         min_responses: int,
         bootstrap_se: bool,
-    ):
+    ) -> None:
         """
         Run calibration in a background thread.
 
