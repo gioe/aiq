@@ -1,4 +1,4 @@
-"""Pydantic schemas for shadow CAT admin endpoints (TASK-875, TASK-876)."""
+"""Pydantic schemas for shadow CAT admin endpoints (TASK-875, TASK-876, TASK-877)."""
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -135,3 +135,97 @@ class ShadowCATHealthResponse(BaseModel):
 
     # Error indicators
     sessions_without_shadow: int
+
+
+# --- TASK-877: Shadow testing validation ---
+
+
+class QuintileResultResponse(BaseModel):
+    """Validation metrics for a single ability quintile."""
+
+    quintile_label: str
+    n: int
+    mean_actual_iq: float
+    mean_shadow_iq: float
+    mean_bias: float
+    rmse: float
+    correlation: Optional[float] = None
+
+
+class CriterionResultResponse(BaseModel):
+    """Result for a single acceptance criterion."""
+
+    criterion: str
+    description: str
+    threshold: str
+    observed_value: str
+    passed: bool
+
+
+class ShadowCATValidationResponse(BaseModel):
+    """Comprehensive validation report for shadow CAT go/no-go decision (TASK-877).
+
+    Evaluates four acceptance criteria:
+    1. Pearson r between shadow IQ and actual IQ >= 0.90
+    2. No systematic bias: |mean(delta)| / SD(actual_iq) < 0.20
+    3. Content balance violations < 5% of sessions
+    4. Median test length <= 13 items
+    """
+
+    # Data summary
+    total_sessions: int
+
+    # Criterion 1: Correlation
+    pearson_r: Optional[float] = None
+    pearson_r_ci_lower: Optional[float] = None
+    pearson_r_ci_upper: Optional[float] = None
+    pearson_r_squared: Optional[float] = None
+    criterion_1_pass: bool
+
+    # Criterion 2: Bias
+    mean_bias: Optional[float] = None
+    std_actual_iq: Optional[float] = None
+    bias_ratio: Optional[float] = None
+    criterion_2_pass: bool
+
+    # Criterion 3: Content balance
+    content_violations_count: int
+    content_violation_rate: Optional[float] = None
+    criterion_3_pass: bool
+
+    # Criterion 4: Test length
+    median_test_length: Optional[float] = None
+    criterion_4_pass: bool
+
+    # Agreement metrics (Bland-Altman)
+    bland_altman_mean: Optional[float] = None
+    bland_altman_sd: Optional[float] = None
+    loa_lower: Optional[float] = None
+    loa_upper: Optional[float] = None
+
+    # Accuracy metrics
+    rmse: Optional[float] = None
+    mae: Optional[float] = None
+
+    # Efficiency metrics
+    mean_items_administered: Optional[float] = None
+    se_convergence_rate: Optional[float] = None
+    stopping_reason_distribution: Dict[str, int]
+
+    # Quintile analysis
+    quintile_analysis: List[QuintileResultResponse]
+
+    # Domain coverage
+    mean_domain_coverage: Optional[Dict[str, float]] = None
+
+    # Test length distribution
+    test_length_p25: Optional[float] = None
+    test_length_p75: Optional[float] = None
+    test_length_min: Optional[int] = None
+    test_length_max: Optional[int] = None
+
+    # Criteria summary
+    criteria_results: List[CriterionResultResponse]
+    all_criteria_pass: bool
+    recommendation: str
+    notes: List[str]
