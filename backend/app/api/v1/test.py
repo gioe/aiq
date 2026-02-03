@@ -834,6 +834,7 @@ def submit_adaptive_response(
         time_spent_seconds=request.time_spent_seconds,
     )
     db.add(response)
+    db.flush()
 
     # Step 8: Initialize CAT engine and replay history
     cat_manager = CATSessionManager()
@@ -846,6 +847,10 @@ def submit_adaptive_response(
 
     for resp, q in previous_responses:
         if q.irt_difficulty is None or q.irt_discrimination is None:
+            logger.warning(
+                f"Skipping question {q.id} during replay — missing IRT parameters "
+                f"(session {test_session.id})."
+            )
             continue
         cat_manager.process_response(
             session=cat_session,
@@ -883,7 +888,9 @@ def submit_adaptive_response(
         irt_discrimination=irt_discrimination,
     )
 
-    # Step 10: Update theta_history on the session
+    # Step 10: Update theta_history on the session.
+    # Includes all responses, including the one that triggers completion,
+    # so theta_history always reflects the full estimation trajectory.
     test_session.theta_history = list(cat_session.theta_history)
 
     # Step 11: Check if the test should stop
