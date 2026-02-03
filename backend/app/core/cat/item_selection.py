@@ -28,16 +28,16 @@ import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
+from app.core.cat.content_balancing import (
+    CONTENT_BALANCE_TOLERANCE,
+    get_item_domain,
+)
+
 logger = logging.getLogger(__name__)
 
 # Exposure control: select randomly from the top-K most informative items.
 # K=5 is the standard "randomesque" method (Kingsbury & Zara, 1989).
 RANDOMESQUE_K = 5
-
-# Soft constraint tolerance for content balancing.
-# Domains below (target_weight - tolerance) are prioritized.
-# Matches CATSessionManager.DOMAIN_WEIGHT_TOLERANCE in engine.py.
-CONTENT_BALANCE_TOLERANCE = 0.10
 
 
 @dataclass
@@ -198,18 +198,6 @@ def select_next_item(
     return selected_candidate.item
 
 
-def _get_item_domain(item: Any) -> Optional[str]:
-    """
-    Extract the domain string from an item's question_type attribute.
-
-    Handles both plain string and str-Enum (QuestionType(str, Enum)) types.
-    """
-    qt = getattr(item, "question_type", None)
-    if qt is None:
-        return None
-    return qt.value if hasattr(qt, "value") else qt
-
-
 def _apply_content_balancing(
     eligible: List,
     domain_coverage: Dict[str, int],
@@ -254,7 +242,7 @@ def _apply_content_balancing(
         # Only enforce if there are enough remaining items to fill deficits
         if total_deficit <= items_remaining:
             constrained = [
-                item for item in eligible if _get_item_domain(item) in deficit_domains
+                item for item in eligible if get_item_domain(item) in deficit_domains
             ]
             if constrained:
                 logger.debug(
@@ -276,7 +264,7 @@ def _apply_content_balancing(
             preferred = [
                 item
                 for item in eligible
-                if _get_item_domain(item) in underweight_domains
+                if get_item_domain(item) in underweight_domains
             ]
             if preferred:
                 logger.debug(

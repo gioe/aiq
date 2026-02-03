@@ -5,6 +5,13 @@ This module provides utilities for IRT calibration and CAT implementation.
 """
 
 from .ability_estimation import estimate_ability_eap
+from .content_balancing import (
+    filter_by_domain,
+    get_item_domain,
+    get_priority_domain,
+    is_content_balanced,
+    track_domain_coverage,
+)
 from .calibration import (
     CalibrationError,
     CalibrationJobSummary,
@@ -72,4 +79,9 @@ __all__ = [
     "estimate_ability_eap",
     "fisher_information_2pl",
     "select_next_item",
+    "track_domain_coverage",
+    "get_item_domain",
+    "get_priority_domain",
+    "filter_by_domain",
+    "is_content_balanced",
 ]

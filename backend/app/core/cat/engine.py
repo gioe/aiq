@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.cat.ability_estimation import estimate_ability_eap
+from app.core.cat.content_balancing import is_content_balanced
 from app.core.cat.item_selection import fisher_information_2pl
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
@@ -320,20 +321,20 @@ class CATSessionManager:
         This is a hard constraint for content validity. The test should not
         stop until all domains have sufficient coverage.
 
+        Delegates to :func:`content_balancing.is_content_balanced`.
+
         Args:
             session: The current CATSession
 
         Returns:
             True if content balance is satisfied, False otherwise
         """
-        for domain, count in session.domain_coverage.items():
-            if count < self.MIN_ITEMS_PER_DOMAIN:
-                logger.debug(
-                    f"Session {session.session_id}: Domain '{domain}' has insufficient items "
-                    f"({count}/{self.MIN_ITEMS_PER_DOMAIN})"
-                )
-                return False
-        return True
+        return is_content_balanced(
+            coverage=session.domain_coverage,
+            num_items=len(session.administered_items),
+            target_weights=self.domain_weights,
+            min_items_per_domain=self.MIN_ITEMS_PER_DOMAIN,
+        )
 
     def calculate_fisher_information(
         self,
