@@ -26,6 +26,13 @@ from .data_export import (
     export_response_matrix,
     export_responses_for_calibration,
 )
+from .engine import (
+    CATResult,
+    CATSession,
+    CATSessionManager,
+    CATStepResult,
+    ItemResponse,
+)
 from .readiness import (
     CATReadinessResult,
     DomainReadiness,
@@ -52,4 +59,9 @@ __all__ = [
     "evaluate_cat_readiness",
     "CATReadinessResult",
     "DomainReadiness",
+    "CATSessionManager",
+    "CATSession",
+    "CATStepResult",
+    "CATResult",
+    "ItemResponse",
 ]
