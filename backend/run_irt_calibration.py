@@ -52,7 +52,7 @@ def _count_new_responses(db, last_successful_at):
         )
     )
     if last_successful_at is not None:
-        query = query.filter(Response.answered_at > last_successful_at)
+        query = query.filter(Response.answered_at >= last_successful_at)
     return query.scalar() or 0
 
 
