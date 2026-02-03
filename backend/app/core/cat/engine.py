@@ -6,12 +6,12 @@ a Computerized Adaptive Testing (CAT) session. The engine is stateless between
 requests—all state is stored in the CATSession object.
 """
 import logging
-import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.cat.ability_estimation import estimate_ability_eap
+from app.core.cat.item_selection import fisher_information_2pl
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
 from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION_SD
@@ -344,17 +344,8 @@ class CATSessionManager:
         """
         Calculate Fisher information for a 2PL IRT item at a given ability level.
 
-        Fisher information quantifies how much information an item provides about
-        ability θ. Higher information means more precise estimation.
-
-        For the 2PL model:
-            I(θ) = a² × P(θ) × (1 - P(θ))
-
-        Where:
-            a = discrimination parameter
-            P(θ) = 1 / (1 + exp(-a × (θ - b)))
-
-        Information is maximized when θ = b (item difficulty matches ability).
+        Delegates to the standalone ``fisher_information_2pl`` function in
+        ``item_selection.py``.
 
         Args:
             theta: Ability level
@@ -364,23 +355,7 @@ class CATSessionManager:
         Returns:
             Fisher information value (non-negative)
         """
-        a = irt_discrimination
-        b = irt_difficulty
-
-        # Calculate probability: P(θ) = 1 / (1 + exp(-a(θ - b)))
-        logit = a * (theta - b)
-
-        # Use numerically stable sigmoid calculation
-        if logit >= 0:
-            prob = 1.0 / (1.0 + math.exp(-logit))
-        else:
-            exp_logit = math.exp(logit)
-            prob = exp_logit / (1.0 + exp_logit)
-
-        # Information: I(θ) = a² × P(θ) × (1 - P(θ))
-        information = (a**2) * prob * (1.0 - prob)
-
-        return information
+        return fisher_information_2pl(theta, irt_discrimination, irt_difficulty)
 
     def finalize(self, session: CATSession, stop_reason: str) -> CATResult:
         """
