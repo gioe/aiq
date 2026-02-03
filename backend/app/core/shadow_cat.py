@@ -24,15 +24,11 @@ from app.models.models import (
     TestSession,
 )
 
-logger = logging.getLogger(__name__)
-
 # Minimum number of calibrated items required to run shadow CAT.
-# Matches CATSessionManager.MIN_ITEMS so the algorithm has enough data
-# to produce a meaningful theta estimate.
-MIN_CALIBRATED_ITEMS = 8
+# Derived from CATSessionManager.MIN_ITEMS to stay in sync.
+MIN_CALIBRATED_ITEMS = CATSessionManager.MIN_ITEMS
 
-# IQ scale constants (same as CATSessionManager)
-IQ_MEAN = 100
+logger = logging.getLogger(__name__)
 
 
 def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:

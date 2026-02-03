@@ -3,7 +3,7 @@
 Provides endpoints to view and analyze shadow CAT results that compare
 retrospective adaptive testing estimates with fixed-form CTT-based scores.
 """
-import math
+import statistics
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -141,17 +141,12 @@ async def get_shadow_cat_statistics(
     mean_items = float(stats[3]) if stats[3] is not None else None
     mean_se = float(stats[4]) if stats[4] is not None else None
 
-    # Standard deviation of delta
-    std_result = db.query(
-        func.avg(
-            (ShadowCATResult.theta_iq_delta - mean_delta)
-            * (ShadowCATResult.theta_iq_delta - mean_delta)
-        )
-    ).scalar()
-    std_delta = math.sqrt(float(std_result)) if std_result is not None else None
-
-    # Median delta (approximate via ordering)
-    median_delta = _calculate_median_delta(db, total)
+    # Fetch all deltas for std/median calculation (works on both PostgreSQL and SQLite)
+    all_deltas = [
+        float(row[0]) for row in db.query(ShadowCATResult.theta_iq_delta).all()
+    ]
+    std_delta = statistics.pstdev(all_deltas) if len(all_deltas) >= 2 else None
+    median_delta = statistics.median(all_deltas) if all_deltas else None
 
     # Stopping reason distribution
     reason_rows = (
@@ -177,31 +172,3 @@ async def get_shadow_cat_statistics(
         ),
         mean_shadow_se=round(mean_se, 3) if mean_se is not None else None,
     )
-
-
-def _calculate_median_delta(db: Session, total: int) -> Optional[float]:
-    """Calculate median theta_iq_delta using offset-based approach."""
-    if total == 0:
-        return None
-
-    mid = total // 2
-    if total % 2 == 1:
-        row = (
-            db.query(ShadowCATResult.theta_iq_delta)
-            .order_by(ShadowCATResult.theta_iq_delta)
-            .offset(mid)
-            .limit(1)
-            .scalar()
-        )
-        return float(row) if row is not None else None
-    else:
-        rows = (
-            db.query(ShadowCATResult.theta_iq_delta)
-            .order_by(ShadowCATResult.theta_iq_delta)
-            .offset(mid - 1)
-            .limit(2)
-            .all()
-        )
-        if len(rows) == 2:
-            return (float(rows[0][0]) + float(rows[1][0])) / 2
-        return None
