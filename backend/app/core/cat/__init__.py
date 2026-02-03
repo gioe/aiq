@@ -34,6 +34,10 @@ from .engine import (
     CATStepResult,
     ItemResponse,
 )
+from .item_selection import (
+    fisher_information_2pl,
+    select_next_item,
+)
 from .readiness import (
     CATReadinessResult,
     DomainReadiness,
@@ -66,4 +70,6 @@ __all__ = [
     "CATResult",
     "ItemResponse",
     "estimate_ability_eap",
+    "fisher_information_2pl",
+    "select_next_item",
 ]
