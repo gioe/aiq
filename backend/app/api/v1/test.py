@@ -454,47 +454,34 @@ def start_test(
     # TASK-878: Branch based on adaptive parameter
     if adaptive:
         # Adaptive CAT path: return single question selected via MFI
+        if question_count != settings.TEST_TOTAL_QUESTIONS:
+            logger.warning(
+                f"User {current_user.id} requested adaptive=true with "
+                f"question_count={question_count}. "
+                "question_count is ignored in adaptive mode."
+            )
+
         logger.info(
             f"Starting adaptive test for user {current_user.id} "
             f"(adaptive=true parameter)"
         )
 
-        # Get eligible calibrated item pool
+        # Get eligible calibrated item pool and validate before creating session
         item_pool = get_eligible_cat_item_pool(db, current_user.id)
 
         if not item_pool:
             raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
 
-        # Initialize CAT session manager and get prior theta
+        # Initialize CAT session manager and select first item before
+        # creating the database session, so we don't create records we'd
+        # immediately rollback if selection fails
         cat_manager = CATSessionManager()
         prior_theta = get_user_prior_theta(db, current_user.id)
 
-        # Initialize CAT session (in-memory, not persisted yet)
-        # We'll create the TestSession first to get an ID
-        test_session = TestSession(
-            user_id=current_user.id,
-            status=TestStatus.IN_PROGRESS,
-            started_at=utc_now(),
-            composition_metadata=None,  # No composition for adaptive
-            is_adaptive=True,
-            theta_history=[],  # Initialize empty theta history
-        )
-        db.add(test_session)
-
-        try:
-            db.flush()  # Get the session ID without committing yet
-        except IntegrityError:
-            db.rollback()
-            logger.warning(
-                f"Race condition detected: user {current_user.id} attempted to start "
-                "multiple test sessions concurrently"
-            )
-            raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
-
-        # Initialize CAT session with the test session ID
+        # Use a temporary session_id=0; we'll update after flush
         cat_session = cat_manager.initialize(
             user_id=current_user.id,
-            session_id=test_session.id,
+            session_id=0,
             prior_theta=prior_theta,
         )
 
@@ -509,8 +496,31 @@ def start_test(
         )
 
         if not selected_question:
-            db.rollback()
             raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
+
+        # Item selection succeeded — now create the database session
+        test_session = TestSession(
+            user_id=current_user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=utc_now(),
+            composition_metadata=None,
+            is_adaptive=True,
+            theta_history=[],
+        )
+        db.add(test_session)
+
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            logger.warning(
+                f"Race condition detected: user {current_user.id} attempted to start "
+                "multiple test sessions concurrently"
+            )
+            raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
+
+        # Update in-memory CAT session with the real session ID
+        cat_session.session_id = test_session.id
 
         # Mark the selected question as seen
         user_question = UserQuestion(
