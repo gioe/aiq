@@ -166,7 +166,7 @@ class TestProgressResponse(BaseModel):
     elapsed_seconds: int = Field(
         ..., description="Time elapsed since test session started"
     )
-    current_se: Optional[float] = Field(
-        default=None,
+    current_se: float = Field(
+        ...,
         description="Standard error of ability estimate (indicates measurement precision)",
     )
