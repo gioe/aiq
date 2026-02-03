@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from app.core.cat.content_balancing import (
     CONTENT_BALANCE_TOLERANCE,
-    _get_item_domain,
+    get_item_domain,
 )
 
 logger = logging.getLogger(__name__)
@@ -242,7 +242,7 @@ def _apply_content_balancing(
         # Only enforce if there are enough remaining items to fill deficits
         if total_deficit <= items_remaining:
             constrained = [
-                item for item in eligible if _get_item_domain(item) in deficit_domains
+                item for item in eligible if get_item_domain(item) in deficit_domains
             ]
             if constrained:
                 logger.debug(
@@ -264,7 +264,7 @@ def _apply_content_balancing(
             preferred = [
                 item
                 for item in eligible
-                if _get_item_domain(item) in underweight_domains
+                if get_item_domain(item) in underweight_domains
             ]
             if preferred:
                 logger.debug(

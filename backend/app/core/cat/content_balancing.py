@@ -46,7 +46,7 @@ def track_domain_coverage(administered_items: List[Any]) -> Dict[str, int]:
     """
     coverage: Dict[str, int] = {}
     for item in administered_items:
-        domain = _get_item_domain(item)
+        domain = get_item_domain(item)
         if domain is not None:
             coverage[domain] = coverage.get(domain, 0) + 1
     return coverage
@@ -118,7 +118,7 @@ def filter_by_domain(pool: List[Any], domain: str) -> List[Any]:
     Returns:
         List of items whose domain matches the given domain.
     """
-    return [item for item in pool if _get_item_domain(item) == domain]
+    return [item for item in pool if get_item_domain(item) == domain]
 
 
 def is_content_balanced(
@@ -156,7 +156,7 @@ def is_content_balanced(
     return True
 
 
-def _get_item_domain(item: Any) -> Optional[str]:
+def get_item_domain(item: Any) -> Optional[str]:
     """
     Extract the domain string from an item's question_type attribute.
 
