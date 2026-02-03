@@ -18,6 +18,7 @@ Submodules:
     - discrimination: Item discrimination analysis and quality flags
     - reliability: Reliability metrics (Cronbach's alpha, test-retest, split-half)
     - notifications: Push notification management (Day 30 reminders)
+    - shadow_cat: Shadow CAT testing results and statistics
 """
 from fastapi import APIRouter
 
@@ -35,6 +36,7 @@ from . import (
     irt_calibration,
     notifications,
     reliability,
+    shadow_cat,
     validity,
 )
 
@@ -110,5 +112,10 @@ router.include_router(
 
 router.include_router(
     irt_calibration.router,
+    tags=["Admin - CAT"],
+)
+
+router.include_router(
+    shadow_cat.router,
     tags=["Admin - CAT"],
 )
