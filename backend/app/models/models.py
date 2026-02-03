@@ -613,6 +613,62 @@ class TestResult(Base):
     )
 
 
+class ShadowCATResult(Base):
+    """Shadow CAT result for comparing adaptive vs fixed-form scoring (TASK-875).
+
+    Stores the result of running the CAT algorithm retrospectively on a
+    completed fixed-form test session. Used to validate CAT estimates against
+    CTT-based IQ scores without affecting user-facing results.
+    """
+
+    __tablename__ = "shadow_cat_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    test_session_id: Mapped[int] = mapped_column(
+        ForeignKey("test_sessions.id", ondelete="CASCADE"),
+        unique=True,
+    )
+
+    # Shadow CAT estimates
+    shadow_theta: Mapped[float] = mapped_column()
+    shadow_se: Mapped[float] = mapped_column()
+    shadow_iq: Mapped[int] = mapped_column()
+
+    # Shadow CAT path
+    items_administered: Mapped[int] = mapped_column()
+    administered_question_ids: Mapped[Any] = mapped_column(
+        JSON
+    )  # List[int] - question IDs in order processed
+    stopping_reason: Mapped[str] = mapped_column(Text)
+
+    # Comparison with fixed-form
+    actual_iq: Mapped[int] = mapped_column()
+    theta_iq_delta: Mapped[float] = mapped_column()  # shadow_iq - actual_iq
+
+    # CAT progression data
+    theta_history: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # List[float] - theta after each item
+    se_history: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # List[float] - SE after each item
+    domain_coverage: Mapped[Optional[Any]] = mapped_column(
+        JSON, nullable=True
+    )  # Dict[str, int] - items per domain
+
+    # Metadata
+    executed_at: Mapped[datetime] = mapped_column(default=utc_now)
+    execution_time_ms: Mapped[Optional[int]] = mapped_column(nullable=True)
+
+    # Relationships
+    test_session: Mapped["TestSession"] = relationship()
+
+    __table_args__ = (
+        Index("idx_shadow_cat_results_executed_at", "executed_at"),
+        Index("idx_shadow_cat_results_delta", "theta_iq_delta"),
+    )
+
+
 class QuestionGenerationRun(Base):
     """
     Model for tracking question generation service execution metrics.

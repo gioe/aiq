@@ -2,6 +2,7 @@
 Test session management endpoints.
 """
 import logging
+import threading
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
@@ -1101,6 +1102,41 @@ def _run_post_submission_updates(
         )
 
 
+def _trigger_shadow_cat(session_id: int) -> None:
+    """Trigger shadow CAT execution in a background thread (TASK-875).
+
+    Spawns a daemon thread with its own database session to run the CAT
+    algorithm retrospectively on a fixed-form test submission. Follows
+    the same pattern as calibration_runner.py for thread-safe DB access.
+    """
+
+    def _run_shadow_thread() -> None:
+        db = None
+        try:
+            from app.models.base import SessionLocal
+            from app.core.shadow_cat import run_shadow_cat
+
+            db = SessionLocal()
+            run_shadow_cat(db, session_id)
+        except Exception as e:
+            logger.error(
+                f"Shadow CAT thread failed for session {session_id}: {e}",
+                exc_info=True,
+            )
+        finally:
+            if db is not None:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
+    thread = threading.Thread(target=_run_shadow_thread, daemon=True)
+    thread.start()
+    logger.info(f"Shadow CAT thread started for session {session_id}")
+
+
 @router.post("/submit", response_model=SubmitTestResponse)
 def submit_test(
     submission: ResponseSubmission,
@@ -1217,6 +1253,14 @@ def submit_test(
     )
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
+
+    # Step 10.5: Trigger shadow CAT for research comparison (TASK-875)
+    if not test_session.is_adaptive:
+        with graceful_failure(
+            f"trigger shadow CAT for session {test_session.id}",
+            logger,
+        ):
+            _trigger_shadow_cat(test_session.id)
 
     # Step 11: Build and return response
     result_response = build_test_result_response(test_result, db=db)
