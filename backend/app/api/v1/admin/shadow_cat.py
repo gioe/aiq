@@ -1,10 +1,13 @@
-"""Admin endpoints for shadow CAT result analysis (TASK-875, TASK-876).
+"""Admin endpoints for shadow CAT result analysis (TASK-875, TASK-876, TASK-877).
 
 Provides endpoints to view and analyze shadow CAT results that compare
 retrospective adaptive testing estimates with fixed-form CTT-based scores.
 
 TASK-876 adds: collection-progress, analysis, and health endpoints for
 monitoring shadow testing data collection toward the 100+ session goal.
+
+TASK-877 adds: validation endpoint that evaluates acceptance criteria for
+the go/no-go decision on transitioning to live adaptive testing (Phase 4).
 """
 import math
 import statistics
@@ -17,10 +20,13 @@ from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import raise_not_found
+from app.core.shadow_cat_validation import SessionData, validate_shadow_results
 from app.models import get_db
 from app.models.models import ShadowCATResult, TestSession, TestStatus
 from app.schemas.shadow_cat import (
     BlandAltmanMetrics,
+    CriterionResultResponse,
+    QuintileResultResponse,
     ShadowCATAnalysisResponse,
     ShadowCATCollectionProgressResponse,
     ShadowCATHealthResponse,
@@ -28,6 +34,7 @@ from app.schemas.shadow_cat import (
     ShadowCATResultListResponse,
     ShadowCATResultSummary,
     ShadowCATStatisticsResponse,
+    ShadowCATValidationResponse,
 )
 
 from ._dependencies import verify_admin_token
@@ -479,6 +486,120 @@ async def get_shadow_cat_health(
         shadow_results_last_7d=shadow_7d,
         coverage_rate_last_7d=coverage_7d,
         sessions_without_shadow=max(0, total_fixed - total_shadow),
+    )
+
+
+# --- TASK-877: Shadow testing validation endpoint ---
+
+
+@router.get(
+    "/shadow-cat/validation",
+    response_model=ShadowCATValidationResponse,
+)
+async def get_shadow_cat_validation(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    r"""Comprehensive validation report for the Phase 4 go/no-go decision.
+
+    Evaluates all acceptance criteria for transitioning from shadow testing
+    to live adaptive testing:
+
+    1. Pearson r between shadow IQ and actual IQ >= 0.90
+    2. No systematic bias: |mean(delta)| / SD(actual_iq) < 0.20
+    3. Content balance violations < 5% of sessions
+    4. Median test length <= 13 items
+
+    Returns a full validation report with quintile analysis, Bland-Altman
+    agreement metrics, and a go/no-go recommendation.
+
+    Requires X-Admin-Token header.
+    """
+    rows = (
+        db.query(
+            ShadowCATResult.shadow_iq,
+            ShadowCATResult.actual_iq,
+            ShadowCATResult.shadow_theta,
+            ShadowCATResult.shadow_se,
+            ShadowCATResult.items_administered,
+            ShadowCATResult.stopping_reason,
+            ShadowCATResult.domain_coverage,
+        )
+        .order_by(desc(ShadowCATResult.executed_at))
+        .limit(MAX_ANALYSIS_ROWS)
+        .all()
+    )
+
+    sessions = [
+        SessionData(
+            shadow_iq=float(r[0]),
+            actual_iq=float(r[1]),
+            shadow_theta=float(r[2]),
+            shadow_se=float(r[3]),
+            items_administered=int(r[4]),
+            stopping_reason=str(r[5]),
+            domain_coverage=r[6] if isinstance(r[6], dict) else None,
+        )
+        for r in rows
+    ]
+
+    report = validate_shadow_results(sessions)
+
+    return ShadowCATValidationResponse(
+        total_sessions=report.total_sessions,
+        pearson_r=report.pearson_r,
+        pearson_r_ci_lower=report.pearson_r_ci_lower,
+        pearson_r_ci_upper=report.pearson_r_ci_upper,
+        pearson_r_squared=report.pearson_r_squared,
+        criterion_1_pass=report.criterion_1_pass,
+        mean_bias=report.mean_bias,
+        std_actual_iq=report.std_actual_iq,
+        bias_ratio=report.bias_ratio,
+        criterion_2_pass=report.criterion_2_pass,
+        content_violations_count=report.content_violations_count,
+        content_violation_rate=report.content_violation_rate,
+        criterion_3_pass=report.criterion_3_pass,
+        median_test_length=report.median_test_length,
+        criterion_4_pass=report.criterion_4_pass,
+        bland_altman_mean=report.bland_altman_mean,
+        bland_altman_sd=report.bland_altman_sd,
+        loa_lower=report.loa_lower,
+        loa_upper=report.loa_upper,
+        rmse=report.rmse,
+        mae=report.mae,
+        mean_items_administered=report.mean_items_administered,
+        se_convergence_rate=report.se_convergence_rate,
+        stopping_reason_distribution=report.stopping_reason_distribution,
+        quintile_analysis=[
+            QuintileResultResponse(
+                quintile_label=q.quintile_label,
+                n=q.n,
+                mean_actual_iq=q.mean_actual_iq,
+                mean_shadow_iq=q.mean_shadow_iq,
+                mean_bias=q.mean_bias,
+                rmse=q.rmse,
+                correlation=q.correlation,
+            )
+            for q in report.quintile_analysis
+        ],
+        mean_domain_coverage=report.mean_domain_coverage,
+        test_length_p25=report.test_length_p25,
+        test_length_p75=report.test_length_p75,
+        test_length_min=report.test_length_min,
+        test_length_max=report.test_length_max,
+        criteria_results=[
+            CriterionResultResponse(
+                criterion=c.criterion,
+                description=c.description,
+                threshold=c.threshold,
+                observed_value=c.observed_value,
+                passed=c.passed,
+            )
+            for c in report.criteria_results
+        ],
+        all_criteria_pass=report.all_criteria_pass,
+        recommendation=report.recommendation,
+        notes=report.notes,
     )
 
 
