@@ -6,13 +6,14 @@ a Computerized Adaptive Testing (CAT) session. The engine is stateless between
 requests—all state is stored in the CATSession object.
 """
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.cat.ability_estimation import estimate_ability_eap
 from app.core.cat.content_balancing import is_content_balanced
 from app.core.cat.item_selection import fisher_information_2pl
+from app.core.cat.stopping_rules import check_stopping_criteria
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
 from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION_SD
@@ -45,6 +46,9 @@ class CATSession:
     domain_coverage: Dict[str, int]  # Domain → count of items shown
     correct_count: int  # Total correct responses
     started_at: datetime
+    theta_history: List[float] = field(
+        default_factory=list
+    )  # Theta after each response
 
 
 @dataclass
@@ -88,7 +92,7 @@ class CATSessionManager:
     SE_THRESHOLD = 0.30  # Target precision for stopping
     MIN_ITEMS = 8  # Minimum items before stopping allowed
     MAX_ITEMS = 15  # Maximum items (safety limit)
-    MIN_ITEMS_PER_DOMAIN = 2  # Hard constraint per domain
+    MIN_ITEMS_PER_DOMAIN = 1  # Hard constraint per domain for stopping
     DOMAIN_WEIGHT_TOLERANCE = 0.10  # ±10% soft constraint (used by item selection)
     PRIOR_THETA = 0.0  # Default prior ability
     PRIOR_SE = 1.0  # Default prior SE
@@ -219,6 +223,7 @@ class CATSessionManager:
         # Update session with new estimates
         session.theta_estimate = theta_estimate
         session.theta_se = theta_se
+        session.theta_history.append(theta_estimate)
 
         # Check stopping criteria
         should_stop, stop_reason = self.should_stop(session)
@@ -272,12 +277,9 @@ class CATSessionManager:
         """
         Determine whether the test should stop based on stopping criteria.
 
-        Stopping rules (evaluated in order):
-        1. If items < MIN_ITEMS: continue testing (False, None)
-        2. If items >= MAX_ITEMS: stop immediately (True, "max_items")
-        3. If content balance not met: continue testing (False, None)
-        4. If SE < SE_THRESHOLD: stop due to sufficient precision (True, "se_threshold")
-        5. Otherwise: continue testing (False, None)
+        Delegates to :func:`stopping_rules.check_stopping_criteria` which evaluates
+        all stopping rules in priority order: minimum items, maximum items,
+        content balance, SE threshold, and theta stabilization.
 
         Args:
             session: The current CATSession
@@ -285,34 +287,24 @@ class CATSessionManager:
         Returns:
             Tuple of (should_stop, stop_reason)
         """
-        items_administered = len(session.administered_items)
+        decision = check_stopping_criteria(
+            se=session.theta_se,
+            num_items=len(session.administered_items),
+            domain_coverage=session.domain_coverage,
+            theta_history=session.theta_history,
+            se_threshold=self.SE_THRESHOLD,
+            min_items=self.MIN_ITEMS,
+            max_items=self.MAX_ITEMS,
+            min_items_per_domain=self.MIN_ITEMS_PER_DOMAIN,
+        )
 
-        # Rule 1: Minimum items required
-        if items_administered < self.MIN_ITEMS:
-            return (False, None)
-
-        # Rule 2: Maximum items (safety limit — overrides all other rules)
-        if items_administered >= self.MAX_ITEMS:
+        if decision.should_stop:
             logger.info(
-                f"Session {session.session_id}: Stopping due to max items "
-                f"({items_administered}/{self.MAX_ITEMS})"
+                f"Session {session.session_id}: Stopping due to {decision.reason} "
+                f"(details={decision.details})"
             )
-            return (True, "max_items")
 
-        # Rule 3: Content balance must be satisfied before SE-based stopping
-        if not self._check_content_balance(session):
-            return (False, None)
-
-        # Rule 4: SE threshold (sufficient precision)
-        if session.theta_se < self.SE_THRESHOLD:
-            logger.info(
-                f"Session {session.session_id}: Stopping due to SE threshold "
-                f"(SE={session.theta_se:.3f} < {self.SE_THRESHOLD})"
-            )
-            return (True, "se_threshold")
-
-        # Continue testing
-        return (False, None)
+        return (decision.should_stop, decision.reason)
 
     def _check_content_balance(self, session: CATSession) -> bool:
         """
