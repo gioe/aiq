@@ -46,6 +46,20 @@ DEFAULT_DOMAIN_WEIGHTS = {
 # Minimum proportion of examinees meeting criteria to pass validation
 EXIT_CRITERIA_PASS_RATE = 0.90
 
+# Synthetic item parameter distributions (Lord, 1980)
+DISCRIMINATION_LOGNORMAL_MEAN = 0.0
+DISCRIMINATION_LOGNORMAL_SD = 0.3
+DISCRIMINATION_MIN = 0.5
+DISCRIMINATION_MAX = 2.5
+DIFFICULTY_NORMAL_MEAN = 0.0
+DIFFICULTY_NORMAL_SD = 1.0
+DIFFICULTY_MIN = -3.0
+DIFFICULTY_MAX = 3.0
+
+# catsim 4PL model fixed parameters for 2PL simulation
+CATSIM_GUESSING_PARAM = 0.0  # c parameter (2PL has no guessing)
+CATSIM_UPPER_ASYMPTOTE = 1.0  # d parameter (no upper limit)
+
 # Ability quintiles for stratified analysis
 QUINTILE_BOUNDARIES = [
     ("Very Low", -3.0, -1.2),
@@ -169,13 +183,13 @@ def generate_item_bank(
 
     for domain in domains:
         for _ in range(n_items_per_domain):
-            # Discrimination: LogNormal(0, 0.3) clipped to [0.5, 2.5]
-            a = rng.lognormal(mean=0.0, sigma=0.3)
-            a = float(np.clip(a, 0.5, 2.5))
+            a = rng.lognormal(
+                mean=DISCRIMINATION_LOGNORMAL_MEAN, sigma=DISCRIMINATION_LOGNORMAL_SD
+            )
+            a = float(np.clip(a, DISCRIMINATION_MIN, DISCRIMINATION_MAX))
 
-            # Difficulty: Normal(0, 1) clipped to [-3, 3]
-            b = rng.normal(loc=0.0, scale=1.0)
-            b = float(np.clip(b, -3.0, 3.0))
+            b = rng.normal(loc=DIFFICULTY_NORMAL_MEAN, scale=DIFFICULTY_NORMAL_SD)
+            b = float(np.clip(b, DIFFICULTY_MIN, DIFFICULTY_MAX))
 
             items.append(
                 SimulatedItem(
@@ -383,11 +397,17 @@ def run_catsim_simulation(
     rng = random.Random(config.seed)
     np_rng = np.random.default_rng(config.seed)
 
-    # Convert item bank to catsim ItemBank format
-    # catsim expects [n_items, 4] with columns [a, b, c, d]
-    # For 2PL, c=0 (guessing) and d=1 (no upper asymptote)
+    # Convert item bank to catsim ItemBank format: [n_items, 4] columns [a, b, c, d]
     item_params_array = np.array(
-        [[item.irt_discrimination, item.irt_difficulty, 0.0, 1.0] for item in item_bank]
+        [
+            [
+                item.irt_discrimination,
+                item.irt_difficulty,
+                CATSIM_GUESSING_PARAM,
+                CATSIM_UPPER_ASYMPTOTE,
+            ]
+            for item in item_bank
+        ]
     )
     item_params = ItemBank(item_params_array)
 
