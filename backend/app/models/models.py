@@ -240,6 +240,17 @@ class Question(Base):
     )  # Standard error of the IRT discrimination (a) parameter estimate
     # Lower values indicate more precise calibration; used for CAT readiness gating
 
+    irt_calibration_n: Mapped[Optional[int]] = mapped_column(
+        nullable=True
+    )  # Number of response records used in the IRT calibration run
+    # Higher n = more reliable parameter estimates; minimum threshold typically 200+
+
+    irt_information_peak: Mapped[Optional[float]] = mapped_column(
+        nullable=True
+    )  # Peak of the item information function I(θ)
+    # Indicates the ability level where this item provides maximum measurement precision
+    # Used in CAT item selection to pick items informative at the test-taker's estimated ability
+
     # Distractor Analysis (DA-001)
     # Tracks selection statistics for each answer option to enable distractor quality analysis
     distractor_stats: Mapped[Optional[Any]] = mapped_column(
