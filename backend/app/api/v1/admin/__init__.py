@@ -32,6 +32,7 @@ from . import (
     distractors,
     generation,
     inventory,
+    irt_calibration,
     notifications,
     reliability,
     validity,
@@ -104,5 +105,10 @@ router.include_router(
 
 router.include_router(
     anchor_items.router,
+    tags=["Admin - CAT"],
+)
+
+router.include_router(
+    irt_calibration.router,
     tags=["Admin - CAT"],
 )
