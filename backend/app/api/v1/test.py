@@ -79,7 +79,7 @@ from app.core.validity_analysis import (
     assess_session_validity,
 )
 from app.core.graceful_failure import graceful_failure
-from app.core.cat.engine import CATSessionManager
+from app.core.cat.engine import CATSession, CATSessionManager
 from app.core.cat.item_selection import select_next_item
 
 router = APIRouter()
@@ -644,7 +644,7 @@ def _finalize_adaptive_session(
     db: Session,
     test_session: TestSession,
     cat_manager: CATSessionManager,
-    cat_session,
+    cat_session: CATSession,
     stop_reason: str,
     user_id: int,
 ) -> AdaptiveNextResponse:
