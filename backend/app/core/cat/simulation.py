@@ -119,6 +119,7 @@ class ExamineeResult:
     stopping_reason: str  # Why the test stopped
     converged: bool  # Whether SE < threshold
     domain_coverage: Dict[str, int]  # Items per domain
+    administered_item_ids: List[int] = field(default_factory=list)  # Item IDs shown
 
 
 @dataclass
@@ -345,6 +346,7 @@ def run_internal_simulation(
                 stopping_reason=stop_reason,
                 converged=session.theta_se < config.se_threshold,
                 domain_coverage=session.domain_coverage.copy(),
+                administered_item_ids=list(session.administered_items),
             )
         )
 
@@ -493,7 +495,7 @@ def run_catsim_simulation(
                     stop_reason = "se_threshold"
                     break
 
-            # Record result
+            # Record result — catsim uses 0-indexed item indices; map to 1-indexed IDs
             examinee_results.append(
                 ExamineeResult(
                     true_theta=true_theta,
@@ -504,6 +506,9 @@ def run_catsim_simulation(
                     stopping_reason=stop_reason,
                     converged=se < config.se_threshold,
                     domain_coverage=domain_coverage.copy(),
+                    administered_item_ids=[
+                        item_bank[idx].id for idx in administered_items
+                    ],
                 )
             )
 
