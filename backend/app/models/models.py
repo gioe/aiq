@@ -790,6 +790,52 @@ class ReliabilityMetric(Base):
     )
 
 
+class CalibrationRunStatus(str, enum.Enum):
+    """Status enumeration for IRT calibration runs."""
+
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class CalibrationTrigger(str, enum.Enum):
+    """Trigger source enumeration for IRT calibration runs."""
+
+    CRON = "cron"
+    MANUAL = "manual"
+
+
+class CalibrationRun(Base):
+    """
+    IRT calibration run audit trail (TASK-863).
+
+    Records each calibration job execution for scheduling decisions and audit.
+    The weekly cron job queries the most recent successful run to determine
+    whether enough new responses have accumulated to justify recalibration.
+    """
+
+    __tablename__ = "irt_calibration_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    job_id: Mapped[str] = mapped_column(String(100), unique=True)
+    status: Mapped[CalibrationRunStatus] = mapped_column()
+    triggered_by: Mapped[CalibrationTrigger] = mapped_column()
+    started_at: Mapped[datetime] = mapped_column()
+    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
+    questions_calibrated: Mapped[Optional[int]] = mapped_column(nullable=True)
+    questions_skipped: Mapped[Optional[int]] = mapped_column(nullable=True)
+    mean_difficulty: Mapped[Optional[float]] = mapped_column(nullable=True)
+    mean_discrimination: Mapped[Optional[float]] = mapped_column(nullable=True)
+    new_responses_since_last: Mapped[Optional[int]] = mapped_column(nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_irt_calibration_runs_started_at", "started_at"),
+        Index("ix_irt_calibration_runs_status", "status"),
+    )
+
+
 class PasswordResetToken(Base):
     """
     Password reset tokens for secure password recovery (TASK-503).
