@@ -66,8 +66,18 @@ class SimulationConfig:
     se_threshold: float = 0.30  # Stopping criterion
     min_items: int = 8  # Min items before stopping
     max_items: int = 15  # Max items (safety limit)
-    min_items_per_domain: int = 1  # Content balance requirement
+    # Content balance stopping threshold. Note: item selection uses a separate,
+    # stricter threshold of 2 items/domain (content_balancing.MIN_ITEMS_PER_DOMAIN)
+    # to prioritize underrepresented domains during selection. This stopping
+    # threshold of 1 matches CATSessionManager.MIN_ITEMS_PER_DOMAIN.
+    min_items_per_domain: int = 1
     seed: int = 42  # Random seed for reproducibility
+    # When True, item selection uses randomesque_k=1 (always pick the single
+    # most informative item). This makes simulations reproducible but does NOT
+    # match production behavior where randomesque_k=5 introduces deliberate
+    # randomness for exposure control. Set to False to simulate production
+    # conditions (results will vary across runs even with the same seed).
+    deterministic_selection: bool = True
     domain_weights: Dict[str, float] = field(
         default_factory=lambda: DEFAULT_DOMAIN_WEIGHTS.copy()
     )
@@ -262,9 +272,10 @@ def run_internal_simulation(
         )
 
         # Administer items until stopping criteria met
+        # randomesque_k=1 gives deterministic selection (always pick most informative).
+        # randomesque_k=5 matches production behavior (random from top-5).
+        selection_k = 1 if config.deterministic_selection else 5
         while True:
-            # Select next item using internal item selection with randomesque_k=1
-            # (deterministic for simulation reproducibility)
             next_item = select_next_item(
                 item_pool=item_bank,
                 theta_estimate=session.theta_estimate,
@@ -274,7 +285,7 @@ def run_internal_simulation(
                 seen_question_ids=None,
                 min_items_per_domain=config.min_items_per_domain,
                 max_items=config.max_items,
-                randomesque_k=1,  # Deterministic for simulation
+                randomesque_k=selection_k,
             )
 
             if next_item is None:
@@ -664,7 +675,8 @@ def generate_report(
             f"- **SE Threshold**: {cfg.se_threshold}",
             f"- **Min Items**: {cfg.min_items}",
             f"- **Max Items**: {cfg.max_items}",
-            f"- **Min Items per Domain**: {cfg.min_items_per_domain}",
+            f"- **Min Items per Domain (stopping)**: {cfg.min_items_per_domain}",
+            f"- **Item Selection Mode**: {'Deterministic (k=1)' if cfg.deterministic_selection else 'Randomesque (k=5, production)'}",
             f"- **Random Seed**: {cfg.seed}",
             "",
         ]
@@ -696,6 +708,9 @@ def generate_report(
                 f"| Convergence Rate | {internal_result.overall_convergence_rate:.1%} | "
                 f"{catsim_result.overall_convergence_rate:.1%} | "
                 f"{internal_result.overall_convergence_rate - catsim_result.overall_convergence_rate:+.1%} |",
+                "",
+                "> **Note**: catsim does not enforce content balancing across domains. "
+                "Differences in test length and content coverage are expected.",
                 "",
             ]
         )
