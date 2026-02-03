@@ -121,6 +121,7 @@ class CalibrationRunner:
             (jid, j)
             for jid, j in self._jobs.items()
             if j.status in ("completed", "failed")
+            and jid != self._current_running_job_id
         ]
         finished.sort(key=lambda x: x[1].started_at)
 
@@ -198,9 +199,14 @@ class CalibrationRunner:
                     job.error_message = f"Unexpected error: {str(e)}"
 
         finally:
-            # Clean up
+            # Clean up database session
             if db:
-                db.close()
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                finally:
+                    db.close()
 
             # Clear current running job
             with self._lock:
