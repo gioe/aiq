@@ -91,7 +91,12 @@ class CATSessionManager:
     SE_THRESHOLD = 0.30  # Target precision for stopping
     MIN_ITEMS = 8  # Minimum items before stopping allowed
     MAX_ITEMS = 15  # Maximum items (safety limit)
-    MIN_ITEMS_PER_DOMAIN = 1  # Hard constraint per domain for stopping
+    # Stopping requires >= 1 item per domain (relaxed from item selection's 2).
+    # Item selection still prioritizes underrepresented domains via
+    # content_balancing.MIN_ITEMS_PER_DOMAIN=2, so in practice most tests
+    # will have >= 2 per domain. The stopping threshold of 1 prevents blocking
+    # when a domain has limited calibrated items in the pool.
+    MIN_ITEMS_PER_DOMAIN = 1
     DOMAIN_WEIGHT_TOLERANCE = 0.10  # ±10% soft constraint (used by item selection)
     PRIOR_THETA = 0.0  # Default prior ability
     PRIOR_SE = 1.0  # Default prior SE
@@ -298,9 +303,12 @@ class CATSessionManager:
         )
 
         if decision.should_stop:
+            d = decision.details
             logger.info(
                 f"Session {session.session_id}: Stopping due to {decision.reason} "
-                f"(details={decision.details})"
+                f"(SE={d['se']:.3f}, items={d['num_items']}, "
+                f"content_balanced={d['content_balanced']}, "
+                f"theta_stable={d.get('theta_stable', 'N/A')})"
             )
 
         return (decision.should_stop, decision.reason)
