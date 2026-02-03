@@ -72,7 +72,7 @@ Modern standard for test development:
 - 2-Parameter: Difficulty + discrimination
 - 3-Parameter: + Guessing (for multiple-choice)
 
-**Advantages over CTT:** Person parameter invariance, item banking, adaptive testing, variable measurement error.
+**Advantages over CTT:** Person parameter invariance, item banking, adaptive testing, variable measurement error. IRT is the theoretical foundation for Computerized Adaptive Testing (CAT), which AIQ intends to adopt (see [Section 4.6](#46-computerized-adaptive-testing-cat)).
 
 ### 2.3 Reliability Standards
 
@@ -168,17 +168,55 @@ A score of 108 with SEM of 6.7 means the true score is likely between 95 and 121
 
 ### 4.1 Current Approach
 
-AIQ uses a simplified scoring algorithm appropriate for current stage:
+AIQ currently delivers **fixed-form tests of 25 questions**, scored with a simplified algorithm. The plan is to transition to IRT-based Computerized Adaptive Testing (see [Section 4.6](#46-computerized-adaptive-testing-cat)) once sufficient calibration data is collected.
 
-1. **Raw Score Calculation:** Percentage of correct answers
-2. **Transformation:** Maps to IQ-like scale using deviation method
-3. **Confidence Intervals:** Uses Standard Error of Measurement
+**Scoring (MVP):**
+
+The current scoring algorithm is a linear transformation of accuracy, not a true deviation IQ method:
+
+```
+accuracy = correct_answers / total_questions
+IQ = 100 + ((accuracy - 0.5) × 30)
+```
+
+This maps 50% accuracy to IQ 100 and produces scores in a narrower range than true deviation IQ. It is explicitly an MVP approximation — the target is to replace this with IRT-based theta estimation (IQ = 100 + (θ × 15)) when CAT launches.
+
+Percentile ranks are derived from the normal distribution CDF using the computed IQ score, and confidence intervals use the Standard Error of Measurement formula (see [Section 5.5](#55-standard-error-of-measurement)) when reliability data is available (minimum α ≥ 0.60).
+
+**Test Composition:**
+
+Each 25-question test is assembled via stratified sampling across two dimensions:
+
+*Difficulty distribution (20/50/30):*
+
+| Difficulty | Proportion | ~Count |
+|------------|------------|--------|
+| Easy | 20% | 5 |
+| Medium | 50% | 13 |
+| Hard | 30% | 7 |
+
+*Domain weights (aligned with CHC g-loadings):*
+
+| Domain | Weight | CHC Factor |
+|--------|--------|------------|
+| Pattern Recognition | 22% | Gf (fluid reasoning) |
+| Logical Reasoning | 20% | Gf (fluid reasoning) |
+| Verbal Reasoning | 19% | Gc (crystallized) |
+| Spatial Reasoning | 16% | Gv (visual-spatial) |
+| Mathematical | 13% | Gq (quantitative) |
+| Memory | 10% | Gsm (working memory) |
+
+Allocation uses the largest-remainder method for proportional distribution. Questions with negative discrimination are excluded, and high-discrimination items (r ≥ 0.30) are preferred.
+
+**Anchor Items:**
+
+Each test includes at least one designated anchor item per cognitive domain. Anchor items are curated questions administered across many test sessions to accelerate IRT calibration data collection. They count toward domain quotas (not added on top of the 25-question total) and are selected preferring high discrimination. If a user has already seen all anchors for a domain, regular questions fill the slot.
 
 **Database Fields (test_results table):**
 - `iq_score` (int)
 - `percentile_rank` (float)
 - `standard_error` (float, nullable)
-- `ci_lower`, `ci_upper` (int, nullable) - clamped to 40-160
+- `ci_lower`, `ci_upper` (int, nullable) — clamped to 40–160
 
 ### 4.2 Question Categories
 
@@ -203,9 +241,10 @@ AIQ aligns with established cognitive domains:
 ### 4.4 Current Limitations
 
 1. **No Large Norming Sample:** True deviation IQ requires 2,000+ representative participants
-2. **Simplified Algorithm:** Current scoring uses approximations rather than full IRT
-3. **Equal Item Weighting:** IRT would weight by difficulty/discrimination
+2. **Simplified Scoring Algorithm:** Current MVP uses a linear transformation of accuracy rather than IRT-based theta estimation (see [Section 4.1](#41-current-approach))
+3. **No IRT Item-Level Weighting:** Domain-based weighted scoring is implemented and configurable, but individual items are not yet weighted by their IRT discrimination parameter — this requires completing IRT calibration and launching CAT
 4. **No Age Norms:** Current implementation doesn't adjust for age
+5. **Fixed-Form Delivery:** All 25 questions are delivered at once rather than adaptively selected — CAT will replace this (see [Section 4.6](#46-computerized-adaptive-testing-cat))
 
 ### 4.5 What AIQ Does Well
 
@@ -213,6 +252,52 @@ AIQ aligns with established cognitive domains:
 - Confidence intervals provide honest uncertainty estimates
 - Item statistics collected for future calibration
 - Reliability metrics tracked for validity monitoring
+
+### 4.6 Computerized Adaptive Testing (CAT)
+
+AIQ is building toward Computerized Adaptive Testing, where each question is selected in real time based on the test-taker's performance on previous questions. CAT is the standard delivery method for large-scale assessments (GRE, GMAT, NCLEX) and offers significant advantages over fixed-form tests.
+
+**Why CAT for AIQ:**
+
+| Benefit | Detail |
+|---------|--------|
+| **Shorter tests** | Target 8–15 items vs. current 25, reducing test fatigue while maintaining reliability |
+| **Precision at all ability levels** | Fixed-form tests are most precise near the mean; CAT is equally precise across the ability range |
+| **Better user experience** | No wasted time on items far above or below the user's ability |
+| **Security** | Each test-taker sees a different item set, reducing exposure and memorization risk |
+
+**CAT design (planned):**
+
+The following describes how AIQ's CAT will operate once the engine is built. These components are **not yet implemented** — see "Current status" below for what exists today.
+
+1. The test-taker begins with a question of moderate difficulty.
+2. After each response, an ability estimate (θ) is updated using Bayesian estimation (Expected A Posteriori).
+3. The next question is selected to maximize information at the current ability estimate (Maximum Fisher Information).
+4. The test terminates when a stopping criterion is met — either SE(θ) < 0.30 or item count limits are reached (minimum 8, maximum 15).
+5. The final θ is converted to an IQ score: IQ = 100 + (θ × 15).
+
+**Design decisions (planned):**
+- **IRT model:** 2-Parameter Logistic (2PL) initially, upgrading to 3PL (adding a guessing parameter) once ~1,000+ completed tests are collected.
+- **Question-by-question adaptation** rather than multi-stage or batch adaptive testing, for maximum measurement efficiency.
+- **Server-side item selection** to prevent exposure of IRT parameters to clients.
+- **Content balancing** to ensure each test covers all six cognitive domains (minimum 2 items per domain).
+- **Exposure control** via randomesque selection from top-informative items, preventing any single item from being over-administered.
+
+**Current status — what is implemented today:**
+
+| Component | Status | Detail |
+|-----------|--------|--------|
+| IRT parameter columns on Question model | Done | `irt_difficulty`, `irt_discrimination`, `irt_guessing`, `irt_se_difficulty`, `irt_se_discrimination`, `irt_calibrated_at` |
+| `is_adaptive` flag on TestSession | Done | Distinguishes fixed-form from adaptive sessions |
+| CAT readiness evaluation | Done | Per-domain checks for calibrated item coverage, difficulty band distribution, SE thresholds (`backend/app/core/cat/readiness.py`) |
+| CAT readiness admin endpoints | Done | Evaluate, query, and enable/disable CAT (`backend/app/api/v1/admin/cat_readiness.py`) |
+| IRT calibration data export | Done | Export response data for external IRT calibration tools (`backend/app/core/cat/data_export.py`) |
+| Anchor item system | Done | Curated items included in every test to accelerate calibration (see [Section 4.1](#41-current-approach)) |
+| IRT parameter calibration (2PL fitting) | Not started | No calibration algorithm in codebase yet |
+| CAT engine (ability estimation, item selection, stopping rules) | Not started | Tests still use fixed-form stratified delivery |
+| IRT-based score conversion (θ → IQ) | Not started | Still using MVP linear scoring formula |
+
+Fixed-form tests continue to run during this phase, collecting the response data and anchor item overlap needed for IRT calibration.
 
 ---
 
@@ -276,20 +361,46 @@ SEM = SD × √(1 - reliability)
 95% CI = Score ± (1.96 × SEM)
 ```
 
+Confidence intervals are only computed when reliability data is available and Cronbach's α ≥ 0.60. Results are clamped to the 40–160 IQ range.
+
+### 5.6 Validity Analysis
+
+**Why it matters:** Invalid test sessions (due to cheating, disengagement, or random responding) contaminate scoring data and degrade item calibration. Detecting aberrant response patterns protects both individual scores and system-wide data quality.
+
+**Implementation:** `backend/app/core/validity_analysis.py`
+
+| Check | What It Detects | Threshold |
+|-------|----------------|-----------|
+| **Person-fit analysis** | Performance inconsistent with expected ability pattern (e.g., failing easy items but passing hard ones) | Compares actual vs. expected performance by difficulty level |
+| **Guttman error detection** | Illogical answer patterns where items are answered in a way that violates expected difficulty ordering | >30% Guttman errors flagged as "aberrant" |
+| **Response time plausibility** | Implausibly fast responses suggesting pre-knowledge or random clicking | Rapid: <3 seconds (flag if 3+ occurrences); Fast correct on hard items: <10 seconds (flag if 2+ occurrences) |
+
 ---
 
 ## 6. Future Improvements
 
-### 6.1 Growth Stage
+### 6.1 CAT Launch (Near-Term)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| IRT parameter data model | **Done** | Question model stores b, a, c parameters with standard errors and calibration timestamp |
+| CAT readiness evaluation | **Done** | Automated per-domain checks requiring ≥30 calibrated items with adequate difficulty band coverage |
+| IRT calibration data export | **Done** | Export response matrices and CTT summaries for external IRT calibration tools |
+| Anchor item system | **Done** | Curated items included in every test to accelerate cross-session calibration data |
+| IRT parameter calibration | Planned | Fit 2PL model to empirical response data using Bayesian priors from CTT metrics |
+| CAT engine | Planned | Ability estimation (EAP), item selection (MFI), stopping rules, content balancing |
+| IRT-based score conversion | Planned | Replace MVP linear formula with θ-based scoring: IQ = 100 + (θ × 15) |
+
+### 6.2 Growth Stage
 
 | Feature | Description |
 |---------|-------------|
-| IRT-based scoring | Weight items by difficulty and discrimination |
-| Adaptive difficulty | Adjust question selection based on performance |
-| Empirical calibration | Refine difficulty estimates from actual data |
-| Cross-validation | Compare scores with established instruments |
+| 3PL upgrade | Add guessing parameter once ~1,000+ tests collected |
+| Empirical calibration refinement | Continuous recalibration as response data grows |
+| Cross-validation | Compare CAT scores with established instruments |
+| Item bank expansion | Grow calibrated pool to support exposure control |
 
-### 6.2 Mature Stage
+### 6.3 Mature Stage
 
 | Feature | Description |
 |---------|-------------|
@@ -298,13 +409,18 @@ SEM = SD × √(1 - reliability)
 | Validity studies | Correlate with academic/occupational outcomes |
 | External review | Seek psychometric professional evaluation |
 
-### 6.3 Implementation Path
+### 6.4 Implementation Path
 
-1. **Collect Response Data** → Currently storing all responses with timing
-2. **Calculate Item Statistics** → Empirical difficulty, discrimination implemented
-3. **Apply IRT Models** → Fit 2PL or 3PL models when sample size sufficient
-4. **Refine Scoring** → Move from CTT to IRT-based theta estimation
-5. **Validate** → Compare with criterion measures
+1. **Collect Response Data** → Storing all responses with timing *(done)*
+2. **Calculate Item Statistics** → Empirical difficulty, discrimination, distractor analysis *(done)*
+3. **Designate Anchor Items** → Curated items for cross-session calibration data *(done)*
+4. **Export Calibration Data** → Response matrices and CTT summaries for IRT fitting *(done)*
+5. **Evaluate CAT Readiness** → Automated per-domain checks for calibrated item coverage *(done)*
+6. **Calibrate IRT Parameters** → Fit 2PL model using Bayesian priors from CTT statistics *(planned)*
+7. **Build CAT Engine** → Ability estimation, item selection, stopping rules, content balancing *(planned)*
+8. **Replace Scoring** → Switch from MVP linear formula to IRT-based θ estimation *(planned)*
+9. **Launch CAT** → Activate adaptive delivery when readiness criteria met across all domains *(planned)*
+10. **Refine** → Upgrade to 3PL, expand item bank, conduct validity studies *(future)*
 
 ---
 
@@ -319,6 +435,7 @@ SEM = SD × √(1 - reliability)
 - Item Response Theory (IRT) literature
 - Classical Test Theory (CTT) foundations
 - Factor analysis for intelligence research
+- Computerized Adaptive Testing (CAT) methodology (Wainer et al., 2000; van der Linden & Glas, 2010)
 
 ### Theoretical Frameworks
 - Spearman's g-factor theory
@@ -339,6 +456,7 @@ AIQ follows established psychometric principles while being transparent about it
 - Question categories match cognitive science research
 - Statistical validation methods follow industry standards
 - Quality controls ensure assessment integrity
+- Computerized Adaptive Testing as the target delivery method
 - Continuous improvement based on empirical data
 
-With proper data collection and analysis, AIQ can achieve meaningful cognitive assessment while being transparent about its limitations relative to professionally developed clinical instruments.
+With proper data collection and IRT calibration, AIQ is progressing toward CAT-based adaptive testing—the same approach used by major standardized assessments—while being transparent about its limitations relative to professionally developed clinical instruments.
