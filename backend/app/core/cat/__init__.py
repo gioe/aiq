@@ -54,6 +54,10 @@ from .readiness import (
     DomainReadiness,
     evaluate_cat_readiness,
 )
+from .stopping_rules import (
+    StoppingDecision,
+    check_stopping_criteria,
+)
 
 __all__ = [
     "calibrate_questions_2pl",
@@ -90,4 +94,6 @@ __all__ = [
     "get_priority_domain",
     "filter_by_domain",
     "is_content_balanced",
+    "StoppingDecision",
+    "check_stopping_criteria",
 ]
