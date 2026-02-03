@@ -41,6 +41,10 @@ from .engine import (
     CATStepResult,
     ItemResponse,
 )
+from .exposure_control import (
+    ExposureMonitor,
+    apply_randomesque,
+)
 from .item_selection import (
     fisher_information_2pl,
     select_next_item,
@@ -77,6 +81,8 @@ __all__ = [
     "CATResult",
     "ItemResponse",
     "estimate_ability_eap",
+    "ExposureMonitor",
+    "apply_randomesque",
     "fisher_information_2pl",
     "select_next_item",
     "track_domain_coverage",
