@@ -98,6 +98,10 @@ class ErrorMessages:
     QUALITY_FLAG_REASON_REQUIRED = (
         "Reason is required when setting quality_flag to 'deactivated'."
     )
+    SESSION_NOT_ADAPTIVE = (
+        "This endpoint is only available for adaptive (CAT) test sessions."
+    )
+    ANSWER_REQUIRED = "User answer cannot be empty."
     # Use single generic message for all token validation failures to prevent enumeration
     RESET_TOKEN_INVALID = (
         "Invalid or expired password reset token. Please request a new one."
@@ -190,6 +194,19 @@ class ErrorMessages:
         return (
             f"Invalid question IDs: {ids_str}. "
             "These questions do not belong to this test session."
+        )
+
+    @staticmethod
+    def duplicate_response(question_id: int) -> str:
+        """Message when a response for this question has already been submitted."""
+        return f"A response for question {question_id} has already been submitted in this session."
+
+    @staticmethod
+    def question_not_served(question_id: int) -> str:
+        """Message when the question was not served in this adaptive session."""
+        return (
+            f"Question {question_id} was not served in this adaptive session. "
+            "Only the most recently served question can be answered."
         )
 
     @staticmethod

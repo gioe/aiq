@@ -25,6 +25,8 @@ from app.core.error_responses import (
     raise_conflict,
 )
 from app.schemas.test_sessions import (
+    AdaptiveNextResponse,
+    AdaptiveResponseRequest,
     StartTestResponse,
     TestSessionResponse,
     TestSessionStatusResponse,
@@ -50,6 +52,7 @@ from app.core.scoring import (
     get_cached_reliability,
     calculate_sem,
     calculate_confidence_interval,
+    IQ_POPULATION_SD,
 )
 from app.core.system_config import (
     is_weighted_scoring_enabled,
@@ -76,7 +79,7 @@ from app.core.validity_analysis import (
     assess_session_validity,
 )
 from app.core.graceful_failure import graceful_failure
-from app.core.cat.engine import CATSessionManager
+from app.core.cat.engine import CATSession, CATSessionManager
 from app.core.cat.item_selection import select_next_item
 
 router = APIRouter()
@@ -635,6 +638,316 @@ def start_test(
             questions=questions_response,
             total_questions=len(questions_response),
         )
+
+
+def _finalize_adaptive_session(
+    db: Session,
+    test_session: TestSession,
+    cat_manager: CATSessionManager,
+    cat_session: CATSession,
+    stop_reason: str,
+    user_id: int,
+) -> AdaptiveNextResponse:
+    """
+    Finalize an adaptive test session and return the completion response.
+
+    Creates the TestResult record, updates session status, tracks analytics,
+    and returns the final AdaptiveNextResponse.
+
+    Args:
+        db: Database session
+        test_session: The test session to finalize
+        cat_manager: CATSessionManager instance
+        cat_session: The in-memory CAT session
+        stop_reason: Why the test stopped
+        user_id: User ID
+
+    Returns:
+        AdaptiveNextResponse with test_complete=True
+    """
+    from app.models.models import TestResult
+
+    cat_result = cat_manager.finalize(cat_session, stop_reason)
+
+    completion_time = utc_now()
+    test_session.status = TestStatus.COMPLETED
+    test_session.completed_at = completion_time
+    test_session.final_theta = cat_result.theta_estimate
+    test_session.final_se = cat_result.theta_se
+    test_session.stopping_reason = stop_reason
+
+    started_at = ensure_timezone_aware(test_session.started_at)
+    completion_time_seconds = int((completion_time - started_at).total_seconds())
+
+    percentile = iq_to_percentile(cat_result.iq_score)
+
+    # Convert theta-scale SE to IQ-scale SE: SE_IQ = theta_se × 15
+    iq_se = cat_result.theta_se * IQ_POPULATION_SD
+    ci_lower, ci_upper = calculate_confidence_interval(
+        score=cat_result.iq_score,
+        sem=iq_se,
+        confidence_level=CONFIDENCE_INTERVAL_LEVEL,
+    )
+
+    test_result = TestResult(
+        test_session_id=test_session.id,
+        user_id=user_id,
+        iq_score=cat_result.iq_score,
+        percentile_rank=percentile,
+        total_questions=cat_result.items_administered,
+        correct_answers=cat_result.correct_count,
+        completion_time_seconds=completion_time_seconds,
+        completed_at=completion_time,
+        domain_scores=cat_result.domain_scores,
+        theta_estimate=cat_result.theta_estimate,
+        theta_se=cat_result.theta_se,
+        scoring_method="irt",
+        standard_error=round(iq_se, 2),
+        ci_lower=ci_lower,
+        ci_upper=ci_upper,
+    )
+    db.add(test_result)
+    db.commit()
+    db.refresh(test_result)
+
+    AnalyticsTracker.track_test_completed(
+        user_id=user_id,
+        session_id=test_session.id,
+        iq_score=cat_result.iq_score,
+        duration_seconds=completion_time_seconds,
+        accuracy=(cat_result.correct_count / cat_result.items_administered * 100.0)
+        if cat_result.items_administered > 0
+        else 0.0,
+    )
+    invalidate_user_cache(user_id)
+    invalidate_reliability_report_cache()
+
+    result_response = build_test_result_response(test_result, db=db)
+
+    return AdaptiveNextResponse(
+        next_question=None,
+        current_theta=cat_result.theta_estimate,
+        current_se=cat_result.theta_se,
+        items_administered=cat_result.items_administered,
+        test_complete=True,
+        result=result_response.model_dump(),
+        stopping_reason=stop_reason,
+    )
+
+
+@router.post("/next", response_model=AdaptiveNextResponse)
+def submit_adaptive_response(
+    request: AdaptiveResponseRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Submit a single response during an adaptive (CAT) test and get the next question.
+
+    Processes the user's answer, updates the ability estimate via EAP,
+    checks stopping rules, and either returns the next question or signals
+    test completion with final results.
+
+    Args:
+        request: Adaptive response with session_id, question_id, user_answer, time_spent_seconds
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        AdaptiveNextResponse with next question or final result
+
+    Raises:
+        HTTPException: If session validation fails or response is invalid
+    """
+    from app.models.models import Response as ResponseModel
+
+    user_id = current_user.id
+
+    # Step 1: Fetch and validate the test session
+    test_session = get_test_session_or_404(db, request.session_id)
+    verify_session_ownership(test_session, user_id)
+    verify_session_in_progress(test_session)
+
+    if not test_session.is_adaptive:
+        raise_bad_request(ErrorMessages.SESSION_NOT_ADAPTIVE)
+
+    # Step 2: Validate user_answer is not empty
+    if not request.user_answer or not request.user_answer.strip():
+        raise_bad_request(ErrorMessages.ANSWER_REQUIRED)
+
+    # Step 3: Verify the question was served in this session
+    served_question = (
+        db.query(UserQuestion)
+        .filter(
+            UserQuestion.user_id == user_id,
+            UserQuestion.test_session_id == test_session.id,
+            UserQuestion.question_id == request.question_id,
+        )
+        .first()
+    )
+
+    if not served_question:
+        raise_bad_request(ErrorMessages.question_not_served(request.question_id))
+
+    # Step 4: Prevent duplicate submissions for the same question
+    existing_response = (
+        db.query(ResponseModel)
+        .filter(
+            ResponseModel.test_session_id == test_session.id,
+            ResponseModel.question_id == request.question_id,
+        )
+        .first()
+    )
+
+    if existing_response:
+        raise_conflict(ErrorMessages.duplicate_response(request.question_id))
+
+    # Step 5: Fetch the question and determine correctness
+    question = db.query(Question).filter(Question.id == request.question_id).first()
+
+    if not question:
+        raise_not_found(ErrorMessages.question_not_found(request.question_id))
+
+    is_correct = (
+        request.user_answer.strip().lower() == question.correct_answer.strip().lower()
+    )
+
+    # Step 6: Reconstruct CAT session state from database
+    # Query previous responses BEFORE adding the current one to avoid
+    # double-counting if SQLAlchemy autoflush behavior changes.
+    previous_responses = (
+        db.query(ResponseModel, Question)
+        .join(Question, ResponseModel.question_id == Question.id)
+        .filter(ResponseModel.test_session_id == test_session.id)
+        .order_by(ResponseModel.id)
+        .all()
+    )
+
+    # Step 7: Store the Response record (after replay query)
+    response = ResponseModel(
+        test_session_id=test_session.id,
+        user_id=user_id,
+        question_id=request.question_id,
+        user_answer=request.user_answer.strip(),
+        is_correct=is_correct,
+        answered_at=utc_now(),
+        time_spent_seconds=request.time_spent_seconds,
+    )
+    db.add(response)
+    db.flush()
+
+    # Step 8: Initialize CAT engine and replay history
+    cat_manager = CATSessionManager()
+    prior_theta = get_user_prior_theta(db, user_id)
+    cat_session = cat_manager.initialize(
+        user_id=user_id,
+        session_id=test_session.id,
+        prior_theta=prior_theta,
+    )
+
+    for resp, q in previous_responses:
+        if q.irt_difficulty is None or q.irt_discrimination is None:
+            logger.warning(
+                f"Skipping question {q.id} during replay — missing IRT parameters "
+                f"(session {test_session.id})."
+            )
+            continue
+        cat_manager.process_response(
+            session=cat_session,
+            question_id=resp.question_id,
+            is_correct=resp.is_correct,
+            question_type=q.question_type.value,
+            irt_difficulty=q.irt_difficulty,
+            irt_discrimination=q.irt_discrimination,
+        )
+
+    # Step 9: Process the current response
+    if question.irt_difficulty is None or question.irt_discrimination is None:
+        logger.warning(
+            f"Question {question.id} missing IRT parameters during adaptive test "
+            f"(session {test_session.id}). Using default values."
+        )
+        irt_difficulty = (
+            question.irt_difficulty if question.irt_difficulty is not None else 0.0
+        )
+        irt_discrimination = (
+            question.irt_discrimination
+            if question.irt_discrimination is not None
+            else 1.0
+        )
+    else:
+        irt_difficulty = question.irt_difficulty
+        irt_discrimination = question.irt_discrimination
+
+    step_result = cat_manager.process_response(
+        session=cat_session,
+        question_id=request.question_id,
+        is_correct=is_correct,
+        question_type=question.question_type.value,
+        irt_difficulty=irt_difficulty,
+        irt_discrimination=irt_discrimination,
+    )
+
+    # Step 10: Update theta_history on the session.
+    # Includes all responses, including the one that triggers completion,
+    # so theta_history always reflects the full estimation trajectory.
+    test_session.theta_history = list(cat_session.theta_history)
+
+    # Step 11: Check if the test should stop
+    if step_result.should_stop:
+        return _finalize_adaptive_session(
+            db,
+            test_session,
+            cat_manager,
+            cat_session,
+            step_result.stop_reason or "unknown",
+            user_id,
+        )
+
+    # Step 12: Test continues — select next question
+    item_pool = get_eligible_cat_item_pool(db, user_id)
+    administered_ids = set(cat_session.administered_items)
+
+    next_question = select_next_item(
+        item_pool=item_pool,
+        theta_estimate=cat_session.theta_estimate,
+        administered_items=administered_ids,
+        domain_coverage=cat_session.domain_coverage,
+        target_weights=settings.TEST_DOMAIN_WEIGHTS,
+    )
+
+    if not next_question:
+        return _finalize_adaptive_session(
+            db,
+            test_session,
+            cat_manager,
+            cat_session,
+            "item_pool_exhausted",
+            user_id,
+        )
+
+    # Mark the next question as seen
+    user_question = UserQuestion(
+        user_id=user_id,
+        question_id=next_question.id,
+        test_session_id=test_session.id,
+        seen_at=utc_now(),
+    )
+    db.add(user_question)
+
+    db.commit()
+
+    next_question_response = question_to_response(
+        next_question, include_explanation=False
+    )
+
+    return AdaptiveNextResponse(
+        next_question=next_question_response,
+        current_theta=step_result.theta_estimate,
+        current_se=step_result.theta_se,
+        items_administered=step_result.items_administered,
+        test_complete=False,
+    )
 
 
 @router.get("/session/{session_id}", response_model=TestSessionStatusResponse)
