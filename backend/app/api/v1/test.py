@@ -31,6 +31,7 @@ from app.schemas.test_sessions import (
     TestSessionResponse,
     TestSessionStatusResponse,
     TestSessionAbandonResponse,
+    TestProgressResponse,
 )
 from app.schemas.responses import (
     ResponseSubmission,
@@ -1031,6 +1032,99 @@ def get_active_test_session(
         session=TestSessionResponse.model_validate(active_session),
         questions_count=questions_count,
         questions=questions_response,
+    )
+
+
+@router.get("/progress", response_model=TestProgressResponse)
+def get_test_progress(
+    session_id: int = Query(..., description="Test session ID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get progress information for an active adaptive (CAT) test session.
+
+    Returns progress metrics including items administered, domain coverage,
+    and estimated items remaining. Does NOT expose raw theta to client.
+
+    Args:
+        session_id: Test session ID from query parameter
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        TestProgressResponse with progress information
+
+    Raises:
+        HTTPException: If session not found, not authorized, not in progress,
+                      or not adaptive
+    """
+    from app.models.models import Response as ResponseModel
+
+    # Step 1: Fetch and validate the test session
+    test_session = get_test_session_or_404(db, session_id)
+    verify_session_ownership(test_session, current_user.id)
+    verify_session_in_progress(test_session)
+
+    if not test_session.is_adaptive:
+        raise_bad_request(ErrorMessages.SESSION_NOT_ADAPTIVE)
+
+    # Step 2: Query previous responses with their questions for CAT state reconstruction
+    previous_responses = (
+        db.query(ResponseModel, Question)
+        .join(Question, ResponseModel.question_id == Question.id)
+        .filter(ResponseModel.test_session_id == test_session.id)
+        .order_by(ResponseModel.id)
+        .all()
+    )
+
+    # Step 3: Initialize CAT engine and replay history to reconstruct state
+    cat_manager = CATSessionManager()
+    prior_theta = get_user_prior_theta(db, current_user.id)
+    cat_session = cat_manager.initialize(
+        user_id=current_user.id,
+        session_id=test_session.id,
+        prior_theta=prior_theta,
+    )
+
+    # Replay all responses to reconstruct current CAT state
+    for resp, q in previous_responses:
+        if q.irt_difficulty is None or q.irt_discrimination is None:
+            logger.warning(
+                f"Skipping question {q.id} during replay — missing IRT parameters "
+                f"(session {test_session.id})."
+            )
+            continue
+        cat_manager.process_response(
+            session=cat_session,
+            question_id=resp.question_id,
+            is_correct=resp.is_correct,
+            question_type=q.question_type.value,
+            irt_difficulty=q.irt_difficulty,
+            irt_discrimination=q.irt_discrimination,
+        )
+
+    # Step 4: Calculate progress metrics
+    items_administered = len(cat_session.administered_items)
+    estimated_items_remaining = max(0, cat_manager.MAX_ITEMS - items_administered)
+    total_domains_covered = sum(
+        1 for count in cat_session.domain_coverage.values() if count > 0
+    )
+
+    # Calculate elapsed time
+    started_at = ensure_timezone_aware(test_session.started_at)
+    elapsed_seconds = int((utc_now() - started_at).total_seconds())
+
+    # Step 5: Build and return response
+    return TestProgressResponse(
+        session_id=test_session.id,
+        items_administered=items_administered,
+        total_items_max=cat_manager.MAX_ITEMS,
+        estimated_items_remaining=estimated_items_remaining,
+        domain_coverage=cat_session.domain_coverage,
+        total_domains_covered=total_domains_covered,
+        elapsed_seconds=elapsed_seconds,
+        current_se=cat_session.theta_se,
     )
 
 

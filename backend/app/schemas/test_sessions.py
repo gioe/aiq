@@ -136,3 +136,37 @@ class AdaptiveNextResponse(BaseModel):
         description="Reason the test stopped (e.g., 'se_threshold', 'max_items', 'content_balance'). "
         "Only present when test_complete is True.",
     )
+
+
+class TestProgressResponse(BaseModel):
+    """Schema for adaptive test progress tracking (TASK-880).
+
+    Returns progress information for an active adaptive (CAT) test session.
+    Does NOT expose raw theta to client per security requirements.
+    """
+
+    session_id: int = Field(..., description="Test session ID")
+    items_administered: int = Field(
+        ..., description="Number of items administered so far"
+    )
+    total_items_max: int = Field(
+        ..., description="Maximum items allowed (MAX_ITEMS from CAT config)"
+    )
+    estimated_items_remaining: int = Field(
+        ...,
+        description="Conservative estimate of remaining items (MAX_ITEMS - items_administered)",
+    )
+    domain_coverage: Dict[str, int] = Field(
+        ...,
+        description="Number of items administered per domain (e.g., {'pattern': 2, 'logic': 1})",
+    )
+    total_domains_covered: int = Field(
+        ..., description="Count of domains with at least one item"
+    )
+    elapsed_seconds: int = Field(
+        ..., description="Time elapsed since test session started"
+    )
+    current_se: Optional[float] = Field(
+        default=None,
+        description="Standard error of ability estimate (indicates measurement precision)",
+    )
