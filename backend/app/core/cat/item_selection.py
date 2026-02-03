@@ -291,6 +291,7 @@ def _apply_content_balancing(
 def _apply_exposure_control(
     candidates: List[ItemCandidate],
     k: int,
+    rng: Optional[random.Random] = None,
 ) -> ItemCandidate:
     """
     Apply randomesque exposure control by selecting randomly from the top-K items.
@@ -298,12 +299,18 @@ def _apply_exposure_control(
     This prevents over-exposure of the single most informative item, which
     would make the test predictable and compromise item security.
 
+    Non-determinism is intentional per CAT best practice (Kingsbury & Zara,
+    1989). An optional ``rng`` parameter supports deterministic testing.
+
     Args:
         candidates: List of ItemCandidate sorted by information (descending).
         k: Number of top items to select from.
+        rng: Optional Random instance for deterministic testing.
 
     Returns:
         The selected ItemCandidate.
     """
     top_k = candidates[: min(k, len(candidates))]
+    if rng is not None:
+        return rng.choice(top_k)
     return random.choice(top_k)
