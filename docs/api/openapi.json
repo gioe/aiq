@@ -121,14 +121,92 @@
         "title": "ActionNeededQuestion",
         "type": "object"
       },
-      "AlertSeverity": {
-        "description": "Severity level for inventory alerts.",
-        "enum": [
-          "warning",
-          "critical"
+      "AdaptiveNextResponse": {
+        "description": "Schema for the response from POST /v1/test/next.\n\nWhen test_complete is False, next_question contains the next item to present.\nWhen test_complete is True, result contains the final test scores.",
+        "properties": {
+          "current_se": {
+            "description": "Standard error of the ability estimate",
+            "title": "Current Se",
+            "type": "number"
+          },
+          "current_theta": {
+            "description": "Current ability estimate (theta)",
+            "title": "Current Theta",
+            "type": "number"
+          },
+          "items_administered": {
+            "description": "Total number of items administered so far",
+            "title": "Items Administered",
+            "type": "integer"
+          },
+          "next_question": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuestionResponse"
+              }
+            ],
+            "description": "Next question to present (null when test is complete)",
+            "nullable": true
+          },
+          "result": {
+            "description": "Final test result (only present when test_complete is True). Contains iq_score, percentile_rank, domain_scores, confidence_interval.",
+            "nullable": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "stopping_reason": {
+            "description": "Reason the test stopped (e.g., 'se_threshold', 'max_items', 'content_balance'). Only present when test_complete is True.",
+            "nullable": true,
+            "title": "Stopping Reason",
+            "type": "string"
+          },
+          "test_complete": {
+            "default": false,
+            "description": "Whether the test has ended",
+            "title": "Test Complete",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "current_theta",
+          "current_se",
+          "items_administered"
         ],
-        "title": "AlertSeverity",
-        "type": "string"
+        "title": "AdaptiveNextResponse",
+        "type": "object"
+      },
+      "AdaptiveResponseRequest": {
+        "description": "Schema for submitting a single response during an adaptive (CAT) test session.",
+        "properties": {
+          "question_id": {
+            "description": "ID of the question being answered",
+            "title": "Question Id",
+            "type": "integer"
+          },
+          "session_id": {
+            "description": "Adaptive test session ID",
+            "title": "Session Id",
+            "type": "integer"
+          },
+          "time_spent_seconds": {
+            "description": "Time spent on this question in seconds",
+            "nullable": true,
+            "title": "Time Spent Seconds",
+            "type": "integer"
+          },
+          "user_answer": {
+            "description": "User's answer to the question",
+            "title": "User Answer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "question_id",
+          "user_answer"
+        ],
+        "title": "AdaptiveResponseRequest",
+        "type": "object"
       },
       "AnalyticsEvent": {
         "description": "Schema for a single analytics event from the client.",
@@ -228,6 +306,293 @@
         "title": "AnalyticsEventsResponse",
         "type": "object"
       },
+      "AnchorAutoSelectResponse": {
+        "description": "Response schema for POST /v1/admin/anchor-items/auto-select.",
+        "properties": {
+          "criteria": {
+            "$ref": "#/components/schemas/AnchorSelectionCriteria",
+            "description": "Selection criteria used"
+          },
+          "domain_results": {
+            "description": "Per-domain selection results",
+            "items": {
+              "$ref": "#/components/schemas/AutoSelectResult"
+            },
+            "title": "Domain Results",
+            "type": "array"
+          },
+          "dry_run": {
+            "description": "Whether this was a dry run (no changes persisted)",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "total_cleared": {
+            "description": "Number of previously designated anchors cleared",
+            "minimum": 0.0,
+            "title": "Total Cleared",
+            "type": "integer"
+          },
+          "total_selected": {
+            "description": "Total items selected across all domains",
+            "minimum": 0.0,
+            "title": "Total Selected",
+            "type": "integer"
+          },
+          "warnings": {
+            "description": "Warnings about shortfalls or issues",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total_selected",
+          "total_cleared",
+          "dry_run",
+          "criteria",
+          "domain_results",
+          "warnings"
+        ],
+        "title": "AnchorAutoSelectResponse",
+        "type": "object"
+      },
+      "AnchorDomainSummary": {
+        "description": "Per-domain anchor summary statistics.",
+        "properties": {
+          "avg_discrimination": {
+            "description": "Average discrimination of anchor items in this domain",
+            "nullable": true,
+            "title": "Avg Discrimination",
+            "type": "number"
+          },
+          "domain": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Domain",
+            "type": "string"
+          },
+          "easy_count": {
+            "description": "Number of easy-difficulty anchors",
+            "minimum": 0.0,
+            "title": "Easy Count",
+            "type": "integer"
+          },
+          "hard_count": {
+            "description": "Number of hard-difficulty anchors",
+            "minimum": 0.0,
+            "title": "Hard Count",
+            "type": "integer"
+          },
+          "medium_count": {
+            "description": "Number of medium-difficulty anchors",
+            "minimum": 0.0,
+            "title": "Medium Count",
+            "type": "integer"
+          },
+          "total_anchors": {
+            "description": "Total anchor items in this domain",
+            "minimum": 0.0,
+            "title": "Total Anchors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "total_anchors",
+          "easy_count",
+          "medium_count",
+          "hard_count"
+        ],
+        "title": "AnchorDomainSummary",
+        "type": "object"
+      },
+      "AnchorItemDetail": {
+        "description": "Per-item anchor information.",
+        "properties": {
+          "anchor_designated_at": {
+            "description": "When this item was designated as anchor",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Anchor Designated At",
+            "type": "string"
+          },
+          "difficulty_level": {
+            "description": "Difficulty level (easy, medium, hard)",
+            "title": "Difficulty Level",
+            "type": "string"
+          },
+          "discrimination": {
+            "description": "Point-biserial correlation",
+            "nullable": true,
+            "title": "Discrimination",
+            "type": "number"
+          },
+          "is_anchor": {
+            "description": "Whether this item is an anchor",
+            "title": "Is Anchor",
+            "type": "boolean"
+          },
+          "question_id": {
+            "description": "Question identifier",
+            "title": "Question Id",
+            "type": "integer"
+          },
+          "question_type": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Question Type",
+            "type": "string"
+          },
+          "response_count": {
+            "description": "Number of responses collected",
+            "nullable": true,
+            "title": "Response Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id",
+          "question_type",
+          "difficulty_level",
+          "is_anchor"
+        ],
+        "title": "AnchorItemDetail",
+        "type": "object"
+      },
+      "AnchorItemsListResponse": {
+        "description": "Response schema for GET /v1/admin/anchor-items.",
+        "properties": {
+          "domain_summaries": {
+            "description": "Per-domain anchor statistics",
+            "items": {
+              "$ref": "#/components/schemas/AnchorDomainSummary"
+            },
+            "title": "Domain Summaries",
+            "type": "array"
+          },
+          "items": {
+            "description": "List of anchor items",
+            "items": {
+              "$ref": "#/components/schemas/AnchorItemDetail"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "target_per_domain": {
+            "description": "Target number of anchors per domain",
+            "title": "Target Per Domain",
+            "type": "integer"
+          },
+          "target_total": {
+            "description": "Target total anchors across all domains",
+            "title": "Target Total",
+            "type": "integer"
+          },
+          "total_anchors": {
+            "description": "Total number of designated anchor items",
+            "minimum": 0.0,
+            "title": "Total Anchors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_anchors",
+          "target_per_domain",
+          "target_total",
+          "domain_summaries",
+          "items"
+        ],
+        "title": "AnchorItemsListResponse",
+        "type": "object"
+      },
+      "AnchorSelectionCriteria": {
+        "description": "Documents the criteria used in auto-select.",
+        "properties": {
+          "min_discrimination": {
+            "description": "Minimum discrimination threshold",
+            "title": "Min Discrimination",
+            "type": "number"
+          },
+          "per_difficulty_per_domain": {
+            "description": "Target anchors per difficulty level per domain",
+            "title": "Per Difficulty Per Domain",
+            "type": "integer"
+          },
+          "per_domain": {
+            "description": "Target anchors per domain",
+            "title": "Per Domain",
+            "type": "integer"
+          },
+          "requires_active": {
+            "default": true,
+            "description": "Only active questions eligible",
+            "title": "Requires Active",
+            "type": "boolean"
+          },
+          "requires_normal_quality": {
+            "default": true,
+            "description": "Only normal quality_flag eligible",
+            "title": "Requires Normal Quality",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "min_discrimination",
+          "per_domain",
+          "per_difficulty_per_domain"
+        ],
+        "title": "AnchorSelectionCriteria",
+        "type": "object"
+      },
+      "AnchorToggleRequest": {
+        "description": "Request body for PATCH /v1/admin/questions/{question_id}/anchor.",
+        "properties": {
+          "is_anchor": {
+            "description": "Whether to designate as anchor",
+            "title": "Is Anchor",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_anchor"
+        ],
+        "title": "AnchorToggleRequest",
+        "type": "object"
+      },
+      "AnchorToggleResponse": {
+        "description": "Response schema for PATCH /v1/admin/questions/{question_id}/anchor.",
+        "properties": {
+          "anchor_designated_at": {
+            "description": "Timestamp when designated (null if unset)",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Anchor Designated At",
+            "type": "string"
+          },
+          "new_value": {
+            "description": "New is_anchor value",
+            "title": "New Value",
+            "type": "boolean"
+          },
+          "previous_value": {
+            "description": "Previous is_anchor value",
+            "title": "Previous Value",
+            "type": "boolean"
+          },
+          "question_id": {
+            "description": "Question identifier",
+            "title": "Question Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id",
+          "previous_value",
+          "new_value"
+        ],
+        "title": "AnchorToggleResponse",
+        "type": "object"
+      },
       "AnomalySummary": {
         "description": "Summary of response time anomalies across all sessions.",
         "properties": {
@@ -256,6 +621,56 @@
           "pct_flagged"
         ],
         "title": "AnomalySummary",
+        "type": "object"
+      },
+      "AutoSelectResult": {
+        "description": "Per-domain auto-selection result.",
+        "properties": {
+          "domain": {
+            "description": "Question type",
+            "title": "Domain",
+            "type": "string"
+          },
+          "easy_selected": {
+            "description": "Easy items selected",
+            "minimum": 0.0,
+            "title": "Easy Selected",
+            "type": "integer"
+          },
+          "hard_selected": {
+            "description": "Hard items selected",
+            "minimum": 0.0,
+            "title": "Hard Selected",
+            "type": "integer"
+          },
+          "medium_selected": {
+            "description": "Medium items selected",
+            "minimum": 0.0,
+            "title": "Medium Selected",
+            "type": "integer"
+          },
+          "selected": {
+            "description": "Total items selected in this domain",
+            "minimum": 0.0,
+            "title": "Selected",
+            "type": "integer"
+          },
+          "shortfall": {
+            "description": "How many items short of target",
+            "minimum": 0.0,
+            "title": "Shortfall",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "selected",
+          "easy_selected",
+          "medium_selected",
+          "hard_selected",
+          "shortfall"
+        ],
+        "title": "AutoSelectResult",
         "type": "object"
       },
       "BackgroundJobListResponse": {
@@ -391,6 +806,33 @@
         "title": "BackgroundJobStatsResponse",
         "type": "object"
       },
+      "BlandAltmanMetrics": {
+        "description": "Bland-Altman agreement analysis between shadow CAT and CTT IQ.",
+        "properties": {
+          "lower_limit_of_agreement": {
+            "nullable": true,
+            "title": "Lower Limit Of Agreement",
+            "type": "number"
+          },
+          "mean_difference": {
+            "nullable": true,
+            "title": "Mean Difference",
+            "type": "number"
+          },
+          "std_difference": {
+            "nullable": true,
+            "title": "Std Difference",
+            "type": "number"
+          },
+          "upper_limit_of_agreement": {
+            "nullable": true,
+            "title": "Upper Limit Of Agreement",
+            "type": "number"
+          }
+        },
+        "title": "BlandAltmanMetrics",
+        "type": "object"
+      },
       "ByDifficultyStats": {
         "description": "Response time statistics broken down by difficulty level.",
         "properties": {
@@ -452,6 +894,118 @@
           "memory"
         ],
         "title": "ByQuestionTypeStats",
+        "type": "object"
+      },
+      "CATReadinessResponse": {
+        "description": "Response schema for CAT readiness endpoints.",
+        "properties": {
+          "cat_enabled": {
+            "description": "Whether CAT is currently enabled for new tests",
+            "title": "Cat Enabled",
+            "type": "boolean"
+          },
+          "domains": {
+            "description": "Per-domain readiness breakdown",
+            "items": {
+              "$ref": "#/components/schemas/DomainReadinessResponse"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "evaluated_at": {
+            "description": "When readiness was last evaluated",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "is_globally_ready": {
+            "description": "Whether all 6 domains meet CAT readiness thresholds",
+            "title": "Is Globally Ready",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "Human-readable summary of readiness status",
+            "title": "Summary",
+            "type": "string"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/CATReadinessThresholds",
+            "description": "Thresholds used for evaluation"
+          }
+        },
+        "required": [
+          "is_globally_ready",
+          "cat_enabled",
+          "thresholds",
+          "domains",
+          "summary"
+        ],
+        "title": "CATReadinessResponse",
+        "type": "object"
+      },
+      "CATReadinessThresholds": {
+        "description": "Documents the thresholds used for CAT readiness evaluation.",
+        "properties": {
+          "max_se_difficulty": {
+            "description": "Maximum acceptable SE on IRT difficulty parameter",
+            "title": "Max Se Difficulty",
+            "type": "number"
+          },
+          "max_se_discrimination": {
+            "description": "Maximum acceptable SE on IRT discrimination parameter",
+            "title": "Max Se Discrimination",
+            "type": "number"
+          },
+          "min_calibrated_items_per_domain": {
+            "description": "Minimum well-calibrated items required per domain",
+            "title": "Min Calibrated Items Per Domain",
+            "type": "integer"
+          },
+          "min_items_per_difficulty_band": {
+            "description": "Minimum items per IRT difficulty band (easy/medium/hard)",
+            "title": "Min Items Per Difficulty Band",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min_calibrated_items_per_domain",
+          "max_se_difficulty",
+          "max_se_discrimination",
+          "min_items_per_difficulty_band"
+        ],
+        "title": "CATReadinessThresholds",
+        "type": "object"
+      },
+      "CalibrationAlert": {
+        "description": "Alert for calibration readiness issues.",
+        "example": {
+          "domain": "spatial",
+          "message": "Domain 'spatial' has very low average responses per item (3.2). Need more data collection.",
+          "severity": "critical"
+        },
+        "properties": {
+          "domain": {
+            "description": "Question type with issue (null for global alerts)",
+            "nullable": true,
+            "title": "Domain",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human-readable alert message",
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/app__schemas__calibration_monitoring__AlertSeverity",
+            "description": "Alert severity level"
+          }
+        },
+        "required": [
+          "severity",
+          "message"
+        ],
+        "title": "CalibrationAlert",
         "type": "object"
       },
       "CalibrationHealthResponse": {
@@ -529,6 +1083,243 @@
         "title": "CalibrationHealthResponse",
         "type": "object"
       },
+      "CalibrationJobProgress": {
+        "description": "Response from GET /v1/admin/calibration/status/{job_id}.",
+        "properties": {
+          "calibrated": {
+            "nullable": true,
+            "title": "Calibrated",
+            "type": "integer"
+          },
+          "completed_at": {
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "nullable": true,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "error_message": {
+            "nullable": true,
+            "title": "Error Message",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "mean_difficulty": {
+            "nullable": true,
+            "title": "Mean Difficulty",
+            "type": "number"
+          },
+          "mean_discrimination": {
+            "nullable": true,
+            "title": "Mean Discrimination",
+            "type": "number"
+          },
+          "skipped": {
+            "nullable": true,
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CalibrationJobStatus"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "started_at"
+        ],
+        "title": "CalibrationJobProgress",
+        "type": "object"
+      },
+      "CalibrationJobStatus": {
+        "description": "Status of an IRT calibration job.",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "CalibrationJobStatus",
+        "type": "string"
+      },
+      "CalibrationMonitoringResponse": {
+        "description": "Response schema for GET /v1/admin/calibration-status.\n\nProvides comprehensive view of IRT calibration readiness across all items\nwith progress tracking toward the 500-test milestone and response count\ndistribution metrics.",
+        "example": {
+          "alerts": [
+            {
+              "domain": "spatial",
+              "message": "Domain 'spatial' has very low average responses per item (3.2). Need more data collection.",
+              "severity": "critical"
+            }
+          ],
+          "bottom_items": [
+            {
+              "difficulty_level": "hard",
+              "question_id": 456,
+              "question_type": "spatial",
+              "ready_for_calibration": false,
+              "response_count": 2
+            }
+          ],
+          "domains": [
+            {
+              "avg_responses_per_item": 37.6,
+              "domain": "pattern",
+              "items_ready": 42,
+              "items_total": 100,
+              "items_with_responses": 85,
+              "readiness": "approaching",
+              "readiness_pct": 42.0,
+              "total_responses": 3200
+            }
+          ],
+          "exit_criteria": {
+            "avg_responses_per_item_sufficient": false,
+            "completed_tests": 387,
+            "has_500_tests": false,
+            "overall_avg_responses": 38.2,
+            "test_progress_pct": 77.4
+          },
+          "items_ready_for_calibration": 82,
+          "overall_readiness_pct": 16.4,
+          "response_count_distribution": {
+            "0": 285,
+            "1-9": 45,
+            "10-24": 38,
+            "100+": 20,
+            "25-49": 50,
+            "50-99": 62
+          },
+          "top_items": [
+            {
+              "difficulty_level": "medium",
+              "discrimination": 0.35,
+              "empirical_difficulty": 0.62,
+              "question_id": 123,
+              "question_type": "pattern",
+              "ready_for_calibration": true,
+              "response_count": 125
+            }
+          ],
+          "total_completed_tests": 387,
+          "total_items_with_responses": 215,
+          "total_responses": 7740
+        },
+        "properties": {
+          "alerts": {
+            "description": "Alerts for calibration readiness issues",
+            "items": {
+              "$ref": "#/components/schemas/CalibrationAlert"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "bottom_items": {
+            "description": "Bottom 20 items by response count (from items with > 0 responses)",
+            "items": {
+              "$ref": "#/components/schemas/ItemCalibrationStats"
+            },
+            "title": "Bottom Items",
+            "type": "array"
+          },
+          "domains": {
+            "description": "Per-domain calibration statistics",
+            "items": {
+              "$ref": "#/components/schemas/DomainCalibrationStats"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "exit_criteria": {
+            "$ref": "#/components/schemas/ExitCriteria",
+            "description": "Progress toward pilot data collection exit criteria"
+          },
+          "items_ready_for_calibration": {
+            "description": "Number of items with response_count >= 50 (ready for IRT calibration)",
+            "minimum": 0.0,
+            "title": "Items Ready For Calibration",
+            "type": "integer"
+          },
+          "overall_readiness_pct": {
+            "description": "Percentage of all active items ready for calibration",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Overall Readiness Pct",
+            "type": "number"
+          },
+          "response_count_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Distribution of items by response count buckets (0, 1-9, 10-24, 25-49, 50-99, 100+)",
+            "title": "Response Count Distribution",
+            "type": "object"
+          },
+          "top_items": {
+            "description": "Top 20 items by response count",
+            "items": {
+              "$ref": "#/components/schemas/ItemCalibrationStats"
+            },
+            "title": "Top Items",
+            "type": "array"
+          },
+          "total_completed_tests": {
+            "description": "Total number of completed test sessions",
+            "minimum": 0.0,
+            "title": "Total Completed Tests",
+            "type": "integer"
+          },
+          "total_items_with_responses": {
+            "description": "Number of distinct questions that have received at least one response",
+            "minimum": 0.0,
+            "title": "Total Items With Responses",
+            "type": "integer"
+          },
+          "total_responses": {
+            "description": "Total response count across all completed tests",
+            "minimum": 0.0,
+            "title": "Total Responses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_completed_tests",
+          "total_responses",
+          "total_items_with_responses",
+          "items_ready_for_calibration",
+          "overall_readiness_pct",
+          "domains",
+          "top_items",
+          "bottom_items",
+          "alerts",
+          "exit_criteria",
+          "response_count_distribution"
+        ],
+        "title": "CalibrationMonitoringResponse",
+        "type": "object"
+      },
+      "CalibrationReadiness": {
+        "description": "Readiness indicator for IRT calibration.",
+        "enum": [
+          "not_ready",
+          "approaching",
+          "ready"
+        ],
+        "title": "CalibrationReadiness",
+        "type": "string"
+      },
       "CalibrationSummary": {
         "description": "Summary statistics for calibration health.",
         "properties": {
@@ -604,6 +1395,40 @@
         "title": "ConfidenceIntervalSchema",
         "type": "object"
       },
+      "CriterionResultResponse": {
+        "description": "Result for a single acceptance criterion.",
+        "properties": {
+          "criterion": {
+            "title": "Criterion",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "observed_value": {
+            "title": "Observed Value",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "description",
+          "threshold",
+          "observed_value",
+          "passed"
+        ],
+        "title": "CriterionResultResponse",
+        "type": "object"
+      },
       "Day30ReminderPreviewResponse": {
         "description": "Response model for previewing Day 30 reminder candidates.",
         "properties": {
@@ -661,6 +1486,95 @@
           "failed"
         ],
         "title": "Day30ReminderResponse",
+        "type": "object"
+      },
+      "DetailedResponseTimeAnalyticsResponse": {
+        "description": "Response schema for GET /v1/admin/analytics/response-times/detailed.\n\nProvides percentile distributions of response times broken down by\nquestion type and difficulty level. All data is aggregate and\nprivacy-preserving (no individual user tracking).",
+        "example": {
+          "by_difficulty": {
+            "easy": {
+              "count": 1000,
+              "mean_seconds": 25.0,
+              "median_seconds": 22.0,
+              "p90_seconds": 40.0,
+              "p95_seconds": 48.0
+            }
+          },
+          "by_type": {
+            "pattern": {
+              "count": 500,
+              "mean_seconds": 32.0,
+              "median_seconds": 28.0,
+              "p90_seconds": 52.0,
+              "p95_seconds": 62.0
+            }
+          },
+          "by_type_and_difficulty": [
+            {
+              "difficulty_level": "easy",
+              "question_type": "pattern",
+              "stats": {
+                "count": 150,
+                "mean_seconds": 22.5,
+                "median_seconds": 20.0,
+                "p90_seconds": 38.0,
+                "p95_seconds": 45.0
+              }
+            }
+          ],
+          "overall": {
+            "count": 3000,
+            "mean_seconds": 35.0,
+            "median_seconds": 30.0,
+            "p90_seconds": 58.0,
+            "p95_seconds": 68.0
+          },
+          "total_responses_analyzed": 3000
+        },
+        "properties": {
+          "by_difficulty": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PercentileStats"
+            },
+            "description": "Percentile stats aggregated by difficulty level across all types",
+            "title": "By Difficulty",
+            "type": "object"
+          },
+          "by_type": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PercentileStats"
+            },
+            "description": "Percentile stats aggregated by question type across all difficulties",
+            "title": "By Type",
+            "type": "object"
+          },
+          "by_type_and_difficulty": {
+            "description": "Percentile stats for each (question_type, difficulty_level) combination",
+            "items": {
+              "$ref": "#/components/schemas/TypeDifficultyBreakdown"
+            },
+            "title": "By Type And Difficulty",
+            "type": "array"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/PercentileStats",
+            "description": "Percentile stats across all response times"
+          },
+          "total_responses_analyzed": {
+            "description": "Total number of responses with time data included in analysis",
+            "minimum": 0.0,
+            "title": "Total Responses Analyzed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "by_type_and_difficulty",
+          "by_type",
+          "by_difficulty",
+          "overall",
+          "total_responses_analyzed"
+        ],
+        "title": "DetailedResponseTimeAnalyticsResponse",
         "type": "object"
       },
       "DeviceTokenRegister": {
@@ -1494,6 +2408,143 @@
         "title": "DistractorSummaryResponse",
         "type": "object"
       },
+      "DomainCalibrationStats": {
+        "description": "Per-domain (question_type) aggregate statistics.",
+        "example": {
+          "avg_responses_per_item": 37.6,
+          "domain": "pattern",
+          "items_ready": 42,
+          "items_total": 100,
+          "items_with_responses": 85,
+          "readiness": "approaching",
+          "readiness_pct": 42.0,
+          "total_responses": 3200
+        },
+        "properties": {
+          "avg_responses_per_item": {
+            "description": "Average responses per item in this domain",
+            "minimum": 0.0,
+            "title": "Avg Responses Per Item",
+            "type": "number"
+          },
+          "domain": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Domain",
+            "type": "string"
+          },
+          "items_ready": {
+            "description": "Number of items with >= 50 responses (ready for calibration)",
+            "minimum": 0.0,
+            "title": "Items Ready",
+            "type": "integer"
+          },
+          "items_total": {
+            "description": "Total active items in this domain (even with 0 responses)",
+            "minimum": 0.0,
+            "title": "Items Total",
+            "type": "integer"
+          },
+          "items_with_responses": {
+            "description": "Number of distinct questions with at least one response",
+            "minimum": 0.0,
+            "title": "Items With Responses",
+            "type": "integer"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/CalibrationReadiness",
+            "description": "Readiness status (ready >= 80%, approaching >= 40%, else not_ready)"
+          },
+          "readiness_pct": {
+            "description": "Percentage of items ready for calibration (items_ready / items_total * 100)",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Readiness Pct",
+            "type": "number"
+          },
+          "total_responses": {
+            "description": "Total response count across all items in this domain",
+            "minimum": 0.0,
+            "title": "Total Responses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "items_with_responses",
+          "total_responses",
+          "avg_responses_per_item",
+          "items_ready",
+          "items_total",
+          "readiness_pct",
+          "readiness"
+        ],
+        "title": "DomainCalibrationStats",
+        "type": "object"
+      },
+      "DomainReadinessResponse": {
+        "description": "Per-domain CAT readiness breakdown.",
+        "properties": {
+          "domain": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Domain",
+            "type": "string"
+          },
+          "easy_count": {
+            "description": "Well-calibrated items with IRT b < -1.0",
+            "minimum": 0.0,
+            "title": "Easy Count",
+            "type": "integer"
+          },
+          "hard_count": {
+            "description": "Well-calibrated items with IRT b > 1.0",
+            "minimum": 0.0,
+            "title": "Hard Count",
+            "type": "integer"
+          },
+          "is_ready": {
+            "description": "Whether this domain meets all CAT readiness thresholds",
+            "title": "Is Ready",
+            "type": "boolean"
+          },
+          "medium_count": {
+            "description": "Well-calibrated items with -1.0 <= IRT b <= 1.0",
+            "minimum": 0.0,
+            "title": "Medium Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "description": "Reasons domain is not ready (empty if ready)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "total_calibrated": {
+            "description": "Total IRT-calibrated items in this domain",
+            "minimum": 0.0,
+            "title": "Total Calibrated",
+            "type": "integer"
+          },
+          "well_calibrated": {
+            "description": "Items with SE below thresholds (eligible for CAT)",
+            "minimum": 0.0,
+            "title": "Well Calibrated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "is_ready",
+          "total_calibrated",
+          "well_calibrated",
+          "easy_count",
+          "medium_count",
+          "hard_count"
+        ],
+        "title": "DomainReadinessResponse",
+        "type": "object"
+      },
       "DomainWeightsRequest": {
         "description": "Request model for setting domain weights.",
         "properties": {
@@ -1566,6 +2617,56 @@
         ],
         "title": "EducationLevelSchema",
         "type": "string"
+      },
+      "ExitCriteria": {
+        "description": "Exit criteria for pilot data collection phase.",
+        "example": {
+          "avg_responses_per_item_sufficient": false,
+          "completed_tests": 387,
+          "has_500_tests": false,
+          "overall_avg_responses": 38.2,
+          "test_progress_pct": 77.4
+        },
+        "properties": {
+          "avg_responses_per_item_sufficient": {
+            "description": "Whether overall average responses per item >= 50",
+            "title": "Avg Responses Per Item Sufficient",
+            "type": "boolean"
+          },
+          "completed_tests": {
+            "description": "Number of completed test sessions",
+            "minimum": 0.0,
+            "title": "Completed Tests",
+            "type": "integer"
+          },
+          "has_500_tests": {
+            "description": "Whether the 500-test threshold has been reached",
+            "title": "Has 500 Tests",
+            "type": "boolean"
+          },
+          "overall_avg_responses": {
+            "description": "Overall average responses per item across all domains",
+            "minimum": 0.0,
+            "title": "Overall Avg Responses",
+            "type": "number"
+          },
+          "test_progress_pct": {
+            "description": "Progress toward 500-test milestone (min(completed_tests / 500 * 100, 100))",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Test Progress Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "has_500_tests",
+          "completed_tests",
+          "test_progress_pct",
+          "avg_responses_per_item_sufficient",
+          "overall_avg_responses"
+        ],
+        "title": "ExitCriteria",
+        "type": "object"
       },
       "FactorAnalysisRecommendation": {
         "description": "Recommendation based on factor analysis results.",
@@ -2072,7 +3173,7 @@
             "type": "string"
           },
           "severity": {
-            "$ref": "#/components/schemas/AlertSeverity",
+            "$ref": "#/components/schemas/app__schemas__inventory__AlertSeverity",
             "description": "Alert severity level"
           },
           "threshold": {
@@ -2263,6 +3364,67 @@
           }
         },
         "title": "InventoryThresholds",
+        "type": "object"
+      },
+      "ItemCalibrationStats": {
+        "description": "Per-question calibration statistics.",
+        "example": {
+          "difficulty_level": "medium",
+          "discrimination": 0.35,
+          "empirical_difficulty": 0.62,
+          "question_id": 123,
+          "question_type": "pattern",
+          "ready_for_calibration": true,
+          "response_count": 75
+        },
+        "properties": {
+          "difficulty_level": {
+            "description": "Difficulty level (easy, medium, hard)",
+            "title": "Difficulty Level",
+            "type": "string"
+          },
+          "discrimination": {
+            "description": "Point-biserial correlation, if computed",
+            "nullable": true,
+            "title": "Discrimination",
+            "type": "number"
+          },
+          "empirical_difficulty": {
+            "description": "P-value (proportion correct), if computed",
+            "nullable": true,
+            "title": "Empirical Difficulty",
+            "type": "number"
+          },
+          "question_id": {
+            "description": "Question identifier",
+            "title": "Question Id",
+            "type": "integer"
+          },
+          "question_type": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "title": "Question Type",
+            "type": "string"
+          },
+          "ready_for_calibration": {
+            "description": "Whether this item has sufficient responses for calibration (>= 50)",
+            "title": "Ready For Calibration",
+            "type": "boolean"
+          },
+          "response_count": {
+            "description": "Number of responses collected for this item",
+            "minimum": 0.0,
+            "title": "Response Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id",
+          "question_type",
+          "difficulty_level",
+          "response_count",
+          "ready_for_calibration"
+        ],
+        "title": "ItemCalibrationStats",
         "type": "object"
       },
       "LogoutRequest": {
@@ -2572,6 +3734,46 @@
           "message"
         ],
         "title": "PasswordResetResponse",
+        "type": "object"
+      },
+      "PercentileStats": {
+        "description": "Percentile distribution statistics for a group of response times.",
+        "properties": {
+          "count": {
+            "description": "Number of responses in this group",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "mean_seconds": {
+            "description": "Mean response time in seconds",
+            "nullable": true,
+            "title": "Mean Seconds",
+            "type": "number"
+          },
+          "median_seconds": {
+            "description": "Median (p50) response time in seconds",
+            "nullable": true,
+            "title": "Median Seconds",
+            "type": "number"
+          },
+          "p90_seconds": {
+            "description": "90th percentile response time in seconds",
+            "nullable": true,
+            "title": "P90 Seconds",
+            "type": "number"
+          },
+          "p95_seconds": {
+            "description": "95th percentile response time in seconds",
+            "nullable": true,
+            "title": "P95 Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "PercentileStats",
         "type": "object"
       },
       "PersonFitDetails": {
@@ -3622,6 +4824,12 @@
             "title": "Id",
             "type": "integer"
           },
+          "inferred_sub_type": {
+            "description": "Inferred sub-type from LLM classification of existing questions",
+            "nullable": true,
+            "title": "Inferred Sub Type",
+            "type": "string"
+          },
           "question_text": {
             "description": "The question text",
             "title": "Question Text",
@@ -3636,6 +4844,12 @@
             "description": "Content to memorize before answering (for memory questions)",
             "nullable": true,
             "title": "Stimulus",
+            "type": "string"
+          },
+          "sub_type": {
+            "description": "Generation sub-type (e.g., cube rotations, cross-section)",
+            "nullable": true,
+            "title": "Sub Type",
             "type": "string"
           }
         },
@@ -3659,6 +4873,50 @@
           }
         },
         "title": "QuestionTypeTimeStats",
+        "type": "object"
+      },
+      "QuintileResultResponse": {
+        "description": "Validation metrics for a single ability quintile.",
+        "properties": {
+          "correlation": {
+            "nullable": true,
+            "title": "Correlation",
+            "type": "number"
+          },
+          "mean_actual_iq": {
+            "title": "Mean Actual Iq",
+            "type": "number"
+          },
+          "mean_bias": {
+            "title": "Mean Bias",
+            "type": "number"
+          },
+          "mean_shadow_iq": {
+            "title": "Mean Shadow Iq",
+            "type": "number"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "quintile_label": {
+            "title": "Quintile Label",
+            "type": "string"
+          },
+          "rmse": {
+            "title": "Rmse",
+            "type": "number"
+          }
+        },
+        "required": [
+          "quintile_label",
+          "n",
+          "mean_actual_iq",
+          "mean_shadow_iq",
+          "mean_bias",
+          "rmse"
+        ],
+        "title": "QuintileResultResponse",
         "type": "object"
       },
       "RecalibratedQuestion": {
@@ -4446,6 +5704,645 @@
         "title": "SeverityLevel",
         "type": "string"
       },
+      "ShadowCATAnalysisResponse": {
+        "description": "Comprehensive statistical analysis of shadow CAT vs fixed-form results.",
+        "properties": {
+          "bland_altman": {
+            "$ref": "#/components/schemas/BlandAltmanMetrics"
+          },
+          "mean_delta": {
+            "nullable": true,
+            "title": "Mean Delta",
+            "type": "number"
+          },
+          "mean_domain_coverage": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "nullable": true,
+            "title": "Mean Domain Coverage",
+            "type": "object"
+          },
+          "mean_execution_time_ms": {
+            "nullable": true,
+            "title": "Mean Execution Time Ms",
+            "type": "number"
+          },
+          "mean_items_administered": {
+            "nullable": true,
+            "title": "Mean Items Administered",
+            "type": "number"
+          },
+          "mean_se": {
+            "nullable": true,
+            "title": "Mean Se",
+            "type": "number"
+          },
+          "mean_theta": {
+            "nullable": true,
+            "title": "Mean Theta",
+            "type": "number"
+          },
+          "median_delta": {
+            "nullable": true,
+            "title": "Median Delta",
+            "type": "number"
+          },
+          "median_se": {
+            "nullable": true,
+            "title": "Median Se",
+            "type": "number"
+          },
+          "median_theta": {
+            "nullable": true,
+            "title": "Median Theta",
+            "type": "number"
+          },
+          "pearson_r": {
+            "nullable": true,
+            "title": "Pearson R",
+            "type": "number"
+          },
+          "pearson_r_squared": {
+            "nullable": true,
+            "title": "Pearson R Squared",
+            "type": "number"
+          },
+          "std_delta": {
+            "nullable": true,
+            "title": "Std Delta",
+            "type": "number"
+          },
+          "std_theta": {
+            "nullable": true,
+            "title": "Std Theta",
+            "type": "number"
+          },
+          "stopping_reason_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Stopping Reason Distribution",
+            "type": "object"
+          },
+          "total_sessions": {
+            "title": "Total Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_sessions",
+          "bland_altman",
+          "stopping_reason_distribution"
+        ],
+        "title": "ShadowCATAnalysisResponse",
+        "type": "object"
+      },
+      "ShadowCATCollectionProgressResponse": {
+        "description": "Progress toward the 100-session shadow testing data collection goal.",
+        "properties": {
+          "first_result_at": {
+            "format": "date-time",
+            "nullable": true,
+            "title": "First Result At",
+            "type": "string"
+          },
+          "latest_result_at": {
+            "format": "date-time",
+            "nullable": true,
+            "title": "Latest Result At",
+            "type": "string"
+          },
+          "milestone_reached": {
+            "title": "Milestone Reached",
+            "type": "boolean"
+          },
+          "milestone_target": {
+            "title": "Milestone Target",
+            "type": "integer"
+          },
+          "total_sessions": {
+            "title": "Total Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_sessions",
+          "milestone_target",
+          "milestone_reached"
+        ],
+        "title": "ShadowCATCollectionProgressResponse",
+        "type": "object"
+      },
+      "ShadowCATHealthResponse": {
+        "description": "Production health monitoring for shadow CAT execution.",
+        "properties": {
+          "coverage_rate": {
+            "nullable": true,
+            "title": "Coverage Rate",
+            "type": "number"
+          },
+          "coverage_rate_last_7d": {
+            "nullable": true,
+            "title": "Coverage Rate Last 7D",
+            "type": "number"
+          },
+          "mean_execution_time_ms": {
+            "nullable": true,
+            "title": "Mean Execution Time Ms",
+            "type": "number"
+          },
+          "p50_execution_time_ms": {
+            "nullable": true,
+            "title": "P50 Execution Time Ms",
+            "type": "number"
+          },
+          "p95_execution_time_ms": {
+            "nullable": true,
+            "title": "P95 Execution Time Ms",
+            "type": "number"
+          },
+          "p99_execution_time_ms": {
+            "nullable": true,
+            "title": "P99 Execution Time Ms",
+            "type": "number"
+          },
+          "sessions_last_7d": {
+            "title": "Sessions Last 7D",
+            "type": "integer"
+          },
+          "sessions_without_shadow": {
+            "title": "Sessions Without Shadow",
+            "type": "integer"
+          },
+          "shadow_results_last_7d": {
+            "title": "Shadow Results Last 7D",
+            "type": "integer"
+          },
+          "total_fixed_form_sessions": {
+            "title": "Total Fixed Form Sessions",
+            "type": "integer"
+          },
+          "total_shadow_results": {
+            "title": "Total Shadow Results",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_fixed_form_sessions",
+          "total_shadow_results",
+          "sessions_last_7d",
+          "shadow_results_last_7d",
+          "sessions_without_shadow"
+        ],
+        "title": "ShadowCATHealthResponse",
+        "type": "object"
+      },
+      "ShadowCATResultDetail": {
+        "description": "Detailed view including CAT progression data.",
+        "properties": {
+          "actual_iq": {
+            "title": "Actual Iq",
+            "type": "integer"
+          },
+          "administered_question_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Administered Question Ids",
+            "type": "array"
+          },
+          "domain_coverage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "title": "Domain Coverage",
+            "type": "object"
+          },
+          "executed_at": {
+            "format": "date-time",
+            "title": "Executed At",
+            "type": "string"
+          },
+          "execution_time_ms": {
+            "nullable": true,
+            "title": "Execution Time Ms",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "items_administered": {
+            "title": "Items Administered",
+            "type": "integer"
+          },
+          "se_history": {
+            "items": {
+              "type": "number"
+            },
+            "nullable": true,
+            "title": "Se History",
+            "type": "array"
+          },
+          "shadow_iq": {
+            "title": "Shadow Iq",
+            "type": "integer"
+          },
+          "shadow_se": {
+            "title": "Shadow Se",
+            "type": "number"
+          },
+          "shadow_theta": {
+            "title": "Shadow Theta",
+            "type": "number"
+          },
+          "stopping_reason": {
+            "title": "Stopping Reason",
+            "type": "string"
+          },
+          "test_session_id": {
+            "title": "Test Session Id",
+            "type": "integer"
+          },
+          "theta_history": {
+            "items": {
+              "type": "number"
+            },
+            "nullable": true,
+            "title": "Theta History",
+            "type": "array"
+          },
+          "theta_iq_delta": {
+            "title": "Theta Iq Delta",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "test_session_id",
+          "shadow_theta",
+          "shadow_se",
+          "shadow_iq",
+          "actual_iq",
+          "theta_iq_delta",
+          "items_administered",
+          "stopping_reason",
+          "executed_at",
+          "administered_question_ids"
+        ],
+        "title": "ShadowCATResultDetail",
+        "type": "object"
+      },
+      "ShadowCATResultListResponse": {
+        "description": "Paginated list of shadow CAT results.",
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowCATResultSummary"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "total_count",
+          "limit",
+          "offset"
+        ],
+        "title": "ShadowCATResultListResponse",
+        "type": "object"
+      },
+      "ShadowCATResultSummary": {
+        "description": "Summary view of a shadow CAT result for list endpoints.",
+        "properties": {
+          "actual_iq": {
+            "title": "Actual Iq",
+            "type": "integer"
+          },
+          "executed_at": {
+            "format": "date-time",
+            "title": "Executed At",
+            "type": "string"
+          },
+          "execution_time_ms": {
+            "nullable": true,
+            "title": "Execution Time Ms",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "items_administered": {
+            "title": "Items Administered",
+            "type": "integer"
+          },
+          "shadow_iq": {
+            "title": "Shadow Iq",
+            "type": "integer"
+          },
+          "shadow_se": {
+            "title": "Shadow Se",
+            "type": "number"
+          },
+          "shadow_theta": {
+            "title": "Shadow Theta",
+            "type": "number"
+          },
+          "stopping_reason": {
+            "title": "Stopping Reason",
+            "type": "string"
+          },
+          "test_session_id": {
+            "title": "Test Session Id",
+            "type": "integer"
+          },
+          "theta_iq_delta": {
+            "title": "Theta Iq Delta",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "test_session_id",
+          "shadow_theta",
+          "shadow_se",
+          "shadow_iq",
+          "actual_iq",
+          "theta_iq_delta",
+          "items_administered",
+          "stopping_reason",
+          "executed_at"
+        ],
+        "title": "ShadowCATResultSummary",
+        "type": "object"
+      },
+      "ShadowCATStatisticsResponse": {
+        "description": "Aggregate statistics comparing shadow CAT with fixed-form scores.",
+        "properties": {
+          "max_delta": {
+            "nullable": true,
+            "title": "Max Delta",
+            "type": "number"
+          },
+          "mean_delta": {
+            "nullable": true,
+            "title": "Mean Delta",
+            "type": "number"
+          },
+          "mean_items_administered": {
+            "nullable": true,
+            "title": "Mean Items Administered",
+            "type": "number"
+          },
+          "mean_shadow_se": {
+            "nullable": true,
+            "title": "Mean Shadow Se",
+            "type": "number"
+          },
+          "median_delta": {
+            "nullable": true,
+            "title": "Median Delta",
+            "type": "number"
+          },
+          "min_delta": {
+            "nullable": true,
+            "title": "Min Delta",
+            "type": "number"
+          },
+          "std_delta": {
+            "nullable": true,
+            "title": "Std Delta",
+            "type": "number"
+          },
+          "stopping_reason_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Stopping Reason Distribution",
+            "type": "object"
+          },
+          "total_shadow_tests": {
+            "title": "Total Shadow Tests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_shadow_tests",
+          "stopping_reason_distribution"
+        ],
+        "title": "ShadowCATStatisticsResponse",
+        "type": "object"
+      },
+      "ShadowCATValidationResponse": {
+        "description": "Comprehensive validation report for shadow CAT go/no-go decision (TASK-877).\n\nEvaluates four acceptance criteria:\n1. Pearson r between shadow IQ and actual IQ >= 0.90\n2. No systematic bias: |mean(delta)| / SD(actual_iq) < 0.20\n3. Content balance violations < 5% of sessions\n4. Median test length <= 13 items",
+        "properties": {
+          "all_criteria_pass": {
+            "title": "All Criteria Pass",
+            "type": "boolean"
+          },
+          "bias_ratio": {
+            "nullable": true,
+            "title": "Bias Ratio",
+            "type": "number"
+          },
+          "bland_altman_mean": {
+            "nullable": true,
+            "title": "Bland Altman Mean",
+            "type": "number"
+          },
+          "bland_altman_sd": {
+            "nullable": true,
+            "title": "Bland Altman Sd",
+            "type": "number"
+          },
+          "content_violation_rate": {
+            "nullable": true,
+            "title": "Content Violation Rate",
+            "type": "number"
+          },
+          "content_violations_count": {
+            "title": "Content Violations Count",
+            "type": "integer"
+          },
+          "criteria_results": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionResultResponse"
+            },
+            "title": "Criteria Results",
+            "type": "array"
+          },
+          "criterion_1_pass": {
+            "title": "Criterion 1 Pass",
+            "type": "boolean"
+          },
+          "criterion_2_pass": {
+            "title": "Criterion 2 Pass",
+            "type": "boolean"
+          },
+          "criterion_3_pass": {
+            "title": "Criterion 3 Pass",
+            "type": "boolean"
+          },
+          "criterion_4_pass": {
+            "title": "Criterion 4 Pass",
+            "type": "boolean"
+          },
+          "loa_lower": {
+            "nullable": true,
+            "title": "Loa Lower",
+            "type": "number"
+          },
+          "loa_upper": {
+            "nullable": true,
+            "title": "Loa Upper",
+            "type": "number"
+          },
+          "mae": {
+            "nullable": true,
+            "title": "Mae",
+            "type": "number"
+          },
+          "mean_bias": {
+            "nullable": true,
+            "title": "Mean Bias",
+            "type": "number"
+          },
+          "mean_domain_coverage": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "nullable": true,
+            "title": "Mean Domain Coverage",
+            "type": "object"
+          },
+          "mean_items_administered": {
+            "nullable": true,
+            "title": "Mean Items Administered",
+            "type": "number"
+          },
+          "median_test_length": {
+            "nullable": true,
+            "title": "Median Test Length",
+            "type": "number"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "pearson_r": {
+            "nullable": true,
+            "title": "Pearson R",
+            "type": "number"
+          },
+          "pearson_r_ci_lower": {
+            "nullable": true,
+            "title": "Pearson R Ci Lower",
+            "type": "number"
+          },
+          "pearson_r_ci_upper": {
+            "nullable": true,
+            "title": "Pearson R Ci Upper",
+            "type": "number"
+          },
+          "pearson_r_squared": {
+            "nullable": true,
+            "title": "Pearson R Squared",
+            "type": "number"
+          },
+          "quintile_analysis": {
+            "items": {
+              "$ref": "#/components/schemas/QuintileResultResponse"
+            },
+            "title": "Quintile Analysis",
+            "type": "array"
+          },
+          "recommendation": {
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "rmse": {
+            "nullable": true,
+            "title": "Rmse",
+            "type": "number"
+          },
+          "se_convergence_rate": {
+            "nullable": true,
+            "title": "Se Convergence Rate",
+            "type": "number"
+          },
+          "std_actual_iq": {
+            "nullable": true,
+            "title": "Std Actual Iq",
+            "type": "number"
+          },
+          "stopping_reason_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Stopping Reason Distribution",
+            "type": "object"
+          },
+          "test_length_max": {
+            "nullable": true,
+            "title": "Test Length Max",
+            "type": "integer"
+          },
+          "test_length_min": {
+            "nullable": true,
+            "title": "Test Length Min",
+            "type": "integer"
+          },
+          "test_length_p25": {
+            "nullable": true,
+            "title": "Test Length P25",
+            "type": "number"
+          },
+          "test_length_p75": {
+            "nullable": true,
+            "title": "Test Length P75",
+            "type": "number"
+          },
+          "total_sessions": {
+            "title": "Total Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_sessions",
+          "criterion_1_pass",
+          "criterion_2_pass",
+          "content_violations_count",
+          "criterion_3_pass",
+          "criterion_4_pass",
+          "stopping_reason_distribution",
+          "quintile_analysis",
+          "criteria_results",
+          "all_criteria_pass",
+          "recommendation",
+          "notes"
+        ],
+        "title": "ShadowCATValidationResponse",
+        "type": "object"
+      },
       "SkippedQuestion": {
         "description": "Details of a question that was skipped during recalibration.",
         "properties": {
@@ -4530,6 +6427,18 @@
       "StartTestResponse": {
         "description": "Schema for starting a new test session.",
         "properties": {
+          "current_se": {
+            "description": "Standard error of ability estimate (only for adaptive sessions)",
+            "nullable": true,
+            "title": "Current Se",
+            "type": "number"
+          },
+          "current_theta": {
+            "description": "Current ability estimate (only for adaptive sessions)",
+            "nullable": true,
+            "title": "Current Theta",
+            "type": "number"
+          },
           "questions": {
             "description": "Questions for this test",
             "items": {
@@ -4585,6 +6494,66 @@
           "message"
         ],
         "title": "SubmitTestResponse",
+        "type": "object"
+      },
+      "TestProgressResponse": {
+        "description": "Schema for adaptive test progress tracking (TASK-880).\n\nReturns progress information for an active adaptive (CAT) test session.\nDoes NOT expose raw theta to client per security requirements.",
+        "properties": {
+          "current_se": {
+            "description": "Standard error of ability estimate (indicates measurement precision)",
+            "title": "Current Se",
+            "type": "number"
+          },
+          "domain_coverage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Number of items administered per domain (e.g., {'pattern': 2, 'logic': 1})",
+            "title": "Domain Coverage",
+            "type": "object"
+          },
+          "elapsed_seconds": {
+            "description": "Time elapsed since test session started",
+            "title": "Elapsed Seconds",
+            "type": "integer"
+          },
+          "estimated_items_remaining": {
+            "description": "Conservative estimate of remaining items (MAX_ITEMS - items_administered)",
+            "title": "Estimated Items Remaining",
+            "type": "integer"
+          },
+          "items_administered": {
+            "description": "Number of items administered so far",
+            "title": "Items Administered",
+            "type": "integer"
+          },
+          "session_id": {
+            "description": "Test session ID",
+            "title": "Session Id",
+            "type": "integer"
+          },
+          "total_domains_covered": {
+            "description": "Count of domains with at least one item",
+            "title": "Total Domains Covered",
+            "type": "integer"
+          },
+          "total_items_max": {
+            "description": "Maximum items allowed (MAX_ITEMS from CAT config)",
+            "title": "Total Items Max",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "items_administered",
+          "total_items_max",
+          "estimated_items_remaining",
+          "domain_coverage",
+          "total_domains_covered",
+          "elapsed_seconds",
+          "current_se"
+        ],
+        "title": "TestProgressResponse",
         "type": "object"
       },
       "TestResultResponse": {
@@ -4792,6 +6761,12 @@
             "description": "Test session ID",
             "title": "Id",
             "type": "integer"
+          },
+          "is_adaptive": {
+            "default": false,
+            "description": "Whether this session uses adaptive (CAT) test delivery",
+            "title": "Is Adaptive",
+            "type": "boolean"
           },
           "started_at": {
             "description": "Session start timestamp",
@@ -5009,6 +6984,62 @@
         "title": "TokenRefresh",
         "type": "object"
       },
+      "TriggerCalibrationRequest": {
+        "description": "Request body for POST /v1/admin/calibration/run.",
+        "properties": {
+          "bootstrap_se": {
+            "default": true,
+            "description": "Whether to compute bootstrap standard errors.",
+            "title": "Bootstrap Se",
+            "type": "boolean"
+          },
+          "min_responses": {
+            "default": 50,
+            "description": "Minimum responses per item required for calibration.",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Min Responses",
+            "type": "integer"
+          },
+          "question_ids": {
+            "description": "Specific question IDs to calibrate. If null, all eligible questions are calibrated.",
+            "items": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "title": "Question Ids",
+            "type": "array"
+          }
+        },
+        "title": "TriggerCalibrationRequest",
+        "type": "object"
+      },
+      "TriggerCalibrationResponse": {
+        "description": "Response from POST /v1/admin/calibration/run.",
+        "properties": {
+          "job_id": {
+            "description": "Unique job identifier for tracking progress.",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human-readable status message.",
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CalibrationJobStatus",
+            "description": "Initial job status."
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "message"
+        ],
+        "title": "TriggerCalibrationResponse",
+        "type": "object"
+      },
       "TriggerQuestionGenerationRequest": {
         "description": "Request model for triggering question generation.",
         "properties": {
@@ -5054,6 +7085,45 @@
           "status"
         ],
         "title": "TriggerQuestionGenerationResponse",
+        "type": "object"
+      },
+      "TypeDifficultyBreakdown": {
+        "description": "Percentile stats for a specific (question_type, difficulty_level) combination.",
+        "properties": {
+          "difficulty_level": {
+            "description": "Difficulty level (easy, medium, hard)",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty Level",
+            "type": "string"
+          },
+          "question_type": {
+            "description": "Question type (pattern, logic, spatial, math, verbal, memory)",
+            "enum": [
+              "pattern",
+              "logic",
+              "spatial",
+              "math",
+              "verbal",
+              "memory"
+            ],
+            "title": "Question Type",
+            "type": "string"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PercentileStats",
+            "description": "Percentile distribution statistics for this group"
+          }
+        },
+        "required": [
+          "question_type",
+          "difficulty_level",
+          "stats"
+        ],
+        "title": "TypeDifficultyBreakdown",
         "type": "object"
       },
       "TypeDiscrimination": {
@@ -5830,6 +7900,24 @@
         "title": "SeverityLevel",
         "type": "string"
       },
+      "app__schemas__calibration_monitoring__AlertSeverity": {
+        "description": "Severity level for calibration alerts.",
+        "enum": [
+          "warning",
+          "critical"
+        ],
+        "title": "AlertSeverity",
+        "type": "string"
+      },
+      "app__schemas__inventory__AlertSeverity": {
+        "description": "Severity level for inventory alerts.",
+        "enum": [
+          "warning",
+          "critical"
+        ],
+        "title": "AlertSeverity",
+        "type": "string"
+      },
       "app__schemas__validity__SeverityLevel": {
         "description": "Severity level for validity flags.",
         "enum": [
@@ -6005,6 +8093,176 @@
         "tags": [
           "admin",
           "Admin - Analytics"
+        ]
+      }
+    },
+    "/v1/admin/analytics/response-times/detailed": {
+      "get": {
+        "description": "Get detailed response time percentile distributions by question type and difficulty.\n\nReturns privacy-preserving aggregate statistics (no individual user tracking)\nincluding median (p50), p90, and p95 percentiles for each combination of\nquestion type and difficulty level. Use this data to validate whether current\ntime limits are appropriate for each question category.\n\nRequires X-Admin-Token header with valid admin token.\n\n**By Type and Difficulty:**\n- Percentile stats for each (question_type, difficulty_level) combination\n\n**By Type:**\n- Percentile stats aggregated by question type across all difficulties\n\n**By Difficulty:**\n- Percentile stats aggregated by difficulty level across all types\n\n**Overall:**\n- Percentile stats across all response times",
+        "operationId": "get_detailed_response_time_analytics_v1_admin_analytics_response_times_detailed_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedResponseTimeAnalyticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Detailed Response Time Analytics",
+        "tags": [
+          "admin",
+          "Admin - Analytics"
+        ]
+      }
+    },
+    "/v1/admin/anchor-items": {
+      "get": {
+        "description": "List all designated anchor items with domain summaries.\n\nReturns anchor items grouped by domain with summary statistics including\ndifficulty distribution and average discrimination per domain.\n\nRequires X-Admin-Token header.",
+        "operationId": "list_anchor_items_v1_admin_anchor_items_get",
+        "parameters": [
+          {
+            "description": "Filter by question type (e.g., 'pattern', 'logic')",
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "description": "Filter by question type (e.g., 'pattern', 'logic')",
+              "nullable": true,
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorItemsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Anchor Items",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/anchor-items/auto-select": {
+      "post": {
+        "description": "Auto-select anchor items based on discrimination criteria.\n\nClears existing anchors, then selects the best candidates for each\ndomain x difficulty combination. For each slot, eligible questions\n(active, normal quality, discrimination >= threshold) are ordered by\ndiscrimination DESC and the top candidates are selected.\n\nRequires X-Admin-Token header.",
+        "operationId": "auto_select_anchors_v1_admin_anchor_items_auto_select_post",
+        "parameters": [
+          {
+            "description": "Preview selection without persisting changes",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Preview selection without persisting changes",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Minimum discrimination threshold for eligibility",
+            "in": "query",
+            "name": "min_discrimination",
+            "required": false,
+            "schema": {
+              "default": 0.3,
+              "description": "Minimum discrimination threshold for eligibility",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Min Discrimination",
+              "type": "number"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorAutoSelectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auto Select Anchors",
+        "tags": [
+          "admin",
+          "Admin - CAT"
         ]
       }
     },
@@ -6285,6 +8543,264 @@
         "tags": [
           "admin",
           "Admin - Generation"
+        ]
+      }
+    },
+    "/v1/admin/calibration-status": {
+      "get": {
+        "description": "Get IRT calibration readiness dashboard with comprehensive metrics.\n\nReturns detailed calibration statistics to help monitor progress toward\nIRT parameter estimation. Tracks response counts per item, per-domain\naggregates, and progress toward the 500-test threshold.\n\nRequires X-Admin-Token header with valid admin token.\n\n**Calibration Requirements:**\n- **Per-item threshold**: >= 50 responses (configurable via query param)\n- **Target tests**: 500 completed test sessions for stable IRT parameters\n- **Domain coverage**: All question types should have sufficient data\n\n**Response Count Buckets:**\n- `0`: Items with no responses yet\n- `1-9`: Very low response count\n- `10-24`: Low response count\n- `25-49`: Approaching threshold\n- `50-99`: Ready for calibration\n- `100+`: Well-calibrated\n\n**Readiness Levels:**\n- `ready`: >= 80% of items ready for calibration\n- `approaching`: >= 40% of items ready for calibration\n- `not_ready`: < 40% of items ready for calibration\n\nArgs:\n    min_responses_threshold: Minimum responses per item for calibration readiness\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    CalibrationMonitoringResponse with complete calibration dashboard\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/calibration-status\" \\\\\n      -H \"X-Admin-Token: your-admin-token\"\n\n    # Use custom threshold\n    curl \"https://api.example.com/v1/admin/calibration-status?min_responses_threshold=100\" \\\\\n      -H \"X-Admin-Token: your-admin-token\"\n    ```",
+        "operationId": "get_calibration_status_v1_admin_calibration_status_get",
+        "parameters": [
+          {
+            "description": "Minimum responses per item for calibration readiness (default: 50)",
+            "in": "query",
+            "name": "min_responses_threshold",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Minimum responses per item for calibration readiness (default: 50)",
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Min Responses Threshold",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationMonitoringResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Calibration Status",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/calibration/run": {
+      "post": {
+        "description": "Trigger an IRT calibration run. Only one can run at a time.",
+        "operationId": "trigger_calibration_v1_admin_calibration_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/TriggerCalibrationRequest"
+                  }
+                ],
+                "nullable": true,
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerCalibrationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trigger Calibration",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/calibration/status/{job_id}": {
+      "get": {
+        "description": "Get status of a calibration job.",
+        "operationId": "get_calibration_status_v1_admin_calibration_status__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationJobProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Calibration Status",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/cat-readiness": {
+      "get": {
+        "description": "Get current CAT readiness status from SystemConfig.\n\nReturns the most recently persisted readiness evaluation result.\nThis is a cheap read from the system_config table \u2014 no computation.\n\nRequires X-Admin-Token header.\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/cat-readiness\" \\\n      -H \"X-Admin-Token: token\"\n    ```",
+        "operationId": "get_cat_readiness_v1_admin_cat_readiness_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CATReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cat Readiness",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/cat-readiness/evaluate": {
+      "post": {
+        "description": "Run CAT readiness evaluation and persist result.\n\nQueries the question bank to evaluate IRT calibration readiness across\nall 6 domains. Enables or disables CAT based on whether all domains\nmeet thresholds. The result is persisted to SystemConfig.\n\nRequires X-Admin-Token header.\n\nExample:\n    ```\n    curl -X POST \"https://api.example.com/v1/admin/cat-readiness/evaluate\" \\\n      -H \"X-Admin-Token: token\"\n    ```",
+        "operationId": "evaluate_readiness_v1_admin_cat_readiness_evaluate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CATReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluate Readiness",
+        "tags": [
+          "admin",
+          "Admin - CAT"
         ]
       }
     },
@@ -7336,6 +9852,72 @@
         ]
       }
     },
+    "/v1/admin/questions/{question_id}/anchor": {
+      "patch": {
+        "description": "Toggle anchor designation for a single question.\n\nSets or clears the is_anchor flag and updates the anchor_designated_at\ntimestamp accordingly.\n\nRequires X-Admin-Token header.",
+        "operationId": "toggle_anchor_v1_admin_questions__question_id__anchor_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnchorToggleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorToggleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Question not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Toggle Anchor",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
     "/v1/admin/questions/{question_id}/discrimination-detail": {
       "get": {
         "description": "Get detailed discrimination info for a specific question.\n\nProvides in-depth discrimination analysis for a single question, including\ncomparison to type and difficulty averages, percentile ranking, and\nquality flag status.\n\nRequires X-Admin-Token header with valid admin token.\n\n**Response Fields:**\n- discrimination: Current point-biserial correlation value\n- quality_tier: Classification (excellent, good, acceptable, poor, very_poor, negative)\n- response_count: Number of responses used for calculation\n- compared_to_type_avg: How this question compares to its type average (above, below, at)\n- compared_to_difficulty_avg: How this question compares to its difficulty average\n- percentile_rank: Position among all questions (0-100)\n- quality_flag: Current flag status (normal, under_review, deactivated)\n- history: Historical discrimination values (if available)\n\nArgs:\n    question_id: The unique identifier of the question to analyze\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    DiscriminationDetailResponse with detailed question analysis\n\nRaises:\n    HTTPException 404: If the question is not found\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/questions/123/discrimination-detail\" \\\n      -H \"X-Admin-Token: your-admin-token\"\n    ```",
@@ -7857,6 +10439,370 @@
         "tags": [
           "admin",
           "Admin - Validity"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/analysis": {
+      "get": {
+        "description": "Comprehensive statistical analysis of shadow CAT vs fixed-form results.\n\nComputes mean theta, mean SE, Pearson correlation between shadow IQ and\nCTT IQ, Bland-Altman agreement metrics, stopping reason distribution,\nand domain coverage statistics.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_shadow_cat_analysis_v1_admin_shadow_cat_analysis_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shadow Cat Analysis",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/collection-progress": {
+      "get": {
+        "description": "Track progress toward the 100-session shadow testing data collection goal.\n\nReturns the total number of shadow CAT sessions collected, whether the\nmilestone has been reached, and the date range of collected data.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_collection_progress_v1_admin_shadow_cat_collection_progress_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATCollectionProgressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Collection Progress",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/health": {
+      "get": {
+        "description": "Production health monitoring for shadow CAT execution.\n\nReports coverage rate (what fraction of fixed-form sessions got shadow\nresults), execution time distribution, and recent 7-day activity.\nUse to verify no adverse effects on production.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_shadow_cat_health_v1_admin_shadow_cat_health_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shadow Cat Health",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/results": {
+      "get": {
+        "description": "List shadow CAT results with optional filtering.\n\nReturns paginated shadow CAT results ordered by most recent first.\nOptionally filter by minimum absolute delta or stopping reason.\n\nRequires X-Admin-Token header.",
+        "operationId": "list_shadow_cat_results_v1_admin_shadow_cat_results_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter results where |theta_iq_delta| >= this value",
+            "in": "query",
+            "name": "min_delta",
+            "required": false,
+            "schema": {
+              "description": "Filter results where |theta_iq_delta| >= this value",
+              "nullable": true,
+              "title": "Min Delta",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Filter by stopping reason",
+            "in": "query",
+            "name": "stopping_reason",
+            "required": false,
+            "schema": {
+              "description": "Filter by stopping reason",
+              "nullable": true,
+              "title": "Stopping Reason",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATResultListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Shadow Cat Results",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/results/{session_id}": {
+      "get": {
+        "description": "Get detailed shadow CAT result for a specific test session.\n\nReturns the full shadow CAT result including theta/SE progression\nhistory and domain coverage breakdown.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_shadow_cat_result_v1_admin_shadow_cat_results__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATResultDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shadow Cat Result",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/statistics": {
+      "get": {
+        "description": "Aggregate statistics comparing shadow CAT with fixed-form IQ scores.\n\nReturns summary metrics including mean/median/std of IQ deltas,\nstopping reason distribution, and average items administered.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_shadow_cat_statistics_v1_admin_shadow_cat_statistics_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATStatisticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shadow Cat Statistics",
+        "tags": [
+          "admin",
+          "Admin - CAT"
+        ]
+      }
+    },
+    "/v1/admin/shadow-cat/validation": {
+      "get": {
+        "description": "Comprehensive validation report for the Phase 4 go/no-go decision.\n\nEvaluates all acceptance criteria for transitioning from shadow testing\nto live adaptive testing:\n\n1. Pearson r between shadow IQ and actual IQ >= 0.90\n2. No systematic bias: |mean(delta)| / SD(actual_iq) < 0.20\n3. Content balance violations < 5% of sessions\n4. Median test length <= 13 items\n\nReturns a full validation report with quintile analysis, Bland-Altman\nagreement metrics, and a go/no-go recommendation.\n\nRequires X-Admin-Token header.",
+        "operationId": "get_shadow_cat_validation_v1_admin_shadow_cat_validation_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowCATValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shadow Cat Validation",
+        "tags": [
+          "admin",
+          "Admin - CAT"
         ]
       }
     },
@@ -8653,7 +11599,7 @@
     },
     "/v1/questions/unseen": {
       "get": {
-        "description": "Get unseen questions for the current user.\n\nThis endpoint returns questions that the user has never seen before,\nfiltered from the active question pool. Questions are selected to ensure\nno repetition for the user.\n\nArgs:\n    count: Number of questions to return (default: 20, max: 100)\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    List of unseen questions with metadata\n\nRaises:\n    HTTPException: If insufficient questions are available",
+        "description": "Get unseen questions for the current user.\n\nThis endpoint returns questions that the user has never seen before,\nfiltered from the active question pool. Questions are selected to ensure\nno repetition for the user.\n\nArgs:\n    count: Number of questions to return (default: 25, max: 100)\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    List of unseen questions with metadata\n\nRaises:\n    HTTPException: If insufficient questions are available",
         "operationId": "get_unseen_questions_v1_questions_unseen_get",
         "parameters": [
           {
@@ -8662,7 +11608,7 @@
             "name": "count",
             "required": false,
             "schema": {
-              "default": 20,
+              "default": 25,
               "description": "Number of unseen questions to fetch (1-100)",
               "maximum": 100,
               "minimum": 1,
@@ -8803,6 +11749,103 @@
         ]
       }
     },
+    "/v1/test/next": {
+      "post": {
+        "description": "Submit a single response during an adaptive (CAT) test and get the next question.\n\nProcesses the user's answer, updates the ability estimate via EAP,\nchecks stopping rules, and either returns the next question or signals\ntest completion with final results.\n\nArgs:\n    request: Adaptive response with session_id, question_id, user_answer, time_spent_seconds\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    AdaptiveNextResponse with next question or final result\n\nRaises:\n    HTTPException: If session validation fails or response is invalid",
+        "operationId": "submit_adaptive_response_v1_test_next_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdaptiveResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdaptiveNextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Adaptive Response",
+        "tags": [
+          "test"
+        ]
+      }
+    },
+    "/v1/test/progress": {
+      "get": {
+        "description": "Get progress information for an active adaptive (CAT) test session.\n\nReturns progress metrics including items administered, domain coverage,\nand estimated items remaining. Does NOT expose raw theta to client.\n\nArgs:\n    session_id: Test session ID from query parameter\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    TestProgressResponse with progress information\n\nRaises:\n    HTTPException: If session not found, not authorized, not in progress,\n                  or not adaptive",
+        "operationId": "get_test_progress_v1_test_progress_get",
+        "parameters": [
+          {
+            "description": "Test session ID",
+            "in": "query",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Test session ID",
+              "title": "Session Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestProgressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Test Progress",
+        "tags": [
+          "test"
+        ]
+      }
+    },
     "/v1/test/results/{result_id}": {
       "get": {
         "description": "Get a specific test result by ID.\n\nArgs:\n    result_id: Test result ID\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    Test result details with IQ score\n\nRaises:\n    HTTPException: If result not found or doesn't belong to user",
@@ -8910,12 +11953,24 @@
             "name": "question_count",
             "required": false,
             "schema": {
-              "default": 20,
+              "default": 25,
               "description": "Number of questions for this test (1-100)",
               "maximum": 100,
               "minimum": 1,
               "title": "Question Count",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Use adaptive (CAT) test delivery (returns single question)",
+            "in": "query",
+            "name": "adaptive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Use adaptive (CAT) test delivery (returns single question)",
+              "title": "Adaptive",
+              "type": "boolean"
             }
           }
         ],
