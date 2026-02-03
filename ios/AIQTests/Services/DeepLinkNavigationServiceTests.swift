@@ -555,6 +555,103 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
         XCTAssertEqual(mockDeepLinkHandler.handleNavigationCallCount, 2, "should call handleNavigation twice")
     }
 
+    // MARK: - Service Reset Tests (onDisappear Behavior)
+
+    /// Test that re-creating the service after nil-ing it produces a fresh instance
+    /// that can process deep links without stale state.
+    ///
+    /// MainTabView's `onDisappear` sets `navigationService = nil`. The next deep link
+    /// notification triggers `getNavigationService()`, which lazily creates a fresh instance.
+    /// This test validates that the fresh service has no stale `isProcessingDeepLink` flag.
+    func testServiceReset_AfterNilAndRecreate_NewServiceProcessesDeepLinks() async {
+        // Given - first service processes a deep link successfully
+        let result1 = await sut.navigate(to: .settings)
+        XCTAssertEqual(result1, .navigated(tab: .settings), "first service should navigate")
+
+        // When - simulating MainTabView.onDisappear: set service to nil and create a new one
+        // (mirrors the lazy initialization pattern in MainTabView.getNavigationService())
+        sut = nil
+        mockDeepLinkHandler.reset()
+
+        let newService = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: mockDeepLinkHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
+        sut = newService
+
+        // Then - new service should process deep links without stale state
+        let result2 = await sut.navigate(to: .testResults(id: 42), source: .pushNotification, originalURL: "aiq://test/results/42")
+        XCTAssertEqual(result2, .navigated(tab: .dashboard), "new service should navigate after reset")
+        XCTAssertTrue(mockDeepLinkHandler.handleNavigationCalled, "new service should delegate to handler")
+        XCTAssertEqual(mockDeepLinkHandler.lastHandleNavigationDeepLink, .testResults(id: 42))
+    }
+
+    /// Test that a fresh service after reset does not carry over the concurrent processing guard
+    ///
+    /// This verifies the core reason for the `onDisappear` nil-out: if the old service
+    /// had `isProcessingDeepLink = true` (e.g., stuck due to a long-running async operation),
+    /// the new service starts with a clean `isProcessingDeepLink = false`.
+    func testServiceReset_NewServiceHasCleanProcessingState() async {
+        // Given - original service exists and has been used
+        _ = await sut.navigate(to: .settings)
+
+        // When - simulating onDisappear (nil) then getNavigationService (create new)
+        sut = nil
+        mockDeepLinkHandler.reset()
+
+        sut = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: mockDeepLinkHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
+
+        // Then - multiple sequential deep links should all process (no stuck processing flag)
+        let r1 = await sut.navigate(to: .settings)
+        XCTAssertEqual(r1, .navigated(tab: .settings), "first deep link on new service should work")
+
+        let r2 = await sut.navigate(to: .testResults(id: 1))
+        XCTAssertEqual(r2, .navigated(tab: .dashboard), "second deep link on new service should work")
+
+        let r3 = await sut.navigate(to: .resumeTest(sessionId: 2))
+        XCTAssertEqual(r3, .navigated(tab: .dashboard), "third deep link on new service should work")
+    }
+
+    /// Test that the new service after reset uses the current router state, not stale state
+    ///
+    /// When MainTabView reappears, the router may have been modified (e.g., tab changes
+    /// from another source). The new service should work with the router's current state.
+    func testServiceReset_NewServiceUsesCurrentRouterState() async {
+        // Given - first service navigates to settings
+        _ = await sut.navigate(to: .settings)
+        XCTAssertEqual(router.currentTab, .settings)
+
+        // When - simulating onDisappear, then router state changes externally
+        sut = nil
+        router.currentTab = .history
+        router.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        mockDeepLinkHandler.reset()
+
+        sut = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: mockDeepLinkHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
+
+        // Then - new service should navigate correctly with the current router state
+        let result = await sut.navigate(to: .settings)
+        XCTAssertEqual(result, .navigated(tab: .settings), "should navigate to settings")
+        XCTAssertEqual(router.currentTab, .settings, "router should reflect new navigation")
+        // History tab navigation should be preserved
+        XCTAssertEqual(router.depth(in: .history), 1, "history navigation should be preserved")
+    }
+
     // MARK: - DeepLinkNavigationResult Equatable Tests
 
     /// Test that DeepLinkNavigationResult equality works correctly
