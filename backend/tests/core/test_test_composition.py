@@ -72,10 +72,10 @@ class TestDifficultyDistribution:
         # Allow +/-1 tolerance per domain due to rounding
         assert 5 <= pattern_count <= 6, f"Pattern count {pattern_count} not in [5, 6]"
         assert 4 <= logic_count <= 6, f"Logic count {logic_count} not in [4, 6]"
-        assert 4 <= verbal_count <= 6, f"Verbal count {verbal_count} not in [4, 6]"
+        assert 4 <= verbal_count <= 5, f"Verbal count {verbal_count} not in [4, 5]"
         assert 3 <= spatial_count <= 5, f"Spatial count {spatial_count} not in [3, 5]"
         assert 2 <= math_count <= 4, f"Math count {math_count} not in [2, 4]"
-        assert 2 <= memory_count <= 4, f"Memory count {memory_count} not in [2, 4]"
+        assert 2 <= memory_count <= 3, f"Memory count {memory_count} not in [2, 3]"
 
         # Total must equal 25
         total_domain = sum(domain_counts.values())
