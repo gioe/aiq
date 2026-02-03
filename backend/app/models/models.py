@@ -407,8 +407,8 @@ class TestSession(Base):
     # CAT ability tracking (TASK-871)
     theta_history: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=True
-    )  # Array of theta estimates during adaptive test
-    # Format: [{"item_position": 1, "theta": 0.0, "se": 1.0}, ...]
+    )  # Array of theta (ability) estimates after each item response
+    # Format: [0.0, 0.3, 0.5, 0.45, ...] (List[float])
     # NULL for fixed-form tests (is_adaptive=false)
 
     final_theta: Mapped[Optional[float]] = mapped_column(
@@ -590,7 +590,7 @@ class TestResult(Base):
     # NULL for CTT-scored tests
 
     scoring_method: Mapped[str] = mapped_column(
-        String(10), default="ctt"
+        String(10), server_default="ctt", default="ctt"
     )  # Scoring method: 'ctt' (Classical Test Theory) or 'irt' (Item Response Theory)
 
     # Relationships
