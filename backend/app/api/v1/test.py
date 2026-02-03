@@ -76,6 +76,8 @@ from app.core.validity_analysis import (
     assess_session_validity,
 )
 from app.core.graceful_failure import graceful_failure
+from app.core.cat.engine import CATSessionManager
+from app.core.cat.item_selection import select_next_item
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -288,6 +290,74 @@ def build_test_result_response(
     )
 
 
+def get_eligible_cat_item_pool(db: Session, user_id: int) -> list:
+    """
+    Get all calibrated questions that the user has not seen.
+
+    Args:
+        db: Database session
+        user_id: User ID
+
+    Returns:
+        List of Question instances with IRT parameters
+    """
+    # Get IDs of questions the user has already seen
+    seen_question_ids = (
+        db.query(UserQuestion.question_id).filter(UserQuestion.user_id == user_id).all()
+    )
+    seen_ids = {qid for (qid,) in seen_question_ids}
+
+    # Query calibrated questions (with IRT parameters) that user hasn't seen
+    query = db.query(Question).filter(
+        Question.is_active == True,  # noqa: E712
+        Question.quality_flag == "normal",
+        Question.irt_difficulty.isnot(None),
+        Question.irt_discrimination.isnot(None),
+        Question.irt_discrimination > 0,
+    )
+
+    if seen_ids:
+        query = query.filter(Question.id.notin_(seen_ids))
+
+    eligible_questions = query.all()
+
+    return eligible_questions
+
+
+def get_user_prior_theta(db: Session, user_id: int) -> float:
+    """
+    Get the user's prior ability estimate from their last completed adaptive session.
+
+    Args:
+        db: Database session
+        user_id: User ID
+
+    Returns:
+        Prior theta estimate (0.0 if no prior session)
+    """
+    last_adaptive_session = (
+        db.query(TestSession)
+        .filter(
+            TestSession.user_id == user_id,
+            TestSession.status == TestStatus.COMPLETED,
+            TestSession.is_adaptive == True,  # noqa: E712
+            TestSession.final_theta.isnot(None),
+        )
+        .order_by(TestSession.completed_at.desc())
+        .first()
+    )
+
+    if last_adaptive_session and last_adaptive_session.final_theta is not None:
+        logger.info(
+            f"Using prior theta={last_adaptive_session.final_theta:.3f} "
+            f"from session {last_adaptive_session.id} for user {user_id}"
+        )
+        return last_adaptive_session.final_theta
+
+    logger.info(f"No prior theta found for user {user_id}, using default 0.0")
+    return 0.0
+
+
 @router.post("/start", response_model=StartTestResponse)
 def start_test(
     question_count: int = Query(
@@ -295,6 +365,10 @@ def start_test(
         ge=1,
         le=100,
         description="Number of questions for this test (1-100)",
+    ),
+    adaptive: bool = Query(
+        default=False,
+        description="Use adaptive (CAT) test delivery (returns single question)",
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -377,87 +451,190 @@ def start_test(
             )
         )
 
-    # TASK-835: Check if CAT is enabled for this test
-    cat_active = is_cat_enabled(db)
+    # TASK-878: Branch based on adaptive parameter
+    if adaptive:
+        # Adaptive CAT path: return single question selected via MFI
+        if question_count != settings.TEST_TOTAL_QUESTIONS:
+            logger.warning(
+                f"User {current_user.id} requested adaptive=true with "
+                f"question_count={question_count}. "
+                "question_count is ignored in adaptive mode."
+            )
 
-    if cat_active:
         logger.info(
-            f"CAT enabled for user {current_user.id}: "
-            "adaptive item selection will be used in future; "
-            "falling back to stratified selection for now"
+            f"Starting adaptive test for user {current_user.id} "
+            f"(adaptive=true parameter)"
         )
 
-    # P11-005: Use stratified question selection for balanced test composition
-    # Both fixed-form and CAT paths use stratified selection for now.
-    # The actual CAT item selection algorithm is a separate future task.
-    unseen_questions, composition_metadata = select_stratified_questions(
-        db=db,
-        user_id=current_user.id,
-        total_count=question_count,
-    )
+        # Get eligible calibrated item pool and validate before creating session
+        item_pool = get_eligible_cat_item_pool(db, current_user.id)
 
-    if len(unseen_questions) == 0:
-        raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
+        if not item_pool:
+            raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
 
-    if len(unseen_questions) < question_count:
-        # Warning: fewer questions available than requested
-        # For MVP, we'll proceed with whatever questions we have
-        pass
+        # Initialize CAT session manager and select first item before
+        # creating the database session, so we don't create records we'd
+        # immediately rollback if selection fails
+        cat_manager = CATSessionManager()
+        prior_theta = get_user_prior_theta(db, current_user.id)
 
-    # P11-006: Create new test session with composition metadata
-    test_session = TestSession(
-        user_id=current_user.id,
-        status=TestStatus.IN_PROGRESS,
-        started_at=utc_now(),
-        composition_metadata=composition_metadata,
-        is_adaptive=cat_active,
-    )
-    db.add(test_session)
-
-    try:
-        db.flush()  # Get the session ID without committing yet
-    except IntegrityError:
-        # BCQ-006/BCQ-045: Database-level race condition prevention
-        # This catches the rare case where two requests pass the app-level check
-        # simultaneously. Returns 409 without session_id (lost due to rollback).
-        # See docstring "Active Session Prevention Strategy" for full explanation.
-        db.rollback()
-        logger.warning(
-            f"Race condition detected: user {current_user.id} attempted to start "
-            "multiple test sessions concurrently"
+        # Use a temporary session_id=0; we'll update after flush
+        cat_session = cat_manager.initialize(
+            user_id=current_user.id,
+            session_id=0,
+            prior_theta=prior_theta,
         )
-        raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
 
-    # Mark questions as seen for this user
-    for question in unseen_questions:
+        # Select first question via MFI
+        selected_question = select_next_item(
+            item_pool=item_pool,
+            theta_estimate=cat_session.theta_estimate,
+            administered_items=set(),  # No items administered yet
+            domain_coverage=cat_session.domain_coverage,
+            target_weights=settings.TEST_DOMAIN_WEIGHTS,
+            seen_question_ids=None,  # Already filtered in item_pool query
+        )
+
+        if not selected_question:
+            raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
+
+        # Item selection succeeded — now create the database session
+        test_session = TestSession(
+            user_id=current_user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=utc_now(),
+            composition_metadata=None,
+            is_adaptive=True,
+            theta_history=[],
+        )
+        db.add(test_session)
+
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            logger.warning(
+                f"Race condition detected: user {current_user.id} attempted to start "
+                "multiple test sessions concurrently"
+            )
+            raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
+
+        # Update in-memory CAT session with the real session ID
+        cat_session.session_id = test_session.id
+
+        # Mark the selected question as seen
         user_question = UserQuestion(
             user_id=current_user.id,
-            question_id=question.id,
+            question_id=selected_question.id,
             test_session_id=test_session.id,
             seen_at=utc_now(),
         )
         db.add(user_question)
 
-    db.commit()
-    db.refresh(test_session)
+        db.commit()
+        db.refresh(test_session)
 
-    # Track analytics event
-    AnalyticsTracker.track_test_started(
-        user_id=current_user.id,
-        session_id=test_session.id,
-        question_count=len(unseen_questions),
-    )
+        # Track analytics event
+        AnalyticsTracker.track_test_started(
+            user_id=current_user.id,
+            session_id=test_session.id,
+            question_count=1,
+        )
 
-    # Convert questions to response format
-    questions_response = [
-        question_to_response(q, include_explanation=False) for q in unseen_questions
-    ]
+        # Convert question to response format
+        questions_response = [
+            question_to_response(selected_question, include_explanation=False)
+        ]
 
-    return StartTestResponse(
-        session=TestSessionResponse.model_validate(test_session),
-        questions=questions_response,
-        total_questions=len(questions_response),
-    )
+        return StartTestResponse(
+            session=TestSessionResponse.model_validate(test_session),
+            questions=questions_response,
+            total_questions=1,
+            current_theta=cat_session.theta_estimate,
+            current_se=cat_session.theta_se,
+        )
+
+    else:
+        # Fixed-form path: existing behavior unchanged
+        # TASK-835: Check if CAT is enabled for this test (system-level flag)
+        cat_active = is_cat_enabled(db)
+
+        if cat_active:
+            logger.info(
+                f"CAT enabled for user {current_user.id}: "
+                "adaptive item selection will be used in future; "
+                "falling back to stratified selection for now"
+            )
+
+        # P11-005: Use stratified question selection for balanced test composition
+        unseen_questions, composition_metadata = select_stratified_questions(
+            db=db,
+            user_id=current_user.id,
+            total_count=question_count,
+        )
+
+        if len(unseen_questions) == 0:
+            raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
+
+        if len(unseen_questions) < question_count:
+            # Warning: fewer questions available than requested
+            # For MVP, we'll proceed with whatever questions we have
+            pass
+
+        # P11-006: Create new test session with composition metadata
+        test_session = TestSession(
+            user_id=current_user.id,
+            status=TestStatus.IN_PROGRESS,
+            started_at=utc_now(),
+            composition_metadata=composition_metadata,
+            is_adaptive=cat_active,
+        )
+        db.add(test_session)
+
+        try:
+            db.flush()  # Get the session ID without committing yet
+        except IntegrityError:
+            # BCQ-006/BCQ-045: Database-level race condition prevention
+            # This catches the rare case where two requests pass the app-level check
+            # simultaneously. Returns 409 without session_id (lost due to rollback).
+            # See docstring "Active Session Prevention Strategy" for full explanation.
+            db.rollback()
+            logger.warning(
+                f"Race condition detected: user {current_user.id} attempted to start "
+                "multiple test sessions concurrently"
+            )
+            raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
+
+        # Mark questions as seen for this user
+        for question in unseen_questions:
+            user_question = UserQuestion(
+                user_id=current_user.id,
+                question_id=question.id,
+                test_session_id=test_session.id,
+                seen_at=utc_now(),
+            )
+            db.add(user_question)
+
+        db.commit()
+        db.refresh(test_session)
+
+        # Track analytics event
+        AnalyticsTracker.track_test_started(
+            user_id=current_user.id,
+            session_id=test_session.id,
+            question_count=len(unseen_questions),
+        )
+
+        # Convert questions to response format
+        questions_response = [
+            question_to_response(q, include_explanation=False) for q in unseen_questions
+        ]
+
+        return StartTestResponse(
+            session=TestSessionResponse.model_validate(test_session),
+            questions=questions_response,
+            total_questions=len(questions_response),
+        )
 
 
 @router.get("/session/{session_id}", response_model=TestSessionStatusResponse)

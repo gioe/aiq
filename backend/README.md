@@ -127,13 +127,18 @@ Start a new test session for the authenticated user.
 
 **Query Parameters:**
 - `question_count` (optional, default: 20): Number of questions (1-100)
+- `adaptive` (optional, default: false): Use adaptive (CAT) test delivery
 
 **Returns:** `StartTestResponse` with session details and questions
+
+**Behavior:**
+- `adaptive=false` (default): Returns full fixed-form test with all questions
+- `adaptive=true`: Returns single question selected via Maximum Fisher Information (MFI), includes `current_theta` and `current_se` fields
 
 **Errors:**
 - 400: User already has an active test session
 - 400: Must wait for test cadence period (90 days)
-- 404: No unseen questions available
+- 404: No unseen questions available (or no calibrated questions for adaptive mode)
 
 #### `GET /v1/test/active`
 Get the user's active (in_progress) test session if any.
