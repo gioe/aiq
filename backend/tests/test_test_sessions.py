@@ -3,6 +3,7 @@ Tests for test session management endpoints.
 """
 
 import pytest
+from datetime import datetime, timedelta
 
 
 class TestStartTest:
@@ -3006,3 +3007,269 @@ class TestAdaptiveSession:
             db_session.query(TestSession).filter(TestSession.id == session_id).first()
         )
         assert test_session.is_adaptive is True
+
+
+class TestAdaptiveParameter:
+    """Tests for adaptive parameter on POST /v1/test/start endpoint (TASK-878)."""
+
+    def test_adaptive_false_returns_all_questions(
+        self, client, auth_headers, test_questions
+    ):
+        """Test adaptive=false returns all questions (fixed-form behavior)."""
+        response = client.post(
+            "/v1/test/start?question_count=3&adaptive=false", headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return all requested questions
+        assert len(data["questions"]) == 3
+        assert data["total_questions"] == 3
+
+        # CAT fields should not be populated
+        assert data.get("current_theta") is None
+        assert data.get("current_se") is None
+
+        # Session should not be adaptive
+        assert data["session"]["is_adaptive"] is False
+
+    def test_adaptive_default_is_false(self, client, auth_headers, test_questions):
+        """Test that adaptive parameter defaults to false when not specified."""
+        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should behave like fixed-form
+        assert len(data["questions"]) == 3
+        assert data["total_questions"] == 3
+        assert data.get("current_theta") is None
+        assert data.get("current_se") is None
+        assert data["session"]["is_adaptive"] is False
+
+    def test_adaptive_true_returns_single_question(
+        self, client, auth_headers, db_session
+    ):
+        """Test adaptive=true returns single question with CAT fields."""
+        from app.models import Question
+        from app.models.models import QuestionType, DifficultyLevel
+
+        # Create calibrated questions with IRT parameters
+        calibrated_questions = [
+            Question(
+                question_text="Easy pattern question",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                irt_difficulty=-1.0,
+                irt_discrimination=1.2,
+                is_active=True,
+            ),
+            Question(
+                question_text="Medium logic question",
+                question_type=QuestionType.LOGIC,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="B",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                irt_difficulty=0.0,
+                irt_discrimination=1.5,
+                is_active=True,
+            ),
+            Question(
+                question_text="Hard math question",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.HARD,
+                correct_answer="C",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                irt_difficulty=1.0,
+                irt_discrimination=1.8,
+                is_active=True,
+            ),
+        ]
+
+        for q in calibrated_questions:
+            db_session.add(q)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return single question
+        assert len(data["questions"]) == 1
+        assert data["total_questions"] == 1
+
+        # CAT fields should be populated
+        assert data["current_theta"] is not None
+        assert data["current_se"] is not None
+        assert isinstance(data["current_theta"], float)
+        assert isinstance(data["current_se"], float)
+
+        # Session should be adaptive
+        assert data["session"]["is_adaptive"] is True
+
+    def test_adaptive_true_initializes_theta_history(
+        self, client, auth_headers, db_session, test_user
+    ):
+        """Test adaptive=true initializes theta_history as empty array."""
+        from app.models import Question, TestSession
+        from app.models.models import QuestionType, DifficultyLevel
+
+        # Create calibrated question
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            irt_difficulty=0.0,
+            irt_discrimination=1.0,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        session_id = response.json()["session"]["id"]
+
+        # Check database for theta_history initialization
+        db_session.expire_all()
+        test_session = (
+            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        )
+
+        assert test_session.theta_history is not None
+        assert test_session.theta_history == []
+        assert test_session.is_adaptive is True
+
+    def test_adaptive_true_uses_prior_theta(
+        self, client, auth_headers, db_session, test_user
+    ):
+        """Test adaptive=true uses prior theta from previous session."""
+        from app.models import Question, TestSession
+        from app.models.models import QuestionType, DifficultyLevel, TestStatus
+
+        # Create calibrated questions
+        for i in range(3):
+            question = Question(
+                question_text=f"Test question {i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2"},
+                irt_difficulty=0.0,
+                irt_discrimination=1.0,
+                is_active=True,
+            )
+            db_session.add(question)
+
+        # Create a previous completed adaptive session with final_theta
+        # Set completed_at to be > 180 days ago to avoid test cadence check
+        old_date = datetime.utcnow() - timedelta(days=200)
+        previous_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.COMPLETED,
+            is_adaptive=True,
+            final_theta=0.75,
+            final_se=0.25,
+            started_at=old_date - timedelta(minutes=30),
+            completed_at=old_date,
+        )
+        db_session.add(previous_session)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Current theta should be the prior from previous session
+        assert data["current_theta"] == pytest.approx(0.75, abs=0.01)
+
+    def test_adaptive_true_no_calibrated_questions(
+        self, client, auth_headers, test_questions
+    ):
+        """Test adaptive=true returns 404 when no calibrated questions available."""
+        # test_questions fixture doesn't have IRT parameters
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 404
+        data = response.json()
+        assert "No unseen questions available" in data["detail"]
+
+    def test_adaptive_independent_of_system_cat_flag(
+        self, client, auth_headers, db_session, test_user
+    ):
+        """Test adaptive parameter works independently of is_cat_enabled system flag."""
+        from app.models import Question
+        from app.models.models import QuestionType, DifficultyLevel
+        from app.core.system_config import set_cat_readiness
+
+        # Set system CAT flag to False
+        set_cat_readiness(db_session, {"enabled": False})
+
+        # Create calibrated question
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            irt_difficulty=0.0,
+            irt_discrimination=1.0,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        # Should still work with adaptive=true even though system CAT is disabled
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["questions"]) == 1
+        assert data["session"]["is_adaptive"] is True
+
+    def test_adaptive_true_marks_question_as_seen(
+        self, client, auth_headers, db_session, test_user
+    ):
+        """Test adaptive=true marks the selected question as seen."""
+        from app.models import Question, UserQuestion
+        from app.models.models import QuestionType, DifficultyLevel
+
+        # Create calibrated question
+        question = Question(
+            question_text="Test question",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="A",
+            answer_options={"A": "1", "B": "2"},
+            irt_difficulty=0.0,
+            irt_discrimination=1.0,
+            is_active=True,
+        )
+        db_session.add(question)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        question_id = response.json()["questions"][0]["id"]
+
+        # Check that question is marked as seen
+        user_question = (
+            db_session.query(UserQuestion)
+            .filter(
+                UserQuestion.user_id == test_user.id,
+                UserQuestion.question_id == question_id,
+            )
+            .first()
+        )
+
+        assert user_question is not None
+        assert user_question.seen_at is not None

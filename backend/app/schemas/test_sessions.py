@@ -41,6 +41,14 @@ class StartTestResponse(BaseModel):
         ..., description="Questions for this test"
     )
     total_questions: int = Field(..., description="Total number of questions in test")
+    current_theta: Optional[float] = Field(
+        default=None,
+        description="Current ability estimate (only for adaptive sessions)",
+    )
+    current_se: Optional[float] = Field(
+        default=None,
+        description="Standard error of ability estimate (only for adaptive sessions)",
+    )
 
 
 class TestSessionStatusResponse(BaseModel):
