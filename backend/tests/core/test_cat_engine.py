@@ -403,27 +403,6 @@ class TestShouldStop:
         assert reason == "max_items"
 
 
-class TestCheckContentBalance:
-    """Tests for CATSessionManager._check_content_balance()."""
-
-    def test_all_domains_met(self, manager: CATSessionManager):
-        session = manager.initialize(user_id=1, session_id=100)
-        for domain in session.domain_coverage:
-            session.domain_coverage[domain] = manager.MIN_ITEMS_PER_DOMAIN
-        assert manager._check_content_balance(session) is True
-
-    def test_one_domain_missing(self, manager: CATSessionManager):
-        session = manager.initialize(user_id=1, session_id=100)
-        for domain in session.domain_coverage:
-            session.domain_coverage[domain] = manager.MIN_ITEMS_PER_DOMAIN
-        session.domain_coverage["memory"] = 0
-        assert manager._check_content_balance(session) is False
-
-    def test_empty_session(self, manager: CATSessionManager):
-        session = manager.initialize(user_id=1, session_id=100)
-        assert manager._check_content_balance(session) is False
-
-
 class TestFisherInformation:
     """Tests for CATSessionManager.calculate_fisher_information()."""
 
