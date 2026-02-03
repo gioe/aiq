@@ -74,6 +74,22 @@ backend/
 └── requirements.txt      # Python dependencies
 ```
 
+## IRT/CAT Dependencies
+
+The backend includes Item Response Theory (IRT) and Computerized Adaptive Testing (CAT) capabilities:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `py-irt` | 0.1.1 | IRT parameter estimation using Bayesian methods |
+| `girth` | 0.8.0 | IRT calibration algorithms (2PL, 3PL models) |
+| `catsim` | 0.20.0 | CAT simulation and item selection strategies |
+
+These packages enable:
+- Question difficulty and discrimination parameter calibration
+- Adaptive test composition based on user ability
+- Real-time ability estimation during test sessions
+- Test Information Function (TIF) optimization
+
 ## Development Commands
 
 ```bash
