@@ -4,6 +4,7 @@ CAT (Computerized Adaptive Testing) utilities for AIQ.
 This module provides utilities for IRT calibration and CAT implementation.
 """
 
+from .ability_estimation import estimate_ability_eap
 from .calibration import (
     CalibrationError,
     CalibrationJobSummary,
@@ -64,4 +65,5 @@ __all__ = [
     "CATStepResult",
     "CATResult",
     "ItemResponse",
+    "estimate_ability_eap",
 ]

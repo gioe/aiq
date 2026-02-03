@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.cat.ability_estimation import estimate_ability_eap
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
 from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION_SD
@@ -91,10 +92,6 @@ class CATSessionManager:
     PRIOR_THETA = 0.0  # Default prior ability
     PRIOR_SE = 1.0  # Default prior SE
     IQ_MEAN = 100  # IQ scale mean (Wechsler convention)
-
-    # EAP quadrature configuration
-    QUADRATURE_POINTS = 49  # Number of integration points
-    QUADRATURE_RANGE = (-4.0, 4.0)  # Range of theta values to integrate over
 
     def __init__(self):
         """Initialize CATSessionManager with domain weights from settings."""
@@ -252,27 +249,9 @@ class CATSessionManager:
         """
         Estimate ability using Expected A Posteriori (EAP) with numerical quadrature.
 
-        Uses the 2PL IRT model:
-            P(θ) = 1 / (1 + exp(-a × (θ - b)))
-
-        Where:
-            θ = ability (what we're estimating)
-            a = discrimination parameter
-            b = difficulty parameter
-
-        The EAP estimate is the expected value of the posterior distribution:
-            θ_hat = E[θ | responses] = ∫ θ × p(θ | responses) dθ
-
-        Computation:
-        1. Create quadrature points: θ₁, θ₂, ..., θₙ (evenly spaced)
-        2. Calculate prior: p(θᵢ) ~ N(prior_mean, prior_sd²)
-        3. Calculate likelihood: L(θᵢ | responses) = ∏ P(θᵢ)^correct × (1-P(θᵢ))^incorrect
-        4. Calculate posterior: p(θᵢ | responses) ∝ prior(θᵢ) × L(θᵢ | responses)
-        5. Normalize posterior to sum to 1
-        6. Calculate EAP: θ_hat = Σ θᵢ × p(θᵢ | responses)
-        7. Calculate SE: SE = sqrt(Var[θ | responses])
-
-        To avoid numerical underflow, we use log-likelihood and then exponentiate.
+        Delegates to the standalone ``estimate_ability_eap`` function in
+        ``ability_estimation.py``, converting ItemResponse objects to the
+        (a, b, is_correct) tuple format expected by that module.
 
         Args:
             responses: List of item responses with IRT parameters
@@ -282,98 +261,11 @@ class CATSessionManager:
         Returns:
             Tuple of (theta_estimate, theta_se)
         """
-        # Handle no responses case: return prior
-        if not responses:
-            return (prior_mean, prior_sd)
-
-        # Create quadrature points
-        theta_min, theta_max = self.QUADRATURE_RANGE
-        n_points = self.QUADRATURE_POINTS
-        theta_points = [
-            theta_min + (theta_max - theta_min) * i / (n_points - 1)
-            for i in range(n_points)
+        # Convert ItemResponse objects to (a, b, is_correct) tuples
+        response_tuples = [
+            (r.irt_discrimination, r.irt_difficulty, r.is_correct) for r in responses
         ]
-
-        # Calculate log-prior for each quadrature point
-        # log p(θ) = -0.5 × log(2π × σ²) - (θ - μ)² / (2σ²)
-        log_two_pi = math.log(2.0 * math.pi)
-        variance = prior_sd**2
-        log_priors = [
-            -0.5 * log_two_pi
-            - 0.5 * math.log(variance)
-            - (theta - prior_mean) ** 2 / (2.0 * variance)
-            for theta in theta_points
-        ]
-
-        # Calculate log-likelihood for each quadrature point
-        log_likelihoods = []
-        for theta in theta_points:
-            log_likelihood = 0.0
-            for response in responses:
-                # 2PL IRT probability: P(θ) = 1 / (1 + exp(-a(θ - b)))
-                a = response.irt_discrimination
-                b = response.irt_difficulty
-                logit = a * (theta - b)
-
-                # Calculate log P(θ) and log(1 - P(θ)) using log-sum-exp trick
-                # P(θ) = 1 / (1 + exp(-logit)) = exp(logit) / (1 + exp(logit))
-                # log P(θ) = logit - log(1 + exp(logit))
-                # log(1 - P(θ)) = -log(1 + exp(logit))
-                if logit >= 0:
-                    # Numerically stable for positive logit
-                    log_1_plus_exp = math.log(1.0 + math.exp(-logit))
-                    log_p = -log_1_plus_exp
-                    log_1_minus_p = -logit - log_1_plus_exp
-                else:
-                    # Numerically stable for negative logit
-                    log_1_plus_exp = math.log(1.0 + math.exp(logit))
-                    log_p = logit - log_1_plus_exp
-                    log_1_minus_p = -log_1_plus_exp
-
-                # Add log-likelihood for this response
-                if response.is_correct:
-                    log_likelihood += log_p
-                else:
-                    log_likelihood += log_1_minus_p
-
-            log_likelihoods.append(log_likelihood)
-
-        # Calculate log-posterior (unnormalized): log p(θ | responses) = log prior + log likelihood
-        log_posteriors = [
-            log_prior + log_likelihood
-            for log_prior, log_likelihood in zip(log_priors, log_likelihoods)
-        ]
-
-        # Normalize posterior: subtract max for numerical stability
-        max_log_posterior = max(log_posteriors)
-        posteriors = [math.exp(lp - max_log_posterior) for lp in log_posteriors]
-        posterior_sum = sum(posteriors)
-
-        # Handle edge case: all posteriors are zero (shouldn't happen with proper parameters)
-        if posterior_sum == 0.0:
-            logger.warning(
-                "All posterior probabilities are zero. Returning prior estimate."
-            )
-            return (prior_mean, prior_sd)
-
-        # Normalize to probabilities
-        posterior_probs = [p / posterior_sum for p in posteriors]
-
-        # Calculate EAP estimate: E[θ | responses] = Σ θᵢ × p(θᵢ | responses)
-        theta_estimate = sum(
-            theta * prob for theta, prob in zip(theta_points, posterior_probs)
-        )
-
-        # Calculate variance: Var[θ | responses] = E[(θ - θ_hat)²] = Σ (θᵢ - θ_hat)² × p(θᵢ | responses)
-        variance = sum(
-            (theta - theta_estimate) ** 2 * prob
-            for theta, prob in zip(theta_points, posterior_probs)
-        )
-
-        # Standard error is sqrt(variance)
-        theta_se = math.sqrt(variance)
-
-        return (theta_estimate, theta_se)
+        return estimate_ability_eap(response_tuples, prior_mean, prior_sd)
 
     def should_stop(self, session: CATSession) -> Tuple[bool, Optional[str]]:
         """
