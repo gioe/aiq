@@ -370,212 +370,124 @@ class TestSendTestReminderNotification:
     """Tests for the send_test_reminder_notification convenience function."""
 
     @pytest.mark.asyncio
-    async def test_send_test_reminder_without_name(self, tmp_path):
+    async def test_send_test_reminder_without_name(self, mock_apns_setup):
         """Test sending test reminder without user name."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        result = await send_test_reminder_notification(device_token="test_token")
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        assert result is True
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns.return_value = mock_apns_instance
+        # Verify notification was sent
+        mock_apns_setup["apns_instance"].send_notification.assert_called_once()
 
-                result = await send_test_reminder_notification(
-                    device_token="test_token"
-                )
-
-                assert result is True
-
-                # Verify notification was sent
-                mock_apns_instance.send_notification.assert_called_once()
-
-                # Verify close was called
-                mock_apns_instance.close.assert_called_once()
+        # Verify close was called
+        mock_apns_setup["apns_instance"].close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_test_reminder_with_name(self, tmp_path):
+    async def test_send_test_reminder_with_name(self, mock_apns_setup):
         """Test sending test reminder with user name."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        result = await send_test_reminder_notification(
+            device_token="test_token", user_name="John"
+        )
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        assert result is True
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns.return_value = mock_apns_instance
+        # Get the notification request
+        call_args = mock_apns_setup["apns_instance"].send_notification.call_args
+        request = call_args[0][0]
 
-                result = await send_test_reminder_notification(
-                    device_token="test_token", user_name="John"
-                )
-
-                assert result is True
-
-                # Get the notification request
-                call_args = mock_apns_instance.send_notification.call_args
-                request = call_args[0][0]
-
-                # Verify user name is in the body
-                body = request.message["aps"]["alert"]["body"]
-                assert "John" in body
+        # Verify user name is in the body
+        body = request.message["aps"]["alert"]["body"]
+        assert "John" in body
 
     @pytest.mark.asyncio
-    async def test_send_test_reminder_disconnect_on_error(self, tmp_path):
+    async def test_send_test_reminder_disconnect_on_error(self, mock_apns_setup):
         """Test that disconnect is called even when sending fails."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        mock_apns_setup["apns_instance"].send_notification.side_effect = Exception(
+            "APNs error"
+        )
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        result = await send_test_reminder_notification(device_token="test_token")
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns_instance.send_notification.side_effect = Exception(
-                    "APNs error"
-                )
-                mock_apns.return_value = mock_apns_instance
+        assert result is False
 
-                result = await send_test_reminder_notification(
-                    device_token="test_token"
-                )
-
-                assert result is False
-
-                # Verify close was still called
-                mock_apns_instance.close.assert_called_once()
+        # Verify close was still called
+        mock_apns_setup["apns_instance"].close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_test_reminder_logs_exception_on_connect_error(self, tmp_path):
+    async def test_send_test_reminder_logs_exception_on_connect_error(
+        self, mock_apns_setup
+    ):
         """Test that send_test_reminder_notification logs exceptions with logger.exception when connect fails."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        mock_apns_setup["apns_class"].side_effect = Exception("Connection failed")
+        mock_apns_setup["apns_class"].return_value = None
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        with patch("app.services.apns_service.logger") as mock_logger:
+            result = await send_test_reminder_notification(
+                device_token="test_token_123"
+            )
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns.side_effect = Exception("Connection failed")
-
-                with patch("app.services.apns_service.logger") as mock_logger:
-                    result = await send_test_reminder_notification(
-                        device_token="test_token_123"
-                    )
-
-                    assert result is False
-                    mock_logger.exception.assert_called_once_with(
-                        "Failed to send test reminder notification (device_token_prefix=test_token_1)"
-                    )
+            assert result is False
+            mock_logger.exception.assert_called_once_with(
+                "Failed to send test reminder notification (device_token_prefix=test_token_1)"
+            )
 
 
 class TestSendLogoutAllNotification:
     """Tests for the send_logout_all_notification convenience function."""
 
     @pytest.mark.asyncio
-    async def test_send_logout_all_success(self, tmp_path):
+    async def test_send_logout_all_success(self, mock_apns_setup):
         """Test successful send_logout_all_notification sends correct payload and disconnects."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        result = await send_logout_all_notification(
+            device_token="test_token_123", user_id=42
+        )
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        assert result is True
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns.return_value = mock_apns_instance
+        # Verify notification was sent with correct payload
+        mock_apns_setup["apns_instance"].send_notification.assert_called_once()
+        call_args = mock_apns_setup["apns_instance"].send_notification.call_args
+        request = call_args[0][0]
+        assert request.device_token == "test_token_123"
+        assert request.message["aps"]["alert"]["title"] == "Security Alert"
+        assert "logged out" in request.message["aps"]["alert"]["body"]
+        assert request.message["aps"]["sound"] == "default"
+        assert request.message["type"] == "logout_all"
+        assert request.message["deep_link"] == "aiq://login"
 
-                result = await send_logout_all_notification(
-                    device_token="test_token_123", user_id=42
-                )
-
-                assert result is True
-
-                # Verify notification was sent with correct payload
-                mock_apns_instance.send_notification.assert_called_once()
-                call_args = mock_apns_instance.send_notification.call_args
-                request = call_args[0][0]
-                assert request.device_token == "test_token_123"
-                assert request.message["aps"]["alert"]["title"] == "Security Alert"
-                assert "logged out" in request.message["aps"]["alert"]["body"]
-                assert request.message["aps"]["sound"] == "default"
-                assert request.message["type"] == "logout_all"
-                assert request.message["deep_link"] == "aiq://login"
-
-                # Verify disconnect was called
-                mock_apns_instance.close.assert_called_once()
+        # Verify disconnect was called
+        mock_apns_setup["apns_instance"].close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_logout_all_disconnect_on_error(self, tmp_path):
+    async def test_send_logout_all_disconnect_on_error(self, mock_apns_setup):
         """Test that disconnect is called even when sending fails."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        mock_apns_setup["apns_instance"].send_notification.side_effect = Exception(
+            "APNs error"
+        )
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        result = await send_logout_all_notification(
+            device_token="test_token_123", user_id=42
+        )
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns_instance.send_notification.side_effect = Exception(
-                    "APNs error"
-                )
-                mock_apns.return_value = mock_apns_instance
+        assert result is False
 
-                result = await send_logout_all_notification(
-                    device_token="test_token_123", user_id=42
-                )
-
-                assert result is False
-
-                # Verify close was still called despite the error
-                mock_apns_instance.close.assert_called_once()
+        # Verify close was still called despite the error
+        mock_apns_setup["apns_instance"].close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_logout_all_logs_exception_on_connect_error(self, tmp_path):
+    async def test_send_logout_all_logs_exception_on_connect_error(
+        self, mock_apns_setup
+    ):
         """Test that send_logout_all_notification logs exceptions with logger.exception when connect fails."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
+        mock_apns_setup["apns_class"].side_effect = Exception("Connection failed")
+        mock_apns_setup["apns_class"].return_value = None
 
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
+        with patch("app.services.apns_service.logger") as mock_logger:
+            result = await send_logout_all_notification(
+                device_token="test_token_123", user_id=42
+            )
 
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns.side_effect = Exception("Connection failed")
-
-                with patch("app.services.apns_service.logger") as mock_logger:
-                    result = await send_logout_all_notification(
-                        device_token="test_token_123", user_id=42
-                    )
-
-                    assert result is False
-                    mock_logger.exception.assert_called_once_with(
-                        "Failed to send logout-all notification (user_id=42, device_token_prefix=test_token_1)"
-                    )
+            assert result is False
+            mock_logger.exception.assert_called_once_with(
+                "Failed to send logout-all notification (user_id=42, device_token_prefix=test_token_1)"
+            )
