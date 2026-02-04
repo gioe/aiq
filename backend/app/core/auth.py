@@ -142,6 +142,7 @@ def _decode_and_validate_token(
                     )
                 raise_unauthorized(ErrorMessages.TOKEN_REVOKED)
 
+            # JWT iat is a Unix timestamp (seconds since epoch)
             token_issued_at = datetime.fromtimestamp(token_iat, tz=timezone.utc)
 
             # If token was issued before the revocation epoch, reject it

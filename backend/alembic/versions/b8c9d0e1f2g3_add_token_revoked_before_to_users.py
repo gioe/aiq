@@ -25,7 +25,25 @@ def upgrade() -> None:
         "users",
         sa.Column("token_revoked_before", sa.DateTime(timezone=True), nullable=True),
     )
+    # Partial index: only indexes rows where the column is NOT NULL,
+    # keeping the index small since most users won't have an active revocation epoch.
+    # Falls back to a regular index on SQLite (which doesn't support partial indexes).
+    try:
+        op.create_index(
+            "ix_users_token_revoked_before",
+            "users",
+            ["token_revoked_before"],
+            postgresql_where=sa.text("token_revoked_before IS NOT NULL"),
+        )
+    except Exception:
+        # SQLite doesn't support partial indexes; create a regular index
+        op.create_index(
+            "ix_users_token_revoked_before",
+            "users",
+            ["token_revoked_before"],
+        )
 
 
 def downgrade() -> None:
+    op.drop_index("ix_users_token_revoked_before", table_name="users")
     op.drop_column("users", "token_revoked_before")

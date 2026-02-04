@@ -394,6 +394,10 @@ def create_application() -> FastAPI:
                     "limit": 10,
                     "window": 60,
                 },  # 10 per min
+                f"{settings.API_V1_PREFIX}/auth/logout-all": {
+                    "limit": 3,
+                    "window": 300,
+                },  # 3 per 5 min - prevent abuse of mass token revocation
                 # Password reset rate limits (TASK-503)
                 f"{settings.API_V1_PREFIX}/auth/request-password-reset": {
                     "limit": 3,
