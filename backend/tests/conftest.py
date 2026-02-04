@@ -1,6 +1,8 @@
 """
 Pytest configuration and shared fixtures for testing.
 """
+from unittest.mock import patch, AsyncMock
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -188,3 +190,36 @@ def mark_questions_seen(db_session, test_user, test_questions):
         db_session.commit()
 
     return _mark_seen
+
+
+@pytest.fixture
+def mock_apns_setup(tmp_path):
+    """
+    Shared fixture for APNs convenience function tests.
+
+    Provides a pre-configured mock APNs environment with:
+    - A temporary key file
+    - Patched settings with standard test values
+    - A mock APNs client instance
+
+    Yields a dict with 'settings', 'apns_class', and 'apns_instance' keys.
+    """
+    key_file = tmp_path / "test_key.p8"
+    key_file.write_text("fake key content")
+
+    with patch("app.services.apns_service.settings") as mock_settings:
+        mock_settings.APNS_KEY_ID = "KEY"
+        mock_settings.APNS_TEAM_ID = "TEAM"
+        mock_settings.APNS_BUNDLE_ID = "com.app"
+        mock_settings.APNS_KEY_PATH = str(key_file)
+        mock_settings.APNS_USE_SANDBOX = True
+
+        with patch("app.services.apns_service.APNs") as mock_apns:
+            mock_apns_instance = AsyncMock()
+            mock_apns.return_value = mock_apns_instance
+
+            yield {
+                "settings": mock_settings,
+                "apns_class": mock_apns,
+                "apns_instance": mock_apns_instance,
+            }
