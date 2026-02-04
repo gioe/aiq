@@ -4,6 +4,7 @@ Authentication endpoints for user registration and login.
 import asyncio
 import logging
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 from app.core.datetime_utils import utc_now
 
@@ -491,14 +492,26 @@ def logout_all_devices(
         properties={"logout_all": True},
     )
 
-    # Send push notification if enabled (best-effort, non-blocking)
+    # Send push notification if enabled (fire-and-forget via background thread)
     if current_user.notification_enabled and current_user.apns_device_token:
+        device_token = current_user.apns_device_token
+        user_id = current_user.id
+
+        def _send_notification():
+            try:
+                asyncio.run(send_logout_all_notification(device_token))
+                logger.info(f"Sent logout-all notification to user {user_id}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to send logout-all notification for user {user_id}: {e}"
+                )
+
         try:
-            asyncio.run(send_logout_all_notification(current_user.apns_device_token))
-            logger.info(f"Sent logout-all notification to user {current_user.id}")
-        except Exception:
+            thread = threading.Thread(target=_send_notification, daemon=True)
+            thread.start()
+        except Exception as e:
             logger.warning(
-                f"Failed to send logout-all notification for user {current_user.id}"
+                f"Failed to start logout-all notification thread for user {user_id}: {e}"
             )
 
     return None
