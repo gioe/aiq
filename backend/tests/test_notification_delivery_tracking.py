@@ -52,6 +52,7 @@ class TestAnalyticsTrackerNotificationMethods:
                 properties={
                     "notification_type": "test_reminder",
                     "error": "Connection refused",
+                    "error_type": None,
                     "device_token_prefix": "def67890",
                 },
             )
@@ -142,6 +143,7 @@ class TestAPNsServiceDeliveryTracking:
             mock_failed.assert_called_once_with(
                 notification_type="test_reminder",
                 error="APNs error",
+                error_type="Exception",
                 user_id=7,
                 device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
@@ -331,6 +333,7 @@ class TestConvenienceFunctionTracking:
                     mock_failed.assert_called_once_with(
                         notification_type="logout_all",
                         error="Connection refused",
+                        error_type="Exception",
                         user_id=42,
                         device_token_prefix="test_token_a",
                     )

@@ -248,6 +248,7 @@ class AnalyticsTracker:
     def track_notification_failed(
         notification_type: str,
         error: Optional[str] = None,
+        error_type: Optional[str] = None,
         user_id: Optional[int] = None,
         device_token_prefix: Optional[str] = None,
     ) -> None:
@@ -258,6 +259,7 @@ class AnalyticsTracker:
             properties={
                 "notification_type": notification_type,
                 "error": error,
+                "error_type": error_type,
                 "device_token_prefix": device_token_prefix,
             },
         )
